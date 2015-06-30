@@ -37,4 +37,8 @@ setup(
     url='https://launchpad.net/snappy-device-agents',
     license='GPLv3',
     packages=find_packages(),
+    scripts=[
+        'bbb/provision',
+        'bbb/runtest',
+    ],
 )
