@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+
+# Copyright (C) 2015 Canonical
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+import argparse
+import subprocess
+import time
+
+import constants
+
+
+def setboot(mode):
+    if mode not in ('master', 'test'):
+        raise KeyError
+    cmd = ['ssh', constants.CONTROL_HOST, 'bin/setboot', mode]
+    print("DEBUG: running {}".format(cmd))
+    try:
+        subprocess.check_call(cmd, timeout=10)
+    except:
+        raise RuntimeError("timeout reaching control host!")
+
+
+def hardreset():
+    cmd = ['ssh', constants.CONTROL_HOST, 'bin/hardreset']
+    print("DEBUG: running {}".format(cmd))
+    try:
+        subprocess.check_call(cmd, timeout=20)
+    except:
+        raise RuntimeError("timeout reaching control host!")
+
+
+def ensure_test_image():
+    # FIXME: I don't have a great way to ensure we're in the test image
+    # yet, so just check that we're *not* in the emmc image
+    print("DEBUG: Booting the test image")
+    cmd = ['ssh', constants.TEST_USER_HOST, 'sudo /sbin/halt']
+    try:
+        subprocess.check_call(cmd)
+    except:
+        pass
+    time.sleep(60)
+    setboot('test')
+    hardreset()
+
+    emmc_booted = False
+    started = time.time()
+    while time.time() - started < 300:
+        try:
+            emmc_booted = is_emmc_image_booted()
+        except:
+            continue
+        break
+    # Check again if we are in the emmc image
+    if emmc_booted:
+        # XXX: This should *never* happen since we set the boot mode!
+        raise RuntimeError("Still booting to emmc after flashing image!")
+
+
+def is_emmc_image_booted():
+    cmd = ['ssh', constants.TEST_USER_HOST, 'cat /etc/issue']
+    # FIXME: come up with a better way of checking this
+    output = subprocess.check_output(
+        cmd, stderr=subprocess.STDOUT, timeout=10)
+    if 'BeagleBoardUbuntu' in str(output):
+        return True
+    return False
+
+
+def ensure_emmc_image():
+    """Make sure we are running the emmc image
+    """
+    emmc_booted = False
+    print("DEBUG: Making sure the emmc image is booted")
+    try:
+        emmc_booted = is_emmc_image_booted()
+    except:
+        # don't worry if this doesn't work, we'll hard reset later
+        pass
+
+    if not emmc_booted:
+        # We are not in the emmc image, so just hard reset
+        setboot('master')
+        hardreset()
+
+        started = time.time()
+        while time.time() - started < 300:
+            try:
+                emmc_booted = is_emmc_image_booted()
+            except:
+                continue
+            break
+        # Check again if we are in the emmc image
+        if not emmc_booted:
+            raise RuntimeError("Could not reboot to emmc!")
+
+
+def flash_sd(image_url):
+    """Flash the image at :image_url to the sd card
+    """
+    cmd = ['ssh', constants.TEST_USER_HOST,
+           'curl {} | gunzip| sudo dd of=/dev/mmcblk0 bs=32M'.format(
+               image_url)]
+    print("DEBUG: running {}".format(cmd))
+    try:
+        # XXX: I hope 30 min is enough? but maybe not!
+        subprocess.check_call(cmd, timeout=1800)
+    except:
+        raise RuntimeError("timeout reached while flashing image!")
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', '--image-url', required=True,
+                        help='URL of the image to install')
+    args = parser.parse_args()
+    return args
+
+
+def main():
+    args = parse_args()
+
+    print("DEBUG: ensure_emmc_image")
+    ensure_emmc_image()
+    print("DEBUG: flash_sd")
+    flash_sd(args.image_url)
+    print("DEBUG: ensure_test_image")
+    ensure_test_image()
+
+if __name__ == "__main__":
+    main()
