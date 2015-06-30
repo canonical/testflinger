@@ -25,11 +25,11 @@ import constants
 
 def parse_args():
     """Parse command line arguments and return them."""
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-u', '--test-url', required=True,
-                            help='URL of the test tarball')
-        args = parser.parse_args()
-        return args
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', '--test-url', required=True,
+                        help='URL of the test tarball')
+    args = parser.parse_args()
+    return args
 
 
 def main():
