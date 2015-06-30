@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+rm -rf env
+virtualenv -p python3 env
+. env/bin/activate
+pip install -r test_requirements.txt
+./setup.py flake8
+rm -rf env
