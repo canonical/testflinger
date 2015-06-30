@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 # Copyright (C) 2015 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
@@ -13,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+"""Testing script for beagle bone black."""
 
 import argparse
 import os
@@ -24,14 +24,16 @@ import constants
 
 
 def parse_args():
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-u', '--test-url', required=True,
-                            help='URL of the test tarball')
-        args = parser.parse_args()
-        return args
+    """Parse command line arguments and return them."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', '--test-url', required=True,
+                        help='URL of the test tarball')
+    args = parser.parse_args()
+    return args
 
 
 def main():
+    """Main function."""
     args = parse_args()
     with tempfile.TemporaryDirectory() as tmpdir:
         filename = os.path.split(args.test_url)[1]
