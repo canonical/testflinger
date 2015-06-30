@@ -1,0 +1,3 @@
+# This is broken as bbb/ is not a module one can import
+# It just makes it possible to create a working tarball.
+include bbb/*.py
