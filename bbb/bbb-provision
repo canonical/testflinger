@@ -13,6 +13,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""Provisioning script for beagle bone black."""
+
 import argparse
 import subprocess
 import time
@@ -21,6 +23,16 @@ import constants
 
 
 def setboot(mode):
+    """
+    Set the boot mode of the device.
+
+    :param mode:
+        One of 'master' or 'test'
+    :raises RuntimeError:
+        If the command times out or anything else fails.
+
+    This method sets the snappy boot method to the specified value.
+    """
     if mode not in ('master', 'test'):
         raise KeyError
     cmd = ['ssh', constants.CONTROL_HOST, 'bin/setboot', mode]
@@ -32,6 +44,16 @@ def setboot(mode):
 
 
 def hardreset():
+    """
+    Reboot the device.
+
+    :raises RuntimeError:
+        If the command times out or anything else fails.
+
+    .. note::
+        This function executes ``bin/hardreset`` which is not a part of a
+        standard image. You need to provide it yourself.
+    """
     cmd = ['ssh', constants.CONTROL_HOST, 'bin/hardreset']
     print("DEBUG: running {}".format(cmd))
     try:
@@ -41,6 +63,12 @@ def hardreset():
 
 
 def ensure_test_image():
+    """
+    Actively switch the device to boot the test image.
+
+    :raises RuntimeError:
+        If the command times out or anything else fails.
+    """
     # FIXME: I don't have a great way to ensure we're in the test image
     # yet, so just check that we're *not* in the emmc image
     print("DEBUG: Booting the test image")
@@ -68,6 +96,17 @@ def ensure_test_image():
 
 
 def is_emmc_image_booted():
+    """
+    Check if the emmc image is booted.
+
+    :returns:
+        True if the emmc image is currently booted, False otherwise.
+    :raises RuntimeError:
+        If the command times out or anything else fails.
+
+    .. note::
+        The emmc contains the non-test image.
+    """
     cmd = ['ssh', constants.TEST_USER_HOST, 'cat /etc/issue']
     # FIXME: come up with a better way of checking this
     output = subprocess.check_output(
@@ -78,7 +117,11 @@ def is_emmc_image_booted():
 
 
 def ensure_emmc_image():
-    """Make sure we are running the emmc image
+    """
+    Actively switch the device to boot the test image.
+
+    :raises RuntimeError:
+        If the command times out or anything else fails.
     """
     emmc_booted = False
     print("DEBUG: Making sure the emmc image is booted")
@@ -106,7 +149,14 @@ def ensure_emmc_image():
 
 
 def flash_sd(image_url):
-    """Flash the image at :image_url to the sd card
+    """
+    Flash the image at :image_url to the sd card.
+
+    :param image_url:
+        URL of the image to flash. The image has to be compatible with a flat
+        SD card layout. It will be downloaded and gunzipped over the SD card.
+    :raises RuntimeError:
+        If the command times out or anything else fails.
     """
     cmd = ['ssh', constants.TEST_USER_HOST,
            'curl {} | gunzip| sudo dd of=/dev/mmcblk0 bs=32M'.format(
@@ -120,6 +170,7 @@ def flash_sd(image_url):
 
 
 def parse_args():
+    """Parse command line arguments and return them."""
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--image-url', required=True,
                         help='URL of the image to install')
@@ -128,6 +179,7 @@ def parse_args():
 
 
 def main():
+    """Main function."""
     args = parse_args()
 
     print("DEBUG: ensure_emmc_image")
