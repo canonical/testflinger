@@ -1,4 +1,5 @@
 #!/bin/sh
+# This hook is executed for all incoming merge requests
 set -e
 
 rm -rf env
