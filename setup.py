@@ -36,5 +36,5 @@ setup(
     license='GPLv3',
     packages=find_packages(),
     install_requires=['guacamole >= 0.9'],
-    scripts=['agent'],
+    scripts=['snappy-device-agent'],
 )
