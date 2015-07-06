@@ -26,9 +26,12 @@ class Agent(Command):
     """
     sub_commands = load_devices()
 
+    # XXX: Remove for now due to https://github.com/zyga/guacamole/issues/4
+    """
     def invoked(self, ctx):
         print(ctx.parser.format_help())
         exit(1)
+    """
 
 
 def main():
