@@ -17,11 +17,11 @@
 import os
 import subprocess
 import tempfile
+import yaml
 
 import guacamole
 
 from devices.bbb.beagleboneblack import BeagleBoneBlack
-from . import constants
 
 device_name = "bbb"
 
@@ -32,7 +32,7 @@ class provision(guacamole.Command):
 
     def invoked(self, ctx):
         """Method called when the command is invoked."""
-        device = BeagleBoneBlack()
+        device = BeagleBoneBlack(ctx.args.config)
         print("DEBUG: ensure_emmc_image")
         device.ensure_emmc_image()
         print("DEBUG: flash_sd")
@@ -42,6 +42,8 @@ class provision(guacamole.Command):
 
     def register_arguments(self, parser):
         """Method called to customize the argument parser."""
+        parser.add_argument('-c', '--config', required=True,
+                            help='Config file for this device')
         parser.add_argument('-i', '--image-url', required=True,
                             help='URL of the image to install')
 
@@ -52,6 +54,10 @@ class runtest(guacamole.Command):
 
     def invoked(self, ctx):
         """Method called when the command is invoked."""
+        with open(ctx.args.config) as configfile:
+            config = yaml.load(configfile)
+            test_host = config['address']
+
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.split(ctx.args.test_url)[1]
             testdir = os.path.join(tmpdir, 'test')
@@ -66,11 +72,13 @@ class runtest(guacamole.Command):
                                      '--strip-components=1'], cwd=tmpdir)
             test_cmd = ['adt-run', '--built-tree', testdir, '--output-dir',
                         outputdir, '---', 'ssh', '-d', '-l', 'ubuntu', '-P',
-                        'ubuntu', '-H', constants.TEST_HOST]
+                        'ubuntu', '-H', test_host]
             subprocess.check_output(test_cmd, cwd=tmpdir)
 
     def register_arguments(self, parser):
         """Method called to customize the argument parser."""
+        parser.add_argument('-c', '--config', required=True,
+                            help='Config file for this device')
         parser.add_argument('-u', '--test-url', required=True,
                             help='URL of the test tarball')
 

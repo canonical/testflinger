@@ -16,13 +16,16 @@
 
 import subprocess
 import time
-
-from . import constants
+import yaml
 
 
 class BeagleBoneBlack:
 
     """Snappy Device Agent for Beagle Bone Black."""
+
+    def __init__(self, config):
+        with open(config) as configfile:
+            self.config = yaml.load(configfile)
 
     def setboot(self, mode):
         """
@@ -35,14 +38,18 @@ class BeagleBoneBlack:
 
         This method sets the snappy boot method to the specified value.
         """
-        if mode not in ('master', 'test'):
+        if mode == 'master':
+            setboot_script = self.config['select_master_script']
+        elif mode == 'test':
+            setboot_script = self.config['select_test_script']
+        else:
             raise KeyError
-        cmd = ['ssh', constants.CONTROL_HOST, 'bin/setboot', mode]
-        print("DEBUG: running {}".format(cmd))
-        try:
-            subprocess.check_call(cmd, timeout=10)
-        except:
-            raise RuntimeError("timeout reaching control host!")
+        for cmd in setboot_script:
+            print("DEBUG: running {}".format(cmd))
+            try:
+                subprocess.check_call(cmd.split(), timeout=10)
+            except:
+                raise RuntimeError("timeout reaching control host!")
 
     def hardreset(self):
         """
@@ -55,12 +62,12 @@ class BeagleBoneBlack:
             This function executes ``bin/hardreset`` which is not a part of a
             standard image. You need to provide it yourself.
         """
-        cmd = ['ssh', constants.CONTROL_HOST, 'bin/hardreset']
-        print("DEBUG: running {}".format(cmd))
-        try:
-            subprocess.check_call(cmd, timeout=20)
-        except:
-            raise RuntimeError("timeout reaching control host!")
+        for cmd in self.config['reboot_script']:
+            print("DEBUG: running {}".format(cmd))
+            try:
+                subprocess.check_call(cmd.split(), timeout=20)
+            except:
+                raise RuntimeError("timeout reaching control host!")
 
     def ensure_test_image(self):
         """
@@ -72,7 +79,8 @@ class BeagleBoneBlack:
         # FIXME: I don't have a great way to ensure we're in the test image
         # yet, so just check that we're *not* in the emmc image
         print("DEBUG: Booting the test image")
-        cmd = ['ssh', constants.TEST_USER_HOST, 'sudo /sbin/halt']
+        cmd = ['ssh', 'ubuntu@{}'.format(self.config['address']),
+               'sudo /sbin/halt']
         try:
             subprocess.check_call(cmd)
         except:
@@ -106,7 +114,8 @@ class BeagleBoneBlack:
         .. note::
             The emmc contains the non-test image.
         """
-        cmd = ['ssh', constants.TEST_USER_HOST, 'cat /etc/issue']
+        cmd = ['ssh', 'ubuntu@{}'.format(self.config['address']),
+               'cat /etc/issue']
         # FIXME: come up with a better way of checking this
         output = subprocess.check_output(
             cmd, stderr=subprocess.STDOUT, timeout=10)
@@ -156,7 +165,7 @@ class BeagleBoneBlack:
         :raises RuntimeError:
             If the command times out or anything else fails.
         """
-        cmd = ['ssh', constants.TEST_USER_HOST,
+        cmd = ['ssh', 'ubuntu@{}'.format(self.config['address']),
                'curl {} | gunzip| sudo dd of=/dev/mmcblk0 bs=32M'.format(
                    image_url)]
         print("DEBUG: running {}".format(cmd))

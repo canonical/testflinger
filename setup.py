@@ -35,6 +35,6 @@ setup(
     url='https://launchpad.net/snappy-device-agents',
     license='GPLv3',
     packages=find_packages(),
-    install_requires=['guacamole >= 0.9'],
+    install_requires=['guacamole >= 0.9', 'PyYAML>=3.11'],
     scripts=['snappy-device-agent'],
 )
