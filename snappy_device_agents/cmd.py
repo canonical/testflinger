@@ -14,6 +14,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import logging
+
 from guacamole import Command
 
 from devices import load_devices
@@ -24,6 +26,8 @@ class Agent(Command):
 
     This loads subcommands from modules in the devices directory
     """
+    spices = ['log:arguments']
+
     sub_commands = load_devices()
 
     # XXX: Remove for now due to https://github.com/zyga/guacamole/issues/4
@@ -35,4 +39,5 @@ class Agent(Command):
 
 
 def main():
+    logging.basicConfig(level=logging.INFO)
     Agent().main()

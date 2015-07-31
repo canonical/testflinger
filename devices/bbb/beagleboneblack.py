@@ -14,6 +14,7 @@
 
 """Beagle Bone Black support code."""
 
+import logging
 import subprocess
 import time
 import yaml
@@ -45,7 +46,7 @@ class BeagleBoneBlack:
         else:
             raise KeyError
         for cmd in setboot_script:
-            print("DEBUG: running {}".format(cmd))
+            logging.info("running {}".format(cmd))
             try:
                 subprocess.check_call(cmd.split(), timeout=10)
             except:
@@ -63,7 +64,7 @@ class BeagleBoneBlack:
             standard image. You need to provide it yourself.
         """
         for cmd in self.config['reboot_script']:
-            print("DEBUG: running {}".format(cmd))
+            logging.info("running {}".format(cmd))
             try:
                 subprocess.check_call(cmd.split(), timeout=20)
             except:
@@ -78,7 +79,7 @@ class BeagleBoneBlack:
         """
         # FIXME: I don't have a great way to ensure we're in the test image
         # yet, so just check that we're *not* in the emmc image
-        print("DEBUG: Booting the test image")
+        logging.info("Booting the test image")
         cmd = ['ssh', 'ubuntu@{}'.format(self.config['address']),
                'sudo /sbin/halt']
         try:
@@ -131,7 +132,7 @@ class BeagleBoneBlack:
             If the command times out or anything else fails.
         """
         emmc_booted = False
-        print("DEBUG: Making sure the emmc image is booted")
+        logging.info("Making sure the emmc image is booted")
         try:
             emmc_booted = self.is_emmc_image_booted()
         except:
@@ -168,7 +169,7 @@ class BeagleBoneBlack:
         cmd = ['ssh', 'ubuntu@{}'.format(self.config['address']),
                'curl {} | gunzip| sudo dd of=/dev/mmcblk0 bs=32M'.format(
                    image_url)]
-        print("DEBUG: running {}".format(cmd))
+        logging.info("running {}".format(cmd))
         try:
             # XXX: I hope 30 min is enough? but maybe not!
             subprocess.check_call(cmd, timeout=1800)

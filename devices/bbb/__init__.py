@@ -14,6 +14,7 @@
 
 """Beagle Bone Black support code."""
 
+import logging
 import os
 import subprocess
 import tempfile
@@ -33,11 +34,11 @@ class provision(guacamole.Command):
     def invoked(self, ctx):
         """Method called when the command is invoked."""
         device = BeagleBoneBlack(ctx.args.config)
-        print("DEBUG: ensure_emmc_image")
+        logging.info("ensure_emmc_image")
         device.ensure_emmc_image()
-        print("DEBUG: flash_sd")
+        logging.info("flash_sd")
         device.flash_sd(ctx.args.image_url)
-        print("DEBUG: ensure_test_image")
+        logging.info("ensure_test_image")
         device.ensure_test_image()
 
     def register_arguments(self, parser):
