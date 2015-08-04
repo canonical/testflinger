@@ -155,21 +155,24 @@ class BeagleBoneBlack:
             if not emmc_booted:
                 raise RuntimeError("Could not reboot to emmc!")
 
-    def flash_sd(self, image_url):
+    def flash_sd(self, server_ip, server_port):
         """
         Flash the image at :image_url to the sd card.
 
-        :param image_url:
-            URL of the image to flash. The image has to be compatible with a
-            flat SD card layout. It will be downloaded and gunzipped over the
-            SD card.
+        :param server_ip:
+            IP address of the image server. The image will be downloaded and
+            gunzipped over the SD card.
+        :param server_port:
+            TCP port to connect to on server_ip for downloading the image
         :raises RuntimeError:
             If the command times out or anything else fails.
         """
-        cmd = ['ssh', 'ubuntu@{}'.format(self.config['address']),
-               'curl {} | gunzip| sudo dd of=/dev/mmcblk0 bs=32M'.format(
-                   image_url)]
-        logging.info("running {}".format(cmd))
+        cmd = [
+            'ssh', 'ubuntu@{}'.format(self.config['address']),
+            'nc {} {}| gunzip| sudo dd of=/dev/mmcblk0 bs=16M'.format(
+                server_ip, server_port)
+        ]
+        logging.info("running: %s", cmd)
         try:
             # XXX: I hope 30 min is enough? but maybe not!
             subprocess.check_call(cmd, timeout=1800)

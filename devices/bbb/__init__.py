@@ -15,6 +15,7 @@
 """Beagle Bone Black support code."""
 
 import logging
+import multiprocessing
 import os
 import subprocess
 import tempfile
@@ -22,6 +23,7 @@ import yaml
 
 import guacamole
 
+import snappy_device_agents
 from devices.bbb.beagleboneblack import BeagleBoneBlack
 
 device_name = "bbb"
@@ -36,8 +38,16 @@ class provision(guacamole.Command):
         device = BeagleBoneBlack(ctx.args.config)
         logging.info("ensure_emmc_image")
         device.ensure_emmc_image()
+        image = snappy_device_agents.get_image()
+        server_ip = snappy_device_agents.get_local_ip_addr()
+        q = multiprocessing.Queue()
+        file_server = multiprocessing.Process(
+            target=snappy_device_agents.serve_file, args=(q, image,))
+        file_server.start()
+        server_port = q.get()
         logging.info("flash_sd")
-        device.flash_sd(ctx.args.image_url)
+        device.flash_sd(server_ip, server_port)
+        file_server.terminate()
         logging.info("ensure_test_image")
         device.ensure_test_image()
 
@@ -45,8 +55,6 @@ class provision(guacamole.Command):
         """Method called to customize the argument parser."""
         parser.add_argument('-c', '--config', required=True,
                             help='Config file for this device')
-        parser.add_argument('-i', '--image-url', required=True,
-                            help='URL of the image to install')
 
 
 class runtest(guacamole.Command):
