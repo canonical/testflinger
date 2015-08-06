@@ -163,9 +163,18 @@ def compress_file(filename):
     :return compressed_filename:
         The filename of the compressed file
     """
+    def read_buf(f):
+        # Read the data in chunks, rather than the whole thing
+        while True:
+            data = f.read(4096)
+            if not data:
+                break
+            yield data
+
     compressed_filename = "{}.gz".format(filename)
     with open(filename, 'rb') as uncompressed_image:
         with gzip.open(compressed_filename, 'wb') as compressed_image:
-            compressed_image.writelines(uncompressed_image)
+            for data in read_buf(uncompressed_image):
+                compressed_image.write(data)
     os.unlink(filename)
     return compressed_filename
