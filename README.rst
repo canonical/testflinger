@@ -30,7 +30,7 @@ gives you the flexibility to define what works for this particular device.
 
 Example::
 
-    address: 192.168.1.147
+    device_ip: 192.168.1.147
     select_master_script:
         - ssh pi@192.168.1.136 bin/setboot master
     select_test_script:

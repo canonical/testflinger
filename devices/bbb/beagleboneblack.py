@@ -80,7 +80,9 @@ class BeagleBoneBlack:
         # FIXME: I don't have a great way to ensure we're in the test image
         # yet, so just check that we're *not* in the emmc image
         logging.info("Booting the test image")
-        cmd = ['ssh', 'ubuntu@{}'.format(self.config['address']),
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'ubuntu@{}'.format(self.config['device_ip']),
                'sudo /sbin/halt']
         try:
             subprocess.check_call(cmd)
@@ -115,7 +117,9 @@ class BeagleBoneBlack:
         .. note::
             The emmc contains the non-test image.
         """
-        cmd = ['ssh', 'ubuntu@{}'.format(self.config['address']),
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'ubuntu@{}'.format(self.config['device_ip']),
                'cat /etc/issue']
         # FIXME: come up with a better way of checking this
         output = subprocess.check_output(
@@ -167,11 +171,11 @@ class BeagleBoneBlack:
         :raises RuntimeError:
             If the command times out or anything else fails.
         """
-        cmd = [
-            'ssh', 'ubuntu@{}'.format(self.config['address']),
-            'nc {} {}| gunzip| sudo dd of=/dev/mmcblk0 bs=16M'.format(
-                server_ip, server_port)
-        ]
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'ubuntu@{}'.format(self.config['device_ip']),
+               'nc {} {}| gunzip| sudo dd of=/dev/mmcblk0 bs=16M'.format(
+                   server_ip, server_port)]
         logging.info("running: %s", cmd)
         try:
             # XXX: I hope 30 min is enough? but maybe not!

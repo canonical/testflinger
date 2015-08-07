@@ -16,9 +16,7 @@
 
 import logging
 import multiprocessing
-import os
 import subprocess
-import tempfile
 import yaml
 
 import guacamole
@@ -38,7 +36,7 @@ class provision(guacamole.Command):
         device = BeagleBoneBlack(ctx.args.config)
         logging.info("ensure_emmc_image")
         device.ensure_emmc_image()
-        image = snappy_device_agents.get_image()
+        image = snappy_device_agents.get_image(ctx.args.spi_data)
         server_ip = snappy_device_agents.get_local_ip_addr()
         q = multiprocessing.Queue()
         file_server = multiprocessing.Process(
@@ -55,6 +53,7 @@ class provision(guacamole.Command):
         """Method called to customize the argument parser."""
         parser.add_argument('-c', '--config', required=True,
                             help='Config file for this device')
+        parser.add_argument('spi_data', help='SPI json data file')
 
 
 class runtest(guacamole.Command):
@@ -65,31 +64,27 @@ class runtest(guacamole.Command):
         """Method called when the command is invoked."""
         with open(ctx.args.config) as configfile:
             config = yaml.load(configfile)
-            test_host = config['address']
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            filename = os.path.split(ctx.args.test_url)[1]
-            testdir = os.path.join(tmpdir, 'test')
-            # XXX: Agent should pass us the output location
-            outputdir = '/tmp/output'
+        test_opportunity = snappy_device_agents.get_test_opportunity(
+            ctx.args.spi_data)
+        test_cmds = test_opportunity.get('test_payload').get('test_cmds')
+        for cmd in test_cmds:
+            # Settings from the device yaml configfile like device_ip can be
+            # formatted in test commands like "foo {device_ip}"
+            try:
+                cmd = cmd.format(**config)
+            except:
+                logging.error("Unable to format command: %s", cmd)
 
-            subprocess.check_output(['wget', ctx.args.test_url], cwd=tmpdir)
-            os.makedirs(testdir)
-            # Extraction directory does not get renamed, and test_cmd
-            # gets run from one level above
-            subprocess.check_output(['tar', '-xf', filename, '-C', testdir,
-                                     '--strip-components=1'], cwd=tmpdir)
-            test_cmd = ['adt-run', '--built-tree', testdir, '--output-dir',
-                        outputdir, '---', 'ssh', '-d', '-l', 'ubuntu', '-P',
-                        'ubuntu', '-H', test_host]
-            subprocess.check_output(test_cmd, cwd=tmpdir)
+            logging.info("Running: %s", cmd)
+            proc = subprocess.Popen(cmd, shell=True)
+            proc.wait()
 
     def register_arguments(self, parser):
         """Method called to customize the argument parser."""
         parser.add_argument('-c', '--config', required=True,
                             help='Config file for this device')
-        parser.add_argument('-u', '--test-url', required=True,
-                            help='URL of the test tarball')
+        parser.add_argument('spi_data', help='SPI json data file')
 
 
 class DeviceAgent(guacamole.Command):
