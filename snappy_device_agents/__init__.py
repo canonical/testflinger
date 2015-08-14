@@ -95,7 +95,7 @@ def udf_create_image(params):
     return(IMAGEFILE)
 
 
-def get_image():
+def get_image(spi_file='spi_test_opportunity.json'):
     """
     Read the json data for a test opportunity from SPI and retrieve or
     create the requested image.
@@ -103,7 +103,7 @@ def get_image():
     :return compressed_filename:
         Returns the filename of the compressed image
     """
-    spi_data = get_test_opportunity()
+    spi_data = get_test_opportunity(spi_file)
     image_keys = spi_data.get('image_reference').keys()
     if 'url' in image_keys:
         image = download(spi_data.get('image_reference').get('url'))
