@@ -48,7 +48,7 @@ class BeagleBoneBlack:
         for cmd in setboot_script:
             logging.info("running {}".format(cmd))
             try:
-                subprocess.check_call(cmd.split(), timeout=10)
+                subprocess.check_call(cmd.split(), timeout=60)
             except:
                 raise RuntimeError("timeout reaching control host!")
 
@@ -66,7 +66,7 @@ class BeagleBoneBlack:
         for cmd in self.config['reboot_script']:
             logging.info("running {}".format(cmd))
             try:
-                subprocess.check_call(cmd.split(), timeout=20)
+                subprocess.check_call(cmd.split(), timeout=60)
             except:
                 raise RuntimeError("timeout reaching control host!")
 
@@ -123,7 +123,7 @@ class BeagleBoneBlack:
                'cat /etc/issue']
         # FIXME: come up with a better way of checking this
         output = subprocess.check_output(
-            cmd, stderr=subprocess.STDOUT, timeout=10)
+            cmd, stderr=subprocess.STDOUT, timeout=60)
         if 'BeagleBoardUbuntu' in str(output):
             return True
         return False
