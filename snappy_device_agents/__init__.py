@@ -79,20 +79,45 @@ def udf_create_image(params):
     :return filename:
         Returns the filename of the image
     """
+    imagepath = os.path.join(os.getcwd(), IMAGEFILE)
     cmd = params.split()
     cmd.insert(0, 'ubuntu-device-flash')
     cmd.insert(0, 'sudo')
     try:
         output_opt = cmd.index('-o')
-        cmd[output_opt + 1] = IMAGEFILE
+        cmd[output_opt + 1] = imagepath
     except:
         # if we get here, -o was already not in the image
         cmd.append('-o')
-        cmd.append(IMAGEFILE)
+        cmd.append(imagepath)
     logging.info('Creating snappy image with: %s', cmd)
     output = subprocess.check_output(cmd)
     print(output)
-    return(IMAGEFILE)
+    return(imagepath)
+
+
+def get_test_username(spi_file='spi_test_opportunity.json'):
+    """
+    Read the json data for a test opportunity from SPI and return the
+    username in specified for the test image (default: ubuntu)
+
+    :return username:
+        Returns the test image username
+    """
+    spi_data = get_test_opportunity(spi_file)
+    return spi_data.get('test_payload').get('test_username', 'ubuntu')
+
+
+def get_test_password(spi_file='spi_test_opportunity.json'):
+    """
+    Read the json data for a test opportunity from SPI and return the
+    password in specified for the test image (default: ubuntu)
+
+    :return password:
+        Returns the test image password
+    """
+    spi_data = get_test_opportunity(spi_file)
+    return spi_data.get('test_payload').get('test_password', 'ubuntu')
 
 
 def get_image(spi_file='spi_test_opportunity.json'):

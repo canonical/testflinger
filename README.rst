@@ -37,3 +37,42 @@ Example::
         - ssh pi@192.168.1.136 bin/setboot test
     reboot_script:
         - ssh pi@192.168.1.136 bin/hardreset
+
+x86-64 Baremetal
+----------------
+
+The x86 baremetal device is currently supported using a process called inception. We boot from an ubuntu-server install running on a usb stick by default, then modify the grub entry on the host to add a boot entry for snappy on the hard drive.
+
+The boot entry looks like this::
+
+    # LAAS Inception Marker (do not remove)
+    menuentry "LAAS Inception Test Boot (one time)" {
+    insmod chain
+    set root=hd1
+    chainloader +1
+    }
+    # Boot into LAAS Inception OS if requested
+    if [ "${laas_inception}" ] ; then
+    set fallback="${default}"
+    set default="LAAS Inception Test Boot (one time)"
+    set laas_inception=
+    save_env laas_inception
+    set boot_once=true
+    fi
+
+To boot into this instance, you simply set the laas_inception grub variable to 1, and it will boot once into the install from the primary hard drive::
+
+    $ sudo grub-editenv /boot/grub/grubenv set laas_inception=1
+
+Because we install to the hard drive, and not a mmc with a known location, you should also specify the test device. Here is a complete example of a config yaml file::
+
+    device_ip: 10.101.48.47
+    test_device: /dev/sda
+    select_master_script: []
+    select_test_script:
+        - ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null 10.101.48.47 sudo grub-editenv /boot/grub/grubenv set laas_inception=1
+    reboot_script:
+        - snmpset -c private -v1 pdu11.cert-maas.taipei .1.3.6.1.4.1.318.1.1.12.3.3.1.1.4.6 i 2
+        - sleep 10
+        - snmpset -c private -v1 pdu11.cert-maas.taipei .1.3.6.1.4.1.318.1.1.12.3.3.1.1.4.6 i 1
+
