@@ -17,8 +17,10 @@ import json
 import logging
 import netifaces
 import os
+import shutil
 import socket
 import subprocess
+import tempfile
 import urllib
 
 IMAGEFILE = 'snappy.img'
@@ -83,15 +85,24 @@ def udf_create_image(params):
     cmd = params.split()
     cmd.insert(0, 'ubuntu-device-flash')
     cmd.insert(0, 'sudo')
-    try:
-        output_opt = cmd.index('-o')
-        cmd[output_opt + 1] = imagepath
-    except:
-        # if we get here, -o was already not in the image
-        cmd.append('-o')
-        cmd.append(imagepath)
-    logging.info('Creating snappy image with: %s', cmd)
-    output = subprocess.check_output(cmd)
+
+    # A shorter tempdir path is needed than the one provided by SPI
+    # because of a bug in kpartx that makes it have trouble deleting
+    # mappings with long paths
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_imagepath = os.path.join(tmpdir, IMAGEFILE)
+        try:
+            output_opt = cmd.index('-o')
+            cmd[output_opt + 1] = imagepath
+        except:
+            # if we get here, -o was already not in the image
+            cmd.append('-o')
+            cmd.append(tmp_imagepath)
+
+        logging.info('Creating snappy image with: %s', cmd)
+        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        shutil.move(tmp_imagepath, imagepath)
+
     print(output)
     return(imagepath)
 
