@@ -19,6 +19,8 @@ import subprocess
 import time
 import yaml
 
+logger = logging.getLogger()
+
 
 class BeagleBoneBlack:
 
@@ -46,7 +48,7 @@ class BeagleBoneBlack:
         else:
             raise KeyError
         for cmd in setboot_script:
-            logging.info("running {}".format(cmd))
+            logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=60)
             except:
@@ -64,7 +66,7 @@ class BeagleBoneBlack:
             standard image. You need to provide it yourself.
         """
         for cmd in self.config['reboot_script']:
-            logging.info("running {}".format(cmd))
+            logger.info("running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=60)
             except:
@@ -79,7 +81,7 @@ class BeagleBoneBlack:
         """
         # FIXME: I don't have a great way to ensure we're in the test image
         # yet, so just check that we're *not* in the emmc image
-        logging.info("Booting the test image")
+        logger.info("Booting the test image")
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                'ubuntu@{}'.format(self.config['device_ip']),
@@ -136,7 +138,7 @@ class BeagleBoneBlack:
             If the command times out or anything else fails.
         """
         emmc_booted = False
-        logging.info("Making sure the emmc image is booted")
+        logger.info("Making sure the emmc image is booted")
         try:
             emmc_booted = self.is_emmc_image_booted()
         except:
@@ -176,7 +178,7 @@ class BeagleBoneBlack:
                'ubuntu@{}'.format(self.config['device_ip']),
                'nc {} {}| gunzip| sudo dd of=/dev/mmcblk0 bs=16M'.format(
                    server_ip, server_port)]
-        logging.info("running: %s", cmd)
+        logger.info("Running: %s", cmd)
         try:
             # XXX: I hope 30 min is enough? but maybe not!
             subprocess.check_call(cmd, timeout=1800)

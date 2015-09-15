@@ -26,6 +26,8 @@ from devices.inception.inception import Inception
 
 device_name = "inception"
 
+logger = logging.getLogger()
+
 
 class provision(guacamole.Command):
 
@@ -33,8 +35,11 @@ class provision(guacamole.Command):
 
     def invoked(self, ctx):
         """Method called when the command is invoked."""
+        with open(ctx.args.config) as configfile:
+            config = yaml.load(configfile)
+        snappy_device_agents.configure_logging(config)
         device = Inception(ctx.args.config)
-        logging.info("ensure_master_image")
+        logger.info("ensure_master_image")
         device.ensure_master_image()
         image = snappy_device_agents.get_image(ctx.args.spi_data)
         server_ip = snappy_device_agents.get_local_ip_addr()
@@ -47,10 +52,10 @@ class provision(guacamole.Command):
             target=snappy_device_agents.serve_file, args=(q, image,))
         file_server.start()
         server_port = q.get()
-        logging.info("flash_test_image")
+        logger.info("flash_test_image")
         device.flash_test_image(server_ip, server_port)
         file_server.terminate()
-        logging.info("ensure_test_image")
+        logger.info("ensure_test_image")
         device.ensure_test_image(test_username, test_password)
 
     def register_arguments(self, parser):
@@ -68,6 +73,7 @@ class runtest(guacamole.Command):
         """Method called when the command is invoked."""
         with open(ctx.args.config) as configfile:
             config = yaml.load(configfile)
+        snappy_device_agents.configure_logging(config)
 
         test_opportunity = snappy_device_agents.get_test_opportunity(
             ctx.args.spi_data)
@@ -78,9 +84,9 @@ class runtest(guacamole.Command):
             try:
                 cmd = cmd.format(**config)
             except:
-                logging.error("Unable to format command: %s", cmd)
+                logger.error("Unable to format command: %s", cmd)
 
-            logging.info("Running: %s", cmd)
+            logger.info("Running: %s", cmd)
             proc = subprocess.Popen(cmd, shell=True)
             proc.wait()
 

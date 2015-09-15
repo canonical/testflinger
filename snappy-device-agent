@@ -14,7 +14,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import logging
+
 from snappy_device_agents.cmd import main
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 if __name__ == '__main__':
     main()

@@ -22,6 +22,8 @@ import yaml
 from devices import (ProvisioningError,
                      RecoveryError)
 
+logger = logging.getLogger()
+
 
 class Inception:
 
@@ -49,7 +51,7 @@ class Inception:
         else:
             raise KeyError
         for cmd in setboot_script:
-            logging.info("running {}".format(cmd))
+            logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=60)
             except:
@@ -67,7 +69,7 @@ class Inception:
             in the config yaml.
         """
         for cmd in self.config['reboot_script']:
-            logging.info("running {}".format(cmd))
+            logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=60)
             except:
@@ -84,7 +86,7 @@ class Inception:
         :raises ProvisioningError:
             If the command times out or anything else fails.
         """
-        logging.info("Booting the test image")
+        logger.info("Booting the test image")
         self.setboot('test')
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
@@ -170,7 +172,7 @@ class Inception:
             If the command times out or anything else fails.
         """
         master_booted = False
-        logging.info("Making sure the master image is booted")
+        logger.info("Making sure the master image is booted")
         try:
             master_booted = self.is_master_image_booted()
         except:
@@ -212,7 +214,7 @@ class Inception:
                'ubuntu@{}'.format(self.config['device_ip']),
                'nc {} {}| gunzip| sudo dd of={} bs=16M'.format(
                    server_ip, server_port, self.config['test_device'])]
-        logging.info("running: %s", cmd)
+        logger.info("Running: %s", cmd)
         try:
             # XXX: I hope 30 min is enough? but maybe not!
             subprocess.check_call(cmd, timeout=1800)

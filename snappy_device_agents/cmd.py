@@ -17,8 +17,39 @@
 import logging
 
 from guacamole import Command
+from guacamole.core import Ingredient
+from guacamole.recipes.cmd import CommandRecipe
+from guacamole.ingredients import ansi
+from guacamole.ingredients import argparse
+from guacamole.ingredients import cmdtree
 
 from devices import load_devices
+
+logger = logging.getLogger()
+
+
+class CrashLoggingIngredient(Ingredient):
+    """Use python logging if we Crash
+    """
+
+    def dispatch_failed(self, context):
+        logger.exception("exception")
+        raise
+
+
+class AgentCommandRecipe(CommandRecipe):
+    """This is so we can add a custom ingredient
+    """
+
+    def get_ingredients(self):
+        return [
+            cmdtree.CommandTreeBuilder(self.command),
+            cmdtree.CommandTreeDispatcher(),
+            argparse.AutocompleteIngredient(),
+            argparse.ParserIngredient(),
+            ansi.ANSIIngredient(),
+            CrashLoggingIngredient(),
+        ]
 
 
 class Agent(Command):
@@ -26,7 +57,6 @@ class Agent(Command):
 
     This loads subcommands from modules in the devices directory
     """
-    spices = ['log:arguments']
 
     sub_commands = load_devices()
 
@@ -37,7 +67,9 @@ class Agent(Command):
         exit(1)
     """
 
+    def main(self, argv=None, exit=True):
+        return AgentCommandRecipe(self).main(argv, exit)
+
 
 def main():
-    logging.basicConfig(level=logging.INFO)
     Agent().main()

@@ -76,3 +76,16 @@ Because we install to the hard drive, and not a mmc with a known location, you s
         - sleep 10
         - snmpset -c private -v1 pdu11.cert-maas.taipei .1.3.6.1.4.1.318.1.1.12.3.3.1.1.4.6 i 1
 
+
+Logstash Logging
+================
+
+Log messages can optionally be directed to a logstash server by adding
+two additional values in the yaml file::
+
+    logstash_host: 10.0.3.207
+    agent_name: test001
+
+Logstash_host is the logstash server the messages will be sent to on port 5959.
+Agent_name should be the name of the device this agent represents. It
+will be added as extra data in the log message.

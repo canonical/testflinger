@@ -25,6 +25,8 @@ import urllib
 
 IMAGEFILE = 'snappy.img'
 
+logger = logging.getLogger()
+
 
 def get_test_opportunity(spi_file='spi_test_opportunity.json'):
     """
@@ -66,7 +68,7 @@ def download(url):
     """
     # For now, we assume that the url is for an uncompressed image
     # TBD: whether or not this is a valid assumption
-    logging.info('Downloading image from %s', url)
+    logger.info('Downloading image from %s', url)
     filename = IMAGEFILE
     urllib.request.urlretrieve(url, filename)
     return filename
@@ -99,7 +101,7 @@ def udf_create_image(params):
             cmd.append('-o')
             cmd.append(tmp_imagepath)
 
-        logging.info('Creating snappy image with: %s', cmd)
+        logger.info('Creating snappy image with: %s', cmd)
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         shutil.move(tmp_imagepath, imagepath)
 
@@ -214,3 +216,28 @@ def compress_file(filename):
                 compressed_image.write(data)
     os.unlink(filename)
     return compressed_filename
+
+
+def configure_logging(config):
+    class AgentFilter(logging.Filter):
+        def __init__(self, agent_name):
+            super(AgentFilter, self).__init__()
+            self.agent_name = agent_name
+
+        def filter(self, record):
+            record.agent_name = self.agent_name
+            return True
+
+    logging.basicConfig(
+        format='%(asctime)s %(agent_name)s %(levelname)s: %(message)s')
+    agent_name = config.get('agent_name', "")
+    logger.addFilter(AgentFilter(agent_name))
+    logstash_host = config.get('logstash_host', None)
+
+    if logstash_host is not None:
+        try:
+            import logstash
+        except ImportError:
+            print('Install python-logstash if you want to use logstash logging')
+        else:
+            logger.addHandler(logstash.LogstashHandler(logstash_host, 5959, 1))
