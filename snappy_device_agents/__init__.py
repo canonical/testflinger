@@ -21,7 +21,7 @@ import shutil
 import socket
 import subprocess
 import tempfile
-import urllib
+import urllib.request
 
 IMAGEFILE = 'snappy.img'
 
@@ -57,19 +57,22 @@ def get_test_opportunity(spi_file='spi_test_opportunity.json'):
     return test_opportunity
 
 
-def download(url):
+def download(url, filename=None):
     """
-    Download the snappy image at the specified URL
+    Download the at the specified URL
 
     :param url:
         URL of the file to download
+    :param filename:
+        Filename to save the file as, defaults to the basename from the url
     :return filename:
         Filename of the downloaded snappy core image
     """
     # For now, we assume that the url is for an uncompressed image
     # TBD: whether or not this is a valid assumption
-    logger.info('Downloading image from %s', url)
-    filename = IMAGEFILE
+    logger.info('Downloading file from %s', url)
+    if filename is None:
+        filename = os.path.basename(url)
     urllib.request.urlretrieve(url, filename)
     return filename
 
@@ -143,8 +146,12 @@ def get_image(spi_file='spi_test_opportunity.json'):
     """
     spi_data = get_test_opportunity(spi_file)
     image_keys = spi_data.get('image_reference').keys()
+    if 'download_files' in image_keys:
+        for url in spi_data.get('image_reference').get('download_files'):
+            download(url)
     if 'url' in image_keys:
-        image = download(spi_data.get('image_reference').get('url'))
+        image = download(spi_data.get('image_reference').get('url'),
+                         IMAGEFILE)
     elif 'udf-params' in image_keys:
         image = udf_create_image(
             spi_data.get('image_reference').get('udf-params'))
