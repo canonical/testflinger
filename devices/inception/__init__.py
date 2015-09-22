@@ -39,7 +39,8 @@ class provision(guacamole.Command):
             config = yaml.load(configfile)
         snappy_device_agents.configure_logging(config)
         device = Inception(ctx.args.config)
-        logger.info("ensure_master_image")
+        logger.info("BEGIN provision")
+        logger.info("Booting Master Image")
         device.ensure_master_image()
         image = snappy_device_agents.get_image(ctx.args.spi_data)
         server_ip = snappy_device_agents.get_local_ip_addr()
@@ -52,11 +53,12 @@ class provision(guacamole.Command):
             target=snappy_device_agents.serve_file, args=(q, image,))
         file_server.start()
         server_port = q.get()
-        logger.info("flash_test_image")
+        logger.info("Flashing Test Image")
         device.flash_test_image(server_ip, server_port)
         file_server.terminate()
-        logger.info("ensure_test_image")
+        logger.info("Booting Test Image")
         device.ensure_test_image(test_username, test_password)
+        logger.info("END provision")
 
     def register_arguments(self, parser):
         """Method called to customize the argument parser."""
@@ -74,6 +76,7 @@ class runtest(guacamole.Command):
         with open(ctx.args.config) as configfile:
             config = yaml.load(configfile)
         snappy_device_agents.configure_logging(config)
+        logger.info("BEGIN testrun")
 
         test_opportunity = snappy_device_agents.get_test_opportunity(
             ctx.args.spi_data)
@@ -87,8 +90,12 @@ class runtest(guacamole.Command):
                 logger.error("Unable to format command: %s", cmd)
 
             logger.info("Running: %s", cmd)
-            proc = subprocess.Popen(cmd, shell=True)
+            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT)
             proc.wait()
+            output, _ = proc.communicate()
+            logger.info("output:\n%s", output)
+        logger.info("END testrun")
 
     def register_arguments(self, parser):
         """Method called to customize the argument parser."""
