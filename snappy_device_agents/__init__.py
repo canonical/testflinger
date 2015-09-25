@@ -245,6 +245,7 @@ def configure_logging(config):
         try:
             import logstash
         except ImportError:
-            print('Install python-logstash if you want to use logstash logging')
+            print(
+                'Install python-logstash if you want to use logstash logging')
         else:
             logger.addHandler(logstash.LogstashHandler(logstash_host, 5959, 1))
