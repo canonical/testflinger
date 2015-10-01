@@ -78,21 +78,27 @@ class runtest(guacamole.Command):
         test_opportunity = snappy_device_agents.get_test_opportunity(
             ctx.args.spi_data)
         test_cmds = test_opportunity.get('test_payload').get('test_cmds')
+        exitcode = 0
         for cmd in test_cmds:
             # Settings from the device yaml configfile like device_ip can be
             # formatted in test commands like "foo {device_ip}"
             try:
                 cmd = cmd.format(**config)
             except:
+                exitcode = 20
                 logger.error("Unable to format command: %s", cmd)
 
             logger.info("Running: %s", cmd)
             proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT)
-            proc.wait()
+            rc = proc.wait()
             output, _ = proc.communicate()
+            if rc:
+                exitcode = 4
+                logger.warn("Command failed, rc=%d", rc)
             logger.info("output:\n%s", output)
         logger.info("END testrun")
+        return exitcode
 
     def register_arguments(self, parser):
         """Method called to customize the argument parser."""
