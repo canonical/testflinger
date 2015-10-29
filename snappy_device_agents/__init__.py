@@ -249,3 +249,24 @@ def configure_logging(config):
                 'Install python-logstash if you want to use logstash logging')
         else:
             logger.addHandler(logstash.LogstashHandler(logstash_host, 5959, 1))
+
+
+def logmsg(level, msg, *args, **kwargs):
+    """
+    Front end to logging that splits messages into 4096 byte chunks
+
+    :param level:
+        log level
+    :param msg:
+        log message
+    :param args:
+        args for filling message variables
+    :param kwargs:
+        key/value args, not currently used, but can be used through logging
+    """
+
+    if args:
+        msg = msg % args
+    logger.log(level, msg[:4096])
+    if len(msg) > 4096:
+        logmsg(level, msg[4096:])
