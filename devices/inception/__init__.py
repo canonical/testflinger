@@ -23,10 +23,9 @@ import guacamole
 
 import snappy_device_agents
 from devices.inception.inception import Inception
+from snappy_device_agents import logmsg
 
 device_name = "inception"
-
-logger = logging.getLogger()
 
 
 class provision(guacamole.Command):
@@ -39,8 +38,8 @@ class provision(guacamole.Command):
             config = yaml.load(configfile)
         snappy_device_agents.configure_logging(config)
         device = Inception(ctx.args.config)
-        logger.info("BEGIN provision")
-        logger.info("Booting Master Image")
+        logmsg(logging.INFO, "BEGIN provision")
+        logmsg(logging.INFO, "Booting Master Image")
         device.ensure_master_image()
         image = snappy_device_agents.get_image(ctx.args.spi_data)
         server_ip = snappy_device_agents.get_local_ip_addr()
@@ -53,12 +52,12 @@ class provision(guacamole.Command):
             target=snappy_device_agents.serve_file, args=(q, image,))
         file_server.start()
         server_port = q.get()
-        logger.info("Flashing Test Image")
+        logmsg(logging.INFO, "Flashing Test Image")
         device.flash_test_image(server_ip, server_port)
         file_server.terminate()
-        logger.info("Booting Test Image")
+        logmsg(logging.INFO, "Booting Test Image")
         device.ensure_test_image(test_username, test_password)
-        logger.info("END provision")
+        logmsg(logging.INFO, "END provision")
 
     def register_arguments(self, parser):
         """Method called to customize the argument parser."""
@@ -76,7 +75,7 @@ class runtest(guacamole.Command):
         with open(ctx.args.config) as configfile:
             config = yaml.load(configfile)
         snappy_device_agents.configure_logging(config)
-        logger.info("BEGIN testrun")
+        logmsg(logging.INFO, "BEGIN testrun")
 
         test_opportunity = snappy_device_agents.get_test_opportunity(
             ctx.args.spi_data)
@@ -89,18 +88,18 @@ class runtest(guacamole.Command):
                 cmd = cmd.format(**config)
             except:
                 exitcode = 20
-                logger.error("Unable to format command: %s", cmd)
+                logmsg(logging.ERROR, "Unable to format command: %s", cmd)
 
-            logger.info("Running: %s", cmd)
+            logmsg(logging.INFO, "Running: %s", cmd)
             proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT)
             rc = proc.wait()
             output, _ = proc.communicate()
             if rc:
                 exitcode = 4
-                logger.warn("Command failed, rc=%d", rc)
-            logger.info("output:\n%s", output)
-        logger.info("END testrun")
+                logmsg(logging.WARNING, "Command failed, rc=%d", rc)
+            logmsg(logging.INFO, "output:\n%s", output)
+        logmsg(logging.INFO, "END testrun")
         return exitcode
 
     def register_arguments(self, parser):
