@@ -19,6 +19,8 @@ import subprocess
 import time
 import yaml
 
+from devices import ProvisioningError
+
 logger = logging.getLogger()
 
 
@@ -72,16 +74,19 @@ class BeagleBoneBlack:
             except:
                 raise RuntimeError("timeout reaching control host!")
 
-    def ensure_test_image(self):
+    def ensure_test_image(self, test_username, test_password):
         """
         Actively switch the device to boot the test image.
 
-        :raises RuntimeError:
+        :param test_username:
+            Username of the default user in the test image
+        :param test_password:
+            Password of the default user in the test image
+        :raises ProvisioningError:
             If the command times out or anything else fails.
         """
-        # FIXME: I don't have a great way to ensure we're in the test image
-        # yet, so just check that we're *not* in the emmc image
         logger.info("Booting the test image")
+        self.setboot('test')
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                'ubuntu@{}'.format(self.config['device_ip']),
@@ -91,21 +96,48 @@ class BeagleBoneBlack:
         except:
             pass
         time.sleep(60)
-        self.setboot('test')
         self.hardreset()
 
-        emmc_booted = False
         started = time.time()
+        # Retry for a while since we might still be rebooting
+        test_image_booted = False
         while time.time() - started < 300:
             try:
-                emmc_booted = self.is_emmc_image_booted()
+                time.sleep(10)
+                cmd = ['sshpass', '-p', test_password, 'ssh-copy-id',
+                       '-o', 'StrictHostKeyChecking=no',
+                       '-o', 'UserKnownHostsFile=/dev/null',
+                       '{}@{}'.format(test_username, self.config['device_ip'])]
+                subprocess.check_call(cmd)
+                test_image_booted = self.is_test_image_booted()
             except:
-                continue
-            break
-        # Check again if we are in the emmc image
-        if emmc_booted:
-            # XXX: This should *never* happen since we set the boot mode!
-            raise RuntimeError("Still booting to emmc after flashing image!")
+                pass
+            if test_image_booted:
+                break
+        # Check again if we are in the master image
+        if not test_image_booted:
+            raise ProvisioningError("Failed to boot test image!")
+
+    def is_test_image_booted(self):
+        """
+        Check if the master image is booted.
+
+        :returns:
+            True if the test image is currently booted, False otherwise.
+        :raises TimeoutError:
+            If the command times out
+        :raises CalledProcessError:
+            If the command fails
+        """
+
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'ubuntu@{}'.format(self.config['device_ip']),
+               'snappy info']
+        subprocess.check_output(
+            cmd, stderr=subprocess.STDOUT, timeout=60)
+        # If we get here, then the above command proved we are in snappy
+        return True
 
     def is_emmc_image_booted(self):
         """

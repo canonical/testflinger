@@ -45,6 +45,10 @@ class provision(guacamole.Command):
         device.ensure_emmc_image()
         image = snappy_device_agents.get_image(ctx.args.spi_data)
         server_ip = snappy_device_agents.get_local_ip_addr()
+        test_username = snappy_device_agents.get_test_username(
+            ctx.args.spi_data)
+        test_password = snappy_device_agents.get_test_password(
+            ctx.args.spi_data)
         q = multiprocessing.Queue()
         file_server = multiprocessing.Process(
             target=snappy_device_agents.serve_file, args=(q, image,))
@@ -54,7 +58,7 @@ class provision(guacamole.Command):
         device.flash_sd(server_ip, server_port)
         file_server.terminate()
         logmsg(logging.INFO, "Booting Test Image")
-        device.ensure_test_image()
+        device.ensure_test_image(test_username, test_password)
         logmsg(logging.INFO, "END provision")
 
     def register_arguments(self, parser):
