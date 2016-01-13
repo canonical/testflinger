@@ -99,7 +99,7 @@ class Inception:
         time.sleep(60)
 
         started = time.time()
-        # Retry for a while since we might still be reooting
+        # Retry for a while since we might still be rebooting
         test_image_booted = False
         while time.time() - started < 300:
             try:
