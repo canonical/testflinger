@@ -105,7 +105,11 @@ def udf_create_image(params):
             cmd.append(tmp_imagepath)
 
         logger.info('Creating snappy image with: %s', cmd)
-        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        try:
+            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            logger.error('Image Creation Output:\n %s', e.output)
+            raise
         logger.info('Image Creation Output:\n %s', output)
         shutil.move(tmp_imagepath, imagepath)
 
