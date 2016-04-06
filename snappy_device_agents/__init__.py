@@ -77,6 +77,30 @@ def download(url, filename=None):
     return filename
 
 
+def delayretry(func, args, max_retry=3, delay=0):
+    """
+    Retry the called function with a delay inserted between attempts
+
+    :param func:
+        Function to retry
+    :param args:
+        List of args to pass to func()
+    :param max_retry:
+        Maximum number of times to retry
+    :delay:
+        Time (in seconds) to delay between attempts
+    """
+    for retry_count in range(max_retry):
+        try:
+            ret = func(*args)
+        except:
+            time.sleep(delay)
+            if retry_count == max_retry-1:
+                raise
+            continue
+        return ret
+
+
 def udf_create_image(params):
     """
     Create a new snappy core image with ubuntu-device-flash
@@ -157,8 +181,9 @@ def get_image(spi_file='spi_test_opportunity.json'):
         image = download(spi_data.get('image_reference').get('url'),
                          IMAGEFILE)
     elif 'udf-params' in image_keys:
-        image = udf_create_image(
-            spi_data.get('image_reference').get('udf-params'))
+        udf_params = spi_data.get('image_reference').get('udf-params')
+        image = delayretry(udf_create_image, [udf_params],
+                           max_retries=3, delay=60)
     else:
         logging.error('image_reference needs to contain "url" for the image '
                       'or "udf-params"')
