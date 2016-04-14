@@ -133,7 +133,7 @@ class Dragonboard:
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                'ubuntu@{}'.format(self.config['device_ip']),
-               'snappy info']
+               'snap -h']
         try:
             subprocess.check_output(
                 cmd, stderr=subprocess.STDOUT, timeout=60)
