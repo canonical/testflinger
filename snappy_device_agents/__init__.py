@@ -77,7 +77,7 @@ def download(url, filename=None):
     return filename
 
 
-def delayretry(func, args, max_retry=3, delay=0):
+def delayretry(func, args, max_retries=3, delay=0):
     """
     Retry the called function with a delay inserted between attempts
 
@@ -85,17 +85,17 @@ def delayretry(func, args, max_retry=3, delay=0):
         Function to retry
     :param args:
         List of args to pass to func()
-    :param max_retry:
+    :param max_retries:
         Maximum number of times to retry
     :delay:
         Time (in seconds) to delay between attempts
     """
-    for retry_count in range(max_retry):
+    for retry_count in range(max_retries):
         try:
             ret = func(*args)
         except:
             time.sleep(delay)
-            if retry_count == max_retry-1:
+            if retry_count == max_retries-1:
                 raise
             continue
         return ret
