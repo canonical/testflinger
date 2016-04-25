@@ -21,6 +21,7 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import time
 import urllib.request
 
 IMAGEFILE = 'snappy.img'
