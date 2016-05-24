@@ -12,9 +12,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import bz2
 import gzip
 import json
 import logging
+import lzma
 import netifaces
 import os
 import shutil
@@ -58,6 +60,21 @@ def get_test_opportunity(spi_file='spi_test_opportunity.json'):
     return test_opportunity
 
 
+def filetype(filename):
+    magic_headers = {
+        b"\x1f\x8b\x08": "gz",
+        b"\x42\x5a\x68": "bz2",
+        b"\xfd\x37\x7a\x58\x5a\x00": "xz"}
+    with open(filename, 'rb') as f:
+        filehead = f.read(1024)
+    filetype = "unknown"
+    for k, v in magic_headers.items():
+        if filehead.startswith(k):
+            filetype = v
+            break
+    return filetype
+
+
 def download(url, filename=None):
     """
     Download the at the specified URL
@@ -69,8 +86,6 @@ def download(url, filename=None):
     :return filename:
         Filename of the downloaded snappy core image
     """
-    # For now, we assume that the url is for an uncompressed image
-    # TBD: whether or not this is a valid assumption
     logger.info('Downloading file from %s', url)
     if filename is None:
         filename = os.path.basename(url)
@@ -238,19 +253,23 @@ def compress_file(filename):
     :return compressed_filename:
         The filename of the compressed file
     """
-    def read_buf(f):
-        # Read the data in chunks, rather than the whole thing
-        while True:
-            data = f.read(4096)
-            if not data:
-                break
-            yield data
-
     compressed_filename = "{}.gz".format(filename)
-    with open(filename, 'rb') as uncompressed_image:
+    if filetype(filename) is 'gz':
+        # just hard link it so we can unlink later without special handling
+        os.link(filename, compressed_filename)
+    elif filetype(filename) is 'bz2':
         with gzip.open(compressed_filename, 'wb') as compressed_image:
-            for data in read_buf(uncompressed_image):
-                compressed_image.write(data)
+            with bz2.BZ2File(filename, 'rb') as old_compressed:
+                shutil.copyfileobj(old_compressed, compressed_image)
+    elif filetype(filename) is 'xz':
+        with gzip.open(compressed_filename, 'wb') as compressed_image:
+            with lzma.LZMAFile(filename, 'rb') as old_compressed:
+                shutil.copyfileobj(old_compressed, compressed_image)
+    else:
+        # filetype is 'unknown' so assumed to be raw image
+        with open(filename, 'rb') as uncompressed_image:
+            with gzip.open(compressed_filename, 'wb') as compressed_image:
+                shutil.copyfileobj(uncompressed_image, compressed_image)
     os.unlink(filename)
     return compressed_filename
 
