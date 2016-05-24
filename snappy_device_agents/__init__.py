@@ -254,6 +254,11 @@ def compress_file(filename):
         The filename of the compressed file
     """
     compressed_filename = "{}.gz".format(filename)
+    try:
+        # If debug enabled in SPI, an older image could still be there
+        os.unlink(compressed_filename)
+    except:
+        pass
     if filetype(filename) is 'gz':
         # just hard link it so we can unlink later without special handling
         os.link(filename, compressed_filename)
