@@ -14,6 +14,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import uuid
+
+from flask import jsonify
+
 
 def home():
     """Identify ourselves"""
@@ -22,7 +26,7 @@ def home():
 
 def add_job():
     """Add a job to the queue"""
-    return "OK"
+    return jsonify(job_id=uuid.uuid1())
 
 
 def result_post(job_id):
@@ -31,6 +35,8 @@ def result_post(job_id):
     :param job_id:
         UUID as a string for the job
     """
+    if not check_valid_uuid(job_id):
+        return 'Invalid job id\n', 400
     return "OK"
 
 
@@ -42,4 +48,22 @@ def result_get(job_id):
     :return:
         json data of results for the specified id
     """
+    if not check_valid_uuid(job_id):
+        return 'Invalid job id\n', 400
     return "OK"
+
+
+def check_valid_uuid(job_id):
+    """Check that the specified job_id is a valid UUID only
+
+    :param job_id:
+        UUID as a string for the job
+    :return:
+        True if job_id is valid, False if not
+    """
+
+    try:
+        uuid.UUID(job_id)
+    except:
+        return False
+    return True
