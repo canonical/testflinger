@@ -14,6 +14,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import os
+
 from testflinger import v1
 from testflinger import errors
 from flask import(
@@ -22,9 +24,18 @@ from flask import(
 )
 
 
+class DefaultConfig(object):
+    AMQP_URI = 'amqp://guest:guest@localhost:5672//'
+    PROPAGATE_EXCEPTIONS = True
+
+
 def create_flask_app():
     app = Flask(__name__)
-    app.config['PROPAGATE_EXCEPTIONS'] = True
+    app.config.from_object(DefaultConfig)
+    # Additional config can be specified with env var TESTFLINGER_CONFIG
+    # Otherwise load it from testflinger.conf in the testflinger dir
+    config_file = os.environ.get('TESTFLINGER_CONFIG', 'testflinger.conf')
+    app.config.from_pyfile(config_file, silent=True)
 
     app.add_url_rule('/', 'home', v1.home)
     app.add_url_rule('/v1/job', 'add_job', v1.add_job, methods=['POST'])
