@@ -14,14 +14,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import logging
 import os
 
 from testflinger import v1
-from testflinger import errors
-from flask import(
-    Flask,
-    jsonify,
-)
+from flask import Flask
 
 
 class DefaultConfig(object):
@@ -31,6 +28,11 @@ class DefaultConfig(object):
 
 def create_flask_app():
     app = Flask(__name__)
+
+    if not app.debug:
+        stream_handler = logging.StreamHandler()
+        stream_handler.setLevel(logging.INFO)
+        app.logger.addHandler(stream_handler)
 
     app.config.from_object(DefaultConfig)
     # Additional config can be specified with env var TESTFLINGER_CONFIG
@@ -45,11 +47,10 @@ def create_flask_app():
     app.add_url_rule('/v1/result/<job_id>', 'result_get', v1.result_get,
                      methods=['GET'])
 
-    @app.errorhandler(errors.CustomHttpException)
-    def handle_custom_exception(error):
-        response = jsonify(error.to_dict())
-        response.status_code = error._http_status
-        return response
+    @app.errorhandler(Exception)
+    def unhandled_exception(e):
+        app.logger.exception('Unhandled Exception: %s', (e))
+        return 'Unhandled Exception: {}\n'.format(e), 500
 
     return app
 
