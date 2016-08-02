@@ -20,6 +20,7 @@ from setuptools import setup
 
 INSTALL_REQUIRES = [
     "gunicorn",
+    "kombu",
     "flask",
 ]
 
@@ -32,4 +33,3 @@ setup(
     install_requires=INSTALL_REQUIRES,
     test_suite='testflinger.tests',
 )
-

@@ -23,16 +23,32 @@ from unittest import TestCase
 class APITest(TestCase):
 
     def setUp(self):
+        # Use the in-memory controller for testing
+        testflinger.app.config['AMQP_URI'] = 'memory://'
         self.app = testflinger.app.test_client()
 
     def test_home(self):
         output = self.app.get('/')
         self.assertEqual('Testflinger Server', output.data.decode())
 
-    def test_add_job(self):
-        output = self.app.post('/v1/job')
+    def test_add_job_good(self):
+        output = self.app.post('/v1/job',
+                               data=json.dumps(dict(job_queue='test')),
+                               content_type='application/json')
         job_id = json.loads(output.data.decode()).get('job_id')
         self.assertTrue(testflinger.v1.check_valid_uuid(job_id))
+
+    def test_add_job_bad(self):
+        output = self.app.post('/v1/job')
+        self.assertEqual(400, output.status_code)
+
+    def test_add_job_bad_job_queue(self):
+        output = self.app.post('/v1/job',
+                               data=json.dumps(dict(foo='test')),
+                               content_type='application/json')
+        self.assertEqual('Invalid data or no job_queue specified\n',
+                         output.data.decode())
+        self.assertEqual(400, output.status_code)
 
     def test_result_get_good(self):
         output = self.app.get(

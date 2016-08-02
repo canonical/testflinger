@@ -14,7 +14,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+
 class CustomHttpException(Exception):
-
     """A class that is rendered nicely to the user when raised."""
-

@@ -31,6 +31,7 @@ class DefaultConfig(object):
 
 def create_flask_app():
     app = Flask(__name__)
+
     app.config.from_object(DefaultConfig)
     # Additional config can be specified with env var TESTFLINGER_CONFIG
     # Otherwise load it from testflinger.conf in the testflinger dir
