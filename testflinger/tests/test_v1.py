@@ -15,6 +15,8 @@
 #
 
 import json
+import shutil
+import tempfile
 import testflinger
 
 from unittest import TestCase
@@ -25,7 +27,11 @@ class APITest(TestCase):
     def setUp(self):
         # Use the in-memory controller for testing
         testflinger.app.config['AMQP_URI'] = 'memory://'
+        testflinger.app.config['DATA_PATH'] = tempfile.mkdtemp()
         self.app = testflinger.app.test_client()
+
+    def tearDown(self):
+        shutil.rmtree(testflinger.app.config['DATA_PATH'])
 
     def test_home(self):
         output = self.app.get('/')
@@ -50,10 +56,10 @@ class APITest(TestCase):
                          output.data.decode())
         self.assertEqual(400, output.status_code)
 
-    def test_result_get_good(self):
+    def test_result_get_result_not_exists(self):
         output = self.app.get(
-            '/v1/result/00000000-0000-0000-0000-000000000000')
-        self.assertEqual('OK', output.data.decode())
+            '/v1/result/11111111-1111-1111-1111-111111111111')
+        self.assertEqual(204, output.status_code)
 
     def test_result_get_bad(self):
         output = self.app.get('/v1/result/BAD_JOB_ID')
@@ -61,9 +67,12 @@ class APITest(TestCase):
         self.assertEqual(400, output.status_code)
 
     def test_result_post_good(self):
-        output = self.app.post(
-            '/v1/result/00000000-0000-0000-0000-000000000000')
+        result_url = '/v1/result/00000000-0000-0000-0000-000000000000'
+        data = json.dumps(dict(foo='test'))
+        output = self.app.post(result_url, data=data,
+                               content_type='application/json')
         self.assertEqual('OK', output.data.decode())
+        output = self.app.get(result_url)
 
     def test_result_post_bad(self):
         output = self.app.post('/v1/result/BAD_JOB_ID')

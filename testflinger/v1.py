@@ -16,6 +16,7 @@
 
 import json
 import kombu
+import os
 import uuid
 
 from flask import(
@@ -53,6 +54,10 @@ def result_post(job_id):
     """
     if not check_valid_uuid(job_id):
         return 'Invalid job id\n', 400
+    data = request.get_json()
+    result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
+    with open(result_file, 'w') as results:
+        results.write(json.dumps(data))
     return "OK"
 
 
@@ -66,7 +71,12 @@ def result_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return 'Invalid job id\n', 400
-    return "OK"
+    result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
+    if not os.path.exists(result_file):
+        return "", 204
+    with open(result_file) as results:
+        data = results.read()
+    return data
 
 
 def check_valid_uuid(job_id):

@@ -23,6 +23,8 @@ from flask import Flask
 
 class DefaultConfig(object):
     AMQP_URI = 'amqp://guest:guest@localhost:5672//'
+    DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             'data')
     PROPAGATE_EXCEPTIONS = True
 
 
@@ -39,6 +41,8 @@ def create_flask_app():
     # Otherwise load it from testflinger.conf in the testflinger dir
     config_file = os.environ.get('TESTFLINGER_CONFIG', 'testflinger.conf')
     app.config.from_pyfile(config_file, silent=True)
+    if not os.path.exists(app.config['DATA_PATH']):
+        os.makedirs(app.config['DATA_PATH'])
 
     app.add_url_rule('/', 'home', v1.home)
     app.add_url_rule('/v1/job', 'add_job', v1.add_job, methods=['POST'])
