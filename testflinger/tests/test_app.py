@@ -25,8 +25,8 @@ class ConfigTest(TestCase):
 
     def test_default_config(self):
         app = testflinger.app
-        self.assertEqual(app.config.get('AMQP_URI'),
-                         'amqp://guest:guest@localhost:5672//')
+        self.assertEqual(app.config.get('REDIS_HOST'), 'localhost')
+        self.assertEqual(app.config.get('REDIS_PORT'), '6379')
 
     def test_load_config(self):
         with tempfile.NamedTemporaryFile() as testconfig:

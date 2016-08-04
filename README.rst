@@ -60,9 +60,13 @@ Currently supported configuration values are:
 
   - Default: ''/data'' under the testflinger module directory
 
-- **AMQP_URI**: URI to use for connecting to the rabbit Server
+- **REDIS_HOST**: host or ip of the redis server
 
-  - Default: ''amqp://guest:guest@localhost:5672//''
+  - Default: ''localhost''
+
+- **REDIS_PORT**: port of the redis server
+
+  - Default: ''6379''
 
 API
 ---
@@ -71,7 +75,7 @@ API
 
 Most parameters passed in the data section of this API will be specific to the
 type of agent receiving them. The *job_queue* parameter is used to designate
-the rabbit queue used, but all others will be passed along to the agent.
+the queue used, but all others will be passed along to the agent.
 
 - Parameters:
 

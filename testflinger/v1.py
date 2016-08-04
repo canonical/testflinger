@@ -15,7 +15,7 @@
 #
 
 import json
-import kombu
+import redis
 import os
 import uuid
 
@@ -32,7 +32,7 @@ def home():
     return 'Testflinger Server'
 
 
-def add_job():
+def job_post():
     """Add a job to the queue"""
     data = request.get_json()
     try:
@@ -103,7 +103,7 @@ def submit_job(job_queue, data):
     :param data:
         JSON data to pass along containing details about the test job
     """
-    amqp_uri = testflinger.app.config.get('AMQP_URI')
-    with kombu.Connection(amqp_uri) as conn:
-        with conn.SimpleQueue(job_queue) as queue:
-            queue.put(data)
+    redis_host = testflinger.app.config.get('REDIS_HOST')
+    redis_port = testflinger.app.config.get('REDIS_PORT')
+    client = redis.Redis(host=redis_host, port=redis_port)
+    client.lpush(job_queue, data)

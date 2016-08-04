@@ -20,8 +20,13 @@ from setuptools import setup
 
 INSTALL_REQUIRES = [
     "gunicorn",
-    "kombu",
+    "redis",
     "flask",
+]
+
+TEST_REQUIRES = [
+    "fakeredis",
+    "mock",
 ]
 
 setup(
@@ -31,5 +36,6 @@ setup(
     packages=['testflinger'],
     zip_safe=False,
     install_requires=INSTALL_REQUIRES,
+    tests_require=TEST_REQUIRES,
     test_suite='testflinger.tests',
 )

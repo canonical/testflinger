@@ -22,7 +22,8 @@ from flask import Flask
 
 
 class DefaultConfig(object):
-    AMQP_URI = 'amqp://guest:guest@localhost:5672//'
+    REDIS_HOST = 'localhost'
+    REDIS_PORT = '6379'
     DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              'data')
     PROPAGATE_EXCEPTIONS = True
@@ -45,7 +46,7 @@ def create_flask_app():
         os.makedirs(app.config['DATA_PATH'])
 
     app.add_url_rule('/', 'home', v1.home)
-    app.add_url_rule('/v1/job', 'add_job', v1.add_job, methods=['POST'])
+    app.add_url_rule('/v1/job', 'job_post', v1.job_post, methods=['POST'])
     app.add_url_rule('/v1/result/<job_id>', 'result_post', v1.result_post,
                      methods=['POST'])
     app.add_url_rule('/v1/result/<job_id>', 'result_get', v1.result_get,

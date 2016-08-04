@@ -14,19 +14,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import fakeredis
 import json
 import shutil
 import tempfile
 import testflinger
 
+from mock import patch
 from unittest import TestCase
 
 
 class APITest(TestCase):
 
     def setUp(self):
-        # Use the in-memory controller for testing
-        testflinger.app.config['AMQP_URI'] = 'memory://'
         testflinger.app.config['DATA_PATH'] = tempfile.mkdtemp()
         self.app = testflinger.app.test_client()
 
@@ -37,6 +37,7 @@ class APITest(TestCase):
         output = self.app.get('/')
         self.assertEqual('Testflinger Server', output.data.decode())
 
+    @patch('redis.Redis', fakeredis.FakeRedis)
     def test_add_job_good(self):
         output = self.app.post('/v1/job',
                                data=json.dumps(dict(job_queue='test')),
