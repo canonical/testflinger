@@ -46,6 +46,18 @@ def job_post():
     return jsonify(job_id=uuid.uuid1())
 
 
+def job_get():
+    """Request a job to run from supported queues"""
+    queue_list = request.args.getlist('queue')
+    if not queue_list:
+        return "No queue(s) specified in request", 400
+    job = get_job(queue_list)
+    if job:
+        return job
+    else:
+        return "", 204
+
+
 def result_post(job_id):
     """Post a result for a specified job_id
 
@@ -107,3 +119,15 @@ def submit_job(job_queue, data):
     redis_port = testflinger.app.config.get('REDIS_PORT')
     client = redis.Redis(host=redis_host, port=redis_port)
     client.lpush(job_queue, data)
+
+
+def get_job(queue_list):
+    redis_host = testflinger.app.config.get('REDIS_HOST')
+    redis_port = testflinger.app.config.get('REDIS_PORT')
+    client = redis.Redis(host=redis_host, port=redis_port)
+    # The queue name and the job are returned, but we don't need the queue now
+    try:
+        _, job = client.brpop(queue_list, timeout=1)
+    except TypeError:
+        return None
+    return job

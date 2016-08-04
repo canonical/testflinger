@@ -39,11 +39,24 @@ class APITest(TestCase):
 
     @patch('redis.Redis', fakeredis.FakeRedis)
     def test_add_job_good(self):
-        output = self.app.post('/v1/job',
-                               data=json.dumps(dict(job_queue='test')),
+        job_data = json.dumps(dict(job_queue='test'))
+        # Place a job on the queue
+        output = self.app.post('/v1/job', data=job_data,
                                content_type='application/json')
         job_id = json.loads(output.data.decode()).get('job_id')
         self.assertTrue(testflinger.v1.check_valid_uuid(job_id))
+        # Now get the job and confirm it matches
+        output = self.app.get('/v1/job?queue=test')
+        self.assertEqual(output.data.decode(), job_data)
+
+    @patch('redis.Redis', fakeredis.FakeRedis)
+    def test_get_nonexistant_job(self):
+        output = self.app.get('/v1/job?queue=BAD_QUEUE_NAME')
+        self.assertEqual(204, output.status_code)
+
+    def test_get_job_no_queue(self):
+        output = self.app.get('/v1/job')
+        self.assertEqual(400, output.status_code)
 
     def test_add_job_bad(self):
         output = self.app.post('/v1/job')
@@ -74,6 +87,7 @@ class APITest(TestCase):
                                content_type='application/json')
         self.assertEqual('OK', output.data.decode())
         output = self.app.get(result_url)
+        self.assertEqual(output.data.decode(), data)
 
     def test_result_post_bad(self):
         output = self.app.post('/v1/result/BAD_JOB_ID')

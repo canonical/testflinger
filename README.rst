@@ -97,6 +97,34 @@ the queue used, but all others will be passed along to the agent.
          --header "Content-Type: application/json" \
          --data '{ "job_queue": "myqueue", "option":"foo" }'
 
+**[GET] /v1/job** - Get a test job from the specified queue(s)
+
+When an agent wants to request a job for processing, it can make this request
+along with a list of one or more queues that it is configured to process. The
+server will only return one job.
+
+- Parameters:
+
+  - queue (multivalue): queue name(s) that the agent can process
+
+- Returns:
+
+  JSON job data that was submitted by the requestor, or nothing if no jobs
+  in the specified queue(s) are available.
+
+- Status Codes:
+
+  - HTTP 200 (OK)
+  - HTTP 400 (Bad Request) - this is returned if no queue is specified
+  - HTTP 204 (NO DATA)  - if there are no jobs in the specified queues
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl http://localhost:8000/v1/job?queue=foo\&queue=bar
+
+
 **[POST] /v1/result/<job_id>** - post job outcome data for the specified job_id
 
 - Parameters:
