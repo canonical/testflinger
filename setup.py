@@ -20,6 +20,7 @@ from setuptools import setup
 
 INSTALL_REQUIRES = [
     "PyYAML",
+    "voluptuous",
 ]
 
 setup(

@@ -12,31 +12,26 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import argparse
-import logging
-import yaml
+import voluptuous
 
-from testflinger_agent import schema
-
-logger = logging.getLogger()
-
-config = dict()
-
-
-def main():
-    args = parse_args()
-    load_config(args.config)
-
-
-def load_config(configfile):
-    global config
-    with open(configfile) as f:
-        config = yaml.safe_load(f)
-    schema.validate(config)
+SCHEMA_V1 = {
+    voluptuous.Required('agent_id'): str,
+    'polling_interval': int,
+    voluptuous.Required('server_address'): str,
+    'execution_basedir': str,
+    'logging_basedir': str,
+    voluptuous.Required('job_queues'): list,
+    'setup_command': str,
+    'provision_command': str,
+    'test_command': str,
+}
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Testflinger Agent')
-    parser.add_argument('--config', '-c', default='testflinger-agent.conf',
-                        help='Testflinger agent config file')
-    return parser.parse_args()
+def validate(data):
+    """Validate data according to known schemas
+
+    :param data:
+        Data to validate
+    """
+    v1 = voluptuous.Schema(SCHEMA_V1)
+    v1(data)

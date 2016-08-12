@@ -15,19 +15,39 @@
 import os
 import tempfile
 import testflinger_agent
+import voluptuous
 
 from unittest import TestCase
+
+GOOD_CONFIG = """
+agent_id: test01
+polling_interval: 10
+server_address: 127.0.0.1:8000
+job_queues:
+    - test
+"""
+
+BAD_CONFIG = """
+badkey: foo
+"""
 
 
 class ConfigTest(TestCase):
     def setUp(self):
         with tempfile.NamedTemporaryFile(delete=False) as config:
             self.configfile = config.name
-            config.write('agent_id: agent-foo'.encode())
 
     def tearDown(self):
         os.unlink(self.configfile)
 
-    def test_config(self):
+    def test_config_good(self):
+        with open(self.configfile, 'w') as config:
+            config.write(GOOD_CONFIG)
         testflinger_agent.load_config(self.configfile)
-        self.assertEqual('agent-foo', testflinger_agent.config.get('agent_id'))
+        self.assertEqual('test01', testflinger_agent.config.get('agent_id'))
+
+    def test_config_bad(self):
+        with open(self.configfile, 'w') as config:
+            config.write(BAD_CONFIG)
+        self.assertRaises(voluptuous.error.MultipleInvalid,
+                          testflinger_agent.load_config, self.configfile)
