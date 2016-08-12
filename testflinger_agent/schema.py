@@ -16,14 +16,16 @@ import voluptuous
 
 SCHEMA_V1 = {
     voluptuous.Required('agent_id'): str,
-    'polling_interval': int,
+    voluptuous.Required('polling_interval', default=10): int,
     voluptuous.Required('server_address'): str,
-    'execution_basedir': str,
-    'logging_basedir': str,
+    voluptuous.Required('execution_basedir',
+                        default='/tmp/testflinger/run'): str,
+    voluptuous.Required('logging_basedir',
+                        default='/tmp/testflinger/logs'): str,
     voluptuous.Required('job_queues'): list,
-    'setup_command': str,
-    'provision_command': str,
-    'test_command': str,
+    voluptuous.Required('setup_command', default=''): str,
+    voluptuous.Required('provision_command', default=''): str,
+    voluptuous.Required('test_command', default=''): str,
 }
 
 
