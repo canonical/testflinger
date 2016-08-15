@@ -32,7 +32,7 @@ def load_config(configfile):
     global config
     with open(configfile) as f:
         config = yaml.safe_load(f)
-    schema.validate(config)
+    config = schema.validate(config)
 
 
 def parse_args():

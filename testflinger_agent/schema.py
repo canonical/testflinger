@@ -36,4 +36,4 @@ def validate(data):
         Data to validate
     """
     v1 = voluptuous.Schema(SCHEMA_V1)
-    v1(data)
+    return v1(data)
