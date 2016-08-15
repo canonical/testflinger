@@ -14,6 +14,7 @@
 
 import argparse
 import logging
+import os
 import yaml
 
 from testflinger_agent import schema
@@ -26,6 +27,7 @@ config = dict()
 def main():
     args = parse_args()
     load_config(args.config)
+    configure_logging()
 
 
 def load_config(configfile):
@@ -33,6 +35,28 @@ def load_config(configfile):
     with open(configfile) as f:
         config = yaml.safe_load(f)
     config = schema.validate(config)
+
+
+def configure_logging():
+    global config
+    os.makedirs(config.get('logging_basedir'), exist_ok=True)
+    log_level = logging.getLevelName(config.get('logging_level'))
+    # This should help if they specify something invalid
+    if not isinstance(log_level, int):
+        log_level = logging.INFO
+    logfmt = logging.Formatter(
+        fmt='[%(asctime)s] %(levelname)+7.7s: %(message)s',
+        datefmt='%y-%m-%d %H:%M:%S')
+    file_log = logging.FileHandler(
+        filename=os.path.join(config.get('logging_basedir'),
+                              'testflinger-agent.log'))
+    file_log.setFormatter(logfmt)
+    logger.addHandler(file_log)
+    if not config.get('logging_quiet'):
+        console_log = logging.StreamHandler()
+        console_log.setFormatter(logfmt)
+        logger.addHandler(console_log)
+    logger.setLevel(log_level)
 
 
 def parse_args():

@@ -5,3 +5,82 @@ Testflinger Agent
 Testflinger agent waits for job requests on a configured queue, then processes
 them. The Testflinger Server submits those jobs, and once the job is complete,
 the agent can submit outcome data with limited results back to the server.
+
+Overview
+--------
+
+Testflinger-agent connects to the Testflinger microservice to request and
+service requests for tests.
+
+Installation
+------------
+
+To create a virtual environment and install testflinger-agent:
+
+.. code-block:: console
+
+  $ virtualenv env
+  $ . env/bin/activate
+  $ ./setup install
+
+Testing
+-------
+
+To run the unit tests, first install (see above) then:
+
+.. code-block:: console
+
+  $ ./setup test
+
+Configuration
+-------------
+
+Configuration is loaded from a yaml configuration file called
+testflinger-agent.conf by default. You can specify a different file
+to use for config data using the -c option.
+
+The following configuration options are supported:
+
+- **agent_id**:
+
+  - Unique identifier for this agent
+
+- **polling_interval**:
+
+  - Time to sleep between polling for new tests (default: 10s)
+
+- **server address**:
+
+  - Host/IP and port of the testflinger server
+
+- **execution_basedir**:
+
+  - Base directory to use for running jobs (default: /tmp/testflinger/run)
+
+- **logging_basedir**:
+
+  - Base directory to use for agent logging (default: /tmp/testflinger/logs)
+
+- **logging_level**:
+
+  - Python loglevel name to use for logging (default: INFO)
+
+- **logging_quiet**:
+
+  - Only log to the logfile, and not to the console (default: False)
+
+- **job_queues**:
+
+  - List of queues that can be serviced by this device
+
+- **setup_command**:
+
+  - Command to run for the setup phase
+
+- **provision_command**:
+
+  - Command to run for the provision phase
+
+- **test_command**:
+
+  - Command to run for the testing phase
