@@ -15,9 +15,11 @@
 import argparse
 import logging
 import os
+import sys
+import time
 import yaml
 
-from testflinger_agent import schema
+from testflinger_agent import (client, schema)
 
 logger = logging.getLogger()
 
@@ -28,6 +30,16 @@ def main():
     args = parse_args()
     load_config(args.config)
     configure_logging()
+    check_interval = config.get('polling_interval')
+    while True:
+        try:
+            logger.info("Checking jobs")
+            client.process_jobs()
+            logger.info("Sleeping for {}".format(check_interval))
+            time.sleep(check_interval)
+        except KeyboardInterrupt:
+            logger.info('Caught interrupt, exiting!')
+            sys.exit(0)
 
 
 def load_config(configfile):

@@ -20,7 +20,12 @@ from setuptools import setup
 
 INSTALL_REQUIRES = [
     "PyYAML",
+    "requests",
     "voluptuous",
+]
+
+TEST_REQUIRES = [
+    "mock",
 ]
 
 setup(
@@ -31,5 +36,6 @@ setup(
     zip_safe=False,
     install_requires=INSTALL_REQUIRES,
     test_suite='testflinger_agent.tests',
+    tests_require=TEST_REQUIRES,
     scripts=['testflinger-agent'],
 )
