@@ -42,8 +42,10 @@ def job_post():
         job_queue = None
     if not job_queue:
         return "Invalid data or no job_queue specified\n", 400
+    job_id = str(uuid.uuid1())
+    data['job_id'] = job_id
     submit_job(job_queue, json.dumps(data))
-    return jsonify(job_id=uuid.uuid1())
+    return jsonify(job_id=job_id)
 
 
 def job_get():

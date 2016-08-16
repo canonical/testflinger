@@ -47,7 +47,11 @@ class APITest(TestCase):
         self.assertTrue(testflinger.v1.check_valid_uuid(job_id))
         # Now get the job and confirm it matches
         output = self.app.get('/v1/job?queue=test')
-        self.assertEqual(output.data.decode(), job_data)
+        # unittest assertDictContainsSubset is deprecated, but
+        # this works pretty well in its place
+        expected_data = set(json.loads(job_data))
+        actual_data = set(json.loads(output.data.decode()))
+        self.assertTrue(expected_data.issubset(actual_data))
 
     @patch('redis.Redis', fakeredis.FakeRedis)
     def test_get_nonexistant_job(self):
