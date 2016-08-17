@@ -12,11 +12,16 @@ capable of handling the test.
 Installation
 ------------
 
+Before installing testflinger, you will need to have a redis server
+available somewhere. By default, testflinger will try to attach to
+one on localhost, but if you prefer, you can configure it to
+use a redis server on another server.
+
 To create a virtual environment and install testflinger:
 
 .. code-block:: console
 
-  $ virtualenv env
+  $ virtualenv -p python3 env
   $ . env/bin/activate
   $ ./setup install
 

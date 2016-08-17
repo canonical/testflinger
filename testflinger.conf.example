@@ -1,0 +1,8 @@
+# Normally, defaults will be sufficient and a config file is not
+# necessary. However, if you wish to use a different server for
+# redis, or store the data at an alternate location, these values
+# should be changed
+
+# DATA_PATH = '/path/to/my/data/location'
+# REDIS_HOST = 'localhost'
+# REDIS_PORT = '6379'
