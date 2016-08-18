@@ -57,8 +57,9 @@ class ClientRunTests(TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
+    @patch('requests.post')
     @patch('requests.get')
-    def test_check_and_run_setup(self, mock_requests_get):
+    def test_check_and_run_setup(self, mock_requests_get, mock_requests_post):
         testflinger_agent.config['setup_command'] = 'echo setup1'
         fake_job_data = {'job_id': str(uuid.uuid1()),
                          'job_queue': 'test'}
@@ -71,8 +72,10 @@ class ClientRunTests(TestCase):
                                      'setup.log')).read()
         self.assertEqual('setup1', setuplog.strip())
 
+    @patch('requests.post')
     @patch('requests.get')
-    def test_check_and_run_provision(self, mock_requests_get):
+    def test_check_and_run_provision(self, mock_requests_get,
+                                     mock_requests_post):
         testflinger_agent.config['provision_command'] = 'echo provision1'
         fake_job_data = {'job_id': str(uuid.uuid1()),
                          'job_queue': 'test'}
@@ -85,8 +88,9 @@ class ClientRunTests(TestCase):
                                          'provision.log')).read()
         self.assertEqual('provision1', provisionlog.strip())
 
+    @patch('requests.post')
     @patch('requests.get')
-    def test_check_and_run_test(self, mock_requests_get):
+    def test_check_and_run_test(self, mock_requests_get, mock_requests_post):
         testflinger_agent.config['test_command'] = 'echo test1'
         fake_job_data = {'job_id': str(uuid.uuid1()),
                          'job_queue': 'test'}
