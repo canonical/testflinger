@@ -87,8 +87,9 @@ def run_test_phase(phase, rundir):
         # Save the output log in the json file no matter what
         with open(os.path.join(rundir, 'testflinger-outcome.json')) as f:
             outcome_data = json.load(f)
-        outcome_data[phase+'_output'] = open(phase_log).read()
-        outcome_data[phase+'_status'] = exitcode
+        with open(phase_log) as f:
+            outcome_data[phase+'_output'] = f.read()
+            outcome_data[phase+'_status'] = exitcode
         with open(os.path.join(rundir, 'testflinger-outcome.json'), 'w') as f:
             json.dump(outcome_data, f)
 
