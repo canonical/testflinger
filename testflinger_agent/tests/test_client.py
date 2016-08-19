@@ -65,7 +65,9 @@ class ClientRunTests(TestCase):
                          'job_queue': 'test'}
         fake_response = requests.Response()
         fake_response._content = json.dumps(fake_job_data).encode()
-        mock_requests_get.return_value = fake_response
+        terminator = requests.Response()
+        terminator._content = {}
+        mock_requests_get.side_effect = [fake_response, terminator]
         testflinger_agent.client.process_jobs()
         setuplog = open(os.path.join(self.tmpdir,
                                      fake_job_data.get('job_id'),
@@ -81,7 +83,9 @@ class ClientRunTests(TestCase):
                          'job_queue': 'test'}
         fake_response = requests.Response()
         fake_response._content = json.dumps(fake_job_data).encode()
-        mock_requests_get.return_value = fake_response
+        terminator = requests.Response()
+        terminator._content = {}
+        mock_requests_get.side_effect = [fake_response, terminator]
         testflinger_agent.client.process_jobs()
         provisionlog = open(os.path.join(self.tmpdir,
                                          fake_job_data.get('job_id'),
@@ -96,7 +100,9 @@ class ClientRunTests(TestCase):
                          'job_queue': 'test'}
         fake_response = requests.Response()
         fake_response._content = json.dumps(fake_job_data).encode()
-        mock_requests_get.return_value = fake_response
+        terminator = requests.Response()
+        terminator._content = {}
+        mock_requests_get.side_effect = [fake_response, terminator]
         testflinger_agent.client.process_jobs()
         testlog = open(os.path.join(self.tmpdir,
                                     fake_job_data.get('job_id'),

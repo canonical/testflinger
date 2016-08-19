@@ -31,23 +31,25 @@ def process_jobs():
     """Coordinate checking for new jobs and handling them if they exists"""
     TEST_PHASES = ['setup', 'provision', 'test']
     job_data = check_jobs()
-    if not job_data:
-        return
-    logger.info("Starting job %s", job_data.get('job_id'))
-    rundir = os.path.join(testflinger_agent.config.get('execution_basedir'),
-                          job_data.get('job_id'))
-    os.makedirs(rundir)
-    # Dump the job data to testflinger.json in our execution directory
-    with open(os.path.join(rundir, 'testflinger.json'), 'w') as f:
-        json.dump(job_data, f)
-    # Create json outcome file where phases will store their output
-    with open(os.path.join(rundir, 'testflinger-outcome.json'), 'w') as f:
-        json.dump({}, f)
+    while job_data:
+        logger.info("Starting job %s", job_data.get('job_id'))
+        rundir = os.path.join(
+            testflinger_agent.config.get('execution_basedir'),
+            job_data.get('job_id'))
+        os.makedirs(rundir)
+        # Dump the job data to testflinger.json in our execution directory
+        with open(os.path.join(rundir, 'testflinger.json'), 'w') as f:
+            json.dump(job_data, f)
+        # Create json outcome file where phases will store their output
+        with open(os.path.join(rundir, 'testflinger-outcome.json'), 'w') as f:
+            json.dump({}, f)
 
-    for phase in TEST_PHASES:
-        run_test_phase(phase, rundir)
+        for phase in TEST_PHASES:
+            run_test_phase(phase, rundir)
 
-    transmit_job_outcome(rundir, job_data)
+        transmit_job_outcome(rundir, job_data)
+
+        job_data = check_jobs()
 
 
 def check_jobs():
