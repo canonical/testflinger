@@ -45,8 +45,10 @@ def process_jobs():
             json.dump({}, f)
 
         for phase in TEST_PHASES:
-            run_test_phase(phase, rundir)
-
+            exitcode = run_test_phase(phase, rundir)
+            if exitcode:
+                logger.debug('Phase %s failed, aborting job' % phase)
+                break
         transmit_job_outcome(rundir, job_data)
 
         job_data = check_jobs()
@@ -76,9 +78,19 @@ def check_jobs():
 
 
 def run_test_phase(phase, rundir):
+    """Run the specified test phase in rundir
+
+    :param phase:
+        Name of the test phase (setup, provision, test, ...)
+    :param rundir:
+        Directory in which to run the command defined for the phase
+    :return:
+        Returncode from the command that was executed, 0 will be returned
+        if there was no command to run
+    """
     cmd = testflinger_agent.config.get(phase+'_command')
     if not cmd:
-        return
+        return 0
     phase_log = os.path.join(rundir, phase+'.log')
     logger.info('Running %s_command: %s' % (phase, cmd))
     try:
@@ -92,6 +104,7 @@ def run_test_phase(phase, rundir):
             outcome_data[phase+'_status'] = exitcode
         with open(os.path.join(rundir, 'testflinger-outcome.json'), 'w') as f:
             json.dump(outcome_data, f)
+        return exitcode
 
 
 def transmit_job_outcome(rundir, job_data):

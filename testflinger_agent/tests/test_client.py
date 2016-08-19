@@ -108,3 +108,25 @@ class ClientRunTests(TestCase):
                                     fake_job_data.get('job_id'),
                                     'test.log')).read()
         self.assertEqual('test1', testlog.strip())
+
+    @patch('requests.post')
+    @patch('requests.get')
+    def test_phase_failed(self, mock_requests_get, mock_requests_post):
+        """Make sure we stop running after a failed phase"""
+        testflinger_agent.config['provision_command'] = '/bin/false'
+        testflinger_agent.config['test_command'] = 'echo test1'
+        fake_job_data = {'job_id': str(uuid.uuid1()),
+                         'job_queue': 'test'}
+        fake_response = requests.Response()
+        fake_response._content = json.dumps(fake_job_data).encode()
+        terminator = requests.Response()
+        terminator._content = {}
+        mock_requests_get.side_effect = [fake_response, terminator]
+        testflinger_agent.client.process_jobs()
+        outcome_file = os.path.join(os.path.join(self.tmpdir,
+                                                 fake_job_data.get('job_id'),
+                                                 'testflinger-outcome.json'))
+        with open(outcome_file) as f:
+            outcome_data = json.load(f)
+        self.assertEqual(1, outcome_data.get('provision_status'))
+        self.assertEqual(None, outcome_data.get('test_status'))
