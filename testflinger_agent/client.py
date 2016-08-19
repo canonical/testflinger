@@ -49,7 +49,7 @@ def process_jobs():
             if exitcode:
                 logger.debug('Phase %s failed, aborting job' % phase)
                 break
-        transmit_job_outcome(rundir, job_data)
+        transmit_job_outcome(rundir)
 
         job_data = check_jobs()
 
@@ -107,18 +107,18 @@ def run_test_phase(phase, rundir):
         return exitcode
 
 
-def transmit_job_outcome(rundir, job_data):
+def transmit_job_outcome(rundir):
     """Post job outcome json data to the testflinger server
 
     :param rundir:
         Execution dir where the results can be found
-    :param job_data:
-        Original job data for the test run, so we can get job_id and other info
     """
     server = testflinger_agent.config.get('server_address')
     if not server.lower().startswith('http'):
         server = 'http://' + server
     # Create uri for API: /v1/result/<job_id>
+    with open(os.path.join(rundir, 'testflinger.json')) as f:
+        job_data = json.load(f)
     job_id = job_data.get('job_id')
     result_uri = urljoin(server, '/v1/result/')
     result_uri = urljoin(result_uri, job_id)
