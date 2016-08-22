@@ -21,7 +21,7 @@ import uuid
 
 import testflinger_agent
 
-from mock import patch
+from mock import (patch, MagicMock)
 from unittest import TestCase
 
 
@@ -52,14 +52,19 @@ class ClientRunTests(TestCase):
                                     'job_queues': ['test'],
                                     'execution_basedir': self.tmpdir,
                                     'logging_basedir': self.tmpdir,
+                                    'results_basedir': os.path.join(
+                                        self.tmpdir,
+                                        'results')
                                     }
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
+    @patch('shutil.rmtree')
     @patch('requests.post')
     @patch('requests.get')
-    def test_check_and_run_setup(self, mock_requests_get, mock_requests_post):
+    def test_check_and_run_setup(self, mock_requests_get, mock_requests_post,
+                                 mock_rmtree):
         testflinger_agent.config['setup_command'] = 'echo setup1'
         fake_job_data = {'job_id': str(uuid.uuid1()),
                          'job_queue': 'test'}
@@ -68,16 +73,21 @@ class ClientRunTests(TestCase):
         terminator = requests.Response()
         terminator._content = {}
         mock_requests_get.side_effect = [fake_response, terminator]
+        # Make sure we return good status when posting the outcome
+        # shutil.rmtree is mocked so that we avoid removing the files
+        # before finishing the test
+        mock_requests_post.side_effect = [MagicMock(status_code=200)]
         testflinger_agent.client.process_jobs()
         setuplog = open(os.path.join(self.tmpdir,
                                      fake_job_data.get('job_id'),
                                      'setup.log')).read()
         self.assertEqual('setup1', setuplog.strip())
 
+    @patch('shutil.rmtree')
     @patch('requests.post')
     @patch('requests.get')
     def test_check_and_run_provision(self, mock_requests_get,
-                                     mock_requests_post):
+                                     mock_requests_post, mock_rmtree):
         testflinger_agent.config['provision_command'] = 'echo provision1'
         fake_job_data = {'job_id': str(uuid.uuid1()),
                          'job_queue': 'test'}
@@ -86,15 +96,21 @@ class ClientRunTests(TestCase):
         terminator = requests.Response()
         terminator._content = {}
         mock_requests_get.side_effect = [fake_response, terminator]
+        # Make sure we return good status when posting the outcome
+        # shutil.rmtree is mocked so that we avoid removing the files
+        # before finishing the test
+        mock_requests_post.side_effect = [MagicMock(status_code=200)]
         testflinger_agent.client.process_jobs()
         provisionlog = open(os.path.join(self.tmpdir,
                                          fake_job_data.get('job_id'),
                                          'provision.log')).read()
         self.assertEqual('provision1', provisionlog.strip())
 
+    @patch('shutil.rmtree')
     @patch('requests.post')
     @patch('requests.get')
-    def test_check_and_run_test(self, mock_requests_get, mock_requests_post):
+    def test_check_and_run_test(self, mock_requests_get, mock_requests_post,
+                                mock_rmtree):
         testflinger_agent.config['test_command'] = 'echo test1'
         fake_job_data = {'job_id': str(uuid.uuid1()),
                          'job_queue': 'test'}
@@ -103,15 +119,21 @@ class ClientRunTests(TestCase):
         terminator = requests.Response()
         terminator._content = {}
         mock_requests_get.side_effect = [fake_response, terminator]
+        # Make sure we return good status when posting the outcome
+        # shutil.rmtree is mocked so that we avoid removing the files
+        # before finishing the test
+        mock_requests_post.side_effect = [MagicMock(status_code=200)]
         testflinger_agent.client.process_jobs()
         testlog = open(os.path.join(self.tmpdir,
                                     fake_job_data.get('job_id'),
                                     'test.log')).read()
         self.assertEqual('test1', testlog.strip())
 
+    @patch('shutil.rmtree')
     @patch('requests.post')
     @patch('requests.get')
-    def test_phase_failed(self, mock_requests_get, mock_requests_post):
+    def test_phase_failed(self, mock_requests_get, mock_requests_post,
+                          mock_rmtree):
         """Make sure we stop running after a failed phase"""
         testflinger_agent.config['provision_command'] = '/bin/false'
         testflinger_agent.config['test_command'] = 'echo test1'
@@ -122,6 +144,10 @@ class ClientRunTests(TestCase):
         terminator = requests.Response()
         terminator._content = {}
         mock_requests_get.side_effect = [fake_response, terminator]
+        # Make sure we return good status when posting the outcome
+        # shutil.rmtree is mocked so that we avoid removing the files
+        # before finishing the test
+        mock_requests_post.side_effect = [MagicMock(status_code=200)]
         testflinger_agent.client.process_jobs()
         outcome_file = os.path.join(os.path.join(self.tmpdir,
                                                  fake_job_data.get('job_id'),

@@ -16,6 +16,7 @@ import logging
 import json
 import os
 import requests
+import shutil
 import subprocess
 import sys
 import time
@@ -23,6 +24,8 @@ import time
 from urllib.parse import urljoin
 
 import testflinger_agent
+
+from testflinger_agent.errors import TFServerError
 
 logger = logging.getLogger()
 
@@ -49,7 +52,11 @@ def process_jobs():
             if exitcode:
                 logger.debug('Phase %s failed, aborting job' % phase)
                 break
-        transmit_job_outcome(rundir)
+        try:
+            transmit_job_outcome(rundir)
+        except:
+            results_basedir = testflinger_agent.config.get('results_basedir')
+            shutil.move(rundir, results_basedir)
 
         job_data = check_jobs()
 
@@ -99,9 +106,10 @@ def run_test_phase(phase, rundir):
         # Save the output log in the json file no matter what
         with open(os.path.join(rundir, 'testflinger-outcome.json')) as f:
             outcome_data = json.load(f)
-        with open(phase_log) as f:
-            outcome_data[phase+'_output'] = f.read()
-            outcome_data[phase+'_status'] = exitcode
+        if os.path.exists(phase_log):
+            with open(phase_log) as f:
+                outcome_data[phase+'_output'] = f.read()
+        outcome_data[phase+'_status'] = exitcode
         with open(os.path.join(rundir, 'testflinger-outcome.json'), 'w') as f:
             json.dump(outcome_data, f)
         return exitcode
@@ -128,6 +136,8 @@ def transmit_job_outcome(rundir):
         if job_request.status_code != 200:
             logging.error('Unable to post results to: %s (error: %s)' %
                           (result_uri, job_request.status_code))
+            raise TFServerError(job_request.status_code)
+    shutil.rmtree(rundir)
 
 
 def run_with_log(cmd, logfile, cwd=None):

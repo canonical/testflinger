@@ -51,7 +51,10 @@ def load_config(configfile):
 
 def configure_logging():
     global config
+    # Create these at the beginning so we fail early if there are
+    # permission problems
     os.makedirs(config.get('logging_basedir'), exist_ok=True)
+    os.makedirs(config.get('results_basedir'), exist_ok=True)
     log_level = logging.getLevelName(config.get('logging_level'))
     # This should help if they specify something invalid
     if not isinstance(log_level, int):

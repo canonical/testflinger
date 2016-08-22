@@ -22,6 +22,8 @@ SCHEMA_V1 = {
                         default='/tmp/testflinger/run'): str,
     voluptuous.Required('logging_basedir',
                         default='/tmp/testflinger/logs'): str,
+    voluptuous.Required('results_basedir',
+                        default='/tmp/testflinger/results'): str,
     voluptuous.Required('logging_level', default='INFO'): str,
     voluptuous.Required('logging_quiet', default=False): bool,
     voluptuous.Required('job_queues'): list,
