@@ -33,6 +33,10 @@ logger = logging.getLogger()
 def process_jobs():
     """Coordinate checking for new jobs and handling them if they exists"""
     TEST_PHASES = ['setup', 'provision', 'test']
+
+    # First, see if we have any old results that we couldn't send last time
+    retry_old_results()
+
     job_data = check_jobs()
     while job_data:
         logger.info("Starting job %s", job_data.get('job_id'))
@@ -59,6 +63,24 @@ def process_jobs():
             shutil.move(rundir, results_basedir)
 
         job_data = check_jobs()
+
+
+def retry_old_results():
+    """Retry sending results that we previously failed to send"""
+
+    results_dir = testflinger_agent.config.get('results_basedir')
+    # List all the directories in 'results_basedir', where we store the
+    # results that we couldn't transmit before
+    old_results = [os.path.join(results_dir, d)
+                   for d in os.listdir(results_dir)
+                   if os.path.isdir(os.path.join(results_dir, d))]
+    for result in old_results:
+        try:
+            logger.info('Attempting to send result: %s' % result)
+            transmit_job_outcome(result)
+        except TFServerError:
+            # Problems still, better luck next time?
+            pass
 
 
 def check_jobs():

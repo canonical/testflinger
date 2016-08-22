@@ -20,6 +20,7 @@ import shutil
 import uuid
 
 import testflinger_agent
+from testflinger_agent.errors import TFServerError
 
 from mock import (patch, MagicMock)
 from unittest import TestCase
@@ -56,6 +57,7 @@ class ClientRunTests(TestCase):
                                         self.tmpdir,
                                         'results')
                                     }
+        testflinger_agent.configure_logging()
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
@@ -156,3 +158,32 @@ class ClientRunTests(TestCase):
             outcome_data = json.load(f)
         self.assertEqual(1, outcome_data.get('provision_status'))
         self.assertEqual(None, outcome_data.get('test_status'))
+
+    @patch('testflinger_agent.client.transmit_job_outcome')
+    @patch('requests.get')
+    def test_retry_transmit(self, mock_requests_get,
+                            mock_transmit_job_outcome):
+        """Make sure we retry sending test results"""
+        testflinger_agent.config['provision_command'] = '/bin/false'
+        testflinger_agent.config['test_command'] = 'echo test1'
+        fake_job_data = {'job_id': str(uuid.uuid1()),
+                         'job_queue': 'test'}
+        fake_response = requests.Response()
+        fake_response._content = json.dumps(fake_job_data).encode()
+        terminator = requests.Response()
+        terminator._content = {}
+        # Send an extra terminator since we will be calling get 3 times
+        mock_requests_get.side_effect = [fake_response, terminator, terminator]
+        # Make sure we fail the first time when transmitting the results
+        mock_transmit_job_outcome.side_effect = [TFServerError(404), 200]
+        testflinger_agent.client.process_jobs()
+        first_dir = os.path.join(
+            testflinger_agent.config.get('execution_basedir'),
+            fake_job_data.get('job_id'))
+        mock_transmit_job_outcome.assert_called_with(first_dir)
+        # Try processing the jobs again, now it should be in results_basedir
+        testflinger_agent.client.process_jobs()
+        retry_dir = os.path.join(
+            testflinger_agent.config.get('results_basedir'),
+            fake_job_data.get('job_id'))
+        mock_transmit_job_outcome.assert_called_with(retry_dir)
