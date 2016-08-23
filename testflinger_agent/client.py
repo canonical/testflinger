@@ -58,7 +58,10 @@ def process_jobs():
                 break
         try:
             transmit_job_outcome(rundir)
-        except:
+        except Exception as e:
+            # TFServerError will happen if we get other-than-good status
+            # Other errors can happen too for things like connection problems
+            logger.exception(e)
             results_basedir = testflinger_agent.config.get('results_basedir')
             shutil.move(rundir, results_basedir)
 
