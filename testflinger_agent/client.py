@@ -125,6 +125,8 @@ def run_test_phase(phase, rundir):
         return 0
     phase_log = os.path.join(rundir, phase+'.log')
     logger.info('Running %s_command: %s' % (phase, cmd))
+    # Set the exitcode to some failed status in case we get interrupted
+    exitcode = 99
     try:
         exitcode = run_with_log(cmd, phase_log, rundir)
     finally:
