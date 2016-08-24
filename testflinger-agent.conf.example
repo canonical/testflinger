@@ -5,7 +5,7 @@
 # polling_interval: 10
 
 # Host/IP and port of the testflinger server
-# server address: 127.0.0.1:8000
+# server_address: 127.0.0.1:8000
 
 # Base directory to use for running jobs
 #   (default: /tmp/testflinger/run)
@@ -14,6 +14,10 @@
 # Base directory to use for agent logging
 #   (default: /tmp/testflinger/logs)
 # logging_basedir: /tmp/testflinger/logs
+
+# Base directory to use for queuing results for retransmit
+#   (default: /tmp/testflinger/results)
+# results_basedir: /tmp/testflinger/results
 
 # Python loglevel name to use for logging (default: INFO)
 # logging_level: DEBUG
