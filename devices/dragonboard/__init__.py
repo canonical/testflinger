@@ -79,7 +79,7 @@ class runtest(guacamole.Command):
 
         test_opportunity = snappy_device_agents.get_test_opportunity(
             ctx.args.spi_data)
-        test_cmds = test_opportunity.get('test_payload').get('test_cmds')
+        test_cmds = test_opportunity.get('test_data').get('test_cmds')
         exitcode = 0
         for cmd in test_cmds:
             # Settings from the device yaml configfile like device_ip can be
