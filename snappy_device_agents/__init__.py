@@ -31,35 +31,17 @@ IMAGEFILE = 'snappy.img'
 logger = logging.getLogger()
 
 
-def get_test_opportunity(spi_file='testflinger.json'):
+def get_test_opportunity(job_data='testflinger.json'):
     """
-    Read the json test opportunity data from spi_test_opportunity.json.
+    Read the json test opportunity data from testflinger.json.
 
-    :param spi_file:
+    :param job_data:
         Filename and path of the json data if not the default
     :return test_opportunity:
         Dictionary of values read from the json file
     """
-    # PWL: TODO: probably get rid of this entire section = we should have all of it as real json already
-    with open(spi_file, encoding='utf-8') as spi_json:
-        test_opportunity = json.load(spi_json)
-    # test_payload and image_reference may contain json in a string
-    # XXX: This can be removed in the future when arbitrary json is
-    # supported
-    """
-    try:
-        test_opportunity['test_payload'] = json.loads(
-            test_opportunity['test_payload'])
-    except:
-        # If this fails, we simply leave the field alone
-        pass
-    try:
-        test_opportunity['image_reference'] = json.loads(
-            test_opportunity['image_reference'])
-    except:
-        # If this fails, we simply leave the field alone
-        pass
-    """
+    with open(job_data, encoding='utf-8') as job_data_json:
+        test_opportunity = json.load(job_data_json)
     return test_opportunity
 
 
@@ -159,7 +141,7 @@ def udf_create_image(params):
     return(imagepath)
 
 
-def get_test_username(spi_file='testflinger.json'):
+def get_test_username(job_data='testflinger.json'):
     """
     Read the json data for a test opportunity from SPI and return the
     username in specified for the test image (default: ubuntu)
@@ -167,11 +149,11 @@ def get_test_username(spi_file='testflinger.json'):
     :return username:
         Returns the test image username
     """
-    spi_data = get_test_opportunity(spi_file)
-    return spi_data.get('test_data').get('test_username', 'ubuntu')
+    testflinger_data = get_test_opportunity(job_data)
+    return testflinger_data.get('test_data').get('test_username', 'ubuntu')
 
 
-def get_test_password(spi_file='testflinger.json'):
+def get_test_password(job_data='testflinger.json'):
     """
     Read the json data for a test opportunity from SPI and return the
     password in specified for the test image (default: ubuntu)
@@ -179,11 +161,11 @@ def get_test_password(spi_file='testflinger.json'):
     :return password:
         Returns the test image password
     """
-    spi_data = get_test_opportunity(spi_file)
-    return spi_data.get('test_data').get('test_password', 'ubuntu')
+    testflinger_data = get_test_opportunity(job_data)
+    return testflinger_data.get('test_data').get('test_password', 'ubuntu')
 
 
-def get_image(spi_file='testflinger.json'):
+def get_image(job_data='testflinger.json'):
     """
     Read the json data for a test opportunity from SPI and retrieve or
     create the requested image.
@@ -191,16 +173,16 @@ def get_image(spi_file='testflinger.json'):
     :return compressed_filename:
         Returns the filename of the compressed image
     """
-    spi_data = get_test_opportunity(spi_file)
-    image_keys = spi_data.get('provision_data').keys()
+    testflinger_data = get_test_opportunity(job_data)
+    image_keys = testflinger_data.get('provision_data').keys()
     if 'download_files' in image_keys:
-        for url in spi_data.get('provision_data').get('download_files'):
+        for url in testflinger_data.get('provision_data').get('download_files'):
             download(url)
     if 'url' in image_keys:
-        image = download(spi_data.get('provision_data').get('url'),
+        image = download(testflinger_data.get('provision_data').get('url'),
                          IMAGEFILE)
     elif 'udf-params' in image_keys:
-        udf_params = spi_data.get('provision_data').get('udf-params')
+        udf_params = testflinger_data.get('provision_data').get('udf-params')
         image = delayretry(udf_create_image, [udf_params],
                            max_retries=3, delay=60)
     else:

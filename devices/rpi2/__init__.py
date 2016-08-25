@@ -43,7 +43,7 @@ class provision(guacamole.Command):
         logmsg(logging.INFO, "BEGIN provision")
         logmsg(logging.INFO, "Booting Master Image")
         device.ensure_master_image()
-        image = snappy_device_agents.get_image(ctx.args.spi_data)
+        image = snappy_device_agents.get_image(ctx.args.job_data)
         server_ip = snappy_device_agents.get_local_ip_addr()
         q = multiprocessing.Queue()
         file_server = multiprocessing.Process(
@@ -61,7 +61,7 @@ class provision(guacamole.Command):
         """Method called to customize the argument parser."""
         parser.add_argument('-c', '--config', required=True,
                             help='Config file for this device')
-        parser.add_argument('spi_data', help='SPI json data file')
+        parser.add_argument('job_data', help='Testflinger json data file')
 
 
 class runtest(guacamole.Command):
@@ -76,7 +76,7 @@ class runtest(guacamole.Command):
         logmsg(logging.INFO, "BEGIN testrun")
 
         test_opportunity = snappy_device_agents.get_test_opportunity(
-            ctx.args.spi_data)
+            ctx.args.job_data)
         test_cmds = test_opportunity.get('test_data').get('test_cmds')
         exitcode = 0
         for cmd in test_cmds:
@@ -103,7 +103,7 @@ class runtest(guacamole.Command):
         """Method called to customize the argument parser."""
         parser.add_argument('-c', '--config', required=True,
                             help='Config file for this device')
-        parser.add_argument('spi_data', help='SPI json data file')
+        parser.add_argument('job_data', help='Testflinger json data file')
 
 
 class DeviceAgent(guacamole.Command):
