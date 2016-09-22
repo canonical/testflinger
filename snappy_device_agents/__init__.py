@@ -309,3 +309,11 @@ def logmsg(level, msg, *args, **kwargs):
     logger.log(level, msg[:4096])
     if len(msg) > 4096:
         logmsg(level, msg[4096:])
+
+
+def runcmd(cmd, env=None):
+    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, env=env)
+    rc = proc.wait()
+    output, _ = proc.communicate()
+    return rc, output
