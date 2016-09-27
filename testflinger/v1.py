@@ -42,8 +42,14 @@ def job_post():
         job_queue = None
     if not job_queue:
         return "Invalid data or no job_queue specified\n", 400
-    job_id = str(uuid.uuid4())
-    data['job_id'] = job_id
+    # If the job_id is provided, keep it as long as the uuid is good.
+    # This is for job resubmission
+    job_id = data.get('job_id')
+    if not job_id:
+        job_id = str(uuid.uuid4())
+        data['job_id'] = job_id
+    elif not check_valid_uuid(job_id):
+        return "Invalid job_id specified\n", 400
     submit_job(job_queue, json.dumps(data))
     return jsonify(job_id=job_id)
 

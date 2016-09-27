@@ -54,6 +54,16 @@ class APITest(TestCase):
         self.assertTrue(expected_data.issubset(actual_data))
 
     @patch('redis.Redis', fakeredis.FakeRedis)
+    def test_add_job_good_with_jobid(self):
+        my_id='77777777-7777-7777-7777-777777777777'
+        job_data = json.dumps(dict(job_id=my_id, job_queue='test'))
+        # Place a job on the queue
+        output = self.app.post('/v1/job', data=job_data,
+                               content_type='application/json')
+        job_id = json.loads(output.data.decode()).get('job_id')
+        self.assertEqual(my_id, job_id)
+
+    @patch('redis.Redis', fakeredis.FakeRedis)
     def test_get_nonexistant_job(self):
         output = self.app.get('/v1/job?queue=BAD_QUEUE_NAME')
         self.assertEqual(204, output.status_code)
@@ -64,6 +74,15 @@ class APITest(TestCase):
 
     def test_add_job_bad(self):
         output = self.app.post('/v1/job')
+        self.assertEqual(400, output.status_code)
+
+    def test_add_job_bad_job_id(self):
+        output = self.app.post('/v1/job',
+                               data=json.dumps(dict(job_id='bad',
+                                                    job_queue='test')),
+                               content_type='application/json')
+        self.assertEqual('Invalid job_id specified\n',
+                         output.data.decode())
         self.assertEqual(400, output.status_code)
 
     def test_add_job_bad_job_queue(self):
