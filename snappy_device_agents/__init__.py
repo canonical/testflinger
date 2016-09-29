@@ -176,8 +176,9 @@ def get_image(job_data='testflinger.json'):
     testflinger_data = get_test_opportunity(job_data)
     image_keys = testflinger_data.get('provision_data').keys()
     if 'download_files' in image_keys:
-        for url in testflinger_data.get('provision_data').get('download_files'):
-            download(url)
+        for url in testflinger_data.get(
+                'provision_data').get('download_files'):
+                    download(url)
     if 'url' in image_keys:
         image = download(testflinger_data.get('provision_data').get('url'),
                          IMAGEFILE)
