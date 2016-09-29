@@ -104,3 +104,13 @@ two additional values in the yaml file::
 Logstash_host is the logstash server the messages will be sent to on port 5959.
 Agent_name should be the name of the device this agent represents. It
 will be added as extra data in the log message.
+
+Exit Status
+===========
+
+Device agents will exit with a value of ''46'' if something goes wrong during
+device recovery. This can be used as an indication that the device is unusable
+for some reason, and can't be recovere using automated recovery mechanisms.
+The system calling the device agent may want to take further action, such
+as alerting someone that it needs manual recovery, or to stop attempting to
+run tests on it until it's fixed.

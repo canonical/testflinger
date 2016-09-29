@@ -24,6 +24,7 @@ import guacamole
 import snappy_device_agents
 from devices.inception.inception import Inception
 from snappy_device_agents import logmsg
+from devices import (Catch, RecoveryError)
 
 device_name = "inception"
 
@@ -32,6 +33,7 @@ class provision(guacamole.Command):
 
     """Tool for provisioning x86 baremetal with a given image."""
 
+    @Catch(RecoveryError, 46)
     def invoked(self, ctx):
         """Method called when the command is invoked."""
         with open(ctx.args.config) as configfile:

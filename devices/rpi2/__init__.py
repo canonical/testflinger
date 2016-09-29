@@ -24,6 +24,7 @@ import guacamole
 import snappy_device_agents
 from devices.rpi2.rpi2 import RaspberryPi2
 from snappy_device_agents import logmsg
+from devices import (Catch, RecoveryError)
 
 
 device_name = "rpi2"
@@ -33,6 +34,7 @@ class provision(guacamole.Command):
 
     """Tool for provisioning Raspberry Pi 2 with a given image."""
 
+    @Catch(RecoveryError, 46)
     def invoked(self, ctx):
         """Method called when the command is invoked."""
         with open(ctx.args.config) as configfile:

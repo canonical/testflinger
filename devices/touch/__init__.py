@@ -23,6 +23,7 @@ import guacamole
 import snappy_device_agents
 from devices.touch.touch import Touch
 from snappy_device_agents import logmsg, runcmd
+from devices import (Catch, RecoveryError)
 
 device_name = "touch"
 
@@ -31,6 +32,7 @@ class provision(guacamole.Command):
 
     """Tool for provisioning baremetal with a given image."""
 
+    @Catch(RecoveryError, 46)
     def invoked(self, ctx):
         """Method called when the command is invoked."""
         with open(ctx.args.config) as configfile:
