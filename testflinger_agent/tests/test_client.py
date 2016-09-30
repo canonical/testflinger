@@ -159,10 +159,12 @@ class ClientRunTests(TestCase):
         self.assertEqual(1, outcome_data.get('provision_status'))
         self.assertEqual(None, outcome_data.get('test_status'))
 
+    @patch('testflinger_agent.client.logger.exception')
     @patch('testflinger_agent.client.transmit_job_outcome')
     @patch('requests.get')
     def test_retry_transmit(self, mock_requests_get,
-                            mock_transmit_job_outcome):
+                            mock_transmit_job_outcome,
+                            mock_logger_exception):
         """Make sure we retry sending test results"""
         testflinger_agent.config['provision_command'] = '/bin/false'
         testflinger_agent.config['test_command'] = 'echo test1'
@@ -187,3 +189,38 @@ class ClientRunTests(TestCase):
             testflinger_agent.config.get('results_basedir'),
             fake_job_data.get('job_id'))
         mock_transmit_job_outcome.assert_called_with(retry_dir)
+
+    @patch('shutil.rmtree')
+    @patch('requests.post')
+    @patch('requests.get')
+    def test_recovery_failed(self, mock_requests_get, mock_requests_post,
+                             mock_rmtree):
+        """Make sure we stop processing jobs after a device recovery error"""
+        OFFLINE_FILE = '/tmp/TESTFLINGER-DEVICE-OFFLINE-test001'
+        if os.path.exists(OFFLINE_FILE):
+            os.path.unlink(OFFLINE_FILE)
+        testflinger_agent.config['agent_id'] = 'test001'
+        testflinger_agent.config['provision_command'] = 'exit 46'
+        testflinger_agent.config['test_command'] = 'echo test1'
+        fake_job_data = {'job_id': str(uuid.uuid1()),
+                         'job_queue': 'test'}
+        fake_response = requests.Response()
+        fake_response._content = json.dumps(fake_job_data).encode()
+        terminator = requests.Response()
+        terminator._content = {}
+        mock_requests_get.side_effect = [fake_response, terminator]
+        # Make sure we return good status when posting the outcome
+        # shutil.rmtree is mocked so that we avoid removing the files
+        # before finishing the test
+        mock_requests_post.side_effect = [MagicMock(status_code=200)]
+        testflinger_agent.client.process_jobs()
+        outcome_file = os.path.join(os.path.join(self.tmpdir,
+                                                 fake_job_data.get('job_id'),
+                                                 'testflinger-outcome.json'))
+        with open(outcome_file) as f:
+            outcome_data = json.load(f)
+        self.assertEqual(46, outcome_data.get('provision_status'))
+        self.assertEqual(None, outcome_data.get('test_status'))
+        self.assertEqual(True, testflinger_agent.check_offline())
+        if os.path.exists(OFFLINE_FILE):
+            os.path.unlink(OFFLINE_FILE)

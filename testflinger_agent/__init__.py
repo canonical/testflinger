@@ -25,6 +25,9 @@ logger = logging.getLogger()
 
 config = dict()
 
+OFFLINE_FILE = os.path.join(
+    '/tmp', 'TESTFLINGER-DEVICE-OFFLINE-{}'.format(config.get('agent_id')))
+
 
 def main():
     args = parse_args()
@@ -33,6 +36,12 @@ def main():
     check_interval = config.get('polling_interval')
     while True:
         try:
+            if check_offline():
+                logger.error("Agent %s is offline, not processing jobs!"
+                             "Remove %s to resume processing" %
+                             (config.get('agent_id'), OFFLINE_FILE))
+                while check_offline():
+                    time.sleep(check_interval)
             logger.info("Checking jobs")
             client.process_jobs()
             logger.info("Sleeping for {}".format(check_interval))
@@ -40,6 +49,15 @@ def main():
         except KeyboardInterrupt:
             logger.info('Caught interrupt, exiting!')
             sys.exit(0)
+
+
+def check_offline():
+    return os.path.exists(OFFLINE_FILE)
+
+
+def mark_device_offline():
+    # Create the offline file, this should work even if it exists
+    open(OFFLINE_FILE, 'w').close()
 
 
 def load_config(configfile):

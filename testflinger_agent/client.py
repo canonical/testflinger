@@ -53,6 +53,10 @@ def process_jobs():
 
         for phase in TEST_PHASES:
             exitcode = run_test_phase(phase, rundir)
+            # exit code 46 is our indication that recovery failed!
+            # In this case, we need to mark the device offline
+            if exitcode == 46:
+                testflinger_agent.mark_device_offline()
             if exitcode:
                 logger.debug('Phase %s failed, aborting job' % phase)
                 break
