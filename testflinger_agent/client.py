@@ -57,6 +57,10 @@ def process_jobs():
             # In this case, we need to mark the device offline
             if exitcode == 46:
                 testflinger_agent.mark_device_offline()
+                repost_job(job_data)
+                shutil.rmtree(rundir)
+                # Return NOW so we don't keep trying to process jobs
+                return
             if exitcode:
                 logger.debug('Phase %s failed, aborting job' % phase)
                 break
@@ -144,6 +148,19 @@ def run_test_phase(phase, rundir):
         with open(os.path.join(rundir, 'testflinger-outcome.json'), 'w') as f:
             json.dump(outcome_data, f)
         return exitcode
+
+
+def repost_job(job_data):
+    server = testflinger_agent.config.get('server_address')
+    if not server.lower().startswith('http'):
+        server = 'http://' + server
+    job_uri = urljoin(server, '/v1/job')
+    logger.info('Resubmitting job for job: %s' % job_data.get('job_id'))
+    job_request = requests.post(job_uri, json=job_data)
+    if job_request.status_code != 200:
+        logging.error('Unable to re-post job to: %s (error: %s)' %
+                      (job_uri, job_request.status_code))
+        raise TFServerError(job_request.status_code)
 
 
 def transmit_job_outcome(rundir):

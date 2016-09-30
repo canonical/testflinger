@@ -209,18 +209,14 @@ class ClientRunTests(TestCase):
         terminator = requests.Response()
         terminator._content = {}
         mock_requests_get.side_effect = [fake_response, terminator]
-        # Make sure we return good status when posting the outcome
-        # shutil.rmtree is mocked so that we avoid removing the files
-        # before finishing the test
+        # In this case we are making sure that the repost job request
+        # gets good status
         mock_requests_post.side_effect = [MagicMock(status_code=200)]
         testflinger_agent.client.process_jobs()
-        outcome_file = os.path.join(os.path.join(self.tmpdir,
-                                                 fake_job_data.get('job_id'),
-                                                 'testflinger-outcome.json'))
-        with open(outcome_file) as f:
-            outcome_data = json.load(f)
-        self.assertEqual(46, outcome_data.get('provision_status'))
-        self.assertEqual(None, outcome_data.get('test_status'))
         self.assertEqual(True, testflinger_agent.check_offline())
+        # These are the args we would expect when it reposts the job
+        repost_args = ('http://127.0.0.1:8000/v1/job')
+        repost_kwargs = dict(json=fake_job_data)
+        mock_requests_post.assert_called_with(repost_args, **repost_kwargs)
         if os.path.exists(OFFLINE_FILE):
             os.path.unlink(OFFLINE_FILE)
