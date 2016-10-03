@@ -198,7 +198,7 @@ class ClientRunTests(TestCase):
         """Make sure we stop processing jobs after a device recovery error"""
         OFFLINE_FILE = '/tmp/TESTFLINGER-DEVICE-OFFLINE-test001'
         if os.path.exists(OFFLINE_FILE):
-            os.path.unlink(OFFLINE_FILE)
+            os.unlink(OFFLINE_FILE)
         testflinger_agent.config['agent_id'] = 'test001'
         testflinger_agent.config['provision_command'] = 'exit 46'
         testflinger_agent.config['test_command'] = 'echo test1'
@@ -219,4 +219,4 @@ class ClientRunTests(TestCase):
         repost_kwargs = dict(json=fake_job_data)
         mock_requests_post.assert_called_with(repost_args, **repost_kwargs)
         if os.path.exists(OFFLINE_FILE):
-            os.path.unlink(OFFLINE_FILE)
+            os.unlink(OFFLINE_FILE)
