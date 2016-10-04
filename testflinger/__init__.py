@@ -52,6 +52,10 @@ def create_flask_app():
                      methods=['POST'])
     app.add_url_rule('/v1/result/<job_id>', 'result_get', v1.result_get,
                      methods=['GET'])
+    app.add_url_rule('/v1/result/<job_id>/artifact', 'artifacts_post', v1.artifacts_post,
+                     methods=['POST'])
+    app.add_url_rule('/v1/result/<job_id>/artifact', 'artifacts_get', v1.artifacts_get,
+                     methods=['GET'])
 
     @app.errorhandler(Exception)
     def unhandled_exception(e):

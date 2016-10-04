@@ -22,6 +22,7 @@ import uuid
 from flask import(
     jsonify,
     request,
+    send_file
 )
 
 import testflinger
@@ -86,8 +87,6 @@ def result_get(job_id):
 
     :param job_id:
         UUID as a string for the job
-    :return:
-        json data of results for the specified id
     """
     if not check_valid_uuid(job_id):
         return 'Invalid job id\n', 400
@@ -97,6 +96,35 @@ def result_get(job_id):
     with open(result_file) as results:
         data = results.read()
     return data
+
+
+def artifacts_post(job_id):
+    """Post artifact bundle for a specified job_id
+
+    :param job_id:
+        UUID as a string for the job
+    """
+    if not check_valid_uuid(job_id):
+        return 'Invalid job id\n', 400
+    file = request.files['file']
+    filename = '{}.artifact'.format(job_id)
+    file.save(os.path.join(testflinger.app.config.get('DATA_PATH'), filename))
+    return "OK"
+
+
+def artifacts_get(job_id):
+    """Return artifact bundle for a specified job_id
+
+    :param job_id:
+        UUID as a string for the job
+    :return:
+        send_file stream of artifact tarball to download
+    """
+    if not check_valid_uuid(job_id):
+        return 'Invalid job id\n', 400
+    filename = '{}.artifact'.format(job_id)
+    return send_file(
+        os.path.join(testflinger.app.config.get('DATA_PATH'), filename))
 
 
 def check_valid_uuid(job_id):

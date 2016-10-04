@@ -20,6 +20,7 @@ import shutil
 import tempfile
 import testflinger
 
+from io import BytesIO
 from mock import patch
 from unittest import TestCase
 
@@ -55,7 +56,7 @@ class APITest(TestCase):
 
     @patch('redis.Redis', fakeredis.FakeRedis)
     def test_add_job_good_with_jobid(self):
-        my_id='77777777-7777-7777-7777-777777777777'
+        my_id = '77777777-7777-7777-7777-777777777777'
         job_data = json.dumps(dict(job_id=my_id, job_queue='test'))
         # Place a job on the queue
         output = self.app.post('/v1/job', data=job_data,
@@ -116,3 +117,14 @@ class APITest(TestCase):
         output = self.app.post('/v1/result/BAD_JOB_ID')
         self.assertEqual('Invalid job id\n', output.data.decode())
         self.assertEqual(400, output.status_code)
+
+    def test_artifact_post_good(self):
+        """Test both get and put of a result artifact"""
+        result_url = '/v1/result/00000000-0000-0000-0000-000000000000/artifact'
+        data = b'test file content'
+        filedata = dict(file=(BytesIO(data), 'artifact.tgz'))
+        output = self.app.post(result_url, data=filedata,
+                               content_type='multipart/form-data')
+        self.assertEqual('OK', output.data.decode())
+        output = self.app.get(result_url)
+        self.assertEqual(output.data, data)
