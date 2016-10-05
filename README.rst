@@ -169,3 +169,42 @@ server will only return one job.
 
     $ curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000 \
          -X GET
+
+**[POST] /v1/result/<job_id>/artifact** - upload a file artifact for the specified job_id
+
+- Parameters:
+
+  - job_id: test job identifier as a UUID
+
+- Status Codes:
+
+  - HTTP 200 (OK)
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl -X POST -F \
+         "file=@README.rst" localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/artifact
+
+**[GET] /v1/result/<job_id>/artifact** - download previously submitted artifact for this job
+
+- Parameters:
+
+  - job_id: test job identifier as a UUID
+
+- Status Codes:
+
+  - HTTP 200 (OK)
+  - HTTP 204 (NO DATA) if there are no results for that ID yet
+
+- Returns:
+
+  JSON data previously submitted to this job_id via the POST API
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/artifact \
+         -X GET -O artifact.tar.gz
