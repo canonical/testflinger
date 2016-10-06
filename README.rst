@@ -84,3 +84,17 @@ The following configuration options are supported:
 - **test_command**:
 
   - Command to run for the testing phase
+
+Usage
+-----
+
+When running testflinger, your output will be automatically accumulated
+for each stage (setup, provision, test) and sent to the testflinger server,
+along with an exit status for each stage. If any stage encounters a non-zero
+exit code, no further stages will be executed, but the outcome will still
+be sent.
+
+If you have additional artifacts that you would like to save along with
+the output, you can create a 'artifacts' directory from your test command.
+Any files in the artifacts directory under your test execution directory
+will automatically be compressed (tar.gz) and sent to the testflinger server.

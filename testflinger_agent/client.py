@@ -19,6 +19,7 @@ import requests
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 from urllib.parse import urljoin
@@ -179,12 +180,38 @@ def transmit_job_outcome(rundir):
     result_uri = urljoin(server, '/v1/result/')
     result_uri = urljoin(result_uri, job_id)
     logger.info('Submitting job outcome for job: %s' % job_id)
-    with open(os.path.join(rundir, 'testflinger-outcome.json')) as f:
-        job_request = requests.post(result_uri, json=json.load(f))
-        if job_request.status_code != 200:
-            logging.error('Unable to post results to: %s (error: %s)' %
-                          (result_uri, job_request.status_code))
-            raise TFServerError(job_request.status_code)
+    # Do not retransmit outcome if it's already been done and removed
+    outcome_file = os.path.join(rundir, 'testflinger-outcome.json')
+    if os.path.exists(outcome_file):
+        with open(outcome_file) as f:
+            job_request = requests.post(result_uri, json=json.load(f))
+            if job_request.status_code != 200:
+                logging.error('Unable to post results to: %s (error: %s)' %
+                              (result_uri, job_request.status_code))
+                raise TFServerError(job_request.status_code)
+            else:
+                # Remove the outcome file so we don't retransmit
+                os.unlink(outcome_file)
+    artifacts_dir = os.path.join(rundir, 'artifacts')
+    # If we find an 'artifacts' dir under rundir, archive it, and transmit it
+    # to the Testflinger server
+    if os.path.exists(artifacts_dir):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifact_file = os.path.join(tmpdir, 'artifacts')
+            shutil.make_archive(artifact_file, format='gztar',
+                                root_dir=rundir, base_dir='artifacts')
+            artifact_uri = urljoin(
+                server, '/v1/result/{}/artifact'.format(job_id))
+            with open(artifact_file+'.tar.gz', 'rb') as tarball:
+                file_upload = {'file': ('file', tarball, 'application/x-gzip')}
+                artifact_request = requests.post(
+                    artifact_uri, files=file_upload)
+            if artifact_request.status_code != 200:
+                logging.error('Unable to post results to: %s (error: %s)' %
+                              (result_uri, artifact_request.status_code))
+                raise TFServerError(artifact_request.status_code)
+            else:
+                shutil.rmtree(artifacts_dir)
     shutil.rmtree(rundir)
 
 

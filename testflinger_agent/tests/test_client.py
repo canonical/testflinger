@@ -131,11 +131,12 @@ class ClientRunTests(TestCase):
                                     'test.log')).read()
         self.assertEqual('test1', testlog.strip())
 
+    @patch('testflinger_agent.client.os.unlink')
     @patch('shutil.rmtree')
     @patch('requests.post')
     @patch('requests.get')
     def test_phase_failed(self, mock_requests_get, mock_requests_post,
-                          mock_rmtree):
+                          mock_rmtree, mock_unlink):
         """Make sure we stop running after a failed phase"""
         testflinger_agent.config['provision_command'] = '/bin/false'
         testflinger_agent.config['test_command'] = 'echo test1'
@@ -189,6 +190,33 @@ class ClientRunTests(TestCase):
             testflinger_agent.config.get('results_basedir'),
             fake_job_data.get('job_id'))
         mock_transmit_job_outcome.assert_called_with(retry_dir)
+
+    @patch('testflinger_agent.client.logger.exception')
+    @patch('requests.post')
+    @patch('requests.get')
+    def test_post_artifact(self, mock_requests_get,
+                           mock_requests_post,
+                           mock_logger_exception):
+        """Test posting files from the artifact directory"""
+        # Create an artifact as part of the test process
+        testflinger_agent.config['test_command'] = ('mkdir artifacts && '
+                                                    'echo test1 > artifacts/t')
+        fake_job_data = {'job_id': str(uuid.uuid1()),
+                         'job_queue': 'test'}
+        fake_response = requests.Response()
+        fake_response._content = json.dumps(fake_job_data).encode()
+        terminator = requests.Response()
+        terminator._content = {}
+        # Send an extra terminator since we will be calling get 3 times
+        mock_requests_get.side_effect = [fake_response, terminator, terminator]
+        # Make sure we fail the first time when transmitting the results
+        mock_requests_post.side_effect = [MagicMock(status_code=200)]
+        testflinger_agent.client.process_jobs()
+        # Ok, I know this is weird. The second time post is called when we
+        # have an artifact, it will be sending the artifact and there
+        # should be a 'files' key in the call arguments. Replicating all
+        # the args is not feasible or useful
+        self.assertTrue('files' in str(mock_requests_post.mock_calls[1]))
 
     @patch('shutil.rmtree')
     @patch('requests.post')
