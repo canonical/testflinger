@@ -128,3 +128,8 @@ class APITest(TestCase):
         self.assertEqual('OK', output.data.decode())
         output = self.app.get(result_url)
         self.assertEqual(output.data, data)
+
+    def test_result_get_artifact_not_exists(self):
+        output = self.app.get(
+            '/v1/result/11111111-1111-1111-1111-111111111111/artifact')
+        self.assertEqual(204, output.status_code)

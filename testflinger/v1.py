@@ -122,9 +122,11 @@ def artifacts_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return 'Invalid job id\n', 400
-    filename = '{}.artifact'.format(job_id)
-    return send_file(
-        os.path.join(testflinger.app.config.get('DATA_PATH'), filename))
+    artifact_file = os.path.join(
+        testflinger.app.config.get('DATA_PATH'), '{}.artifact'.format(job_id))
+    if not os.path.exists(artifact_file):
+        return "", 204
+    return send_file(artifact_file)
 
 
 def check_valid_uuid(job_id):
