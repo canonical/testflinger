@@ -15,10 +15,19 @@
 #
 
 import logging
+import pkg_resources
 import os
 
 from testflinger import v1
 from flask import Flask
+
+
+def _get_version():
+    try:
+        version = pkg_resources.get_distribution("testflinger").version
+    except pkg_resources.DistributionNotFound:
+        version = "devel"
+    return 'Testflinger Server v{}'.format(version)
 
 
 class DefaultConfig(object):
@@ -52,10 +61,10 @@ def create_flask_app():
                      methods=['POST'])
     app.add_url_rule('/v1/result/<job_id>', 'result_get', v1.result_get,
                      methods=['GET'])
-    app.add_url_rule('/v1/result/<job_id>/artifact', 'artifacts_post', v1.artifacts_post,
-                     methods=['POST'])
-    app.add_url_rule('/v1/result/<job_id>/artifact', 'artifacts_get', v1.artifacts_get,
-                     methods=['GET'])
+    app.add_url_rule('/v1/result/<job_id>/artifact', 'artifacts_post',
+                     v1.artifacts_post, methods=['POST'])
+    app.add_url_rule('/v1/result/<job_id>/artifact', 'artifacts_get',
+                     v1.artifacts_get, methods=['GET'])
 
     @app.errorhandler(Exception)
     def unhandled_exception(e):

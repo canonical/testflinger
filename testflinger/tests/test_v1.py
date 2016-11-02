@@ -36,7 +36,7 @@ class APITest(TestCase):
 
     def test_home(self):
         output = self.app.get('/')
-        self.assertEqual('Testflinger Server', output.data.decode())
+        self.assertEqual(testflinger._get_version(), output.data.decode())
 
     @patch('redis.Redis', fakeredis.FakeRedis)
     def test_add_job_good(self):

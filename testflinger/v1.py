@@ -19,7 +19,7 @@ import redis
 import os
 import uuid
 
-from flask import(
+from flask import (
     jsonify,
     request,
     send_file
@@ -30,7 +30,7 @@ import testflinger
 
 def home():
     """Identify ourselves"""
-    return 'Testflinger Server'
+    return testflinger._get_version()
 
 
 def job_post():

@@ -31,7 +31,7 @@ TEST_REQUIRES = [
 
 setup(
     name='testflinger',
-    version='1.0',
+    version='1.0.1',
     long_description=__doc__,
     packages=['testflinger'],
     zip_safe=False,
