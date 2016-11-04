@@ -22,6 +22,7 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.request
@@ -313,8 +314,30 @@ def logmsg(level, msg, *args, **kwargs):
 
 
 def runcmd(cmd, env=None):
-    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, env=env)
-    rc = proc.wait()
-    output, _ = proc.communicate()
-    return rc, output
+    """
+    Run a command and stream the output to stdout
+
+    :param cmd:
+        Command to run
+    :param env:
+        Environment to pass to Popen
+    :return returncode:
+        Return value from running the command
+    :return output:
+        Output of stderr and stdout from running the command
+    """
+
+    output = ""
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT,
+                               shell=True, env=env)
+    while process.poll() is None:
+        line = process.stdout.readline()
+        if line:
+            sys.stdout.write(line.decode())
+            output += line.decode()
+    line = process.stdout.read()
+    if line:
+        sys.stdout.write(line.decode())
+        output += line.decode()
+    return process.returncode, output
