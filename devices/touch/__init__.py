@@ -71,11 +71,10 @@ class runtest(guacamole.Command):
         env['ANDROID_SERIAL'] = config.get('serial')
         for cmd in test_cmds:
             logmsg(logging.INFO, "Running: %s", cmd)
-            rc, output = runcmd(cmd, env=env)
+            rc = runcmd(cmd, env=env)
             if rc:
                 exitcode = 4
                 logmsg(logging.WARNING, "Command failed, rc=%d", rc)
-            logmsg(logging.INFO, "output:\n%s", output)
         logmsg(logging.INFO, "END testrun")
         return exitcode
 

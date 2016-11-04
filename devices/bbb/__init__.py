@@ -16,14 +16,13 @@
 
 import logging
 import multiprocessing
-import subprocess
 import yaml
 
 import guacamole
 
 import snappy_device_agents
 from devices.bbb.beagleboneblack import BeagleBoneBlack
-from snappy_device_agents import logmsg
+from snappy_device_agents import logmsg, runcmd
 
 
 device_name = "bbb"
@@ -93,14 +92,10 @@ class runtest(guacamole.Command):
                 logmsg(logging.ERROR, "Unable to format command: %s", cmd)
 
             logmsg(logging.INFO, "Running: %s", cmd)
-            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT)
-            rc = proc.wait()
-            output, _ = proc.communicate()
+            rc = runcmd(cmd)
             if rc:
                 exitcode = 4
                 logmsg(logging.WARNING, "Command failed, rc=%d", rc)
-            logmsg(logging.INFO, "output:\n%s", output)
         logmsg(logging.INFO, "END testrun")
         return exitcode
 

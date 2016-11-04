@@ -39,9 +39,8 @@ class Touch:
         recovery_script = self.config.get('recovery_script')
         for cmd in recovery_script:
             logger.info("Running %s", cmd)
-            rc, output = runcmd(cmd)
+            rc = runcmd(cmd)
             if rc:
-                logger.error('output: {}'.format(output))
                 raise RecoveryError("Device recovery failed!")
 
     def provision(self):
@@ -66,9 +65,8 @@ class Touch:
                                     p.get('channel'),
                                     self.config.get('device_type'), password))
         logger.info('Running ubuntu-device-flash')
-        rc, output = runcmd(cmd)
+        rc = runcmd(cmd)
         if rc:
-            logger.error('output: {}'.format(output))
             raise ProvisioningError("Flashing new image failed!")
         self.adb_wait_for_device()
         self.handle_welcome_wizard()
@@ -82,7 +80,7 @@ class Touch:
             logger.warning('No network settings specified in the config')
             return
         logger.info('Configuring the network')
-        rc, out = runcmd('phablet-config -s {} network --write "{}"'.format(
+        rc = runcmd('phablet-config -s {} network --write "{}"'.format(
             serial, netspec))
         if rc:
             logger.error('Error configuring network')
@@ -98,9 +96,8 @@ class Touch:
         serial = self.config.get('serial')
         cmd = ('phablet-config -s {} welcome-wizard '
                '--disable'.format(serial))
-        rc, output = runcmd(cmd)
+        rc = runcmd(cmd)
         if rc:
-            logger.error('output: {}'.format(output))
             raise ProvisioningError("Disable welcome wizard failed!")
         self.adb_wait_for_device()
 
@@ -115,27 +112,24 @@ class Touch:
         serial = self.config.get('serial')
         cmd = ('phablet-config -s {} edges-intro '
                '--disable'.format(serial))
-        rc, output = runcmd(cmd)
+        rc = runcmd(cmd)
         if rc:
-            logger.error('output: {}'.format(output))
             raise ProvisioningError("Disable edges intro failed!")
         self.adb_wait_for_device()
 
     def adb_reboot_bootloader(self):
         serial = self.config.get('serial')
         cmd = 'adb -s {} reboot-bootloader'.format(serial)
-        rc, output = runcmd(cmd)
+        rc = runcmd(cmd)
         if rc:
-            logger.error('output: {}'.format(output))
             raise RecoveryError("Reboot to bootloader failed!")
             # FIXME: we should probably attempt hard-recovery here
 
     def adb_wait_for_device(self):
         serial = self.config.get('serial')
         cmd = 'adb -s {} wait-for-device'.format(serial)
-        rc, output = runcmd(cmd)
+        rc = runcmd(cmd)
         if rc:
-            logger.error('output: {}'.format(output))
             raise ProvisioningError("Wait for device failed!")
 
     def get_recovery_image(self):

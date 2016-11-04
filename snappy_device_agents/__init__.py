@@ -329,11 +329,8 @@ def runcmd(cmd, env=None, timeout=None):
         Seconds after which we should timeout
     :return returncode:
         Return value from running the command
-    :return output:
-        Output of stderr and stdout from running the command
     """
 
-    output = ""
     if timeout:
         deadline = time.time() + timeout
     else:
@@ -348,9 +345,7 @@ def runcmd(cmd, env=None, timeout=None):
         line = process.stdout.readline()
         if line:
             sys.stdout.write(line.decode())
-            output += line.decode()
     line = process.stdout.read()
     if line:
         sys.stdout.write(line.decode())
-        output += line.decode()
-    return process.returncode, output
+    return process.returncode

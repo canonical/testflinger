@@ -56,7 +56,7 @@ class Netboot:
         for cmd in setboot_script:
             logger.info("Running %s", cmd)
             try:
-                rc, output = runcmd(cmd, timeout=60)
+                rc = runcmd(cmd, timeout=60)
             except TimeoutError:
                 raise ProvisioningError("timeout reaching control host!")
             if rc:

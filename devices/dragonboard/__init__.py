@@ -75,11 +75,10 @@ class runtest(guacamole.Command):
                 logmsg(logging.ERROR, "Unable to format command: %s", cmd)
 
             logmsg(logging.INFO, "Running: %s", cmd)
-            rc, output = runcmd(cmd)
+            rc = runcmd(cmd)
             if rc:
                 exitcode = 4
                 logmsg(logging.WARNING, "Command failed, rc=%d", rc)
-            logmsg(logging.INFO, "output:\n%s", output)
         logmsg(logging.INFO, "END testrun")
         return exitcode
 
