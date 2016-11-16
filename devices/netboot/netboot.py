@@ -91,7 +91,7 @@ class Netboot:
         self.setboot('test')
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
-               'ubuntu@{}'.format(self.config['device_ip']),
+               '{}@{}'.format(test_username, self.config['device_ip']),
                'sudo /sbin/reboot']
         try:
             subprocess.check_call(cmd)
@@ -105,12 +105,12 @@ class Netboot:
         while time.time() - started < 300:
             try:
                 time.sleep(10)
-                cmd = ['sshpass', '-p', test_password, 'ssh-copy-id',
+                cmd = ['sshpass', '-p', test_password, 'ssh-copy-id', '-f',
                        '-o', 'StrictHostKeyChecking=no',
                        '-o', 'UserKnownHostsFile=/dev/null',
                        '{}@{}'.format(test_username, self.config['device_ip'])]
                 subprocess.check_call(cmd)
-                test_image_booted = self.is_test_image_booted()
+                test_image_booted = self.is_test_image_booted(test_username)
             except:
                 pass
             if test_image_booted:
@@ -119,12 +119,14 @@ class Netboot:
         if not test_image_booted:
             raise ProvisioningError("Failed to boot test image!")
 
-    def is_test_image_booted(self):
+    def is_test_image_booted(self, test_username):
         """
         Check if the master image is booted.
 
         :returns:
             True if the test image is currently booted, False otherwise.
+        :param test_username:
+            Username of the default user in the test image
         :raises TimeoutError:
             If the command times out
         :raises CalledProcessError:
@@ -132,7 +134,7 @@ class Netboot:
         """
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
-               'ubuntu@{}'.format(self.config['device_ip']),
+               '{}@{}'.format(test_username, self.config['device_ip']),
                'snap -h']
         subprocess.check_output(
             cmd, stderr=subprocess.STDOUT, timeout=60)
@@ -206,9 +208,12 @@ class Netboot:
         logger.info("Triggering: %s", url)
         try:
             # XXX: I hope 30 min is enough? but maybe not!
-            urllib.request.urlopen(url, timeout=1800)
+            req = urllib.request.urlopen(url, timeout=1800)
         except:
             raise ProvisioningError("Error while flashing image!")
+        finally:
+            logger.info("Image write output:")
+            logger.info(str(req.read()))
 
         # Now reboot the target system
         url = 'http://{}:8989/reboot'.format(self.config['device_ip'])
