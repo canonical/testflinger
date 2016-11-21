@@ -14,11 +14,14 @@
 
 """Dragonboard support code."""
 
+import json
 import logging
+import multiprocessing
 import subprocess
 import time
 import yaml
 
+import snappy_device_agents
 from devices import (ProvisioningError,
                      RecoveryError)
 
@@ -29,9 +32,11 @@ class Dragonboard:
 
     """Snappy Device Agent for Dragonboard."""
 
-    def __init__(self, config):
+    def __init__(self, config, job_data):
         with open(config) as configfile:
             self.config = yaml.load(configfile)
+        with open(job_data) as j:
+            self.job_data = json.load(j)
 
     def setboot(self, mode):
         """
@@ -226,6 +231,15 @@ class Dragonboard:
         :raises ProvisioningError:
             If the command times out or anything else fails.
         """
+        # First unmount, just in case
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'linaro@{}'.format(self.config['device_ip']),
+               'sudo umount /mnt']
+        try:
+            subprocess.check_call(cmd, timeout=60)
+        except:
+            pass
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                'linaro@{}'.format(self.config['device_ip']),
@@ -241,8 +255,96 @@ class Dragonboard:
                '-o', 'UserKnownHostsFile=/dev/null',
                'linaro@{}'.format(self.config['device_ip']), 'sync']
         try:
-            subprocess.check_call(cmd, timeout=1800)
+            subprocess.check_call(cmd, timeout=30)
         except:
             # Nothing should go wrong here, but let's sleep if it does
             logger.warn("Something went wrong with the sync, sleeping...")
             time.sleep(30)
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'linaro@{}'.format(self.config['device_ip']),
+               'sudo hdparm -z {}'.format(self.config['test_device'])]
+        try:
+            subprocess.check_call(cmd, timeout=30)
+        except:
+            raise ProvisioningError("Unable to run hdparm to rescan "
+                                    "partitions")
+
+    def write_system_user_file(self):
+        """Write the system-user assertion to the writable area"""
+        # Mount the writable partition
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'linaro@{}'.format(self.config['device_ip']),
+               'sudo mount {} /mnt'.format(
+                   self.config['snappy_writable_partition'])]
+        try:
+            subprocess.check_call(cmd, timeout=60)
+        except:
+            err = ("Error mounting writable partition on test image {}. "
+                   "Check device configuration".format(
+                       self.config['snappy_writable_partition']))
+            raise ProvisioningError(err)
+        # Copy the system-user assertion to the device
+        cmd = ['scp', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               self.config['user_assertion'],
+               'linaro@{}:/tmp/autoimport.assert'.format(
+                   self.config['device_ip'])]
+        try:
+            subprocess.check_call(cmd, timeout=60)
+        except:
+            raise ProvisioningError("Error writing system-user assertion")
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'linaro@{}'.format(self.config['device_ip']),
+               'sudo cp /tmp/autoimport.assert /mnt']
+        try:
+            subprocess.check_call(cmd, timeout=60)
+        except:
+            raise ProvisioningError("Error copying system-user assertion")
+
+    def provision(self):
+        """Provision the device"""
+        url = self.job_data['provision_data'].get('url')
+        if url:
+            snappy_device_agents.download(url, 'snappy.img')
+        else:
+            try:
+                model_assertion = self.config['model_assertion']
+                channel = self.job_data['provision_data']['channel']
+                extra_snaps = self.job_data.get(
+                    'provision_data').get('extra-snaps', [])
+                cmd = ['sudo', 'ubuntu-image', '-c', channel,
+                       model_assertion, '-o', 'snappy.img']
+                for snap in extra_snaps:
+                    cmd.append('--extra-snaps')
+                    cmd.append(snap)
+                subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            except Exception:
+                logger.exception("Bad data passed for provisioning")
+                raise ProvisioningError("Error copying system-user assertion")
+        image_file = snappy_device_agents.compress_file('snappy.img')
+        test_username = self.job_data.get(
+            'test_data').get('test_username', 'ubuntu')
+        test_password = self.job_data.get(
+            'test_data').get('test_password', 'ubuntu')
+        server_ip = snappy_device_agents.get_local_ip_addr()
+        serve_q = multiprocessing.Queue()
+        file_server = multiprocessing.Process(
+            target=snappy_device_agents.serve_file,
+            args=(serve_q, image_file,))
+        file_server.start()
+        server_port = serve_q.get()
+        logger.info("Flashing Test Image")
+        self.flash_test_image(server_ip, server_port)
+        file_server.terminate()
+        if not url:
+            # If we didn't specify the url, we need to do this
+            # XXX: This is one of those cases where we hope the user did
+            # the right thing and included the assertion in the image!
+            logger.info("Creating Test User")
+            self.write_system_user_file()
+        logger.info("Booting Test Image")
+        self.ensure_test_image(test_username, test_password)
+        logger.info("END provision")

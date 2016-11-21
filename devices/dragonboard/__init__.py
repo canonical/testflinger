@@ -15,8 +15,6 @@
 """Dragonboard support code."""
 
 import logging
-import multiprocessing
-import subprocess
 import yaml
 
 import guacamole
@@ -39,27 +37,11 @@ class provision(guacamole.Command):
         with open(ctx.args.config) as configfile:
             config = yaml.load(configfile)
         snappy_device_agents.configure_logging(config)
-        device = Dragonboard(ctx.args.config)
+        device = Dragonboard(ctx.args.config, ctx.args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
         logmsg(logging.INFO, "Booting Master Image")
         device.ensure_master_image()
-        image = snappy_device_agents.get_image(ctx.args.job_data)
-        server_ip = snappy_device_agents.get_local_ip_addr()
-        test_username = snappy_device_agents.get_test_username(
-            ctx.args.job_data)
-        test_password = snappy_device_agents.get_test_password(
-            ctx.args.job_data)
-        q = multiprocessing.Queue()
-        file_server = multiprocessing.Process(
-            target=snappy_device_agents.serve_file, args=(q, image,))
-        file_server.start()
-        server_port = q.get()
-        logmsg(logging.INFO, "Flashing Test Image")
-        device.flash_test_image(server_ip, server_port)
-        file_server.terminate()
-        logmsg(logging.INFO, "Booting Test Image")
-        device.ensure_test_image(test_username, test_password)
-        logmsg(logging.INFO, "END provision")
+        device.provision()
 
     def register_arguments(self, parser):
         """Method called to customize the argument parser."""
