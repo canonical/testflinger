@@ -145,3 +145,11 @@ class APITest(TestCase):
         output = self.app.get(
             '/v1/result/11111111-1111-1111-1111-111111111111/artifact')
         self.assertEqual(204, output.status_code)
+
+    def test_output_post_get(self):
+        output_url = '/v1/result/00000000-0000-0000-0000-000000000000/output'
+        data = 'line1\nline2\nline3'
+        output = self.app.post(output_url, data=data)
+        self.assertEqual('OK', output.data.decode())
+        output = self.app.get(output_url)
+        self.assertEqual(output.data.decode(), data)

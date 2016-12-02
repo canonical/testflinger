@@ -133,6 +133,51 @@ def artifacts_get(job_id):
     return send_file(artifact_file)
 
 
+def output_get(job_id):
+    """Get latest output for a specified job ID
+
+    :param job_id:
+        UUID as a string for the job
+    :return:
+        Output lines
+    """
+    if not check_valid_uuid(job_id):
+        return 'Invalid job id\n', 400
+    redis_host = testflinger.app.config.get('REDIS_HOST')
+    redis_port = testflinger.app.config.get('REDIS_PORT')
+    client = redis.Redis(host=redis_host, port=redis_port)
+    output_key = "stream_{}".format(job_id)
+    pipe = client.pipeline()
+    pipe.lrange(output_key, 0, -1)
+    pipe.delete(output_key)
+    output = pipe.execute()
+    if output[0]:
+        return '\n'.join([x.decode() for x in output[0]])
+    else:
+        return '', 204
+
+
+def output_post(job_id):
+    """Post output for a specified job ID
+
+    :param job_id:
+        UUID as a string for the job
+    :param data:
+        A list containing the lines of output to post
+    """
+    if not check_valid_uuid(job_id):
+        return 'Invalid job id\n', 400
+    redis_host = testflinger.app.config.get('REDIS_HOST')
+    redis_port = testflinger.app.config.get('REDIS_PORT')
+    data = request.get_data()
+    client = redis.Redis(host=redis_host, port=redis_port)
+    output_key = "stream_{}".format(job_id)
+    client.rpush(output_key, data)
+    # If the data doesn't get read with 4 hours of the last update, expire it
+    client.expire(output_key, 14400)
+    return "OK"
+
+
 def check_valid_uuid(job_id):
     """Check that the specified job_id is a valid UUID only
 
