@@ -20,6 +20,8 @@ import urllib.request
 import time
 import yaml
 
+from snappy_device_agents import (runcmd,
+                                  TimeoutError)
 from devices import (ProvisioningError,
                      RecoveryError)
 
@@ -54,9 +56,12 @@ class Netboot:
         for cmd in setboot_script:
             logger.info("Running %s", cmd)
             try:
-                subprocess.check_call(cmd.split(), timeout=60)
-            except:
+                rc, output = runcmd(cmd, timeout=60)
+            except TimeoutError:
                 raise ProvisioningError("timeout reaching control host!")
+            if rc:
+                raise ProvisioningError(
+                    "Error running {} (rc={})".format(cmd, rc))
 
     def hardreset(self):
         """

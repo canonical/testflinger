@@ -32,6 +32,10 @@ IMAGEFILE = 'snappy.img'
 logger = logging.getLogger()
 
 
+class TimeoutError(Exception):
+    pass
+
+
 def get_test_opportunity(job_data='testflinger.json'):
     """
     Read the json test opportunity data from testflinger.json.
@@ -313,7 +317,7 @@ def logmsg(level, msg, *args, **kwargs):
         logmsg(level, msg[4096:])
 
 
-def runcmd(cmd, env=None):
+def runcmd(cmd, env=None, timeout=None):
     """
     Run a command and stream the output to stdout
 
@@ -321,6 +325,8 @@ def runcmd(cmd, env=None):
         Command to run
     :param env:
         Environment to pass to Popen
+    :param timeout:
+        Seconds after which we should timeout
     :return returncode:
         Return value from running the command
     :return output:
@@ -328,10 +334,17 @@ def runcmd(cmd, env=None):
     """
 
     output = ""
+    if timeout:
+        deadline = time.time() + timeout
+    else:
+        deadline = None
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT,
                                shell=True, env=env)
     while process.poll() is None:
+        if deadline and time.time() > deadline:
+            process.terminate()
+            raise TimeoutError
         line = process.stdout.readline()
         if line:
             sys.stdout.write(line.decode())
