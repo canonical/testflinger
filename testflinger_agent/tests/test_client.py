@@ -78,7 +78,7 @@ class ClientRunTests(TestCase):
         # Make sure we return good status when posting the outcome
         # shutil.rmtree is mocked so that we avoid removing the files
         # before finishing the test
-        mock_requests_post.side_effect = [MagicMock(status_code=200)]
+        mock_requests_post.return_value = MagicMock(status_code=200)
         testflinger_agent.client.process_jobs()
         setuplog = open(os.path.join(self.tmpdir,
                                      fake_job_data.get('job_id'),
@@ -101,7 +101,7 @@ class ClientRunTests(TestCase):
         # Make sure we return good status when posting the outcome
         # shutil.rmtree is mocked so that we avoid removing the files
         # before finishing the test
-        mock_requests_post.side_effect = [MagicMock(status_code=200)]
+        mock_requests_post.return_value = MagicMock(status_code=200)
         testflinger_agent.client.process_jobs()
         provisionlog = open(os.path.join(self.tmpdir,
                                          fake_job_data.get('job_id'),
@@ -124,7 +124,7 @@ class ClientRunTests(TestCase):
         # Make sure we return good status when posting the outcome
         # shutil.rmtree is mocked so that we avoid removing the files
         # before finishing the test
-        mock_requests_post.side_effect = [MagicMock(status_code=200)]
+        mock_requests_post.return_value = MagicMock(status_code=200)
         testflinger_agent.client.process_jobs()
         testlog = open(os.path.join(self.tmpdir,
                                     fake_job_data.get('job_id'),
@@ -150,7 +150,7 @@ class ClientRunTests(TestCase):
         # Make sure we return good status when posting the outcome
         # shutil.rmtree is mocked so that we avoid removing the files
         # before finishing the test
-        mock_requests_post.side_effect = [MagicMock(status_code=200)]
+        mock_requests_post.return_value = MagicMock(status_code=200)
         testflinger_agent.client.process_jobs()
         outcome_file = os.path.join(os.path.join(self.tmpdir,
                                                  fake_job_data.get('job_id'),
@@ -163,7 +163,8 @@ class ClientRunTests(TestCase):
     @patch('testflinger_agent.client.logger.exception')
     @patch('testflinger_agent.client.transmit_job_outcome')
     @patch('requests.get')
-    def test_retry_transmit(self, mock_requests_get,
+    @patch('requests.post')
+    def test_retry_transmit(self, mock_requests_post, mock_requests_get,
                             mock_transmit_job_outcome,
                             mock_logger_exception):
         """Make sure we retry sending test results"""
@@ -178,7 +179,9 @@ class ClientRunTests(TestCase):
         # Send an extra terminator since we will be calling get 3 times
         mock_requests_get.side_effect = [fake_response, terminator, terminator]
         # Make sure we fail the first time when transmitting the results
-        mock_transmit_job_outcome.side_effect = [TFServerError(404), 200]
+        mock_transmit_job_outcome.side_effect = [TFServerError(404),
+                                                 terminator, terminator]
+        mock_requests_post.return_value = MagicMock(status_code=200)
         testflinger_agent.client.process_jobs()
         first_dir = os.path.join(
             testflinger_agent.config.get('execution_basedir'),
@@ -210,13 +213,13 @@ class ClientRunTests(TestCase):
         # Send an extra terminator since we will be calling get 3 times
         mock_requests_get.side_effect = [fake_response, terminator, terminator]
         # Make sure we fail the first time when transmitting the results
-        mock_requests_post.side_effect = [MagicMock(status_code=200)]
+        mock_requests_post.return_value = MagicMock(status_code=200)
         testflinger_agent.client.process_jobs()
-        # Ok, I know this is weird. The second time post is called when we
+        # Ok, I know this is weird. The fifth time post is called when we
         # have an artifact, it will be sending the artifact and there
         # should be a 'files' key in the call arguments. Replicating all
         # the args is not feasible or useful
-        self.assertTrue('files' in str(mock_requests_post.mock_calls[1]))
+        self.assertTrue('files' in str(mock_requests_post.mock_calls[4]))
 
     @patch('shutil.rmtree')
     @patch('requests.post')
@@ -239,7 +242,7 @@ class ClientRunTests(TestCase):
         mock_requests_get.side_effect = [fake_response, terminator]
         # In this case we are making sure that the repost job request
         # gets good status
-        mock_requests_post.side_effect = [MagicMock(status_code=200)]
+        mock_requests_post.return_value = MagicMock(status_code=200)
         testflinger_agent.client.process_jobs()
         self.assertEqual(True, testflinger_agent.check_offline())
         # These are the args we would expect when it reposts the job

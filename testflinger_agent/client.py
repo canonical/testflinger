@@ -40,10 +40,10 @@ def process_jobs():
 
     job_data = check_jobs()
     while job_data:
-        logger.info("Starting job %s", job_data.get('job_id'))
+        job_id = job_data.get('job_id')
+        logger.info("Starting job %s", job_id)
         rundir = os.path.join(
-            testflinger_agent.config.get('execution_basedir'),
-            job_data.get('job_id'))
+            testflinger_agent.config.get('execution_basedir'), job_id)
         os.makedirs(rundir)
         # Dump the job data to testflinger.json in our execution directory
         with open(os.path.join(rundir, 'testflinger.json'), 'w') as f:
@@ -53,6 +53,11 @@ def process_jobs():
             json.dump({}, f)
 
         for phase in TEST_PHASES:
+            # Try to update the job_state on the testflinger server
+            try:
+                post_result(job_id, {'job_state': phase})
+            except TFServerError:
+                pass
             exitcode = run_test_phase(phase, rundir)
             # exit code 46 is our indication that recovery failed!
             # In this case, we need to mark the device offline
@@ -164,6 +169,26 @@ def repost_job(job_data):
         raise TFServerError(job_request.status_code)
 
 
+def post_result(job_id, data):
+    """Post data to the testflinger server result for this job
+
+    :param job_id:
+        id for the job on which we want to post results
+    :param data:
+        dict with data to be posted in json
+    """
+    server = testflinger_agent.config.get('server_address')
+    if not server.lower().startswith('http'):
+        server = 'http://' + server
+    result_uri = urljoin(server, '/v1/result/')
+    result_uri = urljoin(result_uri, job_id)
+    job_request = requests.post(result_uri, json=data)
+    if job_request.status_code != 200:
+        logging.error('Unable to post results to: %s (error: %s)' %
+                      (result_uri, job_request.status_code))
+        raise TFServerError(job_request.status_code)
+
+
 def transmit_job_outcome(rundir):
     """Post job outcome json data to the testflinger server
 
@@ -177,21 +202,16 @@ def transmit_job_outcome(rundir):
     with open(os.path.join(rundir, 'testflinger.json')) as f:
         job_data = json.load(f)
     job_id = job_data.get('job_id')
-    result_uri = urljoin(server, '/v1/result/')
-    result_uri = urljoin(result_uri, job_id)
-    logger.info('Submitting job outcome for job: %s' % job_id)
     # Do not retransmit outcome if it's already been done and removed
     outcome_file = os.path.join(rundir, 'testflinger-outcome.json')
     if os.path.exists(outcome_file):
+        logger.info('Submitting job outcome for job: %s' % job_id)
         with open(outcome_file) as f:
-            job_request = requests.post(result_uri, json=json.load(f))
-            if job_request.status_code != 200:
-                logging.error('Unable to post results to: %s (error: %s)' %
-                              (result_uri, job_request.status_code))
-                raise TFServerError(job_request.status_code)
-            else:
-                # Remove the outcome file so we don't retransmit
-                os.unlink(outcome_file)
+            data = json.load(f)
+            data['job_state'] = 'complete'
+            post_result(job_id, data)
+        # Remove the outcome file so we don't retransmit
+        os.unlink(outcome_file)
     artifacts_dir = os.path.join(rundir, 'artifacts')
     # If we find an 'artifacts' dir under rundir, archive it, and transmit it
     # to the Testflinger server
@@ -208,7 +228,7 @@ def transmit_job_outcome(rundir):
                     artifact_uri, files=file_upload)
             if artifact_request.status_code != 200:
                 logging.error('Unable to post results to: %s (error: %s)' %
-                              (result_uri, artifact_request.status_code))
+                              (artifact_uri, artifact_request.status_code))
                 raise TFServerError(artifact_request.status_code)
             else:
                 shutil.rmtree(artifacts_dir)
