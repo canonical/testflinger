@@ -52,6 +52,10 @@ def job_post():
     elif not check_valid_uuid(job_id):
         return "Invalid job_id specified\n", 400
     submit_job(job_queue, json.dumps(data))
+    # Add a result file with job_state=waiting
+    result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
+    with open(result_file, 'w') as results:
+        results.write(json.dumps({'job_state': 'waiting'}))
     return jsonify(job_id=job_id)
 
 

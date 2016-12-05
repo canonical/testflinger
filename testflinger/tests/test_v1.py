@@ -65,6 +65,18 @@ class APITest(TestCase):
         self.assertEqual(my_id, job_id)
 
     @patch('redis.Redis', fakeredis.FakeRedis)
+    def test_initial_job_state(self):
+        """Ensure initial job state is set to 'waiting'"""
+        job_data = json.dumps(dict(job_queue='test'))
+        # Place a job on the queue
+        output = self.app.post('/v1/job', data=job_data,
+                               content_type='application/json')
+        job_id = json.loads(output.data.decode()).get('job_id')
+        result_url = '/v1/result/{}'.format(job_id)
+        updated_data = json.loads(self.app.get(result_url).data.decode())
+        self.assertEqual('waiting', updated_data.get('job_state'))
+
+    @patch('redis.Redis', fakeredis.FakeRedis)
     def test_get_nonexistant_job(self):
         output = self.app.get('/v1/job?queue=BAD_QUEUE_NAME')
         self.assertEqual(204, output.status_code)
