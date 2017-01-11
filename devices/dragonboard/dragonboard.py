@@ -289,7 +289,7 @@ class Dragonboard:
         cmd = ['scp', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                self.config['user_assertion'],
-               'linaro@{}:/tmp/autoimport.assert'.format(
+               'linaro@{}:/tmp/auto-import.assert'.format(
                    self.config['device_ip'])]
         try:
             subprocess.check_call(cmd, timeout=60)
@@ -298,7 +298,7 @@ class Dragonboard:
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                'linaro@{}'.format(self.config['device_ip']),
-               'sudo cp /tmp/autoimport.assert /mnt']
+               'sudo cp /tmp/auto-import.assert /mnt']
         try:
             subprocess.check_call(cmd, timeout=60)
         except:
