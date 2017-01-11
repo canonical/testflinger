@@ -235,11 +235,11 @@ class Dragonboard:
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                'linaro@{}'.format(self.config['device_ip']),
-               'sudo umount /mnt']
+               'sudo umount {}*'.format(self.config['test_device'])]
         try:
-            subprocess.check_call(cmd, timeout=60)
+            subprocess.check_call(cmd, timeout=30)
         except:
-            pass
+            raise ProvisioningError("Error unmounting test device")
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                'linaro@{}'.format(self.config['device_ip']),
