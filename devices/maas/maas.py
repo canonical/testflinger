@@ -63,11 +63,26 @@ class Maas:
             time.sleep(60)
             status = self.node_status()
             if status == 'Deployed':
-                return
+                if self.check_test_image_booted():
+                    return
         logger.error('Device %s still in "%s" state, deployment failed!',
                      agent_name, status)
         logger.error(output)
         raise ProvisioningError("Provisioning failed!")
+
+    def check_test_image_booted(self):
+        logger.info("Checking if test image booted.")
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'ubuntu@{}'.format(self.config['device_ip']),
+               'snap -h']
+        try:
+            subprocess.check_output(
+                cmd, stderr=subprocess.STDOUT, timeout=60)
+        except:
+            return False
+        # If we get here, then the above command proved we are booted
+        return True
 
     def node_status(self):
         """Return status of the node according to maas:
