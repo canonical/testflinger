@@ -12,10 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import fcntl
 import logging
 import json
 import os
 import requests
+import select
 import shutil
 import subprocess
 import sys
@@ -58,7 +60,7 @@ def process_jobs():
                 post_result(job_id, {'job_state': phase})
             except TFServerError:
                 pass
-            exitcode = run_test_phase(phase, rundir)
+            exitcode = run_test_phase(job_id, phase, rundir)
             # exit code 46 is our indication that recovery failed!
             # In this case, we need to mark the device offline
             if exitcode == 46:
@@ -123,9 +125,11 @@ def check_jobs():
         time.sleep(60)
 
 
-def run_test_phase(phase, rundir):
+def run_test_phase(job_id, phase, rundir):
     """Run the specified test phase in rundir
 
+    :param job_id:
+        id for the test job
     :param phase:
         Name of the test phase (setup, provision, test, ...)
     :param rundir:
@@ -142,7 +146,7 @@ def run_test_phase(phase, rundir):
     # Set the exitcode to some failed status in case we get interrupted
     exitcode = 99
     try:
-        exitcode = run_with_log(cmd, phase_log, rundir)
+        exitcode = run_with_log(job_id, cmd, phase_log, rundir)
     finally:
         # Save the output log in the json file no matter what
         with open(os.path.join(rundir, 'testflinger-outcome.json')) as f:
@@ -235,9 +239,16 @@ def transmit_job_outcome(rundir):
     shutil.rmtree(rundir)
 
 
-def run_with_log(cmd, logfile, cwd=None):
+def set_nonblock(fd):
+        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+
+
+def run_with_log(job_id, cmd, logfile, cwd=None):
     """Execute command in a subprocess and log the output
 
+    :param job_id:
+        id for the job
     :param cmd:
         Command to run
     :param logfile:
@@ -248,17 +259,54 @@ def run_with_log(cmd, logfile, cwd=None):
         returncode from the process
     """
     with open(logfile, 'w') as f:
+        live_output_buffer = ''
+        readpoll = select.poll()
+        buffer_timeout = time.time()
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT,
                                    shell=True, cwd=cwd)
+        set_nonblock(process.stdout.fileno())
+        readpoll.register(process.stdout, select.POLLIN)
         while process.poll() is None:
-            line = process.stdout.readline()
-            if line:
-                sys.stdout.write(line.decode())
-                f.write(line.decode())
-                f.flush()
-        line = process.stdout.read()
-        if line:
-            sys.stdout.write(line.decode())
-            f.write(line.decode())
+            # Check if there's any new data, timeout after 10s
+            data_ready = readpoll.poll(10000)
+            if data_ready:
+                buf = process.stdout.read().decode(sys.stdout.encoding)
+                if buf:
+                    sys.stdout.write(buf)
+                    live_output_buffer += buf
+                    # Don't spam the server, only flush the buffer if there
+                    # is output and it's been more than 10s
+                    if time.time() - buffer_timeout > 10:
+                        buffer_timeout = time.time()
+                        # Try to stream output, if we can't connect, then
+                        # keep buffer for the next pass through this
+                        if post_live_output(job_id, live_output_buffer):
+                            live_output_buffer = ''
+                    f.write(buf)
+                    f.flush()
+        buf = process.stdout.read().decode(sys.stdout.encoding)
+        if buf:
+            sys.stdout.write(buf)
+            live_output_buffer += buf
+            post_live_output(job_id, live_output_buffer)
+            f.write(buf)
         return process.returncode
+
+
+def post_live_output(job_id, data):
+    """Post output data to the testflinger server for this job
+
+    :param job_id:
+        id for the job on which we want to post results
+    :param data:
+        string with latest output data
+    """
+    server = testflinger_agent.config.get('server_address')
+    if not server.lower().startswith('http'):
+        server = 'http://' + server
+    output_uri = urljoin(server, '/v1/result/{}/output'.format(job_id))
+    job_request = requests.post(output_uri, data=data)
+    if job_request.status_code != 200:
+        return False
+    return True
