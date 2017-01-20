@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+# Copyright (C) 2017 Canonical
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+
+import click
+import json
+import os
+import sys
+import time
+
+import testflinger_cli
+
+
+# Make it easier to run from a checkout
+basedir = os.path.abspath(os.path.join(__file__, '..'))
+if os.path.exists(os.path.join(basedir, 'setup.py')):
+    sys.path.insert(0, basedir)
+
+
+@click.group()
+@click.option('--server', default='http://testflinger.canonical.com',
+              help='Testflinger server to use')
+@click.pass_context
+def cli(ctx, server):
+    ctx.obj['conn'] = testflinger_cli.Client(server)
+
+
+@cli.command()
+@click.argument('job_id', nargs=1)
+@click.pass_context
+def status(ctx, job_id):
+    conn = ctx.obj['conn']
+    try:
+        job_state = conn.get_status(job_id)
+    except testflinger_cli.HTTPError as e:
+        if e.status == 204:
+            print('No data found for that job id. Check the job id to be sure '
+                  'it is correct')
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct')
+        sys.exit(1)
+    print(job_state)
+
+
+@cli.command()
+@click.argument('filename', nargs=1)
+@click.pass_context
+def submit(ctx, filename):
+    conn = ctx.obj['conn']
+    with open(filename) as f:
+        data = f.read()
+    try:
+        job_id = conn.submit_job(data)
+    except testflinger_cli.HTTPError as e:
+        if e.status == 400:
+            print('The job you submitted contained bad data or bad '
+                  'formatting, or did not specify a job_queue.')
+        else:
+            # This shouldn't happen, so let's get the full trace
+            print('Unexpected error status from testflinger '
+                  'server: {}'.format(e.status))
+    print('Job submitted successfully!')
+    print('job_id: {}'.format(job_id))
+
+
+@cli.command()
+@click.argument('job_id', nargs=1)
+@click.pass_context
+def results(ctx, job_id):
+    conn = ctx.obj['conn']
+    try:
+        results = conn.get_results(job_id)
+    except testflinger_cli.HTTPError as e:
+        if e.status == 204:
+            print('No results found for that job id.')
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct')
+        sys.exit(1)
+
+    print(json.dumps(results, sort_keys=True, indent=4))
+
+
+@cli.command()
+@click.argument('job_id', nargs=1)
+@click.pass_context
+def poll(ctx, job_id):
+    conn = ctx.obj['conn']
+    try:
+        job_state = conn.get_status(job_id)
+    except testflinger_cli.HTTPError as e:
+        if e.status == 204:
+            print('No data found for that job id. Check the job id to be sure '
+                  'it is correct')
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct')
+        sys.exit(1)
+    while True:
+        output = ''
+        try:
+            output = conn.get_output(job_id)
+        except testflinger_cli.HTTPError as e:
+            if e.status == 204:
+                # We are still waiting for the job to start
+                pass
+        if output:
+            print(output, end='')
+        job_state = conn.get_status(job_id)
+        if job_state == 'complete':
+            break
+        time.sleep(10)
+    print(job_state)
+
+
+if __name__ == '__main__':
+    cli(obj={})
