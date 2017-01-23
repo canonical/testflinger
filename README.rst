@@ -56,9 +56,15 @@ job is complete.
 
   $ testflinger-cli poll <job_id>
 
-Finally, to get the full json results from the job when it is done running,
-you can use the 'results' subcommand:
+To get the full json results from the job when it is done running, you can
+use the 'results' subcommand:
 .. code-block:: console
 
   $ testflinger-cli results <job_id>
+
+Finally, to download the artifact tarball from the job, you can use the
+'artifact' subcommand:
+.. code-block:: console
+
+  $ testflinger-cli artifact [--filename <DEFAULT:artifact.tgz>] <job_id>
 

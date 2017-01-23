@@ -98,6 +98,25 @@ def results(ctx, job_id):
 
 @cli.command()
 @click.argument('job_id', nargs=1)
+@click.option('--filename', default='artifacts.tgz')
+@click.pass_context
+def artifacts(ctx, job_id, filename):
+    conn = ctx.obj['conn']
+    print('Downloading artifacts tarball...')
+    try:
+        conn.get_artifact(job_id, filename)
+    except testflinger_cli.HTTPError as e:
+        if e.status == 204:
+            print('No artifacts tarball found for that job id.')
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct')
+        sys.exit(1)
+    print('Artifacts downloaded to {}'.format(filename))
+
+
+@cli.command()
+@click.argument('job_id', nargs=1)
 @click.pass_context
 def poll(ctx, job_id):
     conn = ctx.obj['conn']

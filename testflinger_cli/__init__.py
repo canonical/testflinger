@@ -92,6 +92,23 @@ class Client():
         endpoint = '/v1/result/{}'.format(job_id)
         return json.loads(self.get(endpoint))
 
+    def get_artifact(self, job_id, path):
+        """Get results for a specified test job
+
+        :param job_id:
+            ID for the test job
+        :param path:
+            Path and filename for the artifact file
+        """
+        endpoint = '/v1/result/{}/artifact'.format(job_id)
+        uri = urllib.parse.urljoin(self.server, endpoint)
+        req = requests.get(uri)
+        if req.status_code != 200:
+            raise HTTPError(req.status_code)
+        with open(path, 'wb') as artifact:
+            for chunk in req.iter_content(chunk_size=4096):
+                artifact.write(chunk)
+
     def get_output(self, job_id):
         """Get the latest output for a specified test job
 
