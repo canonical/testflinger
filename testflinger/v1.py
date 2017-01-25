@@ -54,8 +54,12 @@ def job_post():
     submit_job(job_queue, json.dumps(data))
     # Add a result file with job_state=waiting
     result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
+    if os.path.exists(result_file):
+        job_state = 'resubmitted'
+    else:
+        job_state = 'waiting'
     with open(result_file, 'w') as results:
-        results.write(json.dumps({'job_state': 'waiting'}))
+        results.write(json.dumps({'job_state': job_state}))
     return jsonify(job_id=job_id)
 
 
