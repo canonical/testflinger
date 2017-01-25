@@ -59,8 +59,9 @@ def status(ctx, job_id):
 
 @cli.command()
 @click.argument('filename', nargs=1)
+@click.option('--quiet', '-q', is_flag=True)
 @click.pass_context
-def submit(ctx, filename):
+def submit(ctx, filename, quiet):
     conn = ctx.obj['conn']
     with open(filename) as f:
         data = f.read()
@@ -74,8 +75,11 @@ def submit(ctx, filename):
             # This shouldn't happen, so let's get the full trace
             print('Unexpected error status from testflinger '
                   'server: {}'.format(e.status))
-    print('Job submitted successfully!')
-    print('job_id: {}'.format(job_id))
+    if quiet:
+        print(job_id)
+    else:
+        print('Job submitted successfully!')
+        print('job_id: {}'.format(job_id))
 
 
 @cli.command()
