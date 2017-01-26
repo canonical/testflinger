@@ -306,7 +306,7 @@ def post_live_output(job_id, data):
     if not server.lower().startswith('http'):
         server = 'http://' + server
     output_uri = urljoin(server, '/v1/result/{}/output'.format(job_id))
-    job_request = requests.post(output_uri, data=data)
+    job_request = requests.post(output_uri, data=data.encode('utf-8'))
     if job_request.status_code != 200:
         return False
     return True
