@@ -147,6 +147,8 @@ def run_test_phase(job_id, phase, rundir):
     exitcode = 99
     try:
         exitcode = run_with_log(job_id, cmd, phase_log, rundir)
+    except Exception as e:
+        logger.exception(e)
     finally:
         # Save the output log in the json file no matter what
         with open(os.path.join(rundir, 'testflinger-outcome.json')) as f:
