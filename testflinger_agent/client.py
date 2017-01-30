@@ -81,6 +81,9 @@ def process_jobs():
             results_basedir = testflinger_agent.config.get('results_basedir')
             shutil.move(rundir, results_basedir)
 
+        if testflinger_agent.check_offline():
+            # Don't get a new job if we are now marked offline
+            break
         job_data = check_jobs()
 
 
