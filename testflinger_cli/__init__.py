@@ -17,6 +17,7 @@
 import json
 import requests
 import urllib.parse
+import yaml
 
 
 class HTTPError(Exception):
@@ -68,16 +69,16 @@ class Client():
         data = json.loads(self.get(endpoint))
         return data.get('job_state')
 
-    def submit_job(self, json_data):
+    def submit_job(self, job_data):
         """Submit a test job to the testflinger server
 
-        :param json_data:
-            String containing json data for the job to submit
+        :param job_data:
+            String containing json or yaml data for the job to submit
         :return:
             ID for the test job
         """
         endpoint = '/v1/job'
-        data = json.loads(json_data)
+        data = yaml.load(job_data)
         response = self.put(endpoint, data)
         return json.loads(response).get('job_id')
 

@@ -37,8 +37,8 @@ To specify a different server to use, you can use the '--server'
 parameter, otherwise it will default to the one running on
 http://testflinger.canonical.com
 
-To submit a new test job, first create a json file containing the job
-definition. Then run:
+To submit a new test job, first create a yaml or json file containing
+the job definition. Then run:
 .. code-block:: console
 
   $ testflinger-cli submit mytest.json
