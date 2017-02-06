@@ -53,6 +53,9 @@ def status(ctx, job_id):
         elif e.status == 400:
             print('Invalid job id specified. Check the job id to be sure it '
                   'is correct')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
         sys.exit(1)
     print(job_state)
 
@@ -71,10 +74,14 @@ def submit(ctx, filename, quiet):
         if e.status == 400:
             print('The job you submitted contained bad data or bad '
                   'formatting, or did not specify a job_queue.')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
         else:
             # This shouldn't happen, so let's get the full trace
             print('Unexpected error status from testflinger '
                   'server: {}'.format(e.status))
+        sys.exit(1)
     if quiet:
         print(job_id)
     else:
@@ -95,6 +102,9 @@ def results(ctx, job_id):
         elif e.status == 400:
             print('Invalid job id specified. Check the job id to be sure it '
                   'is correct')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
         sys.exit(1)
 
     print(json.dumps(results, sort_keys=True, indent=4))
@@ -115,6 +125,9 @@ def artifacts(ctx, job_id, filename):
         elif e.status == 400:
             print('Invalid job id specified. Check the job id to be sure it '
                   'is correct')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
         sys.exit(1)
     print('Artifacts downloaded to {}'.format(filename))
 
@@ -133,6 +146,9 @@ def poll(ctx, job_id):
         elif e.status == 400:
             print('Invalid job id specified. Check the job id to be sure it '
                   'is correct')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
         sys.exit(1)
     while True:
         output = ''

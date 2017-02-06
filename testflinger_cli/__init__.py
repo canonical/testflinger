@@ -16,6 +16,7 @@
 
 import json
 import requests
+import sys
 import urllib.parse
 import yaml
 
@@ -38,7 +39,11 @@ class Client():
             String containing the response from the server
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
-        req = requests.get(uri)
+        try:
+            req = requests.get(uri)
+        except requests.exceptions.ConnectionError as e:
+            print('Unable to communicate with specified server.')
+            sys.exit(1)
         if req.status_code != 200:
             raise HTTPError(req.status_code)
         return req.text
@@ -51,7 +56,11 @@ class Client():
             String containing the response from the server
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
-        req = requests.post(uri, json=data)
+        try:
+            req = requests.post(uri, json=data)
+        except requests.exceptions.ConnectionError as e:
+            print('Unable to communicate with specified server.')
+            sys.exit(1)
         if req.status_code != 200:
             raise HTTPError(req.status_code)
         return req.text
