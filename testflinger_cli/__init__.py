@@ -31,7 +31,7 @@ class Client():
     def __init__(self, server):
         self.server = server
 
-    def get(self, uri_frag):
+    def get(self, uri_frag, timeout=5):
         """Submit a GET request to the server
         :param uri_frag:
             endpoint for the GET request
@@ -40,7 +40,10 @@ class Client():
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
-            req = requests.get(uri)
+            req = requests.get(uri, timeout=timeout)
+        except requests.exceptions.ConnectTimeout as e:
+            print('Timout while trying to communicate with the server.')
+            sys.exit(1)
         except requests.exceptions.ConnectionError as e:
             print('Unable to communicate with specified server.')
             sys.exit(1)
@@ -48,7 +51,7 @@ class Client():
             raise HTTPError(req.status_code)
         return req.text
 
-    def put(self, uri_frag, data):
+    def put(self, uri_frag, data, timeout=5):
         """Submit a POST request to the server
         :param uri_frag:
             endpoint for the POST request
@@ -57,7 +60,10 @@ class Client():
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
-            req = requests.post(uri, json=data)
+            req = requests.post(uri, json=data, timeout=timeout)
+        except requests.exceptions.ConnectTimeout as e:
+            print('Timout while trying to communicate with the server.')
+            sys.exit(1)
         except requests.exceptions.ConnectionError as e:
             print('Unable to communicate with specified server.')
             sys.exit(1)
@@ -112,7 +118,7 @@ class Client():
         """
         endpoint = '/v1/result/{}/artifact'.format(job_id)
         uri = urllib.parse.urljoin(self.server, endpoint)
-        req = requests.get(uri)
+        req = requests.get(uri, timeout=5)
         if req.status_code != 200:
             raise HTTPError(req.status_code)
         with open(path, 'wb') as artifact:
