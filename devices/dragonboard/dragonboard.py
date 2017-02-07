@@ -238,8 +238,9 @@ class Dragonboard:
                'sudo umount {}*'.format(self.config['test_device'])]
         try:
             subprocess.check_call(cmd, timeout=30)
-        except:
-            raise ProvisioningError("Error unmounting test device")
+        except subprocess.CalledProcessError:
+            # We might not be mounted, so expect this to fail sometimes
+            pass
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                'linaro@{}'.format(self.config['device_ip']),
