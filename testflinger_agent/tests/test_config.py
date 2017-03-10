@@ -43,8 +43,8 @@ class ConfigTest(TestCase):
     def test_config_good(self):
         with open(self.configfile, 'w') as config:
             config.write(GOOD_CONFIG)
-        testflinger_agent.load_config(self.configfile)
-        self.assertEqual('test01', testflinger_agent.config.get('agent_id'))
+        config = testflinger_agent.load_config(self.configfile)
+        self.assertEqual('test01', config.get('agent_id'))
 
     def test_config_bad(self):
         with open(self.configfile, 'w') as config:

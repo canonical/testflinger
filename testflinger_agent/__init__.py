@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Canonical
+# Copyright (C) 2016-2017 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,28 +19,31 @@ import sys
 import time
 import yaml
 
-from testflinger_agent import (client, schema)
+from testflinger_agent import schema
+from testflinger_agent.agent import TestflingerAgent
+from testflinger_agent.client import TestflingerClient
 
 logger = logging.getLogger()
-
-config = dict()
 
 
 def main():
     args = parse_args()
-    load_config(args.config)
-    configure_logging()
+    config = load_config(args.config)
+    configure_logging(config)
     check_interval = config.get('polling_interval')
+    client = TestflingerClient(config)
+    agent = TestflingerAgent(client)
     while True:
         try:
-            if check_offline():
+            if agent.check_offline():
                 logger.error("Agent %s is offline, not processing jobs! "
                              "Remove %s to resume processing" %
-                             (config.get('agent_id'), get_offline_file()))
-                while check_offline():
+                             (config.get('agent_id'),
+                              agent.get_offline_file()))
+                while agent.check_offline():
                     time.sleep(check_interval)
             logger.info("Checking jobs")
-            client.process_jobs()
+            agent.process_jobs()
             logger.info("Sleeping for {}".format(check_interval))
             time.sleep(check_interval)
         except KeyboardInterrupt:
@@ -48,29 +51,14 @@ def main():
             sys.exit(0)
 
 
-def get_offline_file():
-    return os.path.join(
-        '/tmp', 'TESTFLINGER-DEVICE-OFFLINE-{}'.format(config.get('agent_id')))
-
-
-def check_offline():
-    return os.path.exists(get_offline_file())
-
-
-def mark_device_offline():
-    # Create the offline file, this should work even if it exists
-    open(get_offline_file(), 'w').close()
-
-
 def load_config(configfile):
-    global config
     with open(configfile) as f:
         config = yaml.safe_load(f)
     config = schema.validate(config)
+    return config
 
 
-def configure_logging():
-    global config
+def configure_logging(config):
     # Create these at the beginning so we fail early if there are
     # permission problems
     os.makedirs(config.get('logging_basedir'), exist_ok=True)
