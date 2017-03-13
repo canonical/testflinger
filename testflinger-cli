@@ -92,6 +92,26 @@ def submit(ctx, filename, quiet):
 @cli.command()
 @click.argument('job_id', nargs=1)
 @click.pass_context
+def show(ctx, job_id):
+    conn = ctx.obj['conn']
+    try:
+        results = conn.show_job(job_id)
+    except testflinger_cli.HTTPError as e:
+        if e.status == 204:
+            print('No data found for that job id.')
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
+        sys.exit(1)
+    print(json.dumps(results, sort_keys=True, indent=4))
+
+
+@cli.command()
+@click.argument('job_id', nargs=1)
+@click.pass_context
 def results(ctx, job_id):
     conn = ctx.obj['conn']
     try:

@@ -97,6 +97,17 @@ class Client():
         response = self.put(endpoint, data)
         return json.loads(response).get('job_id')
 
+    def show_job(self, job_id):
+        """Show the JSON job definition for the specified ID
+
+        :param job_id:
+            ID for the test job
+        :return:
+            JSON job definition for the specified ID
+        """
+        endpoint = '/v1/job/{}'.format(job_id)
+        return json.loads(self.get(endpoint))
+
     def get_results(self, job_id):
         """Get results for a specified test job
 
