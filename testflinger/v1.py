@@ -52,6 +52,10 @@ def job_post():
     elif not check_valid_uuid(job_id):
         return "Invalid job_id specified\n", 400
     submit_job(job_queue, json.dumps(data))
+    job_file = os.path.join(
+        testflinger.app.config.get('DATA_PATH'), job_id + '.json')
+    with open(job_file, 'w') as jobfile:
+        jobfile.write(json.dumps(data))
     # Add a result file with job_state=waiting
     result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
     if os.path.exists(result_file):
@@ -73,6 +77,24 @@ def job_get():
         return job
     else:
         return "", 204
+
+
+def job_get_id(job_id):
+    """Request the json job definition for a specified job, even if it has
+       already run
+
+    :param job_id:
+        UUID as a string for the job
+    """
+    if not check_valid_uuid(job_id):
+        return 'Invalid job id\n', 400
+    job_file = os.path.join(
+        testflinger.app.config.get('DATA_PATH'), job_id + '.json')
+    if not os.path.exists(job_file):
+        return "", 204
+    with open(job_file) as jobfile:
+        data = jobfile.read()
+    return data
 
 
 def result_post(job_id):

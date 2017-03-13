@@ -169,3 +169,30 @@ class APITest(TestCase):
         self.assertEqual('OK', output.data.decode())
         output = self.app.get(output_url)
         self.assertEqual(output.data.decode(), data)
+
+    def test_job_get_id_invalid(self):
+        job_url = '/v1/result/00000000-0000-0000-0000-00000000000X'
+        output = self.app.get(job_url)
+        self.assertEqual(400, output.status_code)
+
+    def test_job_get_id_no_data(self):
+        job_url = '/v1/result/00000000-0000-0000-0000-000000000000'
+        output = self.app.get(job_url)
+        self.assertEqual(204, output.status_code)
+        self.assertEqual('', output.data.decode())
+
+    def test_job_get_id_with_data(self):
+        job_data = dict(job_queue='test', provision_data='test')
+        # Place a job on the queue
+        output = self.app.post('/v1/job', data=json.dumps(job_data),
+                               content_type='application/json')
+        job_id = json.loads(output.data.decode()).get('job_id')
+        job_url = '/v1/job/{}'.format(job_id)
+        # Request the original json for the job
+        self.app.get(job_url)
+        output = self.app.get(job_url)
+        self.assertEqual(200, output.status_code)
+        # Inject the job_id into the expected job, since it will have that
+        # added to it
+        job_data['job_id'] = job_id
+        self.assertEqual(output.data.decode(), json.dumps(job_data))
