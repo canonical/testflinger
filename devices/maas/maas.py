@@ -44,13 +44,14 @@ class Maas:
     def provision(self):
         maas_user = self.config.get('maas_user')
         node_id = self.config.get('node_id')
+        node_name = self.config.get('node_name')
         agent_name = self.config.get('agent_name')
         provision_data = self.job_data.get('provision_data')
         # Default to a safe LTS if no distro is specified
         distro = provision_data.get('distro', 'xenial')
         logger.info('Acquiring node')
         cmd = ['maas', maas_user, 'nodes', 'acquire',
-               'nodes={}'.format(node_id)]
+               'name={}'.format(node_name)]
         # Do not use runcmd for this - we need the output, not the end user
         subprocess.check_call(cmd)
         logger.info(
