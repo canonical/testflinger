@@ -48,12 +48,25 @@ class Netboot:
         This method sets the snappy boot method to the specified value.
         """
         if mode == 'master':
-            setboot_script = self.config['select_master_script']
+            setboot_script = self.config.get('select_master_script')
         elif mode == 'test':
-            setboot_script = self.config['select_test_script']
+            setboot_script = self.config.get('select_test_script')
         else:
-            raise KeyError
-        for cmd in setboot_script:
+            raise ProvisioningError("Attempted to set boot mode to '{}' - "
+                                    "only 'master' or 'test' are supported "
+                                    "modes!".format(mode))
+        self._run_cmd_list(setboot_script)
+
+    def _run_cmd_list(self, cmdlist):
+        """
+        Run a list of commands
+
+        :param cmdlist:
+            List of commands to run
+        """
+        if not cmdlist:
+            return
+        for cmd in cmdlist:
             logger.info("Running %s", cmd)
             try:
                 rc = runcmd(cmd, timeout=60)
@@ -219,6 +232,10 @@ class Netboot:
         finally:
             logger.info("Image write output:")
             logger.info(str(req.read()))
+
+        # Run post-flash hooks
+        post_flash_cmds = self.config.get('post_flash_cmds')
+        self._run_cmd_list(post_flash_cmds)
 
         # Now reboot the target system
         url = 'http://{}:8989/reboot'.format(self.config['device_ip'])
