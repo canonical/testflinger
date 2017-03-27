@@ -15,7 +15,6 @@
 """Ubuntu Maas support code."""
 
 import logging
-import os
 import yaml
 
 import guacamole
