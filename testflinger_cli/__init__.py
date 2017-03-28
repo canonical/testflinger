@@ -31,7 +31,7 @@ class Client():
     def __init__(self, server):
         self.server = server
 
-    def get(self, uri_frag, timeout=5):
+    def get(self, uri_frag, timeout=15):
         """Submit a GET request to the server
         :param uri_frag:
             endpoint for the GET request
@@ -51,7 +51,7 @@ class Client():
             raise HTTPError(req.status_code)
         return req.text
 
-    def put(self, uri_frag, data, timeout=5):
+    def put(self, uri_frag, data, timeout=15):
         """Submit a POST request to the server
         :param uri_frag:
             endpoint for the POST request
@@ -129,7 +129,7 @@ class Client():
         """
         endpoint = '/v1/result/{}/artifact'.format(job_id)
         uri = urllib.parse.urljoin(self.server, endpoint)
-        req = requests.get(uri, timeout=5)
+        req = requests.get(uri, timeout=15)
         if req.status_code != 200:
             raise HTTPError(req.status_code)
         with open(path, 'wb') as artifact:
