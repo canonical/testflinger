@@ -22,7 +22,7 @@ import guacamole
 
 import snappy_device_agents
 from devices.touch.touch import Touch
-from snappy_device_agents import logmsg, runcmd
+from snappy_device_agents import logmsg, run_test_cmds
 from devices import (Catch, RecoveryError)
 
 device_name = "touch"
@@ -69,12 +69,7 @@ class runtest(guacamole.Command):
         exitcode = 0
         env = os.environ.copy()
         env['ANDROID_SERIAL'] = config.get('serial')
-        for cmd in test_cmds:
-            logmsg(logging.INFO, "Running: %s", cmd)
-            rc = runcmd(cmd, env=env)
-            if rc:
-                exitcode = 4
-                logmsg(logging.WARNING, "Command failed, rc=%d", rc)
+        exitcode = run_test_cmds(test_cmds, config, env)
         logmsg(logging.INFO, "END testrun")
         return exitcode
 

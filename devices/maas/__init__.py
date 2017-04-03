@@ -21,7 +21,7 @@ import guacamole
 
 import snappy_device_agents
 from devices.maas.maas import Maas
-from snappy_device_agents import logmsg, runcmd
+from snappy_device_agents import logmsg, run_test_cmds
 from devices import (Catch, RecoveryError)
 
 device_name = "maas"
@@ -66,21 +66,7 @@ class runtest(guacamole.Command):
         test_opportunity = snappy_device_agents.get_test_opportunity(
             ctx.args.job_data)
         test_cmds = test_opportunity.get('test_data').get('test_cmds')
-        exitcode = 0
-        for cmd in test_cmds:
-            # Settings from the device yaml configfile like device_ip can be
-            # formatted in test commands like "foo {device_ip}"
-            try:
-                cmd = cmd.format(**config)
-            except:
-                exitcode = 20
-                logmsg(logging.ERROR, "Unable to format command: %s", cmd)
-
-            logmsg(logging.INFO, "Running: %s", cmd)
-            rc = runcmd(cmd)
-            if rc:
-                exitcode = 4
-                logmsg(logging.WARNING, "Command failed, rc=%d", rc)
+        exitcode = run_test_cmds(test_cmds, config)
         logmsg(logging.INFO, "END testrun")
         return exitcode
 
