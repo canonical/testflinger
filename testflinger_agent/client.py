@@ -64,8 +64,8 @@ class TestflingerClient:
         logger.info('Resubmitting job for job: %s' % job_data.get('job_id'))
         job_request = requests.post(job_uri, json=job_data)
         if job_request.status_code != 200:
-            logging.error('Unable to re-post job to: %s (error: %s)' %
-                          (job_uri, job_request.status_code))
+            logger.error('Unable to re-post job to: %s (error: %s)' %
+                         (job_uri, job_request.status_code))
             raise TFServerError(job_request.status_code)
 
     def post_result(self, job_id, data):
@@ -80,8 +80,8 @@ class TestflingerClient:
         result_uri = urljoin(result_uri, job_id)
         job_request = requests.post(result_uri, json=data)
         if job_request.status_code != 200:
-            logging.error('Unable to post results to: %s (error: %s)' %
-                          (result_uri, job_request.status_code))
+            logger.error('Unable to post results to: %s (error: %s)' %
+                         (result_uri, job_request.status_code))
             raise TFServerError(job_request.status_code)
 
     def transmit_job_outcome(self, rundir):
@@ -121,8 +121,8 @@ class TestflingerClient:
                     artifact_request = requests.post(
                         artifact_uri, files=file_upload)
                 if artifact_request.status_code != 200:
-                    logging.error('Unable to post results to: %s (error: %s)' %
-                                  (artifact_uri, artifact_request.status_code))
+                    logger.error('Unable to post results to: %s (error: %s)' %
+                                 (artifact_uri, artifact_request.status_code))
                     raise TFServerError(artifact_request.status_code)
                 else:
                     shutil.rmtree(artifacts_dir)
@@ -138,7 +138,12 @@ class TestflingerClient:
         """
         output_uri = urljoin(self.config.get('server'),
                              '/v1/result/{}/output'.format(job_id))
-        job_request = requests.post(output_uri, data=data.encode('utf-8'))
+        try:
+            job_request = requests.post(
+                output_uri, data=data.encode('utf-8'))
+        except Exception as e:
+            logger.exception(e)
+            return False
         if job_request.status_code != 200:
             return False
         return True
