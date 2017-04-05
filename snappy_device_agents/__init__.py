@@ -192,8 +192,8 @@ def get_image(job_data='testflinger.json'):
         image = delayretry(udf_create_image, [udf_params],
                            max_retries=3, delay=60)
     else:
-        logging.error('provision_data needs to contain "url" for the image '
-                      'or "udf-params"')
+        logger.error('provision_data needs to contain "url" for the image '
+                     'or "udf-params"')
     return compress_file(image)
 
 
@@ -349,3 +349,87 @@ def runcmd(cmd, env=None, timeout=None):
     if line:
         sys.stdout.write(line.decode())
     return process.returncode
+
+
+def run_test_cmds(cmds, config=None, env=None):
+    """
+    Run the test commands provided
+    This is just a frontend to determine the type of cmds we
+    were passed and do the right thing with it
+
+    :param cmds:
+        Commands to run as a string or list of strings
+    :param config:
+        Config data for the device which can be used for filling templates
+    :param env:
+        Environment to pass when running the commands
+    """
+
+    if type(cmds) is list:
+        _run_test_cmds_list(cmds, config, env)
+    elif type(cmds) is str:
+        _run_test_cmds_str(cmds, config, env)
+    else:
+        logmsg(logging.ERROR, "test_cmds field must be a list or string")
+        return 1
+
+
+def _run_test_cmds_list(cmds, config=None, env=None):
+    """
+    Run the test commands provided
+
+    :param cmds:
+        Commands to run as a list of strings
+    :param config:
+        Config data for the device which can be used for filling templates
+    :param env:
+        Environment to pass when running the commands
+    :return returncode:
+        Return 0 if everything succeeded, 4 if any command in the list
+        failed, or 20 if there was a formatting error
+    """
+
+    exitcode = 0
+    for cmd in cmds:
+        # Settings from the device yaml configfile like device_ip can be
+        # formatted in test commands like "foo {device_ip}"
+        try:
+            cmd = cmd.format(**config)
+        except:
+            exitcode = 20
+            logmsg(logging.ERROR, "Unable to format command: %s", cmd)
+
+        logmsg(logging.INFO, "Running: %s", cmd)
+        rc = runcmd(cmd, env)
+        if rc:
+            exitcode = 4
+            logmsg(logging.WARNING, "Command failed, rc=%d", rc)
+    return exitcode
+
+
+def _run_test_cmds_str(cmds, config=None, env=None):
+    """
+    Run the test commands provided
+
+    :param cmds:
+        Commands to run as a string
+    :param config:
+        Config data for the device which can be used for filling templates
+    :param env:
+        Environment to pass when running the commands
+    :return returncode:
+        Return the value of the return code from the script, or 20 if there
+        was an error formatting the script
+    """
+    try:
+        cmds = cmds.format(**config)
+    except KeyError as e:
+        logmsg(logging.ERROR, "Unable to format key: %s", e.args[0])
+        return 20
+    with open('tf_cmd_script', mode='w', encoding='utf-8') as tf_cmd_script:
+        tf_cmd_script.write(cmds)
+    os.chmod('tf_cmd_script', 0o775)
+    rc = runcmd('./tf_cmd_script', env)
+    if rc:
+        logmsg(logging.WARNING, "Tests failed, rc=%d", rc)
+    return rc
