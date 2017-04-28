@@ -44,7 +44,6 @@ class Maas2:
     def provision(self):
         maas_user = self.config.get('maas_user')
         node_id = self.config.get('node_id')
-        node_name = self.config.get('node_name')
         agent_name = self.config.get('agent_name')
         provision_data = self.job_data.get('provision_data')
         # Default to a safe LTS if no distro is specified
