@@ -365,6 +365,10 @@ def run_test_cmds(cmds, config=None, env=None):
         Environment to pass when running the commands
     """
 
+    if not env:
+        env = os.environ.copy()
+    config_env = config.get('env', {})
+    env.update(config_env)
     if type(cmds) is list:
         _run_test_cmds_list(cmds, config, env)
     elif type(cmds) is str:
