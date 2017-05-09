@@ -63,11 +63,11 @@ class TestflingerJob:
             with open(os.path.join(rundir, 'testflinger-outcome.json')) as f:
                 outcome_data = json.load(f)
             if os.path.exists(phase_log):
-                with open(phase_log) as f:
+                with open(phase_log, encoding='utf-8') as f:
                     outcome_data[phase+'_output'] = f.read()
             outcome_data[phase+'_status'] = exitcode
             with open(os.path.join(rundir, 'testflinger-outcome.json'),
-                      'w') as f:
+                      'w', encoding='utf-8') as f:
                 json.dump(outcome_data, f)
             return exitcode
 
@@ -83,7 +83,7 @@ class TestflingerJob:
         :return:
             returncode from the process
         """
-        with open(logfile, 'w') as f:
+        with open(logfile, 'w', encoding='utf-8') as f:
             live_output_buffer = ''
             readpoll = select.poll()
             buffer_timeout = time.time()
