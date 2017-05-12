@@ -56,7 +56,7 @@ class ClientRunTests(TestCase):
         setuplog = open(os.path.join(self.tmpdir,
                                      fake_job_data.get('job_id'),
                                      'setup.log')).read()
-        self.assertEqual('setup1', setuplog.strip())
+        self.assertEqual('setup1', setuplog.splitlines()[-1].strip())
 
     @patch('shutil.rmtree')
     @patch('requests.post')
@@ -80,7 +80,7 @@ class ClientRunTests(TestCase):
         provisionlog = open(os.path.join(self.tmpdir,
                                          fake_job_data.get('job_id'),
                                          'provision.log')).read()
-        self.assertEqual('provision1', provisionlog.strip())
+        self.assertEqual('provision1', provisionlog.splitlines()[-1].strip())
 
     @patch('shutil.rmtree')
     @patch('requests.post')
@@ -104,7 +104,7 @@ class ClientRunTests(TestCase):
         testlog = open(os.path.join(self.tmpdir,
                                     fake_job_data.get('job_id'),
                                     'test.log')).read()
-        self.assertEqual('test1', testlog.strip())
+        self.assertEqual('test1', testlog.splitlines()[-1].strip())
 
     @patch('testflinger_agent.client.os.unlink')
     @patch('shutil.rmtree')
@@ -194,11 +194,8 @@ class ClientRunTests(TestCase):
         # Make sure we fail the first time when transmitting the results
         mock_requests_post.return_value = MagicMock(status_code=200)
         agent.process_jobs()
-        # Ok, I know this is weird. The fifth time post is called when we
-        # have an artifact, it will be sending the artifact and there
-        # should be a 'files' key in the call arguments. Replicating all
-        # the args is not feasible or useful
-        self.assertTrue('files' in str(mock_requests_post.mock_calls[4]))
+        # The last request should have the 'files' value we are looking for
+        self.assertTrue('files' in str(mock_requests_post.mock_calls[-1]))
 
     @patch('shutil.rmtree')
     @patch('requests.post')
