@@ -68,7 +68,15 @@ class TestflingerAgent:
                     self.client.post_result(job.job_id, {'job_state': phase})
                 except TFServerError:
                     pass
-                exitcode = job.run_test_phase(phase, rundir)
+                try:
+                    exitcode = job.run_test_phase(phase, rundir)
+                except Exception as e:
+                    # If we hit some unknown exception, preserve results,
+                    # log the exception, and stop execution
+                    logger.exception(e)
+                    results_basedir = self.client.config.get('results_basedir')
+                    shutil.move(rundir, results_basedir)
+                    return
                 # exit code 46 is our indication that recovery failed!
                 # In this case, we need to mark the device offline
                 if exitcode == 46:
