@@ -49,6 +49,8 @@ def main():
         except KeyboardInterrupt:
             logger.info('Caught interrupt, exiting!')
             sys.exit(0)
+        except Exception as e:
+            logger.exception(e)
 
 
 def load_config(configfile):
