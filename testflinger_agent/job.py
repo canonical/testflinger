@@ -48,12 +48,15 @@ class TestflingerJob:
             if there was no command to run
         """
         cmd = self.client.config.get(phase+'_command')
+        node = self.client.config.get('agent_id')
         if not cmd:
             return 0
         phase_log = os.path.join(rundir, phase+'.log')
         logger.info('Running %s_command: %s' % (phase, cmd))
         # Set the exitcode to some failed status in case we get interrupted
         exitcode = 99
+        for line in self.banner('Starting {} phase on {}'.format(phase, node)):
+            self.run_with_log("echo '{}'".format(line), phase_log, rundir)
         try:
             exitcode = self.run_with_log(cmd, phase_log, rundir)
         except Exception as e:
@@ -83,7 +86,7 @@ class TestflingerJob:
         :return:
             returncode from the process
         """
-        with open(logfile, 'w', encoding='utf-8') as f:
+        with open(logfile, 'a', encoding='utf-8') as f:
             live_output_buffer = ''
             readpoll = select.poll()
             buffer_timeout = time.time()
@@ -119,6 +122,16 @@ class TestflingerJob:
             if live_output_buffer:
                 self.client.post_live_output(self.job_id, live_output_buffer)
             return process.returncode
+
+    def banner(self, line):
+        """Yield text lines to print a banner around a sting
+
+        :param line:
+            Line of text to print a banner around
+        """
+        yield '*' * (len(line) + 4)
+        yield '* {} *'.format(line)
+        yield '*' * (len(line) + 4)
 
 
 def set_nonblock(fd):
