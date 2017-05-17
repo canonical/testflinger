@@ -57,6 +57,9 @@ def status(ctx, job_id):
             print('Received 404 error from server. Are you sure this '
                   'is a testflinger server?')
         sys.exit(1)
+    except:
+        print('Error communicating with server, check connection and retry')
+        sys.exit(1)
     print(job_state)
 
 
@@ -126,6 +129,9 @@ def results(ctx, job_id):
             print('Received 404 error from server. Are you sure this '
                   'is a testflinger server?')
         sys.exit(1)
+    except:
+        print('Error communicating with server, check connection and retry')
+        sys.exit(1)
 
     print(json.dumps(results, sort_keys=True, indent=4))
 
@@ -148,6 +154,9 @@ def artifacts(ctx, job_id, filename):
         if e.status == 404:
             print('Received 404 error from server. Are you sure this '
                   'is a testflinger server?')
+        sys.exit(1)
+    except:
+        print('Error communicating with server, check connection and retry')
         sys.exit(1)
     print('Artifacts downloaded to {}'.format(filename))
 
@@ -178,6 +187,8 @@ def poll(ctx, job_id):
             if e.status == 204:
                 # We are still waiting for the job to start
                 pass
+        except:
+            continue
         if output:
             print(output, end='', flush=True)
         job_state = conn.get_status(job_id)
