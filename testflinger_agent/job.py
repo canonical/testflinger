@@ -121,7 +121,7 @@ class TestflingerJob:
                         global_timeout)
                     live_output_buffer += buf
                     f.write(buf)
-                    process.terminate()
+                    process.kill()
                     break
             buf = process.stdout.read()
             if buf:
