@@ -36,6 +36,9 @@ if os.path.exists(os.path.join(basedir, 'setup.py')):
               help='Testflinger server to use')
 @click.pass_context
 def cli(ctx, server):
+    env_server = os.environ.get('TESTFLINGER_SERVER')
+    if env_server:
+        server = env_server
     ctx.obj['conn'] = testflinger_cli.Client(server)
 
 
