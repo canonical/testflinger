@@ -87,6 +87,7 @@ class TestflingerJob:
             returncode from the process
         """
         global_timeout = self.get_global_timeout()
+        output_timeout = self.get_output_timeout()
         start_time = time.time()
         with open(logfile, 'a', encoding='utf-8') as f:
             live_output_buffer = ''
@@ -116,6 +117,14 @@ class TestflingerJob:
                                 live_output_buffer = ''
                         f.write(buf)
                         f.flush()
+                else:
+                    if time.time() - buffer_timeout > output_timeout:
+                        buf = ('\nERROR: Output timeout reached! '
+                               '({}s)\n'.format(output_timeout))
+                        live_output_buffer += buf
+                        f.write(buf)
+                        process.kill()
+                        break
                 if time.time() - start_time > global_timeout:
                     buf = '\nERROR: Global timeout reached! ({}s)\n'.format(
                         global_timeout)
@@ -143,6 +152,17 @@ class TestflingerJob:
         return min(
             self.job_data.get('global_timeout', default_timeout),
             self.client.config.get('global_timeout', default_timeout))
+
+    def get_output_timeout(self):
+        """Get the output timeout for the test run in seconds
+        """
+        # Default timeout is 15 minutes
+        default_timeout = 15 * 60
+
+        # Don't exceed the maximum timeout configured for the device!
+        return min(
+            self.job_data.get('output_timeout', default_timeout),
+            self.client.config.get('output_timeout', default_timeout))
 
     def banner(self, line):
         """Yield text lines to print a banner around a sting

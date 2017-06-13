@@ -52,3 +52,34 @@ class JobTests(TestCase):
         with open(logfile) as log:
             log_data = log.read()
         self.assertEqual(timeout_str, log_data)
+
+    def test_job_output_timeout(self):
+        """Test that output timeout from job_data is respected"""
+        timeout_str = '\nERROR: Output timeout reached! (1s)\n'
+        logfile = os.path.join(self.tmpdir, 'testlog')
+        client = TestflingerClient(self.config)
+        fake_job_data = {'output_timeout': 1}
+        patch('client.post_live_output')
+        job = TestflingerJob(fake_job_data, client)
+        # unfortunately, we need to sleep for longer that 10 seconds here
+        # or else we fall under the polling time
+        job.run_with_log('sleep 12', logfile)
+        with open(logfile) as log:
+            log_data = log.read()
+        self.assertEqual(timeout_str, log_data)
+
+    def test_config_output_timeout(self):
+        """Test that output timeout from device config is preferred"""
+        timeout_str = '\nERROR: Output timeout reached! (1s)\n'
+        logfile = os.path.join(self.tmpdir, 'testlog')
+        self.config['output_timeout'] = 1
+        client = TestflingerClient(self.config)
+        fake_job_data = {'output_timeout': 3}
+        patch('client.post_live_output')
+        job = TestflingerJob(fake_job_data, client)
+        # unfortunately, we need to sleep for longer that 10 seconds here
+        # or else we fall under the polling time
+        job.run_with_log('sleep 12', logfile)
+        with open(logfile) as log:
+            log_data = log.read()
+        self.assertEqual(timeout_str, log_data)
