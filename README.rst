@@ -36,6 +36,9 @@ After installing testflinger-cli, you can get help by just running
 To specify a different server to use, you can use the '--server'
 parameter, otherwise it will default to the one running on
 http://testflinger.canonical.com
+You may also set the environment variable 'TESTFLINGER_SERVER' to
+the URI of your server, and it will prefer that over the default
+or the string specified by --server.
 
 To submit a new test job, first create a yaml or json file containing
 the job definition. Then run:
