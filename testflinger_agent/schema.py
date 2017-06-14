@@ -31,6 +31,7 @@ SCHEMA_V1 = {
     voluptuous.Required('provision_command', default=''): str,
     voluptuous.Required('test_command', default=''): str,
     voluptuous.Optional('global_timeout'): int,
+    voluptuous.Optional('output_timeout'): int,
 }
 
 
