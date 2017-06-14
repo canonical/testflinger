@@ -74,7 +74,7 @@ class JobTests(TestCase):
         logfile = os.path.join(self.tmpdir, 'testlog')
         self.config['output_timeout'] = 1
         client = TestflingerClient(self.config)
-        fake_job_data = {'output_timeout': 3}
+        fake_job_data = {'output_timeout': 30}
         patch('client.post_live_output')
         job = TestflingerJob(fake_job_data, client)
         # unfortunately, we need to sleep for longer that 10 seconds here
