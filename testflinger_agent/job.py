@@ -35,6 +35,7 @@ class TestflingerJob:
         self.client = client
         self.job_data = job_data
         self.job_id = job_data.get('job_id')
+        self.phase = 'unknown'
 
     def run_test_phase(self, phase, rundir):
         """Run the specified test phase in rundir
@@ -47,6 +48,7 @@ class TestflingerJob:
             Returncode from the command that was executed, 0 will be returned
             if there was no command to run
         """
+        self.phase = phase
         cmd = self.client.config.get(phase+'_command')
         node = self.client.config.get('agent_id')
         if not cmd:
@@ -118,7 +120,8 @@ class TestflingerJob:
                         f.write(buf)
                         f.flush()
                 else:
-                    if time.time() - buffer_timeout > output_timeout:
+                    if (self.phase == 'test' and
+                            time.time() - buffer_timeout > output_timeout):
                         buf = ('\nERROR: Output timeout reached! '
                                '({}s)\n'.format(output_timeout))
                         live_output_buffer += buf

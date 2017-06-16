@@ -34,6 +34,7 @@ class JobTests(TestCase):
         fake_job_data = {'global_timeout': 1}
         patch('client.post_live_output')
         job = TestflingerJob(fake_job_data, client)
+        job.phase = 'test'
         job.run_with_log('sleep 3', logfile)
         with open(logfile) as log:
             log_data = log.read()
@@ -48,6 +49,7 @@ class JobTests(TestCase):
         fake_job_data = {'global_timeout': 3}
         patch('client.post_live_output')
         job = TestflingerJob(fake_job_data, client)
+        job.phase = 'test'
         job.run_with_log('sleep 3', logfile)
         with open(logfile) as log:
             log_data = log.read()
@@ -61,6 +63,7 @@ class JobTests(TestCase):
         fake_job_data = {'output_timeout': 1}
         patch('client.post_live_output')
         job = TestflingerJob(fake_job_data, client)
+        job.phase = 'test'
         # unfortunately, we need to sleep for longer that 10 seconds here
         # or else we fall under the polling time
         job.run_with_log('sleep 12', logfile)
@@ -74,12 +77,29 @@ class JobTests(TestCase):
         logfile = os.path.join(self.tmpdir, 'testlog')
         self.config['output_timeout'] = 1
         client = TestflingerClient(self.config)
-        fake_job_data = {'output_timeout': 3}
+        fake_job_data = {'output_timeout': 30}
         patch('client.post_live_output')
         job = TestflingerJob(fake_job_data, client)
+        job.phase = 'test'
         # unfortunately, we need to sleep for longer that 10 seconds here
         # or else we fall under the polling time
         job.run_with_log('sleep 12', logfile)
+        with open(logfile) as log:
+            log_data = log.read()
+        self.assertEqual(timeout_str, log_data)
+
+    def test_no_output_timeout_in_provision(self):
+        """Test that output timeout is ignored when not in test phase"""
+        timeout_str = 'complete\n'
+        logfile = os.path.join(self.tmpdir, 'testlog')
+        client = TestflingerClient(self.config)
+        fake_job_data = {'output_timeout': 1}
+        patch('client.post_live_output')
+        job = TestflingerJob(fake_job_data, client)
+        job.phase = 'provision'
+        # unfortunately, we need to sleep for longer that 10 seconds here
+        # or else we fall under the polling time
+        job.run_with_log('sleep 12 && echo complete', logfile)
         with open(logfile) as log:
             log_data = log.read()
         self.assertEqual(timeout_str, log_data)
