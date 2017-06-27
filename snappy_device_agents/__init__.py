@@ -370,9 +370,9 @@ def run_test_cmds(cmds, config=None, env=None):
     config_env = config.get('env', {})
     env.update(config_env)
     if type(cmds) is list:
-        _run_test_cmds_list(cmds, config, env)
+        return _run_test_cmds_list(cmds, config, env)
     elif type(cmds) is str:
-        _run_test_cmds_str(cmds, config, env)
+        return _run_test_cmds_str(cmds, config, env)
     else:
         logmsg(logging.ERROR, "test_cmds field must be a list or string")
         return 1
