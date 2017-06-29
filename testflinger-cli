@@ -194,7 +194,12 @@ def poll(ctx, job_id):
             continue
         if output:
             print(output, end='', flush=True)
-        job_state = conn.get_status(job_id)
+        try:
+            job_state = conn.get_status(job_id)
+        except:
+            # If something breaks here, just retry so we don't affect
+            # a running test monitor that relies on poll
+            continue
         if job_state == 'complete':
             break
         time.sleep(10)
