@@ -169,20 +169,10 @@ def artifacts(ctx, job_id, filename):
 @click.pass_context
 def poll(ctx, job_id):
     conn = ctx.obj['conn']
-    try:
-        job_state = conn.get_status(job_id)
-    except testflinger_cli.HTTPError as e:
-        if e.status == 204:
-            print('No data found for that job id. Check the job id to be sure '
-                  'it is correct')
-        elif e.status == 400:
-            print('Invalid job id specified. Check the job id to be sure it '
-                  'is correct')
-        if e.status == 404:
-            print('Received 404 error from server. Are you sure this '
-                  'is a testflinger server?')
-        sys.exit(1)
-    while True:
+    job_state = get_job_state(conn, job_id)
+    while job_state != 'complete':
+        print('sleeping, job state was {}'.format(job_state))
+        time.sleep(10)
         output = ''
         try:
             output = conn.get_output(job_id)
@@ -194,16 +184,29 @@ def poll(ctx, job_id):
             continue
         if output:
             print(output, end='', flush=True)
-        try:
-            job_state = conn.get_status(job_id)
-        except:
-            # If something breaks here, just retry so we don't affect
-            # a running test monitor that relies on poll
-            continue
-        if job_state == 'complete':
-            break
-        time.sleep(10)
+        job_state = get_job_state(conn, job_id)
     print(job_state)
+
+
+def get_job_state(conn, job_id):
+    try:
+        return conn.get_status(job_id)
+    except testflinger_cli.HTTPError as e:
+        if e.status == 204:
+            print('No data found for that job id. Check the job id to be sure '
+                  'it is correct')
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
+        sys.exit(1)
+    except:
+        # If we fail to get the job_state here, it could be because of timeout
+        # but we can keep going and retrying
+        pass
+    return 'unknown'
 
 
 if __name__ == '__main__':
