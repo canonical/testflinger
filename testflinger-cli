@@ -170,8 +170,10 @@ def artifacts(ctx, job_id, filename):
 def poll(ctx, job_id):
     conn = ctx.obj['conn']
     job_state = get_job_state(conn, job_id)
+    if job_state == 'waiting':
+        print('This job is currently waiting on a node to become available. '
+              'You will see no further output until the job starts running.')
     while job_state != 'complete':
-        print('sleeping, job state was {}'.format(job_state))
         time.sleep(10)
         output = ''
         try:
