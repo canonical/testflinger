@@ -425,6 +425,11 @@ def _run_test_cmds_str(cmds, config=None, env=None):
         Return the value of the return code from the script, or 20 if there
         was an error formatting the script
     """
+
+    # If cmds doesn't specify an interpreter, pick a safe default
+    if not cmds.startswith('#!'):
+        cmds = "#!/bin/bash\n" + cmds
+
     try:
         cmds = cmds.format(**config)
     except KeyError as e:
