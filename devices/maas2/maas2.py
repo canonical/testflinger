@@ -14,6 +14,7 @@
 
 """Ubuntu MaaS 2.x CLI support code."""
 
+import base64
 import json
 import logging
 import subprocess
@@ -57,6 +58,11 @@ class Maas2:
             'Starting node %s with distro %s', agent_name, distro)
         cmd = ['maas', maas_user, 'machine', 'deploy', node_id,
                'distro_series={}'.format(distro)]
+        print(self.job_data)
+        user_data = provision_data.get('user_data')
+        if user_data:
+            data = base64.b64encode(user_data.encode()).decode()
+            cmd.append('user_data={}'.format(data))
         output = subprocess.check_output(cmd)
         # Make sure the device is available before returning
         for timeout in range(0, 10):
