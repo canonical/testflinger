@@ -72,10 +72,18 @@ class Maas2:
 
     def check_test_image_booted(self):
         logger.info("Checking if test image booted.")
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'ubuntu@{}'.format(self.config['device_ip']),
-               'snap -h']
+        provision_data = self.job_data.get('provision_data')
+        distro = provision_data.get('distro', 'xenial')
+        if 'desktop' in distro:
+            cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+                   '-o', 'UserKnownHostsFile=/dev/null',
+                   'ubuntu@{}'.format(self.config['device_ip']),
+                   'lsb_release -a']
+        else:
+            cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+                   '-o', 'UserKnownHostsFile=/dev/null',
+                   'ubuntu@{}'.format(self.config['device_ip']),
+                   'snap -h']
         try:
             subprocess.check_output(
                 cmd, stderr=subprocess.STDOUT, timeout=60)
