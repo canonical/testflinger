@@ -75,7 +75,7 @@ class Maas2:
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                'ubuntu@{}'.format(self.config['device_ip']),
-               'snap -h']
+               '/bin/true']
         try:
             subprocess.check_output(
                 cmd, stderr=subprocess.STDOUT, timeout=60)
