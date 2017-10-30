@@ -17,6 +17,7 @@
 import json
 import logging
 import multiprocessing
+import os
 import subprocess
 import time
 import yaml
@@ -37,6 +38,28 @@ class Dragonboard:
             self.config = yaml.load(configfile)
         with open(job_data) as j:
             self.job_data = json.load(j)
+
+    def _run_control(self, cmd, timeout=60):
+        """
+        Run a command on the control host over ssh
+
+        :param cmd:
+            Command to run
+        :param timeout:
+            Timeout (default 60)
+        :returns:
+            Return output from the command, if any
+        """
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'linaro@{}'.format(self.config['device_ip']),
+               cmd]
+        try:
+            output = subprocess.check_output(
+                cmd, stderr=subprocess.STDOUT, timeout=timeout)
+        except subprocess.CalledProcessError as e:
+            raise ProvisioningError(e.output)
+        return output
 
     def setboot(self, mode):
         """
@@ -93,12 +116,8 @@ class Dragonboard:
         """
         logger.info("Booting the test image")
         self.setboot('test')
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'linaro@{}'.format(self.config['device_ip']),
-               'sudo /sbin/reboot']
         try:
-            subprocess.check_call(cmd)
+            self._run_control('sudo /sbin/reboot')
         except:
             pass
         time.sleep(60)
@@ -157,15 +176,10 @@ class Dragonboard:
         .. note::
             The master image is used for writing a new image to local media
         """
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'linaro@{}'.format(self.config['device_ip']),
-               'cat /etc/issue']
         # FIXME: come up with a better way of checking this
         logger.info("Checking if master image booted.")
         try:
-            output = subprocess.check_output(
-                cmd, stderr=subprocess.STDOUT, timeout=60)
+            output = self._run_control('cat /etc/issue')
         except:
             logger.info("Error checking device state. Forcing reboot...")
             return False
@@ -232,60 +246,83 @@ class Dragonboard:
             If the command times out or anything else fails.
         """
         # First unmount, just in case
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'linaro@{}'.format(self.config['device_ip']),
-               'sudo umount {}*'.format(self.config['test_device'])]
         try:
-            subprocess.check_call(cmd, timeout=30)
-        except subprocess.CalledProcessError:
+            self._run_control(
+                'sudo umount {}*'.format(self.config['test_device']),
+                timeout=30)
+        except ProvisioningError:
             # We might not be mounted, so expect this to fail sometimes
             pass
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'linaro@{}'.format(self.config['device_ip']),
-               'nc {} {}| gunzip| sudo dd of={} bs=16M'.format(
-                   server_ip, server_port, self.config['test_device'])]
+        cmd = 'nc {} {}| gunzip| sudo dd of={} bs=16M'.format(
+            server_ip, server_port, self.config['test_device'])
         logger.info("Running: %s", cmd)
         try:
             # XXX: I hope 30 min is enough? but maybe not!
-            subprocess.check_call(cmd, timeout=1800)
+            self._run_control(cmd, timeout=1800)
         except:
             raise ProvisioningError("timeout reached while flashing image!")
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'linaro@{}'.format(self.config['device_ip']), 'sync']
         try:
-            subprocess.check_call(cmd, timeout=30)
+            self._run_control('sync')
         except:
             # Nothing should go wrong here, but let's sleep if it does
             logger.warn("Something went wrong with the sync, sleeping...")
             time.sleep(30)
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'linaro@{}'.format(self.config['device_ip']),
-               'sudo hdparm -z {}'.format(self.config['test_device'])]
         try:
-            subprocess.check_call(cmd, timeout=30)
+            self._run_control(
+                'sudo hdparm -z {}'.format(self.config['test_device']),
+                timeout=30)
         except:
             raise ProvisioningError("Unable to run hdparm to rescan "
                                     "partitions")
 
-    def write_system_user_file(self):
-        """Write the system-user assertion to the writable area"""
+    def mount_writable_partition(self):
         # Mount the writable partition
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'linaro@{}'.format(self.config['device_ip']),
-               'sudo mount {} /mnt'.format(
-                   self.config['snappy_writable_partition'])]
         try:
-            subprocess.check_call(cmd, timeout=60)
+            self._run_control('sudo mount {} /mnt'.format(
+                              self.config['snappy_writable_partition']))
         except:
             err = ("Error mounting writable partition on test image {}. "
                    "Check device configuration".format(
                        self.config['snappy_writable_partition']))
             raise ProvisioningError(err)
+
+    def create_extrausers(self):
+        """Create extrauser account for default ubuntu user"""
+        self.mount_writable_partition()
+        try:
+            self._run_control('sudo mkdir -p /mnt/user-data/ubuntu')
+            self._run_control('sudo chown 1000.1000 /mnt/user-data/ubuntu')
+        except:
+            raise ProvisioningError("Error creating user home dir")
+        try:
+            self._run_control('sudo mkdir -p /mnt/system-data/var/lib/')
+        except:
+            raise ProvisioningError("Error creating dir for user files")
+        userdata_path = os.path.normpath(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         '..', '..', 'data', 'extrausers'))
+        cmd = ['scp', '-r', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null', userdata_path,
+               'linaro@{}:/tmp/'.format(
+                   self.config['device_ip'])]
+        try:
+            subprocess.check_call(cmd, timeout=60)
+            self._run_control(
+                'sudo cp -a /tmp/extrausers /mnt/system-data/var/lib/')
+        except:
+            raise ProvisioningError("Error writing user files")
+
+    def setup_sudo(self):
+        sudo_data = 'ubuntu ALL=(ALL) NOPASSWD:ALL'
+        sudo_path = '/mnt/system-data/etc/sudoers.d/ubuntu'
+        self._run_control(
+            'sudo mkdir -p {}'.format(os.path.dirname(sudo_path)))
+        self._run_control(
+            'sudo bash -c "echo \'{}\' > {}"'.format(sudo_data, sudo_path))
+
+    def write_system_user_file(self):
+        """Write the system-user assertion to the writable area"""
+        self.mount_writable_partition()
         # Copy the system-user assertion to the device
         cmd = ['scp', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
@@ -296,14 +333,27 @@ class Dragonboard:
             subprocess.check_call(cmd, timeout=60)
         except:
             raise ProvisioningError("Error writing system-user assertion")
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'linaro@{}'.format(self.config['device_ip']),
-               'sudo cp /tmp/auto-import.assert /mnt']
         try:
-            subprocess.check_call(cmd, timeout=60)
+            self._run_control('sudo cp /tmp/auto-import.assert /mnt')
         except:
             raise ProvisioningError("Error copying system-user assertion")
+
+    def wipe_test_device(self):
+        """Safety check - wipe the test drive if things go wrong
+
+        This way if we reboot the sytem after a failed provision, it goes
+        back to the control boot image which we could use to provision
+        something else.
+        """
+        try:
+            test_device = self.config['test_device']
+            logger.error("Failed to write image, cleaning up...")
+            self._run_control(
+                'sudo sgdisk -o {}'.format(test_device))
+        except:
+            # This is an attempt to salvage a bad run, further tracebacks
+            # would just add to the noise
+            pass
 
     def provision(self):
         """Provision the device"""
@@ -338,14 +388,20 @@ class Dragonboard:
         file_server.start()
         server_port = serve_q.get()
         logger.info("Flashing Test Image")
-        self.flash_test_image(server_ip, server_port)
-        file_server.terminate()
-        if not url:
-            # If we didn't specify the url, we need to do this
-            # XXX: This is one of those cases where we hope the user did
-            # the right thing and included the assertion in the image!
-            logger.info("Creating Test User")
-            self.write_system_user_file()
-        logger.info("Booting Test Image")
-        self.ensure_test_image(test_username, test_password)
+        try:
+            self.flash_test_image(server_ip, server_port)
+            file_server.terminate()
+            if url:
+                self.create_extrausers()
+                self.setup_sudo()
+            else:
+                # If we didn't specify the url, we need to do this
+                logger.info("Creating Test User")
+                self.write_system_user_file()
+            logger.info("Booting Test Image")
+            self.ensure_test_image(test_username, test_password)
+        except:
+            # wipe out whatever we installed if things go badly
+            self.wipe_test_device()
+            raise
         logger.info("END provision")
