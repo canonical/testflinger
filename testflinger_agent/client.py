@@ -61,7 +61,13 @@ class TestflingerClient:
             id for the job on which we want to post results
         """
         job_uri = urljoin(self.config.get('server'), '/v1/job')
-        logger.info('Resubmitting job for job: %s' % job_data.get('job_id'))
+        job_id = job_data.get('job_id')
+        logger.info('Resubmitting job: %s', job_id)
+        job_output = """
+            There was an unrecoverable error while running this stage. Your job
+            has been automatically resubmitted back to the queue.
+            Resubmitting job: {}\n""".format(job_id)
+        self.post_live_output(job_id, job_output)
         job_request = requests.post(job_uri, json=job_data)
         if job_request.status_code != 200:
             logger.error('Unable to re-post job to: %s (error: %s)' %
