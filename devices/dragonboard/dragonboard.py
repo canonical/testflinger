@@ -320,24 +320,6 @@ class Dragonboard:
         self._run_control(
             'sudo bash -c "echo \'{}\' > {}"'.format(sudo_data, sudo_path))
 
-    def write_system_user_file(self):
-        """Write the system-user assertion to the writable area"""
-        self.mount_writable_partition()
-        # Copy the system-user assertion to the device
-        cmd = ['scp', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               self.config['user_assertion'],
-               'linaro@{}:/tmp/auto-import.assert'.format(
-                   self.config['device_ip'])]
-        try:
-            subprocess.check_call(cmd, timeout=60)
-        except:
-            raise ProvisioningError("Error writing system-user assertion")
-        try:
-            self._run_control('sudo cp /tmp/auto-import.assert /mnt')
-        except:
-            raise ProvisioningError("Error copying system-user assertion")
-
     def wipe_test_device(self):
         """Safety check - wipe the test drive if things go wrong
 
@@ -391,13 +373,9 @@ class Dragonboard:
         try:
             self.flash_test_image(server_ip, server_port)
             file_server.terminate()
-            if url:
-                self.create_extrausers()
-                self.setup_sudo()
-            else:
-                # If we didn't specify the url, we need to do this
-                logger.info("Creating Test User")
-                self.write_system_user_file()
+            logger.info("Creating Test User")
+            self.create_extrausers()
+            self.setup_sudo()
             logger.info("Booting Test Image")
             self.ensure_test_image(test_username, test_password)
         except:
