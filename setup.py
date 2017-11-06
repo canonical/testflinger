@@ -13,17 +13,20 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import sys
-assert sys.version_info >= (3,), 'Python 3 is required'
 
 from setuptools import (
     find_packages,
     setup,
 )
+assert sys.version_info >= (3,), 'Python 3 is required'
 
 
 VERSION = '0.0.1'
 
+datafiles = [(d, [os.path.join(d, f) for f in files])
+             for d, folders, files in os.walk('data')]
 
 setup(
     name='snappy-device-agents',
@@ -35,6 +38,7 @@ setup(
     url='https://launchpad.net/snappy-device-agents',
     license='GPLv3',
     packages=find_packages(),
+    data_files=datafiles,
     install_requires=['guacamole >= 0.9', 'PyYAML>=3.11',
                       'netifaces>=0.10.4'],
     scripts=['snappy-device-agent'],
