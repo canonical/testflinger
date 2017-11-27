@@ -52,9 +52,13 @@ class TestflingerJob:
         cmd = self.client.config.get(phase+'_command')
         node = self.client.config.get('agent_id')
         if not cmd:
+            logger.info('No %s_command configured, skipping...', phase)
+            return 0
+        if '{}_data'.format(phase) not in self.job_data:
+            logger.info('No %s_data defined in job data, skipping...', phase)
             return 0
         phase_log = os.path.join(rundir, phase+'.log')
-        logger.info('Running %s_command: %s' % (phase, cmd))
+        logger.info('Running %s_command: %s', phase, cmd)
         # Set the exitcode to some failed status in case we get interrupted
         exitcode = 99
         for line in self.banner('Starting {} phase on {}'.format(phase, node)):

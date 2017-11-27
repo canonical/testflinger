@@ -42,7 +42,8 @@ class ClientRunTests(TestCase):
         self.config['setup_command'] = 'echo setup1'
         agent = self.get_agent()
         fake_job_data = {'job_id': str(uuid.uuid1()),
-                         'job_queue': 'test'}
+                         'job_queue': 'test',
+                         'setup_data': ''}
         fake_response = requests.Response()
         fake_response._content = json.dumps(fake_job_data).encode()
         terminator = requests.Response()
@@ -66,7 +67,8 @@ class ClientRunTests(TestCase):
         self.config['provision_command'] = 'echo provision1'
         agent = self.get_agent()
         fake_job_data = {'job_id': str(uuid.uuid1()),
-                         'job_queue': 'test'}
+                         'job_queue': 'test',
+                         'provision_data': ''}
         fake_response = requests.Response()
         fake_response._content = json.dumps(fake_job_data).encode()
         terminator = requests.Response()
@@ -90,7 +92,8 @@ class ClientRunTests(TestCase):
         self.config['test_command'] = 'echo test1'
         agent = self.get_agent()
         fake_job_data = {'job_id': str(uuid.uuid1()),
-                         'job_queue': 'test'}
+                         'job_queue': 'test',
+                         'test_data': ''}
         fake_response = requests.Response()
         fake_response._content = json.dumps(fake_job_data).encode()
         terminator = requests.Response()
@@ -117,7 +120,9 @@ class ClientRunTests(TestCase):
         self.config['test_command'] = 'echo test1'
         agent = self.get_agent()
         fake_job_data = {'job_id': str(uuid.uuid1()),
-                         'job_queue': 'test'}
+                         'job_queue': 'test',
+                         'provision_data': '',
+                         'test_data': ''}
         fake_response = requests.Response()
         fake_response._content = json.dumps(fake_job_data).encode()
         terminator = requests.Response()
@@ -184,7 +189,8 @@ class ClientRunTests(TestCase):
                                        'echo test1 > artifacts/t')
         agent = self.get_agent()
         fake_job_data = {'job_id': str(uuid.uuid1()),
-                         'job_queue': 'test'}
+                         'job_queue': 'test',
+                         'test_data': ''}
         fake_response = requests.Response()
         fake_response._content = json.dumps(fake_job_data).encode()
         terminator = requests.Response()
@@ -211,7 +217,9 @@ class ClientRunTests(TestCase):
         self.config['test_command'] = 'echo test1'
         agent = self.get_agent()
         fake_job_data = {'job_id': str(uuid.uuid1()),
-                         'job_queue': 'test'}
+                         'job_queue': 'test',
+                         'provision_data': '',
+                         'test_data': ''}
         fake_response = requests.Response()
         fake_response._content = json.dumps(fake_job_data).encode()
         terminator = requests.Response()
