@@ -54,8 +54,8 @@ class TestflingerJob:
         if not cmd:
             logger.info('No %s_command configured, skipping...', phase)
             return 0
-        if '{}_data'.format(phase) not in self.job_data:
-            logger.info('No %s_data defined in job data, skipping...', phase)
+        if phase == 'provision' and 'provision_data' not in self.job_data:
+            logger.info('No provision_data defined in job data, skipping...')
             return 0
         phase_log = os.path.join(rundir, phase+'.log')
         logger.info('Running %s_command: %s', phase, cmd)

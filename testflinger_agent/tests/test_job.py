@@ -26,18 +26,6 @@ class JobTests(TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
-    def test_skip_missing_setup_data(self):
-        """Test that setup phase is skipped when setup_data is absent"""
-        self.config['setup_command'] = '/bin/true'
-        client = TestflingerClient(self.config)
-        fake_job_data = {'global_timeout': 1}
-        job = TestflingerJob(fake_job_data, client)
-        job.run_test_phase('setup', None)
-        logfile = os.path.join(self.tmpdir, 'testflinger-agent.log')
-        with open(logfile) as log:
-            log_output = log.read()
-        self.assertIn("No setup_data defined in job data", log_output)
-
     def test_skip_missing_provision_data(self):
         """Test that provision phase is skipped when provision_data is absent
         """
@@ -50,18 +38,6 @@ class JobTests(TestCase):
         with open(logfile) as log:
             log_output = log.read()
         self.assertIn("No provision_data defined in job data", log_output)
-
-    def test_skip_missing_test_data(self):
-        """Test that test phase is skipped when test_data is absent"""
-        self.config['test_command'] = '/bin/true'
-        client = TestflingerClient(self.config)
-        fake_job_data = {'global_timeout': 1}
-        job = TestflingerJob(fake_job_data, client)
-        job.run_test_phase('test', None)
-        logfile = os.path.join(self.tmpdir, 'testflinger-agent.log')
-        with open(logfile) as log:
-            log_output = log.read()
-        self.assertIn("No test_data defined in job data", log_output)
 
     def test_job_global_timeout(self):
         """Test that timeout from job_data is respected"""
