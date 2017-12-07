@@ -44,7 +44,8 @@ class TestflingerClient:
             job_uri = urljoin(self.config.get('server'), '/v1/job')
             queue_list = self.config.get('job_queues')
             logger.debug("Requesting a job")
-            job_request = requests.get(job_uri, params={'queue': queue_list})
+            job_request = requests.get(job_uri, params={'queue': queue_list},
+                                       timeout=10)
             if job_request.content:
                 return job_request.json()
             else:
