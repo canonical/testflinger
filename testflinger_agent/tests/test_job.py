@@ -2,7 +2,7 @@ import os
 import shutil
 import tempfile
 
-from mock import patch
+from mock import MagicMock
 from unittest import TestCase
 
 import testflinger_agent
@@ -45,7 +45,7 @@ class JobTests(TestCase):
         logfile = os.path.join(self.tmpdir, 'testlog')
         client = TestflingerClient(self.config)
         fake_job_data = {'global_timeout': 1}
-        patch('client.post_live_output')
+        client.post_live_output = MagicMock()
         job = TestflingerJob(fake_job_data, client)
         job.phase = 'test'
         job.run_with_log('sleep 3', logfile)
@@ -60,7 +60,7 @@ class JobTests(TestCase):
         self.config['global_timeout'] = 1
         client = TestflingerClient(self.config)
         fake_job_data = {'global_timeout': 3}
-        patch('client.post_live_output')
+        client.post_live_output = MagicMock()
         job = TestflingerJob(fake_job_data, client)
         job.phase = 'test'
         job.run_with_log('sleep 3', logfile)
@@ -74,7 +74,7 @@ class JobTests(TestCase):
         logfile = os.path.join(self.tmpdir, 'testlog')
         client = TestflingerClient(self.config)
         fake_job_data = {'output_timeout': 1}
-        patch('client.post_live_output')
+        client.post_live_output = MagicMock()
         job = TestflingerJob(fake_job_data, client)
         job.phase = 'test'
         # unfortunately, we need to sleep for longer that 10 seconds here
@@ -91,7 +91,7 @@ class JobTests(TestCase):
         self.config['output_timeout'] = 1
         client = TestflingerClient(self.config)
         fake_job_data = {'output_timeout': 30}
-        patch('client.post_live_output')
+        client.post_live_output = MagicMock()
         job = TestflingerJob(fake_job_data, client)
         job.phase = 'test'
         # unfortunately, we need to sleep for longer that 10 seconds here
@@ -107,7 +107,7 @@ class JobTests(TestCase):
         logfile = os.path.join(self.tmpdir, 'testlog')
         client = TestflingerClient(self.config)
         fake_job_data = {'output_timeout': 1}
-        patch('client.post_live_output')
+        client.post_live_output = MagicMock()
         job = TestflingerJob(fake_job_data, client)
         job.phase = 'provision'
         # unfortunately, we need to sleep for longer that 10 seconds here
