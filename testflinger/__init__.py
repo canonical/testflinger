@@ -79,4 +79,5 @@ def create_flask_app():
 
     return app
 
+
 app = create_flask_app()
