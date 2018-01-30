@@ -85,7 +85,13 @@ def job_get_id(job_id):
 
     :param job_id:
         UUID as a string for the job
+    :return:
+        JSON data for the job
+
+    >>> job_get_id('foo')
+    ('Invalid job id\\n', 400)
     """
+
     if not check_valid_uuid(job_id):
         return 'Invalid job id\n', 400
     job_file = os.path.join(
@@ -190,6 +196,9 @@ def output_post(job_id):
         UUID as a string for the job
     :param data:
         A list containing the lines of output to post
+
+    >>> output_post('foo')
+    ('Invalid job id\\n', 400)
     """
     if not check_valid_uuid(job_id):
         return 'Invalid job id\n', 400
@@ -215,7 +224,7 @@ def check_valid_uuid(job_id):
 
     try:
         uuid.UUID(job_id)
-    except:
+    except Exception:
         return False
     return True
 

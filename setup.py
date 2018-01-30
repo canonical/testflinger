@@ -27,6 +27,10 @@ INSTALL_REQUIRES = [
 TEST_REQUIRES = [
     "fakeredis",
     "mock",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-flake8",
 ]
 
 setup(
@@ -36,6 +40,6 @@ setup(
     packages=['testflinger'],
     zip_safe=False,
     install_requires=INSTALL_REQUIRES,
+    setup_requires=['pytest-runner'],
     tests_require=TEST_REQUIRES,
-    test_suite='testflinger.tests',
 )

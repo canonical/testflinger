@@ -18,20 +18,17 @@ import os
 import tempfile
 import testflinger
 
-from unittest import TestCase
 
-
-class ConfigTest(TestCase):
-
+class TestConfig:
     def test_default_config(self):
-        app = testflinger.app
-        self.assertEqual(app.config.get('REDIS_HOST'), 'localhost')
-        self.assertEqual(app.config.get('REDIS_PORT'), '6379')
+        app = testflinger.create_flask_app()
+        assert app.config.get('REDIS_HOST') == 'localhost'
+        assert app.config.get('REDIS_PORT') == '6379'
 
     def test_load_config(self):
         with tempfile.NamedTemporaryFile() as testconfig:
             testconfig.write('TEST_FOO="YES"'.encode())
             testconfig.flush()
             os.environ['TESTFLINGER_CONFIG'] = testconfig.name
-            app = testflinger.app
-            self.assertTrue(app.config.get('TEST_FOO', 'YES'))
+            app = testflinger.create_flask_app()
+            assert app.config.get('TEST_FOO') == 'YES'
