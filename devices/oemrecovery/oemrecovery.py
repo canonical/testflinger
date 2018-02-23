@@ -90,7 +90,7 @@ class OemRecovery:
         # Wait for provisioning to complete - can take a very long time
         while time.time() - started < 3600:
             try:
-                time.sleep(10)
+                time.sleep(90)
                 self.copy_ssh_id()
                 return True
             except Exception:
