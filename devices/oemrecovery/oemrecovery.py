@@ -113,7 +113,7 @@ class OemRecovery:
         for cmd in cmdlist:
             logger.info("Running %s", cmd)
             try:
-                output = self._run_device(cmd, timeout=60)
+                output = self._run_device(cmd, timeout=90)
             except TimeoutError:
                 raise ProvisioningError("timeout reaching control host!")
             logger.info(output)
