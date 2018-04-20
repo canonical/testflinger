@@ -344,10 +344,10 @@ def runcmd(cmd, env=None, timeout=None):
             raise TimeoutError
         line = process.stdout.readline()
         if line:
-            sys.stdout.write(line.decode())
+            sys.stdout.write(line.decode(errors='replace'))
     line = process.stdout.read()
     if line:
-        sys.stdout.write(line.decode())
+        sys.stdout.write(line.decode(errors='replace'))
     return process.returncode
 
 
