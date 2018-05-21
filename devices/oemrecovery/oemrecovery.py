@@ -48,7 +48,6 @@ class OemRecovery:
         :returns:
             Return output from the command, if any
         """
-        device_ip = self.config.get('device_ip')
         try:
             test_username = self.job_data.get(
                 'test_data').get('test_username', 'ubuntu')
