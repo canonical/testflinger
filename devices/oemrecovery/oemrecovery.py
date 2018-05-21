@@ -48,10 +48,15 @@ class OemRecovery:
         :returns:
             Return output from the command, if any
         """
-        device_ip = self.config.get('device_ip')
+        try:
+            test_username = self.job_data.get(
+                'test_data').get('test_username', 'ubuntu')
+        except:
+            test_username = 'ubuntu'
         ssh_cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                    '-o', 'UserKnownHostsFile=/dev/null',
-                   '{}'.format(device_ip), cmd]
+                   '{}@{}'.format(test_username, self.config['device_ip']),
+                   cmd]
         try:
             output = subprocess.check_output(
                 ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout)
@@ -75,12 +80,18 @@ class OemRecovery:
         self.check_device_booted()
 
     def copy_ssh_id(self):
-        test_password = self.job_data.get(
-            'test_data').get('test_password', 'ubuntu')
+        try:
+            test_username = self.job_data.get(
+                'test_data').get('test_username', 'ubuntu')
+            test_password = self.job_data.get(
+                'test_data').get('test_password', 'ubuntu')
+        except:
+            test_username = 'ubuntu'
+            test_password = 'ubuntu'
         cmd = ['sshpass', '-p', test_password, 'ssh-copy-id',
                '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
-               self.config['device_ip']]
+               '{}@{}'.format(test_username, self.config['device_ip'])]
         subprocess.check_output(
             cmd, stderr=subprocess.STDOUT, timeout=60)
 
