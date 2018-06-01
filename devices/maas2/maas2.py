@@ -65,7 +65,7 @@ class Maas2:
             cmd.append('user_data={}'.format(data))
         output = subprocess.check_output(cmd)
         # Make sure the device is available before returning
-        for timeout in range(0, 10):
+        for timeout in range(0, 30):
             time.sleep(60)
             status = self.node_status()
             if status == 'Deployed':
