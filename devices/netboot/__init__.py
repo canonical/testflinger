@@ -24,7 +24,7 @@ import snappy_device_agents
 from devices.netboot.netboot import Netboot
 from snappy_device_agents import logmsg, run_test_cmds
 
-from devices import (Catch, RecoveryError)
+from devices import (Catch, ProvisioningError, RecoveryError)
 
 device_name = "netboot"
 
@@ -40,15 +40,26 @@ class provision(guacamole.Command):
             config = yaml.load(configfile)
         snappy_device_agents.configure_logging(config)
         device = Netboot(ctx.args.config)
-        logmsg(logging.INFO, "BEGIN provision")
-        logmsg(logging.INFO, "Booting Master Image")
-        device.ensure_master_image()
         image = snappy_device_agents.get_image(ctx.args.job_data)
         server_ip = snappy_device_agents.get_local_ip_addr()
         test_username = snappy_device_agents.get_test_username(
             ctx.args.job_data)
         test_password = snappy_device_agents.get_test_password(
             ctx.args.job_data)
+        logmsg(logging.INFO, "BEGIN provision")
+        logmsg(logging.INFO, "Booting Master Image")
+        """Initial recovery process
+        If the netboot (master) image is already booted and we can get to then
+        URL for it, then just continue with provisioning. Otherwise, try to
+        force it into the test image first, recopy the ssh keys if necessary,
+        reboot if necessary, and get it into the netboot image before going on
+        """
+        if not device.is_master_image_booted():
+            try:
+                device.ensure_test_image(test_username, test_password)
+                device.ensure_master_image()
+            except ProvisioningError:
+                raise RecoveryError("Unable to put system in a usable state!")
         q = multiprocessing.Queue()
         file_server = multiprocessing.Process(
             target=snappy_device_agents.serve_file, args=(q, image,))
