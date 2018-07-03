@@ -114,7 +114,7 @@ class Netboot:
                '{}@{}'.format(test_username, self.config['device_ip']),
                'sudo /sbin/reboot']
         try:
-            subprocess.check_call(cmd)
+            subprocess.check_call(cmd, timeout=60)
         except Exception:
             self.hardreset()
         time.sleep(60)
