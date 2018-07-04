@@ -91,7 +91,7 @@ class Netboot:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=60)
-            except:
+            except Exception:
                 raise RecoveryError("timeout reaching control host!")
 
     def ensure_test_image(self, test_username, test_password):
@@ -106,56 +106,49 @@ class Netboot:
             If the command times out or anything else fails.
         """
         logger.info("Booting the test image")
+        if self.is_test_image_booted(test_username, test_password):
+            return
         self.setboot('test')
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                '{}@{}'.format(test_username, self.config['device_ip']),
                'sudo /sbin/reboot']
         try:
-            subprocess.check_call(cmd)
-        except:
-            pass
+            subprocess.check_call(cmd, timeout=60)
+        except Exception:
+            self.hardreset()
         time.sleep(60)
 
         started = time.time()
         # Retry for a while since we might still be rebooting
-        test_image_booted = False
-        while time.time() - started < 300:
-            try:
-                time.sleep(10)
-                cmd = ['sshpass', '-p', test_password, 'ssh-copy-id', '-f',
-                       '-o', 'StrictHostKeyChecking=no',
-                       '-o', 'UserKnownHostsFile=/dev/null',
-                       '{}@{}'.format(test_username, self.config['device_ip'])]
-                subprocess.check_call(cmd)
-                test_image_booted = self.is_test_image_booted(test_username)
-            except:
-                pass
-            if test_image_booted:
-                break
-        # Check again if we are in the master image
-        if not test_image_booted:
-            raise ProvisioningError("Failed to boot test image!")
+        while time.time() - started < 400:
+            time.sleep(10)
+            if self.is_test_image_booted(test_username, test_password):
+                return
+        # If we got here, the test image never became available
+        raise ProvisioningError("Failed to boot test image!")
 
-    def is_test_image_booted(self, test_username):
+    def is_test_image_booted(self, test_username, test_password):
         """
-        Check if the master image is booted.
+        Check if the test image is booted.
 
         :returns:
             True if the test image is currently booted, False otherwise.
         :param test_username:
             Username of the default user in the test image
-        :raises TimeoutError:
-            If the command times out
-        :raises CalledProcessError:
-            If the command fails
+        :param test_password:
+            Password of the default user in the test image
+        :returns:
+            True if the test image is currently booted, False otherwise.
         """
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+        cmd = ['sshpass', '-p', test_password, 'ssh-copy-id', '-f',
+               '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
-               '{}@{}'.format(test_username, self.config['device_ip']),
-               'snap -h']
-        subprocess.check_output(
-            cmd, stderr=subprocess.STDOUT, timeout=60)
+               '{}@{}'.format(test_username, self.config['device_ip'])]
+        try:
+            subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
+        except Exception:
+            return False
         # If we get here, then the above command proved we are in snappy
         return True
 
@@ -175,7 +168,7 @@ class Netboot:
             logger.info("Checking if master image booted: %s", check_url)
             with urllib.request.urlopen(check_url) as url:
                 data = url.read()
-        except:
+        except Exception:
             # Any connection error will fail through the normal path
             pass
         if 'Snappy Test Device Imager' in str(data):
@@ -191,22 +184,21 @@ class Netboot:
             If the command times out or anything else fails.
         """
         logger.info("Making sure the master image is booted")
-        master_booted = self.is_master_image_booted()
+        if self.is_master_image_booted():
+            return
 
-        if not master_booted:
-            # We are not in the master image, so just hard reset
-            self.setboot('master')
-            self.hardreset()
+        self.setboot('master')
+        self.hardreset()
 
-            started = time.time()
-            while time.time() - started < 300:
-                time.sleep(10)
-                master_booted = self.is_master_image_booted()
-                if master_booted:
-                    break
-            # Check again if we are in the master image
-            if not master_booted:
-                raise RecoveryError("Could not reboot to master!")
+        started = time.time()
+        while time.time() - started < 300:
+            time.sleep(10)
+            master_is_booted = self.is_master_image_booted()
+            if master_is_booted:
+                break
+        # Check again if we are in the master image
+        if not master_is_booted:
+            raise RecoveryError("Could not reboot to master image!")
 
     def flash_test_image(self, server_ip, server_port):
         """
@@ -227,7 +219,7 @@ class Netboot:
         try:
             # XXX: I hope 30 min is enough? but maybe not!
             req = urllib.request.urlopen(url, timeout=1800)
-        except:
+        except Exception:
             raise ProvisioningError("Error while flashing image!")
         finally:
             logger.info("Image write output:")
@@ -242,6 +234,6 @@ class Netboot:
         try:
             logger.info("Rebooting target device: %s", url)
             urllib.request.urlopen(url, timeout=10)
-        except:
+        except Exception:
             # FIXME: This could fail to return right now due to a bug
             pass
