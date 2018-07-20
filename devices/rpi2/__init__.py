@@ -23,7 +23,7 @@ import guacamole
 import snappy_device_agents
 from devices.rpi2.rpi2 import RaspberryPi2
 from snappy_device_agents import logmsg, runcmd
-from devices import (Catch, RecoveryError)
+from devices import (Catch, RecoveryError, ProvisioningError)
 
 
 device_name = "rpi2"
@@ -45,6 +45,8 @@ class provision(guacamole.Command):
         logmsg(logging.INFO, "Booting Master Image")
         device.ensure_master_image()
         image = snappy_device_agents.get_image(ctx.args.job_data)
+        if not image:
+            raise ProvisioningError('Error downloading image')
         server_ip = snappy_device_agents.get_local_ip_addr()
         q = multiprocessing.Queue()
         file_server = multiprocessing.Process(
