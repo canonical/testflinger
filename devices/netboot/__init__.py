@@ -42,7 +42,7 @@ class provision(guacamole.Command):
         device = Netboot(ctx.args.config)
         image = snappy_device_agents.get_image(ctx.args.job_data)
         if not image:
-            raise ProvisioningError('Error downloading image'
+            raise ProvisioningError('Error downloading image')
         server_ip = snappy_device_agents.get_local_ip_addr()
         test_username = snappy_device_agents.get_test_username(
             ctx.args.job_data)
