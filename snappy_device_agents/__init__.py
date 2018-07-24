@@ -176,7 +176,8 @@ def get_image(job_data='testflinger.json'):
     create the requested image.
 
     :return compressed_filename:
-        Returns the filename of the compressed image
+        Returns the filename of the compressed image, or empty string if
+        there was an error
     """
     testflinger_data = get_test_opportunity(job_data)
     image_keys = testflinger_data.get('provision_data').keys()
@@ -185,8 +186,12 @@ def get_image(job_data='testflinger.json'):
                 'provision_data').get('download_files'):
                     download(url)
     if 'url' in image_keys:
-        image = download(testflinger_data.get('provision_data').get('url'),
-                         IMAGEFILE)
+        try:
+            url = testflinger_data.get('provision_data').get('url')
+            image = download(url, IMAGEFILE)
+        except Exception as e:
+            logger.error('Error getting "%s": %s', url, e)
+            return ''
     elif 'udf-params' in image_keys:
         udf_params = testflinger_data.get('provision_data').get('udf-params')
         image = delayretry(udf_create_image, [udf_params],
@@ -194,6 +199,7 @@ def get_image(job_data='testflinger.json'):
     else:
         logger.error('provision_data needs to contain "url" for the image '
                      'or "udf-params"')
+        return ''
     return compress_file(image)
 
 
