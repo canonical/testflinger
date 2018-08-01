@@ -337,6 +337,9 @@ def runcmd(cmd, env=None, timeout=None):
         Return value from running the command
     """
 
+    # Sanitize the environment, eliminate null values or Popen may choke
+    env={x:y for x,y in env.items() if y}
+
     if timeout:
         deadline = time.time() + timeout
     else:
