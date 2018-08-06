@@ -323,7 +323,7 @@ def logmsg(level, msg, *args, **kwargs):
         logmsg(level, msg[4096:])
 
 
-def runcmd(cmd, env=None, timeout=None):
+def runcmd(cmd, env={}, timeout=None):
     """
     Run a command and stream the output to stdout
 
@@ -360,7 +360,7 @@ def runcmd(cmd, env=None, timeout=None):
     return process.returncode
 
 
-def run_test_cmds(cmds, config=None, env=None):
+def run_test_cmds(cmds, config=None, env={}):
     """
     Run the test commands provided
     This is just a frontend to determine the type of cmds we
@@ -387,7 +387,7 @@ def run_test_cmds(cmds, config=None, env=None):
         return 1
 
 
-def _run_test_cmds_list(cmds, config=None, env=None):
+def _run_test_cmds_list(cmds, config=None, env={}):
     """
     Run the test commands provided
 
@@ -420,7 +420,7 @@ def _run_test_cmds_list(cmds, config=None, env=None):
     return exitcode
 
 
-def _run_test_cmds_str(cmds, config=None, env=None):
+def _run_test_cmds_str(cmds, config=None, env={}):
     """
     Run the test commands provided
 
