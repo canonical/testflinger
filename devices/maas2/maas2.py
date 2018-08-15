@@ -65,9 +65,10 @@ class Maas2:
             cmd.append('user_data={}'.format(data))
         output = subprocess.check_output(cmd)
         # Make sure the device is available before returning
-        for timeout in range(0, 60):
+        minutes_spent = 0
+        while minutes_spent < 60:
             time.sleep(60)
-            passed_time = str(60 * (timeout + 1))
+            passed_time = str(60 * (minutes_spent + 1))
             print('{} sec passed since deployment.'.format(passed_time))
             status = self.node_status()
             if status == 'Failed deployment':
@@ -77,6 +78,7 @@ class Maas2:
                 if self.check_test_image_booted():
                     print('Deployed and booted.')
                     return
+            minutes_spent += 1
         logger.error('Device %s still in "%s" state, deployment failed!',
                      agent_name, status)
         logger.error(output)
