@@ -121,7 +121,7 @@ class Netboot:
 
         started = time.time()
         # Retry for a while since we might still be rebooting
-        while time.time() - started < 600:
+        while time.time() - started < 900:
             time.sleep(10)
             if self.is_test_image_booted(test_username, test_password):
                 return
