@@ -68,8 +68,8 @@ class Maas2:
         minutes_spent = 0
         while minutes_spent < 60:
             time.sleep(60)
-            passed_time = str(60 * (minutes_spent + 1))
-            print('{} sec passed since deployment.'.format(passed_time))
+            minutes_spent += 1
+            print('{} minutes passed since deployment.'.format(minutes_spent))
             status = self.node_status()
             if status == 'Failed deployment':
                 logger.error('MaaS reports Failed deployment')
@@ -78,7 +78,6 @@ class Maas2:
                 if self.check_test_image_booted():
                     print('Deployed and booted.')
                     return
-            minutes_spent += 1
         logger.error('Device %s still in "%s" state, deployment failed!',
                      agent_name, status)
         logger.error(output)
