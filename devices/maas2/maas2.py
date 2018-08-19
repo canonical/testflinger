@@ -75,7 +75,7 @@ class Maas2:
 
             if status == 'Failed deployment':
                 logger.error('MaaS reports Failed deployment')
-                return
+                raise ProvisioningError("Provisioning failed!")
 
             if status == 'Deployed':
                 if self.check_test_image_booted():
