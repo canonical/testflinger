@@ -64,6 +64,7 @@ class Maas2:
             data = base64.b64encode(user_data.encode()).decode()
             cmd.append('user_data={}'.format(data))
         output = subprocess.check_output(cmd)
+
         # Make sure the device is available before returning
         minutes_spent = 0
         while minutes_spent < 60:
@@ -71,13 +72,16 @@ class Maas2:
             minutes_spent += 1
             print('{} minutes passed since deployment.'.format(minutes_spent))
             status = self.node_status()
+
             if status == 'Failed deployment':
                 logger.error('MaaS reports Failed deployment')
-                return
+                raise ProvisioningError("Provisioning failed!")
+
             if status == 'Deployed':
                 if self.check_test_image_booted():
                     print('Deployed and booted.')
                     return
+
         logger.error('Device %s still in "%s" state, deployment failed!',
                      agent_name, status)
         logger.error(output)
