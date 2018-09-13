@@ -287,7 +287,9 @@ def configure_logging(config):
             return True
 
     logging.basicConfig(
-        format='%(asctime)s %(agent_name)s %(levelname)s: %(message)s')
+        format='%(asctime)s %(agent_name)s %(levelname)s: '
+               'DEVICE AGENT: '
+               '%(message)s')
     agent_name = config.get('agent_name', "")
     logger.addFilter(AgentFilter(agent_name))
     logstash_host = config.get('logstash_host', None)

@@ -37,9 +37,24 @@ class Maas2:
         with open(job_data) as j:
             self.job_data = json.load(j)
 
+    def _logger_debug(self, message):
+        logger.debug("MAAS: {}".format(message))
+
+    def _logger_info(self, message):
+        logger.info("MAAS: {}".format(message))
+
+    def _logger_warning(self, message):
+        logger.warning("MAAS: {}".format(message))
+
+    def _logger_error(self, message):
+        logger.error("MAAS: {}".format(message))
+
+    def _logger_critical(self, message):
+        logger.critical("MAAS: {}".format(message))
+
     def recover(self):
         agent_name = self.config.get('agent_name')
-        logger.info("Releasing node %s", agent_name)
+        self._logger_info("Releasing node {}".format(agent_name))
         self.node_release()
 
     def provision(self):
@@ -49,13 +64,13 @@ class Maas2:
         provision_data = self.job_data.get('provision_data')
         # Default to a safe LTS if no distro is specified
         distro = provision_data.get('distro', 'xenial')
-        logger.info('Acquiring node')
+        self._logger_info('Acquiring node')
         cmd = ['maas', maas_user, 'machines', 'allocate',
                'system_id={}'.format(node_id)]
         # Do not use runcmd for this - we need the output, not the end user
         subprocess.check_call(cmd)
-        logger.info(
-            'Starting node %s with distro %s', agent_name, distro)
+        self._logger_info('Starting node {} '
+                          'with distro {}'.format(agent_name, distro))
         cmd = ['maas', maas_user, 'machine', 'deploy', node_id,
                'distro_series={}'.format(distro)]
         print(self.job_data)
@@ -67,28 +82,36 @@ class Maas2:
 
         # Make sure the device is available before returning
         minutes_spent = 0
-        while minutes_spent < 60:
+        timeout_min = 60
+        while minutes_spent < timeout_min:
             time.sleep(60)
             minutes_spent += 1
-            print('{} minutes passed since deployment.'.format(minutes_spent))
+            self._logger_info('{} minutes passed '
+                              'since deployment.'.format(minutes_spent))
             status = self.node_status()
 
             if status == 'Failed deployment':
-                logger.error('MaaS reports Failed deployment')
-                raise ProvisioningError("Provisioning failed!")
+                self._logger_error('MaaS reports Failed Deployment')
+                exception_msg = "Provisioning failed because " + \
+                                "MaaS got unexpected or " + \
+                                "deployment failure status signal."
+                raise ProvisioningError(exception_msg)
 
             if status == 'Deployed':
                 if self.check_test_image_booted():
-                    print('Deployed and booted.')
+                    self._logger_info('Deployed and booted.')
                     return
 
-        logger.error('Device %s still in "%s" state, deployment failed!',
-                     agent_name, status)
-        logger.error(output)
-        raise ProvisioningError("Provisioning failed!")
+        self._logger_error('Device {} still in "{}" state, '
+                           'deployment failed!'.format(agent_name, status))
+        self._logger_error(output)
+        exception_msg = "Provisioning failed because deployment timeout. " + \
+                        "Deploying for more than " + \
+                        "{} minutes.".format(timeout_min)
+        raise ProvisioningError(exception_msg)
 
     def check_test_image_booted(self):
-        logger.info("Checking if test image booted.")
+        self._logger_info("Checking if test image booted.")
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                'ubuntu@{}'.format(self.config['device_ip']),
@@ -130,6 +153,6 @@ class Maas2:
             if status == 'Ready':
                 return
         agent_name = self.config.get('agent_name')
-        logger.error('Device %s still in "%s" state, could not recover!',
-                     agent_name, status)
+        self._logger_error('Device {} still in "{}" state, '
+                           'could not recover!'.format(agent_name, status))
         raise RecoveryError("Device recovery failed!")
