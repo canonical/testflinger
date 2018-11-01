@@ -61,7 +61,7 @@ class TestflingerJob:
         logger.info('Running %s_command: %s', phase, cmd)
         # Set the exitcode to some failed status in case we get interrupted
         exitcode = 99
-        for line in self.banner('Starting {} phase on {}'.format(phase, node)):
+        for line in self.banner('Starting testflinger {} phase on {}'.format(phase, node)):
             self.run_with_log("echo '{}'".format(line), phase_log, rundir)
         try:
             exitcode = self.run_with_log(cmd, phase_log, rundir)
