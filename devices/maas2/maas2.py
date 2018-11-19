@@ -78,7 +78,14 @@ class Maas2:
         if user_data:
             data = base64.b64encode(user_data.encode()).decode()
             cmd.append('user_data={}'.format(data))
-        output = subprocess.check_output(cmd)
+        process = subprocess.run(cmd,
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
+        try:
+            process.check_returncode()
+        except subprocess.CalledProcessError:
+            self._logger_error('maas-cli call failure happens.')
+            raise ProvisioningError(process.stdout.decode())
 
         # Make sure the device is available before returning
         minutes_spent = 0
@@ -104,7 +111,7 @@ class Maas2:
 
         self._logger_error('Device {} still in "{}" state, '
                            'deployment failed!'.format(agent_name, status))
-        self._logger_error(output)
+        self._logger_error(process.stdout.decode())
         exception_msg = "Provisioning failed because deployment timeout. " + \
                         "Deploying for more than " + \
                         "{} minutes.".format(timeout_min)
