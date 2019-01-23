@@ -250,7 +250,9 @@ class Rpi3:
             self._run_control(
                 'sudo umount {}*'.format(self.config['test_device']),
                 timeout=30)
-        except ProvisioningError:
+        except KeyError:
+            raise RecoveryError("Device config missing test_device")
+        except:
             # We might not be mounted, so expect this to fail sometimes
             pass
         cmd = 'nc.traditional {} {}| gunzip| sudo dd of={} bs=16M'.format(
@@ -280,6 +282,9 @@ class Rpi3:
         try:
             self._run_control('sudo mount {} /mnt'.format(
                               self.config['snappy_writable_partition']))
+        except KeyError:
+            raise RecoveryError(
+                "Device config missing snappy_writable_partition")
         except:
             err = ("Error mounting writable partition on test image {}. "
                    "Check device configuration".format(
