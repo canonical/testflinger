@@ -250,27 +250,27 @@ def compress_file(filename):
     :return compressed_filename:
         The filename of the compressed file
     """
-    compressed_filename = "{}.gz".format(filename)
+    compressed_filename = "{}.xz".format(filename)
     try:
         # If debug enabled in SPI, an older image could still be there
         os.unlink(compressed_filename)
     except:
         pass
-    if filetype(filename) is 'gz':
+    if filetype(filename) is 'xz':
         # just hard link it so we can unlink later without special handling
         os.link(filename, compressed_filename)
-    elif filetype(filename) is 'bz2':
-        with gzip.open(compressed_filename, 'wb') as compressed_image:
-            with bz2.BZ2File(filename, 'rb') as old_compressed:
+    elif filetype(filename) is 'gz':
+        with lzma.open(compressed_filename, 'wb') as compressed_image:
+            with gzip.GzipFile(filename, 'rb') as old_compressed:
                 shutil.copyfileobj(old_compressed, compressed_image)
-    elif filetype(filename) is 'xz':
-        with gzip.open(compressed_filename, 'wb') as compressed_image:
-            with lzma.LZMAFile(filename, 'rb') as old_compressed:
+    elif filetype(filename) is 'bz2':
+        with lzma.open(compressed_filename, 'wb') as compressed_image:
+            with bz2.BZ2File(filename, 'rb') as old_compressed:
                 shutil.copyfileobj(old_compressed, compressed_image)
     else:
         # filetype is 'unknown' so assumed to be raw image
         with open(filename, 'rb') as uncompressed_image:
-            with gzip.open(compressed_filename, 'wb') as compressed_image:
+            with lzma.open(compressed_filename, 'wb') as compressed_image:
                 shutil.copyfileobj(uncompressed_image, compressed_image)
     os.unlink(filename)
     return compressed_filename
