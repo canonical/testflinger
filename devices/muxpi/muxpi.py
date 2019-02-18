@@ -101,7 +101,7 @@ class MuxPi:
 
         :param server_ip:
             IP address of the image server. The image will be downloaded and
-            gunzipped over the SD card.
+            uncompressed over the SD card.
         :param server_port:
             TCP port to connect to on server_ip for downloading the image
         :raises ProvisioningError:
@@ -109,7 +109,7 @@ class MuxPi:
         """
         # First unmount, just in case
         self.unmount_writable_partition()
-        cmd = 'nc.traditional {} {}| gunzip| sudo dd of={} bs=16M'.format(
+        cmd = 'nc.traditional {} {}| xzcat| sudo dd of={} bs=16M'.format(
             server_ip, server_port, self.config['test_device'])
         logger.info("Running: %s", cmd)
         try:

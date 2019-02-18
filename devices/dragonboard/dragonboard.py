@@ -239,7 +239,7 @@ class Dragonboard:
 
         :param server_ip:
             IP address of the image server. The image will be downloaded and
-            gunzipped over the SD card.
+            uncompressed over the SD card.
         :param server_port:
             TCP port to connect to on server_ip for downloading the image
         :raises ProvisioningError:
@@ -253,7 +253,7 @@ class Dragonboard:
         except ProvisioningError:
             # We might not be mounted, so expect this to fail sometimes
             pass
-        cmd = 'nc {} {}| gunzip| sudo dd of={} bs=16M'.format(
+        cmd = 'nc {} {}| unxz| sudo dd of={} bs=16M'.format(
             server_ip, server_port, self.config['test_device'])
         logger.info("Running: %s", cmd)
         try:
