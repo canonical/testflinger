@@ -252,13 +252,13 @@ def compress_file(filename):
     """
     compressed_filename = "{}.xz".format(filename)
     try:
-        # If debug enabled in SPI, an older image could still be there
+        # Remove the compressed_filename if it exists, just in case
         os.unlink(compressed_filename)
-    except:
+    except FileNotFoundError:
         pass
     if filetype(filename) is 'xz':
         # just hard link it so we can unlink later without special handling
-        os.link(filename, compressed_filename)
+        os.rename(filename, compressed_filename)
     elif filetype(filename) is 'gz':
         with lzma.open(compressed_filename, 'wb') as compressed_image:
             with gzip.GzipFile(filename, 'rb') as old_compressed:
@@ -272,7 +272,11 @@ def compress_file(filename):
         with open(filename, 'rb') as uncompressed_image:
             with lzma.open(compressed_filename, 'wb') as compressed_image:
                 shutil.copyfileobj(uncompressed_image, compressed_image)
-    os.unlink(filename)
+    try:
+        # Remove the original file, unless we already did
+        os.unlink(filename)
+    except FileNotFoundError:
+        pass
     return compressed_filename
 
 
