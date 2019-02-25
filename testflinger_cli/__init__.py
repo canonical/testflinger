@@ -146,3 +146,15 @@ class Client():
         """
         endpoint = '/v1/result/{}/output'.format(job_id)
         return self.get(endpoint)
+
+    def get_job_position(self, job_id):
+        """Get the status of a test job
+
+        :param job_id:
+            ID for the test job
+        :return:
+            String containing the queue position for the specified ID
+            i.e. how many jobs are ahead of it in the queue
+        """
+        endpoint = '/v1/job/{}/position'.format(job_id)
+        return self.get(endpoint)
