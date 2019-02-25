@@ -152,7 +152,7 @@ class Maas2:
         maas_user = self.config.get('maas_user')
         node_id = self.config.get('node_id')
         cmd = ['maas', maas_user, 'machine', 'release', node_id]
-        subprocess.check_call(cmd)
+        subprocess.run(cmd)
         # Make sure the device is available before returning
         for timeout in range(0, 10):
             time.sleep(5)
