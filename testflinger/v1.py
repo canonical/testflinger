@@ -253,3 +253,14 @@ def get_job(queue_list):
     except TypeError:
         return None
     return job
+
+
+def job_position_get(job_id):
+    redis_host = testflinger.app.config.get('REDIS_HOST')
+    redis_port = testflinger.app.config.get('REDIS_PORT')
+    client = redis.Redis(host=redis_host, port=redis_port)
+    job_data = json.loads(job_get_id(job_id))
+    queue = job_data.get('job_queue')
+    for position, x in enumerate(reversed(client.lrange(queue, 0, -1))):
+        if json.loads(x).get('job_id') == job_id:
+            return str(position)

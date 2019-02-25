@@ -59,6 +59,8 @@ def create_flask_app():
     app.add_url_rule('/v1/job', 'job_get', v1.job_get, methods=['GET'])
     app.add_url_rule('/v1/job/<job_id>', 'job_get_id', v1.job_get_id,
                      methods=['GET'])
+    app.add_url_rule('/v1/job/<job_id>/position', 'job_position_get',
+                     v1.job_position_get, methods=['GET'])
     app.add_url_rule('/v1/result/<job_id>', 'result_post', v1.result_post,
                      methods=['POST'])
     app.add_url_rule('/v1/result/<job_id>', 'result_get', v1.result_get,
