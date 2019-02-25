@@ -15,7 +15,6 @@
 #
 
 import json
-import redis
 import os
 import uuid
 
@@ -175,11 +174,8 @@ def output_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return 'Invalid job id\n', 400
-    redis_host = testflinger.app.config.get('REDIS_HOST')
-    redis_port = testflinger.app.config.get('REDIS_PORT')
-    client = redis.Redis(host=redis_host, port=redis_port)
     output_key = "stream_{}".format(job_id)
-    pipe = client.pipeline()
+    pipe = testflinger.app.redis.pipeline()
     pipe.lrange(output_key, 0, -1)
     pipe.delete(output_key)
     output = pipe.execute()
@@ -202,14 +198,11 @@ def output_post(job_id):
     """
     if not check_valid_uuid(job_id):
         return 'Invalid job id\n', 400
-    redis_host = testflinger.app.config.get('REDIS_HOST')
-    redis_port = testflinger.app.config.get('REDIS_PORT')
     data = request.get_data()
-    client = redis.Redis(host=redis_host, port=redis_port)
     output_key = "stream_{}".format(job_id)
-    client.rpush(output_key, data)
+    testflinger.app.redis.rpush(output_key, data)
     # If the data doesn't get read with 4 hours of the last update, expire it
-    client.expire(output_key, 14400)
+    testflinger.app.redis.expire(output_key, 14400)
     return "OK"
 
 
@@ -237,30 +230,22 @@ def submit_job(job_queue, data):
     :param data:
         JSON data to pass along containing details about the test job
     """
-    redis_host = testflinger.app.config.get('REDIS_HOST')
-    redis_port = testflinger.app.config.get('REDIS_PORT')
-    client = redis.Redis(host=redis_host, port=redis_port)
-    client.lpush(job_queue, data)
+    testflinger.app.redis.lpush(job_queue, data)
 
 
 def get_job(queue_list):
-    redis_host = testflinger.app.config.get('REDIS_HOST')
-    redis_port = testflinger.app.config.get('REDIS_PORT')
-    client = redis.Redis(host=redis_host, port=redis_port)
     # The queue name and the job are returned, but we don't need the queue now
     try:
-        _, job = client.brpop(queue_list, timeout=1)
+        _, job = testflinger.app.redis.brpop(queue_list, timeout=1)
     except TypeError:
         return None
     return job
 
 
 def job_position_get(job_id):
-    redis_host = testflinger.app.config.get('REDIS_HOST')
-    redis_port = testflinger.app.config.get('REDIS_PORT')
-    client = redis.Redis(host=redis_host, port=redis_port)
     job_data = json.loads(job_get_id(job_id))
     queue = job_data.get('job_queue')
-    for position, x in enumerate(reversed(client.lrange(queue, 0, -1))):
+    for position, x in enumerate(
+            reversed(testflinger.app.redis.lrange(queue, 0, -1))):
         if json.loads(x).get('job_id') == job_id:
             return str(position)

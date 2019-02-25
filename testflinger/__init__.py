@@ -17,6 +17,7 @@
 import logging
 import pkg_resources
 import os
+import redis
 
 from testflinger import v1
 from flask import Flask
@@ -53,6 +54,9 @@ def create_flask_app():
     app.config.from_pyfile(config_file, silent=True)
     if not os.path.exists(app.config['DATA_PATH']):
         os.makedirs(app.config['DATA_PATH'])
+
+    app.redis = redis.StrictRedis(
+        host=app.config['REDIS_HOST'], port=app.config['REDIS_PORT'])
 
     app.add_url_rule('/', 'home', v1.home)
     app.add_url_rule('/v1/job', 'job_post', v1.job_post, methods=['POST'])
