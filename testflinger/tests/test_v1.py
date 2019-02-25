@@ -188,3 +188,15 @@ class TestAPI():
         # added to it
         job_data['job_id'] = job_id
         assert output.data.decode() == json.dumps(job_data)
+
+    def test_job_position(self, app):
+        """Ensure initial job state is set to 'waiting'"""
+        job_data = dict(job_queue='test')
+        # Place a job on the queue
+        for pos in range(3):
+            output = app.post('/v1/job', data=json.dumps(job_data),
+                              content_type='application/json')
+            job_id = json.loads(output.data.decode()).get('job_id')
+            output = app.get('/v1/job/{}/position'.format(job_id))
+            print(output.data.decode())
+            assert output.data.decode() == str(pos)
