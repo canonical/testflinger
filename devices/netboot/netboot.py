@@ -206,7 +206,7 @@ class Netboot:
 
         :param server_ip:
             IP address of the image server. The image will be downloaded and
-            gunzipped over the SD card.
+            uncompressed over the SD card.
         :param server_port:
             TCP port to connect to on server_ip for downloading the image
         :raises ProvisioningError:
