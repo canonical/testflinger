@@ -6,3 +6,4 @@
 # DATA_PATH = '/path/to/my/data/location'
 # REDIS_HOST = 'localhost'
 # REDIS_PORT = '6379'
+# SENTRY_DSN = 'optional sentry server dsn'

@@ -22,6 +22,7 @@ INSTALL_REQUIRES = [
     "gunicorn",
     "redis",
     "flask",
+    "sentry-sdk[flask]",
 ]
 
 TEST_REQUIRES = [
