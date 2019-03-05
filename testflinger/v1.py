@@ -42,6 +42,8 @@ def job_post():
         job_queue = None
     if not job_queue:
         return "Invalid data or no job_queue specified\n", 400
+    # Prepend tf_queue on job queues for easier ID
+    job_queue = "tf_queue_" + job_queue
     # If the job_id is provided, keep it as long as the uuid is good.
     # This is for job resubmission
     job_id = data.get('job_id')
@@ -71,11 +73,17 @@ def job_get():
     queue_list = request.args.getlist('queue')
     if not queue_list:
         return "No queue(s) specified in request", 400
+    # Temporarily look for jobs with and without tf_queue_
     job = get_job(queue_list)
     if job:
         return job
     else:
-        return "", 204
+        queue_list = ['tf_queue_' + x for x in queue_list]
+        job = get_job(queue_list)
+        if job:
+            return job
+        else:
+            return "", 204
 
 
 def job_get_id(job_id):
@@ -244,7 +252,7 @@ def get_job(queue_list):
 
 def job_position_get(job_id):
     job_data = json.loads(job_get_id(job_id))
-    queue = job_data.get('job_queue')
+    queue = "tf_queue_" + job_data.get('job_queue')
     for position, x in enumerate(
             reversed(testflinger.app.redis.lrange(queue, 0, -1))):
         if json.loads(x).get('job_id') == job_id:
