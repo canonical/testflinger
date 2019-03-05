@@ -28,6 +28,7 @@ class TestAPI():
     @pytest.fixture
     def app(self):
         testflinger.app.config['DATA_PATH'] = tempfile.mkdtemp()
+        testflinger.app.redis = fakeredis.FakeStrictRedis()
         yield testflinger.app.test_client()
         shutil.rmtree(testflinger.app.config['DATA_PATH'])
 
@@ -35,8 +36,7 @@ class TestAPI():
         output = app.get('/')
         assert testflinger._get_version() == output.data.decode()
 
-    def test_add_job_good(self, mocker, app):
-        mocker.patch('redis.Redis', fakeredis.FakeRedis)
+    def test_add_job_good(self, app):
         job_data = json.dumps(dict(job_queue='test'))
         # Place a job on the queue
         output = app.post('/v1/job', data=job_data,
@@ -51,8 +51,7 @@ class TestAPI():
         actual_data = set(json.loads(output.data.decode()))
         assert expected_data.issubset(actual_data)
 
-    def test_add_job_good_with_jobid(self, mocker, app):
-        mocker.patch('redis.Redis', fakeredis.FakeRedis)
+    def test_add_job_good_with_jobid(self, app):
         my_id = '77777777-7777-7777-7777-777777777777'
         job_data = json.dumps(dict(job_id=my_id, job_queue='test'))
         # Place a job on the queue
@@ -61,9 +60,8 @@ class TestAPI():
         job_id = json.loads(output.data.decode()).get('job_id')
         assert my_id == job_id
 
-    def test_initial_job_state(self, mocker, app):
+    def test_initial_job_state(self, app):
         """Ensure initial job state is set to 'waiting'"""
-        mocker.patch('redis.Redis', fakeredis.FakeRedis)
         job_data = json.dumps(dict(job_queue='test'))
         # Place a job on the queue
         output = app.post('/v1/job', data=job_data,
@@ -73,9 +71,8 @@ class TestAPI():
         updated_data = json.loads(app.get(result_url).data.decode())
         assert 'waiting' == updated_data.get('job_state')
 
-    def test_resubmit_job_state(self, mocker, app):
+    def test_resubmit_job_state(self, app):
         """Ensure initial job state is set to 'waiting'"""
-        mocker.patch('redis.Redis', fakeredis.FakeRedis)
         job_data = dict(job_queue='test')
         # Place a job on the queue
         output = app.post('/v1/job', data=json.dumps(job_data),
@@ -89,8 +86,7 @@ class TestAPI():
         updated_data = json.loads(app.get(result_url).data.decode())
         assert 'resubmitted' == updated_data.get('job_state')
 
-    def test_get_nonexistant_job(self, mocker, app):
-        mocker.patch('redis.Redis', fakeredis.FakeRedis)
+    def test_get_nonexistant_job(self, app):
         output = app.get('/v1/job?queue=BAD_QUEUE_NAME')
         assert 204 == output.status_code
 
@@ -192,3 +188,15 @@ class TestAPI():
         # added to it
         job_data['job_id'] = job_id
         assert output.data.decode() == json.dumps(job_data)
+
+    def test_job_position(self, app):
+        """Ensure initial job state is set to 'waiting'"""
+        job_data = dict(job_queue='test')
+        # Place a job on the queue
+        for pos in range(3):
+            output = app.post('/v1/job', data=json.dumps(job_data),
+                              content_type='application/json')
+            job_id = json.loads(output.data.decode()).get('job_id')
+            output = app.get('/v1/job/{}/position'.format(job_id))
+            print(output.data.decode())
+            assert output.data.decode() == str(pos)
