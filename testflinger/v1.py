@@ -255,5 +255,6 @@ def job_position_get(job_id):
     queue = "tf_queue_" + job_data.get('job_queue')
     for position, x in enumerate(
             reversed(testflinger.app.redis.lrange(queue, 0, -1))):
-        if json.loads(x).get('job_id') == job_id:
+        if json.loads(
+                x.decode('utf-8', errors='ignore')).get('job_id') == job_id:
             return str(position)
