@@ -18,7 +18,9 @@ import logging
 import pkg_resources
 import os
 import redis
+import sentry_sdk
 
+from sentry_sdk.integrations.flask import FlaskIntegration
 from testflinger import v1
 from flask import Flask
 
@@ -57,6 +59,10 @@ def create_flask_app():
 
     app.redis = redis.StrictRedis(
         host=app.config['REDIS_HOST'], port=app.config['REDIS_PORT'])
+
+    sentry_dsn = app.config.get("SENTRY_DSN")
+    if sentry_dsn:
+        sentry_sdk.init(dsn=sentry_dsn, integrations=[FlaskIntegration()])
 
     app.add_url_rule('/', 'home', v1.home)
     app.add_url_rule('/v1/job', 'job_post', v1.job_post, methods=['POST'])
