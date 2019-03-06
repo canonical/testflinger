@@ -179,7 +179,7 @@ def poll(ctx, job_id):
                 queue_pos = conn.get_job_position(job_id)
                 if int(queue_pos) != prev_queue_pos:
                     prev_queue_pos = int(queue_pos)
-                    print('Queue position: {}'.format(queue_pos))
+                    print('Jobs ahead in queue: {}'.format(queue_pos))
             except Exception:
                 # Ignore any bad response, this will retry
                 pass
