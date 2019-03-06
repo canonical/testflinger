@@ -21,8 +21,10 @@ import guacamole
 
 import snappy_device_agents
 from devices.oemrecovery.oemrecovery import OemRecovery
-from snappy_device_agents import logmsg, run_test_cmds
-from devices import (Catch, RecoveryError)
+from snappy_device_agents import logmsg
+from devices import (Catch,
+                     RecoveryError,
+                     DefaultRuntest)
 
 device_name = "oemrecovery"
 
@@ -50,36 +52,11 @@ class provision(guacamole.Command):
         parser.add_argument('job_data', help='Testflinger json data file')
 
 
-class runtest(guacamole.Command):
-
-    """Tool for running tests on a provisioned device."""
-
-    def invoked(self, ctx):
-        """Method called when the command is invoked."""
-        with open(ctx.args.config) as configfile:
-            config = yaml.load(configfile)
-        snappy_device_agents.configure_logging(config)
-        logmsg(logging.INFO, "BEGIN testrun")
-
-        test_opportunity = snappy_device_agents.get_test_opportunity(
-            ctx.args.job_data)
-        test_cmds = test_opportunity.get('test_data').get('test_cmds')
-        exitcode = run_test_cmds(test_cmds, config)
-        logmsg(logging.INFO, "END testrun")
-        return exitcode
-
-    def register_arguments(self, parser):
-        """Method called to customize the argument parser."""
-        parser.add_argument('-c', '--config', required=True,
-                            help='Config file for this device')
-        parser.add_argument('job_data', help='Testflinger json data file')
-
-
 class DeviceAgent(guacamole.Command):
 
     """Device agent for OEM Recovery"""
 
     sub_commands = (
         ('provision', provision),
-        ('runtest', runtest),
+        ('runtest', DefaultRuntest),
     )
