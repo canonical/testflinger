@@ -38,7 +38,7 @@ class provision(guacamole.Command):
     def invoked(self, ctx):
         """Method called when the command is invoked."""
         with open(ctx.args.config) as configfile:
-            config = yaml.load(configfile)
+            config = yaml.safe_load(configfile)
         snappy_device_agents.configure_logging(config)
         device = Noprovision(ctx.args.config)
         test_username = snappy_device_agents.get_test_username(

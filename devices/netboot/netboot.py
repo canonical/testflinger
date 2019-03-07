@@ -34,7 +34,7 @@ class Netboot:
 
     def __init__(self, config):
         with open(config) as configfile:
-            self.config = yaml.load(configfile)
+            self.config = yaml.safe_load(configfile)
 
     def setboot(self, mode):
         """
