@@ -35,7 +35,7 @@ class DefaultRuntest(guacamole.Command):
     def invoked(self, ctx):
         """Method called when the command is invoked."""
         with open(ctx.args.config) as configfile:
-            config = yaml.load(configfile)
+            config = yaml.safe_load(configfile)
         snappy_device_agents.configure_logging(config)
         snappy_device_agents.logmsg(logging.INFO, "BEGIN testrun")
 

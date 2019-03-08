@@ -36,7 +36,7 @@ class MuxPi:
 
     def __init__(self, config, job_data):
         with open(config) as configfile:
-            self.config = yaml.load(configfile)
+            self.config = yaml.safe_load(configfile)
         with open(job_data) as j:
             self.job_data = json.load(j)
 
