@@ -67,6 +67,34 @@ def status(ctx, job_id):
 
 
 @cli.command()
+@click.argument('job_id', nargs=1)
+@click.pass_context
+def cancel(ctx, job_id):
+    conn = ctx.obj['conn']
+    try:
+        job_state = conn.get_status(job_id)
+    except testflinger_cli.HTTPError as e:
+        if e.status == 204:
+            print('Job {} not found. Check the job id to be sure it is '
+                  'correct.'.format(job_id))
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct.')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
+        sys.exit(1)
+    except Exception:
+        print('Error communicating with server, check connection and retry')
+        sys.exit(1)
+    if job_state in ('complete', 'cancelled'):
+        print('Job {} is already in {} state and cannot be cancelled.'.format(
+              job_id, job_state))
+        sys.exit(1)
+    conn.post_job_state(job_id, 'cancelled')
+
+
+@cli.command()
 @click.argument('filename', nargs=1)
 @click.option('--quiet', '-q', is_flag=True)
 @click.pass_context
