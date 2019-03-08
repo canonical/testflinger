@@ -138,6 +138,19 @@ class TestAPI():
         assert 'Invalid job id\n' == output.data.decode()
         assert 400 == output.status_code
 
+    def test_state_update_keeps_results(self, app):
+        """Update job_state shouldn't lose old results"""
+        result_url = '/v1/result/00000000-0000-0000-0000-000000000000'
+        data = json.dumps(dict(foo='test', job_state='waiting'))
+        output = app.post(result_url, data=data,
+                          content_type='application/json')
+        data = json.dumps(dict(job_state='provision'))
+        output = app.post(result_url, data=data,
+                          content_type='application/json')
+        output = app.get(result_url)
+        current_results = json.loads(output.data.decode())
+        assert current_results.get('foo') == 'test'
+
     def test_artifact_post_good(self, app):
         """Test both get and put of a result artifact"""
         result_url = '/v1/result/00000000-0000-0000-0000-000000000000/artifact'

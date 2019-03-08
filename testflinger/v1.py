@@ -60,11 +60,13 @@ def job_post():
     # Add a result file with job_state=waiting
     result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
     if os.path.exists(result_file):
-        job_state = 'resubmitted'
+        with open(result_file) as results:
+            data = json.load(results)
+            data['job_state'] = 'resubmitted'
     else:
-        job_state = 'waiting'
+        data = {'job_state': 'waiting'}
     with open(result_file, 'w') as results:
-        results.write(json.dumps({'job_state': job_state}))
+        results.write(json.dumps(data))
     return jsonify(job_id=job_id)
 
 
@@ -118,8 +120,14 @@ def result_post(job_id):
     """
     if not check_valid_uuid(job_id):
         return 'Invalid job id\n', 400
-    data = request.get_json()
     result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
+    if os.path.exists(result_file):
+        with open(result_file) as results:
+            data = json.load(results)
+    else:
+        data = {}
+    new_data = request.get_json()
+    data.update(new_data)
     with open(result_file, 'w') as results:
         results.write(json.dumps(data))
     return "OK"
