@@ -14,6 +14,7 @@
 
 import json
 import logging
+import multiprocessing
 import os
 import shutil
 
@@ -35,6 +36,11 @@ class TestflingerAgent:
 
     def check_offline(self):
         return os.path.exists(self.get_offline_file())
+
+    def check_job_state(self, job_id):
+        job_data = self.client.get_result(job_id)
+        if job_data:
+            return job_data.get('job_state')
 
     def mark_device_offline(self):
         # Create the offline file, this should work even if it exists
@@ -63,20 +69,27 @@ class TestflingerAgent:
                 json.dump({}, f)
 
             for phase in TEST_PHASES:
+                # First make sure the job hasn't been cancelled
+                if (self.check_job_state(job.job_id) == 'cancelled' and
+                        phase != 'cleanup'):
+                    logger.info("Job cancellation was requested, exiting.")
+                    break
                 # Try to update the job_state on the testflinger server
                 try:
                     self.client.post_result(job.job_id, {'job_state': phase})
                 except TFServerError:
                     pass
-                try:
-                    exitcode = job.run_test_phase(phase, rundir)
-                except Exception as e:
-                    # If we hit some unknown exception, preserve results,
-                    # log the exception, and stop execution
-                    logger.exception(e)
-                    results_basedir = self.client.config.get('results_basedir')
-                    shutil.move(rundir, results_basedir)
-                    return
+                proc = multiprocessing.Process(target=job.run_test_phase,
+                                               args=(phase, rundir,))
+                proc.start()
+                while proc.is_alive():
+                    proc.join(10)
+                    if (self.check_job_state(job.job_id) == 'cancelled' and
+                            phase != 'provision'):
+                        logger.info("Job cancellation was requested, exiting.")
+                        proc.terminate()
+                exitcode = proc.exitcode
+
                 # exit code 46 is our indication that recovery failed!
                 # In this case, we need to mark the device offline
                 if exitcode == 46:
