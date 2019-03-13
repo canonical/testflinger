@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import select
+import signal
 import sys
 import subprocess
 import time
@@ -61,14 +62,15 @@ class TestflingerJob:
         logger.info('Running %s_command: %s', phase, cmd)
         # Set the exitcode to some failed status in case we get interrupted
         exitcode = 99
-        for line in self.banner('Starting testflinger {} phase on {}'.format(phase, node)):
+
+        for line in self.banner(
+                'Starting testflinger {} phase on {}'.format(phase, node)):
             self.run_with_log("echo '{}'".format(line), phase_log, rundir)
         try:
             exitcode = self.run_with_log(cmd, phase_log, rundir)
         except Exception as e:
             logger.exception(e)
         finally:
-            # Save the output log in the json file no matter what
             with open(os.path.join(rundir, 'testflinger-outcome.json')) as f:
                 outcome_data = json.load(f)
             if os.path.exists(phase_log):
@@ -78,7 +80,7 @@ class TestflingerJob:
             with open(os.path.join(rundir, 'testflinger-outcome.json'),
                       'w', encoding='utf-8') as f:
                 json.dump(outcome_data, f)
-            return exitcode
+            sys.exit(exitcode)
 
     def run_with_log(self, cmd, logfile, cwd=None):
         """Execute command in a subprocess and log the output
@@ -102,6 +104,10 @@ class TestflingerJob:
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT,
                                        shell=True, cwd=cwd)
+
+            def cleanup(signum, frame):
+                process.kill()
+            signal.signal(signal.SIGTERM, cleanup)
             set_nonblock(process.stdout.fileno())
             readpoll.register(process.stdout, select.POLLIN)
             while process.poll() is None:
