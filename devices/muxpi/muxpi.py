@@ -192,7 +192,7 @@ class MuxPi:
             'test_data').get('test_username', 'ubuntu')
         test_password = self.job_data.get(
             'test_data').get('test_password', 'ubuntu')
-        while time.time() - started < 300:
+        while time.time() - started < 600:
             try:
                 time.sleep(10)
                 cmd = ['sshpass', '-p', test_password, 'ssh-copy-id',
