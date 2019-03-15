@@ -138,7 +138,8 @@ class TestflingerJob:
                         f.write(buf)
                         process.kill()
                         break
-                if time.time() - start_time > global_timeout:
+                if (self.phase != 'reserve' and
+                        time.time() - start_time > global_timeout):
                     buf = '\nERROR: Global timeout reached! ({}s)\n'.format(
                         global_timeout)
                     live_output_buffer += buf
