@@ -91,6 +91,27 @@ class TestflingerClient:
                          (result_uri, job_request.status_code))
             raise TFServerError(job_request.status_code)
 
+    def get_result(self, job_id):
+        """Get current results data to the testflinger server for this job
+
+        :param job_id:
+            id for the job on which we want to post results
+        :param data:
+            dict with data to be posted in json or an empty dict if
+            there was an error
+        """
+        result_uri = urljoin(self.config.get('server'), '/v1/result/')
+        result_uri = urljoin(result_uri, job_id)
+        job_request = requests.get(result_uri)
+        if job_request.status_code != 200:
+            logger.error('Unable to get results from: %s (error: %s)' %
+                         (result_uri, job_request.status_code))
+            return {}
+        if job_request.content:
+            return job_request.json()
+        else:
+            return {}
+
     def transmit_job_outcome(self, rundir):
         """Post job outcome json data to the testflinger server
 
