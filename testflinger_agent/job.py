@@ -118,17 +118,6 @@ class TestflingerJob:
                     if buf:
                         sys.stdout.write(buf)
                         live_output_buffer += buf
-                        # Don't spam the server, only flush the buffer if there
-                        # is output and it's been more than 10s
-                        if time.time() - buffer_timeout > 10:
-                            buffer_timeout = time.time()
-                            # Try to stream output, if we can't connect, then
-                            # keep buffer for the next pass through this
-                            if self.client.post_live_output(
-                                    self.job_id, live_output_buffer):
-                                live_output_buffer = ''
-                        f.write(buf)
-                        f.flush()
                 else:
                     if (self.phase == 'test' and
                             time.time() - buffer_timeout > output_timeout):
@@ -146,6 +135,17 @@ class TestflingerJob:
                     f.write(buf)
                     process.kill()
                     break
+                # Don't spam the server, only flush the buffer if there
+                # is output and it's been more than 10s
+                if live_output_buffer and time.time() - buffer_timeout > 10:
+                    buffer_timeout = time.time()
+                    # Try to stream output, if we can't connect, then
+                    # keep buffer for the next pass through this
+                    if self.client.post_live_output(
+                            self.job_id, live_output_buffer):
+                        live_output_buffer = ''
+                f.write(buf)
+                f.flush()
             buf = process.stdout.read()
             if buf:
                 buf = buf.decode(sys.stdout.encoding)
