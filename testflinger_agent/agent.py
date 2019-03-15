@@ -48,7 +48,7 @@ class TestflingerAgent:
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
-        TEST_PHASES = ['setup', 'provision', 'test', 'cleanup']
+        TEST_PHASES = ['setup', 'provision', 'test']
 
         # First, see if we have any old results that we couldn't send last time
         self.retry_old_results()
@@ -70,8 +70,7 @@ class TestflingerAgent:
 
             for phase in TEST_PHASES:
                 # First make sure the job hasn't been cancelled
-                if (self.check_job_state(job.job_id) == 'cancelled' and
-                        phase != 'cleanup'):
+                if self.check_job_state(job.job_id) == 'cancelled':
                     logger.info("Job cancellation was requested, exiting.")
                     break
                 # Try to update the job_state on the testflinger server
@@ -101,6 +100,10 @@ class TestflingerAgent:
                 if exitcode:
                     logger.debug('Phase %s failed, aborting job' % phase)
                     break
+
+            # Always run the cleanup, even if the job was cancelled
+            job.run_test_phase('cleanup', rundir)
+
             try:
                 self.client.transmit_job_outcome(rundir)
             except Exception as e:
