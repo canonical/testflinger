@@ -70,7 +70,7 @@ class TestflingerClient:
             Resubmitting job: {}\n""".format(job_id)
         self.post_live_output(job_id, job_output)
         job_request = requests.post(job_uri, json=job_data)
-        if job_request.status_code != 200:
+        if not job_request:
             logger.error('Unable to re-post job to: %s (error: %s)' %
                          (job_uri, job_request.status_code))
             raise TFServerError(job_request.status_code)
@@ -86,7 +86,7 @@ class TestflingerClient:
         result_uri = urljoin(self.config.get('server'), '/v1/result/')
         result_uri = urljoin(result_uri, job_id)
         job_request = requests.post(result_uri, json=data)
-        if job_request.status_code != 200:
+        if not job_request:
             logger.error('Unable to post results to: %s (error: %s)' %
                          (result_uri, job_request.status_code))
             raise TFServerError(job_request.status_code)
@@ -103,7 +103,7 @@ class TestflingerClient:
         result_uri = urljoin(self.config.get('server'), '/v1/result/')
         result_uri = urljoin(result_uri, job_id)
         job_request = requests.get(result_uri)
-        if job_request.status_code != 200:
+        if not job_request:
             logger.error('Unable to get results from: %s (error: %s)' %
                          (result_uri, job_request.status_code))
             return {}
@@ -148,7 +148,7 @@ class TestflingerClient:
                         'file': ('file', tarball, 'application/x-gzip')}
                     artifact_request = requests.post(
                         artifact_uri, files=file_upload)
-                if artifact_request.status_code != 200:
+                if not artifact_request:
                     logger.error('Unable to post results to: %s (error: %s)' %
                                  (artifact_uri, artifact_request.status_code))
                     raise TFServerError(artifact_request.status_code)
@@ -172,6 +172,4 @@ class TestflingerClient:
         except Exception as e:
             logger.exception(e)
             return False
-        if job_request.status_code != 200:
-            return False
-        return True
+        return bool(job_request)
