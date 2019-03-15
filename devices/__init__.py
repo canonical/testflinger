@@ -64,7 +64,6 @@ class DefaultReserve(guacamole.Command):
     def invoked(self, ctx):
         with open(ctx.args.config) as configfile:
             config = yaml.safe_load(configfile)
-        snappy_device_agents.logmsg(logging.INFO, "BEGIN reservation")
         snappy_device_agents.configure_logging(config)
         snappy_device_agents.logmsg(logging.INFO, "BEGIN reservation")
         job_data = snappy_device_agents.get_test_opportunity(
