@@ -78,11 +78,24 @@ class Client():
             ID for the test job
         :return:
             String containing the job_state for the specified ID
-            (waiting, setup, provision, test, complete)
+            (waiting, setup, provision, test, reserved, released,
+             cancelled, complete)
         """
         endpoint = '/v1/result/{}'.format(job_id)
         data = json.loads(self.get(endpoint))
         return data.get('job_state')
+
+    def post_job_state(self, job_id, state):
+        """Post the status of a test job
+
+        :param job_id:
+            ID for the test job
+        :param state:
+            Job state to set for the specified job
+        """
+        endpoint = '/v1/result/{}'.format(job_id)
+        data = dict(job_state=state)
+        self.put(endpoint, data)
 
     def submit_job(self, job_data):
         """Submit a test job to the testflinger server
