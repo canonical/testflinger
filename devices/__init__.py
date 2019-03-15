@@ -17,7 +17,11 @@ import imp
 import logging
 import os
 import snappy_device_agents
+import subprocess
+import time
 import yaml
+
+from datetime import datetime, timedelta
 
 
 class ProvisioningError(Exception):
@@ -45,6 +49,61 @@ class DefaultRuntest(guacamole.Command):
         exitcode = snappy_device_agents.run_test_cmds(test_cmds, config)
         snappy_device_agents.logmsg(logging.INFO, "END testrun")
         return exitcode
+
+    def register_arguments(self, parser):
+        """Method called to customize the argument parser."""
+        parser.add_argument('-c', '--config', required=True,
+                            help='Config file for this device')
+        parser.add_argument('job_data', help='Testflinger json data file')
+
+
+class DefaultReserve(guacamole.Command):
+
+    """Block this system while it is reserved for manual use"""
+
+    def invoked(self, ctx):
+        with open(ctx.args.config) as configfile:
+            config = yaml.safe_load(configfile)
+        snappy_device_agents.logmsg(logging.INFO, "BEGIN reservation")
+        snappy_device_agents.configure_logging(config)
+        snappy_device_agents.logmsg(logging.INFO, "BEGIN reservation")
+        job_data = snappy_device_agents.get_test_opportunity(
+            ctx.args.job_data)
+        try:
+            test_username = job_data['test_data']['test_username']
+        except KeyError:
+            test_username = 'ubuntu'
+        device_ip = config['device_ip']
+        reservation_data = job_data['reservation_data']
+        ssh_keys = reservation_data.get('ssh_keys', [])
+        # default reservation timeout is 1 hour
+        timeout = reservation_data.get('timeout', '3600')
+        for key in ssh_keys:
+            try:
+                os.unlink('key.pub')
+            except FileNotFoundError:
+                pass
+            cmd = ['ssh-import-id', '-o', 'key.pub', key]
+            proc = subprocess.run(cmd)
+            if proc.returncode != 0:
+                print('Unable to import ssh key from:', key)
+                continue
+            cmd = ['ssh-copy-id', '-f', '-i', 'key.pub',
+                   '{}@{}'.format(test_username, device_ip)]
+            proc = subprocess.run(cmd)
+            if proc.returncode != 0:
+                print('Problem copying ssh key to target device for:', key)
+        print('*** TESTFLINGER SYSTEM RESERVED ***')
+        print('You can now connect to {}@{}'.format(test_username, device_ip))
+        now = datetime.utcnow().isoformat()
+        expire_time = (datetime.utcnow() + timedelta(seconds=3600)).isoformat()
+        print('Current time:           [{}]'.format(now))
+        print('Reservation expires at: [{}]'.format(expire_time))
+        print('Reservation will automatically timeout in {} '
+              'seconds'.format(timeout))
+        print('To end the reservation sooner use: testflinger-cli '
+              'cancel <job_id>')
+        time.sleep(int(timeout))
 
     def register_arguments(self, parser):
         """Method called to customize the argument parser."""

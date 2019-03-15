@@ -24,6 +24,7 @@ from devices.dragonboard.dragonboard import Dragonboard
 from snappy_device_agents import logmsg
 from devices import (Catch,
                      RecoveryError,
+                     DefaultReserve,
                      DefaultRuntest)
 
 device_name = "dragonboard"
@@ -58,5 +59,6 @@ class DeviceAgent(guacamole.Command):
 
     sub_commands = (
         ('provision', provision),
+        ('reserve', DefaultReserve),
         ('runtest', DefaultRuntest),
     )

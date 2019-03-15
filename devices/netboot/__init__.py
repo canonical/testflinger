@@ -27,6 +27,7 @@ from snappy_device_agents import logmsg
 from devices import (Catch,
                      ProvisioningError,
                      RecoveryError,
+                     DefaultReserve,
                      DefaultRuntest)
 
 device_name = "netboot"
@@ -90,5 +91,6 @@ class DeviceAgent(guacamole.Command):
 
     sub_commands = (
         ('provision', provision),
+        ('reserve', DefaultReserve),
         ('runtest', DefaultRuntest),
     )
