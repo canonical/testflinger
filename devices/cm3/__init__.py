@@ -24,6 +24,7 @@ from devices.cm3.cm3 import CM3
 from snappy_device_agents import logmsg
 from devices import (Catch,
                      RecoveryError,
+                     DefaultReserve,
                      DefaultRuntest)
 
 device_name = "cm3"
@@ -58,5 +59,6 @@ class DeviceAgent(guacamole.Command):
 
     sub_commands = (
         ('provision', provision),
+        ('reserve', DefaultReserve),
         ('runtest', DefaultRuntest),
     )
