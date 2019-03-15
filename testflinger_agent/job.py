@@ -58,6 +58,8 @@ class TestflingerJob:
         if phase == 'provision' and 'provision_data' not in self.job_data:
             logger.info('No provision_data defined in job data, skipping...')
             return 0
+        if phase == 'reserve' and 'reserve_data' not in self.job_data:
+            return 0
         phase_log = os.path.join(rundir, phase+'.log')
         logger.info('Running %s_command: %s', phase, cmd)
         # Set the exitcode to some failed status in case we get interrupted
