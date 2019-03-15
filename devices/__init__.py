@@ -73,10 +73,10 @@ class DefaultReserve(guacamole.Command):
         except KeyError:
             test_username = 'ubuntu'
         device_ip = config['device_ip']
-        reservation_data = job_data['reservation_data']
-        ssh_keys = reservation_data.get('ssh_keys', [])
+        reserve_data = job_data['reserve_data']
+        ssh_keys = reserve_data.get('ssh_keys', [])
         # default reservation timeout is 1 hour
-        timeout = reservation_data.get('timeout', '3600')
+        timeout = reserve_data.get('timeout', '3600')
         for key in ssh_keys:
             try:
                 os.unlink('key.pub')
