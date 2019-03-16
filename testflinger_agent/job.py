@@ -58,6 +58,9 @@ class TestflingerJob:
         if phase == 'provision' and 'provision_data' not in self.job_data:
             logger.info('No provision_data defined in job data, skipping...')
             return 0
+        if phase == 'test' and 'test_data' not in self.job_data:
+            logger.info('No test_data defined in job data, skipping...')
+            return 0
         if phase == 'reserve' and 'reserve_data' not in self.job_data:
             return 0
         phase_log = os.path.join(rundir, phase+'.log')
