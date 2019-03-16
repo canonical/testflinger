@@ -50,7 +50,7 @@ class OemRecovery:
         """
         try:
             test_username = self.job_data.get(
-                'test_data').get('test_username', 'ubuntu')
+                'test_data', {}).get('test_username', 'ubuntu')
         except:
             test_username = 'ubuntu'
         ssh_cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
@@ -82,9 +82,9 @@ class OemRecovery:
     def copy_ssh_id(self):
         try:
             test_username = self.job_data.get(
-                'test_data').get('test_username', 'ubuntu')
+                'test_data', {}).get('test_username', 'ubuntu')
             test_password = self.job_data.get(
-                'test_data').get('test_password', 'ubuntu')
+                'test_data', {}).get('test_password', 'ubuntu')
         except:
             test_username = 'ubuntu'
             test_password = 'ubuntu'

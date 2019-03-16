@@ -359,9 +359,9 @@ class Dragonboard:
                 raise ProvisioningError("Error copying system-user assertion")
         image_file = snappy_device_agents.compress_file('snappy.img')
         test_username = self.job_data.get(
-            'test_data').get('test_username', 'ubuntu')
+            'test_data', {}).get('test_username', 'ubuntu')
         test_password = self.job_data.get(
-            'test_data').get('test_password', 'ubuntu')
+            'test_data', {}).get('test_password', 'ubuntu')
         server_ip = snappy_device_agents.get_local_ip_addr()
         serve_q = multiprocessing.Queue()
         file_server = multiprocessing.Process(
