@@ -189,9 +189,9 @@ class MuxPi:
         started = time.time()
         # Retry for a while since we might still be rebooting
         test_username = self.job_data.get(
-            'test_data').get('test_username', 'ubuntu')
+            'test_data', {}).get('test_username', 'ubuntu')
         test_password = self.job_data.get(
-            'test_data').get('test_password', 'ubuntu')
+            'test_data', {}).get('test_password', 'ubuntu')
         while time.time() - started < 600:
             try:
                 time.sleep(10)
