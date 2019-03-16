@@ -102,6 +102,10 @@ class TestflingerAgent:
                     break
 
             # Always run the cleanup, even if the job was cancelled
+            proc = multiprocessing.Process(target=job.run_test_phase,
+                                           args=('cleanup', rundir,))
+            proc.start()
+            proc.join()
             job.run_test_phase('cleanup', rundir)
 
             try:
