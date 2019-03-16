@@ -97,7 +97,7 @@ class TestflingerAgent:
                     shutil.rmtree(rundir)
                     # Return NOW so we don't keep trying to process jobs
                     return
-                if exitcode:
+                if phase != 'test' and exitcode:
                     logger.debug('Phase %s failed, aborting job' % phase)
                     break
 
