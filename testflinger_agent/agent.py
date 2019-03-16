@@ -106,7 +106,6 @@ class TestflingerAgent:
                                            args=('cleanup', rundir,))
             proc.start()
             proc.join()
-            job.run_test_phase('cleanup', rundir)
 
             try:
                 self.client.transmit_job_outcome(rundir)
