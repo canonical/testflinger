@@ -96,9 +96,10 @@ def cancel(ctx, job_id):
 
 @cli.command()
 @click.argument('filename', nargs=1)
+@click.option('--poll', '-p', 'poll_opt', is_flag=True)
 @click.option('--quiet', '-q', is_flag=True)
 @click.pass_context
-def submit(ctx, filename, quiet):
+def submit(ctx, filename, quiet, poll_opt):
     conn = ctx.obj['conn']
     with open(filename) as f:
         data = f.read()
@@ -121,6 +122,8 @@ def submit(ctx, filename, quiet):
     else:
         print('Job submitted successfully!')
         print('job_id: {}'.format(job_id))
+    if poll_opt:
+        ctx.invoke(poll, job_id=job_id)
 
 
 @cli.command()
