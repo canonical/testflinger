@@ -100,8 +100,9 @@ class DefaultReserve(guacamole.Command):
         print('Reservation expires at: [{}]'.format(expire_time))
         print('Reservation will automatically timeout in {} '
               'seconds'.format(timeout))
+        job_id = job_data.get('job_id', '<job_id>')
         print('To end the reservation sooner use: testflinger-cli '
-              'cancel <job_id>')
+              'cancel {}'.format(job_id))
         time.sleep(int(timeout))
 
     def register_arguments(self, parser):
