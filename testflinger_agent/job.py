@@ -123,6 +123,8 @@ class TestflingerJob:
                     if buf:
                         sys.stdout.write(buf)
                         live_output_buffer += buf
+                        f.write(buf)
+                        f.flush()
                 else:
                     if (self.phase == 'test' and
                             time.time() - buffer_timeout > output_timeout):
@@ -149,8 +151,6 @@ class TestflingerJob:
                     if self.client.post_live_output(
                             self.job_id, live_output_buffer):
                         live_output_buffer = ''
-                f.write(buf)
-                f.flush()
             buf = process.stdout.read()
             if buf:
                 buf = buf.decode(sys.stdout.encoding)
