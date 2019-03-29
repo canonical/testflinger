@@ -197,9 +197,19 @@ def artifacts(ctx, job_id, filename):
 
 @cli.command()
 @click.argument('job_id', nargs=1)
+@click.option('--oneshot', '-o', is_flag=True,
+              help='Get latest output and exit immediately')
 @click.pass_context
-def poll(ctx, job_id):
+def poll(ctx, job_id, oneshot):
     conn = ctx.obj['conn']
+    if oneshot:
+        try:
+            output = get_latest_output(conn, job_id)
+        except Exception:
+            sys.exit(1)
+        if output:
+            print(output, end='', flush=True)
+        sys.exit(0)
     job_state = get_job_state(conn, job_id)
     if job_state == 'waiting':
         print('This job is currently waiting on a node to become available.')
@@ -217,17 +227,24 @@ def poll(ctx, job_id):
         time.sleep(10)
         output = ''
         try:
-            output = conn.get_output(job_id)
-        except testflinger_cli.HTTPError as e:
-            if e.status == 204:
-                # We are still waiting for the job to start
-                pass
+            output = get_latest_output(conn, job_id)
         except Exception:
             continue
         if output:
             print(output, end='', flush=True)
         job_state = get_job_state(conn, job_id)
     print(job_state)
+
+
+def get_latest_output(conn, job_id):
+    output = ''
+    try:
+        output = conn.get_output(job_id)
+    except testflinger_cli.HTTPError as e:
+        if e.status == 204:
+            # We are still waiting for the job to start
+            pass
+    return output
 
 
 def get_job_state(conn, job_id):
