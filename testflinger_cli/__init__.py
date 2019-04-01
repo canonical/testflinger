@@ -106,7 +106,7 @@ class Client():
             ID for the test job
         """
         endpoint = '/v1/job'
-        data = yaml.load(job_data)
+        data = yaml.safe_load(job_data)
         response = self.put(endpoint, data)
         return json.loads(response).get('job_id')
 
