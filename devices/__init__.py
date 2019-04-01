@@ -75,8 +75,6 @@ class DefaultReserve(guacamole.Command):
         device_ip = config['device_ip']
         reserve_data = job_data['reserve_data']
         ssh_keys = reserve_data.get('ssh_keys', [])
-        # default reservation timeout is 1 hour
-        timeout = reserve_data.get('timeout', '3600')
         for key in ssh_keys:
             try:
                 os.unlink('key.pub')
@@ -85,17 +83,33 @@ class DefaultReserve(guacamole.Command):
             cmd = ['ssh-import-id', '-o', 'key.pub', key]
             proc = subprocess.run(cmd)
             if proc.returncode != 0:
-                print('Unable to import ssh key from:', key)
+                snappy_device_agents.logmsg(
+                    logging.ERROR,
+                    'Unable to import ssh key from: {}'.format(key))
                 continue
             cmd = ['ssh-copy-id', '-f', '-i', 'key.pub',
                    '{}@{}'.format(test_username, device_ip)]
-            proc = subprocess.run(cmd)
+            try:
+                proc = subprocess.run(cmd, timeout=30)
+            except Exception:
+                snappy_device_agents.logmsg(
+                    logging.ERROR,
+                    'Error copying ssh key to device for: {}'.format(key))
             if proc.returncode != 0:
-                print('Problem copying ssh key to target device for:', key)
+                snappy_device_agents.logmsg(
+                    logging.ERROR,
+                    'Problem copying ssh key to device for: {}'.format(key))
+        # default reservation timeout is 1 hour
+        timeout = reserve_data.get('timeout', '3600')
+        # If max_reserve_timeout isn't specified, default to 18 hours
+        max_reserve_timeout = config.get('max_reserve_timeout', 18 * 60 * 60)
+        if timeout > max_reserve_timeout:
+            timeout = max_reserve_timeout
         print('*** TESTFLINGER SYSTEM RESERVED ***')
         print('You can now connect to {}@{}'.format(test_username, device_ip))
         now = datetime.utcnow().isoformat()
-        expire_time = (datetime.utcnow() + timedelta(seconds=3600)).isoformat()
+        expire_time = (
+            datetime.utcnow() + timedelta(seconds=timeout)).isoformat()
         print('Current time:           [{}]'.format(now))
         print('Reservation expires at: [{}]'.format(expire_time))
         print('Reservation will automatically timeout in {} '
