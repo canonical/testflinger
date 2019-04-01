@@ -83,13 +83,22 @@ class DefaultReserve(guacamole.Command):
             cmd = ['ssh-import-id', '-o', 'key.pub', key]
             proc = subprocess.run(cmd)
             if proc.returncode != 0:
-                print('Unable to import ssh key from:', key)
+                snappy_device_agents.logmsg(
+                    logging.ERROR,
+                    'Unable to import ssh key from: {}'.format(key))
                 continue
             cmd = ['ssh-copy-id', '-f', '-i', 'key.pub',
                    '{}@{}'.format(test_username, device_ip)]
-            proc = subprocess.run(cmd)
+            try:
+                proc = subprocess.run(cmd, timeout=30)
+            except Exception:
+                snappy_device_agents.logmsg(
+                    logging.ERROR,
+                    'Error copying ssh key to device for: {}'.format(key))
             if proc.returncode != 0:
-                print('Problem copying ssh key to target device for:', key)
+                snappy_device_agents.logmsg(
+                    logging.ERROR,
+                    'Problem copying ssh key to device for: {}'.format(key))
         # default reservation timeout is 1 hour
         timeout = reserve_data.get('timeout', '3600')
         # If max_reserve_timeout isn't specified, default to 18 hours
