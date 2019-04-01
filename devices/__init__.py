@@ -95,7 +95,7 @@ class DefaultReserve(guacamole.Command):
         print('*** TESTFLINGER SYSTEM RESERVED ***')
         print('You can now connect to {}@{}'.format(test_username, device_ip))
         now = datetime.utcnow().isoformat()
-        expire_time = (datetime.utcnow() + timedelta(seconds=3600)).isoformat()
+        expire_time = (datetime.utcnow() + timedelta(seconds=timeout)).isoformat()
         print('Current time:           [{}]'.format(now))
         print('Reservation expires at: [{}]'.format(expire_time))
         print('Reservation will automatically timeout in {} '
