@@ -75,8 +75,6 @@ class DefaultReserve(guacamole.Command):
         device_ip = config['device_ip']
         reserve_data = job_data['reserve_data']
         ssh_keys = reserve_data.get('ssh_keys', [])
-        # default reservation timeout is 1 hour
-        timeout = reserve_data.get('timeout', '3600')
         for key in ssh_keys:
             try:
                 os.unlink('key.pub')
@@ -92,6 +90,12 @@ class DefaultReserve(guacamole.Command):
             proc = subprocess.run(cmd)
             if proc.returncode != 0:
                 print('Problem copying ssh key to target device for:', key)
+        # default reservation timeout is 1 hour
+        timeout = reserve_data.get('timeout', '3600')
+        # If max_reserve_timeout isn't specified, default to 18 hours
+        max_reserve_timeout = config.get('max_reserve_timeout', 18 * 60 * 60)
+        if timeout > max_reserve_timeout:
+            timeout = max_reserve_timeout
         print('*** TESTFLINGER SYSTEM RESERVED ***')
         print('You can now connect to {}@{}'.format(test_username, device_ip))
         now = datetime.utcnow().isoformat()
