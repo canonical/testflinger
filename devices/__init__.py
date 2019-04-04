@@ -102,7 +102,7 @@ class DefaultReserve(guacamole.Command):
         # default reservation timeout is 1 hour
         timeout = int(reserve_data.get('timeout', '3600'))
         # If max_reserve_timeout isn't specified, default to 18 hours
-        max_reserve_timeout = int(config.get('max_reserve_timeout', 18 * 60 * 60))
+        max_reserve_timeout = int(config.get('max_reserve_timeout', 18*60*60))
         if timeout > max_reserve_timeout:
             timeout = max_reserve_timeout
         print('*** TESTFLINGER SYSTEM RESERVED ***')
