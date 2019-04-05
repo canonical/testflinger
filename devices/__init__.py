@@ -91,9 +91,13 @@ class DefaultReserve(guacamole.Command):
                    '{}@{}'.format(test_username, device_ip)]
             for retry in range(10):
                 # Retry ssh key copy just in case it's rebooting
-                proc = subprocess.run(cmd, timeout=30)
-                if proc.returncode == 0:
-                    break
+                try:
+                    proc = subprocess.run(cmd, timeout=30)
+                    if proc.returncode == 0:
+                        break
+                except subprocess.TimeoutExpired:
+                    # Log an error for timeout or any other problem
+                    pass
                 snappy_device_agents.logmsg(
                     logging.ERROR,
                     'Error copying ssh key to device for: {}'.format(key))
