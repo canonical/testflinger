@@ -73,7 +73,9 @@ class Maas2:
                           'with distro {}'.format(agent_name, distro))
         cmd = ['maas', maas_user, 'machine', 'deploy', node_id,
                'distro_series={}'.format(distro)]
-        print(self.job_data)
+        kernel = provision_data.get('kernel')
+        if kernel:
+            cmd.append('hwe_kernel={}'.format(kernel))
         user_data = provision_data.get('user_data')
         if user_data:
             data = base64.b64encode(user_data.encode()).decode()
