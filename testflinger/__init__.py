@@ -18,11 +18,15 @@ import logging
 import pkg_resources
 import os
 import redis
-import sentry_sdk
 
-from sentry_sdk.integrations.flask import FlaskIntegration
 from testflinger import v1
 from flask import Flask
+
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.flask import FlaskIntegration
+except ImportError:
+    pass
 
 
 def _get_version():
@@ -61,7 +65,7 @@ def create_flask_app():
         host=app.config['REDIS_HOST'], port=app.config['REDIS_PORT'])
 
     sentry_dsn = app.config.get("SENTRY_DSN")
-    if sentry_dsn:
+    if sentry_dsn and 'sentry_sdk' in globals():
         sentry_sdk.init(dsn=sentry_dsn, integrations=[FlaskIntegration()])
 
     app.add_url_rule('/', 'home', v1.home)
