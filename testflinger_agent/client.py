@@ -31,9 +31,10 @@ logger = logging.getLogger(__name__)
 class TestflingerClient:
     def __init__(self, config):
         self.config = config
-        server = self.config.get('server_address')
-        if not server.lower().startswith('http'):
-            self.config['server'] = 'http://' + server
+        self.server = self.config.get(
+            'server_address', 'https://testflinger.canonical.com')
+        if not self.server.lower().startswith('http'):
+            self.server = 'http://' + self.server
 
     def check_jobs(self):
         """Check for new jobs for on the Testflinger server
@@ -41,7 +42,7 @@ class TestflingerClient:
         :return: Dict with job data, or None if no job found
         """
         try:
-            job_uri = urljoin(self.config.get('server'), '/v1/job')
+            job_uri = urljoin(self.server, '/v1/job')
             queue_list = self.config.get('job_queues')
             logger.debug("Requesting a job")
             job_request = requests.get(job_uri, params={'queue': queue_list},
@@ -61,7 +62,7 @@ class TestflingerClient:
         :param job_id:
             id for the job on which we want to post results
         """
-        job_uri = urljoin(self.config.get('server'), '/v1/job')
+        job_uri = urljoin(self.server, '/v1/job')
         job_id = job_data.get('job_id')
         logger.info('Resubmitting job: %s', job_id)
         job_output = """
@@ -83,7 +84,7 @@ class TestflingerClient:
         :param data:
             dict with data to be posted in json
         """
-        result_uri = urljoin(self.config.get('server'), '/v1/result/')
+        result_uri = urljoin(self.server, '/v1/result/')
         result_uri = urljoin(result_uri, job_id)
         job_request = requests.post(result_uri, json=data)
         if not job_request:
@@ -100,7 +101,7 @@ class TestflingerClient:
             dict with data to be posted in json or an empty dict if
             there was an error
         """
-        result_uri = urljoin(self.config.get('server'), '/v1/result/')
+        result_uri = urljoin(self.server, '/v1/result/')
         result_uri = urljoin(result_uri, job_id)
         job_request = requests.get(result_uri)
         if not job_request:
@@ -141,7 +142,7 @@ class TestflingerClient:
                                     root_dir=rundir, base_dir='artifacts')
                 # Create uri for API: /v1/result/<job_id>
                 artifact_uri = urljoin(
-                    self.config.get('server'),
+                    self.server,
                     '/v1/result/{}/artifact'.format(job_id))
                 with open(artifact_file+'.tar.gz', 'rb') as tarball:
                     file_upload = {
@@ -164,7 +165,7 @@ class TestflingerClient:
         :param data:
             string with latest output data
         """
-        output_uri = urljoin(self.config.get('server'),
+        output_uri = urljoin(self.server,
                              '/v1/result/{}/output'.format(job_id))
         try:
             job_request = requests.post(
