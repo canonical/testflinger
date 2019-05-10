@@ -21,7 +21,7 @@ import shutil
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class TestflingerAgent:

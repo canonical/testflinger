@@ -25,7 +25,7 @@ from urllib.parse import urljoin
 
 from testflinger_agent.errors import TFServerError
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class TestflingerClient:
