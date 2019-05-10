@@ -259,10 +259,15 @@ def get_job(queue_list):
 
 
 def job_position_get(job_id):
-    job_data = json.loads(job_get_id(job_id))
+    try:
+        job_data = json.loads(job_get_id(job_id))
+    except Exception:
+        return "Invalid job or job not found\n", 400
     queue = "tf_queue_" + job_data.get('job_queue')
     for position, x in enumerate(
             reversed(testflinger.app.redis.lrange(queue, 0, -1))):
         if json.loads(
                 x.decode('utf-8', errors='ignore')).get('job_id') == job_id:
             return str(position)
+    else:
+        return "Job not found or already started\n", 410
