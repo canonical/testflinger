@@ -23,7 +23,7 @@ from testflinger_agent import schema
 from testflinger_agent.agent import TestflingerAgent
 from testflinger_agent.client import TestflingerClient
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -34,23 +34,17 @@ def main():
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
     while True:
-        try:
-            if agent.check_offline():
-                logger.error("Agent %s is offline, not processing jobs! "
-                             "Remove %s to resume processing" %
-                             (config.get('agent_id'),
-                              agent.get_offline_file()))
-                while agent.check_offline():
-                    time.sleep(check_interval)
-            logger.info("Checking jobs")
-            agent.process_jobs()
-            logger.info("Sleeping for {}".format(check_interval))
-            time.sleep(check_interval)
-        except KeyboardInterrupt:
-            logger.info('Caught interrupt, exiting!')
-            sys.exit(0)
-        except Exception as e:
-            logger.exception(e)
+        if agent.check_offline():
+            logger.error("Agent %s is offline, not processing jobs! "
+                         "Remove %s to resume processing" %
+                         (config.get('agent_id'),
+                          agent.get_offline_file()))
+            while agent.check_offline():
+                time.sleep(check_interval)
+        logger.info("Checking jobs")
+        agent.process_jobs()
+        logger.info("Sleeping for {}".format(check_interval))
+        time.sleep(check_interval)
 
 
 def load_config(configfile):

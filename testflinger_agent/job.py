@@ -22,7 +22,7 @@ import sys
 import subprocess
 import time
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class TestflingerJob:
