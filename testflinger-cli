@@ -32,7 +32,7 @@ if os.path.exists(os.path.join(basedir, 'setup.py')):
 
 
 @click.group()
-@click.option('--server', default='http://testflinger.canonical.com',
+@click.option('--server', default='https://testflinger.canonical.com',
               help='Testflinger server to use')
 @click.pass_context
 def cli(ctx, server):
