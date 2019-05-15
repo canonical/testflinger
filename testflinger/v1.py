@@ -95,7 +95,7 @@ def job_get_id(job_id):
     :param job_id:
         UUID as a string for the job
     :return:
-        JSON data for the job
+        JSON data for the job or error string and http error
 
     >>> job_get_id('foo')
     ('Invalid job id\\n', 400)
