@@ -95,7 +95,7 @@ def job_get_id(job_id):
     :param job_id:
         UUID as a string for the job
     :return:
-        JSON data for the job
+        JSON data for the job or error string and http error
 
     >>> job_get_id('foo')
     ('Invalid job id\\n', 400)
@@ -109,7 +109,7 @@ def job_get_id(job_id):
         return "", 204
     with open(job_file) as jobfile:
         data = jobfile.read()
-    return data
+    return data, 200
 
 
 def result_post(job_id):
@@ -259,10 +259,18 @@ def get_job(queue_list):
 
 
 def job_position_get(job_id):
-    job_data = json.loads(job_get_id(job_id))
+    data, http_code = job_get_id(job_id)
+    if http_code != 200:
+        return data, http_code
+    try:
+        job_data = json.loads(data)
+    except Exception:
+        return "Invalid json returned for id: {}\n".format(job_id), 400
     queue = "tf_queue_" + job_data.get('job_queue')
     for position, x in enumerate(
             reversed(testflinger.app.redis.lrange(queue, 0, -1))):
         if json.loads(
                 x.decode('utf-8', errors='ignore')).get('job_id') == job_id:
             return str(position)
+    else:
+        return "Job not found or already started\n", 410
