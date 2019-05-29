@@ -101,8 +101,11 @@ def cancel(ctx, job_id):
 @click.pass_context
 def submit(ctx, filename, quiet, poll_opt):
     conn = ctx.obj['conn']
-    with open(filename) as f:
-        data = f.read()
+    if filename == '-':
+        data = sys.stdin.read()
+    else:
+        with open(filename) as f:
+            data = f.read()
     try:
         job_id = conn.submit_job(data)
     except testflinger_cli.HTTPError as e:
