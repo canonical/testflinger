@@ -119,7 +119,8 @@ class TestflingerJob:
                 # Check if there's any new data, timeout after 10s
                 data_ready = readpoll.poll(10000)
                 if data_ready:
-                    buf = process.stdout.read().decode(sys.stdout.encoding)
+                    buf = process.stdout.read().decode(
+                        sys.stdout.encoding, errors='replace')
                     if buf:
                         sys.stdout.write(buf)
                         live_output_buffer += buf
@@ -153,7 +154,7 @@ class TestflingerJob:
                         live_output_buffer = ''
             buf = process.stdout.read()
             if buf:
-                buf = buf.decode(sys.stdout.encoding)
+                buf = buf.decode(sys.stdout.encoding, errors='replace')
                 sys.stdout.write(buf)
                 live_output_buffer += buf
                 f.write(buf)
