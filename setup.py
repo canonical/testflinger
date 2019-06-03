@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2017 Canonical
+# Copyright (C) 2017-2019 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,6 +28,11 @@ setup(
     install_requires=INSTALL_REQUIRES,
     test_suite='testflinger_cli.tests',
     tests_require=TEST_REQUIRES,
-    scripts=['testflinger-cli'],
+    entry_points='''
+        [console_scripts]
+        testflinger-cli=testflinger_cli:cli
+        testflinger=testflinger_cli:cli
+    ''',
+
 )
 
