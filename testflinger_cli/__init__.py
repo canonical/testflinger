@@ -1,4 +1,4 @@
-# Copyright (C) 2017 Canonical
+# Copyright (C) 2017-2019 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,160 +14,258 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+
+import click
 import json
-import requests
+import os
 import sys
-import urllib.parse
-import yaml
+import time
+
+from testflinger_cli import client
 
 
-class HTTPError(Exception):
-    def __init__(self, status):
-        self.status = status
+# Make it easier to run from a checkout
+basedir = os.path.abspath(os.path.join(__file__, '..'))
+if os.path.exists(os.path.join(basedir, 'setup.py')):
+    sys.path.insert(0, basedir)
 
 
-class Client():
-    """Testflinger connection client"""
-    def __init__(self, server):
-        self.server = server
+@click.group()
+@click.option('--server', default='https://testflinger.canonical.com',
+              help='Testflinger server to use')
+@click.pass_context
+def cli(ctx, server):
+    ctx.obj = {}
+    env_server = os.environ.get('TESTFLINGER_SERVER')
+    if env_server:
+        server = env_server
+    ctx.obj['conn'] = client.Client(server)
 
-    def get(self, uri_frag, timeout=15):
-        """Submit a GET request to the server
-        :param uri_frag:
-            endpoint for the GET request
-        :return:
-            String containing the response from the server
-        """
-        uri = urllib.parse.urljoin(self.server, uri_frag)
+
+@cli.command()
+@click.argument('job_id', nargs=1)
+@click.pass_context
+def status(ctx, job_id):
+    conn = ctx.obj['conn']
+    try:
+        job_state = conn.get_status(job_id)
+    except client.HTTPError as e:
+        if e.status == 204:
+            print('No data found for that job id. Check the job id to be sure '
+                  'it is correct')
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
+        sys.exit(1)
+    except Exception:
+        print('Error communicating with server, check connection and retry')
+        sys.exit(1)
+    print(job_state)
+
+
+@cli.command()
+@click.argument('job_id', nargs=1)
+@click.pass_context
+def cancel(ctx, job_id):
+    conn = ctx.obj['conn']
+    try:
+        job_state = conn.get_status(job_id)
+    except client.HTTPError as e:
+        if e.status == 204:
+            print('Job {} not found. Check the job id to be sure it is '
+                  'correct.'.format(job_id))
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct.')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
+        sys.exit(1)
+    except Exception:
+        print('Error communicating with server, check connection and retry')
+        sys.exit(1)
+    if job_state in ('complete', 'cancelled'):
+        print('Job {} is already in {} state and cannot be cancelled.'.format(
+              job_id, job_state))
+        sys.exit(1)
+    conn.post_job_state(job_id, 'cancelled')
+
+
+@cli.command()
+@click.argument('filename', nargs=1)
+@click.option('--poll', '-p', 'poll_opt', is_flag=True)
+@click.option('--quiet', '-q', is_flag=True)
+@click.pass_context
+def submit(ctx, filename, quiet, poll_opt):
+    conn = ctx.obj['conn']
+    if filename == '-':
+        data = sys.stdin.read()
+    else:
+        with open(filename) as f:
+            data = f.read()
+    try:
+        job_id = conn.submit_job(data)
+    except client.HTTPError as e:
+        if e.status == 400:
+            print('The job you submitted contained bad data or bad '
+                  'formatting, or did not specify a job_queue.')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
+        else:
+            # This shouldn't happen, so let's get the full trace
+            print('Unexpected error status from testflinger '
+                  'server: {}'.format(e.status))
+        sys.exit(1)
+    if quiet:
+        print(job_id)
+    else:
+        print('Job submitted successfully!')
+        print('job_id: {}'.format(job_id))
+    if poll_opt:
+        ctx.invoke(poll, job_id=job_id)
+
+
+@cli.command()
+@click.argument('job_id', nargs=1)
+@click.pass_context
+def show(ctx, job_id):
+    conn = ctx.obj['conn']
+    try:
+        results = conn.show_job(job_id)
+    except client.HTTPError as e:
+        if e.status == 204:
+            print('No data found for that job id.')
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
+        sys.exit(1)
+    print(json.dumps(results, sort_keys=True, indent=4))
+
+
+@cli.command()
+@click.argument('job_id', nargs=1)
+@click.pass_context
+def results(ctx, job_id):
+    conn = ctx.obj['conn']
+    try:
+        results = conn.get_results(job_id)
+    except client.HTTPError as e:
+        if e.status == 204:
+            print('No results found for that job id.')
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
+        sys.exit(1)
+    except Exception:
+        print('Error communicating with server, check connection and retry')
+        sys.exit(1)
+
+    print(json.dumps(results, sort_keys=True, indent=4))
+
+
+@cli.command()
+@click.argument('job_id', nargs=1)
+@click.option('--filename', default='artifacts.tgz')
+@click.pass_context
+def artifacts(ctx, job_id, filename):
+    conn = ctx.obj['conn']
+    print('Downloading artifacts tarball...')
+    try:
+        conn.get_artifact(job_id, filename)
+    except client.HTTPError as e:
+        if e.status == 204:
+            print('No artifacts tarball found for that job id.')
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
+        sys.exit(1)
+    except Exception:
+        print('Error communicating with server, check connection and retry')
+        sys.exit(1)
+    print('Artifacts downloaded to {}'.format(filename))
+
+
+@cli.command()
+@click.argument('job_id', nargs=1)
+@click.option('--oneshot', '-o', is_flag=True,
+              help='Get latest output and exit immediately')
+@click.pass_context
+def poll(ctx, job_id, oneshot):
+    conn = ctx.obj['conn']
+    if oneshot:
         try:
-            req = requests.get(uri, timeout=timeout)
-        except requests.exceptions.ConnectTimeout as e:
-            print('Timeout while trying to communicate with the server.')
-            raise
-        except requests.exceptions.ConnectionError as e:
-            print('Unable to communicate with specified server.')
-            raise
-        if req.status_code != 200:
-            raise HTTPError(req.status_code)
-        return req.text
-
-    def put(self, uri_frag, data, timeout=15):
-        """Submit a POST request to the server
-        :param uri_frag:
-            endpoint for the POST request
-        :return:
-            String containing the response from the server
-        """
-        uri = urllib.parse.urljoin(self.server, uri_frag)
+            output = get_latest_output(conn, job_id)
+        except Exception:
+            sys.exit(1)
+        if output:
+            print(output, end='', flush=True)
+        sys.exit(0)
+    job_state = get_job_state(conn, job_id)
+    if job_state == 'waiting':
+        print('This job is currently waiting on a node to become available.')
+        prev_queue_pos = None
+    while job_state != 'complete':
+        if job_state == 'waiting':
+            try:
+                queue_pos = conn.get_job_position(job_id)
+                if int(queue_pos) != prev_queue_pos:
+                    prev_queue_pos = int(queue_pos)
+                    print('Jobs ahead in queue: {}'.format(queue_pos))
+            except Exception:
+                # Ignore any bad response, this will retry
+                pass
+        time.sleep(10)
+        output = ''
         try:
-            req = requests.post(uri, json=data, timeout=timeout)
-        except requests.exceptions.ConnectTimeout as e:
-            print('Timout while trying to communicate with the server.')
-            sys.exit(1)
-        except requests.exceptions.ConnectionError as e:
-            print('Unable to communicate with specified server.')
-            sys.exit(1)
-        if req.status_code != 200:
-            raise HTTPError(req.status_code)
-        return req.text
+            output = get_latest_output(conn, job_id)
+        except Exception:
+            continue
+        if output:
+            print(output, end='', flush=True)
+        job_state = get_job_state(conn, job_id)
+    print(job_state)
 
-    def get_status(self, job_id):
-        """Get the status of a test job
 
-        :param job_id:
-            ID for the test job
-        :return:
-            String containing the job_state for the specified ID
-            (waiting, setup, provision, test, reserved, released,
-             cancelled, complete)
-        """
-        endpoint = '/v1/result/{}'.format(job_id)
-        data = json.loads(self.get(endpoint))
-        return data.get('job_state')
+def get_latest_output(conn, job_id):
+    output = ''
+    try:
+        output = conn.get_output(job_id)
+    except client.HTTPError as e:
+        if e.status == 204:
+            # We are still waiting for the job to start
+            pass
+    return output
 
-    def post_job_state(self, job_id, state):
-        """Post the status of a test job
 
-        :param job_id:
-            ID for the test job
-        :param state:
-            Job state to set for the specified job
-        """
-        endpoint = '/v1/result/{}'.format(job_id)
-        data = dict(job_state=state)
-        self.put(endpoint, data)
-
-    def submit_job(self, job_data):
-        """Submit a test job to the testflinger server
-
-        :param job_data:
-            String containing json or yaml data for the job to submit
-        :return:
-            ID for the test job
-        """
-        endpoint = '/v1/job'
-        data = yaml.safe_load(job_data)
-        response = self.put(endpoint, data)
-        return json.loads(response).get('job_id')
-
-    def show_job(self, job_id):
-        """Show the JSON job definition for the specified ID
-
-        :param job_id:
-            ID for the test job
-        :return:
-            JSON job definition for the specified ID
-        """
-        endpoint = '/v1/job/{}'.format(job_id)
-        return json.loads(self.get(endpoint))
-
-    def get_results(self, job_id):
-        """Get results for a specified test job
-
-        :param job_id:
-            ID for the test job
-        :return:
-            Dict containing the results returned from the server
-        """
-        endpoint = '/v1/result/{}'.format(job_id)
-        return json.loads(self.get(endpoint))
-
-    def get_artifact(self, job_id, path):
-        """Get results for a specified test job
-
-        :param job_id:
-            ID for the test job
-        :param path:
-            Path and filename for the artifact file
-        """
-        endpoint = '/v1/result/{}/artifact'.format(job_id)
-        uri = urllib.parse.urljoin(self.server, endpoint)
-        req = requests.get(uri, timeout=15)
-        if req.status_code != 200:
-            raise HTTPError(req.status_code)
-        with open(path, 'wb') as artifact:
-            for chunk in req.iter_content(chunk_size=4096):
-                artifact.write(chunk)
-
-    def get_output(self, job_id):
-        """Get the latest output for a specified test job
-
-        :param job_id:
-            ID for the test job
-        :return:
-            String containing the latest output from the job
-        """
-        endpoint = '/v1/result/{}/output'.format(job_id)
-        return self.get(endpoint)
-
-    def get_job_position(self, job_id):
-        """Get the status of a test job
-
-        :param job_id:
-            ID for the test job
-        :return:
-            String containing the queue position for the specified ID
-            i.e. how many jobs are ahead of it in the queue
-        """
-        endpoint = '/v1/job/{}/position'.format(job_id)
-        return self.get(endpoint)
+def get_job_state(conn, job_id):
+    try:
+        return conn.get_status(job_id)
+    except client.HTTPError as e:
+        if e.status == 204:
+            print('No data found for that job id. Check the job id to be sure '
+                  'it is correct')
+        elif e.status == 400:
+            print('Invalid job id specified. Check the job id to be sure it '
+                  'is correct')
+        if e.status == 404:
+            print('Received 404 error from server. Are you sure this '
+                  'is a testflinger server?')
+        sys.exit(1)
+    except Exception:
+        # If we fail to get the job_state here, it could be because of timeout
+        # but we can keep going and retrying
+        pass
+    return 'unknown'
