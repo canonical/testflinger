@@ -114,8 +114,13 @@ class DefaultReserve(guacamole.Command):
         max_reserve_timeout = int(config.get('max_reserve_timeout', 6*60*60))
         if timeout > max_reserve_timeout:
             timeout = max_reserve_timeout
+        serial_host = config.get('serial_host')
+        serial_port = config.get('serial_port')
         print('*** TESTFLINGER SYSTEM RESERVED ***')
         print('You can now connect to {}@{}'.format(test_username, device_ip))
+        if serial_host and serial_port:
+            print('Serial access is available via: telnet {} {}'.format(
+                serial_host, serial_port))
         now = datetime.utcnow().isoformat()
         expire_time = (
             datetime.utcnow() + timedelta(seconds=timeout)).isoformat()
