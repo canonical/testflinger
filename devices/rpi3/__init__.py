@@ -25,7 +25,8 @@ from snappy_device_agents import logmsg
 from devices import (Catch,
                      RecoveryError,
                      DefaultReserve,
-                     DefaultRuntest)
+                     DefaultRuntest,
+                     SerialLogger)
 
 device_name = "rpi3"
 
@@ -43,8 +44,18 @@ class provision(guacamole.Command):
         device = Rpi3(ctx.args.config, ctx.args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
         logmsg(logging.INFO, "Booting Master Image")
-        device.ensure_master_image()
-        device.provision()
+        serial_host = config.get('serial_host')
+        serial_port = config.get('serial_port')
+        serial_proc = SerialLogger(
+            serial_host, serial_port, 'provision-serial.log')
+        serial_proc.start()
+        try:
+            device.ensure_master_image()
+            device.provision()
+        except Exception as e:
+            raise e
+        finally:
+            serial_proc.stop()
 
     def register_arguments(self, parser):
         """Method called to customize the argument parser."""

@@ -28,7 +28,8 @@ from devices import (Catch,
                      ProvisioningError,
                      RecoveryError,
                      DefaultReserve,
-                     DefaultRuntest)
+                     DefaultRuntest,
+                     SerialLogger)
 
 device_name = "netboot"
 
@@ -72,10 +73,20 @@ class provision(guacamole.Command):
         file_server.start()
         server_port = q.get()
         logmsg(logging.INFO, "Flashing Test Image")
-        device.flash_test_image(server_ip, server_port)
-        file_server.terminate()
-        logmsg(logging.INFO, "Booting Test Image")
-        device.ensure_test_image(test_username, test_password)
+        serial_host = config.get('serial_host')
+        serial_port = config.get('serial_port')
+        serial_proc = SerialLogger(
+            serial_host, serial_port, 'provision-serial.log')
+        serial_proc.start()
+        try:
+            device.flash_test_image(server_ip, server_port)
+            logmsg(logging.INFO, "Booting Test Image")
+            device.ensure_test_image(test_username, test_password)
+        except Exception as e:
+            raise e
+        finally:
+            file_server.terminate()
+            serial_proc.stop()
         logmsg(logging.INFO, "END provision")
 
     def register_arguments(self, parser):

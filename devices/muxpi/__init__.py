@@ -25,7 +25,8 @@ from snappy_device_agents import logmsg
 from devices import (Catch,
                      RecoveryError,
                      DefaultReserve,
-                     DefaultRuntest)
+                     DefaultRuntest,
+                     SerialLogger)
 
 device_name = "muxpi"
 
@@ -43,7 +44,17 @@ class provision(guacamole.Command):
         device = MuxPi(ctx.args.config, ctx.args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
         logmsg(logging.INFO, "Provisioning device")
-        device.provision()
+        serial_host = config.get('serial_host')
+        serial_port = config.get('serial_port')
+        serial_proc = SerialLogger(
+            serial_host, serial_port, 'provision-serial.log')
+        serial_proc.start()
+        try:
+            device.provision()
+        except Exception as e:
+            raise e
+        finally:
+            serial_proc.stop()
         logmsg(logging.INFO, "END provision")
 
     def register_arguments(self, parser):
