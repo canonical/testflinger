@@ -63,24 +63,28 @@ class TestflingerJob:
             return 0
         if phase == 'reserve' and 'reserve_data' not in self.job_data:
             return 0
-        phase_log = os.path.join(rundir, phase+'.log')
+        output_log = os.path.join(rundir, phase+'.log')
+        serial_log = os.path.join(rundir, phase+'-serial.log')
         logger.info('Running %s_command: %s', phase, cmd)
         # Set the exitcode to some failed status in case we get interrupted
         exitcode = 99
 
         for line in self.banner(
                 'Starting testflinger {} phase on {}'.format(phase, node)):
-            self.run_with_log("echo '{}'".format(line), phase_log, rundir)
+            self.run_with_log("echo '{}'".format(line), output_log, rundir)
         try:
-            exitcode = self.run_with_log(cmd, phase_log, rundir)
+            exitcode = self.run_with_log(cmd, output_log, rundir)
         except Exception as e:
             logger.exception(e)
         finally:
             with open(os.path.join(rundir, 'testflinger-outcome.json')) as f:
                 outcome_data = json.load(f)
-            if os.path.exists(phase_log):
-                with open(phase_log, encoding='utf-8') as f:
+            if os.path.exists(output_log):
+                with open(output_log, encoding='utf-8') as f:
                     outcome_data[phase+'_output'] = f.read()
+            if os.path.exists(serial_log):
+                with open(serial_log, encoding='utf-8') as f:
+                    outcome_data[phase+'_serial'] = f.read()
             outcome_data[phase+'_status'] = exitcode
             with open(os.path.join(rundir, 'testflinger-outcome.json'),
                       'w', encoding='utf-8') as f:
