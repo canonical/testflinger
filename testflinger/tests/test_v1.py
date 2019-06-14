@@ -43,6 +43,8 @@ class TestAPI():
                           content_type='application/json')
         job_id = json.loads(output.data.decode()).get('job_id')
         assert testflinger.v1.check_valid_uuid(job_id)
+        # Ensure the queue will expire in about a week (604800s)
+        assert 604000 < testflinger.app.redis.ttl('tf_queue_test') <= 604800
         # Now get the job and confirm it matches
         output = app.get('/v1/job?queue=test')
         # unittest assertDictContainsSubset is deprecated, but
