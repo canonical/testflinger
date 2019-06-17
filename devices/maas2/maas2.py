@@ -61,6 +61,7 @@ class Maas2:
         maas_user = self.config.get('maas_user')
         node_id = self.config.get('node_id')
         agent_name = self.config.get('agent_name')
+        timeout_min = self.config.get('timeout_min')
         provision_data = self.job_data.get('provision_data')
         # Default to a safe LTS if no distro is specified
         distro = provision_data.get('distro', 'xenial')
@@ -91,7 +92,8 @@ class Maas2:
 
         # Make sure the device is available before returning
         minutes_spent = 0
-        timeout_min = 60
+        if timeout_min is None:
+            timeout_min = 60
         while minutes_spent < timeout_min:
             time.sleep(60)
             minutes_spent += 1
