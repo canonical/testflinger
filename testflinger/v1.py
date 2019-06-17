@@ -246,7 +246,11 @@ def submit_job(job_queue, data):
     :param data:
         JSON data to pass along containing details about the test job
     """
-    testflinger.app.redis.lpush(job_queue, data)
+    pipe = testflinger.app.redis.pipeline()
+    pipe.lpush(job_queue, data)
+    # Delete the queue after 1 week if nothing is looking at it
+    pipe.expire(job_queue, 604800)
+    pipe.execute()
 
 
 def get_job(queue_list):
