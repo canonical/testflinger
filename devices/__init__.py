@@ -15,8 +15,11 @@
 import guacamole
 import imp
 import logging
+import multiprocessing
 import os
+import select
 import snappy_device_agents
+import socket
 import subprocess
 import time
 import yaml
@@ -30,6 +33,72 @@ class ProvisioningError(Exception):
 
 class RecoveryError(Exception):
     pass
+
+
+def SerialLogger(host=None, port=None, filename=None):
+    """Factory to generate real or fake SerialLogger object based on params"""
+    if host and port and filename:
+        return RealSerialLogger(host, port, filename)
+    else:
+        return StubSerialLogger(host, port, filename)
+
+
+class StubSerialLogger():
+    def __init__(self, host, port, filename):
+        pass
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+
+class RealSerialLogger():
+
+    """Set up a subprocess to connect to an ip and collect serial logs"""
+
+    def __init__(self, host, port, filename):
+        if not (host and port and filename):
+            self.stub = True
+        self.stub = False
+        self.host = host
+        self.port = int(port)
+        self.filename = filename
+
+    def start(self):
+        def reconnector():
+            while True:
+                try:
+                    self._log_serial()
+                except Exception:
+                    pass
+                # Keep trying if we can't connect, but sleep between attempts
+                snappy_device_agents.logmsg(
+                    logging.ERROR, "Error connecting to serial logging server")
+                time.sleep(30)
+        self.proc = multiprocessing.Process(target=reconnector, daemon=True)
+        self.proc.start()
+
+    def _log_serial(self):
+        with open(self.filename, 'a+') as f:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((self.host, self.port))
+                while True:
+                    read_sockets, _, _ = select.select([s], [], [])
+                    for sock in read_sockets:
+                        data = sock.recv(4096)
+                        if data:
+                            f.write(data.decode(
+                                encoding='utf-8', errors='replace'))
+                            f.flush()
+                        else:
+                            snappy_device_agents.logmsg(
+                                logging.ERROR, "Serial Log connection closed")
+                            return
+
+    def stop(self):
+        self.proc.terminate()
 
 
 class DefaultRuntest(guacamole.Command):
@@ -46,7 +115,17 @@ class DefaultRuntest(guacamole.Command):
         test_opportunity = snappy_device_agents.get_test_opportunity(
             ctx.args.job_data)
         test_cmds = test_opportunity.get('test_data').get('test_cmds')
-        exitcode = snappy_device_agents.run_test_cmds(test_cmds, config)
+        serial_host = config.get('serial_host')
+        serial_port = config.get('serial_port')
+        serial_proc = SerialLogger(
+            serial_host, serial_port, 'test-serial.log')
+        serial_proc.start()
+        try:
+            exitcode = snappy_device_agents.run_test_cmds(test_cmds, config)
+        except Exception as e:
+            raise e
+        finally:
+            serial_proc.stop()
         snappy_device_agents.logmsg(logging.INFO, "END testrun")
         return exitcode
 
