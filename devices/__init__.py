@@ -90,7 +90,7 @@ class RealSerialLogger():
                         data = sock.recv(4096)
                         if data:
                             f.write(data.decode(
-                                encoding='utf-8', errors='replace'))
+                                encoding='utf-8', errors='ignore'))
                             f.flush()
                         else:
                             snappy_device_agents.logmsg(
