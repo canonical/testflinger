@@ -51,18 +51,17 @@ def status(ctx, job_id):
         job_state = conn.get_status(job_id)
     except client.HTTPError as e:
         if e.status == 204:
-            print('No data found for that job id. Check the job id to be sure '
-                  'it is correct')
-        elif e.status == 400:
-            print('Invalid job id specified. Check the job id to be sure it '
-                  'is correct')
+            raise SystemExit('No data found for that job id. Check the job '
+                             'id to be sure it is correct')
+        if e.status == 400:
+            raise SystemExit('Invalid job id specified. Check the job id to '
+                             'be sure it is correct')
         if e.status == 404:
-            print('Received 404 error from server. Are you sure this '
-                  'is a testflinger server?')
-        sys.exit(1)
+            raise SystemExit('Received 404 error from server. Are you sure '
+                             'this is a testflinger server?')
     except Exception:
-        print('Error communicating with server, check connection and retry')
-        sys.exit(1)
+        raise SystemExit(
+            'Error communicating with server, check connection and retry')
     print(job_state)
 
 
@@ -75,22 +74,20 @@ def cancel(ctx, job_id):
         job_state = conn.get_status(job_id)
     except client.HTTPError as e:
         if e.status == 204:
-            print('Job {} not found. Check the job id to be sure it is '
-                  'correct.'.format(job_id))
-        elif e.status == 400:
-            print('Invalid job id specified. Check the job id to be sure it '
-                  'is correct.')
+            raise SystemExit('Job {} not found. Check the job id to be sure '
+                             'it is correct.'.format(job_id))
+        if e.status == 400:
+            raise SystemExit('Invalid job id specified. Check the job id to '
+                             'be sure it is correct.')
         if e.status == 404:
-            print('Received 404 error from server. Are you sure this '
-                  'is a testflinger server?')
-        sys.exit(1)
+            raise SystemExit('Received 404 error from server. Are you sure '
+                             'this is a testflinger server?')
     except Exception:
-        print('Error communicating with server, check connection and retry')
-        sys.exit(1)
+        raise SystemExit(
+            'Error communicating with server, check connection and retry')
     if job_state in ('complete', 'cancelled'):
-        print('Job {} is already in {} state and cannot be cancelled.'.format(
-              job_id, job_state))
-        sys.exit(1)
+        raise SystemExit('Job {} is already in {} state and cannot be '
+                         'cancelled.'.format(job_id, job_state))
     conn.post_job_state(job_id, 'cancelled')
 
 
@@ -104,22 +101,26 @@ def submit(ctx, filename, quiet, poll_opt):
     if filename == '-':
         data = sys.stdin.read()
     else:
-        with open(filename) as f:
-            data = f.read()
+        try:
+            with open(filename) as f:
+                data = f.read()
+        except FileNotFoundError:
+            raise SystemExit('File not found: {}'.format(filename))
+        except Exception:
+            raise SystemExit('Unable to read file: {}'.format(filename))
     try:
         job_id = conn.submit_job(data)
     except client.HTTPError as e:
         if e.status == 400:
-            print('The job you submitted contained bad data or bad '
-                  'formatting, or did not specify a job_queue.')
+            raise SystemExit('The job you submitted contained bad data or '
+                             'bad formatting, or did not specify a '
+                             'job_queue.')
         if e.status == 404:
-            print('Received 404 error from server. Are you sure this '
-                  'is a testflinger server?')
-        else:
-            # This shouldn't happen, so let's get the full trace
-            print('Unexpected error status from testflinger '
-                  'server: {}'.format(e.status))
-        sys.exit(1)
+            raise SystemExit('Received 404 error from server. Are you sure '
+                             'this is a testflinger server?')
+        # This shouldn't happen, so let's get more information
+        raise SystemExit('Unexpected error status from testflinger '
+                         'server: {}'.format(e.status))
     if quiet:
         print(job_id)
     else:
@@ -138,14 +139,16 @@ def show(ctx, job_id):
         results = conn.show_job(job_id)
     except client.HTTPError as e:
         if e.status == 204:
-            print('No data found for that job id.')
-        elif e.status == 400:
-            print('Invalid job id specified. Check the job id to be sure it '
-                  'is correct')
+            raise SystemExit('No data found for that job id.')
+        if e.status == 400:
+            raise SystemExit('Invalid job id specified. Check the job id to '
+                             'be sure it is correct')
         if e.status == 404:
-            print('Received 404 error from server. Are you sure this '
-                  'is a testflinger server?')
-        sys.exit(1)
+            raise SystemExit('Received 404 error from server. Are you sure '
+                             'this is a testflinger server?')
+        # This shouldn't happen, so let's get more information
+        raise SystemExit('Unexpected error status from testflinger '
+                         'server: {}'.format(e.status))
     print(json.dumps(results, sort_keys=True, indent=4))
 
 
@@ -158,17 +161,19 @@ def results(ctx, job_id):
         results = conn.get_results(job_id)
     except client.HTTPError as e:
         if e.status == 204:
-            print('No results found for that job id.')
-        elif e.status == 400:
-            print('Invalid job id specified. Check the job id to be sure it '
-                  'is correct')
+            raise SystemExit('No results found for that job id.')
+        if e.status == 400:
+            raise SystemExit('Invalid job id specified. Check the job id to '
+                             'be sure it is correct')
         if e.status == 404:
-            print('Received 404 error from server. Are you sure this '
-                  'is a testflinger server?')
-        sys.exit(1)
+            raise SystemExit('Received 404 error from server. Are you sure '
+                             'this is a testflinger server?')
+        # This shouldn't happen, so let's get more information
+        raise SystemExit('Unexpected error status from testflinger '
+                         'server: {}'.format(e.status))
     except Exception:
-        print('Error communicating with server, check connection and retry')
-        sys.exit(1)
+        raise SystemExit(
+            'Error communicating with server, check connection and retry')
 
     print(json.dumps(results, sort_keys=True, indent=4))
 
@@ -184,17 +189,19 @@ def artifacts(ctx, job_id, filename):
         conn.get_artifact(job_id, filename)
     except client.HTTPError as e:
         if e.status == 204:
-            print('No artifacts tarball found for that job id.')
-        elif e.status == 400:
-            print('Invalid job id specified. Check the job id to be sure it '
-                  'is correct')
+            raise SystemExit('No artifacts tarball found for that job id.')
+        if e.status == 400:
+            raise SystemExit('Invalid job id specified. Check the job id to '
+                             'be sure it is correct')
         if e.status == 404:
-            print('Received 404 error from server. Are you sure this '
-                  'is a testflinger server?')
-        sys.exit(1)
+            raise SystemExit('Received 404 error from server. Are you sure '
+                             'this is a testflinger server?')
+        # This shouldn't happen, so let's get more information
+        raise SystemExit('Unexpected error status from testflinger '
+                         'server: {}'.format(e.status))
     except Exception:
-        print('Error communicating with server, check connection and retry')
-        sys.exit(1)
+        raise SystemExit(
+            'Error communicating with server, check connection and retry')
     print('Artifacts downloaded to {}'.format(filename))
 
 
@@ -255,15 +262,14 @@ def get_job_state(conn, job_id):
         return conn.get_status(job_id)
     except client.HTTPError as e:
         if e.status == 204:
-            print('No data found for that job id. Check the job id to be sure '
-                  'it is correct')
-        elif e.status == 400:
-            print('Invalid job id specified. Check the job id to be sure it '
-                  'is correct')
+            raise SystemExit('No data found for that job id. Check the job '
+                             'id to be sure it is correct')
+        if e.status == 400:
+            raise SystemExit('Invalid job id specified. Check the job id to '
+                             'be sure it is correct')
         if e.status == 404:
-            print('Received 404 error from server. Are you sure this '
-                  'is a testflinger server?')
-        sys.exit(1)
+            raise SystemExit('Received 404 error from server. Are you sure '
+                             'this is a testflinger server?')
     except Exception:
         # If we fail to get the job_state here, it could be because of timeout
         # but we can keep going and retrying
