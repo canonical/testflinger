@@ -30,8 +30,7 @@ class TestflingerAgent:
 
     def get_offline_file(self):
         return os.path.join(
-            '/tmp',
-            'TESTFLINGER-DEVICE-OFFLINE-{}'.format(
+            '/tmp', 'TESTFLINGER-DEVICE-OFFLINE-{}'.format(
                 self.client.config.get('agent_id')))
 
     def get_restart_files(self):
@@ -40,8 +39,10 @@ class TestflingerAgent:
         #     TESTFLINGER-DEVICE-RESTART-devname-001
         #     TESTFLINGER-DEVICE-RESTART-devname001
         agent = self.client.config.get('agent_id')
-        files = ['/tmp/TESTFLINGER-DEVICE-RESTART-{}'.format(agent),
-                 '/tmp/TESTFLINGER-DEVICE-RESTART-{}'.format(agent.replace('-', ''))]
+        files = [
+            '/tmp/TESTFLINGER-DEVICE-RESTART-{}'.format(agent),
+            '/tmp/TESTFLINGER-DEVICE-RESTART-{}'.format(agent.replace('-', ''))
+        ]
         return files
 
     def check_offline(self):
@@ -82,8 +83,8 @@ class TestflingerAgent:
         while job_data:
             job = TestflingerJob(job_data, self.client)
             logger.info("Starting job %s", job.job_id)
-            rundir = os.path.join(
-                self.client.config.get('execution_basedir'), job.job_id)
+            rundir = os.path.join(self.client.config.get('execution_basedir'),
+                                  job.job_id)
             os.makedirs(rundir)
             # Dump the job data to testflinger.json in our execution directory
             with open(os.path.join(rundir, 'testflinger.json'), 'w') as f:
@@ -104,12 +105,15 @@ class TestflingerAgent:
                 except TFServerError:
                     pass
                 proc = multiprocessing.Process(target=job.run_test_phase,
-                                               args=(phase, rundir,))
+                                               args=(
+                                                   phase,
+                                                   rundir,
+                                               ))
                 proc.start()
                 while proc.is_alive():
                     proc.join(10)
-                    if (self.check_job_state(job.job_id) == 'cancelled' and
-                            phase != 'provision'):
+                    if (self.check_job_state(job.job_id) == 'cancelled'
+                            and phase != 'provision'):
                         logger.info("Job cancellation was requested, exiting.")
                         proc.terminate()
                 exitcode = proc.exitcode
@@ -128,7 +132,10 @@ class TestflingerAgent:
 
             # Always run the cleanup, even if the job was cancelled
             proc = multiprocessing.Process(target=job.run_test_phase,
-                                           args=('cleanup', rundir,))
+                                           args=(
+                                               'cleanup',
+                                               rundir,
+                                           ))
             proc.start()
             proc.join()
 
@@ -154,9 +161,10 @@ class TestflingerAgent:
         results_dir = self.client.config.get('results_basedir')
         # List all the directories in 'results_basedir', where we store the
         # results that we couldn't transmit before
-        old_results = [os.path.join(results_dir, d)
-                       for d in os.listdir(results_dir)
-                       if os.path.isdir(os.path.join(results_dir, d))]
+        old_results = [
+            os.path.join(results_dir, d) for d in os.listdir(results_dir)
+            if os.path.isdir(os.path.join(results_dir, d))
+        ]
         for result in old_results:
             try:
                 logger.info('Attempting to send result: %s' % result)
