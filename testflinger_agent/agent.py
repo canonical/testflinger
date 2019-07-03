@@ -34,8 +34,31 @@ class TestflingerAgent:
             'TESTFLINGER-DEVICE-OFFLINE-{}'.format(
                 self.client.config.get('agent_id')))
 
+    def get_restart_files(self):
+        # Return possible restart filenames with and without dashes
+        # i.e. support both:
+        #     TESTFLINGER-DEVICE-RESTART-devname-001
+        #     TESTFLINGER-DEVICE-RESTART-devname001
+        agent = self.client.config.get('agent_id')
+        files = ['/tmp/TESTFLINGER-DEVICE-RESTART-{}'.format(agent),
+                 '/tmp/TESTFLINGER-DEVICE-RESTART-{}'.format(agent.replace('-', ''))]
+        return files
+
     def check_offline(self):
         return os.path.exists(self.get_offline_file())
+
+    def check_restart(self):
+        possible_files = self.get_restart_files()
+        for restart_file in possible_files:
+            if os.path.exists(restart_file):
+                try:
+                    os.unlink(restart_file)
+                    logger.info("Restarting agent")
+                    raise SystemExit("Restart Requested")
+                except Exception:
+                    logger.error(
+                        "Restart requested, but unable to remove marker file!")
+                    break
 
     def check_job_state(self, job_id):
         job_data = self.client.get_result(job_id)
@@ -52,6 +75,8 @@ class TestflingerAgent:
 
         # First, see if we have any old results that we couldn't send last time
         self.retry_old_results()
+
+        self.check_restart()
 
         job_data = self.client.check_jobs()
         while job_data:
@@ -117,6 +142,7 @@ class TestflingerAgent:
                 results_basedir = self.client.config.get('results_basedir')
                 shutil.move(rundir, results_basedir)
 
+            self.check_restart()
             if self.check_offline():
                 # Don't get a new job if we are now marked offline
                 break
