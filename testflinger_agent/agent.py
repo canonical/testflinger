@@ -56,7 +56,7 @@ class TestflingerAgent:
                     os.unlink(restart_file)
                     logger.info("Restarting agent")
                     raise SystemExit("Restart Requested")
-                except Exception:
+                except OSError:
                     logger.error(
                         "Restart requested, but unable to remove marker file!")
                     break
