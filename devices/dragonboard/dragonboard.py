@@ -286,31 +286,37 @@ class Dragonboard:
                        self.config['snappy_writable_partition']))
             raise ProvisioningError(err)
 
-    def create_extrausers(self):
-        """Create extrauser account for default ubuntu user"""
+    def create_user(self):
+        """Create user account for default ubuntu user"""
         self.mount_writable_partition()
+        metadata = 'instance_id: cloud-image'
+        userdata = ('#cloud-config\n'
+                    'password: ubuntu\n'
+                    'chpasswd:\n'
+                    '    list:\n'
+                    '        - ubuntu:ubuntu\n'
+                    '    expire: False\n'
+                    'ssh_pwauth: True')
+        with open('meta-data', 'w') as mdata:
+            mdata.write(metadata)
+        with open('user-data', 'w') as udata:
+            udata.write(userdata)
         try:
-            self._run_control('sudo mkdir -p /mnt/user-data/ubuntu')
-            self._run_control('sudo chown 1000.1000 /mnt/user-data/ubuntu')
-        except:
-            raise ProvisioningError("Error creating user home dir")
-        try:
-            self._run_control('sudo mkdir -p /mnt/system-data/var/lib/')
-        except:
-            raise ProvisioningError("Error creating dir for user files")
-        userdata_path = os.path.normpath(
-            os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                         '..', '..', 'data', 'extrausers'))
-        cmd = ['scp', '-r', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null', userdata_path,
-               'linaro@{}:/tmp/'.format(
-                   self.config['device_ip'])]
-        try:
-            subprocess.check_call(cmd, timeout=60)
+            output = self._run_control('ls /mnt')
+            if 'system-data' in str(output):
+                base = '/mnt/system-data'
+            else:
+                base = '/mnt'
+            cloud_path = os.path.join(
+                base, 'var/lib/cloud/seed/nocloud-net')
+            self._run_control('sudo mkdir -p {}'.format(cloud_path))
+            write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
             self._run_control(
-                'sudo cp -a /tmp/extrausers /mnt/system-data/var/lib/')
+                write_cmd.format(metadata, cloud_path, 'meta-data'))
+            self._run_control(
+                write_cmd.format(userdata, cloud_path, 'user-data'))
         except:
-            raise ProvisioningError("Error writing user files")
+            raise ProvisioningError("Error creating user files")
 
     def setup_sudo(self):
         sudo_data = 'ubuntu ALL=(ALL) NOPASSWD:ALL'
@@ -374,7 +380,7 @@ class Dragonboard:
             self.flash_test_image(server_ip, server_port)
             file_server.terminate()
             logger.info("Creating Test User")
-            self.create_extrausers()
+            self.create_user()
             self.setup_sudo()
             logger.info("Booting Test Image")
             self.ensure_test_image(test_username, test_password)
@@ -382,4 +388,6 @@ class Dragonboard:
             # wipe out whatever we installed if things go badly
             self.wipe_test_device()
             raise
+        # Brief delay to ensure first boot tasks are complete
+        time.sleep(60)
         logger.info("END provision")
