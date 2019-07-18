@@ -167,6 +167,8 @@ class DefaultReserve(guacamole.Command):
                     'Unable to import ssh key from: {}'.format(key))
                 continue
             cmd = ['ssh-copy-id', '-f', '-i', 'key.pub',
+                   '-o', 'StrictHostKeyChecking=no',
+                   '-o', 'UserKnownHostsFile=/dev/null',
                    '{}@{}'.format(test_username, device_ip)]
             for retry in range(10):
                 # Retry ssh key copy just in case it's rebooting
