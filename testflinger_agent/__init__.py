@@ -22,6 +22,7 @@ import yaml
 from testflinger_agent import schema
 from testflinger_agent.agent import TestflingerAgent
 from testflinger_agent.client import TestflingerClient
+from logging.handlers import TimedRotatingFileHandler
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +67,12 @@ def configure_logging(config):
     logfmt = logging.Formatter(
         fmt='[%(asctime)s] %(levelname)+7.7s: %(message)s',
         datefmt='%y-%m-%d %H:%M:%S')
-    file_log = logging.FileHandler(
-        filename=os.path.join(config.get('logging_basedir'),
-                              'testflinger-agent.log'))
+    log_path = os.path.join(
+        config.get('logging_basedir'), 'testflinger-agent.log')
+    file_log = TimedRotatingFileHandler(log_path,
+                                        when="midnight",
+                                        interval=1,
+                                        backupCount=6)
     file_log.setFormatter(logfmt)
     logger.addHandler(file_log)
     if not config.get('logging_quiet'):
