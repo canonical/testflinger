@@ -94,6 +94,7 @@ class Maas2:
         minutes_spent = 0
         if timeout_min is None:
             timeout_min = 60
+        self._logger_info("Timeout value: {} minutes.".format(timeout_min))
         while minutes_spent < timeout_min:
             time.sleep(60)
             minutes_spent += 1
