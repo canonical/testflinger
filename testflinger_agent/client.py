@@ -21,7 +21,8 @@ import tempfile
 import time
 
 from urllib.parse import urljoin
-
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 from testflinger_agent.errors import TFServerError
 
@@ -35,6 +36,20 @@ class TestflingerClient:
             'server_address', 'https://testflinger.canonical.com')
         if not self.server.lower().startswith('http'):
             self.server = 'http://' + self.server
+
+    def _requests_retry(self, retries=3):
+        session = requests.Session()
+        retry = Retry(
+            total=retries,
+            read=retries,
+            connect=retries,
+            backoff_factor=.3,
+            status_forcelist=(500, 502, 503, 504)
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        return session
 
     def check_jobs(self):
         """Check for new jobs for on the Testflinger server
@@ -67,10 +82,15 @@ class TestflingerClient:
         logger.info('Resubmitting job: %s', job_id)
         job_output = """
             There was an unrecoverable error while running this stage. Your job
-            has been automatically resubmitted back to the queue.
+            will attempt to be automatically resubmitted back to the queue.
             Resubmitting job: {}\n""".format(job_id)
         self.post_live_output(job_id, job_output)
-        job_request = requests.post(job_uri, json=job_data)
+        try:
+            session = self._requests_retry(retries=5)
+            job_request = session.post(job_uri, json=job_data)
+        except Exception as e:
+            logger.exception(e)
+            raise TFServerError('other exception')
         if not job_request:
             logger.error('Unable to re-post job to: %s (error: %s)' %
                          (job_uri, job_request.status_code))
@@ -86,7 +106,11 @@ class TestflingerClient:
         """
         result_uri = urljoin(self.server, '/v1/result/')
         result_uri = urljoin(result_uri, job_id)
-        job_request = requests.post(result_uri, json=data)
+        try:
+            job_request = requests.post(result_uri, json=data)
+        except Exception as e:
+            logger.exception(e)
+            raise TFServerError('other exception')
         if not job_request:
             logger.error('Unable to post results to: %s (error: %s)' %
                          (result_uri, job_request.status_code))
@@ -103,7 +127,11 @@ class TestflingerClient:
         """
         result_uri = urljoin(self.server, '/v1/result/')
         result_uri = urljoin(result_uri, job_id)
-        job_request = requests.get(result_uri)
+        try:
+            job_request = requests.get(result_uri)
+        except Exception as e:
+            logger.exception(e)
+            return {}
         if not job_request:
             logger.error('Unable to get results from: %s (error: %s)' %
                          (result_uri, job_request.status_code))
@@ -122,19 +150,9 @@ class TestflingerClient:
         with open(os.path.join(rundir, 'testflinger.json')) as f:
             job_data = json.load(f)
         job_id = job_data.get('job_id')
-        # Do not retransmit outcome if it's already been done and removed
-        outcome_file = os.path.join(rundir, 'testflinger-outcome.json')
-        if os.path.exists(outcome_file):
-            logger.info('Submitting job outcome for job: %s' % job_id)
-            with open(outcome_file) as f:
-                data = json.load(f)
-                data['job_state'] = 'complete'
-                self.post_result(job_id, data)
-            # Remove the outcome file so we don't retransmit
-            os.unlink(outcome_file)
-        artifacts_dir = os.path.join(rundir, 'artifacts')
         # If we find an 'artifacts' dir under rundir, archive it, and transmit
         # it to the Testflinger server
+        artifacts_dir = os.path.join(rundir, 'artifacts')
         if os.path.exists(artifacts_dir):
             with tempfile.TemporaryDirectory() as tmpdir:
                 artifact_file = os.path.join(tmpdir, 'artifacts')
@@ -155,6 +173,16 @@ class TestflingerClient:
                     raise TFServerError(artifact_request.status_code)
                 else:
                     shutil.rmtree(artifacts_dir)
+        # Do not retransmit outcome if it's already been done and removed
+        outcome_file = os.path.join(rundir, 'testflinger-outcome.json')
+        if os.path.exists(outcome_file):
+            logger.info('Submitting job outcome for job: %s' % job_id)
+            with open(outcome_file) as f:
+                data = json.load(f)
+                data['job_state'] = 'complete'
+                self.post_result(job_id, data)
+            # Remove the outcome file so we don't retransmit
+            os.unlink(outcome_file)
         shutil.rmtree(rundir)
 
     def post_live_output(self, job_id, data):
