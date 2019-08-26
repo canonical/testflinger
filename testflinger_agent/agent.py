@@ -81,63 +81,70 @@ class TestflingerAgent:
 
         job_data = self.client.check_jobs()
         while job_data:
-            job = TestflingerJob(job_data, self.client)
-            logger.info("Starting job %s", job.job_id)
-            rundir = os.path.join(self.client.config.get('execution_basedir'),
-                                  job.job_id)
-            os.makedirs(rundir)
-            # Dump the job data to testflinger.json in our execution directory
-            with open(os.path.join(rundir, 'testflinger.json'), 'w') as f:
-                json.dump(job_data, f)
-            # Create json outcome file where phases will store their output
-            with open(os.path.join(rundir, 'testflinger-outcome.json'),
-                      'w') as f:
-                json.dump({}, f)
+            try:
+                job = TestflingerJob(job_data, self.client)
+                logger.info("Starting job %s", job.job_id)
+                rundir = os.path.join(
+                    self.client.config.get('execution_basedir'),
+                    job.job_id)
+                os.makedirs(rundir)
+                # Dump the job data to testflinger.json in our execution dir
+                with open(os.path.join(rundir, 'testflinger.json'), 'w') as f:
+                    json.dump(job_data, f)
+                # Create json outcome file where phases will store their output
+                with open(
+                        os.path.join(rundir, 'testflinger-outcome.json'),
+                        'w') as f:
+                    json.dump({}, f)
 
-            for phase in TEST_PHASES:
-                # First make sure the job hasn't been cancelled
-                if self.check_job_state(job.job_id) == 'cancelled':
-                    logger.info("Job cancellation was requested, exiting.")
-                    break
-                # Try to update the job_state on the testflinger server
-                try:
-                    self.client.post_result(job.job_id, {'job_state': phase})
-                except TFServerError:
-                    pass
+                for phase in TEST_PHASES:
+                    # First make sure the job hasn't been cancelled
+                    if self.check_job_state(job.job_id) == 'cancelled':
+                        logger.info("Job cancellation was requested, exiting.")
+                        break
+                    # Try to update the job_state on the testflinger server
+                    try:
+                        self.client.post_result(
+                            job.job_id, {'job_state': phase})
+                    except TFServerError:
+                        pass
+                    proc = multiprocessing.Process(target=job.run_test_phase,
+                                                   args=(
+                                                       phase,
+                                                       rundir,
+                                                   ))
+                    proc.start()
+                    while proc.is_alive():
+                        proc.join(10)
+                        if (self.check_job_state(job.job_id) == 'cancelled'
+                                and phase != 'provision'):
+                            logger.info(
+                                "Job cancellation was requested, exiting.")
+                            proc.terminate()
+                    exitcode = proc.exitcode
+
+                    # exit code 46 is our indication that recovery failed!
+                    # In this case, we need to mark the device offline
+                    if exitcode == 46:
+                        self.mark_device_offline()
+                        self.client.repost_job(job_data)
+                        shutil.rmtree(rundir)
+                        # Return NOW so we don't keep trying to process jobs
+                        return
+                    if phase != 'test' and exitcode:
+                        logger.debug('Phase %s failed, aborting job' % phase)
+                        break
+            except Exception as e:
+                logger.exception(e)
+            finally:
+                # Always run the cleanup, even if the job was cancelled
                 proc = multiprocessing.Process(target=job.run_test_phase,
                                                args=(
-                                                   phase,
+                                                   'cleanup',
                                                    rundir,
                                                ))
                 proc.start()
-                while proc.is_alive():
-                    proc.join(10)
-                    if (self.check_job_state(job.job_id) == 'cancelled'
-                            and phase != 'provision'):
-                        logger.info("Job cancellation was requested, exiting.")
-                        proc.terminate()
-                exitcode = proc.exitcode
-
-                # exit code 46 is our indication that recovery failed!
-                # In this case, we need to mark the device offline
-                if exitcode == 46:
-                    self.mark_device_offline()
-                    self.client.repost_job(job_data)
-                    shutil.rmtree(rundir)
-                    # Return NOW so we don't keep trying to process jobs
-                    return
-                if phase != 'test' and exitcode:
-                    logger.debug('Phase %s failed, aborting job' % phase)
-                    break
-
-            # Always run the cleanup, even if the job was cancelled
-            proc = multiprocessing.Process(target=job.run_test_phase,
-                                           args=(
-                                               'cleanup',
-                                               rundir,
-                                           ))
-            proc.start()
-            proc.join()
+                proc.join()
 
             try:
                 self.client.transmit_job_outcome(rundir)
