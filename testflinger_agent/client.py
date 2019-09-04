@@ -107,7 +107,7 @@ class TestflingerClient:
         result_uri = urljoin(self.server, '/v1/result/')
         result_uri = urljoin(result_uri, job_id)
         try:
-            job_request = requests.post(result_uri, json=data)
+            job_request = requests.post(result_uri, json=data, timeout=30)
         except Exception as e:
             logger.exception(e)
             raise TFServerError('other exception')
@@ -128,7 +128,7 @@ class TestflingerClient:
         result_uri = urljoin(self.server, '/v1/result/')
         result_uri = urljoin(result_uri, job_id)
         try:
-            job_request = requests.get(result_uri)
+            job_request = requests.get(result_uri, timeout=30)
         except Exception as e:
             logger.exception(e)
             return {}
@@ -166,7 +166,7 @@ class TestflingerClient:
                     file_upload = {
                         'file': ('file', tarball, 'application/x-gzip')}
                     artifact_request = requests.post(
-                        artifact_uri, files=file_upload)
+                        artifact_uri, files=file_upload, timeout=600)
                 if not artifact_request:
                     logger.error('Unable to post results to: %s (error: %s)' %
                                  (artifact_uri, artifact_request.status_code))
@@ -197,7 +197,7 @@ class TestflingerClient:
                              '/v1/result/{}/output'.format(job_id))
         try:
             job_request = requests.post(
-                output_uri, data=data.encode('utf-8'))
+                output_uri, data=data.encode('utf-8'), timeout=60)
         except Exception as e:
             logger.exception(e)
             return False
