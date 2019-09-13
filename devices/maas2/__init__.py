@@ -24,6 +24,7 @@ from devices.maas2.maas2 import Maas2
 from snappy_device_agents import logmsg
 from devices import (Catch,
                      RecoveryError,
+                     ProvisioningError,
                      DefaultReserve,
                      DefaultRuntest,
                      SerialLogger)
@@ -53,6 +54,9 @@ class provision(guacamole.Command):
         serial_proc.start()
         try:
             device.provision()
+        except ProvisioningError as e:
+            logmsg(logging.ERROR, "Provisioning failed: {}".format(str(e)))
+            return 1
         except Exception as e:
             raise e
         finally:
