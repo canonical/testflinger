@@ -393,6 +393,24 @@ def run_test_cmds(cmds, config=None, env={}):
         return 1
 
 
+def _process_cmds_template_vars(cmds, config=None):
+    """
+    Fill in templated values for test command string. Ignore any values
+    in braces for which we don't have a config item.
+
+    :param cmds:
+        Commands to run as a list of strings
+    :param config:
+        Config data for the device which can be used for filling templates
+    """
+    class IgnoreUnknownDict(dict):
+        def __missing__(self, key):
+            return "{" + key + "}"
+    # Ensure config isn't None before we convert to IgnoreUnknownDict
+    config = IgnoreUnknownDict(config or {})
+    return cmds.format_map(config)
+
+
 def _run_test_cmds_list(cmds, config=None, env={}):
     """
     Run the test commands provided
@@ -412,11 +430,7 @@ def _run_test_cmds_list(cmds, config=None, env={}):
     for cmd in cmds:
         # Settings from the device yaml configfile like device_ip can be
         # formatted in test commands like "foo {device_ip}"
-        try:
-            cmd = cmd.format(**config)
-        except:
-            exitcode = 20
-            logmsg(logging.ERROR, "Unable to format command: %s", cmd)
+        cmd = _process_cmds_template_vars(cmd, config)
 
         logmsg(logging.INFO, "Running: %s", cmd)
         rc = runcmd(cmd, env)
@@ -445,11 +459,7 @@ def _run_test_cmds_str(cmds, config=None, env={}):
     if not cmds.startswith('#!'):
         cmds = "#!/bin/bash\n" + cmds
 
-    try:
-        cmds = cmds.format(**config)
-    except KeyError as e:
-        logmsg(logging.ERROR, "Unable to format key: %s", e.args[0])
-        return 20
+    cmds = _process_cmds_template_vars(cmds, config)
     with open('tf_cmd_script', mode='w', encoding='utf-8') as tf_cmd_script:
         tf_cmd_script.write(cmds)
     os.chmod('tf_cmd_script', 0o775)
