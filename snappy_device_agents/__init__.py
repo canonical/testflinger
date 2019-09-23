@@ -403,12 +403,34 @@ def _process_cmds_template_vars(cmds, config=None):
     :param config:
         Config data for the device which can be used for filling templates
     """
-    class IgnoreUnknownDict(dict):
-        def __missing__(self, key):
-            return "{" + key + "}"
-    # Ensure config isn't None before we convert to IgnoreUnknownDict
-    config = IgnoreUnknownDict(config or {})
-    return cmds.format_map(config)
+    class IgnoreUnknownFormatter(string.Formatter):
+        def vformat(self, format_string, args, kwargs):
+            tokens = []
+            for (literal, field_name, spec, conv) in self.parse(format_string):
+                # replace double braces if parse removed them
+                literal = literal.replace('{', '{{').replace('}', '}}')
+                # if parse didn't find field name in braces, just add the string
+                if not field_name:
+                    tokens.append(literal)
+                else:
+                    #if conf and spec are not defined, set to ''
+                    conv = '!' + conv if conv else ''
+                    spec = ':' + spec if spec else ''
+                    # only consider field before index
+                    field = field_name.split('[')[0].split('.')[0]
+                    # If this field is one we've defined, fill template value
+                    if field in kwargs:
+                        tokens.extend([literal, '{', field_name, conv, spec, '}'])
+                    else:
+                        # If not, the use escaped braces to pass it through
+                        tokens.extend([literal, '{{', field_name, conv, spec, '}}'])
+            format_string = ''.join(tokens)
+            return string.Formatter.vformat(self, format_string, args, kwargs)
+    # Ensure config is a dict
+    if not isinstance(config, dict):
+        config = {}
+    formatter = IgnoreUnknownFormatter()
+    return formatter.format(cmds, **config)
 
 
 def _run_test_cmds_list(cmds, config=None, env={}):
