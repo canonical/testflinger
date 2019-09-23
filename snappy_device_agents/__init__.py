@@ -410,21 +410,17 @@ def _process_cmds_template_vars(cmds, config=None):
             for (literal, field_name, spec, conv) in self.parse(format_string):
                 # replace double braces if parse removed them
                 literal = literal.replace('{', '{{').replace('}', '}}')
-                # if parse didn't find field name in braces, just add the string
-                if not field_name:
-                    tokens.append(literal)
+                # if conf and spec are not defined, set to ''
+                conv = '!' + conv if conv else ''
+                spec = ':' + spec if spec else ''
+                # only consider field before index
+                field = field_name.split('[')[0].split('.')[0]
+                # If this field is one we've defined, fill template value
+                if field in kwargs:
+                    tokens.extend([literal, '{', field_name, conv, spec, '}'])
                 else:
-                    #if conf and spec are not defined, set to ''
-                    conv = '!' + conv if conv else ''
-                    spec = ':' + spec if spec else ''
-                    # only consider field before index
-                    field = field_name.split('[')[0].split('.')[0]
-                    # If this field is one we've defined, fill template value
-                    if field in kwargs:
-                        tokens.extend([literal, '{', field_name, conv, spec, '}'])
-                    else:
-                        # If not, the use escaped braces to pass it through
-                        tokens.extend([literal, '{{', field_name, conv, spec, '}}'])
+                    # If not, the use escaped braces to pass it through
+                    tokens.extend([literal, '{{', field_name, conv, spec, '}}'])
             format_string = ''.join(tokens)
             return string.Formatter.vformat(self, format_string, args, kwargs)
     # Ensure config is a dict
