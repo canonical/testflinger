@@ -410,9 +410,13 @@ def _process_cmds_template_vars(cmds, config=None):
             for (literal, field_name, spec, conv) in self.parse(format_string):
                 # replace double braces if parse removed them
                 literal = literal.replace('{', '{{').replace('}', '}}')
-                # if parse didn't find field name in braces, just add empty braces
-                if not field_name:
+                # if the field is {}, just add escaped empty braces
+                if field_name == '':
                     tokens.extend([literal, '{{}}'])
+                    continue
+                # if field name was None, we just add the literal token
+                if field_name == None:
+                    tokens.extend([literal])
                     continue
                 # if conf and spec are not defined, set to ''
                 conv = '!' + conv if conv else ''
