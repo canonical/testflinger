@@ -21,6 +21,7 @@ import netifaces
 import os
 import shutil
 import socket
+import string
 import subprocess
 import sys
 import tempfile
