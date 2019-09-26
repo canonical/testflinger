@@ -415,7 +415,7 @@ def _process_cmds_template_vars(cmds, config=None):
                     tokens.extend([literal, '{{}}'])
                     continue
                 # if field name was None, we just add the literal token
-                if field_name == None:
+                if field_name is None:
                     tokens.extend([literal])
                     continue
                 # if conf and spec are not defined, set to ''
@@ -425,10 +425,12 @@ def _process_cmds_template_vars(cmds, config=None):
                 field = field_name.split('[')[0].split('.')[0]
                 # If this field is one we've defined, fill template value
                 if field in kwargs:
-                    tokens.extend([literal, '{', field_name, conv, spec, '}'])
+                    tokens.extend(
+                        [literal, '{', field_name, conv, spec, '}'])
                 else:
                     # If not, the use escaped braces to pass it through
-                    tokens.extend([literal, '{{', field_name, conv, spec, '}}'])
+                    tokens.extend(
+                        [literal, '{{', field_name, conv, spec, '}}'])
             format_string = ''.join(tokens)
             return string.Formatter.vformat(self, format_string, args, kwargs)
     # Ensure config is a dict
