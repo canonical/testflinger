@@ -100,7 +100,7 @@ def delayretry(func, args, max_retries=3, delay=0):
     for retry_count in range(max_retries):
         try:
             ret = func(*args)
-        except:
+        except Exception:
             time.sleep(delay)
             if retry_count == max_retries-1:
                 raise
@@ -130,7 +130,7 @@ def udf_create_image(params):
         try:
             output_opt = cmd.index('-o')
             cmd[output_opt + 1] = imagepath
-        except:
+        except Exception:
             # if we get here, -o was already not in the image
             cmd.append('-o')
             cmd.append(tmp_imagepath)
@@ -185,7 +185,7 @@ def get_image(job_data='testflinger.json'):
     if 'download_files' in image_keys:
         for url in testflinger_data.get(
                 'provision_data').get('download_files'):
-                    download(url)
+            download(url)
     if 'url' in image_keys:
         try:
             url = testflinger_data.get('provision_data').get('url')
@@ -231,7 +231,7 @@ def serve_file(q, filename):
     port = server.getsockname()[1]
     q.put(port)
     server.listen(1)
-    (client, addr) = server.accept()
+    (client, _) = server.accept()
     with open(filename, mode='rb') as f:
         while True:
             data = f.read(16 * 1024 * 1024)
@@ -257,14 +257,14 @@ def compress_file(filename):
         os.unlink(compressed_filename)
     except FileNotFoundError:
         pass
-    if filetype(filename) is 'xz':
+    if filetype(filename) == 'xz':
         # just hard link it so we can unlink later without special handling
         os.rename(filename, compressed_filename)
-    elif filetype(filename) is 'gz':
+    elif filetype(filename) == 'gz':
         with lzma.open(compressed_filename, 'wb') as compressed_image:
             with gzip.GzipFile(filename, 'rb') as old_compressed:
                 shutil.copyfileobj(old_compressed, compressed_image)
-    elif filetype(filename) is 'bz2':
+    elif filetype(filename) == 'bz2':
         with lzma.open(compressed_filename, 'wb') as compressed_image:
             with bz2.BZ2File(filename, 'rb') as old_compressed:
                 shutil.copyfileobj(old_compressed, compressed_image)
@@ -385,13 +385,12 @@ def run_test_cmds(cmds, config=None, env={}):
         env = os.environ.copy()
     config_env = config.get('env', {})
     env.update(config_env)
-    if type(cmds) is list:
+    if isinstance(cmds, list):
         return _run_test_cmds_list(cmds, config, env)
-    elif type(cmds) is str:
+    if isinstance(cmds, str):
         return _run_test_cmds_str(cmds, config, env)
-    else:
-        logmsg(logging.ERROR, "test_cmds field must be a list or string")
-        return 1
+    logmsg(logging.ERROR, "test_cmds field must be a list or string")
+    return 1
 
 
 def _process_cmds_template_vars(cmds, config=None):
