@@ -21,6 +21,7 @@ import netifaces
 import os
 import shutil
 import socket
+import string
 import subprocess
 import sys
 import tempfile
@@ -393,6 +394,52 @@ def run_test_cmds(cmds, config=None, env={}):
         return 1
 
 
+def _process_cmds_template_vars(cmds, config=None):
+    """
+    Fill in templated values for test command string. Ignore any values
+    in braces for which we don't have a config item.
+
+    :param cmds:
+        Commands to run as a list of strings
+    :param config:
+        Config data for the device which can be used for filling templates
+    """
+    class IgnoreUnknownFormatter(string.Formatter):
+        def vformat(self, format_string, args, kwargs):
+            tokens = []
+            for (literal, field_name, spec, conv) in self.parse(format_string):
+                # replace double braces if parse removed them
+                literal = literal.replace('{', '{{').replace('}', '}}')
+                # if the field is {}, just add escaped empty braces
+                if field_name == '':
+                    tokens.extend([literal, '{{}}'])
+                    continue
+                # if field name was None, we just add the literal token
+                if field_name is None:
+                    tokens.extend([literal])
+                    continue
+                # if conf and spec are not defined, set to ''
+                conv = '!' + conv if conv else ''
+                spec = ':' + spec if spec else ''
+                # only consider field before index
+                field = field_name.split('[')[0].split('.')[0]
+                # If this field is one we've defined, fill template value
+                if field in kwargs:
+                    tokens.extend(
+                        [literal, '{', field_name, conv, spec, '}'])
+                else:
+                    # If not, the use escaped braces to pass it through
+                    tokens.extend(
+                        [literal, '{{', field_name, conv, spec, '}}'])
+            format_string = ''.join(tokens)
+            return string.Formatter.vformat(self, format_string, args, kwargs)
+    # Ensure config is a dict
+    if not isinstance(config, dict):
+        config = {}
+    formatter = IgnoreUnknownFormatter()
+    return formatter.format(cmds, **config)
+
+
 def _run_test_cmds_list(cmds, config=None, env={}):
     """
     Run the test commands provided
@@ -412,11 +459,7 @@ def _run_test_cmds_list(cmds, config=None, env={}):
     for cmd in cmds:
         # Settings from the device yaml configfile like device_ip can be
         # formatted in test commands like "foo {device_ip}"
-        try:
-            cmd = cmd.format(**config)
-        except:
-            exitcode = 20
-            logmsg(logging.ERROR, "Unable to format command: %s", cmd)
+        cmd = _process_cmds_template_vars(cmd, config)
 
         logmsg(logging.INFO, "Running: %s", cmd)
         rc = runcmd(cmd, env)
@@ -445,11 +488,7 @@ def _run_test_cmds_str(cmds, config=None, env={}):
     if not cmds.startswith('#!'):
         cmds = "#!/bin/bash\n" + cmds
 
-    try:
-        cmds = cmds.format(**config)
-    except KeyError as e:
-        logmsg(logging.ERROR, "Unable to format key: %s", e.args[0])
-        return 20
+    cmds = _process_cmds_template_vars(cmds, config)
     with open('tf_cmd_script', mode='w', encoding='utf-8') as tf_cmd_script:
         tf_cmd_script.write(cmds)
     os.chmod('tf_cmd_script', 0o775)
