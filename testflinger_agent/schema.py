@@ -34,6 +34,7 @@ SCHEMA_V1 = {
     voluptuous.Required('cleanup_command', default=''): str,
     voluptuous.Optional('global_timeout'): int,
     voluptuous.Optional('output_timeout'): int,
+    voluptuous.Optional('advertised_queues'): dict,
 }
 
 

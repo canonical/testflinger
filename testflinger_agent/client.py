@@ -202,3 +202,15 @@ class TestflingerClient:
             logger.exception(e)
             return False
         return bool(job_request)
+
+    def post_queues(self, data):
+        """Post the list of advertised queues to testflinger server
+
+        :param data:
+            dict of queue name and descriptions to send to the server
+        """
+        queues_uri = urljoin(self.server, '/v1/agents/queues')
+        try:
+            requests.post(queues_uri, json=data, timeout=30)
+        except Exception as e:
+            logger.exception(e)

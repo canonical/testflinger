@@ -73,6 +73,10 @@ The following configuration options are supported:
 
   - List of queues that can be serviced by this device
 
+- **advertised_queues**:
+
+  - List of public queue names that should be reported to the server to report to users
+
 - **setup_command**:
 
   - Command to run for the setup phase
