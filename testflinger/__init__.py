@@ -87,6 +87,10 @@ def create_flask_app():
                      v1.output_post, methods=['POST'])
     app.add_url_rule('/v1/result/<job_id>/output', 'output_get',
                      v1.output_get, methods=['GET'])
+    app.add_url_rule('/v1/agents/queues', 'queues_get',
+                     v1.queues_get, methods=['GET'])
+    app.add_url_rule('/v1/agents/queues', 'queues_post',
+                     v1.queues_post, methods=['POST'])
 
     @app.errorhandler(Exception)
     def unhandled_exception(e):
