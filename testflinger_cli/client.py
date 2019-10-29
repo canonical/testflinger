@@ -171,3 +171,12 @@ class Client():
         """
         endpoint = '/v1/job/{}/position'.format(job_id)
         return self.get(endpoint)
+
+    def get_queues(self):
+        """Get the advertised queues from the testflinger server"""
+        endpoint = '/v1/agents/queues'
+        data = self.get(endpoint)
+        try:
+            return json.loads(data)
+        except ValueError:
+            return {}
