@@ -215,3 +215,10 @@ class TestAPI():
             output = app.get('/v1/job/{}/position'.format(job_id))
             print(output.data.decode())
             assert output.data.decode() == str(pos)
+
+    def test_queues_post(self, app):
+        queue_data = {"qfoo": "this is a test queue"}
+        app.post('/v1/agents/queues', data=json.dumps(queue_data),
+                 content_type='application/json')
+        output = app.get('/v1/agents/queues')
+        assert json.loads(output.data.decode()) == queue_data

@@ -222,6 +222,35 @@ def output_post(job_id):
     return "OK"
 
 
+def queues_get():
+    """Get a current list of all advertised queues from this server
+    """
+    redis_list = testflinger.app.redis.keys('tf:qlist:*')
+    queue_dict = {}
+    # Create a dict of queues and descriptions
+    for queue_name in redis_list:
+        # strip tf:qlist: from the key to get the queue name
+        queue_dict[queue_name[9:].decode()] = testflinger.app.redis.get(
+            queue_name).decode()
+    return jsonify(queue_dict)
+
+
+def queues_post():
+    """Tell testflinger the queue names that are being serviced
+
+    Some agents may want to advertise some of the queues they listen on so that
+    the user can check which queues are valid to use.
+    """
+    queue_dict = request.get_json()
+    pipe = testflinger.app.redis.pipeline()
+    for queue in queue_dict:
+        queue_name = f'tf:qlist:{queue}'
+        queue_description = queue_dict[queue]
+        pipe.set(queue_name, queue_description, ex=300)
+    pipe.execute()
+    return "OK"
+
+
 def check_valid_uuid(job_id):
     """Check that the specified job_id is a valid UUID only
 

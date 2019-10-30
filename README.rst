@@ -208,3 +208,34 @@ server will only return one job.
 
     $ curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/artifact \
          -X GET -O artifact.tar.gz
+
+**[POST] /v1/agents/queues** - post names/descriptions of queues serviced by this agent
+
+- Status Codes:
+
+  - HTTP 200 (OK)
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl http://localhost:8000/v1/agents/queues \
+         -X POST --header "Content-Type: application/json" \
+         --data '{ "myqueue": "queue 1", "myqueue2": "queue 2" }'
+
+**[GET] /v1/agents/queues** - retrieve the list of well-known queues
+
+- Status Codes:
+
+  - HTTP 200 (OK)
+
+- Returns:
+
+  JSON data previously submitted by all agents via the POST API
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl http://localhost:8000/v1/agents/queues \
+         -X GET
