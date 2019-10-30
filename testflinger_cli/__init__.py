@@ -292,4 +292,4 @@ def queues(ctx):
             'Error communicating with server, check connection and retry')
     print('Advertised queues on this server:')
     for name, description in queues.items():
-        print(f' {name} - {description}')
+        print(' {} - {}'.format(name, description))
