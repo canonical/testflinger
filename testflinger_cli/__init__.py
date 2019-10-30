@@ -275,3 +275,21 @@ def get_job_state(conn, job_id):
         # but we can keep going and retrying
         pass
     return 'unknown'
+
+
+@cli.command()
+@click.pass_context
+def queues(ctx):
+    conn = ctx.obj['conn']
+    try:
+        queues = conn.get_queues()
+    except client.HTTPError as e:
+        if e.status == 404:
+            raise SystemExit('Received 404 error from server. Are you sure '
+                             'this is a testflinger server?')
+    except Exception:
+        raise SystemExit(
+            'Error communicating with server, check connection and retry')
+    print('Advertised queues on this server:')
+    for name, description in queues.items():
+        print(f' {name} - {description}')
