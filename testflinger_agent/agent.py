@@ -17,6 +17,7 @@ import logging
 import multiprocessing
 import os
 import shutil
+import time
 
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
@@ -27,6 +28,27 @@ logger = logging.getLogger(__name__)
 class TestflingerAgent:
     def __init__(self, client):
         self.client = client
+        self._state = multiprocessing.Array('c', 16)
+        self.set_state('waiting')
+        self.status_proc = multiprocessing.Process(target=self._status_worker)
+        self.status_proc.daemon = True
+        self.status_proc.start()
+
+    def _status_worker(self):
+        # Report advertised queues to testflinger server when we are listening
+        advertised_queues = self.client.config.get('advertised_queues')
+        if not advertised_queues:
+            # Nothing to do unless there are advertised_queues configured
+            raise SystemExit
+
+        while True:
+            # Post every 2min unless the agent is offline
+            if self._state.value.decode('utf-8') != 'offline':
+                self.client.post_queues(advertised_queues)
+            time.sleep(120)
+
+    def set_state(self, state):
+        self._state.value = state.encode('utf-8')
 
     def get_offline_file(self):
         return os.path.join(
@@ -46,7 +68,12 @@ class TestflingerAgent:
         return files
 
     def check_offline(self):
-        return os.path.exists(self.get_offline_file())
+        if os.path.exists(self.get_offline_file()):
+            self.set_state('offline')
+            return True
+        else:
+            self.set_state('waiting')
+            return False
 
     def check_restart(self):
         possible_files = self.get_restart_files()
@@ -55,6 +82,7 @@ class TestflingerAgent:
                 try:
                     os.unlink(restart_file)
                     logger.info("Restarting agent")
+                    self.set_state('offline')
                     raise SystemExit("Restart Requested")
                 except OSError:
                     logger.error(
@@ -108,6 +136,7 @@ class TestflingerAgent:
                             job.job_id, {'job_state': phase})
                     except TFServerError:
                         pass
+                    self.set_state(phase)
                     proc = multiprocessing.Process(target=job.run_test_phase,
                                                    args=(
                                                        phase,
@@ -155,6 +184,7 @@ class TestflingerAgent:
                 logger.exception(e)
                 results_basedir = self.client.config.get('results_basedir')
                 shutil.move(rundir, results_basedir)
+            self.set_state('waiting')
 
             self.check_restart()
             if self.check_offline():

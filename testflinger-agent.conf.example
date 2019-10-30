@@ -30,6 +30,10 @@
 #   - myqueue
 #   - anotherqueue
 
+# List of advertised queues to show users when they ask
+# advertised_queues:
+#   myqueue: A brief description of myqueue
+
 # Command to run for the setup phase
 # setup_command: echo setup phase && run-setup-tasks.sh
 
