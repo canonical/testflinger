@@ -244,7 +244,7 @@ def queues_post():
     queue_dict = request.get_json()
     pipe = testflinger.app.redis.pipeline()
     for queue in queue_dict:
-        queue_name = f'tf:qlist:{queue}'
+        queue_name = 'tf:qlist:' + queue
         queue_description = queue_dict[queue]
         pipe.set(queue_name, queue_description, ex=300)
     pipe.execute()
