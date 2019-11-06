@@ -61,12 +61,46 @@ class Maas2:
         self.node_release()
 
     def provision(self):
+        # Check if this is a device where we need to clear the tpm (dawson)
+        if self.config.get('clear_tpm'):
+            self.clear_tpm()
         provision_data = self.job_data.get('provision_data')
         # Default to a safe LTS if no distro is specified
         distro = provision_data.get('distro', 'xenial')
         kernel = provision_data.get('kernel')
         user_data = provision_data.get('user_data')
         self.deploy_node(distro, kernel, user_data)
+
+    def clear_tpm(self):
+        self._logger_info("Clearing the TPM before provisioning")
+        # First see if we can run the command on the current install
+        if self._run_tpm_clear_cmd():
+            return
+        # If not, then deploy bionic and try again
+        self.deploy_node()
+        if not self._run_tpm_clear_cmd():
+            raise ProvisioningError("Failed to clear TPM")
+
+    def _run_tpm_clear_cmd(self):
+        # Run the command to clear the tpm over ssh
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'ubuntu@{}'.format(self.config['device_ip']),
+               'echo 5 | sudo tee /sys/class/tpm/tpm0/ppi/request']
+        try:
+            subprocess.check_call(cmd, timeout=30)
+            cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+                   '-o', 'UserKnownHostsFile=/dev/null',
+                   'ubuntu@{}'.format(self.config['device_ip']),
+                   'cat /sys/class/tpm/tpm0/ppi/request']
+            output = subprocess.check_output(cmd, timeout=30)
+            # If we now see "5" in that file, then clearing tpm succeeded
+            if output.decode('utf-8').strip() == "5":
+                return True
+        except Exception:
+            # Fall through if we fail for any reason
+            pass
+        return False
 
     def deploy_node(self, distro='bionic', kernel=None, user_data=None):
         # Deploy the node in maas, default to bionic if nothing is specified
