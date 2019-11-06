@@ -64,6 +64,12 @@ class Maas2:
         provision_data = self.job_data.get('provision_data')
         # Default to a safe LTS if no distro is specified
         distro = provision_data.get('distro', 'xenial')
+        kernel = provision_data.get('kernel')
+        user_data = provision_data.get('user_data')
+        self.deploy_node(distro, kernel, user_data)
+
+    def deploy_node(self, distro='bionic', kernel=None, user_data=None):
+        # Deploy the node in maas, default to bionic if nothing is specified
         self._logger_info('Acquiring node')
         cmd = ['maas', self.maas_user, 'machines', 'allocate',
                'system_id={}'.format(self.node_id)]
@@ -73,10 +79,8 @@ class Maas2:
                           'with distro {}'.format(self.agent_name, distro))
         cmd = ['maas', self.maas_user, 'machine', 'deploy', self.node_id,
                'distro_series={}'.format(distro)]
-        kernel = provision_data.get('kernel')
         if kernel:
             cmd.append('hwe_kernel={}'.format(kernel))
-        user_data = provision_data.get('user_data')
         if user_data:
             data = base64.b64encode(user_data.encode()).decode()
             cmd.append('user_data={}'.format(data))
