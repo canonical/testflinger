@@ -104,6 +104,7 @@ class Maas2:
 
     def deploy_node(self, distro='bionic', kernel=None, user_data=None):
         # Deploy the node in maas, default to bionic if nothing is specified
+        self.recover()
         self._logger_info('Acquiring node')
         cmd = ['maas', self.maas_user, 'machines', 'allocate',
                'system_id={}'.format(self.node_id)]
