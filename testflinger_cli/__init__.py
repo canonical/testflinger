@@ -46,6 +46,7 @@ def cli(ctx, server):
 @click.argument('job_id', nargs=1)
 @click.pass_context
 def status(ctx, job_id):
+    """Show the status of a specified JOB_ID"""
     conn = ctx.obj['conn']
     try:
         job_state = conn.get_status(job_id)
@@ -69,6 +70,7 @@ def status(ctx, job_id):
 @click.argument('job_id', nargs=1)
 @click.pass_context
 def cancel(ctx, job_id):
+    """Tell the server to cancel a specified JOB_ID"""
     conn = ctx.obj['conn']
     try:
         job_state = conn.get_status(job_id)
@@ -97,6 +99,7 @@ def cancel(ctx, job_id):
 @click.option('--quiet', '-q', is_flag=True)
 @click.pass_context
 def submit(ctx, filename, quiet, poll_opt):
+    """Submit a new test job to the server"""
     conn = ctx.obj['conn']
     if filename == '-':
         data = sys.stdin.read()
@@ -134,6 +137,7 @@ def submit(ctx, filename, quiet, poll_opt):
 @click.argument('job_id', nargs=1)
 @click.pass_context
 def show(ctx, job_id):
+    """Show the requested job JSON for a specified JOB_ID"""
     conn = ctx.obj['conn']
     try:
         results = conn.show_job(job_id)
@@ -156,6 +160,7 @@ def show(ctx, job_id):
 @click.argument('job_id', nargs=1)
 @click.pass_context
 def results(ctx, job_id):
+    """Get results JSON for a completed JOB_ID"""
     conn = ctx.obj['conn']
     try:
         results = conn.get_results(job_id)
@@ -183,6 +188,7 @@ def results(ctx, job_id):
 @click.option('--filename', default='artifacts.tgz')
 @click.pass_context
 def artifacts(ctx, job_id, filename):
+    """Download a tarball of artifacts saved for a specified job"""
     conn = ctx.obj['conn']
     print('Downloading artifacts tarball...')
     try:
@@ -211,6 +217,7 @@ def artifacts(ctx, job_id, filename):
               help='Get latest output and exit immediately')
 @click.pass_context
 def poll(ctx, job_id, oneshot):
+    """Poll for output from a job until it is complete"""
     conn = ctx.obj['conn']
     if oneshot:
         try:
@@ -246,6 +253,25 @@ def poll(ctx, job_id, oneshot):
     print(job_state)
 
 
+@cli.command()
+@click.pass_context
+def queues(ctx):
+    """List the advertised queues on the current Testflinger server"""
+    conn = ctx.obj['conn']
+    try:
+        queues = conn.get_queues()
+    except client.HTTPError as e:
+        if e.status == 404:
+            raise SystemExit('Received 404 error from server. Are you sure '
+                             'this is a testflinger server?')
+    except Exception:
+        raise SystemExit(
+            'Error communicating with server, check connection and retry')
+    print('Advertised queues on this server:')
+    for name, description in queues.items():
+        print(' {} - {}'.format(name, description))
+
+
 def get_latest_output(conn, job_id):
     output = ''
     try:
@@ -275,21 +301,3 @@ def get_job_state(conn, job_id):
         # but we can keep going and retrying
         pass
     return 'unknown'
-
-
-@cli.command()
-@click.pass_context
-def queues(ctx):
-    conn = ctx.obj['conn']
-    try:
-        queues = conn.get_queues()
-    except client.HTTPError as e:
-        if e.status == 404:
-            raise SystemExit('Received 404 error from server. Are you sure '
-                             'this is a testflinger server?')
-    except Exception:
-        raise SystemExit(
-            'Error communicating with server, check connection and retry')
-    print('Advertised queues on this server:')
-    for name, description in queues.items():
-        print(' {} - {}'.format(name, description))
