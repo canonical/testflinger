@@ -44,8 +44,6 @@ class provision(guacamole.Command):
         snappy_device_agents.configure_logging(config)
         device = Maas2(ctx.args.config, ctx.args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
-        logmsg(logging.INFO, "Recovering device")
-        device.recover()
         logmsg(logging.INFO, "Provisioning device")
         serial_host = config.get('serial_host')
         serial_port = config.get('serial_port')
