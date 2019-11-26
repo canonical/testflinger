@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Canonical
+# Copyright (C) 2016-2019 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,31 +17,28 @@
 import logging
 import yaml
 
-import guacamole
-
 import snappy_device_agents
 from devices.dragonboard.dragonboard import Dragonboard
 from snappy_device_agents import logmsg
 from devices import (Catch,
+                     DefaultDevice,
                      RecoveryError,
-                     DefaultReserve,
-                     DefaultRuntest,
                      SerialLogger)
 
 device_name = "dragonboard"
 
 
-class provision(guacamole.Command):
+class provision(DefaultDevice):
 
     """Tool for provisioning baremetal with a given image."""
 
     @Catch(RecoveryError, 46)
-    def invoked(self, ctx):
+    def invoked(self, args):
         """Method called when the command is invoked."""
-        with open(ctx.args.config) as configfile:
+        with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         snappy_device_agents.configure_logging(config)
-        device = Dragonboard(ctx.args.config, ctx.args.job_data)
+        device = Dragonboard(args.config, args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
         logmsg(logging.INFO, "Booting Master Image")
         serial_host = config.get('serial_host')
@@ -56,20 +53,3 @@ class provision(guacamole.Command):
             raise e
         finally:
             serial_proc.stop()
-
-    def register_arguments(self, parser):
-        """Method called to customize the argument parser."""
-        parser.add_argument('-c', '--config', required=True,
-                            help='Config file for this device')
-        parser.add_argument('job_data', help='Testflinger json data file')
-
-
-class DeviceAgent(guacamole.Command):
-
-    """Device agent for Dragonboard."""
-
-    sub_commands = (
-        ('provision', provision),
-        ('reserve', DefaultReserve),
-        ('runtest', DefaultRuntest),
-    )

@@ -14,62 +14,33 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import argparse
 import logging
-
-from guacamole import Command
-from guacamole.core import Ingredient
-from guacamole.recipes.cmd import CommandRecipe
-from guacamole.ingredients import ansi
-from guacamole.ingredients import argparse
-from guacamole.ingredients import cmdtree
 
 from devices import load_devices
 
 logger = logging.getLogger()
 
 
-class CrashLoggingIngredient(Ingredient):
-    """Use python logging if we Crash
-    """
-
-    def dispatch_failed(self, context):
-        logger.exception("exception")
-        raise
-
-
-class AgentCommandRecipe(CommandRecipe):
-    """This is so we can add a custom ingredient
-    """
-
-    def get_ingredients(self):
-        return [
-            cmdtree.CommandTreeBuilder(self.command),
-            cmdtree.CommandTreeDispatcher(),
-            argparse.AutocompleteIngredient(),
-            argparse.ParserIngredient(),
-            ansi.ANSIIngredient(),
-            CrashLoggingIngredient(),
-        ]
-
-
-class Agent(Command):
-    """Main agent command
-
-    This loads subcommands from modules in the devices directory
-    """
-
-    sub_commands = load_devices()
-
-    # XXX: Remove for now due to https://github.com/zyga/guacamole/issues/4
-    """
-    def invoked(self, ctx):
-        print(ctx.parser.format_help())
-        exit(1)
-    """
-
-    def main(self, argv=None, exit=True):
-        return AgentCommandRecipe(self).main(argv, exit)
-
-
 def main():
-    Agent().main()
+    devices = load_devices()
+    parser = argparse.ArgumentParser()
+
+    # First add a subcommand for each supported device type
+    dev_parser = parser.add_subparsers()
+    for (dev_name, dev_class) in devices:
+        dev_subparser = dev_parser.add_parser(dev_name)
+        dev_module = dev_class()
+        # Next add the subcommands that can be used and the methods they run
+        cmd_subparser = dev_subparser.add_subparsers()
+        for (cmd, func) in (('provision', dev_module.provision),
+                            ('runtest', dev_module.runtest),
+                            ('reserve', dev_module.reserve)):
+            cmd_parser = cmd_subparser.add_parser(cmd)
+            cmd_parser.add_argument('-c', '--config', required=True,
+                                    help='Config file for this device')
+            cmd_parser.add_argument('job_data',
+                                    help='Testflinger json data file')
+            cmd_parser.set_defaults(func=func)
+    args = parser.parse_args()
+    args.func(args)

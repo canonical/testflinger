@@ -44,7 +44,7 @@ setup(
     packages=find_packages(),
     data_files=datafiles,
     setup_requires=['pytest-runner'],
-    install_requires=['guacamole >= 0.9', 'PyYAML>=3.11',
+    install_requires=['PyYAML>=3.11',
                       'netifaces>=0.10.4'],
     tests_require=TEST_REQUIRES,
     scripts=['snappy-device-agent'],

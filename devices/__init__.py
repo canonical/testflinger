@@ -12,7 +12,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
-import guacamole
 import imp
 import logging
 import multiprocessing
@@ -101,19 +100,16 @@ class RealSerialLogger():
         self.proc.terminate()
 
 
-class DefaultRuntest(guacamole.Command):
-
-    """Tool for running tests on a provisioned device."""
-
-    def invoked(self, ctx):
-        """Method called when the command is invoked."""
-        with open(ctx.args.config) as configfile:
+class DefaultDevice:
+    def runtest(self, args):
+        """Default method for processing test commands"""
+        with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         snappy_device_agents.configure_logging(config)
         snappy_device_agents.logmsg(logging.INFO, "BEGIN testrun")
 
         test_opportunity = snappy_device_agents.get_test_opportunity(
-            ctx.args.job_data)
+            args.job_data)
         test_cmds = test_opportunity.get('test_data').get('test_cmds')
         serial_host = config.get('serial_host')
         serial_port = config.get('serial_port')
@@ -129,24 +125,15 @@ class DefaultRuntest(guacamole.Command):
         snappy_device_agents.logmsg(logging.INFO, "END testrun")
         return exitcode
 
-    def register_arguments(self, parser):
-        """Method called to customize the argument parser."""
-        parser.add_argument('-c', '--config', required=True,
-                            help='Config file for this device')
-        parser.add_argument('job_data', help='Testflinger json data file')
 
-
-class DefaultReserve(guacamole.Command):
-
-    """Block this system while it is reserved for manual use"""
-
-    def invoked(self, ctx):
-        with open(ctx.args.config) as configfile:
+    def reserve(self, args):
+        """Default method for reserving systems"""
+        with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         snappy_device_agents.configure_logging(config)
         snappy_device_agents.logmsg(logging.INFO, "BEGIN reservation")
         job_data = snappy_device_agents.get_test_opportunity(
-            ctx.args.job_data)
+            args.job_data)
         try:
             test_username = job_data['test_data']['test_username']
         except KeyError:
@@ -213,12 +200,6 @@ class DefaultReserve(guacamole.Command):
         print('To end the reservation sooner use: testflinger-cli '
               'cancel {}'.format(job_id))
         time.sleep(int(timeout))
-
-    def register_arguments(self, parser):
-        """Method called to customize the argument parser."""
-        parser.add_argument('-c', '--config', required=True,
-                            help='Config file for this device')
-        parser.add_argument('job_data', help='Testflinger json data file')
 
 
 def Catch(exception, returnval=0):
