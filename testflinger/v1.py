@@ -24,6 +24,8 @@ from flask import (
     send_file
 )
 
+from werkzeug.exceptions import BadRequest
+
 import testflinger
 
 
@@ -122,11 +124,18 @@ def result_post(job_id):
         return 'Invalid job id\n', 400
     result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
     if os.path.exists(result_file):
-        with open(result_file) as results:
-            data = json.load(results)
+        try:
+            with open(result_file) as results:
+                data = json.load(results)
+        except json.decoder.JSONDecodeError:
+            # If for any reason it's empty or has bad data - set to empty dict
+            data = {}
     else:
         data = {}
-    new_data = request.get_json()
+    try:
+        new_data = request.get_json()
+    except BadRequest:
+        return "Invalid result data\n", 400
     data.update(new_data)
     with open(result_file, 'w') as results:
         results.write(json.dumps(data))

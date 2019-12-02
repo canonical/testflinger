@@ -140,6 +140,13 @@ class TestAPI():
         assert 'Invalid job id\n' == output.data.decode()
         assert 400 == output.status_code
 
+    def test_result_post_nodata(self, app):
+        result_url = '/v1/result/00000000-0000-0000-0000-000000000000'
+        output = app.post(result_url, data='',
+                          content_type='application/json')
+        assert 'Invalid result data\n' == output.data.decode()
+        assert 400 == output.status_code
+
     def test_state_update_keeps_results(self, app):
         """Update job_state shouldn't lose old results"""
         result_url = '/v1/result/00000000-0000-0000-0000-000000000000'
