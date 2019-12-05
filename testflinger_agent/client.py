@@ -153,7 +153,7 @@ class TestflingerClient:
         # If we find an 'artifacts' dir under rundir, archive it, and transmit
         # it to the Testflinger server
         artifacts_dir = os.path.join(rundir, 'artifacts')
-        if os.path.exists(artifacts_dir):
+        if os.path.isdir(artifacts_dir):
             with tempfile.TemporaryDirectory() as tmpdir:
                 artifact_file = os.path.join(tmpdir, 'artifacts')
                 shutil.make_archive(artifact_file, format='gztar',
@@ -175,7 +175,7 @@ class TestflingerClient:
                     shutil.rmtree(artifacts_dir)
         # Do not retransmit outcome if it's already been done and removed
         outcome_file = os.path.join(rundir, 'testflinger-outcome.json')
-        if os.path.exists(outcome_file):
+        if os.path.isfile(outcome_file):
             logger.info('Submitting job outcome for job: %s' % job_id)
             with open(outcome_file) as f:
                 data = json.load(f)
