@@ -21,6 +21,7 @@ import subprocess
 import time
 import yaml
 
+from collections import OrderedDict
 from devices import (ProvisioningError,
                      RecoveryError)
 
@@ -61,6 +62,8 @@ class Maas2:
         self.node_release()
 
     def provision(self):
+        if self.config.get('reset_efi'):
+            self.reset_efi()
         # Check if this is a device where we need to clear the tpm (dawson)
         if self.config.get('clear_tpm'):
             self.clear_tpm()
@@ -70,6 +73,50 @@ class Maas2:
         kernel = provision_data.get('kernel')
         user_data = provision_data.get('user_data')
         self.deploy_node(distro, kernel, user_data)
+
+    def _get_efi_data(self):
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'ubuntu@{}'.format(self.config['device_ip']),
+               'sudo efibootmgr']
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if p.returncode:
+            return None
+        # Use OrderedDict because often the NIC entries in EFI are in a good
+        # order with ipv4 ones coming first
+        efi_data = OrderedDict()
+        for line in p.stdout.decode().splitlines():
+            k,v = line.split(" ", maxsplit=1)
+            efi_data[k] = v
+        return efi_data
+
+    def _set_efi_data(self, boot_order):
+        # Set the boot order to the comma separated string of entries
+        self._logger_info('Setting boot order to {}'.format(boot_order))
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'ubuntu@{}'.format(self.config['device_ip']),
+               'sudo efibootmgr -o {}'.format(boot_order)]
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if p.returncode:
+            self._logger_error('Failed to set efi boot order to "{}":\n'
+                               '{}'.format(boot_order, p.stdout.decode()))
+
+    def reset_efi(self):
+        # Try to reset the boot order so that NICs boot first
+        self._logger_info('Fixing EFI boot order before provisioning')
+        efi_data = self._get_efi_data()
+        if not efi_data:
+            return
+        bootlist = efi_data.get('BootOrder:').split(',')
+        new_boot_order = []
+        for k,v in efi_data.items():
+            if "NIC" in v and "Boot" in k:
+                new_boot_order.append(k[4:8])
+        for entry in bootlist:
+            if entry not in new_boot_order:
+                new_boot_order.append(entry)
+        self._set_efi_data(','.join(new_boot_order))
 
     def clear_tpm(self):
         self._logger_info("Clearing the TPM before provisioning")
