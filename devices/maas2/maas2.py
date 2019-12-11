@@ -79,14 +79,15 @@ class Maas2:
                '-o', 'UserKnownHostsFile=/dev/null',
                'ubuntu@{}'.format(self.config['device_ip']),
                'sudo efibootmgr']
-        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        p = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if p.returncode:
             return None
         # Use OrderedDict because often the NIC entries in EFI are in a good
         # order with ipv4 ones coming first
         efi_data = OrderedDict()
         for line in p.stdout.decode().splitlines():
-            k,v = line.split(" ", maxsplit=1)
+            k, v = line.split(" ", maxsplit=1)
             efi_data[k] = v
         return efi_data
 
@@ -97,7 +98,8 @@ class Maas2:
                '-o', 'UserKnownHostsFile=/dev/null',
                'ubuntu@{}'.format(self.config['device_ip']),
                'sudo efibootmgr -o {}'.format(boot_order)]
-        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        p = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if p.returncode:
             self._logger_error('Failed to set efi boot order to "{}":\n'
                                '{}'.format(boot_order, p.stdout.decode()))
@@ -110,7 +112,7 @@ class Maas2:
             return
         bootlist = efi_data.get('BootOrder:').split(',')
         new_boot_order = []
-        for k,v in efi_data.items():
+        for k, v in efi_data.items():
             if "NIC" in v and "Boot" in k:
                 new_boot_order.append(k[4:8])
         for entry in bootlist:
