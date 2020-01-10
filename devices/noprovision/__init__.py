@@ -1,4 +1,4 @@
-# Copyright (C) 2017 Canonical
+# Copyright (C) 2017-2019 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +17,6 @@
 import logging
 import yaml
 
-import guacamole
 
 import snappy_device_agents
 from devices.noprovision.noprovision import Noprovision
@@ -25,42 +24,20 @@ from snappy_device_agents import logmsg
 
 from devices import (Catch,
                      RecoveryError,
-                     DefaultReserve,
-                     DefaultRuntest)
+                     DefaultDevice)
 
 device_name = "noprovision"
 
 
-class provision(guacamole.Command):
-
-    """Tool for provisioning baremetal with a given image."""
-
+class DeviceAgent(DefaultDevice):
     @Catch(RecoveryError, 46)
-    def invoked(self, ctx):
-        """Method called when the command is invoked."""
-        with open(ctx.args.config) as configfile:
+    def provision(self, args):
+        with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         snappy_device_agents.configure_logging(config)
-        device = Noprovision(ctx.args.config)
+        device = Noprovision(args.config)
         test_username = snappy_device_agents.get_test_username(
-            ctx.args.job_data)
+            args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
         device.ensure_test_image(test_username)
         logmsg(logging.INFO, "END provision")
-
-    def register_arguments(self, parser):
-        """Method called to customize the argument parser."""
-        parser.add_argument('-c', '--config', required=True,
-                            help='Config file for this device')
-        parser.add_argument('job_data', help='Testflinger json data file')
-
-
-class DeviceAgent(guacamole.Command):
-
-    """Device agent for Noprovision."""
-
-    sub_commands = (
-        ('provision', provision),
-        ('reserve', DefaultReserve),
-        ('runtest', DefaultRuntest),
-    )
