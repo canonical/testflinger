@@ -125,7 +125,6 @@ class DefaultDevice:
         snappy_device_agents.logmsg(logging.INFO, "END testrun")
         return exitcode
 
-
     def reserve(self, args):
         """Default method for reserving systems"""
         with open(args.config) as configfile:
