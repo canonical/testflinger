@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Canonical
+# Copyright (C) 2016-2020 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -229,3 +229,15 @@ class TestAPI():
                  content_type='application/json')
         output = app.get('/v1/agents/queues')
         assert json.loads(output.data.decode()) == queue_data
+
+    def test_images_post(self, app):
+        image_data = {
+                     "myqueue": {
+                         "image1": "url: http://path/to/image1",
+                         "image2": "url: http://path/to/image2"
+                         }
+                     }
+        app.post('/v1/agents/images', data=json.dumps(image_data),
+                 content_type='application/json')
+        output = app.get('/v1/agents/images/myqueue')
+        assert json.loads(output.data.decode()) == image_data.get('myqueue')

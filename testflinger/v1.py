@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Canonical
+# Copyright (C) 2016-2020 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -256,6 +256,27 @@ def queues_post():
         queue_name = 'tf:qlist:' + queue
         queue_description = queue_dict[queue]
         pipe.set(queue_name, queue_description, ex=300)
+    pipe.execute()
+    return "OK"
+
+
+def images_get(queue):
+    """Get a list of known images for a given queue
+    """
+    images = testflinger.app.redis.hgetall('tf:images:' + queue)
+    images = {k.decode(): v.decode() for k, v in images.items()}
+    return jsonify(images)
+
+
+def images_post():
+    """Tell testflinger about known images for a specified queue
+    """
+    image_dict = request.get_json()
+    pipe = testflinger.app.redis.pipeline()
+    # We need to delete and recreate the hash in case images were removed
+    for queue, images in image_dict.items():
+        pipe.delete('tf:images:'+queue)
+        pipe.hmset('tf:images:'+queue, images)
     pipe.execute()
     return "OK"
 
