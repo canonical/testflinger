@@ -1,4 +1,4 @@
-# Copyright (C) 2017 Canonical
+# Copyright (C) 2017-2020 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -37,14 +37,18 @@ class TestflingerAgent:
     def _status_worker(self):
         # Report advertised queues to testflinger server when we are listening
         advertised_queues = self.client.config.get('advertised_queues')
-        if not advertised_queues:
+        advertised_images = self.client.config.get('advertised_images')
+        if not advertised_queues and not advertised_images:
             # Nothing to do unless there are advertised_queues configured
             raise SystemExit
 
         while True:
             # Post every 2min unless the agent is offline
             if self._state.value.decode('utf-8') != 'offline':
-                self.client.post_queues(advertised_queues)
+                if advertised_queues:
+                    self.client.post_queues(advertised_queues)
+                if advertised_images:
+                    self.client.post_images(advertised_images)
             time.sleep(120)
 
     def set_state(self, state):

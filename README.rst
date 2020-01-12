@@ -77,6 +77,10 @@ The following configuration options are supported:
 
   - List of public queue names that should be reported to the server to report to users
 
+- **advertised_images**:
+
+  - List of images to associate with a queue name so that they can be referenced by name when using testflinger reserve
+
 - **setup_command**:
 
   - Command to run for the setup phase
