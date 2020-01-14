@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Canonical
+# Copyright (C) 2016-2020 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@ SCHEMA_V1 = {
     voluptuous.Optional('global_timeout'): int,
     voluptuous.Optional('output_timeout'): int,
     voluptuous.Optional('advertised_queues'): dict,
+    voluptuous.Optional('advertised_images'): dict,
 }
 
 

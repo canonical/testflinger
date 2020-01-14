@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Canonical
+# Copyright (C) 2016-2020 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -212,5 +212,17 @@ class TestflingerClient:
         queues_uri = urljoin(self.server, '/v1/agents/queues')
         try:
             requests.post(queues_uri, json=data, timeout=30)
+        except Exception as e:
+            logger.exception(e)
+
+    def post_images(self, data):
+        """Post the list of advertised images to testflinger server
+
+        :param data:
+            dict of queues containing dicts of imgae names and provision data
+        """
+        images_uri = urljoin(self.server, '/v1/agents/images')
+        try:
+            requests.post(images_uri, json=data, timeout=30)
         except Exception as e:
             logger.exception(e)
