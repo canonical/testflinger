@@ -29,12 +29,12 @@ from devices import (Catch,
 device_name = "maas2"
 
 
-class provision(DefaultDevice):
+class DeviceAgent(DefaultDevice):
 
     """Tool for provisioning baremetal with a given image."""
 
     @Catch(RecoveryError, 46)
-    def invoked(self, args):
+    def provision(self, args):
         """Method called when the command is invoked."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
