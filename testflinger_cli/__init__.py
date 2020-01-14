@@ -309,7 +309,7 @@ def reserve(ctx, queue, image, ssh_keys):
         ssh_keys = _get_ssh_keys()
     template = inspect.cleandoc("""job_queue: {queue}
                                    provision_data:
-                                     url: {image}
+                                     {image}
                                    reserve_data:
                                      ssh_keys:""")
     for ssh_key in ssh_keys:
@@ -333,7 +333,7 @@ def _get_queue(queues):
             continue
         if queue == "?":
             print("\nAdvertised queues on this server:")
-            for name, description in queues.items():
+            for name, description in sorted(queues.items()):
                 print(" {} - {}".format(name, description))
             queue = _get_queue(queues)
         if queue not in queues.keys():
@@ -351,7 +351,7 @@ def _get_image(images):
         image = input("\nEnter the name of the image you want to use "
                       "('?' to list) ")
         if image == "?":
-            for image_id in images.keys():
+            for image_id in sorted(images.keys()):
                 print(" " + image_id)
             continue
         if image not in images.keys():
