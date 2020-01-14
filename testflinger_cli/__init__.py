@@ -1,4 +1,4 @@
-# Copyright (C) 2017-2019 Canonical
+# Copyright (C) 2017-2020 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
 
 
 import click
+import inspect
 import json
 import os
 import sys
@@ -111,6 +112,19 @@ def submit(ctx, filename, quiet, poll_opt):
             raise SystemExit('File not found: {}'.format(filename))
         except Exception:
             raise SystemExit('Unable to read file: {}'.format(filename))
+    job_id = submit_job_data(conn, data)
+    if quiet:
+        print(job_id)
+    else:
+        print('Job submitted successfully!')
+        print('job_id: {}'.format(job_id))
+    if poll_opt:
+        ctx.invoke(poll, job_id=job_id)
+
+
+def submit_job_data(conn, data):
+    """ Submit data that was generated or read from a file as a test job
+    """
     try:
         job_id = conn.submit_job(data)
     except client.HTTPError as e:
@@ -124,13 +138,7 @@ def submit(ctx, filename, quiet, poll_opt):
         # This shouldn't happen, so let's get more information
         raise SystemExit('Unexpected error status from testflinger '
                          'server: {}'.format(e.status))
-    if quiet:
-        print(job_id)
-    else:
-        print('Job submitted successfully!')
-        print('job_id: {}'.format(job_id))
-    if poll_opt:
-        ctx.invoke(poll, job_id=job_id)
+    return job_id
 
 
 @cli.command()
@@ -270,6 +278,100 @@ def queues(ctx):
     print('Advertised queues on this server:')
     for name, description in queues.items():
         print(' {} - {}'.format(name, description))
+
+
+@cli.command()
+@click.option('--queue', '-q',
+              help='Name of the queue to use')
+@click.option('--image', '-i',
+              help='Name of the image to use for provisioning')
+@click.option('--key', '-k', 'ssh_keys',
+              help='Ssh key to use for reservation (ex: lp:userid, gh:userid)')
+@click.pass_context
+def reserve(ctx, queue, image, ssh_keys):
+    """Install and reserve a system"""
+    conn = ctx.obj['conn']
+    if not queue:
+        try:
+            queues = conn.get_queues()
+        except Exception:
+            print("WARNING: unable to get a list of queues from the server!")
+            queues = {}
+        queue = _get_queue(queues)
+    if not image:
+        try:
+            images = conn.get_images(queue)
+        except Exception:
+            print("WARNING: unable to get a list of images from the server!")
+            images = {}
+        image = _get_image(images)
+    if not ssh_keys:
+        ssh_keys = _get_ssh_keys()
+    template = inspect.cleandoc("""job_queue: {queue}
+                                   provision_data:
+                                     url: {image}
+                                   reserve_data:
+                                     ssh_keys:""")
+    for ssh_key in ssh_keys:
+        template += "\n    - {}".format(ssh_key)
+    job_data = template.format(queue=queue, image=image)
+    print("\nThe following yaml will be submitted:")
+    print(job_data)
+    answer = input("Proceed? (Y/n) ")
+    if answer in ("Y", "y", ""):
+        job_id = submit_job_data(conn, job_data)
+        print('Job submitted successfully!')
+        print('job_id: {}'.format(job_id))
+        ctx.invoke(poll, job_id=job_id)
+
+
+def _get_queue(queues):
+    queue = ""
+    while not queue or queue == "?":
+        queue = input("\nWhich queue do you want to use? ('?' to list) ")
+        if not queue:
+            continue
+        if queue == "?":
+            print("\nAdvertised queues on this server:")
+            for name, description in queues.items():
+                print(" {} - {}".format(name, description))
+            queue = _get_queue(queues)
+        if queue not in queues.keys():
+            print("WARNING: '{}' is not in the list of known "
+                  "queues".format(queue))
+            answer = input("Do you still want to use it? (y/N) ")
+            if answer.lower() != "y":
+                queue = ""
+    return queue
+
+
+def _get_image(images):
+    image = ""
+    while not image or image == "?":
+        image = input("\nEnter the name of the image you want to use "
+                      "('?' to list) ")
+        if image == "?":
+            for image_id in images.keys():
+                print(" " + image_id)
+            continue
+        if image not in images.keys():
+            print("ERROR: '{}' is not in the list of known images for that "
+                  "queue, please select another.".format(image))
+            image = ""
+    return images.get(image)
+
+
+def _get_ssh_keys():
+    ssh_keys = ""
+    while not ssh_keys.strip():
+        ssh_keys = input("\nEnter the ssh key(s) you wish to use: "
+                         "(ex: lp:userid, gh:userid) ")
+        key_list = [ssh_key.strip() for ssh_key in ssh_keys.split(",")]
+        for ssh_key in key_list:
+            if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
+                ssh_keys = ""
+                print("Please enter keys in the form lp:userid or gh:userid")
+    return key_list
 
 
 def get_latest_output(conn, job_id):
