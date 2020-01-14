@@ -239,3 +239,38 @@ server will only return one job.
 
     $ curl http://localhost:8000/v1/agents/queues \
          -X GET
+
+**[POST] /v1/agents/images** - post known images for the specified queue
+
+- Status Codes:
+
+  - HTTP 200 (OK)
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl http://localhost:8000/v1/agents/images \
+         -X POST --header "Content-Type: application/json" \
+         --data '{ "myqueue": { "image1": "url: http://place/imgae1" }}'
+
+**[GET] /v1/agents/images/<queue>** - retrieve all known image names and the provisioning data used for them, for the specified queue
+
+- Parameters:
+
+  - queue: name of the queue to use
+
+- Status Codes:
+
+  - HTTP 200 (OK)
+
+- Returns:
+
+  JSON data previously submitted by all agents via the POST API
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl http://localhost:8000/v1/agents/images/myqueue \
+         -X GET

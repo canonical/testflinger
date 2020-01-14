@@ -22,6 +22,7 @@ INSTALL_REQUIRES = [
     "gunicorn",
     "redis",
     "flask",
+    "pyyaml",
     "sentry-sdk[flask]",
 ]
 
