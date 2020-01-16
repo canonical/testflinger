@@ -276,7 +276,7 @@ def queues(ctx):
         raise SystemExit(
             'Error communicating with server, check connection and retry')
     print('Advertised queues on this server:')
-    for name, description in queues.items():
+    for name, description in sorted(queues.items()):
         print(' {} - {}'.format(name, description))
 
 
