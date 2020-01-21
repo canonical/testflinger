@@ -261,9 +261,9 @@ def poll(ctx, job_id, oneshot):
     print(job_state)
 
 
-@cli.command()
+@cli.command(name='list-queues')
 @click.pass_context
-def queues(ctx):
+def list_queues(ctx):
     """List the advertised queues on the current Testflinger server"""
     conn = ctx.obj['conn']
     try:
