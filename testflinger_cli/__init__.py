@@ -292,22 +292,37 @@ def list_queues(ctx):
 def reserve(ctx, queue, image, ssh_keys):
     """Install and reserve a system"""
     conn = ctx.obj['conn']
+    try:
+        queues = conn.get_queues()
+    except Exception:
+        print("WARNING: unable to get a list of queues from the server!")
+        queues = {}
     if not queue:
-        try:
-            queues = conn.get_queues()
-        except Exception:
-            print("WARNING: unable to get a list of queues from the server!")
-            queues = {}
         queue = _get_queue(queues)
+    else:
+        if queue not in queues.keys():
+            print("WARNING: '{}' is not in the list of known "
+                  "queues".format(queue))
+    try:
+        images = conn.get_images(queue)
+    except Exception:
+        print("WARNING: unable to get a list of images from the server!")
+        images = {}
     if not image:
-        try:
-            images = conn.get_images(queue)
-        except Exception:
-            print("WARNING: unable to get a list of images from the server!")
-            images = {}
         image = _get_image(images)
+    else:
+        if image not in images.keys():
+            raise SystemExit("ERROR: '{}' is not in the list of known "
+                             "images for that queue, please select "
+                             "another.".format(image))
+        image = images[image]
     if not ssh_keys:
         ssh_keys = _get_ssh_keys()
+    else:
+        for ssh_key in ssh_keys:
+            if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
+                raise SystemExit("Please enter keys in the form lp:userid or "
+                                 "gh:userid")
     template = inspect.cleandoc("""job_queue: {queue}
                                    provision_data:
                                      {image}
