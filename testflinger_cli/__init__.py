@@ -285,8 +285,9 @@ def list_queues(ctx):
               help='Name of the queue to use')
 @click.option('--image', '-i',
               help='Name of the image to use for provisioning')
-@click.option('--key', '-k', 'ssh_keys',
-              help='Ssh key to use for reservation (ex: lp:userid, gh:userid)')
+@click.option('--key', '-k', 'ssh_keys', multiple=True,
+              help='Ssh key(s) to use for reservation '
+                   '(ex: -k lp:userid -k gh:userid)')
 @click.pass_context
 def reserve(ctx, queue, image, ssh_keys):
     """Install and reserve a system"""
