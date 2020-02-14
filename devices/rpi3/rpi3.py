@@ -345,6 +345,16 @@ class Rpi3:
             # would just add to the noise
             pass
 
+    def run_post_provision_script(self):
+        # Run post provision commands on control host if there are any, but
+        # don't fail the provisioning step if any of them don't work
+        for cmd in self.config.get('post_provision_script'):
+            logger.info("Running %s", cmd)
+            try:
+                self._run_control(cmd)
+            except Exception:
+                logger.warn("Error running %s", cmd)
+
     def provision(self):
         """Provision the device"""
         url = self.job_data['provision_data'].get('url')
@@ -371,6 +381,7 @@ class Rpi3:
             file_server.terminate()
             logger.info("Creating Test User")
             self.create_user()
+            self.run_post_provision_script()
             logger.info("Booting Test Image")
             self.ensure_test_image(test_username, test_password)
         except:
