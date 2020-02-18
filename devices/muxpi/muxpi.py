@@ -90,6 +90,7 @@ class MuxPi:
             self.create_user()
             logger.info("Booting Test Image")
             self.unmount_writable_partition()
+            self.run_post_provision_script()
             self._run_control('stm -dut')
             self.check_test_image_booted()
         except Exception:
@@ -211,3 +212,13 @@ class MuxPi:
                 pass
         # If we get here, then we didn't boot in time
         raise ProvisioningError("Failed to boot test image!")
+
+    def run_post_provision_script(self):
+        # Run post provision commands on control host if there are any, but
+        # don't fail the provisioning step if any of them don't work
+        for cmd in self.config.get('post_provision_script'):
+            logger.info("Running %s", cmd)
+            try:
+                self._run_control(cmd)
+            except Exception:
+                logger.warn("Error running %s", cmd)
