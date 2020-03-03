@@ -43,4 +43,4 @@ def main():
                                     help='Testflinger json data file')
             cmd_parser.set_defaults(func=func)
     args = parser.parse_args()
-    args.func(args)
+    raise SystemExit(args.func(args))
