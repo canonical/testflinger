@@ -348,7 +348,7 @@ class Rpi3:
     def run_post_provision_script(self):
         # Run post provision commands on control host if there are any, but
         # don't fail the provisioning step if any of them don't work
-        for cmd in self.config.get('post_provision_script'):
+        for cmd in self.config.get('post_provision_script', []):
             logger.info("Running %s", cmd)
             try:
                 self._run_control(cmd)
