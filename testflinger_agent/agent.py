@@ -30,25 +30,22 @@ class TestflingerAgent:
         self.client = client
         self._state = multiprocessing.Array('c', 16)
         self.set_state('waiting')
-        self.status_proc = multiprocessing.Process(target=self._status_worker)
-        self.status_proc.daemon = True
-        self.status_proc.start()
+        self.advertised_queues = self.client.config.get('advertised_queues')
+        self.advertised_images = self.client.config.get('advertised_images')
+        if self.advertised_queues or self.advertised_images:
+            self.status_proc = multiprocessing.Process(target=self._status_worker)
+            self.status_proc.daemon = True
+            self.status_proc.start()
 
     def _status_worker(self):
         # Report advertised queues to testflinger server when we are listening
-        advertised_queues = self.client.config.get('advertised_queues')
-        advertised_images = self.client.config.get('advertised_images')
-        if not advertised_queues and not advertised_images:
-            # Nothing to do unless there are advertised_queues configured
-            raise SystemExit
-
         while True:
             # Post every 2min unless the agent is offline
             if self._state.value.decode('utf-8') != 'offline':
-                if advertised_queues:
-                    self.client.post_queues(advertised_queues)
-                if advertised_images:
-                    self.client.post_images(advertised_images)
+                if self.advertised_queues:
+                    self.client.post_queues(self.advertised_queues)
+                if self.advertised_images:
+                    self.client.post_images(self.advertised_images)
             time.sleep(120)
 
     def set_state(self, state):
