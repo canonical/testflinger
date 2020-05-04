@@ -40,6 +40,8 @@ def cli(ctx, server):
     env_server = os.environ.get('TESTFLINGER_SERVER')
     if env_server:
         server = env_server
+    if not server.startswith(('http://','https://')):
+        raise SystemExit('Server must start with "http://" or "https://"')
     ctx.obj['conn'] = client.Client(server)
 
 
