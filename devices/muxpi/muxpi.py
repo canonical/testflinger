@@ -1,4 +1,4 @@
-# Copyright (C) 2017 Canonical
+# Copyright (C) 2017-2020 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,6 +24,8 @@ import yaml
 
 import snappy_device_agents
 
+from contextlib import contextmanager
+
 from devices import (ProvisioningError,
                      RecoveryError)
 
@@ -33,6 +35,10 @@ logger = logging.getLogger()
 class MuxPi:
 
     """Device Agent for MuxPi."""
+
+    IMAGE_PATH_IDS = {'etc': 'ubuntu',
+                      'system-data': 'core',
+                      'snaps': 'core20'}
 
     def __init__(self, config, job_data):
         with open(config) as configfile:
@@ -86,11 +92,12 @@ class MuxPi:
         try:
             self.flash_test_image(server_ip, server_port)
             file_server.terminate()
-            logger.info("Creating Test User")
-            self.create_user()
-            logger.info("Booting Test Image")
-            self.unmount_writable_partition()
-            self.run_post_provision_script()
+            image_type, image_dev = self.get_image_type()
+            with self.remote_mount(image_dev):
+                logger.info("Creating Test User")
+                self.create_user(image_type)
+                logger.info("Booting Test Image")
+                self.run_post_provision_script()
             self._run_control('stm -dut')
             self.check_test_image_booted()
         except Exception:
@@ -132,6 +139,41 @@ class MuxPi:
             raise ProvisioningError("Unable to run hdparm to rescan "
                                     "partitions")
 
+    @contextmanager
+    def remote_mount(self, remote_device, mount_point='/mnt'):
+        self._run_control(
+            'sudo mount /dev/{} {}'.format(remote_device, mount_point))
+        try:
+            yield mount_point
+        finally:
+            self._run_control('sudo umount {}'.format(mount_point))
+
+    def get_image_type(self):
+        """
+        Figure out which kind of image is on the configured block device
+
+        :returns:
+            tuple of image type and device as strings
+        """
+        dev = self.config['test_device']
+        lsblk_data = self._run_control('lsblk -J {}'.format(dev))
+        lsblk_json = json.loads(lsblk_data.decode())
+        dev_list = [x.get('name')
+                    for x in lsblk_json['blockdevices'][0]['children']
+                    if x.get('name')]
+        for dev in dev_list:
+            try:
+                with self.remote_mount(dev):
+                    dirs = self._run_control('ls /mnt')
+                    for path, img_type in self.IMAGE_PATH_IDS.items():
+                        if path in dirs.decode().split():
+                            return img_type, dev
+            except Exception:
+                # If unmountable or any other error, go on to the next one
+                continue
+        # We have no idea what kind of image this is
+        return 'unknown', dev
+
     def unmount_writable_partition(self):
         try:
             self._run_control(
@@ -143,23 +185,8 @@ class MuxPi:
             # We might not be mounted, so expect this to fail sometimes
             pass
 
-    def mount_writable_partition(self):
-        # Mount the writable partition
-        try:
-            self._run_control('sudo mount {} /mnt'.format(
-                              self.config['snappy_writable_partition']))
-        except KeyError:
-            raise RecoveryError(
-                "Device config missing snappy_writable_partition")
-        except Exception:
-            err = ("Error mounting writable partition on test image {}. "
-                   "Check device configuration".format(
-                       self.config['snappy_writable_partition']))
-            raise ProvisioningError(err)
-
-    def create_user(self):
+    def create_user(self, image_type):
         """Create user account for default ubuntu user"""
-        self.mount_writable_partition()
         metadata = 'instance_id: cloud-image'
         userdata = ('#cloud-config\n'
                     'password: ubuntu\n'
@@ -168,25 +195,49 @@ class MuxPi:
                     '        - ubuntu:ubuntu\n'
                     '    expire: False\n'
                     'ssh_pwauth: True')
+        # For core20:
+        uc20_ci_data = ('#cloud-config\n'
+                        'datasource_list: [ NoCloud, None ]\n'
+                        'datasource:\n'
+                        '  NoCloud:\n'
+                        '    user-data: |\n'
+                        '      #cloud-config\n'
+                        '      password: ubuntu\n'
+                        '      chpasswd:\n'
+                        '          list:\n'
+                        '              - ubuntu:ubuntu\n'
+                        '          expire: False\n'
+                        '      ssh_pwauth: True\n'
+                        '    meta-data: |\n'
+                        '      instance_id: cloud-image')
+
+        base = '/mnt'
+        if image_type == 'core':
+            base = '/mnt/system-data'
         try:
-            output = self._run_control('ls /mnt')
-            if 'system-data' in str(output):
-                base = '/mnt/system-data'
+            if image_type == 'core20':
+                ci_path = os.path.join(base, '/data/etc/cloud/cloud.cfg.d')
+                self._run_control('sudo mkdir -p {}'.format(ci_path))
+                write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
+                self._run_control(
+                    write_cmd.format(uc20_ci_data, ci_path, '99_nocloud.cfg'))
             else:
-                base = '/mnt'
-            cloud_path = os.path.join(
-                base, 'var/lib/cloud/seed/nocloud-net')
-            self._run_control('sudo mkdir -p {}'.format(cloud_path))
-            write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
-            self._run_control(
-                write_cmd.format(metadata, cloud_path, 'meta-data'))
-            self._run_control(
-                write_cmd.format(userdata, cloud_path, 'user-data'))
-            # This needs to be removed on eoan for rpi, else cloud-init
-            # won't find the user-data we give it
-            rm_cmd = "sudo rm -f {}".format(
-                os.path.join(base, 'etc/cloud/cloud.cfg.d/99-fake_cloud.cfg'))
-            self._run_control(rm_cmd)
+                # For core or ubuntu classic images
+                ci_path = os.path.join(
+                    base, 'var/lib/cloud/seed/nocloud-net')
+                self._run_control('sudo mkdir -p {}'.format(ci_path))
+                write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
+                self._run_control(
+                    write_cmd.format(metadata, ci_path, 'meta-data'))
+                self._run_control(
+                    write_cmd.format(userdata, ci_path, 'user-data'))
+                if image_type == 'ubuntu':
+                    # This needs to be removed on classic for rpi, else
+                    # cloud-init won't find the user-data we give it
+                    rm_cmd = "sudo rm -f {}".format(
+                        os.path.join(
+                            base, 'etc/cloud/cloud.cfg.d/99-fake_cloud.cfg'))
+                    self._run_control(rm_cmd)
         except Exception:
             raise ProvisioningError("Error creating user files")
 
