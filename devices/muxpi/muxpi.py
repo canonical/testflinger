@@ -216,7 +216,7 @@ class MuxPi:
             base = '/mnt/system-data'
         try:
             if image_type == 'core20':
-                ci_path = os.path.join(base, '/data/etc/cloud/cloud.cfg.d')
+                ci_path = os.path.join(base, 'data/etc/cloud/cloud.cfg.d')
                 self._run_control('sudo mkdir -p {}'.format(ci_path))
                 write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
                 self._run_control(
