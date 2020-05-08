@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Canonical
+# Copyright (C) 2016-2020 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,6 +22,8 @@ import subprocess
 import time
 import yaml
 
+from contextlib import contextmanager
+
 import snappy_device_agents
 from devices import (ProvisioningError,
                      RecoveryError)
@@ -32,6 +34,10 @@ logger = logging.getLogger()
 class Rpi3:
 
     """Snappy Device Agent for Rpi3."""
+
+    IMAGE_PATH_IDS = {'etc': 'ubuntu',
+                      'system-data': 'core',
+                      'snaps': 'core20'}
 
     def __init__(self, config, job_data):
         with open(config) as configfile:
@@ -61,6 +67,41 @@ class Rpi3:
             raise ProvisioningError(e.output)
         return output
 
+    @contextmanager
+    def remote_mount(self, remote_device, mount_point='/mnt'):
+        self._run_control(
+            'sudo mount /dev/{} {}'.format(remote_device, mount_point))
+        try:
+            yield mount_point
+        finally:
+            self._run_control('sudo umount {}'.format(mount_point))
+
+    def get_image_type(self):
+        """
+        Figure out which kind of image is on the configured block device
+
+        :returns:
+            tuple of image type and device as strings
+        """
+        dev = self.config['test_device']
+        lsblk_data = self._run_control('lsblk -J {}'.format(dev))
+        lsblk_json = json.loads(lsblk_data.decode())
+        dev_list = [x.get('name')
+                    for x in lsblk_json['blockdevices'][0]['children']
+                    if x.get('name')]
+        for dev in dev_list:
+            try:
+                with self.remote_mount(dev):
+                    dirs = self._run_control('ls /mnt')
+                    for path, img_type in self.IMAGE_PATH_IDS.items():
+                        if path in dirs.decode().split():
+                            return img_type, dev
+            except Exception:
+                # If unmountable or any other error, go on to the next one
+                continue
+        # We have no idea what kind of image this is
+        return 'unknown', dev
+
     def setboot(self, mode):
         """
         Set the boot mode of the device.
@@ -82,7 +123,7 @@ class Rpi3:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=60)
-            except:
+            except Exception:
                 raise ProvisioningError("timeout reaching control host!")
 
     def hardreset(self):
@@ -100,7 +141,7 @@ class Rpi3:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=60)
-            except:
+            except Exception:
                 raise RecoveryError("timeout reaching control host!")
 
     def ensure_test_image(self, test_username, test_password):
@@ -118,7 +159,7 @@ class Rpi3:
         self.setboot('test')
         try:
             self._run_control('sudo /sbin/reboot')
-        except:
+        except Exception:
             pass
         time.sleep(60)
 
@@ -134,7 +175,7 @@ class Rpi3:
                        '{}@{}'.format(test_username, self.config['device_ip'])]
                 subprocess.check_call(cmd)
                 test_image_booted = self.is_test_image_booted()
-            except:
+            except Exception:
                 pass
             if test_image_booted:
                 break
@@ -161,7 +202,7 @@ class Rpi3:
         try:
             subprocess.check_output(
                 cmd, stderr=subprocess.STDOUT, timeout=60)
-        except:
+        except Exception:
             return False
         # If we get here, then the above command proved we are in snappy
         return True
@@ -180,7 +221,7 @@ class Rpi3:
         logger.info("Checking if master image booted.")
         try:
             output = self._run_control('cat /etc/issue')
-        except:
+        except Exception:
             logger.info("Error checking device state. Forcing reboot...")
             return False
         if 'GNU' in str(output):
@@ -252,7 +293,7 @@ class Rpi3:
                 timeout=30)
         except KeyError:
             raise RecoveryError("Device config missing test_device")
-        except:
+        except Exception:
             # We might not be mounted, so expect this to fail sometimes
             pass
         cmd = 'nc.traditional {} {}| xzcat| sudo dd of={} bs=16M'.format(
@@ -261,11 +302,11 @@ class Rpi3:
         try:
             # XXX: I hope 30 min is enough? but maybe not!
             self._run_control(cmd, timeout=1800)
-        except:
+        except Exception:
             raise ProvisioningError("timeout reached while flashing image!")
         try:
             self._run_control('sync')
-        except:
+        except Exception:
             # Nothing should go wrong here, but let's sleep if it does
             logger.warn("Something went wrong with the sync, sleeping...")
             time.sleep(30)
@@ -273,27 +314,12 @@ class Rpi3:
             self._run_control(
                 'sudo hdparm -z {}'.format(self.config['test_device']),
                 timeout=30)
-        except:
+        except Exception:
             raise ProvisioningError("Unable to run hdparm to rescan "
                                     "partitions")
 
-    def mount_writable_partition(self):
-        # Mount the writable partition
-        try:
-            self._run_control('sudo mount {} /mnt'.format(
-                              self.config['snappy_writable_partition']))
-        except KeyError:
-            raise RecoveryError(
-                "Device config missing snappy_writable_partition")
-        except:
-            err = ("Error mounting writable partition on test image {}. "
-                   "Check device configuration".format(
-                       self.config['snappy_writable_partition']))
-            raise ProvisioningError(err)
-
-    def create_user(self):
+    def create_user(self, image_type):
         """Create user account for default ubuntu user"""
-        self.mount_writable_partition()
         metadata = 'instance_id: cloud-image'
         userdata = ('#cloud-config\n'
                     'password: ubuntu\n'
@@ -302,30 +328,49 @@ class Rpi3:
                     '        - ubuntu:ubuntu\n'
                     '    expire: False\n'
                     'ssh_pwauth: True')
-        with open('meta-data', 'w') as mdata:
-            mdata.write(metadata)
-        with open('user-data', 'w') as udata:
-            udata.write(userdata)
+        # For core20:
+        uc20_ci_data = ('#cloud-config\n'
+                        'datasource_list: [ NoCloud, None ]\n'
+                        'datasource:\n'
+                        '  NoCloud:\n'
+                        '    user-data: |\n'
+                        '      #cloud-config\n'
+                        '      password: ubuntu\n'
+                        '      chpasswd:\n'
+                        '          list:\n'
+                        '              - ubuntu:ubuntu\n'
+                        '          expire: False\n'
+                        '      ssh_pwauth: True\n'
+                        '    meta-data: |\n'
+                        '      instance_id: cloud-image')
+        base = '/mnt'
+        if image_type == 'core':
+            base = '/mnt/system-data'
         try:
-            output = self._run_control('ls /mnt')
-            if 'system-data' in str(output):
-                base = '/mnt/system-data'
+            if image_type == 'core20':
+                ci_path = os.path.join(base, 'data/etc/cloud/cloud.cfg.d')
+                self._run_control('sudo mkdir -p {}'.format(ci_path))
+                write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
+                self._run_control(
+                    write_cmd.format(uc20_ci_data, ci_path, '99_nocloud.cfg'))
             else:
-                base = '/mnt'
-            cloud_path = os.path.join(
-                base, 'var/lib/cloud/seed/nocloud-net')
-            self._run_control('sudo mkdir -p {}'.format(cloud_path))
-            write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
-            self._run_control(
-                write_cmd.format(metadata, cloud_path, 'meta-data'))
-            self._run_control(
-                write_cmd.format(userdata, cloud_path, 'user-data'))
-            # This needs to be removed on eoan for rpi, else cloud-init
-            # won't find the user-data we give it
-            rm_cmd = "sudo rm -f {}".format(
-                os.path.join(base, 'etc/cloud/cloud.cfg.d/99-fake_cloud.cfg'))
-            self._run_control(rm_cmd)
-        except:
+                # For core or ubuntu classic images
+                ci_path = os.path.join(
+                    base, 'var/lib/cloud/seed/nocloud-net')
+                self._run_control('sudo mkdir -p {}'.format(ci_path))
+                write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
+                self._run_control(
+                    write_cmd.format(metadata, ci_path, 'meta-data'))
+                self._run_control(
+                    write_cmd.format(userdata, ci_path, 'user-data'))
+                if image_type == 'ubuntu':
+                    # This needs to be removed on classic for rpi, else
+                    # cloud-init won't find the user-data we give it
+                    rm_cmd = "sudo rm -f {}".format(
+                        os.path.join(
+                            base, 'etc/cloud/cloud.cfg.d/99-fake_cloud.cfg'))
+                    self._run_control(rm_cmd)
+        except Exception:
             raise ProvisioningError("Error creating user files")
 
     def wipe_test_device(self):
@@ -340,7 +385,7 @@ class Rpi3:
             logger.error("Failed to write image, cleaning up...")
             self._run_control(
                 'sudo wipefs -af {}'.format(test_device))
-        except:
+        except Exception:
             # This is an attempt to salvage a bad run, further tracebacks
             # would just add to the noise
             pass
@@ -379,12 +424,14 @@ class Rpi3:
         try:
             self.flash_test_image(server_ip, server_port)
             file_server.terminate()
-            logger.info("Creating Test User")
-            self.create_user()
-            self.run_post_provision_script()
+            image_type, image_dev = self.get_image_type()
+            with self.remote_mount(image_dev):
+                logger.info("Creating Test User")
+                self.create_user(image_type)
+                self.run_post_provision_script()
             logger.info("Booting Test Image")
             self.ensure_test_image(test_username, test_password)
-        except:
+        except Exception:
             # wipe out whatever we installed if things go badly
             self.wipe_test_device()
             raise
