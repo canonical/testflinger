@@ -78,7 +78,9 @@ class MuxPi:
             raise ProvisioningError('You must specify a "url" value in '
                                     'the "provision_data" section of '
                                     'your job_data')
-        self._run_control('stm -ts')
+        cmd = self.config.get('control_switch_local_cmd',
+                              'stm -ts')
+        self._run_control(cmd)
         time.sleep(5)
         logger.info('Flashing Test image')
         image_file = snappy_device_agents.compress_file('snappy.img')
@@ -98,7 +100,9 @@ class MuxPi:
                 self.create_user(image_type)
             self.run_post_provision_script()
             logger.info("Booting Test Image")
-            self._run_control('stm -dut')
+            cmd = self.config.get('control_switch_device_cmd',
+                                  'stm -dut')
+            self._run_control(cmd)
             self.check_test_image_booted()
         except Exception:
             raise
