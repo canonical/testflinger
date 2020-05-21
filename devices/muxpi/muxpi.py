@@ -96,8 +96,8 @@ class MuxPi:
             with self.remote_mount(image_dev):
                 logger.info("Creating Test User")
                 self.create_user(image_type)
-                logger.info("Booting Test Image")
-                self.run_post_provision_script()
+            self.run_post_provision_script()
+            logger.info("Booting Test Image")
             self._run_control('stm -dut')
             self.check_test_image_booted()
         except Exception:
