@@ -428,7 +428,7 @@ class Rpi3:
             with self.remote_mount(image_dev):
                 logger.info("Creating Test User")
                 self.create_user(image_type)
-                self.run_post_provision_script()
+            self.run_post_provision_script()
             logger.info("Booting Test Image")
             self.ensure_test_image(test_username, test_password)
         except Exception:
