@@ -191,7 +191,7 @@ class Netboot:
         self.hardreset()
 
         started = time.time()
-        while time.time() - started < 300:
+        while time.time() - started < 600:
             time.sleep(10)
             master_is_booted = self.is_master_image_booted()
             if master_is_booted:
