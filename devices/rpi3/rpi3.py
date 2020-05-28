@@ -166,7 +166,7 @@ class Rpi3:
         started = time.time()
         # Retry for a while since we might still be rebooting
         test_image_booted = False
-        while time.time() - started < 300:
+        while time.time() - started < 600:
             try:
                 time.sleep(10)
                 cmd = ['sshpass', '-p', test_password, 'ssh-copy-id',
