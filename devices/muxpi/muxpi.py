@@ -78,7 +78,9 @@ class MuxPi:
             raise ProvisioningError('You must specify a "url" value in '
                                     'the "provision_data" section of '
                                     'your job_data')
-        self._run_control('stm -ts')
+        cmd = self.config.get('control_switch_local_cmd',
+                              'stm -ts')
+        self._run_control(cmd)
         time.sleep(5)
         logger.info('Flashing Test image')
         image_file = snappy_device_agents.compress_file('snappy.img')
@@ -98,7 +100,10 @@ class MuxPi:
                 self.create_user(image_type)
             self.run_post_provision_script()
             logger.info("Booting Test Image")
-            self._run_control('stm -dut')
+            cmd = self.config.get('control_switch_device_cmd',
+                                  'stm -dut')
+            self._run_control(cmd)
+            self.hardreset()
             self.check_test_image_booted()
         except Exception:
             raise
@@ -147,6 +152,24 @@ class MuxPi:
             yield mount_point
         finally:
             self._run_control('sudo umount {}'.format(mount_point))
+
+    def hardreset(self):
+        """
+        Reboot the device.
+
+        :raises RecoveryError:
+            If the command times out or anything else fails.
+
+        .. note::
+            This function runs the commands specified in 'reboot_script'
+            in the config yaml.
+        """
+        for cmd in self.config['reboot_script']:
+            logger.info("Running %s", cmd)
+            try:
+                subprocess.check_call(cmd.split(), timeout=60)
+            except Exception:
+                raise RecoveryError("timeout reaching control host!")
 
     def get_image_type(self):
         """
