@@ -164,7 +164,7 @@ class MuxPi:
             This function runs the commands specified in 'reboot_script'
             in the config yaml.
         """
-        for cmd in self.config['reboot_script']:
+        for cmd in self.config.get('reboot_script', []):
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=60)
