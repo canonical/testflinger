@@ -1,0 +1,8 @@
+#!/bin/sh
+
+set -e
+
+rm -rf tfenv
+virtualenv -qp python3 tfenv
+. tfenv/bin/activate
+./setup.py test
