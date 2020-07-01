@@ -26,6 +26,10 @@ INSTALL_REQUIRES = [
 
 TEST_REQUIRES = [
     "mock",
+    "pytest",
+    "pytest-cov",
+    "pytest-flake8",
+    "requests-mock",
 ]
 
 setup(
@@ -35,7 +39,7 @@ setup(
     packages=['testflinger_agent'],
     zip_safe=False,
     install_requires=INSTALL_REQUIRES,
-    test_suite='testflinger_agent.tests',
     tests_require=TEST_REQUIRES,
+    setup_requires=['pytest-runner'],
     scripts=['testflinger-agent'],
 )
