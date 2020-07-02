@@ -25,7 +25,9 @@ INSTALL_REQUIRES = [
 ]
 
 TEST_REQUIRES = [
-    "mock",
+    # newer mock requires python3.8 features, use an older one so we
+    # can run unit tests on older systems
+    "mock==3.0.5",
     "pytest",
     "pytest-cov",
     "pytest-flake8",
