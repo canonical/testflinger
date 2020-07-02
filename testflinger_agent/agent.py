@@ -33,7 +33,8 @@ class TestflingerAgent:
         self.advertised_queues = self.client.config.get('advertised_queues')
         self.advertised_images = self.client.config.get('advertised_images')
         if self.advertised_queues or self.advertised_images:
-            self.status_proc = multiprocessing.Process(target=self._status_worker)
+            self.status_proc = multiprocessing.Process(
+                target=self._status_worker)
             self.status_proc.daemon = True
             self.status_proc.start()
 

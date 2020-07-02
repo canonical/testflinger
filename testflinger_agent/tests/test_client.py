@@ -12,32 +12,27 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import json
-import requests
-
+import pytest
 import uuid
 
-from mock import patch
-from unittest import TestCase
+import requests_mock as rmock
 
-from testflinger_agent.client import TestflingerClient
+from testflinger_agent.client import TestflingerClient as _TestflingerClient
 
 
-class ClientTest(TestCase):
-    @patch('requests.get')
-    def test_check_jobs_empty(self, mock_requests_get):
-        client = TestflingerClient({'server_address': ''})
-        mock_requests_get.return_value = requests.Response()
+class TestClient():
+    @pytest.fixture
+    def client(self):
+        yield _TestflingerClient({'server_address': '127.0.0.1:8000'})
+
+    def test_check_jobs_empty(self, client, requests_mock):
+        requests_mock.get(rmock.ANY, status_code=200)
         job_data = client.check_jobs()
-        self.assertEqual(job_data, None)
+        assert(job_data is None)
 
-    @patch('requests.get')
-    def test_check_jobs_with_job(self, mock_requests_get):
-        client = TestflingerClient({'server_address': ''})
+    def test_check_jobs_with_job(self, client, requests_mock):
         fake_job_data = {'job_id': str(uuid.uuid1()),
                          'job_queue': 'test_queue'}
-        fake_response = requests.Response()
-        fake_response._content = json.dumps(fake_job_data).encode()
-        mock_requests_get.return_value = fake_response
+        requests_mock.get(rmock.ANY, json=fake_job_data)
         job_data = client.check_jobs()
-        self.assertEqual(job_data, fake_job_data)
+        assert(job_data == fake_job_data)

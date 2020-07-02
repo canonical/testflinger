@@ -25,7 +25,13 @@ INSTALL_REQUIRES = [
 ]
 
 TEST_REQUIRES = [
-    "mock",
+    # newer mock requires python3.8 features, use an older one so we
+    # can run unit tests on older systems
+    "mock==3.0.5",
+    "pytest",
+    "pytest-cov",
+    "pytest-flake8",
+    "requests-mock",
 ]
 
 setup(
@@ -35,7 +41,7 @@ setup(
     packages=['testflinger_agent'],
     zip_safe=False,
     install_requires=INSTALL_REQUIRES,
-    test_suite='testflinger_agent.tests',
     tests_require=TEST_REQUIRES,
+    setup_requires=['pytest-runner'],
     scripts=['testflinger-agent'],
 )
