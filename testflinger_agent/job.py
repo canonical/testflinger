@@ -103,6 +103,10 @@ class TestflingerJob:
         :return:
             returncode from the process
         """
+        env = os.environ.copy()
+        # Make sure there all values we add are strings
+        env.update({k: v for k, v in self.client.config.items()
+                    if isinstance(v, str)})
         global_timeout = self.get_global_timeout()
         output_timeout = self.get_output_timeout()
         start_time = time.time()
@@ -112,7 +116,7 @@ class TestflingerJob:
             buffer_timeout = time.time()
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT,
-                                       shell=True, cwd=cwd)
+                                       shell=True, cwd=cwd, env=env)
 
             def cleanup(signum, frame):
                 process.kill()
