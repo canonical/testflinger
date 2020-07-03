@@ -24,7 +24,8 @@ class TestClient:
                        'job_queues': ['test'],
                        'execution_basedir': self.tmpdir,
                        'logging_basedir': self.tmpdir,
-                       'results_basedir': os.path.join(self.tmpdir, 'results')
+                       'results_basedir': os.path.join(self.tmpdir, 'results'),
+                       'test_string': 'ThisIsATest'
                        }
         testflinger_agent.configure_logging(self.config)
         client = _TestflingerClient(self.config)
@@ -76,6 +77,21 @@ class TestClient:
                                     fake_job_data.get('job_id'),
                                     'test.log')).read()
         assert('test1' == testlog.splitlines()[-1].strip())
+
+    def test_config_vars_in_env(self, agent, requests_mock):
+        self.config['test_command'] = 'echo test_string is $test_string'
+        fake_job_data = {'job_id': str(uuid.uuid1()),
+                         'job_queue': 'test',
+                         'test_data': ''}
+        requests_mock.get(rmock.ANY, [{'text': json.dumps(fake_job_data)},
+                                      {'text': '{}'}])
+        requests_mock.post(rmock.ANY, status_code=200)
+        with patch('shutil.rmtree'):
+            agent.process_jobs()
+        testlog = open(os.path.join(self.tmpdir,
+                                    fake_job_data.get('job_id'),
+                                    'test.log')).read()
+        assert("ThisIsATest" in testlog)
 
     def test_phase_failed(self, agent, requests_mock):
         # Make sure we stop running after a failed phase
