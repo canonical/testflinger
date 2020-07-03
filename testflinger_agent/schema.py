@@ -32,6 +32,7 @@ SCHEMA_V1 = {
     voluptuous.Required('test_command', default=''): str,
     voluptuous.Required('reserve_command', default=''): str,
     voluptuous.Required('cleanup_command', default=''): str,
+    voluptuous.Optional('provision_type'): str,
     voluptuous.Optional('global_timeout'): int,
     voluptuous.Optional('output_timeout'): int,
     voluptuous.Optional('advertised_queues'): dict,
