@@ -110,3 +110,22 @@ class TestJob():
         with open(logfile) as log:
             log_data = log.read()
         assert(timeout_str == log_data)
+
+    def test_set_truncate(self, client):
+        """Test the _set_truncate method of TestflingerJob"""
+        job = _TestflingerJob({}, client)
+        with tempfile.TemporaryFile(mode="r+") as f:
+            # First check that a small file doesn't get truncated
+            f.write("x" * 100)
+            job._set_truncate(f, size=100)
+            contents = f.read()
+            assert(len(contents) == 100)
+            assert("WARNING" not in contents)
+
+            # Now check that a larger file does get truncated
+            f.write("x" * 100)
+            job._set_truncate(f, size=100)
+            contents = f.read()
+            # It won't be exactly 100 bytes, because a warning is added
+            assert(len(contents) < 150)
+            assert("WARNING" in contents)

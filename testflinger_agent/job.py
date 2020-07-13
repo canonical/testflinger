@@ -80,16 +80,35 @@ class TestflingerJob:
             with open(os.path.join(rundir, 'testflinger-outcome.json')) as f:
                 outcome_data = json.load(f)
             if os.path.exists(output_log):
-                with open(output_log, encoding='utf-8') as f:
+                with open(output_log, 'r+', encoding='utf-8') as f:
+                    self._set_truncate(f)
                     outcome_data[phase+'_output'] = f.read()
             if os.path.exists(serial_log):
-                with open(serial_log, encoding='utf-8') as f:
+                with open(serial_log, 'r+', encoding='utf-8') as f:
+                    self._set_truncate(f)
                     outcome_data[phase+'_serial'] = f.read()
             outcome_data[phase+'_status'] = exitcode
             with open(os.path.join(rundir, 'testflinger-outcome.json'),
                       'w', encoding='utf-8') as f:
                 json.dump(outcome_data, f)
             sys.exit(exitcode)
+
+    def _set_truncate(self, f, size=1024*1024):
+        """Set up an open file so that we don't read more than a specified
+           size. We want to read from the end of the file rather than the
+           beginning. Write a warning at the end of the file if it was too big.
+
+        :param f:
+            The file object, which should be opened for read/write
+        :param size:
+            Maximum number of bytes we want to allow from reading the file
+        """
+        end = f.seek(0, 2)
+        if end > size:
+            f.write('\nWARNING: File has been truncated due to length!')
+            f.seek(end-size, 0)
+        else:
+            f.seek(0, 0)
 
     def run_with_log(self, cmd, logfile, cwd=None):
         """Execute command in a subprocess and log the output
