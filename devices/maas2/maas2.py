@@ -74,6 +74,18 @@ class Maas2:
         user_data = provision_data.get('user_data')
         self.deploy_node(distro, kernel, user_data)
 
+    def _install_efitools_snap(self):
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'ubuntu@{}'.format(self.config['device_ip']),
+               'sudo snap install efi-tools-ijohnson --devmode --edge']
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+               '-o', 'UserKnownHostsFile=/dev/null',
+               'ubuntu@{}'.format(self.config['device_ip']),
+               'sudo snap alias efi-tools-ijohnson.efibootmgr efibootmgr']
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
     def _get_efi_data(self):
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
@@ -81,6 +93,15 @@ class Maas2:
                'sudo efibootmgr']
         p = subprocess.run(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        # If it fails the first time, try installing efitools snap
+        if p.returncode:
+            self._install_efitools_snap()
+            cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
+                   '-o', 'UserKnownHostsFile=/dev/null',
+                   'ubuntu@{}'.format(self.config['device_ip']),
+                   'sudo efibootmgr']
+            p = subprocess.run(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if p.returncode:
             return None
         # Use OrderedDict because often the NIC entries in EFI are in a good
