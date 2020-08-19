@@ -45,7 +45,7 @@ class MuxPi:
             self.config = yaml.safe_load(configfile)
         with open(job_data) as j:
             self.job_data = json.load(j)
-        self.agent_name = config.get('agent_name')
+        self.agent_name = self.config.get('agent_name')
         self.mount_point = os.path.join('/mnt', self.agent_name)
 
     def _run_control(self, cmd, timeout=60):
