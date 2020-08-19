@@ -45,6 +45,8 @@ class MuxPi:
             self.config = yaml.safe_load(configfile)
         with open(job_data) as j:
             self.job_data = json.load(j)
+        self.agent_name = config.get('agent_name')
+        self.mount_point = os.path.join('/mnt', self.agent_name)
 
     def _run_control(self, cmd, timeout=60):
         """
@@ -145,13 +147,15 @@ class MuxPi:
                                     "partitions")
 
     @contextmanager
-    def remote_mount(self, remote_device, mount_point='/mnt'):
+    def remote_mount(self, remote_device):
         self._run_control(
-            'sudo mount /dev/{} {}'.format(remote_device, mount_point))
+            'sudo mkdir -p {}'.format(self.mount_point))
+        self._run_control(
+            'sudo mount /dev/{} {}'.format(remote_device, self.mount_point))
         try:
-            yield mount_point
+            yield self.mount_point
         finally:
-            self._run_control('sudo umount {}'.format(mount_point))
+            self._run_control('sudo umount {}'.format(self.mount_point))
 
     def hardreset(self):
         """
@@ -187,7 +191,7 @@ class MuxPi:
         for dev in dev_list:
             try:
                 with self.remote_mount(dev):
-                    dirs = self._run_control('ls /mnt')
+                    dirs = self._run_control('ls {}'.format(self.mount_point))
                     for path, img_type in self.IMAGE_PATH_IDS.items():
                         if path in dirs.decode().split():
                             return img_type, dev
@@ -234,9 +238,9 @@ class MuxPi:
                         '    meta-data: |\n'
                         '      instance_id: cloud-image')
 
-        base = '/mnt'
+        base = self.mount_point
         if image_type == 'core':
-            base = '/mnt/system-data'
+            base = os.path.join(base, 'system-data')
         try:
             if image_type == 'core20':
                 ci_path = os.path.join(base, 'data/etc/cloud/cloud.cfg.d')
