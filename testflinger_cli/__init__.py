@@ -242,6 +242,8 @@ def poll(ctx, job_id, oneshot):
         print('This job is currently waiting on a node to become available.')
         prev_queue_pos = None
     while job_state != 'complete':
+        if job_state == 'cancelled':
+            break
         if job_state == 'waiting':
             try:
                 queue_pos = conn.get_job_position(job_id)
