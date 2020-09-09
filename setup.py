@@ -16,7 +16,7 @@
 #
 from setuptools import setup
 
-INSTALL_REQUIRES = ['click', 'pyyaml', 'requests']
+INSTALL_REQUIRES = ['pyyaml', 'requests']
 TEST_REQUIRES = []
 
 setup(
