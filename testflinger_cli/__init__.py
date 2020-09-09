@@ -42,7 +42,7 @@ class TestflingerCli:
         server = os.environ.get('TESTFLINGER_SERVER') or self.args.server
         if not server.startswith(('http://', 'https://')):
             raise SystemExit('Server must start with "http://" or "https://"')
-        self.client = client.Client(self.args.server)
+        self.client = client.Client(server)
 
     def run(self):
         if hasattr(self.args, 'func'):
