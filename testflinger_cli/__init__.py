@@ -32,8 +32,11 @@ if os.path.exists(os.path.join(basedir, 'setup.py')):
 
 
 def cli():
-    tfcli = TestflingerCli()
-    tfcli.run()
+    try:
+        tfcli = TestflingerCli()
+        tfcli.run()
+    except KeyboardInterrupt:
+        raise SystemExit
 
 
 class TestflingerCli:
