@@ -22,7 +22,7 @@ import sys
 import time
 
 from argparse import ArgumentParser
-from testflinger_cli import client
+from testflinger_cli import (client, config)
 
 
 # Make it easier to run from a checkout
@@ -42,9 +42,19 @@ def cli():
 class TestflingerCli:
     def __init__(self):
         self.get_args()
-        server = os.environ.get('TESTFLINGER_SERVER') or self.args.server
+        self.config = config.TestflingerCliConfig(self.args.configfile)
+        server = (
+            self.args.server or
+            self.config.get('server') or
+            os.environ.get('TESTFLINGER_SERVER') or
+            'https://testflinger.canonical.com'
+        )
+        # Allow config subcommand without worrying about server or client
+        if hasattr(self.args, 'func') and self.args.func == self.configure:
+            return
         if not server.startswith(('http://', 'https://')):
-            raise SystemExit('Server must start with "http://" or "https://"')
+            raise SystemExit('Server must start with "http://" or "https://" '
+                             '- currently set to: "{}"'.format(server))
         self.client = client.Client(server)
 
     def run(self):
@@ -54,8 +64,9 @@ class TestflingerCli:
 
     def get_args(self):
         parser = ArgumentParser()
-        parser.add_argument('--server',
-                            default='https://testflinger.canonical.com',
+        parser.add_argument('-c', '--configfile', default=None,
+                            help='Configuration file to use')
+        parser.add_argument('--server', default=None,
                             help='Testflinger server to use')
         sub = parser.add_subparsers()
         arg_artifacts = sub.add_parser(
@@ -68,6 +79,10 @@ class TestflingerCli:
             'cancel', help='Tell the server to cancel a specified JOB_ID')
         arg_cancel.set_defaults(func=self.cancel)
         arg_cancel.add_argument('job_id')
+        arg_config = sub.add_parser(
+            'config', help='Get or set configuration options')
+        arg_config.set_defaults(func=self.configure)
+        arg_config.add_argument('setting', nargs='?', help='setting=value')
         arg_list_queues = sub.add_parser(
             'list-queues',
             help='List the advertised queues on the Testflinger server')
@@ -152,6 +167,22 @@ class TestflingerCli:
             raise SystemExit('Job {} is already in {} state and cannot be '
                              'cancelled.'.format(self.args.job_id, job_state))
         self.client.post_job_state(self.args.job_id, 'cancelled')
+
+    def configure(self):
+        if self.args.setting:
+            setting = self.args.setting.split('=')
+            if len(setting) == 2:
+                self.config.set(*setting)
+                return
+            if len(setting) == 1:
+                print("{} = {}".format(
+                    setting[0], self.config.get(setting[0])))
+                return
+        print("Current Configuration")
+        print("---------------------")
+        for k, v in self.config.data.items():
+            print("{} = {}".format(k, v))
+        print()
 
     def submit(self):
         """Submit a new test job to the server"""
