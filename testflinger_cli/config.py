@@ -17,6 +17,7 @@
 import configparser
 import os
 import xdg
+from collections import OrderedDict
 
 
 class TestflingerCliConfig:
@@ -27,9 +28,9 @@ class TestflingerCliConfig:
                 xdg.XDG_CONFIG_HOME, "testflinger-cli.conf")
         config.read(configfile)
         # Default empty config in case there's no config file
-        self.data = dict()
+        self.data = OrderedDict()
         if 'testflinger-cli' in config.sections():
-            self.data = dict(config['testflinger-cli'])
+            self.data = OrderedDict(config['testflinger-cli'])
         self.configfile = configfile
 
     def get(self, key):
