@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2017-2019 Canonical
+# Copyright (C) 2017-2020 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 #
 from setuptools import setup
 
-INSTALL_REQUIRES = ['pyyaml', 'requests']
+INSTALL_REQUIRES = ['pyyaml', 'requests', 'xdg<4.0']
 TEST_REQUIRES = []
 
 setup(
@@ -35,4 +35,3 @@ setup(
     ''',
 
 )
-
