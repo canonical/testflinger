@@ -20,9 +20,11 @@ import json
 import os
 import sys
 import time
+import yaml
 
 from argparse import ArgumentParser
-from testflinger_cli import (client, config)
+from datetime import datetime
+from testflinger_cli import (client, config, history)
 
 
 # Make it easier to run from a checkout
@@ -56,6 +58,7 @@ class TestflingerCli:
             raise SystemExit('Server must start with "http://" or "https://" '
                              '- currently set to: "{}"'.format(server))
         self.client = client.Client(server)
+        self.history = history.TestflingerCliHistory()
 
     def run(self):
         if hasattr(self.args, 'func'):
@@ -83,6 +86,13 @@ class TestflingerCli:
             'config', help='Get or set configuration options')
         arg_config.set_defaults(func=self.configure)
         arg_config.add_argument('setting', nargs='?', help='setting=value')
+        arg_jobs = sub.add_parser(
+            'jobs',
+            help='List the previously started test jobs'
+        )
+        arg_jobs.set_defaults(func=self.jobs)
+        arg_jobs.add_argument('--status', '-s', action='store_true',
+                              help='Include job status (may add delay)')
         arg_list_queues = sub.add_parser(
             'list-queues',
             help='List the advertised queues on the Testflinger server')
@@ -130,6 +140,7 @@ class TestflingerCli:
         """Show the status of a specified JOB_ID"""
         try:
             job_state = self.client.get_status(self.args.job_id)
+            self.history.update(self.args.job_id, job_state)
         except client.HTTPError as e:
             if e.status == 204:
                 raise SystemExit('No data found for that job id. Check the '
@@ -149,6 +160,7 @@ class TestflingerCli:
         """Tell the server to cancel a specified JOB_ID"""
         try:
             job_state = self.client.get_status(self.args.job_id)
+            self.history.update(self.args.job_id, job_state)
         except client.HTTPError as e:
             if e.status == 204:
                 raise SystemExit('Job {} not found. Check the job '
@@ -167,6 +179,7 @@ class TestflingerCli:
             raise SystemExit('Job {} is already in {} state and cannot be '
                              'cancelled.'.format(self.args.job_id, job_state))
         self.client.post_job_state(self.args.job_id, 'cancelled')
+        self.history.update(self.args.job_id, 'cancelled')
 
     def configure(self):
         if self.args.setting:
@@ -199,6 +212,8 @@ class TestflingerCli:
                 raise SystemExit(
                     'Unable to read file: {}'.format(self.args.filename))
         job_id = self.submit_job_data(data)
+        queue = yaml.safe_load(data).get('job_queue')
+        self.history.new(job_id, queue)
         if self.args.quiet:
             print(job_id)
         else:
@@ -301,6 +316,7 @@ class TestflingerCli:
 
     def do_poll(self, job_id):
         job_state = self.get_job_state(job_id)
+        self.history.update(job_id, job_state)
         if job_state == 'waiting':
             print('This job is waiting on a node to become available.')
             prev_queue_pos = None
@@ -325,7 +341,39 @@ class TestflingerCli:
             if output:
                 print(output, end='', flush=True)
             job_state = self.get_job_state(job_id)
+            self.history.update(job_id, job_state)
         print(job_state)
+
+    def jobs(self):
+        """List the previously started test jobs"""
+        if self.args.status:
+            # Getting job state may be slow, only include if requested
+            status_text = 'Status'
+        else:
+            status_text = ''
+        print('{:36} {:9} {}  {}'.format(
+            'Job ID',
+            status_text,
+            'Submission Time',
+            'Queue'
+        ))
+        print('-'*79)
+        for job_id, jobdata in self.history.history.items():
+            if self.args.status:
+                job_state = jobdata.get('job_state')
+                if job_state not in ('cancelled', 'complete'):
+                    job_state = self.get_job_state(job_id)
+                    self.history.update(job_id, job_state)
+            else:
+                job_state = ''
+            print('{} {:9} {} {}'.format(
+                job_id,
+                job_state,
+                datetime.fromtimestamp(
+                    jobdata.get('submission_time')).strftime('%a %b %m %H:%M'),
+                jobdata.get('queue')
+            ))
+        print()
 
     def list_queues(self):
         """List the advertised queues on the current Testflinger server"""
