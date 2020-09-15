@@ -34,6 +34,9 @@ class TestflingerCliHistory:
             submission_time=submission_time,
             job_state='unknown'
         )
+        # limit job history to last 10 jobs
+        if len(self.history) > 10:
+            self.history.popitem(last=False)
         self.save()
 
     def load(self):
