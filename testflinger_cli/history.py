@@ -23,6 +23,7 @@ from datetime import datetime
 
 class TestflingerCliHistory:
     def __init__(self):
+        os.makedirs(xdg.XDG_DATA_HOME, exist_ok=True)
         self.historyfile = os.path.join(
             xdg.XDG_DATA_HOME, "testflinger-cli-history.json")
         self.load()

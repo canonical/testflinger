@@ -24,6 +24,7 @@ class TestflingerCliConfig:
     def __init__(self, configfile=None):
         config = configparser.ConfigParser()
         if not configfile:
+            os.makedirs(xdg.XDG_CONFIG_HOME, exist_ok=True)
             configfile = os.path.join(
                 xdg.XDG_CONFIG_HOME, "testflinger-cli.conf")
         config.read(configfile)
