@@ -52,10 +52,17 @@ class TestflingerAgent:
     def set_state(self, state):
         self._state.value = state.encode('utf-8')
 
-    def get_offline_file(self):
-        return os.path.join(
-            '/tmp', 'TESTFLINGER-DEVICE-OFFLINE-{}'.format(
-                self.client.config.get('agent_id')))
+    def get_offline_files(self):
+        # Return possible restart filenames with and without dashes
+        # i.e. support both:
+        #     TESTFLINGER-DEVICE-OFFLINE-devname-001
+        #     TESTFLINGER-DEVICE-OFFLINE-devname001
+        agent = self.client.config.get('agent_id')
+        files = [
+            '/tmp/TESTFLINGER-DEVICE-OFFLINE-{}'.format(agent),
+            '/tmp/TESTFLINGER-DEVICE-OFFLINE-{}'.format(agent.replace('-', ''))
+        ]
+        return files
 
     def get_restart_files(self):
         # Return possible restart filenames with and without dashes
@@ -70,12 +77,13 @@ class TestflingerAgent:
         return files
 
     def check_offline(self):
-        if os.path.exists(self.get_offline_file()):
-            self.set_state('offline')
-            return True
-        else:
-            self.set_state('waiting')
-            return False
+        possible_files = self.get_offline_files()
+        for offline_file in possible_files:
+            if os.path.exists(offline_file):
+                self.set_state('offline')
+                return offline_file
+        self.set_state('waiting')
+        return ''
 
     def check_restart(self):
         possible_files = self.get_restart_files()
@@ -98,7 +106,7 @@ class TestflingerAgent:
 
     def mark_device_offline(self):
         # Create the offline file, this should work even if it exists
-        open(self.get_offline_file(), 'w').close()
+        open(self.get_offline_files()[0], 'w').close()
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
