@@ -34,7 +34,7 @@ def main():
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
     while True:
-        offline_file = agent.check_offline
+        offline_file = agent.check_offline()
         if offline_file:
             logger.error("Agent %s is offline, not processing jobs! "
                          "Remove %s to resume processing" %
