@@ -36,9 +36,9 @@ class MuxPi:
 
     """Device Agent for MuxPi."""
 
-    IMAGE_PATH_IDS = {'etc': 'ubuntu',
-                      'system-data': 'core',
-                      'snaps': 'core20'}
+    IMAGE_PATH_IDS = {'writable/etc': 'ubuntu',
+                      'writable/system-data': 'core',
+                      'ubuntu-seed/snaps': 'core20'}
 
     def __init__(self, config, job_data):
         with open(config) as configfile:
@@ -96,8 +96,8 @@ class MuxPi:
         try:
             self.flash_test_image(server_ip, server_port)
             file_server.terminate()
-            image_type, image_dev = self.get_image_type()
-            with self.remote_mount(image_dev):
+            with self.remote_mount():
+                image_type = self.get_image_type()
                 logger.info("Creating Test User")
                 self.create_user(image_type)
             self.run_post_provision_script()
@@ -147,15 +147,30 @@ class MuxPi:
                                     "partitions")
 
     @contextmanager
-    def remote_mount(self, remote_device):
-        self._run_control(
-            'sudo mkdir -p {}'.format(self.mount_point))
-        self._run_control(
-            'sudo mount /dev/{} {}'.format(remote_device, self.mount_point))
+    def remote_mount(self):
+        test_device = self.config['test_device']
+        lsblk_data = self._run_control(
+            'lsblk -o NAME,LABEL -J {}'.format(test_device))
+        lsblk_json = json.loads(lsblk_data.decode())
+        # List of (name, label) pairs
+        mount_list = [(x.get('name'),
+                      os.path.join(self.mount_point, x.get('label')))
+                      for x in lsblk_json['blockdevices'][0]['children']
+                      if x.get('name') and x.get('label')]
+        for dev, mount in mount_list:
+            try:
+                self._run_control('sudo mkdir -p {}'.format(mount))
+                self._run_control(
+                    'sudo mount /dev/{} {}'.format(dev, mount))
+            except Exception:
+                # If unmountable or any other error, go on to the next one
+                mount_list.remove((dev, mount))
+                continue
         try:
             yield self.mount_point
         finally:
-            self._run_control('sudo umount {}'.format(self.mount_point))
+            for _, mount in mount_list:
+                self._run_control('sudo umount {}'.format(mount))
 
     def hardreset(self):
         """
@@ -180,26 +195,23 @@ class MuxPi:
         Figure out which kind of image is on the configured block device
 
         :returns:
-            tuple of image type and device as strings
+            image type as a string
         """
-        dev = self.config['test_device']
-        lsblk_data = self._run_control('lsblk -J {}'.format(dev))
-        lsblk_json = json.loads(lsblk_data.decode())
-        dev_list = [x.get('name')
-                    for x in lsblk_json['blockdevices'][0]['children']
-                    if x.get('name')]
-        for dev in dev_list:
+        def check_path(dir):
+            self._run_control('test -e {}'.format(dir))
+
+        for path, img_type in self.IMAGE_PATH_IDS.items():
             try:
-                with self.remote_mount(dev):
-                    dirs = self._run_control('ls {}'.format(self.mount_point))
-                    for path, img_type in self.IMAGE_PATH_IDS.items():
-                        if path in dirs.decode().split():
-                            return img_type, dev
+                path = os.path.join(self.mount_point, path)
+                check_path(path)
+                logger.info(
+                    "Image type detected: {}".format(img_type))
+                return img_type
             except Exception:
-                # If unmountable or any other error, go on to the next one
+                # Path was not found, continue trying others
                 continue
         # We have no idea what kind of image this is
-        return 'unknown', dev
+        return 'unknown'
 
     def unmount_writable_partition(self):
         try:
@@ -239,10 +251,9 @@ class MuxPi:
                         '      instance_id: cloud-image')
 
         base = self.mount_point
-        if image_type == 'core':
-            base = os.path.join(base, 'system-data')
         try:
             if image_type == 'core20':
+                base = os.path.join(self.mount_point, 'ubuntu-seed')
                 ci_path = os.path.join(base, 'data/etc/cloud/cloud.cfg.d')
                 self._run_control('sudo mkdir -p {}'.format(ci_path))
                 write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
@@ -250,8 +261,10 @@ class MuxPi:
                     write_cmd.format(uc20_ci_data, ci_path, '99_nocloud.cfg'))
             else:
                 # For core or ubuntu classic images
-                ci_path = os.path.join(
-                    base, 'var/lib/cloud/seed/nocloud-net')
+                base = os.path.join(self.mount_point, 'writable')
+                if image_type == 'core':
+                    base = os.path.join(base, 'system-data')
+                ci_path = os.path.join(base, 'var/lib/cloud/seed/nocloud-net')
                 self._run_control('sudo mkdir -p {}'.format(ci_path))
                 write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
                 self._run_control(
