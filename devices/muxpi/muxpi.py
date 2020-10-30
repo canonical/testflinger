@@ -36,7 +36,8 @@ class MuxPi:
 
     """Device Agent for MuxPi."""
 
-    IMAGE_PATH_IDS = {'writable/etc': 'ubuntu',
+    IMAGE_PATH_IDS = {'writable/usr/bin/firefox': 'pi-desktop',
+                      'writable/etc': 'ubuntu',
                       'writable/system-data': 'core',
                       'ubuntu-seed/snaps': 'core20'}
 
@@ -68,6 +69,28 @@ class MuxPi:
         try:
             output = subprocess.check_output(
                 ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout)
+        except subprocess.CalledProcessError as e:
+            raise ProvisioningError(e.output)
+        return output
+
+    def _copy_to_control(self, local_file, remote_file):
+        """
+        Copy a file to the control host over ssh
+
+        :param local_file:
+            Local filename
+        :param remote_file:
+            Remote filename
+        """
+        control_host = self.config.get('control_host')
+        control_user = self.config.get('control_user', 'ubuntu')
+        ssh_cmd = ['scp', '-o', 'StrictHostKeyChecking=no',
+                   '-o', 'UserKnownHostsFile=/dev/null',
+                   local_file,
+                   '{}@{}:{}'.format(control_user, control_host, remote_file)]
+        try:
+            output = subprocess.check_output(
+                ssh_cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             raise ProvisioningError(e.output)
         return output
@@ -252,6 +275,47 @@ class MuxPi:
 
         base = self.mount_point
         try:
+            if image_type == 'pi-desktop':
+                # make a spot to scp files to
+                remote_tmp = os.path.join('/tmp', self.agent_name)
+                self._run_control('mkdir -p {}'.format(remote_tmp))
+
+                data_path = os.path.join(os.path.dirname(__file__),
+                                         '../../data/pi-desktop')
+
+                # Override oem-config so that it uses the preseed
+                self._copy_to_control(
+                    os.path.join(data_path, 'oem-config.service'), remote_tmp)
+                cmd = (
+                    'sudo cp {}/oem-config.service '
+                    '{}/writable/lib/systemd/system/'
+                    'oem-config.service'.format(remote_tmp, self.mount_point)
+                    )
+                self._run_control(cmd)
+
+                # Copy the preseed
+                self._copy_to_control(os.path.join(data_path, 'preseed.cfg'),
+                                      remote_tmp)
+                cmd = 'sudo cp {}/preseed.cfg {}/writable/preseed.cfg'.format(
+                    remote_tmp, self.mount_point)
+                self._run_control(cmd)
+
+                # Make sure NetworkManager is started
+                cmd = ('sudo cp -a '
+                       '{}/writable/etc/systemd/system/multi-user.target.wants'
+                       '/NetworkManager.service '
+                       '{}/writable/etc/systemd/system/'
+                       'oem-config.target.wants'.format(self.mount_point,
+                                                        self.mount_point))
+                self._run_control(cmd)
+
+                # Setup sudoers data
+                sudo_data = 'ubuntu ALL=(ALL) NOPASSWD:ALL'
+                sudo_path = '{}/writable/etc/sudoers.d/ubuntu'.format(
+                    self.mount_point)
+                self._run_control('sudo bash -c "echo \'{}\' > {}"'.format(
+                    sudo_data, sudo_path))
+                return
             if image_type == 'core20':
                 base = os.path.join(self.mount_point, 'ubuntu-seed')
                 ci_path = os.path.join(base, 'data/etc/cloud/cloud.cfg.d')
