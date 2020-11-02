@@ -370,7 +370,7 @@ class TestflingerCli:
                 job_id,
                 job_state,
                 datetime.fromtimestamp(
-                    jobdata.get('submission_time')).strftime('%a %b %m %H:%M'),
+                    jobdata.get('submission_time')).strftime('%a %b %d %H:%M'),
                 jobdata.get('queue')
             ))
         print()
