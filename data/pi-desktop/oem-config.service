@@ -19,7 +19,7 @@ TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
 ExecStart=/bin/sh -ec '\
-    debconf-set-selections /preseed.cfg;                        \
+    while ! debconf-set-selections /preseed.cfg; do sleep 30;done;        \
     exec oem-config-firstboot --automatic'
 
 [Install]
