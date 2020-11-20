@@ -407,11 +407,15 @@ class TestflingerCli:
             print("WARNING: unable to get a list of images from the server!")
             images = {}
         image = self.args.image or self._get_image(images)
-        if image not in images.keys():
+        if (not image.startswith(("http://", "https://")) and
+                image not in images.keys()):
             raise SystemExit("ERROR: '{}' is not in the list of known "
                              "images for that queue, please select "
                              "another.".format(image))
-        image = images[image]
+        if image.startswith(("http://", "https://")):
+            image = "url: " + image
+        else:
+            image = images[image]
         ssh_keys = self.args.key or self._get_ssh_keys()
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
@@ -455,13 +459,18 @@ class TestflingerCli:
 
     def _get_image(self, images):
         image = ""
+        flex_url = ""
+        if images and images[list(images.keys())[0]].startswith('url:'):
+            flex_url = "or URL for a valid image starting with http(s)://... "
         while not image or image == "?":
-            image = input("\nEnter the name of the image you want to use "
-                          "('?' to list) ")
+            image = input("\nEnter the name of the image you want to use " +
+                          flex_url + "('?' to list) ")
             if image == "?":
                 for image_id in sorted(images.keys()):
                     print(" " + image_id)
                 continue
+            if image.startswith(('http://', 'https://')):
+                return image
             if image not in images.keys():
                 print("ERROR: '{}' is not in the list of known images for "
                       "that queue, please select another.".format(image))
