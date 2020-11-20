@@ -461,6 +461,8 @@ class TestflingerCli:
         image = ""
         flex_url = ""
         if images and images[list(images.keys())[0]].startswith('url:'):
+            # If this device can take URLs, offer to let the user enter one
+            # instead of just using the known images
             flex_url = "or URL for a valid image starting with http(s)://... "
         while not image or image == "?":
             image = input("\nEnter the name of the image you want to use " +
