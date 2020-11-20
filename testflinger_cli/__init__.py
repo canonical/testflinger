@@ -178,8 +178,11 @@ class TestflingerCli:
         if job_state in ('complete', 'cancelled'):
             raise SystemExit('Job {} is already in {} state and cannot be '
                              'cancelled.'.format(self.args.job_id, job_state))
-        self.client.post_job_state(self.args.job_id, 'cancelled')
-        self.history.update(self.args.job_id, 'cancelled')
+        self.do_cancel(self.args.job_id)
+
+    def do_cancel(self, job_id):
+        self.client.post_job_state(job_id, 'cancelled')
+        self.history.update(job_id, 'cancelled')
 
     def configure(self):
         if self.args.setting:
@@ -323,25 +326,38 @@ class TestflingerCli:
         while job_state != 'complete':
             if job_state == 'cancelled':
                 break
-            if job_state == 'waiting':
-                try:
-                    queue_pos = self.client.get_job_position(job_id)
-                    if int(queue_pos) != prev_queue_pos:
-                        prev_queue_pos = int(queue_pos)
-                        print('Jobs ahead in queue: {}'.format(queue_pos))
-                except Exception:
-                    # Ignore any bad response, this will retry
-                    pass
-            time.sleep(10)
-            output = ''
             try:
-                output = self.get_latest_output(job_id)
-            except Exception:
-                continue
-            if output:
-                print(output, end='', flush=True)
-            job_state = self.get_job_state(job_id)
-            self.history.update(job_id, job_state)
+                if job_state == 'waiting':
+                    try:
+                        queue_pos = self.client.get_job_position(job_id)
+                        if int(queue_pos) != prev_queue_pos:
+                            prev_queue_pos = int(queue_pos)
+                            print('Jobs ahead in queue: {}'.format(queue_pos))
+                    except Exception:
+                        # Ignore any bad response, this will retry
+                        pass
+                time.sleep(10)
+                output = ''
+                try:
+                    output = self.get_latest_output(job_id)
+                except Exception:
+                    continue
+                if output:
+                    print(output, end='', flush=True)
+                job_state = self.get_job_state(job_id)
+                self.history.update(job_id, job_state)
+            except KeyboardInterrupt:
+                choice = input('\nCancel job {} before exiting '
+                               '(y)es/(N)o/(c)ontinue? '.format(job_id))
+                if choice:
+                    choice = choice[0].lower()
+                    if choice == 'c':
+                        continue
+                    if choice == 'y':
+                        self.do_cancel(job_id)
+                # Both y and n will allow the external handler deal with it
+                raise
+
         print(job_state)
 
     def jobs(self):
