@@ -55,7 +55,9 @@ def filetype(filename):
     magic_headers = {
         b"\x1f\x8b\x08": "gz",
         b"\x42\x5a\x68": "bz2",
-        b"\xfd\x37\x7a\x58\x5a\x00": "xz"}
+        b"\xfd\x37\x7a\x58\x5a\x00": "xz",
+        b"\x51\x46\x49\xfb": "qcow2",
+    }
     with open(filename, 'rb') as f:
         filehead = f.read(1024)
     filetype = "unknown"
@@ -268,6 +270,23 @@ def compress_file(filename):
         with lzma.open(compressed_filename, 'wb') as compressed_image:
             with bz2.BZ2File(filename, 'rb') as old_compressed:
                 shutil.copyfileobj(old_compressed, compressed_image)
+    elif filetype(filename) == 'qcow2':
+        raw_filename = '{}.raw'.format(filename)
+        try:
+            # Remove the original file, unless we already did
+            os.unlink(raw_filename)
+        except FileNotFoundError:
+            pass
+        cmd = ['qemu-img', 'convert', '-O', 'raw', filename, raw_filename]
+        try:
+            subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            logger.error('Image Conversion Output:\n %s', e.output)
+            raise
+        with open(raw_filename, 'rb') as uncompressed_image:
+            with lzma.open(compressed_filename, 'wb') as compressed_image:
+                shutil.copyfileobj(uncompressed_image, compressed_image)
+        os.unlink(raw_filename)
     else:
         # filetype is 'unknown' so assumed to be raw image
         with open(filename, 'rb') as uncompressed_image:
