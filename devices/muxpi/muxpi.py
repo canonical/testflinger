@@ -39,7 +39,8 @@ class MuxPi:
     IMAGE_PATH_IDS = {'writable/usr/bin/firefox': 'pi-desktop',
                       'writable/etc': 'ubuntu',
                       'writable/system-data': 'core',
-                      'ubuntu-seed/snaps': 'core20'}
+                      'ubuntu-seed/snaps': 'core20',
+                      'cloudimg-rootfs/etc/cloud/cloud.cfg': 'ubuntu-cpc'}
 
     def __init__(self, config, job_data):
         with open(config) as configfile:
@@ -328,6 +329,8 @@ class MuxPi:
                 base = os.path.join(self.mount_point, 'writable')
                 if image_type == 'core':
                     base = os.path.join(base, 'system-data')
+                if image_type == 'ubuntu-cpc':
+                    base = os.path.join(self.mount_point, 'cloudimg-rootfs')
                 ci_path = os.path.join(base, 'var/lib/cloud/seed/nocloud-net')
                 self._run_control('sudo mkdir -p {}'.format(ci_path))
                 write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
