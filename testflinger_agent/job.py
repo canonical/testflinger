@@ -187,7 +187,11 @@ class TestflingerJob:
                 f.write(buf)
             if live_output_buffer:
                 self.client.post_live_output(self.job_id, live_output_buffer)
-            return process.returncode
+            try:
+                status = process.wait(10)  # process.returncode
+            except TimeoutError:
+                status = 99  # Default in case something goes wrong
+            return status
 
     def get_global_timeout(self):
         """Get the global timeout for the test run in seconds
