@@ -3,6 +3,6 @@
 set -e
 
 rm -rf tfenv
-virtualenv -qp python3 tfenv
+virtualenv -q -p python3 tfenv
 . tfenv/bin/activate
 ./setup.py test
