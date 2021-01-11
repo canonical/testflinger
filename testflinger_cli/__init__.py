@@ -320,9 +320,9 @@ class TestflingerCli:
     def do_poll(self, job_id):
         job_state = self.get_job_state(job_id)
         self.history.update(job_id, job_state)
+        prev_queue_pos = None
         if job_state == 'waiting':
             print('This job is waiting on a node to become available.')
-            prev_queue_pos = None
         while job_state != 'complete':
             if job_state == 'cancelled':
                 break
@@ -484,6 +484,11 @@ class TestflingerCli:
             image = input("\nEnter the name of the image you want to use " +
                           flex_url + "('?' to list) ")
             if image == "?":
+                if not images:
+                    print("WARNING: There are no images defined for this "
+                          "device. You may also provide the URL to an image "
+                          "that can be booted with this device though.")
+                    continue
                 for image_id in sorted(images.keys()):
                     print(" " + image_id)
                 continue
