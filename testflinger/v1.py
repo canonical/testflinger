@@ -41,11 +41,11 @@ def job_post():
         job_queue = data.get('job_queue')
     except AttributeError:
         # Set job_queue to None so we take the failure path below
-        job_queue = None
+        job_queue = ""
     if not job_queue:
         return "Invalid data or no job_queue specified\n", 400
     # Prepend tf_queue on job queues for easier ID
-    job_queue = "tf_queue_" + job_queue
+    job_queue = "tf_queue_" + str(job_queue)
     # If the job_id is provided, keep it as long as the uuid is good.
     # This is for job resubmission
     job_id = data.get('job_id')
