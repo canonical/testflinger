@@ -219,11 +219,10 @@ class Netboot:
         try:
             # XXX: I hope 30 min is enough? but maybe not!
             req = urllib.request.urlopen(url, timeout=1800)
-        except Exception:
-            raise ProvisioningError("Error while flashing image!")
-        finally:
             logger.info("Image write output:")
             logger.info(str(req.read()))
+        except Exception:
+            raise ProvisioningError("Error while flashing image!")
 
         # Run post-flash hooks
         post_flash_cmds = self.config.get('post_flash_cmds')
