@@ -74,6 +74,8 @@ class CM3:
             raise ProvisioningError('You must specify a "url" value in '
                                     'the "provision_data" section of '
                                     'your job_data')
+        # Remove /dev/sda if somehow it's a normal file
+        self._run_control('test -f /dev/sda && sudo rm -f /dev/sda')
         self._run_control('sudo pi3gpio set high 16')
         time.sleep(5)
         self.hardreset()
