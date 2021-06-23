@@ -46,10 +46,15 @@ class DeviceAgent(DefaultDevice):
         if not image:
             raise ProvisioningError('Error downloading image')
         server_ip = snappy_device_agents.get_local_ip_addr()
+        # Ideally the default user/pass should be metadata about an image,
+        # but we don't currently have any concept of that stored. For now,
+        # we can give a reasonable guess based on the provisioning method.
         test_username = snappy_device_agents.get_test_username(
-            args.job_data)
+            job_data=args.job_data,
+            default='admin')
         test_password = snappy_device_agents.get_test_password(
-            args.job_data)
+            job_data=args.job_data,
+            default='admin')
         logmsg(logging.INFO, "BEGIN provision")
         logmsg(logging.INFO, "Booting Master Image")
         """Initial recovery process

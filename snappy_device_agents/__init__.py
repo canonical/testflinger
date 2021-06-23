@@ -149,28 +149,36 @@ def udf_create_image(params):
     return(imagepath)
 
 
-def get_test_username(job_data='testflinger.json'):
+def get_test_username(job_data='testflinger.json', default='ubuntu'):
     """
-    Read the json data for a test opportunity from SPI and return the
-    username in specified for the test image (default: ubuntu)
+    If the test_data specifies a default username, use it. Otherwise
+    allow the provisioning method pick a default, or use ubuntu as a safe bet
 
     :return username:
         Returns the test image username
     """
     testflinger_data = get_test_opportunity(job_data)
-    return testflinger_data.get('test_data').get('test_username', 'ubuntu')
+    try:
+        user = testflinger_data['test_data']['test_username']
+    except Exception:
+        user = default
+    return user
 
 
-def get_test_password(job_data='testflinger.json'):
+def get_test_password(job_data='testflinger.json', default='ubuntu'):
     """
-    Read the json data for a test opportunity from SPI and return the
-    password in specified for the test image (default: ubuntu)
+    If the test_data specifies a default password, use it. Otherwise
+    allow the provisioning method pick a default, or use ubuntu as a safe bet
 
     :return password:
         Returns the test image password
     """
     testflinger_data = get_test_opportunity(job_data)
-    return testflinger_data.get('test_data').get('test_password', 'ubuntu')
+    try:
+        password = testflinger_data['test_data']['test_password']
+    except Exception:
+        password = default
+    return password
 
 
 def get_image(job_data='testflinger.json'):
