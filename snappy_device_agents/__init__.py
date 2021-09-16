@@ -476,11 +476,9 @@ def _run_test_cmds_list(cmds, config=None, env={}):
     :param env:
         Environment to pass when running the commands
     :return returncode:
-        Return 0 if everything succeeded, 4 if any command in the list
-        failed, or 20 if there was a formatting error
+        Return 0 if everything succeeded, or exit code from failed command
     """
 
-    exitcode = 0
     for cmd in cmds:
         # Settings from the device yaml configfile like device_ip can be
         # formatted in test commands like "foo {device_ip}"
@@ -489,9 +487,8 @@ def _run_test_cmds_list(cmds, config=None, env={}):
         logmsg(logging.INFO, "Running: %s", cmd)
         rc = runcmd(cmd, env)
         if rc:
-            exitcode = 4
             logmsg(logging.WARNING, "Command failed, rc=%d", rc)
-    return exitcode
+    return rc
 
 
 def _run_test_cmds_str(cmds, config=None, env={}):
@@ -505,8 +502,7 @@ def _run_test_cmds_str(cmds, config=None, env={}):
     :param env:
         Environment to pass when running the commands
     :return returncode:
-        Return the value of the return code from the script, or 20 if there
-        was an error formatting the script
+        Return the value of the return code from the script
     """
 
     # If cmds doesn't specify an interpreter, pick a safe default
