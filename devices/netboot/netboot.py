@@ -90,7 +90,7 @@ class Netboot:
         for cmd in self.config['reboot_script']:
             logger.info("Running %s", cmd)
             try:
-                subprocess.check_call(cmd.split(), timeout=60)
+                subprocess.check_call(cmd.split(), timeout=120)
             except Exception:
                 raise RecoveryError("timeout reaching control host!")
 
