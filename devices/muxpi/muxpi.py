@@ -170,17 +170,25 @@ class MuxPi:
             raise ProvisioningError("Unable to run hdparm to rescan "
                                     "partitions")
 
-    @contextmanager
-    def remote_mount(self):
+    def _get_part_labels(self):
         test_device = self.config['test_device']
         lsblk_data = self._run_control(
             'lsblk -o NAME,LABEL -J {}'.format(test_device))
         lsblk_json = json.loads(lsblk_data.decode())
         # List of (name, label) pairs
-        mount_list = [(x.get('name'),
-                      os.path.join(self.mount_point, x.get('label')))
-                      for x in lsblk_json['blockdevices'][0]['children']
-                      if x.get('name') and x.get('label')]
+        return [(x.get('name'),
+                os.path.join(self.mount_point, x.get('label')))
+                for x in lsblk_json['blockdevices'][0]['children']
+                if x.get('name') and x.get('label')]
+
+    @contextmanager
+    def remote_mount(self):
+        mount_list = self._get_part_labels()
+        # Sometimes the labels don't show up to lsblk right away
+        if not mount_list:
+            print("No valid partitions found, retrying...")
+            time.sleep(10)
+            mount_list = self._get_part_labels()
         for dev, mount in mount_list:
             try:
                 self._run_control('sudo mkdir -p {}'.format(mount))
