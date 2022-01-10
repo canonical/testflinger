@@ -134,7 +134,7 @@ class Maas2:
         bootlist = efi_data.get('BootOrder:').split(',')
         new_boot_order = []
         for k, v in efi_data.items():
-            if ("NIC" in v or "PXE" in v) and "Boot" in k:
+            if ("IP4" in v or "IPV4" in v or "NIC" in v or "PXE" in v "") and "Boot" in k:
                 new_boot_order.append(k[4:8])
         for entry in bootlist:
             if entry not in new_boot_order:
