@@ -90,7 +90,7 @@ class Maas2:
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                '-o', 'UserKnownHostsFile=/dev/null',
                'ubuntu@{}'.format(self.config['device_ip']),
-               'sudo efibootmgr']
+               'sudo efibootmgr -v']
         p = subprocess.run(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         # If it fails the first time, try installing efitools snap
@@ -99,7 +99,7 @@ class Maas2:
             cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                    '-o', 'UserKnownHostsFile=/dev/null',
                    'ubuntu@{}'.format(self.config['device_ip']),
-                   'sudo efibootmgr']
+                   'sudo efibootmgr -v']
             p = subprocess.run(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if p.returncode:
@@ -134,7 +134,7 @@ class Maas2:
         bootlist = efi_data.get('BootOrder:').split(',')
         new_boot_order = []
         for k, v in efi_data.items():
-            if ("IP4" in v or "IPV4" in v or "NIC" in v or "PXE" in v "") and "Boot" in k:
+            if ("IPv4" in v) and "Boot" in k:
                 new_boot_order.append(k[4:8])
         for entry in bootlist:
             if entry not in new_boot_order:
