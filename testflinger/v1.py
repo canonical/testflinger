@@ -77,17 +77,12 @@ def job_get():
     queue_list = request.args.getlist('queue')
     if not queue_list:
         return "No queue(s) specified in request", 400
-    # Temporarily look for jobs with and without tf_queue_
+    queue_list = ['tf_queue_' + x for x in queue_list]
     job = get_job(queue_list)
     if job:
         return job
     else:
-        queue_list = ['tf_queue_' + x for x in queue_list]
-        job = get_job(queue_list)
-        if job:
-            return job
-        else:
-            return "", 204
+        return "", 204
 
 
 def job_get_id(job_id):
