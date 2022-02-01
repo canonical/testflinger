@@ -55,13 +55,13 @@ class TestflingerJob:
         if not cmd:
             logger.info('No %s_command configured, skipping...', phase)
             return 0
-        if phase == 'provision' and 'provision_data' not in self.job_data:
+        if phase == 'provision' and not self.job_data.get('provision_data'):
             logger.info('No provision_data defined in job data, skipping...')
             return 0
-        if phase == 'test' and 'test_data' not in self.job_data:
+        if phase == 'test' and not self.job_data.get('test_data'):
             logger.info('No test_data defined in job data, skipping...')
             return 0
-        if phase == 'reserve' and 'reserve_data' not in self.job_data:
+        if phase == 'reserve' and not self.job_data.get('reserve_data'):
             return 0
         output_log = os.path.join(rundir, phase+'.log')
         serial_log = os.path.join(rundir, phase+'-serial.log')

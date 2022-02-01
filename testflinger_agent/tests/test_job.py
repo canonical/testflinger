@@ -38,6 +38,20 @@ class TestJob():
             log_output = log.read()
         assert("No provision_data defined in job data" in log_output)
 
+    def test_skip_empty_provision_data(self, client):
+        """
+        Test that provision phase is skipped when provision_data is
+        present but empty
+        """
+        self.config['provision_command'] = '/bin/true'
+        fake_job_data = {'global_timeout': 1, 'provision_data': ''}
+        job = _TestflingerJob(fake_job_data, client)
+        job.run_test_phase('provision', None)
+        logfile = os.path.join(self.tmpdir, 'testflinger-agent.log')
+        with open(logfile) as log:
+            log_output = log.read()
+        assert("No provision_data defined in job data" in log_output)
+
     def test_job_global_timeout(self, client, requests_mock):
         """Test that timeout from job_data is respected"""
         timeout_str = '\nERROR: Global timeout reached! (1s)\n'

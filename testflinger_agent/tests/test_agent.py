@@ -52,7 +52,7 @@ class TestClient:
         self.config['provision_command'] = 'echo provision1'
         fake_job_data = {'job_id': str(uuid.uuid1()),
                          'job_queue': 'test',
-                         'provision_data': ''}
+                         'provision_data': {'url': 'foo'}}
         requests_mock.get(rmock.ANY, [{'text': json.dumps(fake_job_data)},
                                       {'text': '{}'}])
         requests_mock.post(rmock.ANY, status_code=200)
@@ -67,7 +67,7 @@ class TestClient:
         self.config['test_command'] = 'echo test1'
         fake_job_data = {'job_id': str(uuid.uuid1()),
                          'job_queue': 'test',
-                         'test_data': ''}
+                         'test_data': {'test_cmds': 'foo'}}
         requests_mock.get(rmock.ANY, [{'text': json.dumps(fake_job_data)},
                                       {'text': '{}'}])
         requests_mock.post(rmock.ANY, status_code=200)
@@ -82,7 +82,7 @@ class TestClient:
         self.config['test_command'] = 'echo test_string is $test_string'
         fake_job_data = {'job_id': str(uuid.uuid1()),
                          'job_queue': 'test',
-                         'test_data': ''}
+                         'test_data': {'test_cmds': 'foo'}}
         requests_mock.get(rmock.ANY, [{'text': json.dumps(fake_job_data)},
                                       {'text': '{}'}])
         requests_mock.post(rmock.ANY, status_code=200)
@@ -99,8 +99,8 @@ class TestClient:
         self.config['test_command'] = 'echo test1'
         fake_job_data = {'job_id': str(uuid.uuid1()),
                          'job_queue': 'test',
-                         'provision_data': '',
-                         'test_data': ''}
+                         'provision_data': {'url': 'foo'},
+                         'test_data': {'test_cmds': 'foo'}}
         requests_mock.get(rmock.ANY, [{'text': json.dumps(fake_job_data)},
                                       {'text': '{}'}])
         requests_mock.post(rmock.ANY, status_code=200)
@@ -153,8 +153,8 @@ class TestClient:
         job_id = str(uuid.uuid1())
         fake_job_data = {'job_id': job_id,
                          'job_queue': 'test',
-                         'provision_data': '',
-                         'test_data': ''}
+                         'provision_data': {'url': 'foo'},
+                         'test_data': {'test_cmds': 'foo'}}
         # In this case we are making sure that the repost job request
         # gets good status
         with rmock.Mocker() as m:
