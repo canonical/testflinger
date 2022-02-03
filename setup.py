@@ -20,6 +20,7 @@ from setuptools import setup
 
 INSTALL_REQUIRES = [
     "gunicorn",
+    "gevent",
     "redis",
     "flask",
     "pyyaml",
