@@ -36,10 +36,10 @@ def home():
 
 def job_post():
     """Add a job to the queue"""
-    data = request.get_json()
     try:
+        data = request.get_json()
         job_queue = data.get('job_queue')
-    except AttributeError:
+    except (AttributeError, BadRequest):
         # Set job_queue to None so we take the failure path below
         job_queue = ""
     if not job_queue:
