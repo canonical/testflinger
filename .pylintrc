@@ -1,0 +1,4 @@
+[MESSAGES CONTROL]
+# We currently have some older systems running this which
+# don't support f-strings yet
+disable = C0209
