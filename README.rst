@@ -28,11 +28,13 @@ To create a virtual environment and install testflinger:
 Testing
 -------
 
-To run the unit tests, first install (see above) then:
+To run all the tests, install tox from packages or pypi and just run:
 
 .. code-block:: console
 
-  $ ./setup test
+  $ tox
+
+Also, you can run just the unit tests directly by installing and running pytest
 
 Usage
 -----

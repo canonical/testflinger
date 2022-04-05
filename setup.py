@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (C) 2016 Canonical
+# Copyright (C) 2016-2022 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,15 +27,6 @@ INSTALL_REQUIRES = [
     "sentry-sdk[flask]",
 ]
 
-TEST_REQUIRES = [
-    "fakeredis",
-    "mock",
-    "pytest",
-    "pytest-cov",
-    "pytest-mock",
-    "pytest-flake8",
-]
-
 setup(
     name='testflinger',
     version='1.0.1',
@@ -43,6 +34,4 @@ setup(
     packages=['testflinger'],
     zip_safe=False,
     install_requires=INSTALL_REQUIRES,
-    setup_requires=['pytest-runner'],
-    tests_require=TEST_REQUIRES,
 )
