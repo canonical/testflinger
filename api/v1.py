@@ -60,17 +60,18 @@ def job_post():
     submit_job(job_queue, json.dumps(data))
     job_file = os.path.join(
         testflinger.app.config.get('DATA_PATH'), job_id + '.json')
-    with open(job_file, 'w', encoding='utf-8') as jobfile:
+    with open(job_file, 'w', encoding='utf-8', errors='ignore') as jobfile:
         jobfile.write(json.dumps(data))
     # Add a result file with job_state=waiting
     result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
     if os.path.exists(result_file):
-        with open(result_file, 'r', encoding='utf-8') as results:
+        with open(result_file, 'r', encoding='utf-8',
+                  errors='ignore') as results:
             data = json.load(results)
             data['job_state'] = 'resubmitted'
     else:
         data = {'job_state': 'waiting'}
-    with open(result_file, 'w', encoding='utf-8') as results:
+    with open(result_file, 'w', encoding='utf-8', errors='ignore') as results:
         results.write(json.dumps(data))
     return jsonify(job_id=job_id)
 
@@ -106,7 +107,7 @@ def job_get_id(job_id):
         testflinger.app.config.get('DATA_PATH'), job_id + '.json')
     if not os.path.exists(job_file):
         return "", 204
-    with open(job_file, 'r', encoding='utf-8') as jobfile:
+    with open(job_file, 'r', encoding='utf-8', errors='ignore') as jobfile:
         data = jobfile.read()
     return data, 200
 
@@ -122,7 +123,8 @@ def result_post(job_id):
     result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
     if os.path.exists(result_file):
         try:
-            with open(result_file, 'r', encoding='utf-8') as results:
+            with open(result_file, 'r', encoding='utf-8',
+                      errors='ignore') as results:
                 data = json.load(results)
         except json.decoder.JSONDecodeError:
             # If for any reason it's empty or has bad data - set to empty dict
@@ -134,7 +136,7 @@ def result_post(job_id):
     except BadRequest:
         return "Invalid result data\n", 400
     data.update(new_data)
-    with open(result_file, 'w', encoding='utf-8') as results:
+    with open(result_file, 'w', encoding='utf-8', errors='ignore') as results:
         results.write(json.dumps(data))
     return "OK"
 
@@ -150,7 +152,7 @@ def result_get(job_id):
     result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
     if not os.path.exists(result_file):
         return "", 204
-    with open(result_file, 'r', encoding='utf-8') as results:
+    with open(result_file, 'r', encoding='utf-8', errors='ignore') as results:
         data = results.read()
     return data
 
