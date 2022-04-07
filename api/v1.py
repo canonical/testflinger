@@ -288,7 +288,7 @@ def check_valid_uuid(job_id):
 
     try:
         uuid.UUID(job_id)
-    except Exception:  # pylint: disable=broad-except
+    except ValueError:
         return False
     return True
 
@@ -325,7 +325,7 @@ def job_position_get(job_id):
         return data, http_code
     try:
         job_data = json.loads(data)
-    except Exception:  # pylint: disable=broad-except
+    except (json.JSONDecodeError, TypeError):
         return "Invalid json returned for id: {}\n".format(job_id), 400
     queue = "tf_queue_" + job_data.get('job_queue')
     for position, job in enumerate(
