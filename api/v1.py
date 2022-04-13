@@ -1,4 +1,4 @@
-# Copyright (C) 2016-2020 Canonical
+# Copyright (C) 2016-2022 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -13,6 +13,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+"""
+Testflinger v1 API
+"""
 
 import json
 import os
@@ -31,7 +34,7 @@ import testflinger
 
 def home():
     """Identify ourselves"""
-    return testflinger._get_version()
+    return testflinger.get_version()
 
 
 def job_post():
@@ -57,17 +60,18 @@ def job_post():
     submit_job(job_queue, json.dumps(data))
     job_file = os.path.join(
         testflinger.app.config.get('DATA_PATH'), job_id + '.json')
-    with open(job_file, 'w') as jobfile:
+    with open(job_file, 'w', encoding='utf-8', errors='ignore') as jobfile:
         jobfile.write(json.dumps(data))
     # Add a result file with job_state=waiting
     result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
     if os.path.exists(result_file):
-        with open(result_file) as results:
+        with open(result_file, 'r', encoding='utf-8',
+                  errors='ignore') as results:
             data = json.load(results)
             data['job_state'] = 'resubmitted'
     else:
         data = {'job_state': 'waiting'}
-    with open(result_file, 'w') as results:
+    with open(result_file, 'w', encoding='utf-8', errors='ignore') as results:
         results.write(json.dumps(data))
     return jsonify(job_id=job_id)
 
@@ -81,8 +85,7 @@ def job_get():
     job = get_job(queue_list)
     if job:
         return job
-    else:
-        return "", 204
+    return "", 204
 
 
 def job_get_id(job_id):
@@ -104,7 +107,7 @@ def job_get_id(job_id):
         testflinger.app.config.get('DATA_PATH'), job_id + '.json')
     if not os.path.exists(job_file):
         return "", 204
-    with open(job_file) as jobfile:
+    with open(job_file, 'r', encoding='utf-8', errors='ignore') as jobfile:
         data = jobfile.read()
     return data, 200
 
@@ -120,7 +123,8 @@ def result_post(job_id):
     result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
     if os.path.exists(result_file):
         try:
-            with open(result_file) as results:
+            with open(result_file, 'r', encoding='utf-8',
+                      errors='ignore') as results:
                 data = json.load(results)
         except json.decoder.JSONDecodeError:
             # If for any reason it's empty or has bad data - set to empty dict
@@ -132,7 +136,7 @@ def result_post(job_id):
     except BadRequest:
         return "Invalid result data\n", 400
     data.update(new_data)
-    with open(result_file, 'w') as results:
+    with open(result_file, 'w', encoding='utf-8', errors='ignore') as results:
         results.write(json.dumps(data))
     return "OK"
 
@@ -148,7 +152,7 @@ def result_get(job_id):
     result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
     if not os.path.exists(result_file):
         return "", 204
-    with open(result_file) as results:
+    with open(result_file, 'r', encoding='utf-8', errors='ignore') as results:
         data = results.read()
     return data
 
@@ -201,8 +205,7 @@ def output_get(job_id):
     output = pipe.execute()
     if output[0]:
         return '\n'.join([x.decode() for x in output[0]])
-    else:
-        return '', 204
+    return '', 204
 
 
 def output_post(job_id):
@@ -287,7 +290,7 @@ def check_valid_uuid(job_id):
 
     try:
         uuid.UUID(job_id)
-    except Exception:
+    except ValueError:
         return False
     return True
 
@@ -308,6 +311,7 @@ def submit_job(job_queue, data):
 
 
 def get_job(queue_list):
+    """Get the next job in the queue"""
     # The queue name and the job are returned, but we don't need the queue now
     try:
         _, job = testflinger.app.redis.brpop(queue_list, timeout=1)
@@ -317,18 +321,18 @@ def get_job(queue_list):
 
 
 def job_position_get(job_id):
+    """Return the position of the specified jobid in the queue"""
     data, http_code = job_get_id(job_id)
     if http_code != 200:
         return data, http_code
     try:
         job_data = json.loads(data)
-    except Exception:
+    except (json.JSONDecodeError, TypeError):
         return "Invalid json returned for id: {}\n".format(job_id), 400
     queue = "tf_queue_" + job_data.get('job_queue')
-    for position, x in enumerate(
+    for position, job in enumerate(
             reversed(testflinger.app.redis.lrange(queue, 0, -1))):
         if json.loads(
-                x.decode('utf-8', errors='ignore')).get('job_id') == job_id:
+                job.decode('utf-8', errors='ignore')).get('job_id') == job_id:
             return str(position)
-    else:
-        return "Job not found or already started\n", 410
+    return "Job not found or already started\n", 410
