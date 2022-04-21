@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Canonical
+# Copyright (C) 2020-2022 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,13 +14,18 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+"""
+Testflinger config module
+"""
+
 import configparser
 import os
-import xdg
 from collections import OrderedDict
+import xdg
 
 
 class TestflingerCliConfig:
+    """TestflingerCliConfig class load values from files, env, and params"""
     def __init__(self, configfile=None):
         config = configparser.ConfigParser()
         if not configfile:
@@ -35,14 +40,18 @@ class TestflingerCliConfig:
         self.configfile = configfile
 
     def get(self, key):
+        """Get config item"""
         return self.data.get(key)
 
     def set(self, key, value):
+        """Set config item"""
         self.data[key] = value
         self._save()
 
     def _save(self):
+        """Save config back to the config file"""
         config = configparser.ConfigParser()
         config.read_dict({'testflinger-cli': self.data})
-        with open(self.configfile, 'w') as f:
-            config.write(f)
+        with open(self.configfile, 'w', encoding='utf-8',
+                  errors='ignore') as config_file:
+            config.write(config_file)

@@ -1,4 +1,4 @@
-# Copyright (C) 2017-2020 Canonical
+# Copyright (C) 2017-2022 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,15 +14,21 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+"""
+Testflinger client module
+"""
+
 import json
-import requests
 import sys
 import urllib.parse
+import requests
 import yaml
 
 
 class HTTPError(Exception):
+    """Exception class for HTTP error codes"""
     def __init__(self, status):
+        super().__init__(status)
         self.status = status
 
 

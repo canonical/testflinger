@@ -1,4 +1,4 @@
-# Copyright (C) 2017-2020 Canonical
+# Copyright (C) 2017-2022 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,16 +14,20 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+"""
+TestflingerCli module
+"""
+
 
 import inspect
 import json
 import os
 import sys
 import time
-import yaml
-
 from argparse import ArgumentParser
 from datetime import datetime
+import yaml
+
 from testflinger_cli import (client, config, history)
 
 
@@ -34,14 +38,59 @@ if os.path.exists(os.path.join(basedir, 'setup.py')):
 
 
 def cli():
+    """Generate the TestflingerCli instance and run it"""
     try:
         tfcli = TestflingerCli()
         tfcli.run()
-    except KeyboardInterrupt:
-        raise SystemExit
+    except KeyboardInterrupt as exc:
+        raise SystemExit from exc
+
+
+def _get_image(images):
+    image = ""
+    flex_url = ""
+    if images and images[list(images.keys())[0]].startswith('url:'):
+        # If this device can take URLs, offer to let the user enter one
+        # instead of just using the known images
+        flex_url = "or URL for a valid image starting with http(s)://... "
+    while not image or image == "?":
+        image = input("\nEnter the name of the image you want to use " +
+                      flex_url + "('?' to list) ")
+        if image == "?":
+            if not images:
+                print("WARNING: There are no images defined for this "
+                      "device. You may also provide the URL to an image "
+                      "that can be booted with this device though.")
+                continue
+            for image_id in sorted(images.keys()):
+                print(" " + image_id)
+            continue
+        if image.startswith(('http://', 'https://')):
+            return image
+        if image not in images.keys():
+            print("ERROR: '{}' is not in the list of known images for "
+                  "that queue, please select another.".format(image))
+            image = ""
+    return image
+
+
+def _get_ssh_keys():
+    ssh_keys = ""
+    while not ssh_keys.strip():
+        ssh_keys = input("\nEnter the ssh key(s) you wish to use: "
+                         "(ex: lp:userid, gh:userid) ")
+        key_list = [ssh_key.strip() for ssh_key in ssh_keys.split(",")]
+        for ssh_key in key_list:
+            if (not ssh_key.startswith("lp:") and
+                    not ssh_key.startswith("gh:")):
+                ssh_keys = ""
+                print("Please enter keys in the form lp:userid "
+                      "or gh:userid")
+    return key_list
 
 
 class TestflingerCli:
+    """Class for handling the Testflinger CLI"""
     def __init__(self):
         self.get_args()
         self.config = config.TestflingerCliConfig(self.args.configfile)
@@ -52,7 +101,8 @@ class TestflingerCli:
             'https://testflinger.canonical.com'
         )
         # Allow config subcommand without worrying about server or client
-        if hasattr(self.args, 'func') and self.args.func == self.configure:
+        if (hasattr(self.args, 'func') and
+                self.args.func == self.configure):  # pylint: disable=W0143
             return
         if not server.startswith(('http://', 'https://')):
             raise SystemExit('Server must start with "http://" or "https://" '
@@ -61,11 +111,13 @@ class TestflingerCli:
         self.history = history.TestflingerCliHistory()
 
     def run(self):
+        """Run the subcommand specified in command line arguments"""
         if hasattr(self.args, 'func'):
             raise SystemExit(self.args.func())
         print(self.help)
 
     def get_args(self):
+        """Handle command line arguments"""
         parser = ArgumentParser()
         parser.add_argument('-c', '--configfile', default=None,
                             help='Configuration file to use')
@@ -141,19 +193,16 @@ class TestflingerCli:
         try:
             job_state = self.client.get_status(self.args.job_id)
             self.history.update(self.args.job_id, job_state)
-        except client.HTTPError as e:
-            if e.status == 204:
+        except client.HTTPError as exc:
+            if exc.status == 204:
                 raise SystemExit('No data found for that job id. Check the '
-                                 'job id to be sure it is correct')
-            if e.status == 400:
+                                 'job id to be sure it is correct') from exc
+            if exc.status == 400:
                 raise SystemExit('Invalid job id specified. Check the job '
-                                 'id to be sure it is correct')
-            if e.status == 404:
+                                 'id to be sure it is correct') from exc
+            if exc.status == 404:
                 raise SystemExit('Received 404 error from server. Are you '
-                                 'sure this is a testflinger server?')
-        except Exception:
-            raise SystemExit(
-                'Error communicating with server, check connection and retry')
+                                 'sure this is a testflinger server?') from exc
         print(job_state)
 
     def cancel(self):
@@ -161,30 +210,29 @@ class TestflingerCli:
         try:
             job_state = self.client.get_status(self.args.job_id)
             self.history.update(self.args.job_id, job_state)
-        except client.HTTPError as e:
-            if e.status == 204:
+        except client.HTTPError as exc:
+            if exc.status == 204:
                 raise SystemExit('Job {} not found. Check the job '
                                  'id to be sure it is '
-                                 'correct.'.format(self.args.job_id))
-            if e.status == 400:
+                                 'correct.'.format(self.args.job_id)) from exc
+            if exc.status == 400:
                 raise SystemExit('Invalid job id specified. Check the job '
-                                 'id to be sure it is correct.')
-            if e.status == 404:
+                                 'id to be sure it is correct.') from exc
+            if exc.status == 404:
                 raise SystemExit('Received 404 error from server. Are you '
-                                 'sure this is a testflinger server?')
-        except Exception:
-            raise SystemExit(
-                'Error communicating with server, check connection and retry')
+                                 'sure this is a testflinger server?') from exc
         if job_state in ('complete', 'cancelled'):
             raise SystemExit('Job {} is already in {} state and cannot be '
                              'cancelled.'.format(self.args.job_id, job_state))
         self.do_cancel(self.args.job_id)
 
     def do_cancel(self, job_id):
+        """Send cancellation request for a specified job_id"""
         self.client.post_job_state(job_id, 'cancelled')
         self.history.update(job_id, 'cancelled')
 
     def configure(self):
+        """Print or set configuration values"""
         if self.args.setting:
             setting = self.args.setting.split('=')
             if len(setting) == 2:
@@ -206,14 +254,12 @@ class TestflingerCli:
             data = sys.stdin.read()
         else:
             try:
-                with open(self.args.filename) as f:
-                    data = f.read()
-            except FileNotFoundError:
+                with open(self.args.filename, encoding='utf-8',
+                          errors='ignore') as job_file:
+                    data = job_file.read()
+            except FileNotFoundError as exc:
                 raise SystemExit(
-                    'File not found: {}'.format(self.args.filename))
-            except Exception:
-                raise SystemExit(
-                    'Unable to read file: {}'.format(self.args.filename))
+                    'File not found: {}'.format(self.args.filename)) from exc
         job_id = self.submit_job_data(data)
         queue = yaml.safe_load(data).get('job_queue')
         self.history.new(job_id, queue)
@@ -230,56 +276,53 @@ class TestflingerCli:
         """
         try:
             job_id = self.client.submit_job(data)
-        except client.HTTPError as e:
-            if e.status == 400:
+        except client.HTTPError as exc:
+            if exc.status == 400:
                 raise SystemExit('The job you submitted contained bad data or '
                                  'bad formatting, or did not specify a '
-                                 'job_queue.')
-            if e.status == 404:
+                                 'job_queue.') from exc
+            if exc.status == 404:
                 raise SystemExit('Received 404 error from server. Are you '
-                                 'sure this is a testflinger server?')
+                                 'sure this is a testflinger server?') from exc
             # This shouldn't happen, so let's get more information
             raise SystemExit('Unexpected error status from testflinger '
-                             'server: {}'.format(e.status))
+                             'server: {}'.format(exc.status)) from exc
         return job_id
 
     def show(self):
         """Show the requested job JSON for a specified JOB_ID"""
         try:
             results = self.client.show_job(self.args.job_id)
-        except client.HTTPError as e:
-            if e.status == 204:
-                raise SystemExit('No data found for that job id.')
-            if e.status == 400:
+        except client.HTTPError as exc:
+            if exc.status == 204:
+                raise SystemExit('No data found for that job id.') from exc
+            if exc.status == 400:
                 raise SystemExit('Invalid job id specified. Check the job id '
-                                 'to be sure it is correct')
-            if e.status == 404:
+                                 'to be sure it is correct') from exc
+            if exc.status == 404:
                 raise SystemExit('Received 404 error from server. Are you '
-                                 'sure this is a testflinger server?')
+                                 'sure this is a testflinger server?') from exc
             # This shouldn't happen, so let's get more information
             raise SystemExit('Unexpected error status from testflinger '
-                             'server: {}'.format(e.status))
+                             'server: {}'.format(exc.status)) from exc
         print(json.dumps(results, sort_keys=True, indent=4))
 
     def results(self):
         """Get results JSON for a completed JOB_ID"""
         try:
             results = self.client.get_results(self.args.job_id)
-        except client.HTTPError as e:
-            if e.status == 204:
-                raise SystemExit('No results found for that job id.')
-            if e.status == 400:
+        except client.HTTPError as exc:
+            if exc.status == 204:
+                raise SystemExit('No results found for that job id.') from exc
+            if exc.status == 400:
                 raise SystemExit('Invalid job id specified. Check the job id '
-                                 'to be sure it is correct')
-            if e.status == 404:
+                                 'to be sure it is correct') from exc
+            if exc.status == 404:
                 raise SystemExit('Received 404 error from server. Are you '
-                                 'sure this is a testflinger server?')
+                                 'sure this is a testflinger server?') from exc
             # This shouldn't happen, so let's get more information
             raise SystemExit('Unexpected error status from testflinger '
-                             'server: {}'.format(e.status))
-        except Exception:
-            raise SystemExit(
-                'Error communicating with server, check connection and retry')
+                             'server: {}'.format(exc.status)) from exc
 
         print(json.dumps(results, sort_keys=True, indent=4))
 
@@ -288,36 +331,37 @@ class TestflingerCli:
         print('Downloading artifacts tarball...')
         try:
             self.client.get_artifact(self.args.job_id, self.args.filename)
-        except client.HTTPError as e:
-            if e.status == 204:
-                raise SystemExit('No artifacts tarball found for that job id.')
-            if e.status == 400:
+        except client.HTTPError as exc:
+            if exc.status == 204:
+                raise SystemExit(
+                    'No artifacts tarball found for that job id.') from exc
+            if exc.status == 400:
                 raise SystemExit('Invalid job id specified. Check the job id '
-                                 'to be sure it is correct')
-            if e.status == 404:
+                                 'to be sure it is correct') from exc
+            if exc.status == 404:
                 raise SystemExit('Received 404 error from server. Are you '
-                                 'sure this is a testflinger server?')
+                                 'sure this is a testflinger server?') from exc
             # This shouldn't happen, so let's get more information
             raise SystemExit('Unexpected error status from testflinger '
-                             'server: {}'.format(e.status))
-        except Exception:
-            raise SystemExit(
-                'Error communicating with server, check connection and retry')
+                             'server: {}'.format(exc.status)) from exc
         print('Artifacts downloaded to {}'.format(self.args.filename))
 
     def poll(self):
         """Poll for output from a job until it is complete"""
         if self.args.oneshot:
-            try:
-                output = self.get_latest_output(self.args.job_id)
-            except Exception:
-                sys.exit(1)
+            # This could get an IOError for connection errors or timeouts
+            # Raise it since it's not running continuously in this mode
+            output = self.get_latest_output(self.args.job_id)
             if output:
                 print(output, end='', flush=True)
             sys.exit(0)
         self.do_poll(self.args.job_id)
 
     def do_poll(self, job_id):
+        """Poll for output from a running job and print it while it runs
+
+        :param str job_id: Job ID
+        """
         job_state = self.get_job_state(job_id)
         self.history.update(job_id, job_state)
         prev_queue_pos = None
@@ -333,14 +377,17 @@ class TestflingerCli:
                         if int(queue_pos) != prev_queue_pos:
                             prev_queue_pos = int(queue_pos)
                             print('Jobs ahead in queue: {}'.format(queue_pos))
-                    except Exception:
-                        # Ignore any bad response, this will retry
+                    except IOError:
+                        # Ignore/retry any connection errors or timeouts
                         pass
                 time.sleep(10)
                 output = ''
                 try:
                     output = self.get_latest_output(job_id)
-                except Exception:
+                except IOError:
+                    # Any kind of IOError here should be a connection issue or
+                    # a timeout so we should ignore it and retry on the next
+                    # pass through the loop
                     continue
                 if output:
                     print(output, end='', flush=True)
@@ -395,13 +442,10 @@ class TestflingerCli:
         """List the advertised queues on the current Testflinger server"""
         try:
             queues = self.client.get_queues()
-        except client.HTTPError as e:
-            if e.status == 404:
+        except client.HTTPError as exc:
+            if exc.status == 404:
                 raise SystemExit('Received 404 error from server. Are you '
-                                 'sure this is a testflinger server?')
-        except Exception:
-            raise SystemExit(
-                'Error communicating with server, check connection and retry')
+                                 'sure this is a testflinger server?') from exc
         print('Advertised queues on this server:')
         for name, description in sorted(queues.items()):
             print(' {} - {}'.format(name, description))
@@ -410,7 +454,7 @@ class TestflingerCli:
         """Install and reserve a system"""
         try:
             queues = self.client.get_queues()
-        except Exception:
+        except OSError:
             print("WARNING: unable to get a list of queues from the server!")
             queues = {}
         queue = self.args.queue or self._get_queue(queues)
@@ -419,10 +463,10 @@ class TestflingerCli:
                   "queues".format(queue))
         try:
             images = self.client.get_images(queue)
-        except Exception:
+        except OSError:
             print("WARNING: unable to get a list of images from the server!")
             images = {}
-        image = self.args.image or self._get_image(images)
+        image = self.args.image or _get_image(images)
         if (not image.startswith(("http://", "https://")) and
                 image not in images.keys()):
             raise SystemExit("ERROR: '{}' is not in the list of known "
@@ -432,7 +476,7 @@ class TestflingerCli:
             image = "url: " + image
         else:
             image = images[image]
-        ssh_keys = self.args.key or self._get_ssh_keys()
+        ssh_keys = self.args.key or _get_ssh_keys()
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
                 raise SystemExit("Please enter keys in the form lp:userid or "
@@ -473,72 +517,38 @@ class TestflingerCli:
                     queue = ""
         return queue
 
-    def _get_image(self, images):
-        image = ""
-        flex_url = ""
-        if images and images[list(images.keys())[0]].startswith('url:'):
-            # If this device can take URLs, offer to let the user enter one
-            # instead of just using the known images
-            flex_url = "or URL for a valid image starting with http(s)://... "
-        while not image or image == "?":
-            image = input("\nEnter the name of the image you want to use " +
-                          flex_url + "('?' to list) ")
-            if image == "?":
-                if not images:
-                    print("WARNING: There are no images defined for this "
-                          "device. You may also provide the URL to an image "
-                          "that can be booted with this device though.")
-                    continue
-                for image_id in sorted(images.keys()):
-                    print(" " + image_id)
-                continue
-            if image.startswith(('http://', 'https://')):
-                return image
-            if image not in images.keys():
-                print("ERROR: '{}' is not in the list of known images for "
-                      "that queue, please select another.".format(image))
-                image = ""
-        return image
-
-    def _get_ssh_keys(self):
-        ssh_keys = ""
-        while not ssh_keys.strip():
-            ssh_keys = input("\nEnter the ssh key(s) you wish to use: "
-                             "(ex: lp:userid, gh:userid) ")
-            key_list = [ssh_key.strip() for ssh_key in ssh_keys.split(",")]
-            for ssh_key in key_list:
-                if (not ssh_key.startswith("lp:") and
-                        not ssh_key.startswith("gh:")):
-                    ssh_keys = ""
-                    print("Please enter keys in the form lp:userid "
-                          "or gh:userid")
-        return key_list
-
     def get_latest_output(self, job_id):
+        """Get the latest output from a running job
+
+        :param str job_id: Job ID
+        :return str: New output from the running job
+        """
         output = ''
         try:
             output = self.client.get_output(job_id)
-        except client.HTTPError as e:
-            if e.status == 204:
+        except client.HTTPError as exc:
+            if exc.status == 204:
                 # We are still waiting for the job to start
                 pass
         return output
 
     def get_job_state(self, job_id):
+        """Return the job state for the specified job_id
+
+        :param str job_id: Job ID
+        :raises SystemExit: Exit with HTTP error code
+        :return str : Job state
+        """
         try:
             return self.client.get_status(job_id)
-        except client.HTTPError as e:
-            if e.status == 204:
+        except client.HTTPError as exc:
+            if exc.status == 204:
                 raise SystemExit('No data found for that job id. Check the '
-                                 'job id to be sure it is correct')
-            if e.status == 400:
+                                 'job id to be sure it is correct') from exc
+            if exc.status == 400:
                 raise SystemExit('Invalid job id specified. Check the job id '
-                                 'to be sure it is correct')
-            if e.status == 404:
+                                 'to be sure it is correct') from exc
+            if exc.status == 404:
                 raise SystemExit('Received 404 error from server. Are you '
-                                 'sure this is a testflinger server?')
-        except Exception:
-            # If we fail to get the job_state here, it could be because of
-            # timeout but we can keep going and retrying
-            pass
+                                 'sure this is a testflinger server?') from exc
         return 'unknown'
