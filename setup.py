@@ -17,7 +17,6 @@
 from setuptools import setup
 
 INSTALL_REQUIRES = ['pyyaml', 'requests', 'xdg<4.0']
-TEST_REQUIRES = []
 
 setup(
     name='testflinger-cli',
@@ -27,7 +26,6 @@ setup(
     zip_safe=False,
     install_requires=INSTALL_REQUIRES,
     test_suite='testflinger_cli.tests',
-    tests_require=TEST_REQUIRES,
     entry_points='''
         [console_scripts]
         testflinger-cli=testflinger_cli:cli
