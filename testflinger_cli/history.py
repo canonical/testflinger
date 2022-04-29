@@ -1,4 +1,4 @@
-# Copyright (C) 2020 Canonical
+# Copyright (C) 2020-2022 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,14 +14,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+"""
+Testflinger history module
+"""
+
 import json
 import os
-import xdg
 from collections import OrderedDict
 from datetime import datetime
+import xdg
 
 
 class TestflingerCliHistory:
+    """History class used for storing job history on a device"""
     def __init__(self):
         os.makedirs(xdg.XDG_DATA_HOME, exist_ok=True)
         self.historyfile = os.path.join(
@@ -29,6 +34,7 @@ class TestflingerCliHistory:
         self.load()
 
     def new(self, job_id, queue):
+        """Add a new job to the history"""
         submission_time = datetime.now().timestamp()
         self.history[job_id] = dict(
             queue=queue,
@@ -41,21 +47,26 @@ class TestflingerCliHistory:
         self.save()
 
     def load(self):
+        """Load the history file"""
         if not hasattr(self, 'history'):
             self.history = OrderedDict()
         if os.path.exists(self.historyfile):
-            with open(self.historyfile) as f:
+            with open(self.historyfile, encoding='utf-8',
+                      errors='ignore') as history_file:
                 try:
-                    self.history.update(json.load(f))
-                except Exception:
+                    self.history.update(json.load(history_file))
+                except (OSError, ValueError):
                     # If there's any error loading the history, ignore it
-                    return
+                    print("Error loading history file from", self.historyfile)
 
     def save(self):
-        with open(self.historyfile, 'w') as f:
-            json.dump(self.history, f, indent=2)
+        """Save the history out to the history file"""
+        with open(self.historyfile, 'w', encoding='utf-8',
+                  errors='ignore') as history_file:
+            json.dump(self.history, history_file, indent=2)
 
     def update(self, job_id, state):
+        """Update job state in the history file"""
         if job_id in self.history:
             self.history[job_id]['job_state'] = state
             self.save()
