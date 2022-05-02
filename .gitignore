@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+*.egg*
+*.swp
+env
+venv
+build
+dist
+.tox
+.coverage
+.vscode
