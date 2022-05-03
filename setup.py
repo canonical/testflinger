@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2016 Canonical
+# Copyright (C) 2016-2022 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,16 +24,6 @@ INSTALL_REQUIRES = [
     "voluptuous",
 ]
 
-TEST_REQUIRES = [
-    # newer mock requires python3.8 features, use an older one so we
-    # can run unit tests on older systems
-    "mock==3.0.5",
-    "pytest",
-    "pytest-cov",
-    "pytest-flake8",
-    "requests-mock",
-]
-
 setup(
     name='testflinger-agent',
     version='1.0',
@@ -41,7 +31,6 @@ setup(
     packages=['testflinger_agent'],
     zip_safe=False,
     install_requires=INSTALL_REQUIRES,
-    tests_require=TEST_REQUIRES,
     setup_requires=['pytest-runner'],
     scripts=['testflinger-agent'],
 )
