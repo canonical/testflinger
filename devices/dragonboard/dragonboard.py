@@ -82,7 +82,7 @@ class Dragonboard:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=60)
-            except:
+            except subprocess.TimeoutExpired:
                 raise ProvisioningError("timeout reaching control host!")
 
     def hardreset(self):
@@ -100,7 +100,7 @@ class Dragonboard:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
-            except:
+            except subprocess.TimeoutExpired:
                 raise RecoveryError("timeout reaching control host!")
 
     def ensure_test_image(self, test_username, test_password):
@@ -118,7 +118,8 @@ class Dragonboard:
         self.setboot('test')
         try:
             self._run_control('sudo /sbin/reboot')
-        except:
+        except subprocess.SubprocessError:
+            # Keep trying even if this command fails
             pass
         time.sleep(60)
 
@@ -134,7 +135,8 @@ class Dragonboard:
                        '{}@{}'.format(test_username, self.config['device_ip'])]
                 subprocess.check_call(cmd)
                 test_image_booted = self.is_test_image_booted()
-            except:
+            except subprocess.SubprocessError:
+                # Keep trying even if this command fails
                 pass
             if test_image_booted:
                 break
@@ -148,10 +150,6 @@ class Dragonboard:
 
         :returns:
             True if the test image is currently booted, False otherwise.
-        :raises TimeoutError:
-            If the command times out
-        :raises CalledProcessError:
-            If the command fails
         """
         logger.info("Checking if test image booted.")
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
@@ -161,7 +159,7 @@ class Dragonboard:
         try:
             subprocess.check_output(
                 cmd, stderr=subprocess.STDOUT, timeout=60)
-        except:
+        except subprocess.SubprocessError:
             return False
         # If we get here, then the above command proved we are in snappy
         return True
@@ -180,7 +178,7 @@ class Dragonboard:
         logger.info("Checking if master image booted.")
         try:
             output = self._run_control('cat /etc/issue')
-        except:
+        except subprocess.SubprocessError:
             logger.info("Error checking device state. Forcing reboot...")
             return False
         if 'Debian GNU' in str(output):
@@ -259,11 +257,11 @@ class Dragonboard:
         try:
             # XXX: I hope 30 min is enough? but maybe not!
             self._run_control(cmd, timeout=1800)
-        except:
+        except subprocess.TimeoutExpired:
             raise ProvisioningError("timeout reached while flashing image!")
         try:
             self._run_control('sync')
-        except:
+        except subprocess.SubprocessError:
             # Nothing should go wrong here, but let's sleep if it does
             logger.warn("Something went wrong with the sync, sleeping...")
             time.sleep(30)
@@ -271,19 +269,22 @@ class Dragonboard:
             self._run_control(
                 'sudo hdparm -z {}'.format(self.config['test_device']),
                 timeout=30)
-        except:
-            raise ProvisioningError("Unable to run hdparm to rescan "
-                                    "partitions")
+        except subprocess.CalledProcessError as exc:
+            raise ProvisioningError(
+                "Unable to run hdparm to rescan"
+                "partitions: {}".format(exc.output))
 
     def mount_writable_partition(self):
         # Mount the writable partition
         try:
             self._run_control('sudo mount {} /mnt'.format(
                               self.config['snappy_writable_partition']))
-        except:
+        except subprocess.CalledProcessError as exc:
             err = ("Error mounting writable partition on test image {}. "
-                   "Check device configuration".format(
-                       self.config['snappy_writable_partition']))
+                   "Check device configuration\n"
+                   "output: {}".format(
+                       self.config['snappy_writable_partition'],
+                       exc.output))
             raise ProvisioningError(err)
 
     def create_user(self):
@@ -315,8 +316,9 @@ class Dragonboard:
                 write_cmd.format(metadata, cloud_path, 'meta-data'))
             self._run_control(
                 write_cmd.format(userdata, cloud_path, 'user-data'))
-        except:
-            raise ProvisioningError("Error creating user files")
+        except subprocess.CalledProcessError as exc:
+            raise ProvisioningError(
+                "Error creating user files: {}".format(exc.output))
 
     def setup_sudo(self):
         sudo_data = 'ubuntu ALL=(ALL) NOPASSWD:ALL'
@@ -338,7 +340,7 @@ class Dragonboard:
             logger.error("Failed to write image, cleaning up...")
             self._run_control(
                 'sudo sgdisk -o {}'.format(test_device))
-        except:
+        except subprocess.SubprocessError:
             # This is an attempt to salvage a bad run, further tracebacks
             # would just add to the noise
             pass
@@ -384,7 +386,7 @@ class Dragonboard:
             self.setup_sudo()
             logger.info("Booting Test Image")
             self.ensure_test_image(test_username, test_password)
-        except:
+        except (ValueError, subprocess.SubprocessError):
             # wipe out whatever we installed if things go badly
             self.wipe_test_device()
             raise

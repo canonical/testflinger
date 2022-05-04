@@ -51,7 +51,7 @@ class OemRecovery:
         try:
             test_username = self.job_data.get(
                 'test_data', {}).get('test_username', 'ubuntu')
-        except:
+        except AttributeError:
             test_username = 'ubuntu'
         ssh_cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
                    '-o', 'UserKnownHostsFile=/dev/null',
@@ -85,7 +85,7 @@ class OemRecovery:
                 'test_data', {}).get('test_username', 'ubuntu')
             test_password = self.job_data.get(
                 'test_data', {}).get('test_password', 'ubuntu')
-        except:
+        except AttributeError:
             test_username = 'ubuntu'
             test_password = 'ubuntu'
         cmd = ['sshpass', '-p', test_password, 'ssh-copy-id',
