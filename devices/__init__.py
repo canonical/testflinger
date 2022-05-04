@@ -34,15 +34,16 @@ class RecoveryError(Exception):
     pass
 
 
-def SerialLogger(host=None, port=None, filename=None):
-    """Factory to generate real or fake SerialLogger object based on params"""
-    if host and port and filename:
-        return RealSerialLogger(host, port, filename)
-    else:
+class SerialLogger:
+    def __new__(cls, host=None, port=None, filename=None):
+        """Factory to generate real or fake SerialLogger object based on params
+        """
+        if host and port and filename:
+            return RealSerialLogger(host, port, filename)
         return StubSerialLogger(host, port, filename)
 
 
-class StubSerialLogger():
+class StubSerialLogger:
     def __init__(self, host, port, filename):
         pass
 
@@ -53,7 +54,7 @@ class StubSerialLogger():
         pass
 
 
-class RealSerialLogger():
+class RealSerialLogger:
 
     """Set up a subprocess to connect to an ip and collect serial logs"""
 
