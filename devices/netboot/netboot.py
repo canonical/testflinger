@@ -212,7 +212,7 @@ class Netboot:
         :raises ProvisioningError:
             If the command times out or anything else fails.
         """
-        url = 'http://{}:8989/writeimage?server={}:{}\&dev={}'.format(
+        url = r'http://{}:8989/writeimage?server={}:{}\&dev={}'.format(
               self.config['device_ip'], server_ip, server_port,
               self.config['test_device'])
         logger.info("Triggering: %s", url)

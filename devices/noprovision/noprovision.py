@@ -48,7 +48,7 @@ class Noprovision:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
-            except:
+            except subprocess.TimeoutExpired:
                 raise RecoveryError("timeout reaching control host!")
 
     def ensure_test_image(self, test_username):
@@ -70,7 +70,7 @@ class Noprovision:
         try:
             subprocess.check_call(cmd)
             return
-        except:
+        except subprocess.SubprocessError:
             pass
 
         self.hardreset()
@@ -87,7 +87,7 @@ class Noprovision:
                        '/bin/true']
                 subprocess.check_call(cmd)
                 break
-            except:
+            except subprocess.SubprocessError:
                 # keep going if we aren't booted yet
                 pass
         # If we got here, then it never booted to the test image
