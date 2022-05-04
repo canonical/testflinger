@@ -202,7 +202,7 @@ class DefaultDevice:
         time.sleep(int(timeout))
 
 
-def Catch(exception, returnval=0):
+def catch(exception, returnval=0):
     """ Decorator for catching Exceptions and returning values instead
 
     This is useful because for certain things, like RecoveryError, we

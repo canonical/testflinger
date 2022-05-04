@@ -22,7 +22,7 @@ import snappy_device_agents
 from devices.noprovision.noprovision import Noprovision
 from snappy_device_agents import logmsg
 
-from devices import (Catch,
+from devices import (catch,
                      RecoveryError,
                      DefaultDevice)
 
@@ -30,7 +30,7 @@ device_name = "noprovision"
 
 
 class DeviceAgent(DefaultDevice):
-    @Catch(RecoveryError, 46)
+    @catch(RecoveryError, 46)
     def provision(self, args):
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)

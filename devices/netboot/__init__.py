@@ -22,7 +22,7 @@ import snappy_device_agents
 from devices.netboot.netboot import Netboot
 from snappy_device_agents import logmsg
 
-from devices import (Catch,
+from devices import (catch,
                      DefaultDevice,
                      ProvisioningError,
                      RecoveryError,
@@ -35,7 +35,7 @@ class DeviceAgent(DefaultDevice):
 
     """Tool for provisioning baremetal with a given image."""
 
-    @Catch(RecoveryError, 46)
+    @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
         with open(args.config) as configfile:
