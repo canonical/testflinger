@@ -28,10 +28,6 @@ VERSION = '0.0.1'
 datafiles = [(d, [os.path.join(d, f) for f in files])
              for d, folders, files in os.walk('data')]
 
-TEST_REQUIRES = [
-    "pytest",
-]
-
 setup(
     name='snappy-device-agents',
     version=VERSION,
@@ -46,6 +42,5 @@ setup(
     setup_requires=['pytest-runner'],
     install_requires=['PyYAML>=3.11',
                       'netifaces>=0.10.4'],
-    tests_require=TEST_REQUIRES,
     scripts=['snappy-device-agent'],
 )
