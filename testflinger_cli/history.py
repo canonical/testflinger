@@ -27,19 +27,19 @@ import xdg
 
 class TestflingerCliHistory:
     """History class used for storing job history on a device"""
+
     def __init__(self):
         os.makedirs(xdg.XDG_DATA_HOME, exist_ok=True)
         self.historyfile = os.path.join(
-            xdg.XDG_DATA_HOME, "testflinger-cli-history.json")
+            xdg.XDG_DATA_HOME, "testflinger-cli-history.json"
+        )
         self.load()
 
     def new(self, job_id, queue):
         """Add a new job to the history"""
         submission_time = datetime.now().timestamp()
         self.history[job_id] = dict(
-            queue=queue,
-            submission_time=submission_time,
-            job_state='unknown'
+            queue=queue, submission_time=submission_time, job_state="unknown"
         )
         # limit job history to last 10 jobs
         if len(self.history) > 10:
@@ -48,11 +48,12 @@ class TestflingerCliHistory:
 
     def load(self):
         """Load the history file"""
-        if not hasattr(self, 'history'):
+        if not hasattr(self, "history"):
             self.history = OrderedDict()
         if os.path.exists(self.historyfile):
-            with open(self.historyfile, encoding='utf-8',
-                      errors='ignore') as history_file:
+            with open(
+                self.historyfile, encoding="utf-8", errors="ignore"
+            ) as history_file:
                 try:
                     self.history.update(json.load(history_file))
                 except (OSError, ValueError):
@@ -61,12 +62,13 @@ class TestflingerCliHistory:
 
     def save(self):
         """Save the history out to the history file"""
-        with open(self.historyfile, 'w', encoding='utf-8',
-                  errors='ignore') as history_file:
+        with open(
+            self.historyfile, "w", encoding="utf-8", errors="ignore"
+        ) as history_file:
             json.dump(self.history, history_file, indent=2)
 
     def update(self, job_id, state):
         """Update job state in the history file"""
         if job_id in self.history:
-            self.history[job_id]['job_state'] = state
+            self.history[job_id]["job_state"] = state
             self.save()

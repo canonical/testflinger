@@ -26,17 +26,19 @@ import xdg
 
 class TestflingerCliConfig:
     """TestflingerCliConfig class load values from files, env, and params"""
+
     def __init__(self, configfile=None):
         config = configparser.ConfigParser()
         if not configfile:
             os.makedirs(xdg.XDG_CONFIG_HOME, exist_ok=True)
             configfile = os.path.join(
-                xdg.XDG_CONFIG_HOME, "testflinger-cli.conf")
+                xdg.XDG_CONFIG_HOME, "testflinger-cli.conf"
+            )
         config.read(configfile)
         # Default empty config in case there's no config file
         self.data = OrderedDict()
-        if 'testflinger-cli' in config.sections():
-            self.data = OrderedDict(config['testflinger-cli'])
+        if "testflinger-cli" in config.sections():
+            self.data = OrderedDict(config["testflinger-cli"])
         self.configfile = configfile
 
     def get(self, key):
@@ -51,7 +53,8 @@ class TestflingerCliConfig:
     def _save(self):
         """Save config back to the config file"""
         config = configparser.ConfigParser()
-        config.read_dict({'testflinger-cli': self.data})
-        with open(self.configfile, 'w', encoding='utf-8',
-                  errors='ignore') as config_file:
+        config.read_dict({"testflinger-cli": self.data})
+        with open(
+            self.configfile, "w", encoding="utf-8", errors="ignore"
+        ) as config_file:
             config.write(config_file)

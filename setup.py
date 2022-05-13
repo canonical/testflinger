@@ -16,20 +16,19 @@
 #
 from setuptools import setup
 
-INSTALL_REQUIRES = ['pyyaml', 'requests', 'xdg<4.0']
+INSTALL_REQUIRES = ["pyyaml", "requests", "xdg<4.0"]
 
 setup(
-    name='testflinger-cli',
-    version='0.1',
-    description='CLI tool for working with testflinger',
-    packages=['testflinger_cli'],
+    name="testflinger-cli",
+    version="0.1",
+    description="CLI tool for working with testflinger",
+    packages=["testflinger_cli"],
     zip_safe=False,
     install_requires=INSTALL_REQUIRES,
-    test_suite='testflinger_cli.tests',
-    entry_points='''
+    test_suite="testflinger_cli.tests",
+    entry_points="""
         [console_scripts]
         testflinger-cli=testflinger_cli:cli
         testflinger=testflinger_cli:cli
-    ''',
-
+    """,
 )
