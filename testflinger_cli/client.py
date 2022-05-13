@@ -27,13 +27,15 @@ import yaml
 
 class HTTPError(Exception):
     """Exception class for HTTP error codes"""
+
     def __init__(self, status):
         super().__init__(status)
         self.status = status
 
 
-class Client():
+class Client:
     """Testflinger connection client"""
+
     def __init__(self, server):
         self.server = server
 
@@ -48,10 +50,10 @@ class Client():
         try:
             req = requests.get(uri, timeout=timeout)
         except requests.exceptions.ConnectTimeout:
-            print('Timeout while trying to communicate with the server.')
+            print("Timeout while trying to communicate with the server.")
             raise
         except requests.exceptions.ConnectionError:
-            print('Unable to communicate with specified server.')
+            print("Unable to communicate with specified server.")
             raise
         if req.status_code != 200:
             raise HTTPError(req.status_code)
@@ -68,10 +70,10 @@ class Client():
         try:
             req = requests.post(uri, json=data, timeout=timeout)
         except requests.exceptions.ConnectTimeout:
-            print('Timout while trying to communicate with the server.')
+            print("Timout while trying to communicate with the server.")
             sys.exit(1)
         except requests.exceptions.ConnectionError:
-            print('Unable to communicate with specified server.')
+            print("Unable to communicate with specified server.")
             sys.exit(1)
         if req.status_code != 200:
             raise HTTPError(req.status_code)
@@ -87,9 +89,9 @@ class Client():
             (waiting, setup, provision, test, reserved, released,
              cancelled, complete)
         """
-        endpoint = '/v1/result/{}'.format(job_id)
+        endpoint = "/v1/result/{}".format(job_id)
         data = json.loads(self.get(endpoint))
-        return data.get('job_state')
+        return data.get("job_state")
 
     def post_job_state(self, job_id, state):
         """Post the status of a test job
@@ -99,7 +101,7 @@ class Client():
         :param state:
             Job state to set for the specified job
         """
-        endpoint = '/v1/result/{}'.format(job_id)
+        endpoint = "/v1/result/{}".format(job_id)
         data = dict(job_state=state)
         self.put(endpoint, data)
 
@@ -111,10 +113,10 @@ class Client():
         :return:
             ID for the test job
         """
-        endpoint = '/v1/job'
+        endpoint = "/v1/job"
         data = yaml.safe_load(job_data)
         response = self.put(endpoint, data)
-        return json.loads(response).get('job_id')
+        return json.loads(response).get("job_id")
 
     def show_job(self, job_id):
         """Show the JSON job definition for the specified ID
@@ -124,7 +126,7 @@ class Client():
         :return:
             JSON job definition for the specified ID
         """
-        endpoint = '/v1/job/{}'.format(job_id)
+        endpoint = "/v1/job/{}".format(job_id)
         return json.loads(self.get(endpoint))
 
     def get_results(self, job_id):
@@ -135,7 +137,7 @@ class Client():
         :return:
             Dict containing the results returned from the server
         """
-        endpoint = '/v1/result/{}'.format(job_id)
+        endpoint = "/v1/result/{}".format(job_id)
         return json.loads(self.get(endpoint))
 
     def get_artifact(self, job_id, path):
@@ -146,12 +148,12 @@ class Client():
         :param path:
             Path and filename for the artifact file
         """
-        endpoint = '/v1/result/{}/artifact'.format(job_id)
+        endpoint = "/v1/result/{}/artifact".format(job_id)
         uri = urllib.parse.urljoin(self.server, endpoint)
         req = requests.get(uri, timeout=15)
         if req.status_code != 200:
             raise HTTPError(req.status_code)
-        with open(path, 'wb') as artifact:
+        with open(path, "wb") as artifact:
             for chunk in req.iter_content(chunk_size=4096):
                 artifact.write(chunk)
 
@@ -163,7 +165,7 @@ class Client():
         :return:
             String containing the latest output from the job
         """
-        endpoint = '/v1/result/{}/output'.format(job_id)
+        endpoint = "/v1/result/{}/output".format(job_id)
         return self.get(endpoint)
 
     def get_job_position(self, job_id):
@@ -175,12 +177,12 @@ class Client():
             String containing the queue position for the specified ID
             i.e. how many jobs are ahead of it in the queue
         """
-        endpoint = '/v1/job/{}/position'.format(job_id)
+        endpoint = "/v1/job/{}/position".format(job_id)
         return self.get(endpoint)
 
     def get_queues(self):
         """Get the advertised queues from the testflinger server"""
-        endpoint = '/v1/agents/queues'
+        endpoint = "/v1/agents/queues"
         data = self.get(endpoint)
         try:
             return json.loads(data)
@@ -189,7 +191,7 @@ class Client():
 
     def get_images(self, queue):
         """Get the advertised images from the testflinger server"""
-        endpoint = '/v1/agents/images/' + queue
+        endpoint = "/v1/agents/images/" + queue
         data = self.get(endpoint)
         try:
             return json.loads(data)
