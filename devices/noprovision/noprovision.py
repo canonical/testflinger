@@ -19,8 +19,7 @@ import subprocess
 import time
 import yaml
 
-from devices import (ProvisioningError,
-                     RecoveryError)
+from devices import ProvisioningError, RecoveryError
 
 logger = logging.getLogger()
 
@@ -44,7 +43,7 @@ class Noprovision:
             This function runs the commands specified in 'reboot_script'
             in the config yaml.
         """
-        for cmd in self.config['reboot_script']:
+        for cmd in self.config["reboot_script"]:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
@@ -63,10 +62,15 @@ class Noprovision:
             If the command times out or anything else fails.
         """
         logger.info("Booting the test image")
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               '{}@{}'.format(test_username, self.config['device_ip']),
-               '/bin/true']
+        cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "{}@{}".format(test_username, self.config["device_ip"]),
+            "/bin/true",
+        ]
         try:
             subprocess.check_call(cmd)
             return
@@ -81,10 +85,15 @@ class Noprovision:
         while time.time() - started < 300:
             try:
                 time.sleep(10)
-                cmd = ['ssh', '-o', 'StrictHostKeyChecking=no', '-o',
-                       'UserKnownHostsFile=/dev/null',
-                       '{}@{}'.format(test_username, self.config['device_ip']),
-                       '/bin/true']
+                cmd = [
+                    "ssh",
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    "-o",
+                    "UserKnownHostsFile=/dev/null",
+                    "{}@{}".format(test_username, self.config["device_ip"]),
+                    "/bin/true",
+                ]
                 subprocess.check_call(cmd)
                 break
             except subprocess.SubprocessError:

@@ -20,10 +20,7 @@ import yaml
 import snappy_device_agents
 from devices.rpi3.rpi3 import Rpi3
 from snappy_device_agents import logmsg
-from devices import (catch,
-                     DefaultDevice,
-                     RecoveryError,
-                     SerialLogger)
+from devices import catch, DefaultDevice, RecoveryError, SerialLogger
 
 device_name = "rpi3"
 
@@ -41,10 +38,11 @@ class DeviceAgent(DefaultDevice):
         device = Rpi3(args.config, args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
         logmsg(logging.INFO, "Booting Master Image")
-        serial_host = config.get('serial_host')
-        serial_port = config.get('serial_port')
+        serial_host = config.get("serial_host")
+        serial_port = config.get("serial_port")
         serial_proc = SerialLogger(
-            serial_host, serial_port, 'provision-serial.log')
+            serial_host, serial_port, "provision-serial.log"
+        )
         serial_proc.start()
         try:
             device.ensure_master_image()

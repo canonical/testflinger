@@ -33,14 +33,21 @@ def main():
         dev_module = dev_class()
         # Next add the subcommands that can be used and the methods they run
         cmd_subparser = dev_subparser.add_subparsers()
-        for (cmd, func) in (('provision', dev_module.provision),
-                            ('runtest', dev_module.runtest),
-                            ('reserve', dev_module.reserve)):
+        for (cmd, func) in (
+            ("provision", dev_module.provision),
+            ("runtest", dev_module.runtest),
+            ("reserve", dev_module.reserve),
+        ):
             cmd_parser = cmd_subparser.add_parser(cmd)
-            cmd_parser.add_argument('-c', '--config', required=True,
-                                    help='Config file for this device')
-            cmd_parser.add_argument('job_data',
-                                    help='Testflinger json data file')
+            cmd_parser.add_argument(
+                "-c",
+                "--config",
+                required=True,
+                help="Config file for this device",
+            )
+            cmd_parser.add_argument(
+                "job_data", help="Testflinger json data file"
+            )
             cmd_parser.set_defaults(func=func)
     args = parser.parse_args()
     raise SystemExit(args.func(args))

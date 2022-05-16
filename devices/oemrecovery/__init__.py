@@ -20,9 +20,7 @@ import yaml
 import snappy_device_agents
 from devices.oemrecovery.oemrecovery import OemRecovery
 from snappy_device_agents import logmsg
-from devices import (catch,
-                     RecoveryError,
-                     DefaultDevice)
+from devices import catch, RecoveryError, DefaultDevice
 
 device_name = "oemrecovery"
 

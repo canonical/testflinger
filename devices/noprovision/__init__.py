@@ -22,9 +22,7 @@ import snappy_device_agents
 from devices.noprovision.noprovision import Noprovision
 from snappy_device_agents import logmsg
 
-from devices import (catch,
-                     RecoveryError,
-                     DefaultDevice)
+from devices import catch, RecoveryError, DefaultDevice
 
 device_name = "noprovision"
 
@@ -36,8 +34,7 @@ class DeviceAgent(DefaultDevice):
             config = yaml.safe_load(configfile)
         snappy_device_agents.configure_logging(config)
         device = Noprovision(args.config)
-        test_username = snappy_device_agents.get_test_username(
-            args.job_data)
+        test_username = snappy_device_agents.get_test_username(args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
         device.ensure_test_image(test_username)
         logmsg(logging.INFO, "END provision")

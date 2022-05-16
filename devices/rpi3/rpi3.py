@@ -25,8 +25,7 @@ import yaml
 from contextlib import contextmanager
 
 import snappy_device_agents
-from devices import (ProvisioningError,
-                     RecoveryError)
+from devices import ProvisioningError, RecoveryError
 
 logger = logging.getLogger()
 
@@ -35,9 +34,11 @@ class Rpi3:
 
     """Snappy Device Agent for Rpi3."""
 
-    IMAGE_PATH_IDS = {'etc': 'ubuntu',
-                      'system-data': 'core',
-                      'snaps': 'core20'}
+    IMAGE_PATH_IDS = {
+        "etc": "ubuntu",
+        "system-data": "core",
+        "snaps": "core20",
+    }
 
     def __init__(self, config, job_data):
         with open(config) as configfile:
@@ -56,25 +57,32 @@ class Rpi3:
         :returns:
             Return output from the command, if any
         """
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'pi@{}'.format(self.config['device_ip']),
-               cmd]
+        cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "pi@{}".format(self.config["device_ip"]),
+            cmd,
+        ]
         try:
             output = subprocess.check_output(
-                cmd, stderr=subprocess.STDOUT, timeout=timeout)
+                cmd, stderr=subprocess.STDOUT, timeout=timeout
+            )
         except subprocess.CalledProcessError as e:
             raise ProvisioningError(e.output)
         return output
 
     @contextmanager
-    def remote_mount(self, remote_device, mount_point='/mnt'):
+    def remote_mount(self, remote_device, mount_point="/mnt"):
         self._run_control(
-            'sudo mount /dev/{} {}'.format(remote_device, mount_point))
+            "sudo mount /dev/{} {}".format(remote_device, mount_point)
+        )
         try:
             yield mount_point
         finally:
-            self._run_control('sudo umount {}'.format(mount_point))
+            self._run_control("sudo umount {}".format(mount_point))
 
     def get_image_type(self):
         """
@@ -83,16 +91,18 @@ class Rpi3:
         :returns:
             tuple of image type and device as strings
         """
-        dev = self.config['test_device']
-        lsblk_data = self._run_control('lsblk -J {}'.format(dev))
+        dev = self.config["test_device"]
+        lsblk_data = self._run_control("lsblk -J {}".format(dev))
         lsblk_json = json.loads(lsblk_data.decode())
-        dev_list = [x.get('name')
-                    for x in lsblk_json['blockdevices'][0]['children']
-                    if x.get('name')]
+        dev_list = [
+            x.get("name")
+            for x in lsblk_json["blockdevices"][0]["children"]
+            if x.get("name")
+        ]
         for dev in dev_list:
             try:
                 with self.remote_mount(dev):
-                    dirs = self._run_control('ls /mnt')
+                    dirs = self._run_control("ls /mnt")
                     for path, img_type in self.IMAGE_PATH_IDS.items():
                         if path in dirs.decode().split():
                             return img_type, dev
@@ -100,7 +110,7 @@ class Rpi3:
                 # If unmountable or any other error, go on to the next one
                 continue
         # We have no idea what kind of image this is
-        return 'unknown', dev
+        return "unknown", dev
 
     def setboot(self, mode):
         """
@@ -113,10 +123,10 @@ class Rpi3:
 
         This method sets the snappy boot method to the specified value.
         """
-        if mode == 'master':
-            setboot_script = self.config['select_master_script']
-        elif mode == 'test':
-            setboot_script = self.config['select_test_script']
+        if mode == "master":
+            setboot_script = self.config["select_master_script"]
+        elif mode == "test":
+            setboot_script = self.config["select_test_script"]
         else:
             raise KeyError
         for cmd in setboot_script:
@@ -137,7 +147,7 @@ class Rpi3:
             This function runs the commands specified in 'reboot_script'
             in the config yaml.
         """
-        for cmd in self.config['reboot_script']:
+        for cmd in self.config["reboot_script"]:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
@@ -156,9 +166,9 @@ class Rpi3:
             If the command times out or anything else fails.
         """
         logger.info("Booting the test image")
-        self.setboot('test')
+        self.setboot("test")
         try:
-            self._run_control('sudo /sbin/reboot')
+            self._run_control("sudo /sbin/reboot")
         except Exception:
             pass
         time.sleep(60)
@@ -169,10 +179,17 @@ class Rpi3:
         while time.time() - started < 600:
             try:
                 time.sleep(10)
-                cmd = ['sshpass', '-p', test_password, 'ssh-copy-id',
-                       '-o', 'StrictHostKeyChecking=no',
-                       '-o', 'UserKnownHostsFile=/dev/null',
-                       '{}@{}'.format(test_username, self.config['device_ip'])]
+                cmd = [
+                    "sshpass",
+                    "-p",
+                    test_password,
+                    "ssh-copy-id",
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    "-o",
+                    "UserKnownHostsFile=/dev/null",
+                    "{}@{}".format(test_username, self.config["device_ip"]),
+                ]
                 subprocess.check_call(cmd)
                 test_image_booted = self.is_test_image_booted()
             except Exception:
@@ -195,13 +212,17 @@ class Rpi3:
             If the command fails
         """
         logger.info("Checking if test image booted.")
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'ubuntu@{}'.format(self.config['device_ip']),
-               'snap -h']
+        cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "ubuntu@{}".format(self.config["device_ip"]),
+            "snap -h",
+        ]
         try:
-            subprocess.check_output(
-                cmd, stderr=subprocess.STDOUT, timeout=60)
+            subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
         except Exception:
             return False
         # If we get here, then the above command proved we are in snappy
@@ -220,11 +241,11 @@ class Rpi3:
         # FIXME: come up with a better way of checking this
         logger.info("Checking if master image booted.")
         try:
-            output = self._run_control('cat /etc/issue')
+            output = self._run_control("cat /etc/issue")
         except Exception:
             logger.info("Error checking device state. Forcing reboot...")
             return False
-        if 'GNU' in str(output):
+        if "GNU" in str(output):
             return True
         return False
 
@@ -242,7 +263,7 @@ class Rpi3:
 
         if test_booted:
             # We are not in the master image, so just hard reset
-            self.setboot('master')
+            self.setboot("master")
             self.hardreset()
 
             started = time.time()
@@ -258,7 +279,8 @@ class Rpi3:
         master_booted = self.is_master_image_booted()
         if not master_booted:
             logging.warn(
-                "Device is in an unknown state, attempting to recover")
+                "Device is in an unknown state, attempting to recover"
+            )
             self.hardreset()
             started = time.time()
             while time.time() - started < 300:
@@ -271,7 +293,8 @@ class Rpi3:
                     return self.ensure_master_image()
             # timeout reached, this could be a dead device
             raise RecoveryError(
-                "Device is in an unknown state, may require manual recovery!")
+                "Device is in an unknown state, may require manual recovery!"
+            )
         # If we get here, the master image was already booted, so just return
 
     def flash_test_image(self, server_ip, server_port):
@@ -289,15 +312,17 @@ class Rpi3:
         # First unmount, just in case
         try:
             self._run_control(
-                'sudo umount {}*'.format(self.config['test_device']),
-                timeout=30)
+                "sudo umount {}*".format(self.config["test_device"]),
+                timeout=30,
+            )
         except KeyError:
             raise RecoveryError("Device config missing test_device")
         except Exception:
             # We might not be mounted, so expect this to fail sometimes
             pass
-        cmd = 'nc.traditional {} {}| xzcat| sudo dd of={} bs=16M'.format(
-            server_ip, server_port, self.config['test_device'])
+        cmd = "nc.traditional {} {}| xzcat| sudo dd of={} bs=16M".format(
+            server_ip, server_port, self.config["test_device"]
+        )
         logger.info("Running: %s", cmd)
         try:
             # XXX: I hope 30 min is enough? but maybe not!
@@ -305,70 +330,80 @@ class Rpi3:
         except Exception:
             raise ProvisioningError("timeout reached while flashing image!")
         try:
-            self._run_control('sync')
+            self._run_control("sync")
         except Exception:
             # Nothing should go wrong here, but let's sleep if it does
             logger.warn("Something went wrong with the sync, sleeping...")
             time.sleep(30)
         try:
             self._run_control(
-                'sudo hdparm -z {}'.format(self.config['test_device']),
-                timeout=30)
+                "sudo hdparm -z {}".format(self.config["test_device"]),
+                timeout=30,
+            )
         except Exception:
-            raise ProvisioningError("Unable to run hdparm to rescan "
-                                    "partitions")
+            raise ProvisioningError(
+                "Unable to run hdparm to rescan " "partitions"
+            )
 
     def create_user(self, image_type):
         """Create user account for default ubuntu user"""
-        metadata = 'instance_id: cloud-image'
-        userdata = ('#cloud-config\n'
-                    'password: ubuntu\n'
-                    'chpasswd:\n'
-                    '    list:\n'
-                    '        - ubuntu:ubuntu\n'
-                    '    expire: False\n'
-                    'ssh_pwauth: True')
+        metadata = "instance_id: cloud-image"
+        userdata = (
+            "#cloud-config\n"
+            "password: ubuntu\n"
+            "chpasswd:\n"
+            "    list:\n"
+            "        - ubuntu:ubuntu\n"
+            "    expire: False\n"
+            "ssh_pwauth: True"
+        )
         # For core20:
-        uc20_ci_data = ('#cloud-config\n'
-                        'datasource_list: [ NoCloud, None ]\n'
-                        'datasource:\n'
-                        '  NoCloud:\n'
-                        '    user-data: |\n'
-                        '      #cloud-config\n'
-                        '      password: ubuntu\n'
-                        '      chpasswd:\n'
-                        '          list:\n'
-                        '              - ubuntu:ubuntu\n'
-                        '          expire: False\n'
-                        '      ssh_pwauth: True\n'
-                        '    meta-data: |\n'
-                        '      instance_id: cloud-image')
-        base = '/mnt'
-        if image_type == 'core':
-            base = '/mnt/system-data'
+        uc20_ci_data = (
+            "#cloud-config\n"
+            "datasource_list: [ NoCloud, None ]\n"
+            "datasource:\n"
+            "  NoCloud:\n"
+            "    user-data: |\n"
+            "      #cloud-config\n"
+            "      password: ubuntu\n"
+            "      chpasswd:\n"
+            "          list:\n"
+            "              - ubuntu:ubuntu\n"
+            "          expire: False\n"
+            "      ssh_pwauth: True\n"
+            "    meta-data: |\n"
+            "      instance_id: cloud-image"
+        )
+        base = "/mnt"
+        if image_type == "core":
+            base = "/mnt/system-data"
         try:
-            if image_type == 'core20':
-                ci_path = os.path.join(base, 'data/etc/cloud/cloud.cfg.d')
-                self._run_control('sudo mkdir -p {}'.format(ci_path))
+            if image_type == "core20":
+                ci_path = os.path.join(base, "data/etc/cloud/cloud.cfg.d")
+                self._run_control("sudo mkdir -p {}".format(ci_path))
                 write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
                 self._run_control(
-                    write_cmd.format(uc20_ci_data, ci_path, '99_nocloud.cfg'))
+                    write_cmd.format(uc20_ci_data, ci_path, "99_nocloud.cfg")
+                )
             else:
                 # For core or ubuntu classic images
-                ci_path = os.path.join(
-                    base, 'var/lib/cloud/seed/nocloud-net')
-                self._run_control('sudo mkdir -p {}'.format(ci_path))
+                ci_path = os.path.join(base, "var/lib/cloud/seed/nocloud-net")
+                self._run_control("sudo mkdir -p {}".format(ci_path))
                 write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
                 self._run_control(
-                    write_cmd.format(metadata, ci_path, 'meta-data'))
+                    write_cmd.format(metadata, ci_path, "meta-data")
+                )
                 self._run_control(
-                    write_cmd.format(userdata, ci_path, 'user-data'))
-                if image_type == 'ubuntu':
+                    write_cmd.format(userdata, ci_path, "user-data")
+                )
+                if image_type == "ubuntu":
                     # This needs to be removed on classic for rpi, else
                     # cloud-init won't find the user-data we give it
                     rm_cmd = "sudo rm -f {}".format(
                         os.path.join(
-                            base, 'etc/cloud/cloud.cfg.d/99-fake_cloud.cfg'))
+                            base, "etc/cloud/cloud.cfg.d/99-fake_cloud.cfg"
+                        )
+                    )
                     self._run_control(rm_cmd)
         except Exception:
             raise ProvisioningError("Error creating user files")
@@ -381,10 +416,9 @@ class Rpi3:
         something else.
         """
         try:
-            test_device = self.config['test_device']
+            test_device = self.config["test_device"]
             logger.error("Failed to write image, cleaning up...")
-            self._run_control(
-                'sudo wipefs -af {}'.format(test_device))
+            self._run_control("sudo wipefs -af {}".format(test_device))
         except Exception:
             # This is an attempt to salvage a bad run, further tracebacks
             # would just add to the noise
@@ -393,7 +427,7 @@ class Rpi3:
     def run_post_provision_script(self):
         # Run post provision commands on control host if there are any, but
         # don't fail the provisioning step if any of them don't work
-        for cmd in self.config.get('post_provision_script', []):
+        for cmd in self.config.get("post_provision_script", []):
             logger.info("Running %s", cmd)
             try:
                 self._run_control(cmd)
@@ -402,22 +436,28 @@ class Rpi3:
 
     def provision(self):
         """Provision the device"""
-        url = self.job_data['provision_data'].get('url')
+        url = self.job_data["provision_data"].get("url")
         if url:
-            snappy_device_agents.download(url, 'snappy.img')
+            snappy_device_agents.download(url, "snappy.img")
         else:
             logger.error("Bad data passed for provisioning")
             raise ProvisioningError("Error provisioning system")
-        image_file = snappy_device_agents.compress_file('snappy.img')
-        test_username = self.job_data.get(
-            'test_data', {}).get('test_username', 'ubuntu')
-        test_password = self.job_data.get(
-            'test_data', {}).get('test_password', 'ubuntu')
+        image_file = snappy_device_agents.compress_file("snappy.img")
+        test_username = self.job_data.get("test_data", {}).get(
+            "test_username", "ubuntu"
+        )
+        test_password = self.job_data.get("test_data", {}).get(
+            "test_password", "ubuntu"
+        )
         server_ip = snappy_device_agents.get_local_ip_addr()
         serve_q = multiprocessing.Queue()
         file_server = multiprocessing.Process(
             target=snappy_device_agents.serve_file,
-            args=(serve_q, image_file,))
+            args=(
+                serve_q,
+                image_file,
+            ),
+        )
         file_server.start()
         server_port = serve_q.get()
         logger.info("Flashing Test Image")

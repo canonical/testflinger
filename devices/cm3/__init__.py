@@ -20,10 +20,7 @@ import yaml
 import snappy_device_agents
 from devices.cm3.cm3 import CM3
 from snappy_device_agents import logmsg
-from devices import (catch,
-                     DefaultDevice,
-                     RecoveryError,
-                     SerialLogger)
+from devices import catch, DefaultDevice, RecoveryError, SerialLogger
 
 device_name = "cm3"
 
@@ -41,10 +38,11 @@ class DeviceAgent(DefaultDevice):
         device = CM3(args.config, args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
         logmsg(logging.INFO, "Provisioning device")
-        serial_host = config.get('serial_host')
-        serial_port = config.get('serial_port')
+        serial_host = config.get("serial_host")
+        serial_port = config.get("serial_port")
         serial_proc = SerialLogger(
-            serial_host, serial_port, 'provision-serial.log')
+            serial_host, serial_port, "provision-serial.log"
+        )
         serial_proc.start()
         try:
             device.provision()

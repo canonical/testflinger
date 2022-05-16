@@ -20,8 +20,7 @@ import subprocess
 import time
 import yaml
 
-from devices import (ProvisioningError,
-                     RecoveryError)
+from devices import ProvisioningError, RecoveryError
 from snappy_device_agents import TimeoutError
 
 logger = logging.getLogger()
@@ -49,17 +48,24 @@ class OemRecovery:
             Return output from the command, if any
         """
         try:
-            test_username = self.job_data.get(
-                'test_data', {}).get('test_username', 'ubuntu')
+            test_username = self.job_data.get("test_data", {}).get(
+                "test_username", "ubuntu"
+            )
         except AttributeError:
-            test_username = 'ubuntu'
-        ssh_cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-                   '-o', 'UserKnownHostsFile=/dev/null',
-                   '{}@{}'.format(test_username, self.config['device_ip']),
-                   cmd]
+            test_username = "ubuntu"
+        ssh_cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "{}@{}".format(test_username, self.config["device_ip"]),
+            cmd,
+        ]
         try:
             output = subprocess.check_output(
-                ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout)
+                ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout
+            )
         except subprocess.CalledProcessError as e:
             raise ProvisioningError(e.output)
         return output
@@ -74,26 +80,34 @@ class OemRecovery:
             self.hardreset()
             self.check_device_booted()
 
-        logger.info('Recovering OEM image')
-        recovery_cmds = self.config.get('recovery_cmds')
+        logger.info("Recovering OEM image")
+        recovery_cmds = self.config.get("recovery_cmds")
         self._run_cmd_list(recovery_cmds)
         self.check_device_booted()
 
     def copy_ssh_id(self):
         try:
-            test_username = self.job_data.get(
-                'test_data', {}).get('test_username', 'ubuntu')
-            test_password = self.job_data.get(
-                'test_data', {}).get('test_password', 'ubuntu')
+            test_username = self.job_data.get("test_data", {}).get(
+                "test_username", "ubuntu"
+            )
+            test_password = self.job_data.get("test_data", {}).get(
+                "test_password", "ubuntu"
+            )
         except AttributeError:
-            test_username = 'ubuntu'
-            test_password = 'ubuntu'
-        cmd = ['sshpass', '-p', test_password, 'ssh-copy-id',
-               '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               '{}@{}'.format(test_username, self.config['device_ip'])]
-        subprocess.check_output(
-            cmd, stderr=subprocess.STDOUT, timeout=60)
+            test_username = "ubuntu"
+            test_password = "ubuntu"
+        cmd = [
+            "sshpass",
+            "-p",
+            test_password,
+            "ssh-copy-id",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "{}@{}".format(test_username, self.config["device_ip"]),
+        ]
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
 
     def check_device_booted(self):
         logger.info("Checking to see if the device is available.")
@@ -107,9 +121,10 @@ class OemRecovery:
             except Exception:
                 pass
         # If we get here, then we didn't boot in time
-        agent_name = self.config.get('agent_name')
-        logger.error('Device %s unreachable,  provisioning'
-                     'failed!', agent_name)
+        agent_name = self.config.get("agent_name")
+        logger.error(
+            "Device %s unreachable,  provisioning" "failed!", agent_name
+        )
         raise ProvisioningError("Failed to boot test image!")
 
     def _run_cmd_list(self, cmdlist):
@@ -140,7 +155,7 @@ class OemRecovery:
             This function runs the commands specified in 'reboot_script'
             in the config yaml.
         """
-        for cmd in self.config['reboot_script']:
+        for cmd in self.config["reboot_script"]:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
