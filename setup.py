@@ -25,12 +25,12 @@ INSTALL_REQUIRES = [
 ]
 
 setup(
-    name='testflinger-agent',
-    version='1.0',
+    name="testflinger-agent",
+    version="1.0",
     long_description=__doc__,
-    packages=['testflinger_agent'],
+    packages=["testflinger_agent"],
     zip_safe=False,
     install_requires=INSTALL_REQUIRES,
-    setup_requires=['pytest-runner'],
-    scripts=['testflinger-agent'],
+    setup_requires=["pytest-runner"],
+    scripts=["testflinger-agent"],
 )

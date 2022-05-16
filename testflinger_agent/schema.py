@@ -15,28 +15,31 @@
 import voluptuous
 
 SCHEMA_V1 = {
-    voluptuous.Required('agent_id'): str,
-    voluptuous.Required('polling_interval', default=10): int,
-    voluptuous.Required('server_address'): str,
-    voluptuous.Required('execution_basedir',
-                        default='/tmp/testflinger/run'): str,
-    voluptuous.Required('logging_basedir',
-                        default='/tmp/testflinger/logs'): str,
-    voluptuous.Required('results_basedir',
-                        default='/tmp/testflinger/results'): str,
-    voluptuous.Required('logging_level', default='INFO'): str,
-    voluptuous.Required('logging_quiet', default=False): bool,
-    voluptuous.Required('job_queues'): list,
-    voluptuous.Required('setup_command', default=''): str,
-    voluptuous.Required('provision_command', default=''): str,
-    voluptuous.Required('test_command', default=''): str,
-    voluptuous.Required('reserve_command', default=''): str,
-    voluptuous.Required('cleanup_command', default=''): str,
-    voluptuous.Optional('provision_type'): str,
-    voluptuous.Optional('global_timeout'): int,
-    voluptuous.Optional('output_timeout'): int,
-    voluptuous.Optional('advertised_queues'): dict,
-    voluptuous.Optional('advertised_images'): dict,
+    voluptuous.Required("agent_id"): str,
+    voluptuous.Required("polling_interval", default=10): int,
+    voluptuous.Required("server_address"): str,
+    voluptuous.Required(
+        "execution_basedir", default="/tmp/testflinger/run"
+    ): str,
+    voluptuous.Required(
+        "logging_basedir", default="/tmp/testflinger/logs"
+    ): str,
+    voluptuous.Required(
+        "results_basedir", default="/tmp/testflinger/results"
+    ): str,
+    voluptuous.Required("logging_level", default="INFO"): str,
+    voluptuous.Required("logging_quiet", default=False): bool,
+    voluptuous.Required("job_queues"): list,
+    voluptuous.Required("setup_command", default=""): str,
+    voluptuous.Required("provision_command", default=""): str,
+    voluptuous.Required("test_command", default=""): str,
+    voluptuous.Required("reserve_command", default=""): str,
+    voluptuous.Required("cleanup_command", default=""): str,
+    voluptuous.Optional("provision_type"): str,
+    voluptuous.Optional("global_timeout"): int,
+    voluptuous.Optional("output_timeout"): int,
+    voluptuous.Optional("advertised_queues"): dict,
+    voluptuous.Optional("advertised_images"): dict,
 }
 
 

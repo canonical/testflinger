@@ -41,13 +41,16 @@ class ConfigTest(TestCase):
         os.unlink(self.configfile)
 
     def test_config_good(self):
-        with open(self.configfile, 'w') as config:
+        with open(self.configfile, "w") as config:
             config.write(GOOD_CONFIG)
         config = testflinger_agent.load_config(self.configfile)
-        self.assertEqual('test01', config.get('agent_id'))
+        self.assertEqual("test01", config.get("agent_id"))
 
     def test_config_bad(self):
-        with open(self.configfile, 'w') as config:
+        with open(self.configfile, "w") as config:
             config.write(BAD_CONFIG)
-        self.assertRaises(voluptuous.error.MultipleInvalid,
-                          testflinger_agent.load_config, self.configfile)
+        self.assertRaises(
+            voluptuous.error.MultipleInvalid,
+            testflinger_agent.load_config,
+            self.configfile,
+        )

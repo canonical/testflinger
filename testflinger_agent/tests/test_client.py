@@ -20,19 +20,21 @@ import requests_mock as rmock
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 
 
-class TestClient():
+class TestClient:
     @pytest.fixture
     def client(self):
-        yield _TestflingerClient({'server_address': '127.0.0.1:8000'})
+        yield _TestflingerClient({"server_address": "127.0.0.1:8000"})
 
     def test_check_jobs_empty(self, client, requests_mock):
         requests_mock.get(rmock.ANY, status_code=200)
         job_data = client.check_jobs()
-        assert(job_data is None)
+        assert job_data is None
 
     def test_check_jobs_with_job(self, client, requests_mock):
-        fake_job_data = {'job_id': str(uuid.uuid1()),
-                         'job_queue': 'test_queue'}
+        fake_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test_queue",
+        }
         requests_mock.get(rmock.ANY, json=fake_job_data)
         job_data = client.check_jobs()
-        assert(job_data == fake_job_data)
+        assert job_data == fake_job_data
