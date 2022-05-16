@@ -21,11 +21,7 @@ import json
 import os
 import uuid
 
-from flask import (
-    jsonify,
-    request,
-    send_file
-)
+from flask import jsonify, request, send_file
 
 from werkzeug.exceptions import BadRequest
 
@@ -41,7 +37,7 @@ def job_post():
     """Add a job to the queue"""
     try:
         data = request.get_json()
-        job_queue = data.get('job_queue')
+        job_queue = data.get("job_queue")
     except (AttributeError, BadRequest):
         # Set job_queue to None so we take the failure path below
         job_queue = ""
@@ -51,37 +47,39 @@ def job_post():
     job_queue = "tf_queue_" + str(job_queue)
     # If the job_id is provided, keep it as long as the uuid is good.
     # This is for job resubmission
-    job_id = data.get('job_id')
+    job_id = data.get("job_id")
     if not job_id:
         job_id = str(uuid.uuid4())
-        data['job_id'] = job_id
+        data["job_id"] = job_id
     elif not check_valid_uuid(job_id):
         return "Invalid job_id specified\n", 400
     submit_job(job_queue, json.dumps(data))
     job_file = os.path.join(
-        testflinger.app.config.get('DATA_PATH'), job_id + '.json')
-    with open(job_file, 'w', encoding='utf-8', errors='ignore') as jobfile:
+        testflinger.app.config.get("DATA_PATH"), job_id + ".json"
+    )
+    with open(job_file, "w", encoding="utf-8", errors="ignore") as jobfile:
         jobfile.write(json.dumps(data))
     # Add a result file with job_state=waiting
-    result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
+    result_file = os.path.join(testflinger.app.config.get("DATA_PATH"), job_id)
     if os.path.exists(result_file):
-        with open(result_file, 'r', encoding='utf-8',
-                  errors='ignore') as results:
+        with open(
+            result_file, "r", encoding="utf-8", errors="ignore"
+        ) as results:
             data = json.load(results)
-            data['job_state'] = 'resubmitted'
+            data["job_state"] = "resubmitted"
     else:
-        data = {'job_state': 'waiting'}
-    with open(result_file, 'w', encoding='utf-8', errors='ignore') as results:
+        data = {"job_state": "waiting"}
+    with open(result_file, "w", encoding="utf-8", errors="ignore") as results:
         results.write(json.dumps(data))
     return jsonify(job_id=job_id)
 
 
 def job_get():
     """Request a job to run from supported queues"""
-    queue_list = request.args.getlist('queue')
+    queue_list = request.args.getlist("queue")
     if not queue_list:
         return "No queue(s) specified in request", 400
-    queue_list = ['tf_queue_' + x for x in queue_list]
+    queue_list = ["tf_queue_" + x for x in queue_list]
     job = get_job(queue_list)
     if job:
         return job
@@ -102,12 +100,13 @@ def job_get_id(job_id):
     """
 
     if not check_valid_uuid(job_id):
-        return 'Invalid job id\n', 400
+        return "Invalid job id\n", 400
     job_file = os.path.join(
-        testflinger.app.config.get('DATA_PATH'), job_id + '.json')
+        testflinger.app.config.get("DATA_PATH"), job_id + ".json"
+    )
     if not os.path.exists(job_file):
         return "", 204
-    with open(job_file, 'r', encoding='utf-8', errors='ignore') as jobfile:
+    with open(job_file, "r", encoding="utf-8", errors="ignore") as jobfile:
         data = jobfile.read()
     return data, 200
 
@@ -119,12 +118,13 @@ def result_post(job_id):
         UUID as a string for the job
     """
     if not check_valid_uuid(job_id):
-        return 'Invalid job id\n', 400
-    result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
+        return "Invalid job id\n", 400
+    result_file = os.path.join(testflinger.app.config.get("DATA_PATH"), job_id)
     if os.path.exists(result_file):
         try:
-            with open(result_file, 'r', encoding='utf-8',
-                      errors='ignore') as results:
+            with open(
+                result_file, "r", encoding="utf-8", errors="ignore"
+            ) as results:
                 data = json.load(results)
         except json.decoder.JSONDecodeError:
             # If for any reason it's empty or has bad data - set to empty dict
@@ -136,7 +136,7 @@ def result_post(job_id):
     except BadRequest:
         return "Invalid result data\n", 400
     data.update(new_data)
-    with open(result_file, 'w', encoding='utf-8', errors='ignore') as results:
+    with open(result_file, "w", encoding="utf-8", errors="ignore") as results:
         results.write(json.dumps(data))
     return "OK"
 
@@ -148,11 +148,11 @@ def result_get(job_id):
         UUID as a string for the job
     """
     if not check_valid_uuid(job_id):
-        return 'Invalid job id\n', 400
-    result_file = os.path.join(testflinger.app.config.get('DATA_PATH'), job_id)
+        return "Invalid job id\n", 400
+    result_file = os.path.join(testflinger.app.config.get("DATA_PATH"), job_id)
     if not os.path.exists(result_file):
         return "", 204
-    with open(result_file, 'r', encoding='utf-8', errors='ignore') as results:
+    with open(result_file, "r", encoding="utf-8", errors="ignore") as results:
         data = results.read()
     return data
 
@@ -164,10 +164,10 @@ def artifacts_post(job_id):
         UUID as a string for the job
     """
     if not check_valid_uuid(job_id):
-        return 'Invalid job id\n', 400
-    file = request.files['file']
-    filename = '{}.artifact'.format(job_id)
-    file.save(os.path.join(testflinger.app.config.get('DATA_PATH'), filename))
+        return "Invalid job id\n", 400
+    file = request.files["file"]
+    filename = "{}.artifact".format(job_id)
+    file.save(os.path.join(testflinger.app.config.get("DATA_PATH"), filename))
     return "OK"
 
 
@@ -180,9 +180,10 @@ def artifacts_get(job_id):
         send_file stream of artifact tarball to download
     """
     if not check_valid_uuid(job_id):
-        return 'Invalid job id\n', 400
+        return "Invalid job id\n", 400
     artifact_file = os.path.join(
-        testflinger.app.config.get('DATA_PATH'), '{}.artifact'.format(job_id))
+        testflinger.app.config.get("DATA_PATH"), "{}.artifact".format(job_id)
+    )
     if not os.path.exists(artifact_file):
         return "", 204
     return send_file(artifact_file)
@@ -197,15 +198,15 @@ def output_get(job_id):
         Output lines
     """
     if not check_valid_uuid(job_id):
-        return 'Invalid job id\n', 400
+        return "Invalid job id\n", 400
     output_key = "stream_{}".format(job_id)
     pipe = testflinger.app.redis.pipeline()
     pipe.lrange(output_key, 0, -1)
     pipe.delete(output_key)
     output = pipe.execute()
     if output[0]:
-        return '\n'.join([x.decode() for x in output[0]])
-    return '', 204
+        return "\n".join([x.decode() for x in output[0]])
+    return "", 204
 
 
 def output_post(job_id):
@@ -220,7 +221,7 @@ def output_post(job_id):
     ('Invalid job id\\n', 400)
     """
     if not check_valid_uuid(job_id):
-        return 'Invalid job id\n', 400
+        return "Invalid job id\n", 400
     data = request.get_data()
     output_key = "stream_{}".format(job_id)
     testflinger.app.redis.rpush(output_key, data)
@@ -230,15 +231,15 @@ def output_post(job_id):
 
 
 def queues_get():
-    """Get a current list of all advertised queues from this server
-    """
-    redis_list = testflinger.app.redis.keys('tf:qlist:*')
+    """Get a current list of all advertised queues from this server"""
+    redis_list = testflinger.app.redis.keys("tf:qlist:*")
     queue_dict = {}
     # Create a dict of queues and descriptions
     for queue_name in redis_list:
         # strip tf:qlist: from the key to get the queue name
         queue_dict[queue_name[9:].decode()] = testflinger.app.redis.get(
-            queue_name).decode()
+            queue_name
+        ).decode()
     return jsonify(queue_dict)
 
 
@@ -251,7 +252,7 @@ def queues_post():
     queue_dict = request.get_json()
     pipe = testflinger.app.redis.pipeline()
     for queue in queue_dict:
-        queue_name = 'tf:qlist:' + queue
+        queue_name = "tf:qlist:" + queue
         queue_description = queue_dict[queue]
         pipe.set(queue_name, queue_description, ex=300)
     pipe.execute()
@@ -259,22 +260,20 @@ def queues_post():
 
 
 def images_get(queue):
-    """Get a list of known images for a given queue
-    """
-    images = testflinger.app.redis.hgetall('tf:images:' + queue)
+    """Get a list of known images for a given queue"""
+    images = testflinger.app.redis.hgetall("tf:images:" + queue)
     images = {k.decode(): v.decode() for k, v in images.items()}
     return jsonify(images)
 
 
 def images_post():
-    """Tell testflinger about known images for a specified queue
-    """
+    """Tell testflinger about known images for a specified queue"""
     image_dict = request.get_json()
     pipe = testflinger.app.redis.pipeline()
     # We need to delete and recreate the hash in case images were removed
     for queue, images in image_dict.items():
-        pipe.delete('tf:images:'+queue)
-        pipe.hmset('tf:images:'+queue, images)
+        pipe.delete("tf:images:" + queue)
+        pipe.hmset("tf:images:" + queue, images)
     pipe.execute()
     return "OK"
 
@@ -329,10 +328,13 @@ def job_position_get(job_id):
         job_data = json.loads(data)
     except (json.JSONDecodeError, TypeError):
         return "Invalid json returned for id: {}\n".format(job_id), 400
-    queue = "tf_queue_" + job_data.get('job_queue')
+    queue = "tf_queue_" + job_data.get("job_queue")
     for position, job in enumerate(
-            reversed(testflinger.app.redis.lrange(queue, 0, -1))):
-        if json.loads(
-                job.decode('utf-8', errors='ignore')).get('job_id') == job_id:
+        reversed(testflinger.app.redis.lrange(queue, 0, -1))
+    ):
+        if (
+            json.loads(job.decode("utf-8", errors="ignore")).get("job_id")
+            == job_id
+        ):
             return str(position)
     return "Job not found or already started\n", 410
