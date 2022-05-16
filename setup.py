@@ -28,10 +28,10 @@ INSTALL_REQUIRES = [
 ]
 
 setup(
-    name='testflinger',
-    version='1.0.1',
+    name="testflinger",
+    version="1.0.1",
     long_description=__doc__,
-    packages=['testflinger'],
+    packages=["testflinger"],
     zip_safe=False,
     install_requires=INSTALL_REQUIRES,
 )

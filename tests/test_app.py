@@ -25,8 +25,8 @@ import testflinger
 def test_default_config():
     """Test default config settings"""
     app = testflinger.create_flask_app()
-    assert app.config.get('REDIS_HOST') == 'localhost'
-    assert app.config.get('REDIS_PORT') == '6379'
+    assert app.config.get("REDIS_HOST") == "localhost"
+    assert app.config.get("REDIS_PORT") == "6379"
 
 
 def test_load_config():
@@ -34,6 +34,6 @@ def test_load_config():
     with tempfile.NamedTemporaryFile() as testconfig:
         testconfig.write('TEST_FOO="YES"'.encode())
         testconfig.flush()
-        os.environ['TESTFLINGER_CONFIG'] = testconfig.name
+        os.environ["TESTFLINGER_CONFIG"] = testconfig.name
         app = testflinger.create_flask_app()
-        assert app.config.get('TEST_FOO') == 'YES'
+        assert app.config.get("TEST_FOO") == "YES"
