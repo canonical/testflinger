@@ -16,7 +16,7 @@
 class TFServerError(Exception):
     def __init__(self, m):
         self.code = m
-        self.message = 'HTTP Status: {}'.format(m)
+        self.message = "HTTP Status: {}".format(m)
 
     def __str__(self):
         return self.message

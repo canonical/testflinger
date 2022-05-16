@@ -30,15 +30,17 @@ def main():
     args = parse_args()
     config = load_config(args.config)
     configure_logging(config)
-    check_interval = config.get('polling_interval')
+    check_interval = config.get("polling_interval")
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
     while True:
         offline_file = agent.check_offline()
         if offline_file:
-            logger.error("Agent %s is offline, not processing jobs! "
-                         "Remove %s to resume processing" %
-                         (config.get('agent_id'), offline_file))
+            logger.error(
+                "Agent %s is offline, not processing jobs! "
+                "Remove %s to resume processing"
+                % (config.get("agent_id"), offline_file)
+            )
             while agent.check_offline():
                 time.sleep(check_interval)
         logger.info("Checking jobs")
@@ -57,24 +59,25 @@ def load_config(configfile):
 def configure_logging(config):
     # Create these at the beginning so we fail early if there are
     # permission problems
-    os.makedirs(config.get('logging_basedir'), exist_ok=True)
-    os.makedirs(config.get('results_basedir'), exist_ok=True)
-    log_level = logging.getLevelName(config.get('logging_level'))
+    os.makedirs(config.get("logging_basedir"), exist_ok=True)
+    os.makedirs(config.get("results_basedir"), exist_ok=True)
+    log_level = logging.getLevelName(config.get("logging_level"))
     # This should help if they specify something invalid
     if not isinstance(log_level, int):
         log_level = logging.INFO
     logfmt = logging.Formatter(
-        fmt='[%(asctime)s] %(levelname)+7.7s: %(message)s',
-        datefmt='%y-%m-%d %H:%M:%S')
+        fmt="[%(asctime)s] %(levelname)+7.7s: %(message)s",
+        datefmt="%y-%m-%d %H:%M:%S",
+    )
     log_path = os.path.join(
-        config.get('logging_basedir'), 'testflinger-agent.log')
-    file_log = TimedRotatingFileHandler(log_path,
-                                        when="midnight",
-                                        interval=1,
-                                        backupCount=6)
+        config.get("logging_basedir"), "testflinger-agent.log"
+    )
+    file_log = TimedRotatingFileHandler(
+        log_path, when="midnight", interval=1, backupCount=6
+    )
     file_log.setFormatter(logfmt)
     logger.addHandler(file_log)
-    if not config.get('logging_quiet'):
+    if not config.get("logging_quiet"):
         console_log = logging.StreamHandler()
         console_log.setFormatter(logfmt)
         logger.addHandler(console_log)
@@ -82,7 +85,11 @@ def configure_logging(config):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Testflinger Agent')
-    parser.add_argument('--config', '-c', default='testflinger-agent.conf',
-                        help='Testflinger agent config file')
+    parser = argparse.ArgumentParser(description="Testflinger Agent")
+    parser.add_argument(
+        "--config",
+        "-c",
+        default="testflinger-agent.conf",
+        help="Testflinger agent config file",
+    )
     return parser.parse_args()

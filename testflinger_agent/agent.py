@@ -28,13 +28,14 @@ logger = logging.getLogger(__name__)
 class TestflingerAgent:
     def __init__(self, client):
         self.client = client
-        self._state = multiprocessing.Array('c', 16)
-        self.set_state('waiting')
-        self.advertised_queues = self.client.config.get('advertised_queues')
-        self.advertised_images = self.client.config.get('advertised_images')
+        self._state = multiprocessing.Array("c", 16)
+        self.set_state("waiting")
+        self.advertised_queues = self.client.config.get("advertised_queues")
+        self.advertised_images = self.client.config.get("advertised_images")
         if self.advertised_queues or self.advertised_images:
             self.status_proc = multiprocessing.Process(
-                target=self._status_worker)
+                target=self._status_worker
+            )
             self.status_proc.daemon = True
             self.status_proc.start()
 
@@ -42,7 +43,7 @@ class TestflingerAgent:
         # Report advertised queues to testflinger server when we are listening
         while True:
             # Post every 2min unless the agent is offline
-            if self._state.value.decode('utf-8') != 'offline':
+            if self._state.value.decode("utf-8") != "offline":
                 if self.advertised_queues:
                     self.client.post_queues(self.advertised_queues)
                 if self.advertised_images:
@@ -50,17 +51,19 @@ class TestflingerAgent:
             time.sleep(120)
 
     def set_state(self, state):
-        self._state.value = state.encode('utf-8')
+        self._state.value = state.encode("utf-8")
 
     def get_offline_files(self):
         # Return possible restart filenames with and without dashes
         # i.e. support both:
         #     TESTFLINGER-DEVICE-OFFLINE-devname-001
         #     TESTFLINGER-DEVICE-OFFLINE-devname001
-        agent = self.client.config.get('agent_id')
+        agent = self.client.config.get("agent_id")
         files = [
-            '/tmp/TESTFLINGER-DEVICE-OFFLINE-{}'.format(agent),
-            '/tmp/TESTFLINGER-DEVICE-OFFLINE-{}'.format(agent.replace('-', ''))
+            "/tmp/TESTFLINGER-DEVICE-OFFLINE-{}".format(agent),
+            "/tmp/TESTFLINGER-DEVICE-OFFLINE-{}".format(
+                agent.replace("-", "")
+            ),
         ]
         return files
 
@@ -69,10 +72,12 @@ class TestflingerAgent:
         # i.e. support both:
         #     TESTFLINGER-DEVICE-RESTART-devname-001
         #     TESTFLINGER-DEVICE-RESTART-devname001
-        agent = self.client.config.get('agent_id')
+        agent = self.client.config.get("agent_id")
         files = [
-            '/tmp/TESTFLINGER-DEVICE-RESTART-{}'.format(agent),
-            '/tmp/TESTFLINGER-DEVICE-RESTART-{}'.format(agent.replace('-', ''))
+            "/tmp/TESTFLINGER-DEVICE-RESTART-{}".format(agent),
+            "/tmp/TESTFLINGER-DEVICE-RESTART-{}".format(
+                agent.replace("-", "")
+            ),
         ]
         return files
 
@@ -80,10 +85,10 @@ class TestflingerAgent:
         possible_files = self.get_offline_files()
         for offline_file in possible_files:
             if os.path.exists(offline_file):
-                self.set_state('offline')
+                self.set_state("offline")
                 return offline_file
-        self.set_state('waiting')
-        return ''
+        self.set_state("waiting")
+        return ""
 
     def check_restart(self):
         possible_files = self.get_restart_files()
@@ -92,25 +97,26 @@ class TestflingerAgent:
                 try:
                     os.unlink(restart_file)
                     logger.info("Restarting agent")
-                    self.set_state('offline')
+                    self.set_state("offline")
                     raise SystemExit("Restart Requested")
                 except OSError:
                     logger.error(
-                        "Restart requested, but unable to remove marker file!")
+                        "Restart requested, but unable to remove marker file!"
+                    )
                     break
 
     def check_job_state(self, job_id):
         job_data = self.client.get_result(job_id)
         if job_data:
-            return job_data.get('job_state')
+            return job_data.get("job_state")
 
     def mark_device_offline(self):
         # Create the offline file, this should work even if it exists
-        open(self.get_offline_files()[0], 'w').close()
+        open(self.get_offline_files()[0], "w").close()
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
-        TEST_PHASES = ['setup', 'provision', 'test', 'reserve']
+        TEST_PHASES = ["setup", "provision", "test", "reserve"]
 
         # First, see if we have any old results that we couldn't send last time
         self.retry_old_results()
@@ -123,42 +129,48 @@ class TestflingerAgent:
                 job = TestflingerJob(job_data, self.client)
                 logger.info("Starting job %s", job.job_id)
                 rundir = os.path.join(
-                    self.client.config.get('execution_basedir'),
-                    job.job_id)
+                    self.client.config.get("execution_basedir"), job.job_id
+                )
                 os.makedirs(rundir)
                 # Dump the job data to testflinger.json in our execution dir
-                with open(os.path.join(rundir, 'testflinger.json'), 'w') as f:
+                with open(os.path.join(rundir, "testflinger.json"), "w") as f:
                     json.dump(job_data, f)
                 # Create json outcome file where phases will store their output
                 with open(
-                        os.path.join(rundir, 'testflinger-outcome.json'),
-                        'w') as f:
+                    os.path.join(rundir, "testflinger-outcome.json"), "w"
+                ) as f:
                     json.dump({}, f)
 
                 for phase in TEST_PHASES:
                     # First make sure the job hasn't been cancelled
-                    if self.check_job_state(job.job_id) == 'cancelled':
+                    if self.check_job_state(job.job_id) == "cancelled":
                         logger.info("Job cancellation was requested, exiting.")
                         break
                     # Try to update the job_state on the testflinger server
                     try:
                         self.client.post_result(
-                            job.job_id, {'job_state': phase})
+                            job.job_id, {"job_state": phase}
+                        )
                     except TFServerError:
                         pass
                     self.set_state(phase)
-                    proc = multiprocessing.Process(target=job.run_test_phase,
-                                                   args=(
-                                                       phase,
-                                                       rundir,
-                                                   ))
+                    proc = multiprocessing.Process(
+                        target=job.run_test_phase,
+                        args=(
+                            phase,
+                            rundir,
+                        ),
+                    )
                     proc.start()
                     while proc.is_alive():
                         proc.join(10)
-                        if (self.check_job_state(job.job_id) == 'cancelled'
-                                and phase != 'provision'):
+                        if (
+                            self.check_job_state(job.job_id) == "cancelled"
+                            and phase != "provision"
+                        ):
                             logger.info(
-                                "Job cancellation was requested, exiting.")
+                                "Job cancellation was requested, exiting."
+                            )
                             proc.terminate()
                     exitcode = proc.exitcode
 
@@ -170,18 +182,20 @@ class TestflingerAgent:
                         shutil.rmtree(rundir)
                         # Return NOW so we don't keep trying to process jobs
                         return
-                    if phase != 'test' and exitcode:
-                        logger.debug('Phase %s failed, aborting job' % phase)
+                    if phase != "test" and exitcode:
+                        logger.debug("Phase %s failed, aborting job" % phase)
                         break
             except Exception as e:
                 logger.exception(e)
             finally:
                 # Always run the cleanup, even if the job was cancelled
-                proc = multiprocessing.Process(target=job.run_test_phase,
-                                               args=(
-                                                   'cleanup',
-                                                   rundir,
-                                               ))
+                proc = multiprocessing.Process(
+                    target=job.run_test_phase,
+                    args=(
+                        "cleanup",
+                        rundir,
+                    ),
+                )
                 proc.start()
                 proc.join()
 
@@ -192,9 +206,9 @@ class TestflingerAgent:
                 # Other errors can happen too for things like connection
                 # problems
                 logger.exception(e)
-                results_basedir = self.client.config.get('results_basedir')
+                results_basedir = self.client.config.get("results_basedir")
                 shutil.move(rundir, results_basedir)
-            self.set_state('waiting')
+            self.set_state("waiting")
 
             self.check_restart()
             if self.check_offline():
@@ -205,16 +219,17 @@ class TestflingerAgent:
     def retry_old_results(self):
         """Retry sending results that we previously failed to send"""
 
-        results_dir = self.client.config.get('results_basedir')
+        results_dir = self.client.config.get("results_basedir")
         # List all the directories in 'results_basedir', where we store the
         # results that we couldn't transmit before
         old_results = [
-            os.path.join(results_dir, d) for d in os.listdir(results_dir)
+            os.path.join(results_dir, d)
+            for d in os.listdir(results_dir)
             if os.path.isdir(os.path.join(results_dir, d))
         ]
         for result in old_results:
             try:
-                logger.info('Attempting to send result: %s' % result)
+                logger.info("Attempting to send result: %s" % result)
                 self.client.transmit_job_outcome(result)
             except TFServerError:
                 # Problems still, better luck next time?
