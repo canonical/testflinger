@@ -22,8 +22,7 @@ import time
 import yaml
 
 from collections import OrderedDict
-from devices import (ProvisioningError,
-                     RecoveryError)
+from devices import ProvisioningError, RecoveryError
 
 logger = logging.getLogger()
 
@@ -37,10 +36,10 @@ class Maas2:
             self.config = yaml.safe_load(configfile)
         with open(job_data) as j:
             self.job_data = json.load(j)
-        self.maas_user = self.config.get('maas_user')
-        self.node_id = self.config.get('node_id')
-        self.agent_name = self.config.get('agent_name')
-        self.timeout_min = int(self.config.get('timeout_min', 60))
+        self.maas_user = self.config.get("maas_user")
+        self.node_id = self.config.get("node_id")
+        self.agent_name = self.config.get("agent_name")
+        self.timeout_min = int(self.config.get("timeout_min", 60))
 
     def _logger_debug(self, message):
         logger.debug("MAAS: {}".format(message))
@@ -62,46 +61,68 @@ class Maas2:
         self.node_release()
 
     def provision(self):
-        if self.config.get('reset_efi'):
+        if self.config.get("reset_efi"):
             self.reset_efi()
         # Check if this is a device where we need to clear the tpm (dawson)
-        if self.config.get('clear_tpm'):
+        if self.config.get("clear_tpm"):
             self.clear_tpm()
-        provision_data = self.job_data.get('provision_data')
+        provision_data = self.job_data.get("provision_data")
         # Default to a safe LTS if no distro is specified
-        distro = provision_data.get('distro', 'xenial')
-        kernel = provision_data.get('kernel')
-        user_data = provision_data.get('user_data')
+        distro = provision_data.get("distro", "xenial")
+        kernel = provision_data.get("kernel")
+        user_data = provision_data.get("user_data")
         self.deploy_node(distro, kernel, user_data)
 
     def _install_efitools_snap(self):
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'ubuntu@{}'.format(self.config['device_ip']),
-               'sudo snap install efi-tools-ijohnson --devmode --edge']
+        cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "ubuntu@{}".format(self.config["device_ip"]),
+            "sudo snap install efi-tools-ijohnson --devmode --edge",
+        ]
         subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'ubuntu@{}'.format(self.config['device_ip']),
-               'sudo snap alias efi-tools-ijohnson.efibootmgr efibootmgr']
+        cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "ubuntu@{}".format(self.config["device_ip"]),
+            "sudo snap alias efi-tools-ijohnson.efibootmgr efibootmgr",
+        ]
         subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     def _get_efi_data(self):
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'ubuntu@{}'.format(self.config['device_ip']),
-               'sudo efibootmgr -v']
+        cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "ubuntu@{}".format(self.config["device_ip"]),
+            "sudo efibootmgr -v",
+        ]
         p = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
         # If it fails the first time, try installing efitools snap
         if p.returncode:
             self._install_efitools_snap()
-            cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-                   '-o', 'UserKnownHostsFile=/dev/null',
-                   'ubuntu@{}'.format(self.config['device_ip']),
-                   'sudo efibootmgr -v']
+            cmd = [
+                "ssh",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "UserKnownHostsFile=/dev/null",
+                "ubuntu@{}".format(self.config["device_ip"]),
+                "sudo efibootmgr -v",
+            ]
             p = subprocess.run(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            )
         if p.returncode:
             return None
         # Use OrderedDict because often the NIC entries in EFI are in a good
@@ -114,24 +135,32 @@ class Maas2:
 
     def _set_efi_data(self, boot_order):
         # Set the boot order to the comma separated string of entries
-        self._logger_info('Setting boot order to {}'.format(boot_order))
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'ubuntu@{}'.format(self.config['device_ip']),
-               'sudo efibootmgr -o {}'.format(boot_order)]
+        self._logger_info("Setting boot order to {}".format(boot_order))
+        cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "ubuntu@{}".format(self.config["device_ip"]),
+            "sudo efibootmgr -o {}".format(boot_order),
+        ]
         p = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
         if p.returncode:
-            self._logger_error('Failed to set efi boot order to "{}":\n'
-                               '{}'.format(boot_order, p.stdout.decode()))
+            self._logger_error(
+                'Failed to set efi boot order to "{}":\n'
+                "{}".format(boot_order, p.stdout.decode())
+            )
 
     def reset_efi(self):
         # Try to reset the boot order so that NICs boot first
-        self._logger_info('Fixing EFI boot order before provisioning')
+        self._logger_info("Fixing EFI boot order before provisioning")
         efi_data = self._get_efi_data()
         if not efi_data:
             return
-        bootlist = efi_data.get('BootOrder:').split(',')
+        bootlist = efi_data.get("BootOrder:").split(",")
         new_boot_order = []
         for k, v in efi_data.items():
             if ("IPv4" in v) and "Boot" in k:
@@ -139,7 +168,7 @@ class Maas2:
         for entry in bootlist:
             if entry not in new_boot_order:
                 new_boot_order.append(entry)
-        self._set_efi_data(','.join(new_boot_order))
+        self._set_efi_data(",".join(new_boot_order))
 
     def clear_tpm(self):
         self._logger_info("Clearing the TPM before provisioning")
@@ -153,91 +182,126 @@ class Maas2:
 
     def _run_tpm_clear_cmd(self):
         # Run the command to clear the tpm over ssh
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'ubuntu@{}'.format(self.config['device_ip']),
-               'echo 5 | sudo tee /sys/class/tpm/tpm0/ppi/request']
+        cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "ubuntu@{}".format(self.config["device_ip"]),
+            "echo 5 | sudo tee /sys/class/tpm/tpm0/ppi/request",
+        ]
         try:
             subprocess.check_call(cmd, timeout=30)
-            cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-                   '-o', 'UserKnownHostsFile=/dev/null',
-                   'ubuntu@{}'.format(self.config['device_ip']),
-                   'cat /sys/class/tpm/tpm0/ppi/request']
+            cmd = [
+                "ssh",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "UserKnownHostsFile=/dev/null",
+                "ubuntu@{}".format(self.config["device_ip"]),
+                "cat /sys/class/tpm/tpm0/ppi/request",
+            ]
             output = subprocess.check_output(cmd, timeout=30)
             # If we now see "5" in that file, then clearing tpm succeeded
-            if output.decode('utf-8').strip() == "5":
+            if output.decode("utf-8").strip() == "5":
                 return True
         except Exception:
             # Fall through if we fail for any reason
             pass
         return False
 
-    def deploy_node(self, distro='bionic', kernel=None, user_data=None):
+    def deploy_node(self, distro="bionic", kernel=None, user_data=None):
         # Deploy the node in maas, default to bionic if nothing is specified
         self.recover()
-        self._logger_info('Acquiring node')
-        cmd = ['maas', self.maas_user, 'machines', 'allocate',
-               'system_id={}'.format(self.node_id)]
+        self._logger_info("Acquiring node")
+        cmd = [
+            "maas",
+            self.maas_user,
+            "machines",
+            "allocate",
+            "system_id={}".format(self.node_id),
+        ]
         # Do not use runcmd for this - we need the output, not the end user
         subprocess.check_call(cmd)
-        self._logger_info('Starting node {} '
-                          'with distro {}'.format(self.agent_name, distro))
-        cmd = ['maas', self.maas_user, 'machine', 'deploy', self.node_id,
-               'distro_series={}'.format(distro)]
+        self._logger_info(
+            "Starting node {} "
+            "with distro {}".format(self.agent_name, distro)
+        )
+        cmd = [
+            "maas",
+            self.maas_user,
+            "machine",
+            "deploy",
+            self.node_id,
+            "distro_series={}".format(distro),
+        ]
         if kernel:
-            cmd.append('hwe_kernel={}'.format(kernel))
+            cmd.append("hwe_kernel={}".format(kernel))
         if user_data:
             data = base64.b64encode(user_data.encode()).decode()
-            cmd.append('user_data={}'.format(data))
-        process = subprocess.run(cmd,
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+            cmd.append("user_data={}".format(data))
+        process = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         try:
             process.check_returncode()
         except subprocess.CalledProcessError:
-            self._logger_error('maas-cli call failure happens.')
+            self._logger_error("maas-cli call failure happens.")
             raise ProvisioningError(process.stdout.decode())
 
         # Make sure the device is available before returning
         minutes_spent = 0
-        self._logger_info("Timeout value: {} minutes.".format(
-            self.timeout_min))
+        self._logger_info(
+            "Timeout value: {} minutes.".format(self.timeout_min)
+        )
         while minutes_spent < self.timeout_min:
             time.sleep(60)
             minutes_spent += 1
-            self._logger_info('{} minutes passed '
-                              'since deployment.'.format(minutes_spent))
+            self._logger_info(
+                "{} minutes passed " "since deployment.".format(minutes_spent)
+            )
             status = self.node_status()
 
-            if status == 'Failed deployment':
-                self._logger_error('MaaS reports Failed Deployment')
-                exception_msg = "Provisioning failed because " + \
-                                "MaaS got unexpected or " + \
-                                "deployment failure status signal."
+            if status == "Failed deployment":
+                self._logger_error("MaaS reports Failed Deployment")
+                exception_msg = (
+                    "Provisioning failed because "
+                    + "MaaS got unexpected or "
+                    + "deployment failure status signal."
+                )
                 raise ProvisioningError(exception_msg)
 
-            if status == 'Deployed':
+            if status == "Deployed":
                 if self.check_test_image_booted():
-                    self._logger_info('Deployed and booted.')
+                    self._logger_info("Deployed and booted.")
                     return
 
-        self._logger_error('Device {} still in "{}" state, deployment '
-                           'failed!'.format(self.agent_name, status))
+        self._logger_error(
+            'Device {} still in "{}" state, deployment '
+            "failed!".format(self.agent_name, status)
+        )
         self._logger_error(process.stdout.decode())
-        exception_msg = "Provisioning failed because deployment timeout. " + \
-                        "Deploying for more than " + \
-                        "{} minutes.".format(self.timeout_min)
+        exception_msg = (
+            "Provisioning failed because deployment timeout. "
+            + "Deploying for more than "
+            + "{} minutes.".format(self.timeout_min)
+        )
         raise ProvisioningError(exception_msg)
 
     def check_test_image_booted(self):
         self._logger_info("Checking if test image booted.")
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               'ubuntu@{}'.format(self.config['device_ip']),
-               '/bin/true']
+        cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "ubuntu@{}".format(self.config["device_ip"]),
+            "/bin/true",
+        ]
         try:
-            subprocess.check_output(
-                cmd, stderr=subprocess.STDOUT, timeout=60)
+            subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
         except Exception:
             return False
         # If we get here, then the above command proved we are booted
@@ -251,22 +315,24 @@ class Maas2:
         Deploying: Deployment in progress
         Deployed: Node is provisioned and ready for use
         """
-        cmd = ['maas', self.maas_user, 'machine', 'read', self.node_id]
+        cmd = ["maas", self.maas_user, "machine", "read", self.node_id]
         # Do not use runcmd for this - we need the output, not the end user
         output = subprocess.check_output(cmd)
         data = json.loads(output.decode())
-        return data.get('status_name')
+        return data.get("status_name")
 
     def node_release(self):
         """Release the node to make it available again"""
-        cmd = ['maas', self.maas_user, 'machine', 'release', self.node_id]
+        cmd = ["maas", self.maas_user, "machine", "release", self.node_id]
         subprocess.run(cmd)
         # Make sure the device is available before returning
         for timeout in range(0, 10):
             time.sleep(5)
             status = self.node_status()
-            if status == 'Ready':
+            if status == "Ready":
                 return
-        self._logger_error('Device {} still in "{}" state, could not '
-                           'recover!'.format(self.agent_name, status))
+        self._logger_error(
+            'Device {} still in "{}" state, could not '
+            "recover!".format(self.agent_name, status)
+        )
         raise RecoveryError("Device recovery failed!")

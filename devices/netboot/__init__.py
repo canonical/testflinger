@@ -22,11 +22,13 @@ import snappy_device_agents
 from devices.netboot.netboot import Netboot
 from snappy_device_agents import logmsg
 
-from devices import (catch,
-                     DefaultDevice,
-                     ProvisioningError,
-                     RecoveryError,
-                     SerialLogger)
+from devices import (
+    catch,
+    DefaultDevice,
+    ProvisioningError,
+    RecoveryError,
+    SerialLogger,
+)
 
 device_name = "netboot"
 
@@ -44,17 +46,17 @@ class DeviceAgent(DefaultDevice):
         device = Netboot(args.config)
         image = snappy_device_agents.get_image(args.job_data)
         if not image:
-            raise ProvisioningError('Error downloading image')
+            raise ProvisioningError("Error downloading image")
         server_ip = snappy_device_agents.get_local_ip_addr()
         # Ideally the default user/pass should be metadata about an image,
         # but we don't currently have any concept of that stored. For now,
         # we can give a reasonable guess based on the provisioning method.
         test_username = snappy_device_agents.get_test_username(
-            job_data=args.job_data,
-            default='admin')
+            job_data=args.job_data, default="admin"
+        )
         test_password = snappy_device_agents.get_test_password(
-            job_data=args.job_data,
-            default='admin')
+            job_data=args.job_data, default="admin"
+        )
         logmsg(logging.INFO, "BEGIN provision")
         logmsg(logging.INFO, "Booting Master Image")
         """Initial recovery process
@@ -71,14 +73,20 @@ class DeviceAgent(DefaultDevice):
                 raise RecoveryError("Unable to put system in a usable state!")
         q = multiprocessing.Queue()
         file_server = multiprocessing.Process(
-            target=snappy_device_agents.serve_file, args=(q, image,))
+            target=snappy_device_agents.serve_file,
+            args=(
+                q,
+                image,
+            ),
+        )
         file_server.start()
         server_port = q.get()
         logmsg(logging.INFO, "Flashing Test Image")
-        serial_host = config.get('serial_host')
-        serial_port = config.get('serial_port')
+        serial_host = config.get("serial_host")
+        serial_port = config.get("serial_port")
         serial_proc = SerialLogger(
-            serial_host, serial_port, 'provision-serial.log')
+            serial_host, serial_port, "provision-serial.log"
+        )
         serial_proc.start()
         try:
             device.flash_test_image(server_ip, server_port)

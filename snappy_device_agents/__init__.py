@@ -28,7 +28,7 @@ import tempfile
 import time
 import urllib.request
 
-IMAGEFILE = 'snappy.img'
+IMAGEFILE = "snappy.img"
 
 logger = logging.getLogger()
 
@@ -37,7 +37,7 @@ class TimeoutError(Exception):
     pass
 
 
-def get_test_opportunity(job_data='testflinger.json'):
+def get_test_opportunity(job_data="testflinger.json"):
     """
     Read the json test opportunity data from testflinger.json.
 
@@ -46,7 +46,7 @@ def get_test_opportunity(job_data='testflinger.json'):
     :return test_opportunity:
         Dictionary of values read from the json file
     """
-    with open(job_data, encoding='utf-8') as job_data_json:
+    with open(job_data, encoding="utf-8") as job_data_json:
         test_opportunity = json.load(job_data_json)
     return test_opportunity
 
@@ -58,7 +58,7 @@ def filetype(filename):
         b"\xfd\x37\x7a\x58\x5a\x00": "xz",
         b"\x51\x46\x49\xfb": "qcow2",
     }
-    with open(filename, 'rb') as f:
+    with open(filename, "rb") as f:
         filehead = f.read(1024)
     filetype = "unknown"
     for k, v in magic_headers.items():
@@ -79,7 +79,7 @@ def download(url, filename=None):
     :return filename:
         Filename of the downloaded snappy core image
     """
-    logger.info('Downloading file from %s', url)
+    logger.info("Downloading file from %s", url)
     if filename is None:
         filename = os.path.basename(url)
     urllib.request.urlretrieve(url, filename)
@@ -104,7 +104,7 @@ def delayretry(func, args, max_retries=3, delay=0):
             ret = func(*args)
         except Exception:
             time.sleep(delay)
-            if retry_count == max_retries-1:
+            if retry_count == max_retries - 1:
                 raise
             continue
         return ret
@@ -121,8 +121,8 @@ def udf_create_image(params):
     """
     imagepath = os.path.join(os.getcwd(), IMAGEFILE)
     cmd = params.split()
-    cmd.insert(0, 'ubuntu-device-flash')
-    cmd.insert(0, 'sudo')
+    cmd.insert(0, "ubuntu-device-flash")
+    cmd.insert(0, "sudo")
 
     # A shorter tempdir path is needed than the one provided by SPI
     # because of a bug in kpartx that makes it have trouble deleting
@@ -130,26 +130,26 @@ def udf_create_image(params):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_imagepath = os.path.join(tmpdir, IMAGEFILE)
         try:
-            output_opt = cmd.index('-o')
+            output_opt = cmd.index("-o")
             cmd[output_opt + 1] = imagepath
         except Exception:
             # if we get here, -o was already not in the image
-            cmd.append('-o')
+            cmd.append("-o")
             cmd.append(tmp_imagepath)
 
-        logger.info('Creating snappy image with: %s', cmd)
+        logger.info("Creating snappy image with: %s", cmd)
         try:
             output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            logger.error('Image Creation Output:\n %s', e.output)
+            logger.error("Image Creation Output:\n %s", e.output)
             raise
-        logger.info('Image Creation Output:\n %s', output)
+        logger.info("Image Creation Output:\n %s", output)
         shutil.move(tmp_imagepath, imagepath)
 
-    return(imagepath)
+    return imagepath
 
 
-def get_test_username(job_data='testflinger.json', default='ubuntu'):
+def get_test_username(job_data="testflinger.json", default="ubuntu"):
     """
     If the test_data specifies a default username, use it. Otherwise
     allow the provisioning method pick a default, or use ubuntu as a safe bet
@@ -159,13 +159,13 @@ def get_test_username(job_data='testflinger.json', default='ubuntu'):
     """
     testflinger_data = get_test_opportunity(job_data)
     try:
-        user = testflinger_data['test_data']['test_username']
+        user = testflinger_data["test_data"]["test_username"]
     except Exception:
         user = default
     return user
 
 
-def get_test_password(job_data='testflinger.json', default='ubuntu'):
+def get_test_password(job_data="testflinger.json", default="ubuntu"):
     """
     If the test_data specifies a default password, use it. Otherwise
     allow the provisioning method pick a default, or use ubuntu as a safe bet
@@ -175,13 +175,13 @@ def get_test_password(job_data='testflinger.json', default='ubuntu'):
     """
     testflinger_data = get_test_opportunity(job_data)
     try:
-        password = testflinger_data['test_data']['test_password']
+        password = testflinger_data["test_data"]["test_password"]
     except Exception:
         password = default
     return password
 
 
-def get_image(job_data='testflinger.json'):
+def get_image(job_data="testflinger.json"):
     """
     Read the json data for a test opportunity from SPI and retrieve or
     create the requested image.
@@ -191,26 +191,30 @@ def get_image(job_data='testflinger.json'):
         there was an error
     """
     testflinger_data = get_test_opportunity(job_data)
-    image_keys = testflinger_data.get('provision_data').keys()
-    if 'download_files' in image_keys:
-        for url in testflinger_data.get(
-                'provision_data').get('download_files'):
+    image_keys = testflinger_data.get("provision_data").keys()
+    if "download_files" in image_keys:
+        for url in testflinger_data.get("provision_data").get(
+            "download_files"
+        ):
             download(url)
-    if 'url' in image_keys:
+    if "url" in image_keys:
         try:
-            url = testflinger_data.get('provision_data').get('url')
+            url = testflinger_data.get("provision_data").get("url")
             image = download(url, IMAGEFILE)
         except Exception as e:
             logger.error('Error getting "%s": %s', url, e)
-            return ''
-    elif 'udf-params' in image_keys:
-        udf_params = testflinger_data.get('provision_data').get('udf-params')
-        image = delayretry(udf_create_image, [udf_params],
-                           max_retries=3, delay=60)
+            return ""
+    elif "udf-params" in image_keys:
+        udf_params = testflinger_data.get("provision_data").get("udf-params")
+        image = delayretry(
+            udf_create_image, [udf_params], max_retries=3, delay=60
+        )
     else:
-        logger.error('provision_data needs to contain "url" for the image '
-                     'or "udf-params"')
-        return ''
+        logger.error(
+            'provision_data needs to contain "url" for the image '
+            'or "udf-params"'
+        )
+        return ""
     return compress_file(image)
 
 
@@ -222,8 +226,8 @@ def get_local_ip_addr():
         Returns the ip address of this system
     """
     gateways = netifaces.gateways()
-    default_interface = gateways['default'][netifaces.AF_INET][1]
-    ip = netifaces.ifaddresses(default_interface)[netifaces.AF_INET][0]['addr']
+    default_interface = gateways["default"][netifaces.AF_INET][1]
+    ip = netifaces.ifaddresses(default_interface)[netifaces.AF_INET][0]["addr"]
     return ip
 
 
@@ -242,7 +246,7 @@ def serve_file(q, filename):
     q.put(port)
     server.listen(1)
     (client, _) = server.accept()
-    with open(filename, mode='rb') as f:
+    with open(filename, mode="rb") as f:
         while True:
             data = f.read(16 * 1024 * 1024)
             if not data:
@@ -267,38 +271,38 @@ def compress_file(filename):
         os.unlink(compressed_filename)
     except FileNotFoundError:
         pass
-    if filetype(filename) == 'xz':
+    if filetype(filename) == "xz":
         # just hard link it so we can unlink later without special handling
         os.rename(filename, compressed_filename)
-    elif filetype(filename) == 'gz':
-        with lzma.open(compressed_filename, 'wb') as compressed_image:
-            with gzip.GzipFile(filename, 'rb') as old_compressed:
+    elif filetype(filename) == "gz":
+        with lzma.open(compressed_filename, "wb") as compressed_image:
+            with gzip.GzipFile(filename, "rb") as old_compressed:
                 shutil.copyfileobj(old_compressed, compressed_image)
-    elif filetype(filename) == 'bz2':
-        with lzma.open(compressed_filename, 'wb') as compressed_image:
-            with bz2.BZ2File(filename, 'rb') as old_compressed:
+    elif filetype(filename) == "bz2":
+        with lzma.open(compressed_filename, "wb") as compressed_image:
+            with bz2.BZ2File(filename, "rb") as old_compressed:
                 shutil.copyfileobj(old_compressed, compressed_image)
-    elif filetype(filename) == 'qcow2':
-        raw_filename = '{}.raw'.format(filename)
+    elif filetype(filename) == "qcow2":
+        raw_filename = "{}.raw".format(filename)
         try:
             # Remove the original file, unless we already did
             os.unlink(raw_filename)
         except FileNotFoundError:
             pass
-        cmd = ['qemu-img', 'convert', '-O', 'raw', filename, raw_filename]
+        cmd = ["qemu-img", "convert", "-O", "raw", filename, raw_filename]
         try:
             subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            logger.error('Image Conversion Output:\n %s', e.output)
+            logger.error("Image Conversion Output:\n %s", e.output)
             raise
-        with open(raw_filename, 'rb') as uncompressed_image:
-            with lzma.open(compressed_filename, 'wb') as compressed_image:
+        with open(raw_filename, "rb") as uncompressed_image:
+            with lzma.open(compressed_filename, "wb") as compressed_image:
                 shutil.copyfileobj(uncompressed_image, compressed_image)
         os.unlink(raw_filename)
     else:
         # filetype is 'unknown' so assumed to be raw image
-        with open(filename, 'rb') as uncompressed_image:
-            with lzma.open(compressed_filename, 'wb') as compressed_image:
+        with open(filename, "rb") as uncompressed_image:
+            with lzma.open(compressed_filename, "wb") as compressed_image:
                 shutil.copyfileobj(uncompressed_image, compressed_image)
     try:
         # Remove the original file, unless we already did
@@ -319,12 +323,13 @@ def configure_logging(config):
             return True
 
     logging.basicConfig(
-        format='%(asctime)s %(agent_name)s %(levelname)s: '
-               'DEVICE AGENT: '
-               '%(message)s')
-    agent_name = config.get('agent_name', "")
+        format="%(asctime)s %(agent_name)s %(levelname)s: "
+        "DEVICE AGENT: "
+        "%(message)s"
+    )
+    agent_name = config.get("agent_name", "")
     logger.addFilter(AgentFilter(agent_name))
-    logstash_host = config.get('logstash_host', None)
+    logstash_host = config.get("logstash_host", None)
 
     if logstash_host is not None:
         try:
@@ -377,19 +382,23 @@ def runcmd(cmd, env={}, timeout=None):
         deadline = time.time() + timeout
     else:
         deadline = None
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT,
-                               shell=True, env=env)
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        shell=True,
+        env=env,
+    )
     while process.poll() is None:
         if deadline and time.time() > deadline:
             process.terminate()
             raise TimeoutError
         line = process.stdout.readline()
         if line:
-            sys.stdout.write(line.decode(errors='replace'))
+            sys.stdout.write(line.decode(errors="replace"))
     line = process.stdout.read()
     if line:
-        sys.stdout.write(line.decode(errors='replace'))
+        sys.stdout.write(line.decode(errors="replace"))
     return process.returncode
 
 
@@ -409,7 +418,7 @@ def run_test_cmds(cmds, config=None, env={}):
 
     if not env:
         env = os.environ.copy()
-    config_env = config.get('env', {})
+    config_env = config.get("env", {})
     env.update(config_env)
     if isinstance(cmds, list):
         return _run_test_cmds_list(cmds, config, env)
@@ -429,35 +438,37 @@ def _process_cmds_template_vars(cmds, config=None):
     :param config:
         Config data for the device which can be used for filling templates
     """
+
     class IgnoreUnknownFormatter(string.Formatter):
         def vformat(self, format_string, args, kwargs):
             tokens = []
             for (literal, field_name, spec, conv) in self.parse(format_string):
                 # replace double braces if parse removed them
-                literal = literal.replace('{', '{{').replace('}', '}}')
+                literal = literal.replace("{", "{{").replace("}", "}}")
                 # if the field is {}, just add escaped empty braces
-                if field_name == '':
-                    tokens.extend([literal, '{{}}'])
+                if field_name == "":
+                    tokens.extend([literal, "{{}}"])
                     continue
                 # if field name was None, we just add the literal token
                 if field_name is None:
                     tokens.extend([literal])
                     continue
                 # if conf and spec are not defined, set to ''
-                conv = '!' + conv if conv else ''
-                spec = ':' + spec if spec else ''
+                conv = "!" + conv if conv else ""
+                spec = ":" + spec if spec else ""
                 # only consider field before index
-                field = field_name.split('[')[0].split('.')[0]
+                field = field_name.split("[")[0].split(".")[0]
                 # If this field is one we've defined, fill template value
                 if field in kwargs:
-                    tokens.extend(
-                        [literal, '{', field_name, conv, spec, '}'])
+                    tokens.extend([literal, "{", field_name, conv, spec, "}"])
                 else:
                     # If not, the use escaped braces to pass it through
                     tokens.extend(
-                        [literal, '{{', field_name, conv, spec, '}}'])
-            format_string = ''.join(tokens)
+                        [literal, "{{", field_name, conv, spec, "}}"]
+                    )
+            format_string = "".join(tokens)
             return string.Formatter.vformat(self, format_string, args, kwargs)
+
     # Ensure config is a dict
     if not isinstance(config, dict):
         config = {}
@@ -506,14 +517,14 @@ def _run_test_cmds_str(cmds, config=None, env={}):
     """
 
     # If cmds doesn't specify an interpreter, pick a safe default
-    if not cmds.startswith('#!'):
+    if not cmds.startswith("#!"):
         cmds = "#!/bin/bash\n" + cmds
 
     cmds = _process_cmds_template_vars(cmds, config)
-    with open('tf_cmd_script', mode='w', encoding='utf-8') as tf_cmd_script:
+    with open("tf_cmd_script", mode="w", encoding="utf-8") as tf_cmd_script:
         tf_cmd_script.write(cmds)
-    os.chmod('tf_cmd_script', 0o775)
-    rc = runcmd('./tf_cmd_script', env)
+    os.chmod("tf_cmd_script", 0o775)
+    rc = runcmd("./tf_cmd_script", env)
     if rc:
         logmsg(logging.WARNING, "Tests failed, rc=%d", rc)
     return rc

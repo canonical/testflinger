@@ -20,11 +20,13 @@ import yaml
 import snappy_device_agents
 from devices.maas2.maas2 import Maas2
 from snappy_device_agents import logmsg
-from devices import (catch,
-                     DefaultDevice,
-                     RecoveryError,
-                     ProvisioningError,
-                     SerialLogger)
+from devices import (
+    catch,
+    DefaultDevice,
+    RecoveryError,
+    ProvisioningError,
+    SerialLogger,
+)
 
 device_name = "maas2"
 
@@ -42,10 +44,11 @@ class DeviceAgent(DefaultDevice):
         device = Maas2(args.config, args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
         logmsg(logging.INFO, "Provisioning device")
-        serial_host = config.get('serial_host')
-        serial_port = config.get('serial_port')
+        serial_host = config.get("serial_host")
+        serial_port = config.get("serial_port")
         serial_proc = SerialLogger(
-            serial_host, serial_port, 'provision-serial.log')
+            serial_host, serial_port, "provision-serial.log"
+        )
         serial_proc.start()
         try:
             device.provision()

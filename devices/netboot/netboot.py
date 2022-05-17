@@ -20,10 +20,8 @@ import urllib.request
 import time
 import yaml
 
-from snappy_device_agents import (runcmd,
-                                  TimeoutError)
-from devices import (ProvisioningError,
-                     RecoveryError)
+from snappy_device_agents import runcmd, TimeoutError
+from devices import ProvisioningError, RecoveryError
 
 logger = logging.getLogger()
 
@@ -47,14 +45,16 @@ class Netboot:
 
         This method sets the snappy boot method to the specified value.
         """
-        if mode == 'master':
-            setboot_script = self.config.get('select_master_script')
-        elif mode == 'test':
-            setboot_script = self.config.get('select_test_script')
+        if mode == "master":
+            setboot_script = self.config.get("select_master_script")
+        elif mode == "test":
+            setboot_script = self.config.get("select_test_script")
         else:
-            raise ProvisioningError("Attempted to set boot mode to '{}' - "
-                                    "only 'master' or 'test' are supported "
-                                    "modes!".format(mode))
+            raise ProvisioningError(
+                "Attempted to set boot mode to '{}' - "
+                "only 'master' or 'test' are supported "
+                "modes!".format(mode)
+            )
         self._run_cmd_list(setboot_script)
 
     def _run_cmd_list(self, cmdlist):
@@ -74,7 +74,8 @@ class Netboot:
                 raise ProvisioningError("timeout reaching control host!")
             if rc:
                 raise ProvisioningError(
-                    "Error running {} (rc={})".format(cmd, rc))
+                    "Error running {} (rc={})".format(cmd, rc)
+                )
 
     def hardreset(self):
         """
@@ -87,7 +88,7 @@ class Netboot:
             This function runs the commands specified in 'reboot_script'
             in the config yaml.
         """
-        for cmd in self.config['reboot_script']:
+        for cmd in self.config["reboot_script"]:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
@@ -108,11 +109,16 @@ class Netboot:
         logger.info("Booting the test image")
         if self.is_test_image_booted(test_username, test_password):
             return
-        self.setboot('test')
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               '{}@{}'.format(test_username, self.config['device_ip']),
-               'sudo /sbin/reboot']
+        self.setboot("test")
+        cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "{}@{}".format(test_username, self.config["device_ip"]),
+            "sudo /sbin/reboot",
+        ]
         try:
             subprocess.check_call(cmd, timeout=60)
         except Exception:
@@ -141,10 +147,18 @@ class Netboot:
         :returns:
             True if the test image is currently booted, False otherwise.
         """
-        cmd = ['sshpass', '-p', test_password, 'ssh-copy-id', '-f',
-               '-o', 'StrictHostKeyChecking=no',
-               '-o', 'UserKnownHostsFile=/dev/null',
-               '{}@{}'.format(test_username, self.config['device_ip'])]
+        cmd = [
+            "sshpass",
+            "-p",
+            test_password,
+            "ssh-copy-id",
+            "-f",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "{}@{}".format(test_username, self.config["device_ip"]),
+        ]
         try:
             subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
         except Exception:
@@ -162,7 +176,7 @@ class Netboot:
         .. note::
             The master image is used for writing a new image to local media
         """
-        check_url = 'http://{}:8989/check'.format(self.config['device_ip'])
+        check_url = "http://{}:8989/check".format(self.config["device_ip"])
         data = ""
         try:
             logger.info("Checking if master image booted: %s", check_url)
@@ -171,7 +185,7 @@ class Netboot:
         except Exception:
             # Any connection error will fail through the normal path
             pass
-        if 'Snappy Test Device Imager' in str(data):
+        if "Snappy Test Device Imager" in str(data):
             return True
         else:
             return False
@@ -187,7 +201,7 @@ class Netboot:
         if self.is_master_image_booted():
             return
 
-        self.setboot('master')
+        self.setboot("master")
         self.hardreset()
 
         started = time.time()
@@ -212,9 +226,12 @@ class Netboot:
         :raises ProvisioningError:
             If the command times out or anything else fails.
         """
-        url = r'http://{}:8989/writeimage?server={}:{}\&dev={}'.format(
-              self.config['device_ip'], server_ip, server_port,
-              self.config['test_device'])
+        url = r"http://{}:8989/writeimage?server={}:{}\&dev={}".format(
+            self.config["device_ip"],
+            server_ip,
+            server_port,
+            self.config["test_device"],
+        )
         logger.info("Triggering: %s", url)
         try:
             # XXX: I hope 30 min is enough? but maybe not!
@@ -225,11 +242,11 @@ class Netboot:
             raise ProvisioningError("Error while flashing image!")
 
         # Run post-flash hooks
-        post_flash_cmds = self.config.get('post_flash_cmds')
+        post_flash_cmds = self.config.get("post_flash_cmds")
         self._run_cmd_list(post_flash_cmds)
 
         # Now reboot the target system
-        url = 'http://{}:8989/reboot'.format(self.config['device_ip'])
+        url = "http://{}:8989/reboot".format(self.config["device_ip"])
         try:
             logger.info("Rebooting target device: %s", url)
             urllib.request.urlopen(url, timeout=10)

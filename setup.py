@@ -20,27 +20,31 @@ from setuptools import (
     find_packages,
     setup,
 )
-assert sys.version_info >= (3,), 'Python 3 is required'
+
+assert sys.version_info >= (3,), "Python 3 is required"
 
 
-VERSION = '0.0.1'
+VERSION = "0.0.1"
 
-datafiles = [(d, [os.path.join(d, f) for f in files])
-             for d, folders, files in os.walk('data')]
+datafiles = [
+    (d, [os.path.join(d, f) for f in files])
+    for d, folders, files in os.walk("data")
+]
 
 setup(
-    name='snappy-device-agents',
+    name="snappy-device-agents",
     version=VERSION,
-    description=('Device agents scripts for provisioning and running '
-                 'tests on Snappy devices'),
-    author='Snappy Device Agents Developers',
-    author_email='paul.larson@canonical.com',
-    url='https://launchpad.net/snappy-device-agents',
-    license='GPLv3',
+    description=(
+        "Device agents scripts for provisioning and running "
+        "tests on Snappy devices"
+    ),
+    author="Snappy Device Agents Developers",
+    author_email="paul.larson@canonical.com",
+    url="https://launchpad.net/snappy-device-agents",
+    license="GPLv3",
     packages=find_packages(),
     data_files=datafiles,
-    setup_requires=['pytest-runner'],
-    install_requires=['PyYAML>=3.11',
-                      'netifaces>=0.10.4'],
-    scripts=['snappy-device-agent'],
+    setup_requires=["pytest-runner"],
+    install_requires=["PyYAML>=3.11", "netifaces>=0.10.4"],
+    scripts=["snappy-device-agent"],
 )

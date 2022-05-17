@@ -20,10 +20,7 @@ import yaml
 import snappy_device_agents
 from devices.muxpi.muxpi import MuxPi
 from snappy_device_agents import logmsg
-from devices import (catch,
-                     RecoveryError,
-                     DefaultDevice,
-                     SerialLogger)
+from devices import catch, RecoveryError, DefaultDevice, SerialLogger
 
 device_name = "muxpi"
 
@@ -41,10 +38,11 @@ class DeviceAgent(DefaultDevice):
         device = MuxPi(args.config, args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
         logmsg(logging.INFO, "Provisioning device")
-        serial_host = config.get('serial_host')
-        serial_port = config.get('serial_port')
+        serial_host = config.get("serial_host")
+        serial_port = config.get("serial_port")
         serial_proc = SerialLogger(
-            serial_host, serial_port, 'provision-serial.log')
+            serial_host, serial_port, "provision-serial.log"
+        )
         serial_proc.start()
         try:
             device.provision()
