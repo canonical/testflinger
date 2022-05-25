@@ -45,7 +45,7 @@ def test_home(app):
 
 def test_add_job_good(app):
     """Test that adding a new job works"""
-    job_data = json.dumps(dict(job_queue="test"))
+    job_data = json.dumps({"job_queue": "test"})
     # Place a job on the queue
     output = app.post(
         "/v1/job", data=job_data, content_type="application/json"
@@ -66,7 +66,7 @@ def test_add_job_good(app):
 def test_add_job_good_with_jobid(app):
     """Test that adding a job with job ID works"""
     my_id = "77777777-7777-7777-7777-777777777777"
-    job_data = json.dumps(dict(job_id=my_id, job_queue="test"))
+    job_data = json.dumps({"job_id": my_id, "job_queue": "test"})
     # Place a job on the queue
     output = app.post(
         "/v1/job", data=job_data, content_type="application/json"
@@ -77,7 +77,7 @@ def test_add_job_good_with_jobid(app):
 
 def test_initial_job_state(app):
     """Ensure initial job state is set to 'waiting'"""
-    job_data = json.dumps(dict(job_queue="test"))
+    job_data = json.dumps({"job_queue": "test"})
     # Place a job on the queue
     output = app.post(
         "/v1/job", data=job_data, content_type="application/json"
@@ -90,7 +90,7 @@ def test_initial_job_state(app):
 
 def test_resubmit_job_state(app):
     """Ensure initial job state is set to 'waiting'"""
-    job_data = dict(job_queue="test")
+    job_data = {"job_queue": "test"}
     # Place a job on the queue
     output = app.post(
         "/v1/job", data=json.dumps(job_data), content_type="application/json"
@@ -128,7 +128,7 @@ def test_add_job_bad_job_id(app):
     """Test for error when posting a job with a bad ID"""
     output = app.post(
         "/v1/job",
-        data=json.dumps(dict(job_id="bad", job_queue="test")),
+        data=json.dumps({"job_id": "bad", "job_queue": "test"}),
         content_type="application/json",
     )
     assert "Invalid job_id specified\n" == output.data.decode()
@@ -139,7 +139,7 @@ def test_add_job_bad_job_queue(app):
     """Test for error when adding a job without a queue"""
     output = app.post(
         "/v1/job",
-        data=json.dumps(dict(foo="test")),
+        data=json.dumps({"foo": "test"}),
         content_type="application/json",
     )
     assert "Invalid data or no job_queue specified\n" == output.data.decode()
@@ -162,7 +162,7 @@ def test_result_get_bad(app):
 def test_result_post_good(app):
     """Test that posting results correctly works"""
     result_url = "/v1/result/00000000-0000-0000-0000-000000000000"
-    data = json.dumps(dict(foo="test"))
+    data = json.dumps({"foo": "test"})
     output = app.post(result_url, data=data, content_type="application/json")
     assert "OK" == output.data.decode()
     output = app.get(result_url)
@@ -187,9 +187,9 @@ def test_result_post_nodata(app):
 def test_state_update_keeps_results(app):
     """Update job_state shouldn't lose old results"""
     result_url = "/v1/result/00000000-0000-0000-0000-000000000000"
-    data = json.dumps(dict(foo="test", job_state="waiting"))
+    data = json.dumps({"foo": "test", "job_state": "waiting"})
     output = app.post(result_url, data=data, content_type="application/json")
-    data = json.dumps(dict(job_state="provision"))
+    data = json.dumps({"job_state": "provision"})
     output = app.post(result_url, data=data, content_type="application/json")
     output = app.get(result_url)
     current_results = json.loads(output.data.decode())
@@ -200,7 +200,7 @@ def test_artifact_post_good(app):
     """Test both get and put of a result artifact"""
     result_url = "/v1/result/00000000-0000-0000-0000-000000000000/artifact"
     data = b"test file content"
-    filedata = dict(file=(BytesIO(data), "artifact.tgz"))
+    filedata = {"file": (BytesIO(data), "artifact.tgz")}
     output = app.post(
         result_url, data=filedata, content_type="multipart/form-data"
     )
@@ -244,7 +244,7 @@ def test_job_get_result_no_data(app):
 
 def test_job_get_id_with_data(app):
     """Test getting the json for a job that has been submitted"""
-    job_data = dict(job_queue="test", provision_data="test")
+    job_data = {"job_queue": "test", "provision_data": "test"}
     # Place a job on the queue
     output = app.post(
         "/v1/job", data=json.dumps(job_data), content_type="application/json"
@@ -263,7 +263,7 @@ def test_job_get_id_with_data(app):
 
 def test_job_position(app):
     """Ensure initial job state is set to 'waiting'"""
-    job_data = dict(job_queue="test")
+    job_data = {"job_queue": "test"}
     # Place a job on the queue
     for pos in range(3):
         output = app.post(
