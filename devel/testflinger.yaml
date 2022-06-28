@@ -1,0 +1,209 @@
+write_files:
+- content: |
+    config:
+      core.https_address: '[::]:8443'
+      core.trust_password: password
+    networks:
+    - config:
+        ipv4.address: 10.10.10.1/24
+        ipv6.address: none
+      description: ""
+      name: lxdbr0
+      type: ""
+      project: default
+    storage_pools:
+    - config:
+        size: 24GB
+      description: ""
+      name: default
+      driver: zfs
+    profiles:
+    - config: {}
+      description: ""
+      devices:
+        eth0:
+          name: eth0
+          network: lxdbr0
+          type: nic
+        root:
+          path: /
+          pool: default
+          type: disk
+      name: default
+    projects: []
+    cluster: null
+  path: /tmp/lxd.cfg
+- content: |
+    [Unit]
+    Description=testflinger service
+    After=network.target
+    
+    [Service]
+    User=ubuntu
+    Group=ubuntu
+    Environment="TESTFLINGER_CONFIG=/srv/testflinger/testflinger.conf"
+    WorkingDirectory=/srv/testflinger
+    ExecStart=/bin/sh -c "/usr/local/bin/gunicorn --bind 0.0.0.0:8080 --log-file=/srv/testflinger/testflinger.log -k gevent -w 4 testflinger:app"
+    Restart=always
+    
+    [Install]
+    WantedBy=multi-user.target
+  path: /etc/systemd/system/testflinger.service
+- content: |
+    [Unit]
+    Description=testflinger-agent service
+    After=network.target
+    
+    [Service]
+    User=ubuntu
+    Group=ubuntu
+    WorkingDirectory=/srv/testflinger-agent/vm1
+    ExecStart=/bin/sh -c ". env/bin/activate && PYTHONIOENCODING=utf-8 testflinger-agent -c testflinger-agent/testflinger-agent.conf"
+    Restart=always
+    
+    [Install]
+    WantedBy=multi-user.target
+  path: /etc/systemd/system/testflinger-agent-vm1.service
+- content: |
+    DATA_PATH = '/srv/testflinger/data'
+    REDIS_HOST = 'localhost'
+    REDIS_PORT = '6379'
+  path: /home/ubuntu/testflinger.conf
+- content: |
+    agent_id: vm1
+    server_address: http://localhost:8080
+    global_timeout: 43200
+    output_timeout: 3600
+    execution_basedir: /home/ubuntu/testflinger/vm1/run
+    logging_basedir: /home/ubuntu/testflinger/vm1/logs
+    results_basedir: /home/ubuntu/testflinger/vm1/results
+    logging_level: WARNING
+    job_queues:
+    - vm1
+    setup_command: /bin/true
+    provision_command: . /srv/testflinger-agent/vm1/env/bin/activate && PYTHONIOENCODING=utf-8 PYTHONUNBUFFERED=1 snappy-device-agent maas2 provision -c /srv/testflinger-agent/vm1/snappy-device-agents/default.yaml testflinger.json
+    test_command: . /srv/testflinger-agent/vm1/env/bin/activate && PYTHONIOENCODING=utf-8 PYTHONUNBUFFERED=1 snappy-device-agent maas2 runtest -c /srv/testflinger-agent/vm1/snappy-device-agents/default.yaml testflinger.json
+    reserve_command: . /srv/testflinger-agent/vm1/env/bin/activate && PYTHONIOENCODING=utf-8 PYTHONUNBUFFERED=1 snappy-device-agent maas2 runtest -c /srv/testflinger-agent/vm1/snappy-device-agents/default.yaml testflinger.json
+    cleanup_command: /bin/true
+    provision_type: maas2
+  path: /home/ubuntu/testflinger-agent.conf
+- content: |
+    device_ip: 10.10.10.2
+    node_id: CHANGEME
+    node_name: vm1
+    maas_user: maas
+    agent_name: vm1
+    env:
+        DEVICE_IP: 10.10.10.2
+  path: /home/ubuntu/default.yaml
+- content: |
+    [testflinger-cli]
+    server = http://localhost:8080
+  path: /home/ubuntu/.config/testflinger-cli.conf
+- content: |
+    job_queue: vm1
+    provision_data:
+      distro: focal
+    test_data:
+      test_cmds: |
+        free -m
+        ip a
+  path: /home/ubuntu/example-job.yaml
+- content: |
+    All testflinger components are running inside this container, and
+    a test VM has been created in MaaS which can be used to demonstrate
+    provisioning and test execution.  The testflinger CLI tool has
+    also been configured to talk to the testflinger server running in this
+    container.
+    
+    To execute and watch the output of the example job, you can run:
+       $ testflinger submit -p example-job.yaml
+  path: /home/ubuntu/README
+packages:
+  - jq
+  - virtualenv
+  - redis-server
+snap:
+  commands:
+    - snap install maas
+    - snap install --channel=latest/stable lxd
+    - snap refresh --channel=latest/stable lxd
+    - snap install maas-test-db
+runcmd:
+  # Create a swapfile
+  - fallocate -l 8G /swap
+  - chmod 600 /swap
+  - mkswap /swap
+  - echo "/swap         none    swap    sw      0       0" >> /etc/fstab
+  - swapon -a
+  # Fetch IPv4 address from the device, setup forwarding and NAT
+  - export IP_ADDRESS=$(ip -j route show default | jq -r '.[].prefsrc')
+  - export INTERFACE=$(ip -j route show default | jq -r '.[].dev')
+  - sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
+  - sysctl -p
+  - iptables -t nat -A POSTROUTING -o $INTERFACE -j SNAT --to $IP_ADDRESS
+  # Persist NAT configuration
+  - echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections
+  - echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections
+  - apt-get install iptables-persistent -y
+  # LXD init
+  - cat /tmp/lxd.cfg | lxd init --preseed
+  # Wait for LXD to be ready
+  - lxd waitready
+  # Initialise MAAS
+  - maas init region+rack --database-uri maas-test-db:/// --maas-url http://${IP_ADDRESS}:5240/MAAS
+  - sleep 15
+  # Create MAAS admin and grab API key
+  - maas createadmin --username admin --password admin --email admin
+  - export APIKEY=$(maas apikey --username admin)
+  # Create MAAS admin login
+  - maas login admin 'http://localhost:5240/MAAS/' $APIKEY
+  # Configure MAAS networking (set gateways, vlans, DHCP on etc)
+  - export SUBNET=10.10.10.0/24
+  - export FABRIC_ID=$(maas admin subnet read "$SUBNET" | jq -r ".vlan.fabric_id")
+  - export VLAN_TAG=$(maas admin subnet read "$SUBNET" | jq -r ".vlan.vid")
+  - export PRIMARY_RACK=$(maas admin rack-controllers read | jq -r ".[] | .system_id")
+  - maas admin subnet update $SUBNET gateway_ip=10.10.10.1
+  - maas admin ipranges create type=dynamic start_ip=10.10.10.200 end_ip=10.10.10.254
+  - maas admin vlan update $FABRIC_ID $VLAN_TAG dhcp_on=True primary_rack=$PRIMARY_RACK
+  - maas admin maas set-config name=upstream_dns value=8.8.8.8
+  # Add LXD as a VM host for MAAS
+  - maas admin vm-hosts create  password=password  type=lxd power_address=https://${IP_ADDRESS}:8443 project=maas
+  # Now wait until image sync is complete
+  - until [ -f /var/snap/maas/common/maas/boot-resources/current/ubuntu/amd64/generic/focal/stable/squashfs ]; do sleep 10; echo waiting for images; done
+  # Start VM Guest container
+  - export SYSTEM_ID=$(maas admin vm-host compose 1 cores=2 memory=6144 architecture="amd64/generic" hostname=vm1 | jq -r .system_id)
+  # Wait for the guest container to become available
+  - while [ "$(maas admin machine read $SYSTEM_ID |jq -r .status_name)" != "Ready" ];do sleep 10;echo "Waiting for container to become ready..."; done
+  - export SUBNET_ID=$(maas admin subnet read "$SUBNET" |jq -r .id)
+  - export INTERFACE_ID=$(maas admin machine read $SYSTEM_ID |jq -r '.interface_set[0].id')
+  - export LINK_ID=$(maas admin machine read $SYSTEM_ID |jq -r '.interface_set[0].links[0].id')
+  - maas admin interface unlink-subnet $SYSTEM_ID $INTERFACE_ID id=$LINK_ID
+  - maas admin interface link-subnet $SYSTEM_ID $INTERFACE_ID mode=static ip_address=10.10.10.2 subnet=$SUBNET_ID
+  - mkdir -p /srv/testflinger-agent/vm1
+  - git clone https://github.com/canonical/testflinger-cli /home/ubuntu/testflinger-cli
+  - cd /home/ubuntu/testflinger-cli && python3 setup.py develop
+  - virtualenv /srv/testflinger-agent/vm1/env
+  - git clone https://github.com/canonical/testflinger /srv/testflinger
+  - git clone https://github.com/canonical/testflinger-agent /srv/testflinger-agent/vm1/testflinger-agent
+  - git clone https://github.com/canonical/snappy-device-agents /srv/testflinger-agent/vm1/snappy-device-agents
+  - mv /home/ubuntu/testflinger.conf /srv/testflinger
+  - mv /home/ubuntu/testflinger-agent.conf /srv/testflinger-agent/vm1/testflinger-agent
+  - mv /home/ubuntu/default.yaml /srv/testflinger-agent/vm1/snappy-device-agents
+  - sed -i "s/CHANGEME/$SYSTEM_ID/g" /srv/testflinger-agent/vm1/snappy-device-agents/default.yaml
+  - cd /srv/testflinger && ./setup.py install
+  - . /srv/testflinger-agent/vm1/env/bin/activate && cd /srv/testflinger-agent/vm1/testflinger-agent && ./setup.py install
+  - . /srv/testflinger-agent/vm1/env/bin/activate && cd /srv/testflinger-agent/vm1/snappy-device-agents && ./setup.py install
+  - chown -R ubuntu.ubuntu /home/ubuntu
+  - chown -R ubuntu.ubuntu /srv/testflinger
+  - chown -R ubuntu.ubuntu /srv/testflinger-agent
+  - systemctl enable testflinger
+  - systemctl start testflinger
+  - systemctl enable testflinger-agent-vm1
+  - systemctl start testflinger-agent-vm1
+  # Create MAAS profile for ubuntu user
+  - sudo -u ubuntu -- maas login maas 'http://localhost:5240/MAAS/' $APIKEY
+  # Create and import ssh key
+  - sudo -u ubuntu -- ssh-keygen -t rsa -b 4096 -f /home/ubuntu/.ssh/id_rsa -N ""
+  - sudo -u ubuntu -- maas maas sshkeys create key="$(cat /home/ubuntu/.ssh/id_rsa.pub)"
+
