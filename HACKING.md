@@ -29,10 +29,10 @@ Next run the following command (this will take a while):
     $ cat devel/testflinger.yaml |multipass launch --name testflinger -c4 -m8GB -d32GB --timeout 600 --cloud-init -
 ```
 
-After some time, it may still timeout due to the amount of time it takes to
-retrieve all the pieces and set them up.  If this happens, give it a few
-minutes before trying to run a test job, but you should still be able to
-connect.
+Due to the complexity of the environment being setup, this command may
+timeout rather than complete. If this happens the environment should
+still reach the final state successfully, but you will need to wait a
+few minutes before trying to connect.
 
 To open a shell to the container, run:
 ```
