@@ -25,7 +25,7 @@ from io import BytesIO
 import fakeredis
 import pytest
 import testflinger
-from api import v1
+from testflinger.api import v1
 
 
 @pytest.fixture(name="app")
@@ -40,7 +40,7 @@ def fixture_app():
 def test_home(app):
     """Test root URL returns the version"""
     output = app.get("/")
-    assert testflinger.get_version() == output.data.decode()
+    assert testflinger.api.v1.get_version() == output.data.decode()
 
 
 def test_add_job_good(app):

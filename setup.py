@@ -16,7 +16,7 @@
 #
 
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 INSTALL_REQUIRES = [
     "gunicorn",
@@ -31,7 +31,7 @@ setup(
     name="testflinger",
     version="1.0.1",
     long_description=__doc__,
-    packages=["testflinger"],
+    packages=find_packages(),
     zip_safe=False,
     install_requires=INSTALL_REQUIRES,
 )
