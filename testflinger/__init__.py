@@ -20,26 +20,18 @@ This sets up the Testflinger web application
 import logging
 import os
 from dataclasses import dataclass
-import pkg_resources
+
 import redis
 from flask import Flask
 from flask.logging import create_logger
-from api import v1
+
+from testflinger.api import v1
 
 try:
     import sentry_sdk
     from sentry_sdk.integrations.flask import FlaskIntegration
 except ImportError:
     pass
-
-
-def get_version():
-    """Return the Testflinger version"""
-    try:
-        version = pkg_resources.get_distribution("testflinger").version
-    except pkg_resources.DistributionNotFound:
-        version = "devel"
-    return "Testflinger Server v{}".format(version)
 
 
 @dataclass(frozen=True)

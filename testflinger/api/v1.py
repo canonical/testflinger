@@ -21,16 +21,23 @@ import json
 import os
 import uuid
 
-from flask import jsonify, request, send_file
-
+import pkg_resources
+from flask import current_app, jsonify, request, send_file
 from werkzeug.exceptions import BadRequest
-
-import testflinger
 
 
 def home():
     """Identify ourselves"""
-    return testflinger.get_version()
+    return get_version()
+
+
+def get_version():
+    """Return the Testflinger version"""
+    try:
+        version = pkg_resources.get_distribution("testflinger").version
+    except pkg_resources.DistributionNotFound:
+        version = "devel"
+    return "Testflinger Server v{}".format(version)
 
 
 def job_post():
@@ -55,12 +62,12 @@ def job_post():
         return "Invalid job_id specified\n", 400
     submit_job(job_queue, json.dumps(data))
     job_file = os.path.join(
-        testflinger.app.config.get("DATA_PATH"), job_id + ".json"
+        current_app.config.get("DATA_PATH"), job_id + ".json"
     )
     with open(job_file, "w", encoding="utf-8", errors="ignore") as jobfile:
         jobfile.write(json.dumps(data))
     # Add a result file with job_state=waiting
-    result_file = os.path.join(testflinger.app.config.get("DATA_PATH"), job_id)
+    result_file = os.path.join(current_app.config.get("DATA_PATH"), job_id)
     if os.path.exists(result_file):
         with open(
             result_file, "r", encoding="utf-8", errors="ignore"
@@ -102,7 +109,7 @@ def job_get_id(job_id):
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     job_file = os.path.join(
-        testflinger.app.config.get("DATA_PATH"), job_id + ".json"
+        current_app.config.get("DATA_PATH"), job_id + ".json"
     )
     if not os.path.exists(job_file):
         return "", 204
@@ -119,7 +126,7 @@ def result_post(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    result_file = os.path.join(testflinger.app.config.get("DATA_PATH"), job_id)
+    result_file = os.path.join(current_app.config.get("DATA_PATH"), job_id)
     if os.path.exists(result_file):
         try:
             with open(
@@ -149,7 +156,7 @@ def result_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    result_file = os.path.join(testflinger.app.config.get("DATA_PATH"), job_id)
+    result_file = os.path.join(current_app.config.get("DATA_PATH"), job_id)
     if not os.path.exists(result_file):
         return "", 204
     with open(result_file, "r", encoding="utf-8", errors="ignore") as results:
@@ -167,7 +174,7 @@ def artifacts_post(job_id):
         return "Invalid job id\n", 400
     file = request.files["file"]
     filename = "{}.artifact".format(job_id)
-    file.save(os.path.join(testflinger.app.config.get("DATA_PATH"), filename))
+    file.save(os.path.join(current_app.config.get("DATA_PATH"), filename))
     return "OK"
 
 
@@ -182,7 +189,7 @@ def artifacts_get(job_id):
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     artifact_file = os.path.join(
-        testflinger.app.config.get("DATA_PATH"), "{}.artifact".format(job_id)
+        current_app.config.get("DATA_PATH"), "{}.artifact".format(job_id)
     )
     if not os.path.exists(artifact_file):
         return "", 204
@@ -200,7 +207,7 @@ def output_get(job_id):
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     output_key = "stream_{}".format(job_id)
-    pipe = testflinger.app.redis.pipeline()
+    pipe = current_app.redis.pipeline()
     pipe.lrange(output_key, 0, -1)
     pipe.delete(output_key)
     output = pipe.execute()
@@ -224,20 +231,20 @@ def output_post(job_id):
         return "Invalid job id\n", 400
     data = request.get_data()
     output_key = "stream_{}".format(job_id)
-    testflinger.app.redis.rpush(output_key, data)
+    current_app.redis.rpush(output_key, data)
     # If the data doesn't get read with 4 hours of the last update, expire it
-    testflinger.app.redis.expire(output_key, 14400)
+    current_app.redis.expire(output_key, 14400)
     return "OK"
 
 
 def queues_get():
     """Get a current list of all advertised queues from this server"""
-    redis_list = testflinger.app.redis.keys("tf:qlist:*")
+    redis_list = current_app.redis.keys("tf:qlist:*")
     queue_dict = {}
     # Create a dict of queues and descriptions
     for queue_name in redis_list:
         # strip tf:qlist: from the key to get the queue name
-        queue_dict[queue_name[9:].decode()] = testflinger.app.redis.get(
+        queue_dict[queue_name[9:].decode()] = current_app.redis.get(
             queue_name
         ).decode()
     return jsonify(queue_dict)
@@ -250,7 +257,7 @@ def queues_post():
     the user can check which queues are valid to use.
     """
     queue_dict = request.get_json()
-    pipe = testflinger.app.redis.pipeline()
+    pipe = current_app.redis.pipeline()
     for queue in queue_dict:
         queue_name = "tf:qlist:" + queue
         queue_description = queue_dict[queue]
@@ -261,7 +268,7 @@ def queues_post():
 
 def images_get(queue):
     """Get a list of known images for a given queue"""
-    images = testflinger.app.redis.hgetall("tf:images:" + queue)
+    images = current_app.redis.hgetall("tf:images:" + queue)
     images = {k.decode(): v.decode() for k, v in images.items()}
     return jsonify(images)
 
@@ -269,7 +276,7 @@ def images_get(queue):
 def images_post():
     """Tell testflinger about known images for a specified queue"""
     image_dict = request.get_json()
-    pipe = testflinger.app.redis.pipeline()
+    pipe = current_app.redis.pipeline()
     # We need to delete and recreate the hash in case images were removed
     for queue, images in image_dict.items():
         pipe.delete("tf:images:" + queue)
@@ -302,7 +309,7 @@ def submit_job(job_queue, data):
     :param data:
         JSON data to pass along containing details about the test job
     """
-    pipe = testflinger.app.redis.pipeline()
+    pipe = current_app.redis.pipeline()
     pipe.lpush(job_queue, data)
     # Delete the queue after 1 week if nothing is looking at it
     pipe.expire(job_queue, 604800)
@@ -313,7 +320,7 @@ def get_job(queue_list):
     """Get the next job in the queue"""
     # The queue name and the job are returned, but we don't need the queue now
     try:
-        _, job = testflinger.app.redis.brpop(queue_list, timeout=1)
+        _, job = current_app.redis.brpop(queue_list, timeout=1)
     except TypeError:
         return None
     return job
@@ -330,7 +337,7 @@ def job_position_get(job_id):
         return "Invalid json returned for id: {}\n".format(job_id), 400
     queue = "tf_queue_" + job_data.get("job_queue")
     for position, job in enumerate(
-        reversed(testflinger.app.redis.lrange(queue, 0, -1))
+        reversed(current_app.redis.lrange(queue, 0, -1))
     ):
         if (
             json.loads(job.decode("utf-8", errors="ignore")).get("job_id")
