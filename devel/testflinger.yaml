@@ -77,7 +77,7 @@ write_files:
     execution_basedir: /home/ubuntu/testflinger/vm1/run
     logging_basedir: /home/ubuntu/testflinger/vm1/logs
     results_basedir: /home/ubuntu/testflinger/vm1/results
-    logging_level: WARNING
+    logging_level: DEBUG
     job_queues:
     - vm1
     setup_command: /bin/true
