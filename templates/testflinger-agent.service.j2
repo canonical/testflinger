@@ -1,0 +1,14 @@
+[Unit]
+Description=testflinger-agent service
+After=network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory={{ project_root }}
+ExecStart=/bin/sh -c ". env/bin/activate && PYTHONIOENCODING=utf-8 testflinger-agent -c testflinger-agent/testflinger-agent.conf"
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
