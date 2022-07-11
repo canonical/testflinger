@@ -20,7 +20,7 @@ import urllib.request
 import time
 import yaml
 
-from snappy_device_agents import runcmd, TimeoutError
+from snappy_device_agents import runcmd, CmdTimeoutError
 from devices import ProvisioningError, RecoveryError
 
 logger = logging.getLogger()
@@ -70,7 +70,7 @@ class Netboot:
             logger.info("Running %s", cmd)
             try:
                 rc = runcmd(cmd, timeout=60)
-            except TimeoutError:
+            except CmdTimeoutError:
                 raise ProvisioningError("timeout reaching control host!")
             if rc:
                 raise ProvisioningError(

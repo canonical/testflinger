@@ -21,7 +21,7 @@ import time
 import yaml
 
 from devices import ProvisioningError, RecoveryError
-from snappy_device_agents import TimeoutError
+from snappy_device_agents import CmdTimeoutError
 
 logger = logging.getLogger()
 
@@ -140,7 +140,7 @@ class OemRecovery:
             logger.info("Running %s", cmd)
             try:
                 output = self._run_device(cmd, timeout=600)
-            except TimeoutError:
+            except CmdTimeoutError:
                 raise ProvisioningError("timeout reaching control host!")
             logger.info(output)
 

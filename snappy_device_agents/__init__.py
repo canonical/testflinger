@@ -17,7 +17,6 @@ import gzip
 import json
 import logging
 import lzma
-import netifaces
 import os
 import shutil
 import socket
@@ -28,13 +27,15 @@ import tempfile
 import time
 import urllib.request
 
+import netifaces
+
 IMAGEFILE = "snappy.img"
 
 logger = logging.getLogger()
 
 
-class TimeoutError(Exception):
-    pass
+class CmdTimeoutError(Exception):
+    """Exception for timeout running running commands"""
 
 
 def get_test_opportunity(job_data="testflinger.json"):
@@ -52,20 +53,21 @@ def get_test_opportunity(job_data="testflinger.json"):
 
 
 def filetype(filename):
+    """Attempt to determine the compression type of a specified file"""
     magic_headers = {
         b"\x1f\x8b\x08": "gz",
         b"\x42\x5a\x68": "bz2",
         b"\xfd\x37\x7a\x58\x5a\x00": "xz",
         b"\x51\x46\x49\xfb": "qcow2",
     }
-    with open(filename, "rb") as f:
-        filehead = f.read(1024)
-    filetype = "unknown"
-    for k, v in magic_headers.items():
+    with open(filename, "rb") as checkfile:
+        filehead = checkfile.read(1024)
+    ftype = "unknown"
+    for k, val in magic_headers.items():
         if filehead.startswith(k):
-            filetype = v
+            ftype = val
             break
-    return filetype
+    return ftype
 
 
 def download(url, filename=None):
@@ -102,7 +104,7 @@ def delayretry(func, args, max_retries=3, delay=0):
     for retry_count in range(max_retries):
         try:
             ret = func(*args)
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             time.sleep(delay)
             if retry_count == max_retries - 1:
                 raise
@@ -132,7 +134,7 @@ def udf_create_image(params):
         try:
             output_opt = cmd.index("-o")
             cmd[output_opt + 1] = imagepath
-        except Exception:
+        except ValueError:
             # if we get here, -o was already not in the image
             cmd.append("-o")
             cmd.append(tmp_imagepath)
@@ -140,8 +142,8 @@ def udf_create_image(params):
         logger.info("Creating snappy image with: %s", cmd)
         try:
             output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            logger.error("Image Creation Output:\n %s", e.output)
+        except subprocess.CalledProcessError as exc:
+            logger.error("Image Creation Output:\n %s", exc.output)
             raise
         logger.info("Image Creation Output:\n %s", output)
         shutil.move(tmp_imagepath, imagepath)
@@ -160,7 +162,7 @@ def get_test_username(job_data="testflinger.json", default="ubuntu"):
     testflinger_data = get_test_opportunity(job_data)
     try:
         user = testflinger_data["test_data"]["test_username"]
-    except Exception:
+    except KeyError:
         user = default
     return user
 
@@ -176,7 +178,7 @@ def get_test_password(job_data="testflinger.json", default="ubuntu"):
     testflinger_data = get_test_opportunity(job_data)
     try:
         password = testflinger_data["test_data"]["test_password"]
-    except Exception:
+    except KeyError:
         password = default
     return password
 
@@ -199,10 +201,10 @@ def get_image(job_data="testflinger.json"):
             download(url)
     if "url" in image_keys:
         try:
-            url = testflinger_data.get("provision_data").get("url")
+            url = testflinger_data["provision_data"]["url"]
             image = download(url, IMAGEFILE)
-        except Exception as e:
-            logger.error('Error getting "%s": %s', url, e)
+        except KeyError as exc:
+            logger.error('Error getting "%s": %s', url, exc)
             return ""
     elif "udf-params" in image_keys:
         udf_params = testflinger_data.get("provision_data").get("udf-params")
@@ -222,20 +224,22 @@ def get_local_ip_addr():
     """
     Return our default IP address for another system to connect to
 
-    :return ip:
+    :return ipaddr:
         Returns the ip address of this system
     """
     gateways = netifaces.gateways()
     default_interface = gateways["default"][netifaces.AF_INET][1]
-    ip = netifaces.ifaddresses(default_interface)[netifaces.AF_INET][0]["addr"]
-    return ip
+    ipaddr = netifaces.ifaddresses(default_interface)[netifaces.AF_INET][0][
+        "addr"
+    ]
+    return ipaddr
 
 
-def serve_file(q, filename):
+def serve_file(queue, filename):
     """
     Wait for a connection, then send the specified file one time
 
-    :param q:
+    :param queue:
         multiprocessing queue used to send the port number back
     :param filename:
         The file to transmit
@@ -243,12 +247,12 @@ def serve_file(q, filename):
     server = socket.socket()
     server.bind(("0.0.0.0", 0))
     port = server.getsockname()[1]
-    q.put(port)
+    queue.put(port)
     server.listen(1)
     (client, _) = server.accept()
-    with open(filename, mode="rb") as f:
+    with open(filename, mode="rb") as imagefile:
         while True:
-            data = f.read(16 * 1024 * 1024)
+            data = imagefile.read(16 * 1024 * 1024)
             if not data:
                 break
             client.send(data)
@@ -265,7 +269,7 @@ def compress_file(filename):
     :return compressed_filename:
         The filename of the compressed file
     """
-    compressed_filename = "{}.xz".format(filename)
+    compressed_filename = f"{filename}.xz"
     try:
         # Remove the compressed_filename if it exists, just in case
         os.unlink(compressed_filename)
@@ -283,7 +287,7 @@ def compress_file(filename):
             with bz2.BZ2File(filename, "rb") as old_compressed:
                 shutil.copyfileobj(old_compressed, compressed_image)
     elif filetype(filename) == "qcow2":
-        raw_filename = "{}.raw".format(filename)
+        raw_filename = f"{filename}.raw"
         try:
             # Remove the original file, unless we already did
             os.unlink(raw_filename)
@@ -292,8 +296,8 @@ def compress_file(filename):
         cmd = ["qemu-img", "convert", "-O", "raw", filename, raw_filename]
         try:
             subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            logger.error("Image Conversion Output:\n %s", e.output)
+        except subprocess.CalledProcessError as exc:
+            logger.error("Image Conversion Output:\n %s", exc.output)
             raise
         with open(raw_filename, "rb") as uncompressed_image:
             with lzma.open(compressed_filename, "wb") as compressed_image:
@@ -313,6 +317,8 @@ def compress_file(filename):
 
 
 def configure_logging(config):
+    """Allow logging with optional support for logstash"""
+
     class AgentFilter(logging.Filter):
         def __init__(self, agent_name):
             super(AgentFilter, self).__init__()
@@ -340,7 +346,7 @@ def configure_logging(config):
             logger.addHandler(logstash.LogstashHandler(logstash_host, 5959, 1))
 
 
-def logmsg(level, msg, *args, **kwargs):
+def logmsg(level, msg, *args):
     """
     Front end to logging that splits messages into 4096 byte chunks
 
@@ -350,8 +356,6 @@ def logmsg(level, msg, *args, **kwargs):
         log message
     :param args:
         args for filling message variables
-    :param kwargs:
-        key/value args, not currently used, but can be used through logging
     """
 
     if args:
@@ -361,7 +365,7 @@ def logmsg(level, msg, *args, **kwargs):
         logmsg(level, msg[4096:])
 
 
-def runcmd(cmd, env={}, timeout=None):
+def runcmd(cmd, env=None, timeout=None):
     """
     Run a command and stream the output to stdout
 
@@ -376,6 +380,8 @@ def runcmd(cmd, env={}, timeout=None):
     """
 
     # Sanitize the environment, eliminate null values or Popen may choke
+    if not env:
+        env = {}
     env = {x: y for x, y in env.items() if y}
 
     if timeout:
@@ -392,7 +398,7 @@ def runcmd(cmd, env={}, timeout=None):
     while process.poll() is None:
         if deadline and time.time() > deadline:
             process.terminate()
-            raise TimeoutError
+            raise CmdTimeoutError
         line = process.stdout.readline()
         if line:
             sys.stdout.write(line.decode(errors="replace"))
@@ -402,7 +408,7 @@ def runcmd(cmd, env={}, timeout=None):
     return process.returncode
 
 
-def run_test_cmds(cmds, config=None, env={}):
+def run_test_cmds(cmds, config=None, env=None):
     """
     Run the test commands provided
     This is just a frontend to determine the type of cmds we
@@ -440,6 +446,8 @@ def _process_cmds_template_vars(cmds, config=None):
     """
 
     class IgnoreUnknownFormatter(string.Formatter):
+        """Try to allow both double and single curly braces"""
+
         def vformat(self, format_string, args, kwargs):
             tokens = []
             for (literal, field_name, spec, conv) in self.parse(format_string):
@@ -476,7 +484,7 @@ def _process_cmds_template_vars(cmds, config=None):
     return formatter.format(cmds, **config)
 
 
-def _run_test_cmds_list(cmds, config=None, env={}):
+def _run_test_cmds_list(cmds, config=None, env=None):
     """
     Run the test commands provided
 
@@ -490,19 +498,21 @@ def _run_test_cmds_list(cmds, config=None, env={}):
         Return 0 if everything succeeded, or exit code from failed command
     """
 
+    if not env:
+        env = {}
     for cmd in cmds:
         # Settings from the device yaml configfile like device_ip can be
         # formatted in test commands like "foo {device_ip}"
         cmd = _process_cmds_template_vars(cmd, config)
 
         logmsg(logging.INFO, "Running: %s", cmd)
-        rc = runcmd(cmd, env)
-        if rc:
-            logmsg(logging.WARNING, "Command failed, rc=%d", rc)
-    return rc
+        result = runcmd(cmd, env)
+        if result:
+            logmsg(logging.WARNING, "Command failed, rc=%d", result)
+    return result
 
 
-def _run_test_cmds_str(cmds, config=None, env={}):
+def _run_test_cmds_str(cmds, config=None, env=None):
     """
     Run the test commands provided
 
@@ -516,6 +526,8 @@ def _run_test_cmds_str(cmds, config=None, env={}):
         Return the value of the return code from the script
     """
 
+    if not env:
+        env = {}
     # If cmds doesn't specify an interpreter, pick a safe default
     if not cmds.startswith("#!"):
         cmds = "#!/bin/bash\n" + cmds
@@ -524,7 +536,7 @@ def _run_test_cmds_str(cmds, config=None, env={}):
     with open("tf_cmd_script", mode="w", encoding="utf-8") as tf_cmd_script:
         tf_cmd_script.write(cmds)
     os.chmod("tf_cmd_script", 0o775)
-    rc = runcmd("./tf_cmd_script", env)
-    if rc:
-        logmsg(logging.WARNING, "Tests failed, rc=%d", rc)
-    return rc
+    result = runcmd("./tf_cmd_script", env)
+    if result:
+        logmsg(logging.WARNING, "Tests failed, rc=%d", result)
+    return result
