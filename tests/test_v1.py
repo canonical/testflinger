@@ -304,3 +304,9 @@ def test_images_post(app):
     )
     output = app.get("/v1/agents/images/myqueue")
     assert json.loads(output.data.decode()) == image_data.get("myqueue")
+
+
+def test_get_invalid(app):
+    """Get a nonexistent URL and confirm we get 404"""
+    output = app.get("/v1/something")
+    assert 404 == output.status_code
