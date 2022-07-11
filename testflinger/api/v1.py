@@ -237,6 +237,24 @@ def output_post(job_id):
     return "OK"
 
 
+def action_post(job_id):
+    """Take action on the job status for a specified job ID
+
+    :param job_id:
+        UUID as a string for the job
+    """
+    if not check_valid_uuid(job_id):
+        return "Invalid job id\n", 400
+    data = json.loads(request.get_data())
+    action = data["action"]
+    actions = {
+        "cancel": cancel_job,
+    }
+    if action in actions:
+        return actions[action](job_id)
+    return "Invalid action\n", 400
+
+
 def queues_get():
     """Get a current list of all advertised queues from this server"""
     redis_list = current_app.redis.keys("tf:qlist:*")
@@ -345,3 +363,12 @@ def job_position_get(job_id):
         ):
             return str(position)
     return "Job not found or already started\n", 410
+
+
+def cancel_job(job_id):
+    """Cancellation for a specified job ID
+
+    :param job_id:
+        UUID as a string for the job
+    """
+    pass
