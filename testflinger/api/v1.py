@@ -334,6 +334,19 @@ def submit_job(job_queue, data):
     pipe.execute()
 
 
+def remove_job(job_queue, job_id):
+    """Remove a job from the specified queue if there's just job ID in DB
+
+    :param job_queue:
+        Name of the queue to use as a string
+    :param data:
+        JSON data to pass along containing details about the test job
+    """
+    pipe = current_app.redis.pipeline()
+    pipe.lrem(job_queue, 1, job_id)
+    pipe.execute()
+
+
 def get_job(queue_list):
     """Get the next job in the queue"""
     # The queue name and the job are returned, but we don't need the queue now
