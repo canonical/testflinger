@@ -384,4 +384,29 @@ def cancel_job(job_id):
     :param job_id:
         UUID as a string for the job
     """
-    pass
+    result_file = os.path.join(current_app.config.get("DATA_PATH"), job_id)
+    if not os.path.exists(result_file):
+        return "Job is not found and cannot be cancelled\n", 400
+    try:
+        with open(
+            result_file, "r", encoding="utf-8", errors="ignore"
+        ) as results:
+            data = json.load(results)
+    except json.decoder.JSONDecodeError:
+        # If for any reason it's empty or has bad data
+        data = {"job_state": "bad_data"}
+    if data["job_state"] in ["complete", "cancelled"]:
+        return "The job is already completed or cancelled", 400
+    # Remove job from the queue if it hasn't been started
+    if data["job_state"] == "waiting":
+        job_file = os.path.join(
+            current_app.config.get("DATA_PATH"), job_id + ".json"
+        )
+        with open(job_file, "r", encoding="utf-8", errors="ignore") as jobfile:
+            job_data = json.load(jobfile)
+            output_key = "tf_queue_{}".format(job_data["job_queue"])
+            remove_job(output_key, job_id)
+    # Set the job status to cancelled
+    with open(result_file, "w", encoding="utf-8", errors="ignore") as results:
+        results.write(json.dumps({"job_state": "cancelled"}))
+    return "OK"
