@@ -24,6 +24,7 @@ from dataclasses import dataclass
 import redis
 from flask import Flask
 from flask.logging import create_logger
+from werkzeug.exceptions import NotFound
 
 from testflinger.api import v1
 
@@ -133,6 +134,11 @@ def create_flask_app():
     tf_app.add_url_rule(
         "/v1/agents/images", "images_post", v1.images_post, methods=["POST"]
     )
+
+    @tf_app.errorhandler(NotFound)
+    def handle_404(exc):
+        tf_log.exception("Not found: %s", (exc))
+        return "Not found: {}\n".format(exc), 404
 
     @tf_app.errorhandler(Exception)
     def unhandled_exception(exc):
