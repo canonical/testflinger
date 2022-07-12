@@ -20,6 +20,7 @@ Unit tests for Testflinger v1 API
 import json
 import shutil
 import tempfile
+import os
 
 from io import BytesIO
 import fakeredis
@@ -318,3 +319,38 @@ def test_get_invalid(app):
     """Get a nonexistent URL and confirm we get 404"""
     output = app.get("/v1/something")
     assert 404 == output.status_code
+
+
+def test_cancel_job_completed(app):
+    """Test if a completed job cannot be cancelled"""
+    my_id = "00000000-0000-0000-0000-000000000000"
+    result_file = os.path.join(testflinger.app.config.get("DATA_PATH"), my_id)
+    with open(result_file, "w+", encoding="utf-8") as results:
+        results.write(json.dumps({"job_state": "complete"}))
+    output = app.post(
+        f"/v1/job/{my_id}/action", data=json.dumps({"action": "cancel"})
+    )
+    os.remove(result_file)
+    assert "The job is already completed or cancelled" == output.data.decode()
+
+
+def test_cancel_job_good(app):
+    """Test if a valid job with waiting status can be cancelled"""
+    my_id = "00000000-0000-0000-0000-000000000000"
+    result_file = os.path.join(testflinger.app.config.get("DATA_PATH"), my_id)
+    with open(result_file, "w+", encoding="utf-8") as results:
+        results.write(json.dumps({"job_state": "waiting"}))
+    job_file = os.path.join(
+        testflinger.app.config.get("DATA_PATH"), my_id + ".json"
+    )
+    with open(job_file, "w+", encoding="utf-8") as jobfile:
+        jobfile.write(json.dumps({"job_queue": "foo"}))
+    output = app.post(
+        f"/v1/job/{my_id}/action", data=json.dumps({"action": "cancel"})
+    )
+    assert "OK" == output.data.decode()
+    with open(result_file, "r", encoding="utf-8") as results:
+        data = json.load(results)
+    os.remove(result_file)
+    os.remove(job_file)
+    assert data["job_state"] == "cancelled"
