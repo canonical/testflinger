@@ -277,6 +277,14 @@ def test_job_position(app):
         assert output.data.decode() == str(pos)
 
 
+def test_action_post(app):
+    """Test that proper actions work"""
+    action_url = "/v1/job/00000000-0000-0000-0000-000000000000/action"
+    action_data = {"action": "foo"}
+    output = app.post(action_url, data=json.dumps(action_data))
+    assert 400 == output.status_code
+
+
 def test_queues_post(app):
     """Test posting advertised queues"""
     queue_data = {"qfoo": "this is a test queue"}
