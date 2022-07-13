@@ -342,9 +342,8 @@ def remove_job(job_queue, job_id):
     :param data:
         JSON data to pass along containing details about the test job
     """
-    pipe = current_app.redis.pipeline()
-    pipe.lrem(job_queue, 1, job_id)
-    pipe.execute()
+    database = current_app.redis
+    database.lrem(job_queue, 1, job_id)
 
 
 def get_job(queue_list):
@@ -397,15 +396,13 @@ def cancel_job(job_id):
         data = {"job_state": "bad_data"}
     if data["job_state"] in ["complete", "cancelled"]:
         return "The job is already completed or cancelled", 400
-    # Remove job from the queue if it hasn't been started
-    if data["job_state"] == "waiting":
-        job_file = os.path.join(
-            current_app.config.get("DATA_PATH"), job_id + ".json"
-        )
-        with open(job_file, "r", encoding="utf-8", errors="ignore") as jobfile:
-            job_data = json.load(jobfile)
-            output_key = "tf_queue_{}".format(job_data["job_queue"])
-            remove_job(output_key, job_id)
+    job_file = os.path.join(
+        current_app.config.get("DATA_PATH"), job_id + ".json"
+    )
+    with open(job_file, "r", encoding="utf-8", errors="ignore") as jobfile:
+        job_data = json.load(jobfile)
+        output_key = "tf_queue_{}".format(job_data["job_queue"])
+        remove_job(output_key, job_id)
     # Set the job status to cancelled
     with open(result_file, "w", encoding="utf-8", errors="ignore") as results:
         results.write(json.dumps({"job_state": "cancelled"}))
