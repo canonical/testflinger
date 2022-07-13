@@ -12,6 +12,9 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Main snappy-device-agents command module
+"""
 
 
 import argparse
@@ -23,6 +26,7 @@ logger = logging.getLogger()
 
 
 def main():
+    """main command function for snappy-device-agents"""
     devices = load_devices()
     parser = argparse.ArgumentParser()
 

@@ -34,17 +34,18 @@ class RecoveryError(Exception):
     pass
 
 
-class SerialLogger:
-    def __new__(cls, host=None, port=None, filename=None):
-        """
-        Factory to generate real or fake SerialLogger object based on params
-        """
-        if host and port and filename:
-            return RealSerialLogger(host, port, filename)
-        return StubSerialLogger(host, port, filename)
+def SerialLogger(host=None, port=None, filename=None):
+    """
+    Factory to generate real or fake SerialLogger object based on params
+    """
+    if host and port and filename:
+        return RealSerialLogger(host, port, filename)
+    return StubSerialLogger(host, port, filename)
 
 
 class StubSerialLogger:
+    """Fake SerialLogger when we don't have Serial Logger data defined"""
+
     def __init__(self, host, port, filename):
         pass
 
@@ -56,10 +57,10 @@ class StubSerialLogger:
 
 
 class RealSerialLogger:
-
-    """Set up a subprocess to connect to an ip and collect serial logs"""
+    """Real SerialLogger for when we have a serial logging service"""
 
     def __init__(self, host, port, filename):
+        """Set up a subprocess to connect to an ip and collect serial logs"""
         if not (host and port and filename):
             self.stub = True
         self.stub = False
@@ -68,7 +69,10 @@ class RealSerialLogger:
         self.filename = filename
 
     def start(self):
+        """Start the serial logger connection"""
+
         def reconnector():
+            """Reconnect when needed"""
             while True:
                 try:
                     self._log_serial()
@@ -84,6 +88,7 @@ class RealSerialLogger:
         self.proc.start()
 
     def _log_serial(self):
+        """Log data to the serial data to the output file"""
         with open(self.filename, "a+") as f:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((self.host, self.port))
@@ -103,6 +108,7 @@ class RealSerialLogger:
                             return
 
     def stop(self):
+        """Stop the serial logger"""
         self.proc.terminate()
 
 
