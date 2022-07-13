@@ -402,7 +402,7 @@ def cancel_job(job_id):
     with open(job_file, "r", encoding="utf-8", errors="ignore") as jobfile:
         job_data = json.load(jobfile)
         output_key = "tf_queue_{}".format(job_data["job_queue"])
-        remove_job(output_key, job_id)
+    remove_job(output_key, job_id)
     # Set the job status to cancelled
     with open(result_file, "w", encoding="utf-8", errors="ignore") as results:
         results.write(json.dumps({"job_state": "cancelled"}))
