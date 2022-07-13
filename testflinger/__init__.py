@@ -120,6 +120,12 @@ def create_flask_app():
         methods=["GET"],
     )
     tf_app.add_url_rule(
+        "/v1/job/<job_id>/action",
+        "action_post",
+        v1.action_post,
+        methods=["POST"],
+    )
+    tf_app.add_url_rule(
         "/v1/agents/queues", "queues_get", v1.queues_get, methods=["GET"]
     )
     tf_app.add_url_rule(

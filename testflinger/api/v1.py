@@ -237,6 +237,24 @@ def output_post(job_id):
     return "OK"
 
 
+def action_post(job_id):
+    """Take action on the job status for a specified job ID
+
+    :param job_id:
+        UUID as a string for the job
+    """
+    if not check_valid_uuid(job_id):
+        return "Invalid job id\n", 400
+    data = json.loads(request.get_data())
+    action = data["action"]
+    actions = {
+        "cancel": cancel_job,
+    }
+    if action in actions:
+        return actions[action](job_id)
+    return "Invalid action\n", 400
+
+
 def queues_get():
     """Get a current list of all advertised queues from this server"""
     redis_list = current_app.redis.keys("tf:qlist:*")
@@ -316,6 +334,18 @@ def submit_job(job_queue, data):
     pipe.execute()
 
 
+def remove_job(job_queue, job_id):
+    """Remove a job from the specified queue if there's just job ID in DB
+
+    :param job_queue:
+        Name of the queue to use as a string
+    :param data:
+        JSON data to pass along containing details about the test job
+    """
+    database = current_app.redis
+    database.lrem(job_queue, 1, job_id)
+
+
 def get_job(queue_list):
     """Get the next job in the queue"""
     # The queue name and the job are returned, but we don't need the queue now
@@ -345,3 +375,35 @@ def job_position_get(job_id):
         ):
             return str(position)
     return "Job not found or already started\n", 410
+
+
+def cancel_job(job_id):
+    """Cancellation for a specified job ID
+
+    :param job_id:
+        UUID as a string for the job
+    """
+    result_file = os.path.join(current_app.config.get("DATA_PATH"), job_id)
+    if not os.path.exists(result_file):
+        return "Job is not found and cannot be cancelled\n", 400
+    try:
+        with open(
+            result_file, "r", encoding="utf-8", errors="ignore"
+        ) as results:
+            data = json.load(results)
+    except json.decoder.JSONDecodeError:
+        # If for any reason it's empty or has bad data
+        data = {"job_state": "bad_data"}
+    if data["job_state"] in ["complete", "cancelled"]:
+        return "The job is already completed or cancelled", 400
+    job_file = os.path.join(
+        current_app.config.get("DATA_PATH"), job_id + ".json"
+    )
+    with open(job_file, "r", encoding="utf-8", errors="ignore") as jobfile:
+        job_data = json.load(jobfile)
+        output_key = "tf_queue_{}".format(job_data["job_queue"])
+    remove_job(output_key, job_id)
+    # Set the job status to cancelled
+    with open(result_file, "w", encoding="utf-8", errors="ignore") as results:
+        results.write(json.dumps({"job_state": "cancelled"}))
+    return "OK"
