@@ -276,3 +276,27 @@ server will only return one job.
 
     $ curl http://localhost:8000/v1/agents/images/myqueue \
          -X GET
+
+**[POST] /v1/job/<job_id>/action** - execute action for the specified job_id
+
+- Parameters:
+
+  - job_id: test job identifier as a UUID
+
+- Status Codes:
+
+  - HTTP 200 (OK)
+  - HTTP 400 (Bad Request) - the job is already completed or cancelled
+  - HTTP 404 (Not Found) - the job isn't found
+
+- Supported Actions:
+
+  - Cancel - cancel a job that hasn't been completed yet
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl http://localhost:8000/v1/job/00000000-0000-0000-0000-000000000000/action \
+         -X POST --header "Content-Type: application/json" \
+         --data '{ "action":"cancel" }'
