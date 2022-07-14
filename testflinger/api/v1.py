@@ -385,7 +385,7 @@ def cancel_job(job_id):
     """
     result_file = os.path.join(current_app.config.get("DATA_PATH"), job_id)
     if not os.path.exists(result_file):
-        return "Job is not found and cannot be cancelled\n", 400
+        return "Job is not found and cannot be cancelled\n", 404
     try:
         with open(
             result_file, "r", encoding="utf-8", errors="ignore"
