@@ -21,6 +21,7 @@ import json
 import shutil
 import tempfile
 import os
+from pathlib import Path
 
 from io import BytesIO
 import fakeredis
@@ -32,7 +33,7 @@ from testflinger.api import v1
 @pytest.fixture(name="app")
 def fixture_app():
     """Create a pytest fixture for the app"""
-    testflinger.app.config["DATA_PATH"] = tempfile.mkdtemp()
+    testflinger.app.config["DATA_PATH"] = Path(tempfile.mkdtemp())
     testflinger.app.redis = fakeredis.FakeStrictRedis()
     yield testflinger.app.test_client()
     shutil.rmtree(testflinger.app.config["DATA_PATH"])

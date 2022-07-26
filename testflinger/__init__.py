@@ -20,6 +20,7 @@ This sets up the Testflinger web application
 import logging
 import os
 from dataclasses import dataclass
+from pathlib import Path, PurePath
 
 import redis
 from flask import Flask
@@ -43,9 +44,7 @@ class DefaultConfig:
 
     REDIS_HOST = "localhost"
     REDIS_PORT = "6379"
-    DATA_PATH = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "data"
-    )
+    DATA_PATH = PurePath(__file__).parent / "data"
     PROPAGATE_EXCEPTIONS = True
 
 
@@ -64,8 +63,8 @@ def create_flask_app():
     # Otherwise load it from testflinger.conf in the testflinger dir
     config_file = os.environ.get("TESTFLINGER_CONFIG", "testflinger.conf")
     tf_app.config.from_pyfile(config_file, silent=True)
-    if not os.path.exists(tf_app.config["DATA_PATH"]):
-        os.makedirs(tf_app.config["DATA_PATH"])
+    tf_app.config["DATA_PATH"] = Path(tf_app.config["DATA_PATH"])
+    Path.mkdir(tf_app.config["DATA_PATH"], exist_ok=True)
 
     tf_app.redis = redis.StrictRedis(
         host=tf_app.config["REDIS_HOST"], port=tf_app.config["REDIS_PORT"]
