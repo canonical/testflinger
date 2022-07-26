@@ -74,7 +74,7 @@ def create_flask_app():
     sentry_dsn = tf_app.config.get("SENTRY_DSN")
     if sentry_dsn and "sentry_sdk" in globals():
         sentry_sdk.init(  # pylint: disable=abstract-class-instantiated
-            sn=sentry_dsn, integrations=[FlaskIntegration()]
+            dsn=sentry_dsn, integrations=[FlaskIntegration()]
         )
 
     tf_app.add_url_rule("/", "home", v1.home)
