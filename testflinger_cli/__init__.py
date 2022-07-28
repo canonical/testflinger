@@ -92,9 +92,7 @@ def _get_ssh_keys():
         for ssh_key in key_list:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
                 ssh_keys = ""
-                print(
-                    "Please enter keys in the form lp:userid " "or gh:userid"
-                )
+                print("Please enter keys in the form lp:userid or gh:userid")
     return key_list
 
 
@@ -576,7 +574,7 @@ class TestflingerCli:
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
                 raise SystemExit(
-                    "Please enter keys in the form lp:userid or " "gh:userid"
+                    "Please enter keys in the form lp:userid or gh:userid"
                 )
         template = inspect.cleandoc(
             """job_queue: {queue}
