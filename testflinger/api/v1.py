@@ -18,7 +18,6 @@ Testflinger v1 API
 """
 
 import json
-import os
 import uuid
 
 import pkg_resources
@@ -61,14 +60,12 @@ def job_post():
     elif not check_valid_uuid(job_id):
         return "Invalid job_id specified\n", 400
     submit_job(job_queue, json.dumps(data))
-    job_file = os.path.join(
-        current_app.config.get("DATA_PATH"), job_id + ".json"
-    )
+    job_file = current_app.config.get("DATA_PATH") / (job_id + ".json")
     with open(job_file, "w", encoding="utf-8", errors="ignore") as jobfile:
         jobfile.write(json.dumps(data))
     # Add a result file with job_state=waiting
-    result_file = os.path.join(current_app.config.get("DATA_PATH"), job_id)
-    if os.path.exists(result_file):
+    result_file = current_app.config.get("DATA_PATH") / job_id
+    if result_file.exists():
         with open(
             result_file, "r", encoding="utf-8", errors="ignore"
         ) as results:
@@ -108,10 +105,8 @@ def job_get_id(job_id):
 
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    job_file = os.path.join(
-        current_app.config.get("DATA_PATH"), job_id + ".json"
-    )
-    if not os.path.exists(job_file):
+    job_file = current_app.config.get("DATA_PATH") / (job_id + ".json")
+    if not job_file.exists():
         return "", 204
     with open(job_file, "r", encoding="utf-8", errors="ignore") as jobfile:
         data = jobfile.read()
@@ -126,8 +121,8 @@ def result_post(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    result_file = os.path.join(current_app.config.get("DATA_PATH"), job_id)
-    if os.path.exists(result_file):
+    result_file = current_app.config.get("DATA_PATH") / job_id
+    if result_file.exists():
         try:
             with open(
                 result_file, "r", encoding="utf-8", errors="ignore"
@@ -156,8 +151,8 @@ def result_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    result_file = os.path.join(current_app.config.get("DATA_PATH"), job_id)
-    if not os.path.exists(result_file):
+    result_file = current_app.config.get("DATA_PATH") / job_id
+    if not result_file.exists():
         return "", 204
     with open(result_file, "r", encoding="utf-8", errors="ignore") as results:
         data = results.read()
@@ -174,7 +169,7 @@ def artifacts_post(job_id):
         return "Invalid job id\n", 400
     file = request.files["file"]
     filename = "{}.artifact".format(job_id)
-    file.save(os.path.join(current_app.config.get("DATA_PATH"), filename))
+    file.save(current_app.config.get("DATA_PATH") / filename)
     return "OK"
 
 
@@ -188,10 +183,10 @@ def artifacts_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    artifact_file = os.path.join(
-        current_app.config.get("DATA_PATH"), "{}.artifact".format(job_id)
+    artifact_file = current_app.config.get("DATA_PATH") / "{}.artifact".format(
+        job_id
     )
-    if not os.path.exists(artifact_file):
+    if not artifact_file.exists():
         return "", 204
     return send_file(artifact_file)
 
@@ -383,9 +378,9 @@ def cancel_job(job_id):
     :param job_id:
         UUID as a string for the job
     """
-    result_file = os.path.join(current_app.config.get("DATA_PATH"), job_id)
-    if not os.path.exists(result_file):
-        return "Job is not found and cannot be cancelled\n", 404
+    result_file = current_app.config.get("DATA_PATH") / job_id
+    if not result_file.exists():
+        return "Job is not found and cannot be cancelled\n", 400
     try:
         with open(
             result_file, "r", encoding="utf-8", errors="ignore"
@@ -396,9 +391,7 @@ def cancel_job(job_id):
         data = {"job_state": "bad_data"}
     if data["job_state"] in ["complete", "cancelled"]:
         return "The job is already completed or cancelled", 400
-    job_file = os.path.join(
-        current_app.config.get("DATA_PATH"), job_id + ".json"
-    )
+    job_file = current_app.config.get("DATA_PATH") / (job_id + ".json")
     with open(job_file, "r", encoding="utf-8", errors="ignore") as jobfile:
         job_data = json.load(jobfile)
         output_key = "tf_queue_{}".format(job_data["job_queue"])
