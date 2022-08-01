@@ -255,36 +255,21 @@ class TestflingerCli:
     def cancel(self):
         """Tell the server to cancel a specified JOB_ID"""
         try:
-            job_state = self.client.get_status(self.args.job_id)
-            self.history.update(self.args.job_id, job_state)
+            self.client.put(
+                f"/v1/job/{self.args.job_id}/action", {"action": "cancel"}
+            )
+            self.history.update(self.args.job_id, "cancelled")
         except client.HTTPError as exc:
-            if exc.status == 204:
-                raise SystemExit(
-                    "Job {} not found. Check the job "
-                    "id to be sure it is "
-                    "correct.".format(self.args.job_id)
-                ) from exc
             if exc.status == 400:
                 raise SystemExit(
-                    "Invalid job id specified. Check the job "
-                    "id to be sure it is correct."
+                    "Invalid job ID specified or the job is already "
+                    "completed/cancelled."
                 ) from exc
             if exc.status == 404:
                 raise SystemExit(
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
                 ) from exc
-        if job_state in ("complete", "cancelled"):
-            raise SystemExit(
-                "Job {} is already in {} state and cannot be "
-                "cancelled.".format(self.args.job_id, job_state)
-            )
-        self.do_cancel(self.args.job_id)
-
-    def do_cancel(self, job_id):
-        """Send cancellation request for a specified job_id"""
-        self.client.post_job_state(job_id, "cancelled")
-        self.history.update(job_id, "cancelled")
 
     def configure(self):
         """Print or set configuration values"""
@@ -485,7 +470,7 @@ class TestflingerCli:
                     if choice == "c":
                         continue
                     if choice == "y":
-                        self.do_cancel(job_id)
+                        self.cancel()
                 # Both y and n will allow the external handler deal with it
                 raise
 

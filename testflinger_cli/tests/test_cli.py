@@ -42,16 +42,17 @@ def test_status(capsys, requests_mock):
 
 
 def test_cancel(requests_mock):
-    """Cancel should fail if job is already complete"""
+    """Cancel should fail if /v1/job/<job_id>/action URL returns 400 code"""
     jobid = str(uuid.uuid1())
-    fake_return = {"job_state": "complete"}
-    requests_mock.get(URL + "/v1/result/" + jobid, json=fake_return)
-    requests_mock.post(URL + "/v1/result/" + jobid)
+    requests_mock.post(
+        URL + "/v1/job/" + jobid + "/action",
+        status_code=400,
+    )
     sys.argv = ["", "cancel", jobid]
     tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as err:
         tfcli.cancel()
-    assert "already in complete state and cannot" in err.value.args[0]
+    assert "already completed/cancelled" in err.value.args[0]
 
 
 def test_submit(capsys, tmp_path, requests_mock):
