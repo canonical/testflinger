@@ -23,13 +23,14 @@ INSTALL_REQUIRES = [
     "gevent",
     "redis",
     "flask",
+    "flask-pymongo",
     "pyyaml",
     "sentry-sdk[flask]",
 ]
 
 setup(
     name="testflinger",
-    version="1.0.1",
+    version="1.1.0",
     long_description=__doc__,
     packages=find_packages(),
     zip_safe=False,

@@ -19,13 +19,11 @@ This sets up the Testflinger web application
 
 import logging
 import os
-from dataclasses import dataclass
-from pathlib import Path, PurePath
 
-import redis
 from flask import Flask
 from flask.logging import create_logger
 from werkzeug.exceptions import NotFound
+from flask_pymongo import PyMongo
 
 from testflinger.api import v1
 
@@ -34,18 +32,6 @@ try:
     from sentry_sdk.integrations.flask import FlaskIntegration
 except ImportError:
     pass
-
-
-@dataclass(frozen=True)
-class DefaultConfig:
-    """
-    Default config object for Testflinger
-    """
-
-    REDIS_HOST = "localhost"
-    REDIS_PORT = "6379"
-    DATA_PATH = PurePath(__file__).parent / "data"
-    PROPAGATE_EXCEPTIONS = True
 
 
 def create_flask_app():
@@ -58,17 +44,16 @@ def create_flask_app():
         stream_handler.setLevel(logging.INFO)
         tf_log.addHandler(stream_handler)
 
-    tf_app.config.from_object(DefaultConfig)
+    tf_app.config["PROPAGATE_EXCEPTIONS"] = True
     # Additional config can be specified with env var TESTFLINGER_CONFIG
     # Otherwise load it from testflinger.conf in the testflinger dir
     config_file = os.environ.get("TESTFLINGER_CONFIG", "testflinger.conf")
     tf_app.config.from_pyfile(config_file, silent=True)
-    tf_app.config["DATA_PATH"] = Path(tf_app.config["DATA_PATH"])
-    Path.mkdir(tf_app.config["DATA_PATH"], exist_ok=True)
 
-    tf_app.redis = redis.StrictRedis(
-        host=tf_app.config["REDIS_HOST"], port=tf_app.config["REDIS_PORT"]
-    )
+    # Finally, override config data with env vars
+    tf_app.config.from_prefixed_env("MONGO_")
+
+    setup_mongodb(tf_app)
 
     sentry_dsn = tf_app.config.get("SENTRY_DSN")
     if sentry_dsn and "sentry_sdk" in globals():
@@ -151,6 +136,49 @@ def create_flask_app():
         return "Unhandled Exception: {}\n".format(exc), 500
 
     return tf_app
+
+
+def setup_mongodb(application):
+    """
+    Setup mongodb connection if we have valid config data
+    Otherwise leave it empty, which means we are probably running unit tests
+    """
+    mongo_user = os.environ.get("MONGO_USER")
+    mongo_pass = os.environ.get("MONGO_PASSWORD")
+    mongo_db = os.environ.get("MONGO_DATABASE")
+    if not application.config.get("MONGO_URI") and not (
+        mongo_user and mongo_pass and mongo_db
+    ):
+        # We are probably running unit tests
+        return
+
+    if not application.config.get("MONGO_URI"):
+        application.config[
+            "MONGO_URI"
+        ] = f"mongodb://{mongo_user}:{mongo_pass}@mongo:27017/{mongo_db}"
+
+    mongo_client = PyMongo(
+        application,
+        uri=application.config["MONGO_URI"],
+        uuidRepresentation="standard",
+    )
+    application.db = mongo_client.db
+    # PWL application.db = mongo_client
+
+    # Initialize collections and indices in case they don't exist already
+    # Automatically expire jobs after 7 days if nothing runs them
+    application.db.jobs.create_index(
+        "created_at", expireAfterSeconds=7 * 24 * 60 * 60
+    )
+    # Remove output 4 hours after the last entry if nothing polls for it
+    application.db.output.create_index("updated_on", expireAfterSeconds=14400)
+    # Remove artifacts after 7 days
+    application.db.fs.chunks.create_index(
+        "uploadDate", expireAfterSeconds=7 * 24 * 60 * 60
+    )
+    application.db.fs.files.create_index(
+        "uploadDate", expireAfterSeconds=7 * 24 * 60 * 60
+    )
 
 
 app = create_flask_app()

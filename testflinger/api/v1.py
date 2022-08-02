@@ -19,6 +19,9 @@ Testflinger v1 API
 
 import json
 import uuid
+from datetime import datetime
+from gridfs import GridFS
+from gridfs.errors import NoFile
 
 import pkg_resources
 from flask import current_app, jsonify, request, send_file
@@ -49,33 +52,40 @@ def job_post():
         job_queue = ""
     if not job_queue:
         return "Invalid data or no job_queue specified\n", 400
-    # Prepend tf_queue on job queues for easier ID
-    job_queue = "tf_queue_" + str(job_queue)
+
+    try:
+        job = job_builder(data)
+    except ValueError:
+        return "Invalid job_id specified\n", 400
+
+    # CAUTION! If you ever move this line, you may need to pass data as a copy
+    # because it will get modified by submit_job and other things it calls
+    current_app.db.jobs.insert_one(job)
+    return jsonify(job_id=job.get("job_id"))
+
+
+def job_builder(data):
+    """Build a job from a dictionary of data"""
+    job = {
+        "created_at": datetime.utcnow(),
+        "result_data": {
+            "job_state": "waiting",
+        },
+    }
     # If the job_id is provided, keep it as long as the uuid is good.
     # This is for job resubmission
-    job_id = data.get("job_id")
-    if not job_id:
-        job_id = str(uuid.uuid4())
-        data["job_id"] = job_id
-    elif not check_valid_uuid(job_id):
-        return "Invalid job_id specified\n", 400
-    submit_job(job_queue, json.dumps(data))
-    job_file = current_app.config.get("DATA_PATH") / (job_id + ".json")
-    with open(job_file, "w", encoding="utf-8", errors="ignore") as jobfile:
-        jobfile.write(json.dumps(data))
-    # Add a result file with job_state=waiting
-    result_file = current_app.config.get("DATA_PATH") / job_id
-    if result_file.exists():
-        with open(
-            result_file, "r", encoding="utf-8", errors="ignore"
-        ) as results:
-            data = json.load(results)
-            data["job_state"] = "resubmitted"
+    job_id = data.pop("job_id", None)
+    if job_id and isinstance(job_id, str):
+        # This job already came with a job_id, so it was resubmitted
+        if not check_valid_uuid(job_id):
+            raise ValueError
     else:
-        data = {"job_state": "waiting"}
-    with open(result_file, "w", encoding="utf-8", errors="ignore") as results:
-        results.write(json.dumps(data))
-    return jsonify(job_id=job_id)
+        # This is a new job, so generate a new job_id
+        job_id = str(uuid.uuid4())
+
+    job["job_id"] = job_id
+    job["job_data"] = data
+    return job
 
 
 def job_get():
@@ -83,10 +93,9 @@ def job_get():
     queue_list = request.args.getlist("queue")
     if not queue_list:
         return "No queue(s) specified in request", 400
-    queue_list = ["tf_queue_" + x for x in queue_list]
     job = get_job(queue_list)
     if job:
-        return job
+        return jsonify(job)
     return "", 204
 
 
@@ -105,12 +114,14 @@ def job_get_id(job_id):
 
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    job_file = current_app.config.get("DATA_PATH") / (job_id + ".json")
-    if not job_file.exists():
+    response = current_app.db.jobs.find_one(
+        {"job_id": job_id}, projection={"job_data": True, "_id": False}
+    )
+    if not response:
         return "", 204
-    with open(job_file, "r", encoding="utf-8", errors="ignore") as jobfile:
-        data = jobfile.read()
-    return data, 200
+    job_data = response.get("job_data")
+    job_data["job_id"] = job_id
+    return jsonify(job_data), 200
 
 
 def result_post(job_id):
@@ -121,25 +132,16 @@ def result_post(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    result_file = current_app.config.get("DATA_PATH") / job_id
-    if result_file.exists():
-        try:
-            with open(
-                result_file, "r", encoding="utf-8", errors="ignore"
-            ) as results:
-                data = json.load(results)
-        except json.decoder.JSONDecodeError:
-            # If for any reason it's empty or has bad data - set to empty dict
-            data = {}
-    else:
-        data = {}
     try:
-        new_data = request.get_json()
+        result_data = request.get_json()
     except BadRequest:
         return "Invalid result data\n", 400
-    data.update(new_data)
-    with open(result_file, "w", encoding="utf-8", errors="ignore") as results:
-        results.write(json.dumps(data))
+
+    # First, we need to prepend "result_data" to each key in the result_data
+    for key in list(result_data):
+        result_data[f"result_data.{key}"] = result_data.pop(key)
+
+    current_app.db.jobs.update_one({"job_id": job_id}, {"$set": result_data})
     return "OK"
 
 
@@ -151,12 +153,14 @@ def result_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    result_file = current_app.config.get("DATA_PATH") / job_id
-    if not result_file.exists():
+    response = current_app.db.jobs.find_one(
+        {"job_id": job_id}, {"result_data": True, "_id": False}
+    )
+
+    if not response or not (results := response.get("result_data")):
         return "", 204
-    with open(result_file, "r", encoding="utf-8", errors="ignore") as results:
-        data = results.read()
-    return data
+    results = response.get("result_data")
+    return jsonify(results)
 
 
 def artifacts_post(job_id):
@@ -168,8 +172,19 @@ def artifacts_post(job_id):
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     file = request.files["file"]
-    filename = "{}.artifact".format(job_id)
-    file.save(current_app.config.get("DATA_PATH") / filename)
+    filename = f"{job_id}.artifact"
+    # Normally we would use flask-pymongo save_file but it doesn't seem to
+    # work nicely for me with mongomock
+    storage = GridFS(current_app.db)
+    file_id = storage.put(file, filename=filename)
+
+    # Add a timestamp to the chunks - do this so we can set a TTL for them
+    timestamp = current_app.db.fs.files.find_one({"_id": file_id})[
+        "uploadDate"
+    ]
+    current_app.db.fs.chunks.update_many(
+        {"files_id": file_id}, {"$set": {"uploadDate": timestamp}}
+    )
     return "OK"
 
 
@@ -183,12 +198,15 @@ def artifacts_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    artifact_file = current_app.config.get("DATA_PATH") / "{}.artifact".format(
-        job_id
-    )
-    if not artifact_file.exists():
+    filename = f"{job_id}.artifact"
+    # Normally we would use flask-pymongo send_file but it doesn't seem to
+    # work nicely for me with mongomock
+    storage = GridFS(current_app.db)
+    try:
+        file = storage.get_last_version(filename=filename)
+    except NoFile:
         return "", 204
-    return send_file(artifact_file)
+    return send_file(file, download_name="artifact.tar.gz")
 
 
 def output_get(job_id):
@@ -201,13 +219,12 @@ def output_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    output_key = "stream_{}".format(job_id)
-    pipe = current_app.redis.pipeline()
-    pipe.lrange(output_key, 0, -1)
-    pipe.delete(output_key)
-    output = pipe.execute()
-    if output[0]:
-        return "\n".join([x.decode() for x in output[0]])
+    response = current_app.db.output.find_one_and_delete(
+        {"job_id": job_id}, {"_id": False}
+    )
+    output = response.get("output", []) if response else None
+    if output:
+        return "\n".join(output)
     return "", 204
 
 
@@ -224,11 +241,13 @@ def output_post(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    data = request.get_data()
-    output_key = "stream_{}".format(job_id)
-    current_app.redis.rpush(output_key, data)
-    # If the data doesn't get read with 4 hours of the last update, expire it
-    current_app.redis.expire(output_key, 14400)
+    data = request.get_data().decode("utf-8")
+    timestamp = datetime.utcnow()
+    current_app.db.output.update_one(
+        {"job_id": job_id},
+        {"$set": {"updated_on": timestamp}, "$push": {"output": data}},
+        upsert=True,
+    )
     return "OK"
 
 
@@ -252,14 +271,13 @@ def action_post(job_id):
 
 def queues_get():
     """Get a current list of all advertised queues from this server"""
-    redis_list = current_app.redis.keys("tf:qlist:*")
+    all_queues = current_app.db.queues.find(
+        {}, projection={"_id": False, "name": True, "description": True}
+    )
     queue_dict = {}
     # Create a dict of queues and descriptions
-    for queue_name in redis_list:
-        # strip tf:qlist: from the key to get the queue name
-        queue_dict[queue_name[9:].decode()] = current_app.redis.get(
-            queue_name
-        ).decode()
+    for queue in all_queues:
+        queue_dict[queue.get("name")] = queue.get("description", "")
     return jsonify(queue_dict)
 
 
@@ -270,31 +288,48 @@ def queues_post():
     the user can check which queues are valid to use.
     """
     queue_dict = request.get_json()
-    pipe = current_app.redis.pipeline()
-    for queue in queue_dict:
-        queue_name = "tf:qlist:" + queue
-        queue_description = queue_dict[queue]
-        pipe.set(queue_name, queue_description, ex=300)
-    pipe.execute()
+    for queue, description in queue_dict.items():
+        current_app.db.queues.update_one(
+            {"name": queue},
+            {"$set": {"description": description}},
+            upsert=True,
+        )
     return "OK"
 
 
 def images_get(queue):
     """Get a list of known images for a given queue"""
-    images = current_app.redis.hgetall("tf:images:" + queue)
-    images = {k.decode(): v.decode() for k, v in images.items()}
-    return jsonify(images)
+    queue_data = current_app.db.queues.find_one(
+        {"name": queue}, {"_id": False, "images": True}
+    )
+    # It's ok for this to just return an empty result if there are none found
+    return jsonify(queue_data.get("images", {}))
 
 
 def images_post():
-    """Tell testflinger about known images for a specified queue"""
+    """Tell testflinger about known images for a specified queue
+    images will be stored in a list of key/value pairs as part of the queues
+    collection. That list will contain image_name:provision_data mappings, ex:
+    [
+        "name":"some_queue",
+        ...
+        "images": [
+            {"core22": "http://cdimage.ubuntu.com/.../core-22.tar.gz"},
+            {"jammy": "http://cdimage.ubuntu.com/.../ubuntu-22.04.tar.gz"}
+        ],
+        "other_queue": [
+            ...
+        ]
+    ]
+    """
     image_dict = request.get_json()
-    pipe = current_app.redis.pipeline()
-    # We need to delete and recreate the hash in case images were removed
-    for queue, images in image_dict.items():
-        pipe.delete("tf:images:" + queue)
-        pipe.hmset("tf:images:" + queue, images)
-    pipe.execute()
+    # We need to delete and recreate the images in case some were removed
+    for queue, image_data in image_dict.items():
+        current_app.db.queues.update_one(
+            {"name": queue},
+            {"$set": {"images": image_data}},
+            upsert=True,
+        )
     return "OK"
 
 
@@ -314,61 +349,48 @@ def check_valid_uuid(job_id):
     return True
 
 
-def submit_job(job_queue, data):
-    """Submit a job to the specified queue for processing
-
-    :param job_queue:
-        Name of the queue to use as a string
-    :param data:
-        JSON data to pass along containing details about the test job
-    """
-    pipe = current_app.redis.pipeline()
-    pipe.lpush(job_queue, data)
-    # Delete the queue after 1 week if nothing is looking at it
-    pipe.expire(job_queue, 604800)
-    pipe.execute()
-
-
-def remove_job(job_queue, job_id):
-    """Remove a job from the specified queue if there's just job ID in DB
-
-    :param job_queue:
-        Name of the queue to use as a string
-    :param data:
-        JSON data to pass along containing details about the test job
-    """
-    database = current_app.redis
-    database.lrem(job_queue, 1, job_id)
-
-
 def get_job(queue_list):
     """Get the next job in the queue"""
     # The queue name and the job are returned, but we don't need the queue now
     try:
-        _, job = current_app.redis.brpop(queue_list, timeout=1)
+        response = current_app.db.jobs.find_one_and_update(
+            {
+                "result_data.job_state": "waiting",
+                "job_data.job_queue": {"$in": queue_list},
+            },
+            {"$set": {"result_data.job_state": "running"}},
+            projection={"job_id": True, "job_data": True, "_id": False},
+        )
     except TypeError:
         return None
+    if not response:
+        return None
+    # Flatten the job_data and include the job_id
+    job = response.get("job_data")
+    job["job_id"] = response.get("job_id")
     return job
 
 
 def job_position_get(job_id):
     """Return the position of the specified jobid in the queue"""
-    data, http_code = job_get_id(job_id)
+    response, http_code = job_get_id(job_id)
     if http_code != 200:
-        return data, http_code
+        return response, http_code
+    job_data = response.json
+    if not job_data:
+        return "Job not found or already started\n", 410
     try:
-        job_data = json.loads(data)
-    except (json.JSONDecodeError, TypeError):
+        queue = job_data.get("job_queue")
+    except (AttributeError, TypeError):
         return "Invalid json returned for id: {}\n".format(job_id), 400
-    queue = "tf_queue_" + job_data.get("job_queue")
-    for position, job in enumerate(
-        reversed(current_app.redis.lrange(queue, 0, -1))
-    ):
-        if (
-            json.loads(job.decode("utf-8", errors="ignore")).get("job_id")
-            == job_id
-        ):
-            return str(position)
+    # Get all jobs with job_queue=queue and return only the _id
+    jobs = current_app.db.jobs.find(
+        {"job_data.job_queue": queue}, {"job_id": 1}
+    )
+    # Create a dict mapping job_id (as a string) to the position in the queue
+    jobs_id_position = {job.get("job_id"): pos for pos, job in enumerate(jobs)}
+    if job_id in jobs_id_position:
+        return str(jobs_id_position[job_id])
     return "Job not found or already started\n", 410
 
 
@@ -378,25 +400,16 @@ def cancel_job(job_id):
     :param job_id:
         UUID as a string for the job
     """
-    result_file = current_app.config.get("DATA_PATH") / job_id
-    if not result_file.exists():
-        return "Job is not found and cannot be cancelled\n", 400
-    try:
-        with open(
-            result_file, "r", encoding="utf-8", errors="ignore"
-        ) as results:
-            data = json.load(results)
-    except json.decoder.JSONDecodeError:
-        # If for any reason it's empty or has bad data
-        data = {"job_state": "bad_data"}
-    if data["job_state"] in ["complete", "cancelled"]:
-        return "The job is already completed or cancelled", 400
-    job_file = current_app.config.get("DATA_PATH") / (job_id + ".json")
-    with open(job_file, "r", encoding="utf-8", errors="ignore") as jobfile:
-        job_data = json.load(jobfile)
-        output_key = "tf_queue_{}".format(job_data["job_queue"])
-    remove_job(output_key, job_id)
+    # remove one job from jobs where the job_id matches
+    # current_app.db.jobs.delete_one({"job_id": job_id})
     # Set the job status to cancelled
-    with open(result_file, "w", encoding="utf-8", errors="ignore") as results:
-        results.write(json.dumps({"job_state": "cancelled"}))
+    response = current_app.db.jobs.update_one(
+        {
+            "job_id": job_id,
+            "result_data.job_state": {"$nin": ["cancelled", "completed"]},
+        },
+        {"$set": {"result_data.job_state": "cancelled"}},
+    )
+    if response.modified_count == 0:
+        return "The job is already completed or cancelled", 400
     return "OK"
