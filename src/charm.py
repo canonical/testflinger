@@ -185,7 +185,7 @@ class TestflingerAgentCharm(CharmBase):
         device_config_path = (
             f"{self._stored.agent_path}/" "snappy-device-agents/default.yaml"
         )
-        device_config = self._read_resource("testflinger_agent_configfile")
+        device_config = self._read_resource("device_configfile")
         self._write_file(device_config_path, device_config)
 
     def _render_systemd_unit(self):
