@@ -252,13 +252,16 @@ class TestflingerCli:
                 ) from exc
         print(job_state)
 
-    def cancel(self):
+    def cancel(self, job_id=None):
         """Tell the server to cancel a specified JOB_ID"""
+        if not job_id:
+            try:
+                job_id = self.args.job_id
+            except AttributeError as exc:
+                raise SystemExit("No job id specified to cancel.") from exc
         try:
-            self.client.put(
-                f"/v1/job/{self.args.job_id}/action", {"action": "cancel"}
-            )
-            self.history.update(self.args.job_id, "cancelled")
+            self.client.put(f"/v1/job/{job_id}/action", {"action": "cancel"})
+            self.history.update(job_id, "cancelled")
         except client.HTTPError as exc:
             if exc.status == 400:
                 raise SystemExit(
@@ -470,7 +473,7 @@ class TestflingerCli:
                     if choice == "c":
                         continue
                     if choice == "y":
-                        self.cancel()
+                        self.cancel(job_id)
                 # Both y and n will allow the external handler deal with it
                 raise
 
