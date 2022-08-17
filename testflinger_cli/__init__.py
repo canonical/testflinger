@@ -447,7 +447,7 @@ class TestflingerCli:
                         if int(queue_pos) != prev_queue_pos:
                             prev_queue_pos = int(queue_pos)
                             print("Jobs ahead in queue: {}".format(queue_pos))
-                    except IOError:
+                    except (IOError, client.HTTPError):
                         # Ignore/retry any connection errors or timeouts
                         pass
                 time.sleep(10)
