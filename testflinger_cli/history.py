@@ -19,10 +19,14 @@ Testflinger history module
 """
 
 import json
+import logging
 import os
 from collections import OrderedDict
 from datetime import datetime
 import xdg
+
+
+logger = logging.getLogger(__name__)
 
 
 class TestflingerCliHistory:
@@ -58,7 +62,9 @@ class TestflingerCliHistory:
                     self.history.update(json.load(history_file))
                 except (OSError, ValueError):
                     # If there's any error loading the history, ignore it
-                    print("Error loading history file from", self.historyfile)
+                    logger.error(
+                        "Error loading history file from %s", self.historyfile
+                    )
 
     def save(self):
         """Save the history out to the history file"""

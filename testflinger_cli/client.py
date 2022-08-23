@@ -19,10 +19,14 @@ Testflinger client module
 """
 
 import json
+import logging
 import sys
 import urllib.parse
 import requests
 import yaml
+
+
+logger = logging.getLogger(__name__)
 
 
 class HTTPError(Exception):
@@ -50,10 +54,12 @@ class Client:
         try:
             req = requests.get(uri, timeout=timeout)
         except requests.exceptions.ConnectTimeout:
-            print("Timeout while trying to communicate with the server.")
+            logger.error(
+                "Timeout while trying to communicate with the server."
+            )
             raise
         except requests.exceptions.ConnectionError:
-            print("Unable to communicate with specified server.")
+            logger.error("Unable to communicate with specified server.")
             raise
         if req.status_code != 200:
             raise HTTPError(req.status_code)
@@ -70,10 +76,10 @@ class Client:
         try:
             req = requests.post(uri, json=data, timeout=timeout)
         except requests.exceptions.ConnectTimeout:
-            print("Timout while trying to communicate with the server.")
+            logger.error("Timout while trying to communicate with the server.")
             sys.exit(1)
         except requests.exceptions.ConnectionError:
-            print("Unable to communicate with specified server.")
+            logger.error("Unable to communicate with specified server.")
             sys.exit(1)
         if req.status_code != 200:
             raise HTTPError(req.status_code)

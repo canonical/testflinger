@@ -21,6 +21,7 @@ TestflingerCli module
 
 import inspect
 import json
+import logging
 import os
 import sys
 import time
@@ -30,6 +31,7 @@ import yaml
 
 from testflinger_cli import client, config, history
 
+logger = logging.getLogger(__name__)
 
 # Make it easier to run from a checkout
 basedir = os.path.abspath(os.path.join(__file__, ".."))
@@ -41,9 +43,21 @@ def cli():
     """Generate the TestflingerCli instance and run it"""
     try:
         tfcli = TestflingerCli()
+        configure_logging()
         tfcli.run()
     except KeyboardInterrupt as exc:
         raise SystemExit from exc
+
+
+def configure_logging():
+    """Configure default logging"""
+    logging.basicConfig(
+        level=logging.WARNING,
+        format=(
+            "%(levelname)s: %(asctime)s %(filename)s:%(lineno)d -- %(message)s"
+        ),
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 
 
 def _get_image(images):
@@ -531,7 +545,7 @@ class TestflingerCli:
         try:
             queues = self.client.get_queues()
         except OSError:
-            print("WARNING: unable to get a list of queues from the server!")
+            logger.warning("Unable to get a list of queues from the server!")
             queues = {}
         queue = self.args.queue or self._get_queue(queues)
         if queue not in queues.keys():
@@ -542,7 +556,7 @@ class TestflingerCli:
         try:
             images = self.client.get_images(queue)
         except OSError:
-            print("WARNING: unable to get a list of images from the server!")
+            logger.warning("Unable to get a list of images from the server!")
             images = {}
         image = self.args.image or _get_image(images)
         if (
