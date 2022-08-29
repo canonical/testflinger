@@ -20,10 +20,11 @@ This sets up the Testflinger web application
 import logging
 import os
 
-from flask import Flask
+from flask import Flask, request
 from flask.logging import create_logger
 from werkzeug.exceptions import NotFound
 from flask_pymongo import PyMongo
+from pymongo.errors import ConnectionFailure
 
 from testflinger.api import v1
 
@@ -127,8 +128,13 @@ def create_flask_app():
 
     @tf_app.errorhandler(NotFound)
     def handle_404(exc):
-        tf_log.exception("Not found: %s", (exc))
+        tf_log.error("[404] Not found: %s", request.url)
         return "Not found: {}\n".format(exc), 404
+
+    @tf_app.errorhandler(ConnectionFailure)
+    def handle_timeout(exc):
+        tf_log.exception("pymongo connection failure: %s", exc)
+        return "Server Connection Failure", 500
 
     @tf_app.errorhandler(Exception)
     def unhandled_exception(exc):
@@ -161,9 +167,10 @@ def setup_mongodb(application):
         application,
         uri=application.config["MONGO_URI"],
         uuidRepresentation="standard",
+        serverSelectionTimeoutMS=2000,
+        socketTimeoutMS=10000,
     )
     application.db = mongo_client.db
-    # PWL application.db = mongo_client
 
     # Initialize collections and indices in case they don't exist already
     # Automatically expire jobs after 7 days if nothing runs them
