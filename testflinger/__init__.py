@@ -178,7 +178,7 @@ def setup_mongodb(application):
         "created_at", expireAfterSeconds=7 * 24 * 60 * 60
     )
     # Remove output 4 hours after the last entry if nothing polls for it
-    application.db.output.create_index("updated_on", expireAfterSeconds=14400)
+    application.db.output.create_index("updated_at", expireAfterSeconds=14400)
     # Remove artifacts after 7 days
     application.db.fs.chunks.create_index(
         "uploadDate", expireAfterSeconds=7 * 24 * 60 * 60

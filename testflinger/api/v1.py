@@ -245,7 +245,7 @@ def output_post(job_id):
     timestamp = datetime.utcnow()
     current_app.db.output.update_one(
         {"job_id": job_id},
-        {"$set": {"updated_on": timestamp}, "$push": {"output": data}},
+        {"$set": {"updated_at": timestamp}, "$push": {"output": data}},
         upsert=True,
     )
     return "OK"
