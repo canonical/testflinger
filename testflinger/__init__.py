@@ -28,6 +28,10 @@ from pymongo.errors import ConnectionFailure
 
 from testflinger.api import v1
 
+# Constants for TTL indexes
+DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
+OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
+
 try:
     import sentry_sdk
     from sentry_sdk.integrations.flask import FlaskIntegration
@@ -175,16 +179,18 @@ def setup_mongodb(application):
     # Initialize collections and indices in case they don't exist already
     # Automatically expire jobs after 7 days if nothing runs them
     application.db.jobs.create_index(
-        "created_at", expireAfterSeconds=7 * 24 * 60 * 60
+        "created_at", expireAfterSeconds=DEFAULT_EXPIRATION
     )
     # Remove output 4 hours after the last entry if nothing polls for it
-    application.db.output.create_index("updated_at", expireAfterSeconds=14400)
+    application.db.output.create_index(
+        "updated_at", expireAfterSeconds=OUTPUT_EXPIRATION
+    )
     # Remove artifacts after 7 days
     application.db.fs.chunks.create_index(
-        "uploadDate", expireAfterSeconds=7 * 24 * 60 * 60
+        "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
     )
     application.db.fs.files.create_index(
-        "uploadDate", expireAfterSeconds=7 * 24 * 60 * 60
+        "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
     )
 
 
