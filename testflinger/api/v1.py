@@ -400,8 +400,6 @@ def cancel_job(job_id):
     :param job_id:
         UUID as a string for the job
     """
-    # remove one job from jobs where the job_id matches
-    # current_app.db.jobs.delete_one({"job_id": job_id})
     # Set the job status to cancelled
     response = current_app.db.jobs.update_one(
         {
