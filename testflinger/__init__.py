@@ -56,7 +56,7 @@ def create_flask_app():
     tf_app.config.from_pyfile(config_file, silent=True)
 
     # Finally, override config data with env vars
-    tf_app.config.from_prefixed_env("MONGO_")
+    tf_app.config.from_prefixed_env("MONGO")
 
     setup_mongodb(tf_app)
 
@@ -153,9 +153,9 @@ def setup_mongodb(application):
     Setup mongodb connection if we have valid config data
     Otherwise leave it empty, which means we are probably running unit tests
     """
-    mongo_user = os.environ.get("MONGO_USER")
-    mongo_pass = os.environ.get("MONGO_PASSWORD")
-    mongo_db = os.environ.get("MONGO_DATABASE")
+    mongo_user = os.environ.get("MONGODB_USERNAME")
+    mongo_pass = os.environ.get("MONGODB_PASSWORD")
+    mongo_db = os.environ.get("MONGODB_DATABASE")
     if not application.config.get("MONGO_URI") and not (
         mongo_user and mongo_pass and mongo_db
     ):
