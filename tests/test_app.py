@@ -19,24 +19,20 @@ Unit tests for Testflinger flask app
 
 import os
 import tempfile
-from pathlib import Path
 import testflinger
 
 
 def test_default_config():
     """Test default config settings"""
     app = testflinger.create_flask_app()
-    assert app.config.get("REDIS_HOST") == "localhost"
-    assert app.config.get("REDIS_PORT") == "6379"
+    assert app.config.get("PROPAGATE_EXCEPTIONS") is True
 
 
 def test_load_config():
     """Test loading a config file"""
     with tempfile.NamedTemporaryFile() as testconfig:
         testconfig.write('TEST_FOO="YES"\n'.encode())
-        testconfig.write('DATA_PATH="/tmp/"'.encode())
         testconfig.flush()
         os.environ["TESTFLINGER_CONFIG"] = testconfig.name
         app = testflinger.create_flask_app()
         assert app.config.get("TEST_FOO") == "YES"
-        assert isinstance(app.config.get("DATA_PATH"), Path)
