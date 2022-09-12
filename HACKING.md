@@ -5,6 +5,26 @@ pip, or in a virtual environment), and just run **tox**.
 
 # Development/Demo environment
 
+## Docker
+
+Testflinger server can be deployed using Docker, and it makes a nice setup
+for local development.  There's a Dockerfile for building the container and
+a **docker-compose.yml** which can be used as a basis for any kind of
+deployment. For development purposes, there's a **docker-compose.override.yml**
+under the **devel** directory. This will setup Testflinger running on port
+5000, along with MongoDB, and a tool called "Express" on port 8081 for
+inspecting and modifying values directly in MongoDB. If you use the override
+file, then it will also point the code directory for Testflinger to the local
+code in this directory, and it runs gunicorn with --reload so that any changes
+you make locally will be immediately reflected in what's running.  To get all
+this running on your system:
+```
+    $ cp devel/docker-compose.override.yml .
+    $ docker-compose build
+    $ docker-compose up -d
+```
+
+
 ## Multipass
 
 There is a **testflinger.yaml** file under the **devel** directory which can

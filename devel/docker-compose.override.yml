@@ -1,0 +1,31 @@
+services:
+  mongo:
+    environment:
+      - MONGODB_USERNAME=testflinger
+      - MONGODB_PASSWORD=testflinger
+      - MONGODB_DATABASE=testflinger_db
+      - MONGODB_ROOT_PASSWORD=testflinger
+
+  testflinger:
+    command: gunicorn --bind 0.0.0.0:5000 --reload testflinger:app
+    environment:
+      - MONGODB_USERNAME=testflinger
+      - MONGODB_PASSWORD=testflinger
+      - MONGODB_DATABASE=testflinger_db
+    volumes:
+      - .:/srv/testflinger
+
+  express:
+    image: mongo-express
+    restart: always
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongo
+      - ME_CONFIG_MONGODB_AUTH_DATABASE=testflinger_db
+      - ME_CONFIG_MONGODB_AUTH_USERNAME=testflinger
+      - ME_CONFIG_MONGODB_AUTH_PASSWORD=testflinger
+      - ME_CONFIG_MONGODB_BASICAUTH_USERNAME=testflinger
+      - ME_CONFIG_MONGODB_BASICAUTH_PASSWORD=testflinger
+    ports:
+      - 8081:8081
+    depends_on:
+      - mongo
