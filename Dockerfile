@@ -6,7 +6,8 @@ ENV LC_ALL C.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 ENV PATH /srv/testflinger:$PATH
-ENV TESTFLINGER_CONFIG=/srv/testflinger/testflinger.conf
+# Enable this if you prefer to use testflinger.conf
+# ENV TESTFLINGER_CONFIG=/srv/testflinger/testflinger.conf
 
 # Install dependencies
 RUN apt-get update \
@@ -30,8 +31,5 @@ COPY . /srv/testflinger
 
 # Install testflinger
 RUN pip3 install -I /srv/testflinger
-
-# Copy config file
-COPY ./testflinger.conf /srv/testflinger
 
 CMD gunicorn --bind 0.0.0.0:5000 testflinger:app
