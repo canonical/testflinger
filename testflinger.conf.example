@@ -4,4 +4,5 @@
 # MONGODB_USERNAME=testflinger
 # MONGODB_PASSWORD=testflinger
 # MONGODB_DATABASE=testflinger_db
+# MONGODB_HOST=mongo
 # MONGO_URI = "mongodb://mongo:27017/testflinger_db"
