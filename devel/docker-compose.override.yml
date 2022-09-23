@@ -12,6 +12,7 @@ services:
       - MONGODB_USERNAME=testflinger
       - MONGODB_PASSWORD=testflinger
       - MONGODB_DATABASE=testflinger_db
+      - MONGODB_HOST=mongo
     volumes:
       - .:/srv/testflinger
 
