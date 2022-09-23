@@ -164,9 +164,10 @@ def setup_mongodb(application):
         return
 
     if not application.config.get("MONGO_URI"):
-        application.config[
-            "MONGO_URI"
-        ] = f"mongodb://{mongo_user}:{mongo_pass}@{mongo_host}:27017/{mongo_db}"
+        application.config["MONGO_URI"] = (
+            f"mongodb://{mongo_user}:{mongo_pass}@"
+            f"{mongo_host}:27017/{mongo_db}"
+        )
 
     mongo_client = PyMongo(
         application,
