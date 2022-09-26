@@ -166,7 +166,7 @@ def setup_mongodb(application):
 
     if not application.config.get("MONGO_URI"):
         if mongo_uri:
-            application_config["MONGO_URI"] = mongo_uri
+            application.config["MONGO_URI"] = mongo_uri
         else:
             application.config["MONGO_URI"] = (
                 f"mongodb://{mongo_user}:{mongo_pass}@"
