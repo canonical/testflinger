@@ -63,17 +63,19 @@ is found, defaults will be used.
 
 Currently supported configuration values are:
 
-- **DATA_PATH**: directory where result files will be stored
+- **MONGODB_USERNAME**: Username for connecting to MongoDB
 
-  - Default: ''/data'' under the testflinger module directory
+- **MONGODB_PASSWORD**: Password for connecting to MongoDB
 
-- **REDIS_HOST**: host or ip of the redis server
+- **MONGODB_DATABASE**: Name of the MongoDB database to use
 
-  - Default: ''localhost''
+- **MONGODB_HOST**: host or ip of the MongoDB server
 
-- **REDIS_PORT**: port of the redis server
+  - Default: ''mongo''
 
-  - Default: ''6379''
+- **MONGO_URI**: URI for connecting to MongoDB (used instead of the above config options)
+
+  - Example: ''mongodb://user:pass@host:27017/dbname''
 
 API
 ---
