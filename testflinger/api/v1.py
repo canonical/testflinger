@@ -1,4 +1,4 @@
-# Copyright (C) 2016-2022 Canonical
+# Copyright (C) 2022 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,6 +26,11 @@ from gridfs.errors import NoFile
 import pkg_resources
 from flask import current_app, jsonify, request, send_file
 from werkzeug.exceptions import BadRequest
+from prometheus_client import Counter
+
+
+jobs_metric = Counter("jobs", "Number of jobs", ["queue"])
+reservations_metric = Counter("reservations", "Number of reservations")
 
 
 def home():
@@ -57,6 +62,10 @@ def job_post():
         job = job_builder(data)
     except ValueError:
         return "Invalid job_id specified\n", 400
+
+    jobs_metric.labels(queue=job_queue).inc()
+    if "reserve_data" in data:
+        reservations_metric.inc()
 
     # CAUTION! If you ever move this line, you may need to pass data as a copy
     # because it will get modified by submit_job and other things it calls

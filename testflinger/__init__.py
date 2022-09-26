@@ -27,6 +27,7 @@ from flask_pymongo import PyMongo
 from pymongo.errors import ConnectionFailure
 
 from testflinger.api import v1
+from testflinger.views import views
 
 # Constants for TTL indexes
 DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
@@ -144,6 +145,8 @@ def create_flask_app():
     def unhandled_exception(exc):
         tf_log.exception("Unhandled Exception: %s", (exc))
         return "Unhandled Exception: {}\n".format(exc), 500
+
+    tf_app.register_blueprint(views)
 
     return tf_app
 
