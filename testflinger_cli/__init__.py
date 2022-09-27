@@ -468,15 +468,15 @@ class TestflingerCli:
                 output = ""
                 try:
                     output = self.get_latest_output(job_id)
+                    if output:
+                        print(output, end="", flush=True)
+                    job_state = self.get_job_state(job_id)
+                    self.history.update(job_id, job_state)
                 except IOError:
                     # Any kind of IOError here should be a connection issue or
                     # a timeout so we should ignore it and retry on the next
                     # pass through the loop
                     continue
-                if output:
-                    print(output, end="", flush=True)
-                job_state = self.get_job_state(job_id)
-                self.history.update(job_id, job_state)
             except KeyboardInterrupt:
                 choice = input(
                     "\nCancel job {} before exiting "
@@ -658,4 +658,6 @@ class TestflingerCli:
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
                 ) from exc
+        except IOError:
+            logger.warning("Unable to retrieve job state.")
         return "unknown"
