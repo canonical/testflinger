@@ -12,10 +12,10 @@ capable of handling the test.
 Installation
 ------------
 
-Before installing testflinger, you will need to have a redis server
-available somewhere. By default, testflinger will try to attach to
-one on localhost, but if you prefer, you can configure it to
-use a redis server on another server.
+Before installing testflinger, you will need to have a MongoDB server
+available somewhere. The connection information for the database should be
+configured using either environment variables or a testflinger.conf file
+as described in the Configuration section.
 
 To create a virtual environment and install testflinger:
 
@@ -73,7 +73,7 @@ Currently supported configuration values are:
 
   - Default: ''mongo''
 
-- **MONGO_URI**: URI for connecting to MongoDB (used instead of the above config options)
+- **MONGODB_URI**: URI for connecting to MongoDB (used instead of the above config options)
 
   - Example: ''mongodb://user:pass@host:27017/dbname''
 
