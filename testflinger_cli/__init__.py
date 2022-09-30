@@ -456,27 +456,20 @@ class TestflingerCli:
                 break
             try:
                 if job_state == "waiting":
-                    try:
-                        queue_pos = self.client.get_job_position(job_id)
-                        if int(queue_pos) != prev_queue_pos:
-                            prev_queue_pos = int(queue_pos)
-                            print("Jobs ahead in queue: {}".format(queue_pos))
-                    except (IOError, client.HTTPError):
-                        # Ignore/retry any connection errors or timeouts
-                        pass
+                    queue_pos = self.client.get_job_position(job_id)
+                    if int(queue_pos) != prev_queue_pos:
+                        prev_queue_pos = int(queue_pos)
+                        print("Jobs ahead in queue: {}".format(queue_pos))
                 time.sleep(10)
                 output = ""
-                try:
-                    output = self.get_latest_output(job_id)
-                except IOError:
-                    # Any kind of IOError here should be a connection issue or
-                    # a timeout so we should ignore it and retry on the next
-                    # pass through the loop
-                    continue
+                output = self.get_latest_output(job_id)
                 if output:
                     print(output, end="", flush=True)
                 job_state = self.get_job_state(job_id)
                 self.history.update(job_id, job_state)
+            except (IOError, client.HTTPError):
+                # Ignore/retry any connection errors or timeouts
+                pass
             except KeyboardInterrupt:
                 choice = input(
                     "\nCancel job {} before exiting "
@@ -658,4 +651,6 @@ class TestflingerCli:
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
                 ) from exc
+        except IOError:
+            logger.warning("Unable to retrieve job state.")
         return "unknown"

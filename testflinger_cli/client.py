@@ -53,13 +53,14 @@ class Client:
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
             req = requests.get(uri, timeout=timeout)
-        except requests.exceptions.ConnectTimeout:
+        except requests.exceptions.ConnectionError:
+            logger.error("Unable to communicate with specified server.")
+            raise
+        except IOError:
+            # This should catch all other timeout cases
             logger.error(
                 "Timeout while trying to communicate with the server."
             )
-            raise
-        except requests.exceptions.ConnectionError:
-            logger.error("Unable to communicate with specified server.")
             raise
         if req.status_code != 200:
             raise HTTPError(req.status_code)
