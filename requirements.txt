@@ -1,5 +1,5 @@
 PyYAML==3.13
-netifaces==0.10.4
+netifaces==0.11.0
 python-logstash==0.4.8
 # For the spi-agent
 docopt==0.6.2
