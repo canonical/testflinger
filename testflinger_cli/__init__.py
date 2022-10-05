@@ -152,6 +152,9 @@ class TestflingerCli:
             help="Configuration file to use",
         )
         parser.add_argument(
+            "-d", "--debug", action="store_true", help="Enable debug logging"
+        )
+        parser.add_argument(
             "--server", default=None, help="Testflinger server to use"
         )
         sub = parser.add_subparsers()
@@ -451,10 +454,12 @@ class TestflingerCli:
         prev_queue_pos = None
         if job_state == "waiting":
             print("This job is waiting on a node to become available.")
-        while job_state != "complete":
-            if job_state == "cancelled":
-                break
+        while True:
             try:
+                job_state = self.get_job_state(job_id)
+                self.history.update(job_id, job_state)
+                if job_state in ("cancelled", "complete"):
+                    break
                 if job_state == "waiting":
                     queue_pos = self.client.get_job_position(job_id)
                     if int(queue_pos) != prev_queue_pos:
@@ -465,11 +470,10 @@ class TestflingerCli:
                 output = self.get_latest_output(job_id)
                 if output:
                     print(output, end="", flush=True)
-                job_state = self.get_job_state(job_id)
-                self.history.update(job_id, job_state)
             except (IOError, client.HTTPError):
-                # Ignore/retry any connection errors or timeouts
-                pass
+                # Ignore/retry or debug any connection errors or timeouts
+                if self.args.debug:
+                    logging.exception("Error polling for job output")
             except KeyboardInterrupt:
                 choice = input(
                     "\nCancel job {} before exiting "
