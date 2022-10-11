@@ -401,7 +401,7 @@ class Rpi3:
                     # cloud-init won't find the user-data we give it
                     rm_cmd = "sudo rm -f {}".format(
                         os.path.join(
-                            base, "etc/cloud/cloud.cfg.d/99-fake_cloud.cfg"
+                            base, "etc/cloud/cloud.cfg.d/99-fake?cloud.cfg"
                         )
                     )
                     self._run_control(rm_cmd)
