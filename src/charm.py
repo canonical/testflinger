@@ -170,8 +170,11 @@ class TestflingerAgentCharm(CharmBase):
 
     def _signal_restart_agent(self):
         """Signal testflinger-agent to restart when it's not busy"""
-        restart_file = f"/tmp/TESTFLINGER-DEVICE-RESTART-{self.app.name}"
-        open(restart_file, mode="w").close()
+        restart_file = PosixPath(
+                f"/tmp/TESTFLINGER-DEVICE-RESTART-{self.app.name}")
+        if restart_file.exists():
+            return
+        restart_file.open(mode="w").close()
         shutil.chown(restart_file, "ubuntu", "ubuntu")
 
     def _write_config_files(self):
