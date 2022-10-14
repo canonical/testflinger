@@ -2,17 +2,17 @@ options:
   testflinger-agent-repo:
     type: string
     description: git repo for testflinger-agent
-    default: "https://git.launchpad.net/testflinger-agent"
+    default: "https://github.com/canonical/testflinger-agent"
   testflinger-agent-branch:
     type: string
     description: git branch for testflinger-agent
-    default: "master"
+    default: "main"
   device-agent-repo:
     type: string
     description: git repo for device-agent
-    default: "https://git.launchpad.net/snappy-device-agents"
+    default: "https://github.com/canonical/snappy-device-agents"
   device-agent-branch:
     type: string
     description: git branch for device-agent
-    default: "master"
+    default: "main"
 
