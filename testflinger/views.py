@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-# Copyright (C) 2016-2022 Canonical
+# Copyright (C) 2022 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,26 +13,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+"""
+Additional views not associated with the API
+"""
+
+from flask import Blueprint
+from prometheus_client import generate_latest
+
+views = Blueprint("testflinger", __name__)
 
 
-from setuptools import setup, find_packages
-
-INSTALL_REQUIRES = [
-    "gunicorn",
-    "gevent",
-    "redis",
-    "flask",
-    "flask-pymongo",
-    "prometheus-client",
-    "pyyaml",
-    "sentry-sdk[flask]",
-]
-
-setup(
-    name="testflinger",
-    version="1.1.0",
-    long_description=__doc__,
-    packages=find_packages(),
-    zip_safe=False,
-    install_requires=INSTALL_REQUIRES,
-)
+@views.route("/metrics")
+def metrics():
+    """Return Prometheus metrics"""
+    return generate_latest()
