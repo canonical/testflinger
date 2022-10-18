@@ -445,6 +445,11 @@ def _process_cmds_template_vars(cmds, config=None):
         Config data for the device which can be used for filling templates
     """
 
+    logmsg(
+        logging.WARNING,
+        "DEPRECATED - Detected use of double-braces in test_cmds",
+    )
+
     class IgnoreUnknownFormatter(string.Formatter):
         """Try to allow both double and single curly braces"""
 
@@ -503,7 +508,8 @@ def _run_test_cmds_list(cmds, config=None, env=None):
     for cmd in cmds:
         # Settings from the device yaml configfile like device_ip can be
         # formatted in test commands like "foo {device_ip}"
-        cmd = _process_cmds_template_vars(cmd, config)
+        if "{{" in cmd:
+            cmd = _process_cmds_template_vars(cmd, config)
 
         logmsg(logging.INFO, "Running: %s", cmd)
         result = runcmd(cmd, env)
@@ -532,7 +538,8 @@ def _run_test_cmds_str(cmds, config=None, env=None):
     if not cmds.startswith("#!"):
         cmds = "#!/bin/bash\n" + cmds
 
-    cmds = _process_cmds_template_vars(cmds, config)
+    if "{{" in cmds:
+        cmds = _process_cmds_template_vars(cmds, config)
     with open("tf_cmd_script", mode="w", encoding="utf-8") as tf_cmd_script:
         tf_cmd_script.write(cmds)
     os.chmod("tf_cmd_script", 0o775)
