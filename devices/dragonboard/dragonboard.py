@@ -58,12 +58,9 @@ class Dragonboard:
             "linaro@{}".format(self.config["device_ip"]),
             cmd,
         ]
-        try:
-            output = subprocess.check_output(
-                cmd, stderr=subprocess.STDOUT, timeout=timeout
-            )
-        except subprocess.CalledProcessError as e:
-            raise ProvisioningError(e.output)
+        output = subprocess.check_output(
+            cmd, stderr=subprocess.STDOUT, timeout=timeout
+        )
         return output
 
     def setboot(self, mode):
@@ -108,6 +105,23 @@ class Dragonboard:
             except subprocess.TimeoutExpired:
                 raise RecoveryError("timeout reaching control host!")
 
+    def copy_ssh_id(self, test_username, test_password):
+        cmd = [
+            "sshpass",
+            "-p",
+            test_password,
+            "ssh-copy-id",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "{}@{}".format(test_username, self.config["device_ip"]),
+        ]
+        try:
+            subprocess.check_call(cmd)
+        except subprocess.SubprocessError:
+            pass
+
     def ensure_test_image(self, test_username, test_password):
         """
         Actively switch the device to boot the test image.
@@ -132,24 +146,8 @@ class Dragonboard:
         # Retry for a while since we might still be rebooting
         test_image_booted = False
         while time.time() - started < 600:
-            try:
-                time.sleep(10)
-                cmd = [
-                    "sshpass",
-                    "-p",
-                    test_password,
-                    "ssh-copy-id",
-                    "-o",
-                    "StrictHostKeyChecking=no",
-                    "-o",
-                    "UserKnownHostsFile=/dev/null",
-                    "{}@{}".format(test_username, self.config["device_ip"]),
-                ]
-                subprocess.check_call(cmd)
-                test_image_booted = self.is_test_image_booted()
-            except subprocess.SubprocessError:
-                # Keep trying even if this command fails
-                pass
+            self.copy_ssh_id(test_username, test_password)
+            test_image_booted = self.is_test_image_booted()
             if test_image_booted:
                 break
         # Check again if we are in the master image
@@ -267,7 +265,7 @@ class Dragonboard:
                 "sudo umount {}*".format(self.config["test_device"]),
                 timeout=30,
             )
-        except ProvisioningError:
+        except subprocess.SubprocessError:
             # We might not be mounted, so expect this to fail sometimes
             pass
         cmd = "nc {} {}| unxz| sudo dd of={} bs=16M".format(
@@ -380,6 +378,14 @@ class Dragonboard:
     def provision(self):
         """Provision the device"""
         url = self.job_data["provision_data"].get("url")
+        test_username = self.job_data.get("test_data", {}).get(
+            "test_username", "ubuntu"
+        )
+        test_password = self.job_data.get("test_data", {}).get(
+            "test_password", "ubuntu"
+        )
+        self.copy_ssh_id(test_username, test_password)
+        self.ensure_master_image()
         if url:
             snappy_device_agents.download(url, "snappy.img")
         else:
@@ -406,12 +412,6 @@ class Dragonboard:
                 logger.exception("Bad data passed for provisioning")
                 raise ProvisioningError("Error copying system-user assertion")
         image_file = snappy_device_agents.compress_file("snappy.img")
-        test_username = self.job_data.get("test_data", {}).get(
-            "test_username", "ubuntu"
-        )
-        test_password = self.job_data.get("test_data", {}).get(
-            "test_password", "ubuntu"
-        )
         server_ip = snappy_device_agents.get_local_ip_addr()
         serve_q = multiprocessing.Queue()
         file_server = multiprocessing.Process(
