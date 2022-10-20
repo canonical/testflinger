@@ -387,31 +387,7 @@ class Dragonboard:
         url = self.job_data["provision_data"].get("url")
         self.copy_ssh_id()
         self.ensure_master_image()
-        if url:
-            snappy_device_agents.download(url, "snappy.img")
-        else:
-            try:
-                model_assertion = self.config["model_assertion"]
-                channel = self.job_data["provision_data"]["channel"]
-                extra_snaps = self.job_data.get("provision_data").get(
-                    "extra-snaps", []
-                )
-                cmd = [
-                    "sudo",
-                    "ubuntu-image",
-                    "-c",
-                    channel,
-                    model_assertion,
-                    "-o",
-                    "snappy.img",
-                ]
-                for snap in extra_snaps:
-                    cmd.append("--extra-snaps")
-                    cmd.append(snap)
-                subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            except Exception:
-                logger.exception("Bad data passed for provisioning")
-                raise ProvisioningError("Error copying system-user assertion")
+        snappy_device_agents.download(url, "snappy.img")
         image_file = snappy_device_agents.compress_file("snappy.img")
         server_ip = snappy_device_agents.get_local_ip_addr()
         serve_q = multiprocessing.Queue()
