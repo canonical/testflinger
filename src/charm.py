@@ -45,6 +45,7 @@ class TestflingerAgentCharm(CharmBase):
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(self.on.start, self._on_start)
         self.framework.observe(self.on.remove, self._on_remove)
+        self.framework.observe(self.on.update_action, self._on_update_action)
         self._stored.set_default(
             testflinger_agent_repo="",
             testflinger_agent_branch="",
@@ -254,6 +255,14 @@ class TestflingerAgentCharm(CharmBase):
         with open(resource_file, encoding="utf-8", errors="ignore") as res:
             contents = res.read()
         return contents
+
+    def _on_update_action(self, event):
+        """Force an update of git trees and config files"""
+        self.unit.status = MaintenanceStatus("Handling update action")
+        self._update_repos()
+        self._write_config_files()
+        self._signal_restart_agent()
+        self.unit.status = ActiveStatus()
 
 
 if __name__ == "__main__":
