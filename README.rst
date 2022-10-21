@@ -17,13 +17,14 @@ available somewhere. By default, testflinger will try to attach to
 one on localhost, but if you prefer, you can configure it to
 use a redis server on another server.
 
-To create a virtual environment and install testflinger:
+To create a virtual environment and install testflinger, please run
+the following commands in your testflinger directory:
 
 .. code-block:: console
 
   $ virtualenv -p python3 env
   $ . env/bin/activate
-  $ ./setup install
+  $ pip install .
 
 Testing
 -------
