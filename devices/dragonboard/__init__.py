@@ -45,7 +45,6 @@ class DeviceAgent(DefaultDevice):
         )
         serial_proc.start()
         try:
-            device.ensure_master_image()
             device.provision()
         except Exception as e:
             raise e
