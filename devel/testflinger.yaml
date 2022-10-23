@@ -65,9 +65,8 @@ write_files:
     WantedBy=multi-user.target
   path: /etc/systemd/system/testflinger-agent-vm1.service
 - content: |
-    DATA_PATH = '/srv/testflinger/data'
-    REDIS_HOST = 'localhost'
-    REDIS_PORT = '6379'
+    DATA_PATH = "/srv/testflinger/data"
+    MONGO_URI = "mongodb://localhost:27017/testflinger_db"
   path: /home/ubuntu/testflinger.conf
 - content: |
     agent_id: vm1
@@ -122,7 +121,7 @@ write_files:
 packages:
   - jq
   - virtualenv
-  - redis-server
+  - python3-pip
 snap:
   commands:
     - snap install maas
@@ -136,6 +135,13 @@ runcmd:
   - mkswap /swap
   - echo "/swap         none    swap    sw      0       0" >> /etc/fstab
   - swapon -a
+  #Setup mongodb
+  - wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc |sudo tee /etc/apt/trusted.gpg.d/server-6.0.asc
+  - echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+  - sudo apt update
+  - sudo apt install -y mongodb-org
+  - sudo systemctl enable mongod
+  - sudo systemctl start mongod
   # Fetch IPv4 address from the device, setup forwarding and NAT
   - export IP_ADDRESS=$(ip -j route show default | jq -r '.[].prefsrc')
   - export INTERFACE=$(ip -j route show default | jq -r '.[].dev')
@@ -182,7 +188,7 @@ runcmd:
   - maas admin interface link-subnet $SYSTEM_ID $INTERFACE_ID mode=static ip_address=10.10.10.2 subnet=$SUBNET_ID
   - mkdir -p /srv/testflinger-agent/vm1
   - git clone https://github.com/canonical/testflinger-cli /home/ubuntu/testflinger-cli
-  - cd /home/ubuntu/testflinger-cli && python3 setup.py develop
+  - cd /home/ubuntu/testflinger-cli && pip install -I .
   - virtualenv /srv/testflinger-agent/vm1/env
   - git clone https://github.com/canonical/testflinger /srv/testflinger
   - git clone https://github.com/canonical/testflinger-agent /srv/testflinger-agent/vm1/testflinger-agent
@@ -191,9 +197,9 @@ runcmd:
   - mv /home/ubuntu/testflinger-agent.conf /srv/testflinger-agent/vm1/testflinger-agent
   - mv /home/ubuntu/default.yaml /srv/testflinger-agent/vm1/snappy-device-agents
   - sed -i "s/CHANGEME/$SYSTEM_ID/g" /srv/testflinger-agent/vm1/snappy-device-agents/default.yaml
-  - cd /srv/testflinger && ./setup.py install
-  - . /srv/testflinger-agent/vm1/env/bin/activate && cd /srv/testflinger-agent/vm1/testflinger-agent && ./setup.py install
-  - . /srv/testflinger-agent/vm1/env/bin/activate && cd /srv/testflinger-agent/vm1/snappy-device-agents && ./setup.py install
+  - cd /srv/testflinger && pip install .
+  - . /srv/testflinger-agent/vm1/env/bin/activate && cd /srv/testflinger-agent/vm1/testflinger-agent && pip install .
+  - . /srv/testflinger-agent/vm1/env/bin/activate && cd /srv/testflinger-agent/vm1/snappy-device-agents && pip install .
   - chown -R ubuntu.ubuntu /home/ubuntu
   - chown -R ubuntu.ubuntu /srv/testflinger
   - chown -R ubuntu.ubuntu /srv/testflinger-agent
