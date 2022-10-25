@@ -30,7 +30,9 @@ from prometheus_client import Counter
 
 
 jobs_metric = Counter("jobs", "Number of jobs", ["queue"])
-reservations_metric = Counter("reservations", "Number of reservations")
+reservations_metric = Counter(
+    "reservations", "Number of reservations", ["queue"]
+)
 
 
 def home():
@@ -65,7 +67,7 @@ def job_post():
 
     jobs_metric.labels(queue=job_queue).inc()
     if "reserve_data" in data:
-        reservations_metric.inc()
+        reservations_metric.labels(queue=job_queue).inc()
 
     # CAUTION! If you ever move this line, you may need to pass data as a copy
     # because it will get modified by submit_job and other things it calls
