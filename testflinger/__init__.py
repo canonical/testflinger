@@ -161,9 +161,7 @@ def setup_mongodb(application):
     mongo_db = os.environ.get("MONGODB_DATABASE")
     mongo_host = os.environ.get("MONGODB_HOST", "mongo")
     mongo_uri = os.environ.get("MONGODB_URI")
-    if not application.config.get("MONGO_URI") and not (
-        mongo_user and mongo_pass and mongo_db and mongo_uri
-    ):
+    if not mongo_uri and not (mongo_user and mongo_pass and mongo_db):
         # We are probably running unit tests
         return
 
