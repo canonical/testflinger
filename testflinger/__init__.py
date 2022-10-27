@@ -160,17 +160,21 @@ def setup_mongodb(application):
     mongo_pass = os.environ.get("MONGODB_PASSWORD")
     mongo_db = os.environ.get("MONGODB_DATABASE")
     mongo_host = os.environ.get("MONGODB_HOST", "mongo")
+    mongo_uri = os.environ.get("MONGODB_URI")
     if not application.config.get("MONGO_URI") and not (
-        mongo_user and mongo_pass and mongo_db
+        mongo_user and mongo_pass and mongo_db and mongo_uri
     ):
         # We are probably running unit tests
         return
 
     if not application.config.get("MONGO_URI"):
-        application.config["MONGO_URI"] = (
-            f"mongodb://{mongo_user}:{mongo_pass}@"
-            f"{mongo_host}:27017/{mongo_db}"
-        )
+        if mongo_uri:
+            application.config["MONGO_URI"] = mongo_uri
+        else:
+            application.config["MONGO_URI"] = (
+                f"mongodb://{mongo_user}:{mongo_pass}@"
+                f"{mongo_host}:27017/{mongo_db}"
+            )
 
     mongo_client = PyMongo(
         application,
