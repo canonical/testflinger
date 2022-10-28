@@ -46,7 +46,7 @@ To get this running, first install multipass:
 
 Next run the following command (this will take a while):
 ```
-    $ cat devel/testflinger.yaml |multipass launch --name testflinger -c4 -m8GB -d32GB --timeout 600 --cloud-init -
+    $ cat devel/testflinger.yaml |multipass launch --name testflinger -c4 -m8GB -d32GB --timeout 600 focal --cloud-init -
 ```
 
 Due to the complexity of the environment being setup, this command may
