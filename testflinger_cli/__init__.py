@@ -655,6 +655,8 @@ class TestflingerCli:
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
                 ) from exc
-        except IOError:
+        except (IOError, ValueError):
+            # For other types of network errors, or JSONDecodeError if we got
+            # a bad return from get_status()
             logger.warning("Unable to retrieve job state.")
         return "unknown"
