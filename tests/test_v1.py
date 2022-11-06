@@ -23,23 +23,38 @@ from io import BytesIO
 import mongomock
 from mongomock.gridfs import enable_gridfs_integration
 import pytest
-import testflinger
-from testflinger.api import v1
+import src
+from src.api import v1
+
+
+class MongoClientMock(mongomock.MongoClient):
+    """Mock MongoClient and allow GridFS"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        enable_gridfs_integration()
+
+    def start_session(self, *args, **kwargs):
+        # Reimplemented to avoid pylint issues
+        return super().start_session(*args, **kwargs)
 
 
 @pytest.fixture(name="mongo_app")
 def fixture_app():
     """Create a pytest fixture for the app"""
-    testflinger.app.db = mongomock.MongoClient().db
+    mock_mongo = MongoClientMock()
 
-    yield testflinger.app.test_client(), testflinger.app.db
+    app = src.create_flask_app()
+    src.mongo = mock_mongo
+    v1.mongo = mock_mongo
+    yield app.test_client(), mock_mongo.db
 
 
 def test_home(mongo_app):
     """Test root URL returns the version"""
     app, _ = mongo_app
     output = app.get("/")
-    assert testflinger.api.v1.get_version() == output.text
+    assert src.api.v1.get_version() == output.text
 
 
 def test_add_job_good(mongo_app):
@@ -222,7 +237,6 @@ def test_state_update_keeps_results(mongo_app):
 def test_artifact_post_good(mongo_app):
     """Test both get and put of a result artifact"""
     app, _ = mongo_app
-    enable_gridfs_integration()
     newjob = app.post(
         "/v1/job",
         data=json.dumps({"job_queue": "test"}),
@@ -243,7 +257,6 @@ def test_artifact_post_good(mongo_app):
 def test_result_get_artifact_not_exists(mongo_app):
     """Get artifacts for a nonexistent job and confirm we get 204"""
     app, _ = mongo_app
-    enable_gridfs_integration()
     output = app.get(
         "/v1/result/11111111-1111-1111-1111-111111111111/artifact"
     )

@@ -23,11 +23,11 @@ import os
 from flask import Flask, request
 from flask.logging import create_logger
 from werkzeug.exceptions import NotFound
-from flask_pymongo import PyMongo
 from pymongo.errors import ConnectionFailure
 
-from testflinger.api import v1
-from testflinger.views import views
+from src.database import mongo
+from src.api import v1
+from src.views import views
 
 # Constants for TTL indexes
 DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
@@ -156,6 +156,7 @@ def setup_mongodb(application):
     Setup mongodb connection if we have valid config data
     Otherwise leave it empty, which means we are probably running unit tests
     """
+
     mongo_user = os.environ.get("MONGODB_USERNAME")
     mongo_pass = os.environ.get("MONGODB_PASSWORD")
     mongo_db = os.environ.get("MONGODB_DATABASE")
@@ -174,31 +175,27 @@ def setup_mongodb(application):
                 f"{mongo_host}:27017/{mongo_db}"
             )
 
-    mongo_client = PyMongo(
+    mongo.init_app(
         application,
         uri=application.config["MONGO_URI"],
         uuidRepresentation="standard",
         serverSelectionTimeoutMS=2000,
         socketTimeoutMS=10000,
     )
-    application.db = mongo_client.db
 
     # Initialize collections and indices in case they don't exist already
     # Automatically expire jobs after 7 days if nothing runs them
-    application.db.jobs.create_index(
+    mongo.db.jobs.create_index(
         "created_at", expireAfterSeconds=DEFAULT_EXPIRATION
     )
     # Remove output 4 hours after the last entry if nothing polls for it
-    application.db.output.create_index(
+    mongo.db.output.create_index(
         "updated_at", expireAfterSeconds=OUTPUT_EXPIRATION
     )
     # Remove artifacts after 7 days
-    application.db.fs.chunks.create_index(
+    mongo.db.fs.chunks.create_index(
         "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
     )
-    application.db.fs.files.create_index(
+    mongo.db.fs.files.create_index(
         "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
     )
-
-
-app = create_flask_app()

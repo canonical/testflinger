@@ -24,9 +24,10 @@ from gridfs import GridFS
 from gridfs.errors import NoFile
 
 import pkg_resources
-from flask import current_app, jsonify, request, send_file
+from flask import jsonify, request, send_file
 from werkzeug.exceptions import BadRequest
 from prometheus_client import Counter
+from src.database import mongo
 
 
 jobs_metric = Counter("jobs", "Number of jobs", ["queue"])
@@ -71,7 +72,7 @@ def job_post():
 
     # CAUTION! If you ever move this line, you may need to pass data as a copy
     # because it will get modified by submit_job and other things it calls
-    current_app.db.jobs.insert_one(job)
+    mongo.db.jobs.insert_one(job)
     return jsonify(job_id=job.get("job_id"))
 
 
@@ -125,7 +126,7 @@ def job_get_id(job_id):
 
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    response = current_app.db.jobs.find_one(
+    response = mongo.db.jobs.find_one(
         {"job_id": job_id}, projection={"job_data": True, "_id": False}
     )
     if not response:
@@ -152,7 +153,7 @@ def result_post(job_id):
     for key in list(result_data):
         result_data[f"result_data.{key}"] = result_data.pop(key)
 
-    current_app.db.jobs.update_one({"job_id": job_id}, {"$set": result_data})
+    mongo.db.jobs.update_one({"job_id": job_id}, {"$set": result_data})
     return "OK"
 
 
@@ -164,7 +165,7 @@ def result_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    response = current_app.db.jobs.find_one(
+    response = mongo.db.jobs.find_one(
         {"job_id": job_id}, {"result_data": True, "_id": False}
     )
 
@@ -186,14 +187,12 @@ def artifacts_post(job_id):
     filename = f"{job_id}.artifact"
     # Normally we would use flask-pymongo save_file but it doesn't seem to
     # work nicely for me with mongomock
-    storage = GridFS(current_app.db)
+    storage = GridFS(mongo.db)
     file_id = storage.put(file, filename=filename)
 
     # Add a timestamp to the chunks - do this so we can set a TTL for them
-    timestamp = current_app.db.fs.files.find_one({"_id": file_id})[
-        "uploadDate"
-    ]
-    current_app.db.fs.chunks.update_many(
+    timestamp = mongo.db.fs.files.find_one({"_id": file_id})["uploadDate"]
+    mongo.db.fs.chunks.update_many(
         {"files_id": file_id}, {"$set": {"uploadDate": timestamp}}
     )
     return "OK"
@@ -212,7 +211,7 @@ def artifacts_get(job_id):
     filename = f"{job_id}.artifact"
     # Normally we would use flask-pymongo send_file but it doesn't seem to
     # work nicely for me with mongomock
-    storage = GridFS(current_app.db)
+    storage = GridFS(mongo.db)
     try:
         file = storage.get_last_version(filename=filename)
     except NoFile:
@@ -230,7 +229,7 @@ def output_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    response = current_app.db.output.find_one_and_delete(
+    response = mongo.db.output.find_one_and_delete(
         {"job_id": job_id}, {"_id": False}
     )
     output = response.get("output", []) if response else None
@@ -254,7 +253,7 @@ def output_post(job_id):
         return "Invalid job id\n", 400
     data = request.get_data().decode("utf-8")
     timestamp = datetime.utcnow()
-    current_app.db.output.update_one(
+    mongo.db.output.update_one(
         {"job_id": job_id},
         {"$set": {"updated_at": timestamp}, "$push": {"output": data}},
         upsert=True,
@@ -282,7 +281,7 @@ def action_post(job_id):
 
 def queues_get():
     """Get a current list of all advertised queues from this server"""
-    all_queues = current_app.db.queues.find(
+    all_queues = mongo.db.queues.find(
         {}, projection={"_id": False, "name": True, "description": True}
     )
     queue_dict = {}
@@ -300,7 +299,7 @@ def queues_post():
     """
     queue_dict = request.get_json()
     for queue, description in queue_dict.items():
-        current_app.db.queues.update_one(
+        mongo.db.queues.update_one(
             {"name": queue},
             {"$set": {"description": description}},
             upsert=True,
@@ -310,7 +309,7 @@ def queues_post():
 
 def images_get(queue):
     """Get a list of known images for a given queue"""
-    queue_data = current_app.db.queues.find_one(
+    queue_data = mongo.db.queues.find_one(
         {"name": queue}, {"_id": False, "images": True}
     )
     # It's ok for this to just return an empty result if there are none found
@@ -336,7 +335,7 @@ def images_post():
     image_dict = request.get_json()
     # We need to delete and recreate the images in case some were removed
     for queue, image_data in image_dict.items():
-        current_app.db.queues.update_one(
+        mongo.db.queues.update_one(
             {"name": queue},
             {"$set": {"images": image_data}},
             upsert=True,
@@ -364,7 +363,7 @@ def get_job(queue_list):
     """Get the next job in the queue"""
     # The queue name and the job are returned, but we don't need the queue now
     try:
-        response = current_app.db.jobs.find_one_and_update(
+        response = mongo.db.jobs.find_one_and_update(
             {
                 "result_data.job_state": "waiting",
                 "job_data.job_queue": {"$in": queue_list},
@@ -395,9 +394,7 @@ def job_position_get(job_id):
     except (AttributeError, TypeError):
         return "Invalid json returned for id: {}\n".format(job_id), 400
     # Get all jobs with job_queue=queue and return only the _id
-    jobs = current_app.db.jobs.find(
-        {"job_data.job_queue": queue}, {"job_id": 1}
-    )
+    jobs = mongo.db.jobs.find({"job_data.job_queue": queue}, {"job_id": 1})
     # Create a dict mapping job_id (as a string) to the position in the queue
     jobs_id_position = {job.get("job_id"): pos for pos, job in enumerate(jobs)}
     if job_id in jobs_id_position:
@@ -412,7 +409,7 @@ def cancel_job(job_id):
         UUID as a string for the job
     """
     # Set the job status to cancelled
-    response = current_app.db.jobs.update_one(
+    response = mongo.db.jobs.update_one(
         {
             "job_id": job_id,
             "result_data.job_state": {"$nin": ["cancelled", "completed"]},
