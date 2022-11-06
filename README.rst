@@ -56,11 +56,10 @@ allow external connections, use the ''--bind'' option:
 Configuration
 -------------
 
-Configuration values can be loaded from a file. By default, testflinger will
-look for testflinger.conf in the testflinger source directory. If you want
-to change the location for the configuration file, set the environment variable
-*TESTFLINGER_CONFIG* to the path of your configuration file.  If no config file
-is found, defaults will be used.
+Configuration values are read from environment variables.  If you prefer to
+store the configuration in a config file, the config file should be sourced
+prior to running the server so that the values may still be read from the
+environment.
 
 Currently supported configuration values are:
 
@@ -72,7 +71,7 @@ Currently supported configuration values are:
 
 - **MONGODB_HOST**: host or ip of the MongoDB server
 
-  - Default: ''mongo''
+- **MONGODB_PORT**: MongoDB port to connect to (Default: 27017)
 
 - **MONGODB_URI**: URI for connecting to MongoDB (used instead of the above config options)
 
