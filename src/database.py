@@ -1,4 +1,4 @@
-# Copyright (C) 2016-2022 Canonical
+# Copyright (C) 2022 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,25 +14,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 """
-Unit tests for Testflinger flask app
+This returns a db object for talking to MongoDB
 """
 
-import os
-import tempfile
-import src
+from flask_pymongo import PyMongo
 
-
-def test_default_config():
-    """Test default config settings"""
-    app = src.create_flask_app()
-    assert app.config.get("PROPAGATE_EXCEPTIONS") is True
-
-
-def test_load_config():
-    """Test loading a config file"""
-    with tempfile.NamedTemporaryFile() as testconfig:
-        testconfig.write('TEST_FOO="YES"\n'.encode())
-        testconfig.flush()
-        os.environ["TESTFLINGER_CONFIG"] = testconfig.name
-        app = src.create_flask_app()
-        assert app.config.get("TEST_FOO") == "YES"
+mongo = PyMongo()
