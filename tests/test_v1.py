@@ -289,16 +289,31 @@ def test_job_position(mongo_app):
     """Ensure initial job state is set to 'waiting'"""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
-    # Place a job on the queue
+    # Place a 3 jobs on the queue
+    job_id = []
     for pos in range(3):
         output = app.post(
             "/v1/job",
             data=json.dumps(job_data),
             content_type="application/json",
         )
-        job_id = output.json.get("job_id")
-        output = app.get("/v1/job/{}/position".format(job_id))
+        job_id.append(output.json.get("job_id"))
+        output = app.get("/v1/job/{}/position".format(job_id[pos]))
+        # Initial position should increment for each job as we add them
         assert output.text == str(pos)
+
+    # Request a job from the queue to remove one
+    output = app.get("/v1/job?queue=test")
+    # The job we get should be the first one that was added
+    assert output.json.get("job_id") == job_id[0]
+    # The position of the remaining jobs should decrement
+    assert app.get("/v1/job/{}/position".format(job_id[2])).text == "1"
+    # Cancel the next job in the queue
+    output = app.post(
+        f"/v1/job/{job_id[1]}/action", data=json.dumps({"action": "cancel"})
+    )
+    # The position of the remaining job should decrement again
+    assert app.get("/v1/job/{}/position".format(job_id[2])).text == "0"
 
 
 def test_action_post(mongo_app):
