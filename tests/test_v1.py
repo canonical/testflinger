@@ -289,7 +289,7 @@ def test_job_position(mongo_app):
     """Ensure initial job state is set to 'waiting'"""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
-    # Place a 3 jobs on the queue
+    # Place 3 jobs on the queue
     job_id = []
     for pos in range(3):
         output = app.post(
