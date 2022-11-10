@@ -40,9 +40,11 @@ except ImportError:
     pass
 
 
-def create_flask_app():
+def create_flask_app(config=None):
     """Create the flask app"""
     tf_app = Flask(__name__)
+    if config:
+        tf_app.config.from_object(config)
     tf_log = create_logger(tf_app)
 
     if not tf_app.debug:
@@ -51,15 +53,9 @@ def create_flask_app():
         tf_log.addHandler(stream_handler)
 
     tf_app.config["PROPAGATE_EXCEPTIONS"] = True
-    # Additional config can be specified with env var TESTFLINGER_CONFIG
-    # Otherwise load it from testflinger.conf in the testflinger dir
-    config_file = os.environ.get("TESTFLINGER_CONFIG", "testflinger.conf")
-    tf_app.config.from_pyfile(config_file, silent=True)
 
-    # Finally, override config data with env vars
-    tf_app.config.from_prefixed_env("MONGO")
-
-    setup_mongodb(tf_app)
+    if tf_app.config.get("TESTING") is not True:
+        setup_mongodb(tf_app)
 
     sentry_dsn = tf_app.config.get("SENTRY_DSN")
     if sentry_dsn and "sentry_sdk" in globals():
@@ -160,24 +156,23 @@ def setup_mongodb(application):
     mongo_user = os.environ.get("MONGODB_USERNAME")
     mongo_pass = os.environ.get("MONGODB_PASSWORD")
     mongo_db = os.environ.get("MONGODB_DATABASE")
-    mongo_host = os.environ.get("MONGODB_HOST", "mongo")
+    mongo_host = os.environ.get("MONGODB_HOST")
+    mongo_port = os.environ.get("MONGODB_PORT", "27017")
     mongo_uri = os.environ.get("MONGODB_URI")
-    if not mongo_uri and not (mongo_user and mongo_pass and mongo_db):
-        # We are probably running unit tests
-        return
 
-    if not application.config.get("MONGO_URI"):
-        if mongo_uri:
-            application.config["MONGO_URI"] = mongo_uri
-        else:
-            application.config["MONGO_URI"] = (
-                f"mongodb://{mongo_user}:{mongo_pass}@"
-                f"{mongo_host}:27017/{mongo_db}"
-            )
+    if not mongo_uri:
+        if not (mongo_host and mongo_db):
+            raise SystemExit("No MongoDB URI configured!")
+        mongo_creds = (
+            f"{mongo_user}:{mongo_pass}@" if mongo_user and mongo_pass else ""
+        )
+        mongo_uri = (
+            f"mongodb://{mongo_creds}{mongo_host}:{mongo_port}/{mongo_db}"
+        )
 
     mongo.init_app(
         application,
-        uri=application.config["MONGO_URI"],
+        uri=mongo_uri,
         uuidRepresentation="standard",
         serverSelectionTimeoutMS=2000,
         socketTimeoutMS=10000,

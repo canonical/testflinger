@@ -20,34 +20,8 @@ Unit tests for Testflinger v1 API
 import json
 
 from io import BytesIO
-import mongomock
-from mongomock.gridfs import enable_gridfs_integration
-import pytest
 import src
 from src.api import v1
-
-
-class MongoClientMock(mongomock.MongoClient):
-    """Mock MongoClient and allow GridFS"""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        enable_gridfs_integration()
-
-    def start_session(self, *args, **kwargs):
-        # Reimplemented to avoid pylint issues
-        return super().start_session(*args, **kwargs)
-
-
-@pytest.fixture(name="mongo_app")
-def fixture_app():
-    """Create a pytest fixture for the app"""
-    mock_mongo = MongoClientMock()
-
-    app = src.create_flask_app()
-    src.mongo = mock_mongo
-    v1.mongo = mock_mongo
-    yield app.test_client(), mock_mongo.db
 
 
 def test_home(mongo_app):
