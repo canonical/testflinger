@@ -394,7 +394,10 @@ def job_position_get(job_id):
     except (AttributeError, TypeError):
         return "Invalid json returned for id: {}\n".format(job_id), 400
     # Get all jobs with job_queue=queue and return only the _id
-    jobs = mongo.db.jobs.find({"job_data.job_queue": queue}, {"job_id": 1})
+    jobs = mongo.db.jobs.find(
+        {"job_data.job_queue": queue, "result_data.job_state": "waiting"},
+        {"job_id": 1},
+    )
     # Create a dict mapping job_id (as a string) to the position in the queue
     jobs_id_position = {job.get("job_id"): pos for pos, job in enumerate(jobs)}
     if job_id in jobs_id_position:
