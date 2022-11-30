@@ -1,4 +1,4 @@
-# Copyright (C) 2016-2020 Canonical
+# Copyright (C) 2016-2022 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -72,6 +72,11 @@ class TestflingerClient:
             logger.exception(e)
             # Wait a little extra before trying again
             time.sleep(60)
+
+    def check_job_state(self, job_id):
+        job_data = self.get_result(job_id)
+        if job_data:
+            return job_data.get("job_state")
 
     def repost_job(self, job_data):
         """ "Resubmit the job to the testflinger server with the same id
