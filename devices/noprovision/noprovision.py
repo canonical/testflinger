@@ -95,7 +95,7 @@ class Noprovision:
                     "/bin/true",
                 ]
                 subprocess.check_call(cmd)
-                break
+                return
             except subprocess.SubprocessError:
                 # keep going if we aren't booted yet
                 pass
