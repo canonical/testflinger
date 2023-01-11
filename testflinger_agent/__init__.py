@@ -26,7 +26,7 @@ from logging.handlers import TimedRotatingFileHandler
 logger = logging.getLogger(__name__)
 
 
-def main():
+def start_agent():
     args = parse_args()
     config = load_config(args.config)
     configure_logging(config)

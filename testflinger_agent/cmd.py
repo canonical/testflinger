@@ -12,19 +12,22 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""Entrypoint for the testflinger-agent command"""
 
 import logging
 import sys
 
-from testflinger_agent import main
+from testflinger_agent import start_agent
 
 logger = logging.getLogger(__name__)
 
-if __name__ == "__main__":
+
+def main():
+    """main() entrypoint for the testflinger-agent command"""
     try:
-        main()
+        start_agent()
     except KeyboardInterrupt:
         logger.info("Caught interrupt, exiting!")
         sys.exit(0)
-    except Exception as e:
-        logger.exception(e)
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.exception(exc)

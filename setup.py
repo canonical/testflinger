@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2016-2022 Canonical
+# Copyright (C) 2016-2023 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,19 +18,4 @@
 
 from setuptools import setup
 
-INSTALL_REQUIRES = [
-    "PyYAML",
-    "requests",
-    "voluptuous",
-]
-
-setup(
-    name="testflinger-agent",
-    version="1.0",
-    long_description=__doc__,
-    packages=["testflinger_agent"],
-    zip_safe=False,
-    install_requires=INSTALL_REQUIRES,
-    setup_requires=["pytest-runner"],
-    scripts=["testflinger-agent"],
-)
+setup()
