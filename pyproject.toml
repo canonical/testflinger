@@ -1,2 +1,23 @@
+[build-system]
+requires = [
+    "setuptools",
+    "setuptools-scm",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "testflinger-agent"
+description = "Testflinger agent"
+readme = "README.rst"
+dependencies = [
+    "PyYAML",
+    "requests",
+    "voluptuous",
+]
+dynamic = ["version"]
+
+[project.scripts]
+testflinger-agent = "testflinger_agent.cmd:main"
+
 [tool.black]
 line-length = 79
