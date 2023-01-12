@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-# Copyright (C) 2016 Canonical
+# Copyright (C) 2016-2023 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
