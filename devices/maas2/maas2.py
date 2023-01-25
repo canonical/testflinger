@@ -256,7 +256,7 @@ class Maas2:
             data = base64.b64encode(user_data.encode()).decode()
             cmd.append("user_data={}".format(data))
         proc = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
         )
         try:
             proc.check_returncode()
@@ -315,7 +315,9 @@ class Maas2:
             "/bin/true",
         ]
         try:
-            subprocess.check_call(cmd, stderr=subprocess.STDOUT, timeout=60)
+            subprocess.run(
+                cmd, stderr=subprocess.STDOUT, timeout=60, check=True
+            )
         except subprocess.SubprocessError:
             return False
         # If we get here, then the above command proved we are booted
