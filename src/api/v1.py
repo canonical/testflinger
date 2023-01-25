@@ -343,6 +343,36 @@ def images_post():
     return "OK"
 
 
+def agents_post(agent_name):
+    """Post information about the agent to the server
+
+    The json sent to this endpoint may contain data such as the following:
+    {
+        "state": string, # State the device is in
+        "queues": array[string], # Queues the device is listening on
+        "location": string, # Location of the device
+        "job_id": string, # Job ID the device is running, if any
+        "log": array[string], # push and keep only the last 100 lines
+    }
+    """
+
+    data = request.get_json()
+    # We should receive json, if so it would now be a dict
+    if not isinstance(data, dict):
+        return "Invalid data\n", 400
+    data["name"] = agent_name
+    data["updated_at"] = datetime.utcnow()
+    # extract log from data so we can push it instead of setting it
+    log = data.pop("log", [])
+
+    mongo.db.agents.update_one(
+        {"name": agent_name},
+        {"$set": data, "$push": {"log": {"$each": log, "$slice": -100}}},
+        upsert=True,
+    )
+    return "OK"
+
+
 def check_valid_uuid(job_id):
     """Check that the specified job_id is a valid UUID only
 
