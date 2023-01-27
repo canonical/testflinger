@@ -127,6 +127,13 @@ def create_flask_app(config=None):
         "/v1/agents/images", "images_post", v1.images_post, methods=["POST"]
     )
 
+    tf_app.add_url_rule(
+        "/v1/agents/data/<agent_name>",
+        "agents_post",
+        v1.agents_post,
+        methods=["POST"],
+    )
+
     @tf_app.errorhandler(NotFound)
     def handle_404(exc):
         tf_log.error("[404] Not found: %s", request.url)

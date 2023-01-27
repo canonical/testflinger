@@ -408,3 +408,54 @@ def test_cancel_job_good(mongo_app):
     assert "OK" == output.text
     job = mongo.jobs.find_one({"job_id": job_id})
     assert job["result_data"]["job_state"] == "cancelled"
+
+
+def test_agents_post(mongo_app):
+    """Test posting agent data and updating it"""
+    app, mongo = mongo_app
+    agent_name = "agent1"
+    logdata = [f"Log line {i}" for i in range(60)]
+    agent_data = {
+        "state": "provision",
+        "queues": ["q1", "q2"],
+        "location": "here",
+        "log": logdata,
+    }
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        data=json.dumps(agent_data),
+        content_type="application/json",
+    )
+
+    assert 200 == output.status_code
+    assert "OK" == output.text
+
+    # Test that the expected data was stored
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_data.items() <= agent_record.items()
+
+    # Update the agent data again
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        data=json.dumps(agent_data),
+        content_type="application/json",
+    )
+
+    # Test that the log data was appended and truncated
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_record["log"] == (logdata + logdata)[-100:]
+
+
+def test_agents_post_bad(mongo_app):
+    """Test posting agent data with bad data"""
+    app, _ = mongo_app
+    agent_name = "agent1"
+    agent_data = "BAD_DATA_SHOULD_BE_JSON"
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        data=json.dumps(agent_data),
+        content_type="application/json",
+    )
+
+    assert 400 == output.status_code
+    assert "Invalid data\n" == output.text
