@@ -32,12 +32,12 @@ def main():
 
     # First add a subcommand for each supported device type
     dev_parser = parser.add_subparsers()
-    for (dev_name, dev_class) in devices:
+    for dev_name, dev_class in devices:
         dev_subparser = dev_parser.add_parser(dev_name)
         dev_module = dev_class()
         # Next add the subcommands that can be used and the methods they run
         cmd_subparser = dev_subparser.add_subparsers()
-        for (cmd, func) in (
+        for cmd, func in (
             ("provision", dev_module.provision),
             ("runtest", dev_module.runtest),
             ("reserve", dev_module.reserve),
