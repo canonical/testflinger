@@ -258,10 +258,8 @@ class Maas2:
         proc = subprocess.run(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
         )
-        try:
-            proc.check_returncode()
-        except subprocess.CalledProcessError:
-            self._logger_error("maas-cli call failure happens.")
+        if proc.returncode:
+            self._logger_error(f"maas-cli error running: {' '.join(cmd)}")
             raise ProvisioningError(proc.stdout.decode())
 
         # Make sure the device is available before returning
