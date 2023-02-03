@@ -455,7 +455,7 @@ def _process_cmds_template_vars(cmds, config=None):
 
         def vformat(self, format_string, args, kwargs):
             tokens = []
-            for (literal, field_name, spec, conv) in self.parse(format_string):
+            for literal, field_name, spec, conv in self.parse(format_string):
                 # replace double braces if parse removed them
                 literal = literal.replace("{", "{{").replace("}", "}}")
                 # if the field is {}, just add escaped empty braces
