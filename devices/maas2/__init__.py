@@ -15,18 +15,18 @@
 """Ubuntu MaaS 2.x CLI support code."""
 
 import logging
-import yaml
 
 import snappy_device_agents
+import yaml
+from devices import (
+    DefaultDevice,
+    ProvisioningError,
+    RecoveryError,
+    SerialLogger,
+    catch,
+)
 from devices.maas2.maas2 import Maas2
 from snappy_device_agents import logmsg
-from devices import (
-    catch,
-    DefaultDevice,
-    RecoveryError,
-    ProvisioningError,
-    SerialLogger,
-)
 
 device_name = "maas2"
 

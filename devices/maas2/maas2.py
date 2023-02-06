@@ -19,9 +19,9 @@ import json
 import logging
 import subprocess
 import time
-import yaml
-
 from collections import OrderedDict
+
+import yaml
 from devices import ProvisioningError, RecoveryError
 
 logger = logging.getLogger()
@@ -83,7 +83,9 @@ class Maas2:
             "ubuntu@{}".format(self.config["device_ip"]),
             "sudo snap install efi-tools-ijohnson --devmode --edge",
         ]
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
+        )
         cmd = [
             "ssh",
             "-o",
@@ -93,7 +95,9 @@ class Maas2:
             "ubuntu@{}".format(self.config["device_ip"]),
             "sudo snap alias efi-tools-ijohnson.efibootmgr efibootmgr",
         ]
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
+        )
 
     def _get_efi_data(self):
         cmd = [
@@ -106,7 +110,7 @@ class Maas2:
             "sudo efibootmgr -v",
         ]
         p = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
         )
         # If it fails the first time, try installing efitools snap
         if p.returncode:
@@ -121,7 +125,10 @@ class Maas2:
                 "sudo efibootmgr -v",
             ]
             p = subprocess.run(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
             )
         if p.returncode:
             return None
@@ -146,7 +153,7 @@ class Maas2:
             "sudo efibootmgr -o {}".format(boot_order),
         ]
         p = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
         )
         if p.returncode:
             self._logger_error(
@@ -191,24 +198,26 @@ class Maas2:
             "ubuntu@{}".format(self.config["device_ip"]),
             "echo 5 | sudo tee /sys/class/tpm/tpm0/ppi/request",
         ]
-        try:
-            subprocess.check_call(cmd, timeout=30)
-            cmd = [
-                "ssh",
-                "-o",
-                "StrictHostKeyChecking=no",
-                "-o",
-                "UserKnownHostsFile=/dev/null",
-                "ubuntu@{}".format(self.config["device_ip"]),
-                "cat /sys/class/tpm/tpm0/ppi/request",
-            ]
-            output = subprocess.check_output(cmd, timeout=30)
-            # If we now see "5" in that file, then clearing tpm succeeded
-            if output.decode("utf-8").strip() == "5":
-                return True
-        except Exception:
-            # Fall through if we fail for any reason
-            pass
+        proc = subprocess.run(cmd, timeout=30, check=False)
+        if proc.returncode:
+            return False
+
+        cmd = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "ubuntu@{}".format(self.config["device_ip"]),
+            "cat /sys/class/tpm/tpm0/ppi/request",
+        ]
+        proc = subprocess.run(cmd, timeout=30, check=False)
+        if proc.returncode:
+            return False
+
+        # If we now see "5" in that file, then clearing tpm succeeded
+        if proc.stdout.decode("utf-8").strip() == "5":
+            return True
         return False
 
     def deploy_node(self, distro="bionic", kernel=None, user_data=None):
@@ -223,7 +232,12 @@ class Maas2:
             "system_id={}".format(self.node_id),
         ]
         # Do not use runcmd for this - we need the output, not the end user
-        subprocess.check_call(cmd)
+        proc = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
+        )
+        if proc.returncode:
+            self._logger_error(f"maas error running: {' '.join(cmd)}")
+            raise ProvisioningError(proc.stdout.decode())
         self._logger_info(
             "Starting node {} "
             "with distro {}".format(self.agent_name, distro)
@@ -241,14 +255,12 @@ class Maas2:
         if user_data:
             data = base64.b64encode(user_data.encode()).decode()
             cmd.append("user_data={}".format(data))
-        process = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        proc = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
         )
-        try:
-            process.check_returncode()
-        except subprocess.CalledProcessError:
-            self._logger_error("maas-cli call failure happens.")
-            raise ProvisioningError(process.stdout.decode())
+        if proc.returncode:
+            self._logger_error(f"maas-cli error running: {' '.join(cmd)}")
+            raise ProvisioningError(proc.stdout.decode())
 
         # Make sure the device is available before returning
         minutes_spent = 0
@@ -281,7 +293,7 @@ class Maas2:
             'Device {} still in "{}" state, deployment '
             "failed!".format(self.agent_name, status)
         )
-        self._logger_error(process.stdout.decode())
+        self._logger_error(proc.stdout.decode())
         exception_msg = (
             "Provisioning failed because deployment timeout. "
             + "Deploying for more than "
@@ -301,8 +313,10 @@ class Maas2:
             "/bin/true",
         ]
         try:
-            subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
-        except Exception:
+            subprocess.run(
+                cmd, stderr=subprocess.STDOUT, timeout=60, check=True
+            )
+        except subprocess.SubprocessError:
             return False
         # If we get here, then the above command proved we are booted
         return True
@@ -317,16 +331,21 @@ class Maas2:
         """
         cmd = ["maas", self.maas_user, "machine", "read", self.node_id]
         # Do not use runcmd for this - we need the output, not the end user
-        output = subprocess.check_output(cmd)
-        data = json.loads(output.decode())
+        proc = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
+        )
+        if proc.returncode:
+            self._logger_error(f"maas error running: {' '.join(cmd)}")
+            raise ProvisioningError(proc.stdout.decode())
+        data = json.loads(proc.stdout.decode())
         return data.get("status_name")
 
     def node_release(self):
         """Release the node to make it available again"""
         cmd = ["maas", self.maas_user, "machine", "release", self.node_id]
-        subprocess.run(cmd)
+        subprocess.run(cmd, check=False)
         # Make sure the device is available before returning
-        for timeout in range(0, 10):
+        for _ in range(0, 10):
             time.sleep(5)
             status = self.node_status()
             if status == "Ready":
