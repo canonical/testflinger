@@ -11,6 +11,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""General functions used by snappy device agents"""
 
 import bz2
 import gzip
@@ -316,9 +317,13 @@ def compress_file(filename):
 def configure_logging(config):
     """Setup logging"""
 
-    class AgentFilter(logging.Filter):
+    class AgentFilter(
+        logging.Filter
+    ):  # pylint: disable=too-few-public-methods
+        """Add agent_name to log records"""
+
         def __init__(self, agent_name):
-            super(AgentFilter, self).__init__()
+            super().__init__()
             self.agent_name = agent_name
 
         def filter(self, record):
@@ -376,23 +381,23 @@ def runcmd(cmd, env=None, timeout=None):
         deadline = time.time() + timeout
     else:
         deadline = None
-    process = subprocess.Popen(
+    with subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         shell=True,
         env=env,
-    )
-    while process.poll() is None:
-        if deadline and time.time() > deadline:
-            process.terminate()
-            raise CmdTimeoutError
-        line = process.stdout.readline()
+    ) as process:
+        while process.poll() is None:
+            if deadline and time.time() > deadline:
+                process.terminate()
+                raise CmdTimeoutError
+            line = process.stdout.readline()
+            if line:
+                sys.stdout.write(line.decode(errors="replace"))
+        line = process.stdout.read()
         if line:
             sys.stdout.write(line.decode(errors="replace"))
-    line = process.stdout.read()
-    if line:
-        sys.stdout.write(line.decode(errors="replace"))
     return process.returncode
 
 
