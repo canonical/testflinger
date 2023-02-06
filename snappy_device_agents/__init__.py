@@ -27,8 +27,6 @@ import tempfile
 import time
 import urllib.request
 
-import netifaces
-
 IMAGEFILE = "snappy.img"
 
 logger = logging.getLogger()
@@ -227,11 +225,10 @@ def get_local_ip_addr():
     :return ipaddr:
         Returns the ip address of this system
     """
-    gateways = netifaces.gateways()
-    default_interface = gateways["default"][netifaces.AF_INET][1]
-    ipaddr = netifaces.ifaddresses(default_interface)[netifaces.AF_INET][0][
-        "addr"
-    ]
+    # Use SOCK_DGRAM since we don't need to send any data and to avoid timeout
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.connect(("10.0.0.0", 0))
+        ipaddr = sock.getsockname()[0]
     return ipaddr
 
 
