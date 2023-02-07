@@ -1,0 +1,79 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Ubuntu, Arial, Helvetica, sans-serif;
+}
+
+main {
+    width: 95%;
+}
+
+.center {
+    margin: auto;
+    padding: 10px;
+}
+
+/* Header bar related */
+.header {
+    overflow: hidden;
+    background-color: #3f3f3f;
+    padding: 0px 10px;
+}
+
+.header a {
+    float: left;
+    color: white;
+    text-align: center;
+    padding: 20px 12px 20px 12px;
+    text-decoration: none;
+    font-size: 18px;
+    line-height: 25px;
+}
+
+.header a.logo {
+    font-size: 25px;
+    font-weight: bold;
+}
+
+.header a.logo:hover {
+    color: white;
+    text-decoration: none;
+    background-color: #202020;
+}
+
+.header a:hover {
+    background-color: #202020;
+    color: white;
+    text-decoration: underline;
+}
+
+.header a.active {
+    background-color: #202020;
+    color: white;
+}
+
+.header-right {
+    float: right;
+}
+
+/* Apply row highlighting and other styles to filter-table divs */
+.filter-table table tr:hover {
+    background-color: lightgrey;
+}
+
+.filter-table table th {
+    background-color: #3f3f3f;
+    color: white;
+    text-align: left;
+    text-decoration: underline;
+}
+
+.scrollable {
+    background-color: lightgrey;
+    max-height: 500px;
+    max-width: 80%;
+    overflow: scroll;
+}

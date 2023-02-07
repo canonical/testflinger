@@ -17,8 +17,9 @@
 Additional views not associated with the API
 """
 
-from flask import Blueprint
+from flask import Blueprint, render_template
 from prometheus_client import generate_latest
+from src.database import mongo
 
 views = Blueprint("testflinger", __name__)
 
@@ -27,3 +28,64 @@ views = Blueprint("testflinger", __name__)
 def metrics():
     """Return Prometheus metrics"""
     return generate_latest()
+
+
+@views.route("/agents")
+def agents():
+    """Agents view"""
+    agent_info = mongo.db.agent_info.find()
+    return render_template("agents.html", agents=agent_info)
+
+
+@views.route("/jobs")
+def jobs():
+    """Jobs view"""
+    jobs_data = mongo.db.jobs.find()
+    return render_template("jobs.html", jobs=jobs_data)
+
+
+@views.route("/queues")
+def queues():
+    """Queues view"""
+
+    # This finds all the publicly advertised queues, but also provides a count
+    # of the jobs associated with that queue that are not complete or cancelled
+    queue_data = mongo.db.queues.aggregate(
+        [
+            {
+                "$lookup": {
+                    "from": "jobs",
+                    "localField": "name",
+                    "foreignField": "job_data.job_queue",
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$not": {
+                                        "$in": [
+                                            "$result_data.job_state",
+                                            ["complete", "cancelled"],
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "as": "queuejobs",
+                }
+            },
+            {
+                "$addFields": {
+                    "numjobs": {"$size": "$queuejobs"},
+                }
+            },
+            {
+                "$project": {
+                    "name": 1,
+                    "numjobs": 1,
+                    "description": 1,
+                }
+            },
+        ]
+    )
+    return render_template("queues.html", queues=queue_data)

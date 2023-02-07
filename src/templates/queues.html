@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% set active_page = 'queues' %}
+{% block content %}
+<script type="text/javascript" src="/static/assets/js/filter.js"></script>
+<div class="filter-table center">
+    <input type="text" id="inputFilter" placeholder="Search" onkeyup="runFilter()">
+    <table id="filterTable" width="100%">
+        <tr>
+            <th>Name</th>
+            <th># Jobs</th>
+            <th>Description</th>
+        </tr>
+        {% for queue in queues %}
+        <tr>
+            <td><a href="/queues/{{ queue.name }}">{{ queue.name }}</a></td>
+            <td>{{ queue.numjobs }}</td>
+            <td>{{ queue.description }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

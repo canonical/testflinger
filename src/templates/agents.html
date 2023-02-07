@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% set active_page = 'agents' %}
+{% block content %}
+<script type="text/javascript" src="/static/assets/js/filter.js"></script>
+<div class="filter-table center">
+    <input type="text" id="inputFilter" placeholder="Search" onkeyup="runFilter()">
+    <table id="filterTable" width="100%">
+        <tr>
+            <th>Name</th>
+            <th>State</th>
+            <th>Updated At</th>
+            <th>Job ID</th>
+        </tr>
+        {% for agent in agents %}
+        <tr>
+            <td><a href="/agents/{{ agent.name }}">{{ agent.name }}</a></td>
+            <td>{{ agent.state }}</td>
+            <td>{{ agent.updated_at }}</td>
+            <td>{{ agent.job_id }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}
