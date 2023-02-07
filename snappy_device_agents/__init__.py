@@ -24,7 +24,6 @@ import socket
 import string
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.request
 
@@ -111,45 +110,6 @@ def delayretry(func, args, max_retries=3, delay=0):
         return ret
 
 
-def udf_create_image(params):
-    """
-    Create a new snappy core image with ubuntu-device-flash
-
-    :param params:
-        Command-line parameters to pass after 'sudo ubuntu-device-flash'
-    :return filename:
-        Returns the filename of the image
-    """
-    imagepath = os.path.join(os.getcwd(), IMAGEFILE)
-    cmd = params.split()
-    cmd.insert(0, "ubuntu-device-flash")
-    cmd.insert(0, "sudo")
-
-    # A shorter tempdir path is needed than the one provided by SPI
-    # because of a bug in kpartx that makes it have trouble deleting
-    # mappings with long paths
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_imagepath = os.path.join(tmpdir, IMAGEFILE)
-        try:
-            output_opt = cmd.index("-o")
-            cmd[output_opt + 1] = imagepath
-        except ValueError:
-            # if we get here, -o was already not in the image
-            cmd.append("-o")
-            cmd.append(tmp_imagepath)
-
-        logger.info("Creating snappy image with: %s", cmd)
-        try:
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as exc:
-            logger.error("Image Creation Output:\n %s", exc.output)
-            raise
-        logger.info("Image Creation Output:\n %s", output)
-        shutil.move(tmp_imagepath, imagepath)
-
-    return imagepath
-
-
 def get_test_username(job_data="testflinger.json", default="ubuntu"):
     """
     If the test_data specifies a default username, use it. Otherwise
@@ -192,29 +152,15 @@ def get_image(job_data="testflinger.json"):
         there was an error
     """
     testflinger_data = get_test_opportunity(job_data)
-    image_keys = testflinger_data.get("provision_data").keys()
-    if "download_files" in image_keys:
-        for url in testflinger_data.get("provision_data").get(
-            "download_files"
-        ):
-            download(url)
-    if "url" in image_keys:
-        try:
-            url = testflinger_data["provision_data"]["url"]
-            image = download(url, IMAGEFILE)
-        except KeyError as exc:
-            logger.error('Error getting "%s": %s', url, exc)
-            return ""
-    elif "udf-params" in image_keys:
-        udf_params = testflinger_data.get("provision_data").get("udf-params")
-        image = delayretry(
-            udf_create_image, [udf_params], max_retries=3, delay=60
-        )
-    else:
-        logger.error(
-            'provision_data needs to contain "url" for the image '
-            'or "udf-params"'
-        )
+    provision_data = testflinger_data.get("provision_data")
+    if "url" not in provision_data:
+        logger.error('provision_data needs to contain "url" for the image')
+        return ""
+    url = testflinger_data["provision_data"]["url"]
+    try:
+        image = download(url, IMAGEFILE)
+    except OSError:
+        logger.exception('Error getting "%s":', url)
         return ""
     return compress_file(image)
 
