@@ -317,7 +317,7 @@ def compress_file(filename):
 
 
 def configure_logging(config):
-    """Allow logging with optional support for logstash"""
+    """Setup logging"""
 
     class AgentFilter(logging.Filter):
         def __init__(self, agent_name):
@@ -335,15 +335,6 @@ def configure_logging(config):
     )
     agent_name = config.get("agent_name", "")
     logger.addFilter(AgentFilter(agent_name))
-    logstash_host = config.get("logstash_host", None)
-
-    if logstash_host is not None:
-        try:
-            import logstash
-        except ImportError:
-            pass
-        else:
-            logger.addHandler(logstash.LogstashHandler(logstash_host, 5959, 1))
 
 
 def logmsg(level, msg, *args):
