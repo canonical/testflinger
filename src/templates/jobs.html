@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% set active_page = 'jobs' %}
+{% block content %}
+<div class="filter-table center">
+    <table width="100%">
+        <tr>
+            <th>Job ID</th>
+            <th>Queue</th>
+            <th>State</th>
+            <th>Created At</th>
+        </tr>
+        {% for job in jobs %}
+        <tr>
+            <td><a href="/jobs/{{ job.job_id}}">{{ job.job_id }}</a></td>
+            <td>{{ job.job_data.job_queue}}</td>
+            <td>{{ job.result_data.job_state }}</td>
+            <td>{{ job.created_at }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+<script type="text/javascript" src="/static/assets/js/filter.js"></script>
+{% endblock %}

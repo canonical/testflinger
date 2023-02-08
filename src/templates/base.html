@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %} {% endblock %} - Testflinger</title>
+    <!-- Site CSS Files -->
+    <link href="/static/assets/css/testflinger.css" rel="stylesheet" />
+    <!-- Page specific CSS Files -->
+    {% block stylesheets %}{% endblock stylesheets %}
+</head>
+
+<body>
+    {% set nav_bar = [
+    {'name': 'Agents', 'url': '/agents'},
+    {'name': 'Jobs', 'url': '/jobs'},
+    {'name': 'Queues', 'url': '/queues'},
+    ] %}
+    {% set active_page = active_page|default('agents') %}
+
+    <div class="header">
+        <a href="#" class="logo">Testflinger</a>
+        <div class="header-right">
+            {% for item in nav_bar %}
+            <a {% if item.name|lower==active_page %} class="active" {% endif %} href="{{ item.url }}">{{ item.name
+                }}</a>
+            {% endfor %}
+        </div>
+    </div>
+    <main class="center">
+        <div class="content">
+            {% block content %} {% endblock %}
+        </div>
+    </main>
+</body>
+
+</html>
