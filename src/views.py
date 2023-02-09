@@ -33,7 +33,7 @@ def metrics():
 @views.route("/agents")
 def agents():
     """Agents view"""
-    agent_info = mongo.db.agent_info.find()
+    agent_info = mongo.db.agents.find()
     return render_template("agents.html", agents=agent_info)
 
 
