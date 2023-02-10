@@ -24,7 +24,7 @@ To install it in a virtual environment:
 
   $ virtualenv -p python3 env
   $ . env/bin/activate
-  $ ./setup install
+  $ pip install .
 
 
 Usage
