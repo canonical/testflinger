@@ -109,7 +109,7 @@ class Client:
             Job state to set for the specified job
         """
         endpoint = "/v1/result/{}".format(job_id)
-        data = dict(job_state=state)
+        data = {"job_state": state}
         self.put(endpoint, data)
 
     def submit_job(self, job_data):
