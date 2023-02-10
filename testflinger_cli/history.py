@@ -42,9 +42,12 @@ class TestflingerCliHistory:
     def new(self, job_id, queue):
         """Add a new job to the history"""
         submission_time = datetime.now().timestamp()
-        self.history[job_id] = dict(
-            queue=queue, submission_time=submission_time, job_state="unknown"
-        )
+        self.history[job_id] = {
+            "queue": queue,
+            "submission_time": submission_time,
+            "job_state": "unknown",
+        }
+
         # limit job history to last 10 jobs
         if len(self.history) > 10:
             self.history.popitem(last=False)
