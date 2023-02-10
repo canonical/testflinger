@@ -11,6 +11,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""General functions used by snappy device agents"""
 
 import bz2
 import gzip
@@ -23,11 +24,8 @@ import socket
 import string
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.request
-
-import netifaces
 
 IMAGEFILE = "snappy.img"
 
@@ -112,45 +110,6 @@ def delayretry(func, args, max_retries=3, delay=0):
         return ret
 
 
-def udf_create_image(params):
-    """
-    Create a new snappy core image with ubuntu-device-flash
-
-    :param params:
-        Command-line parameters to pass after 'sudo ubuntu-device-flash'
-    :return filename:
-        Returns the filename of the image
-    """
-    imagepath = os.path.join(os.getcwd(), IMAGEFILE)
-    cmd = params.split()
-    cmd.insert(0, "ubuntu-device-flash")
-    cmd.insert(0, "sudo")
-
-    # A shorter tempdir path is needed than the one provided by SPI
-    # because of a bug in kpartx that makes it have trouble deleting
-    # mappings with long paths
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_imagepath = os.path.join(tmpdir, IMAGEFILE)
-        try:
-            output_opt = cmd.index("-o")
-            cmd[output_opt + 1] = imagepath
-        except ValueError:
-            # if we get here, -o was already not in the image
-            cmd.append("-o")
-            cmd.append(tmp_imagepath)
-
-        logger.info("Creating snappy image with: %s", cmd)
-        try:
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as exc:
-            logger.error("Image Creation Output:\n %s", exc.output)
-            raise
-        logger.info("Image Creation Output:\n %s", output)
-        shutil.move(tmp_imagepath, imagepath)
-
-    return imagepath
-
-
 def get_test_username(job_data="testflinger.json", default="ubuntu"):
     """
     If the test_data specifies a default username, use it. Otherwise
@@ -193,29 +152,15 @@ def get_image(job_data="testflinger.json"):
         there was an error
     """
     testflinger_data = get_test_opportunity(job_data)
-    image_keys = testflinger_data.get("provision_data").keys()
-    if "download_files" in image_keys:
-        for url in testflinger_data.get("provision_data").get(
-            "download_files"
-        ):
-            download(url)
-    if "url" in image_keys:
-        try:
-            url = testflinger_data["provision_data"]["url"]
-            image = download(url, IMAGEFILE)
-        except KeyError as exc:
-            logger.error('Error getting "%s": %s', url, exc)
-            return ""
-    elif "udf-params" in image_keys:
-        udf_params = testflinger_data.get("provision_data").get("udf-params")
-        image = delayretry(
-            udf_create_image, [udf_params], max_retries=3, delay=60
-        )
-    else:
-        logger.error(
-            'provision_data needs to contain "url" for the image '
-            'or "udf-params"'
-        )
+    provision_data = testflinger_data.get("provision_data")
+    if "url" not in provision_data:
+        logger.error('provision_data needs to contain "url" for the image')
+        return ""
+    url = testflinger_data["provision_data"]["url"]
+    try:
+        image = download(url, IMAGEFILE)
+    except OSError:
+        logger.exception('Error getting "%s":', url)
         return ""
     return compress_file(image)
 
@@ -227,11 +172,10 @@ def get_local_ip_addr():
     :return ipaddr:
         Returns the ip address of this system
     """
-    gateways = netifaces.gateways()
-    default_interface = gateways["default"][netifaces.AF_INET][1]
-    ipaddr = netifaces.ifaddresses(default_interface)[netifaces.AF_INET][0][
-        "addr"
-    ]
+    # Use SOCK_DGRAM since we don't need to send any data and to avoid timeout
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.connect(("10.0.0.0", 0))
+        ipaddr = sock.getsockname()[0]
     return ipaddr
 
 
@@ -319,9 +263,13 @@ def compress_file(filename):
 def configure_logging(config):
     """Setup logging"""
 
-    class AgentFilter(logging.Filter):
+    class AgentFilter(
+        logging.Filter
+    ):  # pylint: disable=too-few-public-methods
+        """Add agent_name to log records"""
+
         def __init__(self, agent_name):
-            super(AgentFilter, self).__init__()
+            super().__init__()
             self.agent_name = agent_name
 
         def filter(self, record):
@@ -379,23 +327,23 @@ def runcmd(cmd, env=None, timeout=None):
         deadline = time.time() + timeout
     else:
         deadline = None
-    process = subprocess.Popen(
+    with subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         shell=True,
         env=env,
-    )
-    while process.poll() is None:
-        if deadline and time.time() > deadline:
-            process.terminate()
-            raise CmdTimeoutError
-        line = process.stdout.readline()
+    ) as process:
+        while process.poll() is None:
+            if deadline and time.time() > deadline:
+                process.terminate()
+                raise CmdTimeoutError
+            line = process.stdout.readline()
+            if line:
+                sys.stdout.write(line.decode(errors="replace"))
+        line = process.stdout.read()
         if line:
             sys.stdout.write(line.decode(errors="replace"))
-    line = process.stdout.read()
-    if line:
-        sys.stdout.write(line.decode(errors="replace"))
     return process.returncode
 
 

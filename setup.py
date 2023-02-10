@@ -45,6 +45,6 @@ setup(
     packages=find_packages(),
     data_files=datafiles,
     setup_requires=["pytest-runner"],
-    install_requires=["PyYAML>=3.11", "netifaces>=0.10.4"],
+    install_requires=["PyYAML>=3.11"],
     scripts=["snappy-device-agent"],
 )
