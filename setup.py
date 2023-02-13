@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# Copyright (C) 2017-2020 Canonical
+#!/usr/bin/env python3
+# Copyright (C) 2017-2023 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,19 +16,4 @@
 #
 from setuptools import setup
 
-INSTALL_REQUIRES = ["pyyaml", "requests", "xdg<5.2"]
-
-setup(
-    name="testflinger-cli",
-    version="0.1",
-    description="CLI tool for working with testflinger",
-    packages=["testflinger_cli"],
-    zip_safe=False,
-    install_requires=INSTALL_REQUIRES,
-    test_suite="testflinger_cli.tests",
-    entry_points="""
-        [console_scripts]
-        testflinger-cli=testflinger_cli:cli
-        testflinger=testflinger_cli:cli
-    """,
-)
+setup()
