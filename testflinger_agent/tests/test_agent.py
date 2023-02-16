@@ -180,6 +180,7 @@ class TestClient:
             "job_queue": "test",
             "provision_data": {"url": "foo"},
             "test_data": {"test_cmds": "foo"},
+            "state": "offline",
         }
         # In this case we are making sure that the repost job request
         # gets good status
