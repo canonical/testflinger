@@ -180,7 +180,6 @@ class TestClient:
             "job_queue": "test",
             "provision_data": {"url": "foo"},
             "test_data": {"test_cmds": "foo"},
-            "state": "offline",
         }
         # In this case we are making sure that the repost job request
         # gets good status
@@ -195,6 +194,7 @@ class TestClient:
                 text="{}",
             )
             m.post("http://127.0.0.1:8000/v1/job", json={"job_id": job_id})
+            m.post("http://127.0.0.1:8000/v1/job", json={"state": "offline"})
             agent.process_jobs()
             assert agent.check_offline()
             # These are the args we would expect when it reposts the job
