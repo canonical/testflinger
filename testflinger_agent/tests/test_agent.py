@@ -193,10 +193,11 @@ class TestClient:
                 "http://127.0.0.1:8000/v1/result/" + job_id + "/output",
                 text="{}",
             )
-            m.post("http://127.0.0.1:8000/v1/job", json={"job_id": job_id})
+            mpost_job_json = m.post(
+                "http://127.0.0.1:8000/v1/job", json={"job_id": job_id})
             agent.process_jobs()
             assert agent.check_offline()
             # These are the args we would expect when it reposts the job
-            assert m.last_request.json() == fake_job_data
+            assert mpost_job_json.last_request.json() == fake_job_data
         if os.path.exists(OFFLINE_FILE):
             os.unlink(OFFLINE_FILE)
