@@ -32,6 +32,11 @@ class TestflingerAgent:
         self.set_state("waiting")
         self.advertised_queues = self.client.config.get("advertised_queues")
         self.advertised_images = self.client.config.get("advertised_images")
+        location = self.client.config.get("location")
+        if location:
+            self.client.post_agent_data({"location": location})
+        if self.advertised_queues:
+            self.client.post_agent_data({"queues": self.advertised_queues})
         if self.advertised_queues or self.advertised_images:
             self.status_proc = multiprocessing.Process(
                 target=self._status_worker
@@ -51,6 +56,7 @@ class TestflingerAgent:
             time.sleep(120)
 
     def set_state(self, state):
+        self.client.post_agent_data({"state": state})
         self._state.value = state.encode("utf-8")
 
     def get_offline_files(self):
@@ -128,6 +134,7 @@ class TestflingerAgent:
             try:
                 job = TestflingerJob(job_data, self.client)
                 logger.info("Starting job %s", job.job_id)
+                self.client.post_agent_data({"job_id": job.job_id})
                 rundir = os.path.join(
                     self.client.config.get("execution_basedir"), job.job_id
                 )
