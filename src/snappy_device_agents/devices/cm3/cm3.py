@@ -1,4 +1,4 @@
-# Copyright (C) 2017-2020 Canonical
+# Copyright (C) 2017-2023 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,11 +19,11 @@ import logging
 import os
 import subprocess
 import time
-import yaml
-
 from contextlib import contextmanager
 
-from devices import ProvisioningError, RecoveryError
+import yaml
+
+from snappy_device_agents.devices import ProvisioningError, RecoveryError
 
 logger = logging.getLogger()
 

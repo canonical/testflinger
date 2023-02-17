@@ -1,4 +1,4 @@
-# Copyright (C) 2017-2019 Canonical
+# Copyright (C) 2016-2023 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,17 +12,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Ubuntu Raspberry PI muxpi support code."""
+"""Dragonboard support code."""
 
 import logging
+
 import yaml
 
 import snappy_device_agents
-from devices.muxpi.muxpi import MuxPi
 from snappy_device_agents import logmsg
-from devices import catch, RecoveryError, DefaultDevice, SerialLogger
+from snappy_device_agents.devices import (
+    DefaultDevice,
+    RecoveryError,
+    SerialLogger,
+    catch,
+)
+from snappy_device_agents.devices.dragonboard.dragonboard import Dragonboard
 
-device_name = "muxpi"
+device_name = "dragonboard"
 
 
 class DeviceAgent(DefaultDevice):
@@ -35,9 +41,9 @@ class DeviceAgent(DefaultDevice):
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         snappy_device_agents.configure_logging(config)
-        device = MuxPi(args.config, args.job_data)
+        device = Dragonboard(args.config, args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
-        logmsg(logging.INFO, "Provisioning device")
+        logmsg(logging.INFO, "Booting Master Image")
         serial_host = config.get("serial_host")
         serial_port = config.get("serial_port")
         serial_proc = SerialLogger(
@@ -50,4 +56,3 @@ class DeviceAgent(DefaultDevice):
             raise e
         finally:
             serial_proc.stop()
-        logmsg(logging.INFO, "END provision")

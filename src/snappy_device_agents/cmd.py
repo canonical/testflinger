@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2015 Canonical
+# Copyright (C) 2023 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ Main snappy-device-agents command module
 import argparse
 import logging
 
-from devices import load_devices
+from snappy_device_agents.devices import load_devices
 
 logger = logging.getLogger()
 

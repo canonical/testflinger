@@ -1,5 +1,6 @@
 [build-system]
 requires = [
+    "wheel",
     "setuptools",
     "setuptools-scm",
 ]
@@ -19,8 +20,8 @@ dependencies = [
 [project.scripts]
 snappy-device-agent = "snappy_device_agents.cmd:main"
 
-[tool.setuptools.packages.find]
-include = ["snappy_device_agents", "devices"]
+[tool.setuptools.package-data]
+snappy_device_agents = ["snappy_device_agents/data/pi-desktop/*"]
 
 [tool.black]
 line-length = 79

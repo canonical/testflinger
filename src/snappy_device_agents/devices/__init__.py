@@ -17,13 +17,14 @@ import logging
 import multiprocessing
 import os
 import select
-import snappy_device_agents
 import socket
 import subprocess
 import time
+from datetime import datetime, timedelta
+
 import yaml
 
-from datetime import datetime, timedelta
+import snappy_device_agents
 
 
 class ProvisioningError(Exception):

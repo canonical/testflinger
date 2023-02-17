@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Canonical
+# Copyright (C) 2023 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,12 +16,13 @@
 
 import logging
 import subprocess
-import urllib.request
 import time
+import urllib.request
+
 import yaml
 
-from snappy_device_agents import runcmd, CmdTimeoutError
-from devices import ProvisioningError, RecoveryError
+from snappy_device_agents import CmdTimeoutError, runcmd
+from snappy_device_agents.devices import ProvisioningError, RecoveryError
 
 logger = logging.getLogger()
 
