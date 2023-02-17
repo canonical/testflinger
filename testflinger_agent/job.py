@@ -63,6 +63,7 @@ class TestflingerJob:
             return 0
         if phase == "reserve" and not self.job_data.get("reserve_data"):
             return 0
+        results_file = os.path.join(rundir, "testflinger-outcome.json")
         output_log = os.path.join(rundir, phase + ".log")
         serial_log = os.path.join(rundir, phase + "-serial.log")
         logger.info("Running %s_command: %s", phase, cmd)
@@ -78,24 +79,40 @@ class TestflingerJob:
         except Exception as e:
             logger.exception(e)
         finally:
-            with open(os.path.join(rundir, "testflinger-outcome.json")) as f:
-                outcome_data = json.load(f)
+            self._update_phase_results(
+                results_file, phase, exitcode, output_log, serial_log
+            )
+        sys.exit(exitcode)
+
+    def _update_phase_results(
+        self, results_file, phase, exitcode, output_log, serial_log
+    ):
+        """Update the results file with the results of the specified phase
+
+        :param results_file:
+            Path to the results file
+        :param phase:
+            Name of the phase
+        :param exitcode:
+            Exitcode from the device agent
+        :param output_log:
+            Path to the output log file
+        :param serial_log:
+            Path to the serial log file
+        """
+        with open(results_file, "r+") as results:
+            outcome_data = json.load(results)
             if os.path.exists(output_log):
-                with open(output_log, "r+", encoding="utf-8") as f:
-                    self._set_truncate(f)
-                    outcome_data[phase + "_output"] = f.read()
+                with open(output_log, "r+", encoding="utf-8") as logfile:
+                    self._set_truncate(logfile)
+                    outcome_data[phase + "_output"] = logfile.read()
             if os.path.exists(serial_log):
-                with open(serial_log, "r+", encoding="utf-8") as f:
-                    self._set_truncate(f)
-                    outcome_data[phase + "_serial"] = f.read()
+                with open(serial_log, "r+", encoding="utf-8") as logfile:
+                    self._set_truncate(logfile)
+                    outcome_data[phase + "_serial"] = logfile.read()
             outcome_data[phase + "_status"] = exitcode
-            with open(
-                os.path.join(rundir, "testflinger-outcome.json"),
-                "w",
-                encoding="utf-8",
-            ) as f:
-                json.dump(outcome_data, f)
-            sys.exit(exitcode)
+            results.seek(0)
+            json.dump(outcome_data, results)
 
     def _set_truncate(self, f, size=1024 * 1024):
         """Set up an open file so that we don't read more than a specified
