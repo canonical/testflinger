@@ -1,2 +1,26 @@
+[build-system]
+requires = [
+    "setuptools",
+    "setuptools-scm",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "snappy-device-agents"
+version = "0.0.2"
+description = "Testflinger device agents"
+license = {text = "GPLv3"}
+readme = "README.rst"
+requires-python = ">=3.8"
+dependencies = [
+    "PyYAML>=3.11",
+]
+
+[project.scripts]
+snappy-device-agent = "snappy_device_agents.cmd:main"
+
+[tool.setuptools.packages.find]
+include = ["snappy_device_agents", "devices"]
+
 [tool.black]
 line-length = 79
