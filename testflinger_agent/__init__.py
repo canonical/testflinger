@@ -73,10 +73,7 @@ class ReqBufferHandler(logging.Handler):
 
     def _start_rb_timer(self):
         """Periodically check and send buffer"""
-        self.reqbuf_timer = ReqBufferTimer(
-            self.reqbuf_interval,
-            self.flush
-        )
+        self.reqbuf_timer = ReqBufferTimer(self.reqbuf_interval, self.flush)
         # terminate timer on exit
         self.reqbuf_timer.daemon = True
         self.reqbuf_timer.start()
@@ -93,9 +90,7 @@ class ReqBufferHandler(logging.Handler):
         try:
             for record in self.buffer:
                 self.session.post(
-                    url=self.url,
-                    json=self.format(record),
-                    timeout=3
+                    url=self.url, json=self.format(record), timeout=3
                 )
         except Exception as e:
             logger.exception(e)
@@ -174,8 +169,7 @@ def configure_logging(config):
     req_logger = logging.getLogger()
     request_formatter = ReqBufferFormatter()
     request_handler = ReqBufferHandler(
-        config.get("agent_id"),
-        config.get("server_address")
+        config.get("agent_id"), config.get("server_address")
     )
     request_handler.setFormatter(request_formatter)
     req_logger.addHandler(request_handler)
