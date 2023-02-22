@@ -203,6 +203,8 @@ class TestflingerAgent:
                         rundir,
                     ),
                 )
+                # clear job id
+                self.client.post_agent_data({"job_id": ""})
                 proc.start()
                 proc.join()
 
