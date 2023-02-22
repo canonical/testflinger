@@ -259,7 +259,7 @@ class TestflingerClient:
             dict of various agent data points to send to the api server
         """
         agent = self.config.get("agent_id")
-        agent_data_uri = urljoin(self.server, "/v1/agents/data")
+        agent_data_uri = urljoin(self.server, "/v1/agents/data/")
         agent_data_url = urljoin(agent_data_uri, agent)
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
