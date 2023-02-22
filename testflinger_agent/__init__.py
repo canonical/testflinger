@@ -45,8 +45,7 @@ class ReqBufferHandler(logging.Handler):
 
     def __init__(self, agent, server):
         super().__init__()
-        self.server = server
-        uri = urljoin(self.server, "/v1/agents/data/")
+        uri = urljoin(server, "/v1/agents/data/")
         self.url = urljoin(uri, agent)
         self.qdepth = 100  # messages
         self.buffer = deque([], maxlen=self.qdepth)
