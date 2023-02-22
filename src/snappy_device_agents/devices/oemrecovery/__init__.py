@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2019 Canonical
+# Copyright (C) 2018-2023 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,12 +15,13 @@
 """Ubuntu OEM Recovery provisioner support code."""
 
 import logging
+
 import yaml
 
 import snappy_device_agents
-from devices.oemrecovery.oemrecovery import OemRecovery
 from snappy_device_agents import logmsg
-from devices import catch, RecoveryError, DefaultDevice
+from snappy_device_agents.devices import DefaultDevice, RecoveryError, catch
+from snappy_device_agents.devices.oemrecovery.oemrecovery import OemRecovery
 
 device_name = "oemrecovery"
 

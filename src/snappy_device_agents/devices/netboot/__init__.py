@@ -16,19 +16,19 @@
 
 import logging
 import multiprocessing
+
 import yaml
-
-import snappy_device_agents
-from devices.netboot.netboot import Netboot
-from snappy_device_agents import logmsg
-
-from devices import (
-    catch,
+from snappy_device_agents.devices import (
     DefaultDevice,
     ProvisioningError,
     RecoveryError,
     SerialLogger,
+    catch,
 )
+
+import snappy_device_agents
+from snappy_device_agents import logmsg
+from snappy_device_agents.devices.netboot.netboot import Netboot
 
 device_name = "netboot"
 
