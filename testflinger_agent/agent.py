@@ -30,10 +30,14 @@ class TestflingerAgent:
         self.client = client
         self._state = multiprocessing.Array("c", 16)
         self.set_state("waiting")
-        self.advertised_queues = self.client.config.get("advertised_queues")
+        self.advertised_queues = self.client.config.get(
+            "advertised_queues", {}
+        )
         self.advertised_images = self.client.config.get("advertised_images")
         location = self.client.config.get("location")
         if self.advertised_queues or location:
+            if not location:
+                location = ""
             self.client.post_agent_data(
                 {"queues": self.advertised_queues, "location": location}
             )
