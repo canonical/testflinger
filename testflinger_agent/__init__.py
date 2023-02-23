@@ -91,12 +91,10 @@ class ReqBufferHandler(logging.Handler):
                 self.session.post(
                     url=self.url, json=self.format(record), timeout=3
                 )
-        except Exception as e:
-            logger.exception(e)
+        except requests.RequestException as error:
+            logger.debug(error)
 
-            # preserve buffer
-            if len(self.buffer) <= self.qdepth:
-                return
+            return  # preserve buffer
 
         self.buffer = []
 
@@ -172,6 +170,7 @@ def configure_logging(config):
     )
     request_handler.setFormatter(request_formatter)
     req_logger.addHandler(request_handler)
+    req_logger.setLevel(log_level)
     if not config.get("logging_quiet"):
         console_log = logging.StreamHandler()
         console_log.setFormatter(logfmt)
