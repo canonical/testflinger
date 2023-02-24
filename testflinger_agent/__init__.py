@@ -19,6 +19,7 @@ import time
 import yaml
 import requests
 from requests.adapters import HTTPAdapter, Retry
+from urllib3.exceptions import HTTPError
 from urllib.parse import urljoin
 from collections import deque
 from threading import Timer
@@ -45,13 +46,15 @@ class ReqBufferHandler(logging.Handler):
 
     def __init__(self, agent, server):
         super().__init__()
+        if not server.lower().startswith("http"):
+            server = "http://" + server
         uri = urljoin(server, "/v1/agents/data/")
         self.url = urljoin(uri, agent)
         self.qdepth = 100  # messages
-        self.buffer = deque([], maxlen=self.qdepth)
-        self.reqbuf_timer = None
-        self.reqbuf_interval = 10.0  # seconds
-        self._start_rb_timer()
+        self.reqbuffer = deque([], maxlen=self.qdepth)
+        self.reqbuff_timer = None
+        self.reqbuff_interval = 10.0  # seconds
+        self._start_reqbuff_timer()
         # reuse socket
         self.session = self._requests_retry()
 
@@ -64,43 +67,46 @@ class ReqBufferHandler(logging.Handler):
             connect=retries,
             backoff_factor=0.3,
             status_forcelist=(500, 502, 503, 504),
+            method_whitelist=False,  # allow post retry
         )
         adapter = HTTPAdapter(max_retries=retry)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         return session
 
-    def _start_rb_timer(self):
+    def _start_reqbuff_timer(self):
         """Periodically check and send buffer"""
-        self.reqbuf_timer = ReqBufferTimer(self.reqbuf_interval, self.flush)
+        self.reqbuff_timer = ReqBufferTimer(
+            self.reqbuff_interval, self.flush
+        )
         # terminate timer on exit
-        self.reqbuf_timer.daemon = True
-        self.reqbuf_timer.start()
+        self.reqbuff_timer.daemon = True
+        self.reqbuff_timer.start()
 
     def emit(self, record):
         """Write logging events to buffer"""
-        if len(self.buffer) >= self.qdepth:
-            self.buffer.popleft()
+        if len(self.reqbuffer) >= self.qdepth:
+            self.reqbuffer.popleft()
 
-        self.buffer.append(record)
+        self.reqbuffer.append(record)
 
     def flush(self):
         """Flush and post buffer"""
         try:
-            for record in self.buffer:
+            for record in self.reqbuffer:
                 self.session.post(
                     url=self.url, json=self.format(record), timeout=3
                 )
-        except requests.RequestException as error:
+        except (requests.RequestException, HTTPError) as error:
             logger.debug(error)
 
             return  # preserve buffer
 
-        self.buffer = []
+        self.reqbuffer.clear()
 
     def close(self):
         """Cleanup on handler close"""
-        self.reqbuf_timer.cancel()
+        self.reqbuff_timer.cancel()
 
 
 class ReqBufferFormatter(logging.Formatter):
