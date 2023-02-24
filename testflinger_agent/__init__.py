@@ -76,9 +76,7 @@ class ReqBufferHandler(logging.Handler):
 
     def _start_reqbuff_timer(self):
         """Periodically check and send buffer"""
-        self.reqbuff_timer = ReqBufferTimer(
-            self.reqbuff_interval, self.flush
-        )
+        self.reqbuff_timer = ReqBufferTimer(self.reqbuff_interval, self.flush)
         # terminate timer on exit
         self.reqbuff_timer.daemon = True
         self.reqbuff_timer.start()
