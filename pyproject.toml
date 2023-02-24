@@ -15,6 +15,7 @@ readme = "README.rst"
 requires-python = ">=3.8"
 dependencies = [
     "PyYAML>=3.11",
+    "requests",
 ]
 
 [project.scripts]
