@@ -17,6 +17,12 @@ import logging
 import os
 import time
 import yaml
+import requests
+from requests.adapters import HTTPAdapter, Retry
+from urllib3.exceptions import HTTPError
+from urllib.parse import urljoin
+from collections import deque
+from threading import Timer
 
 from testflinger_agent import schema
 from testflinger_agent.agent import TestflingerAgent
@@ -24,6 +30,89 @@ from testflinger_agent.client import TestflingerClient
 from logging.handlers import TimedRotatingFileHandler
 
 logger = logging.getLogger(__name__)
+
+
+class ReqBufferTimer(Timer):
+    """Requests buffer flush"""
+
+    def run(self):
+        """Loop timer"""
+        while not self.finished.wait(self.interval):
+            self.function(*self.args, **self.kwargs)
+
+
+class ReqBufferHandler(logging.Handler):
+    """Requests logging handler"""
+
+    def __init__(self, agent, server):
+        super().__init__()
+        if not server.lower().startswith("http"):
+            server = "http://" + server
+        uri = urljoin(server, "/v1/agents/data/")
+        self.url = urljoin(uri, agent)
+        self.qdepth = 100  # messages
+        self.reqbuffer = deque([], maxlen=self.qdepth)
+        self.reqbuff_timer = None
+        self.reqbuff_interval = 10.0  # seconds
+        self._start_reqbuff_timer()
+        # reuse socket
+        self.session = self._requests_retry()
+
+    def _requests_retry(self, retries=3):
+        """Retry api server"""
+        session = requests.Session()
+        retry = Retry(
+            total=retries,
+            read=retries,
+            connect=retries,
+            backoff_factor=0.3,
+            status_forcelist=(500, 502, 503, 504),
+            method_whitelist=False,  # allow post retry
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        return session
+
+    def _start_reqbuff_timer(self):
+        """Periodically check and send buffer"""
+        self.reqbuff_timer = ReqBufferTimer(self.reqbuff_interval, self.flush)
+        # terminate timer on exit
+        self.reqbuff_timer.daemon = True
+        self.reqbuff_timer.start()
+
+    def emit(self, record):
+        """Write logging events to buffer"""
+        if len(self.reqbuffer) >= self.qdepth:
+            self.reqbuffer.popleft()
+
+        self.reqbuffer.append(record)
+
+    def flush(self):
+        """Flush and post buffer"""
+        try:
+            # atomic queue iteration
+            for record in list(self.reqbuffer):
+                self.session.post(
+                    url=self.url, json=self.format(record), timeout=5
+                )
+        except (requests.RequestException, HTTPError) as error:
+            logger.debug(error)
+
+            return  # preserve buffer
+
+        self.reqbuffer.clear()
+
+    def close(self):
+        """Cleanup on handler close"""
+        self.reqbuff_timer.cancel()
+
+
+class ReqBufferFormatter(logging.Formatter):
+    """Format logging messages"""
+
+    def format(self, record):
+        return {"log": [record.getMessage()]}
 
 
 def start_agent():
@@ -77,6 +166,16 @@ def configure_logging(config):
     )
     file_log.setFormatter(logfmt)
     logger.addHandler(file_log)
+    # requests logging
+    # inherit from logger __name__
+    req_logger = logging.getLogger()
+    request_formatter = ReqBufferFormatter()
+    request_handler = ReqBufferHandler(
+        config.get("agent_id"), config.get("server_address")
+    )
+    request_handler.setFormatter(request_formatter)
+    req_logger.addHandler(request_handler)
+    req_logger.setLevel(log_level)
     if not config.get("logging_quiet"):
         console_log = logging.StreamHandler()
         console_log.setFormatter(logfmt)
