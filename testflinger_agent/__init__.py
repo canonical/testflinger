@@ -91,7 +91,8 @@ class ReqBufferHandler(logging.Handler):
     def flush(self):
         """Flush and post buffer"""
         try:
-            for record in self.reqbuffer:
+            # atomic queue iteration
+            for record in list(self.reqbuffer):
                 self.session.post(
                     url=self.url, json=self.format(record), timeout=3
                 )
