@@ -34,10 +34,8 @@ class TestflingerAgent:
             "advertised_queues", {}
         )
         self.advertised_images = self.client.config.get("advertised_images")
-        location = self.client.config.get("location")
+        location = self.client.config.get("location", "")
         if self.advertised_queues or location:
-            if not location:
-                location = ""
             self.client.post_agent_data(
                 {"queues": self.advertised_queues, "location": location}
             )
@@ -59,8 +57,14 @@ class TestflingerAgent:
                     self.client.post_images(self.advertised_images)
             time.sleep(120)
 
+    def _post_agent_data(self, data):
+        try:
+            self.client.post_agent_data(data)
+        except Exception:
+            pass
+
     def set_state(self, state):
-        self.client.post_agent_data({"state": state})
+        self._post_agent_data({"state": state})
         self._state.value = state.encode("utf-8")
 
     def get_offline_files(self):

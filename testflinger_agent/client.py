@@ -21,6 +21,7 @@ import tempfile
 import time
 
 from urllib.parse import urljoin
+from urllib3.exceptions import HTTPError
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
@@ -47,6 +48,7 @@ class TestflingerClient:
             connect=retries,
             backoff_factor=0.3,
             status_forcelist=(500, 502, 503, 504),
+            method_whitelist=False,  # allow post retry
         )
         adapter = HTTPAdapter(max_retries=retry)
         session.mount("http://", adapter)
@@ -263,5 +265,5 @@ class TestflingerClient:
         agent_data_url = urljoin(agent_data_uri, agent)
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
-        except Exception as e:
-            logger.exception(e)
+        except (requests.RequestException, HTTPError) as error:
+            logger.exception(error)
