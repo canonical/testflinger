@@ -57,14 +57,8 @@ class TestflingerAgent:
                     self.client.post_images(self.advertised_images)
             time.sleep(120)
 
-    def _post_agent_data(self, data):
-        try:
-            self.client.post_agent_data(data)
-        except Exception:
-            pass
-
     def set_state(self, state):
-        self._post_agent_data({"state": state})
+        self.client.post_agent_data({"state": state})
         self._state.value = state.encode("utf-8")
 
     def get_offline_files(self):
