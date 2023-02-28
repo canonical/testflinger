@@ -94,7 +94,7 @@ class ReqBufferHandler(logging.Handler):
             # atomic queue iteration
             for record in list(self.reqbuffer):
                 self.session.post(
-                    url=self.url, json=self.format(record), timeout=3
+                    url=self.url, json=self.format(record), timeout=5
                 )
         except (requests.RequestException, HTTPError) as error:
             logger.debug(error)
