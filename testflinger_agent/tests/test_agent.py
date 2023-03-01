@@ -27,6 +27,7 @@ class TestClient:
             "logging_basedir": self.tmpdir,
             "results_basedir": os.path.join(self.tmpdir, "results"),
             "test_string": "ThisIsATest",
+            "location": "foo",
         }
         testflinger_agent.configure_logging(self.config)
         client = _TestflingerClient(self.config)

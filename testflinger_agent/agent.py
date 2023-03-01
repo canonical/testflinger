@@ -136,11 +136,11 @@ class TestflingerAgent:
             try:
                 job = TestflingerJob(job_data, self.client)
                 logger.info("Starting job %s", job.job_id)
-                self.client.post_agent_data({"job_id": job.job_id})
                 rundir = os.path.join(
                     self.client.config.get("execution_basedir"), job.job_id
                 )
                 os.makedirs(rundir)
+                self.client.post_agent_data({"job_id": job.job_id})
                 # Dump the job data to testflinger.json in our execution dir
                 with open(os.path.join(rundir, "testflinger.json"), "w") as f:
                     json.dump(job_data, f)
