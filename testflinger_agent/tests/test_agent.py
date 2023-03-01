@@ -188,7 +188,7 @@ class TestClient:
             "state": "foo",
             "job_id": job_id,
             "location": self.config.get("location"),
-            "queues": self.config.get("job_queues")
+            "queues": self.config.get("job_queues"),
         }
         # In this case we are making sure that the repost job request
         # gets good status
@@ -203,10 +203,9 @@ class TestClient:
                 text="{}",
             )
             m.post(
-                "http://127.0.0.1:8000/v1/agents/data/" + self.config.get(
-                    "agent_id"
-                ),
-                json=fake_agent_data
+                "http://127.0.0.1:8000/v1/agents/data/"
+                + self.config.get("agent_id"),
+                json=fake_agent_data,
             )
             mpost_job_json = m.post(
                 "http://127.0.0.1:8000/v1/job", json={"job_id": job_id}
