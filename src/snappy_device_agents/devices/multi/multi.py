@@ -48,6 +48,12 @@ class Multi:
         # Wait for all jobs to reach the "allocated" state
         unallocated = self.jobs.copy()
 
+        # Set default timeout to allocate all devices to 2 hours
+        allocation_timeout = self.job_data.get(
+            "allocation_timeout", 2 * 60 * 60
+        )
+        start_time = time.time()
+
         while unallocated:
             time.sleep(10)
             for job in unallocated:
@@ -61,7 +67,13 @@ class Multi:
                         job,
                     )
                     self.cancel_jobs()
-                    raise ProvisioningError("Unable to allocate all jobs")
+                    raise ProvisioningError("Unable to allocate all devices")
+            # Timeout if we've been waiting too long for devices to allocate
+            if time.time() - start_time > allocation_timeout:
+                self.cancel_jobs()
+                raise ProvisioningError(
+                    "Timed out waiting for devices to allocate"
+                )
 
     def create_jobs(self):
         """Create the jobs for the multi-device agent"""
