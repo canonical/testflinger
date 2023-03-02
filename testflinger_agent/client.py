@@ -21,9 +21,9 @@ import tempfile
 import time
 
 from urllib.parse import urljoin
-from urllib3.exceptions import HTTPError
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from requests.exceptions import RequestException
 
 from testflinger_agent.errors import TFServerError
 
@@ -71,8 +71,8 @@ class TestflingerClient:
                 return job_request.json()
             else:
                 return None
-        except Exception as e:
-            logger.exception(e)
+        except RequestException as exc:
+            logger.error(exc)
             # Wait a little extra before trying again
             time.sleep(60)
 
@@ -99,9 +99,9 @@ class TestflingerClient:
         self.post_live_output(job_id, job_output)
         try:
             job_request = self.session.post(job_uri, json=job_data)
-        except Exception as e:
-            logger.exception(e)
-            raise TFServerError("other exception")
+        except RequestException as exc:
+            logger.error(exc)
+            raise TFServerError("other exception") from exc
         if not job_request:
             logger.error(
                 "Unable to re-post job to: %s (error: %s)"
@@ -121,9 +121,9 @@ class TestflingerClient:
         result_uri = urljoin(result_uri, job_id)
         try:
             job_request = requests.post(result_uri, json=data, timeout=30)
-        except Exception as e:
-            logger.exception(e)
-            raise TFServerError("other exception")
+        except RequestException as exc:
+            logger.error(exc)
+            raise TFServerError("other exception") from exc
         if not job_request:
             logger.error(
                 "Unable to post results to: %s (error: %s)"
@@ -144,8 +144,8 @@ class TestflingerClient:
         result_uri = urljoin(result_uri, job_id)
         try:
             job_request = requests.get(result_uri, timeout=30)
-        except Exception as e:
-            logger.exception(e)
+        except RequestException as exc:
+            logger.error(exc)
             return {}
         if not job_request:
             logger.error(
@@ -225,8 +225,8 @@ class TestflingerClient:
             job_request = requests.post(
                 output_uri, data=data.encode("utf-8"), timeout=60
             )
-        except Exception as e:
-            logger.exception(e)
+        except RequestException as exc:
+            logger.error(exc)
             return False
         return bool(job_request)
 
@@ -239,8 +239,8 @@ class TestflingerClient:
         queues_uri = urljoin(self.server, "/v1/agents/queues")
         try:
             requests.post(queues_uri, json=data, timeout=30)
-        except Exception as e:
-            logger.exception(e)
+        except RequestException as exc:
+            logger.error(exc)
 
     def post_images(self, data):
         """Post the list of advertised images to testflinger server
@@ -251,8 +251,8 @@ class TestflingerClient:
         images_uri = urljoin(self.server, "/v1/agents/images")
         try:
             requests.post(images_uri, json=data, timeout=30)
-        except Exception as e:
-            logger.exception(e)
+        except RequestException as exc:
+            logger.error(exc)
 
     def post_agent_data(self, data):
         """Post the relevant data points to testflinger server
@@ -265,5 +265,5 @@ class TestflingerClient:
         agent_data_url = urljoin(agent_data_uri, agent)
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
-        except (requests.RequestException, HTTPError) as error:
-            logger.exception(error)
+        except RequestException as exc:
+            logger.error(exc)
