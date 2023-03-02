@@ -90,18 +90,17 @@ class ReqBufferHandler(logging.Handler):
 
     def flush(self):
         """Flush and post buffer"""
-        try:
-            # atomic queue iteration
-            for record in list(self.reqbuffer):
+        for record in list(self.reqbuffer):
+            try:
                 self.session.post(
                     url=self.url, json=self.format(record), timeout=5
                 )
-        except (requests.RequestException, HTTPError) as error:
-            logger.debug(error)
+            except (requests.RequestException, HTTPError) as error:
+                logger.debug(error)
 
-            return  # preserve buffer
+                return  # preserve buffer
 
-        self.reqbuffer.clear()
+            self.reqbuffer.popleft()
 
     def close(self):
         """Cleanup on handler close"""
