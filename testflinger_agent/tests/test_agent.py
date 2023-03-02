@@ -27,7 +27,6 @@ class TestClient:
             "logging_basedir": self.tmpdir,
             "results_basedir": os.path.join(self.tmpdir, "results"),
             "test_string": "ThisIsATest",
-            "location": "foo",
         }
         testflinger_agent.configure_logging(self.config)
         client = _TestflingerClient(self.config)
@@ -182,14 +181,6 @@ class TestClient:
             "provision_data": {"url": "foo"},
             "test_data": {"test_cmds": "foo"},
         }
-        fake_agent_data = {
-            "agent": self.config.get("agent_id"),
-            "log": "foo",
-            "state": "foo",
-            "job_id": job_id,
-            "location": self.config.get("location"),
-            "queues": self.config.get("job_queues"),
-        }
         # In this case we are making sure that the repost job request
         # gets good status
         with rmock.Mocker() as m:
@@ -205,11 +196,12 @@ class TestClient:
             m.post(
                 "http://127.0.0.1:8000/v1/agents/data/"
                 + self.config.get("agent_id"),
-                json=fake_agent_data,
+                text="OK",
             )
             mpost_job_json = m.post(
                 "http://127.0.0.1:8000/v1/job", json={"job_id": job_id}
             )
+
             agent.process_jobs()
             assert agent.check_offline()
             # These are the args we would expect when it reposts the job
