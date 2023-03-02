@@ -21,6 +21,7 @@ import tempfile
 import time
 
 from urllib.parse import urljoin
+from urllib3.exceptions import HTTPError
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
@@ -37,6 +38,7 @@ class TestflingerClient:
         )
         if not self.server.lower().startswith("http"):
             self.server = "http://" + self.server
+        self.session = self._requests_retry(retries=5)
 
     def _requests_retry(self, retries=3):
         session = requests.Session()
@@ -46,6 +48,7 @@ class TestflingerClient:
             connect=retries,
             backoff_factor=0.3,
             status_forcelist=(500, 502, 503, 504),
+            allowed_methods=False,  # allow retry on all methods
         )
         adapter = HTTPAdapter(max_retries=retry)
         session.mount("http://", adapter)
@@ -95,8 +98,7 @@ class TestflingerClient:
         )
         self.post_live_output(job_id, job_output)
         try:
-            session = self._requests_retry(retries=5)
-            job_request = session.post(job_uri, json=job_data)
+            job_request = self.session.post(job_uri, json=job_data)
         except Exception as e:
             logger.exception(e)
             raise TFServerError("other exception")
@@ -251,3 +253,17 @@ class TestflingerClient:
             requests.post(images_uri, json=data, timeout=30)
         except Exception as e:
             logger.exception(e)
+
+    def post_agent_data(self, data):
+        """Post the relevant data points to testflinger server
+
+        :param data:
+            dict of various agent data points to send to the api server
+        """
+        agent = self.config.get("agent_id")
+        agent_data_uri = urljoin(self.server, "/v1/agents/data/")
+        agent_data_url = urljoin(agent_data_uri, agent)
+        try:
+            self.session.post(agent_data_url, json=data, timeout=30)
+        except (requests.RequestException, HTTPError) as error:
+            logger.exception(error)

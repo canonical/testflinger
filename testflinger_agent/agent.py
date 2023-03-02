@@ -30,8 +30,15 @@ class TestflingerAgent:
         self.client = client
         self._state = multiprocessing.Array("c", 16)
         self.set_state("waiting")
-        self.advertised_queues = self.client.config.get("advertised_queues")
+        self.advertised_queues = self.client.config.get(
+            "advertised_queues", {}
+        )
         self.advertised_images = self.client.config.get("advertised_images")
+        location = self.client.config.get("location", "")
+        if self.advertised_queues or location:
+            self.client.post_agent_data(
+                {"queues": self.advertised_queues, "location": location}
+            )
         if self.advertised_queues or self.advertised_images:
             self.status_proc = multiprocessing.Process(
                 target=self._status_worker
@@ -51,6 +58,7 @@ class TestflingerAgent:
             time.sleep(120)
 
     def set_state(self, state):
+        self.client.post_agent_data({"state": state})
         self._state.value = state.encode("utf-8")
 
     def get_offline_files(self):
@@ -132,6 +140,7 @@ class TestflingerAgent:
                     self.client.config.get("execution_basedir"), job.job_id
                 )
                 os.makedirs(rundir)
+                self.client.post_agent_data({"job_id": job.job_id})
                 # Dump the job data to testflinger.json in our execution dir
                 with open(os.path.join(rundir, "testflinger.json"), "w") as f:
                     json.dump(job_data, f)
@@ -196,6 +205,8 @@ class TestflingerAgent:
                         rundir,
                     ),
                 )
+                # clear job id
+                self.client.post_agent_data({"job_id": ""})
                 proc.start()
                 proc.join()
 
