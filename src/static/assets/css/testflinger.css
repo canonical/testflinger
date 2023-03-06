@@ -11,6 +11,14 @@ main {
     width: 95%;
 }
 
+table {
+    text-align: left;
+}
+
+table td {
+    padding: 2px 2px 2px 30px;
+}
+
 .center {
     margin: auto;
     padding: 10px;
@@ -72,8 +80,8 @@ main {
 }
 
 .scrollable {
-    background-color: lightgrey;
+    background-color: rgb(230, 230, 230);
     max-height: 500px;
     max-width: 80%;
-    overflow: scroll;
+    overflow: auto;
 }

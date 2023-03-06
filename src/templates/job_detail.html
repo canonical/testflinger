@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% set active_page = 'jobs' %}
+{% block content %}
+<div class="center">
+    <table>
+        <tr>
+            <th>Job ID:</th>
+            <td>{{ job.job_id }}</td>
+        </tr>
+        <tr>
+            <th>Queue:</th>
+            <td>{{ job.job_data.job_queue }}</td>
+        </tr>
+        <tr>
+            <th>State:</th>
+            <td>{{ job.result_data.job_state }}</td>
+        </tr>
+        <tr>
+            <th>Created At:</th>
+            <td>{{ job.created_at }}</td>
+        </tr>
+    </table>
+    <br>
+
+    <hr>
+    provision_data:
+    <div>
+        {{ job.job_data.provision_data }}
+    </div>
+
+    <hr>
+    test_cmds:
+    <div class="center scrollable">
+        <span style="white-space: pre-line">
+            {{ job.job_data.test_data.test_cmds }}
+        </span>
+    </div>
+
+    <hr>
+    provision_status: {{ job.result_data.provision_status }}<br>
+    provision_output:
+    <div class="center scrollable">
+        <span style="white-space: pre-line">
+            {{ job.result_data.provision_output }}
+        </span>
+    </div>
+
+    <hr>
+    test_status: {{ job.result_data.test_status }}<br>
+    test_output:
+    <div class="center scrollable">
+        <span style="white-space: pre-line">
+            {{ job.result_data.test_output }}
+        </span>
+    </div>
+</div>
+<script type="text/javascript" src="/static/assets/js/filter.js"></script>
+{% endblock %}
