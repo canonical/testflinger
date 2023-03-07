@@ -155,7 +155,10 @@ def configure_logging(config):
     if not isinstance(log_level, int):
         log_level = logging.INFO
     logfmt = logging.Formatter(
-        fmt="[%(asctime)s] %(levelname)+7.7s: %(message)s",
+        fmt=(
+            "[%(asctime)s] %(levelname)+7.7s: "
+            "(%(filename)s:%(lineno)d)| %(message)s"
+        ),
         datefmt="%y-%m-%d %H:%M:%S",
     )
     log_path = os.path.join(
