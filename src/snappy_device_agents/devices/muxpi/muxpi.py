@@ -251,6 +251,15 @@ class MuxPi:
         def check_path(dir):
             self._run_control("test -e {}".format(dir))
 
+        # First check if this is a limerick image
+        try:
+            disk_info_path = self.mount_point / "writable/.disk/info"
+            self._run_control(f"grep limerick {disk_info_path}")
+            return "limerick"
+        except subprocess.CalledProcessError:
+            # Not a limerick image
+            pass
+
         for path, img_type in self.IMAGE_PATH_IDS.items():
             try:
                 path = self.mount_point / path
@@ -306,17 +315,22 @@ class MuxPi:
         )
 
         base = self.mount_point
+        remote_tmp = Path("/tmp") / self.agent_name
         try:
+            data_path = Path(__file__).parent / "../../data"
+            if image_type == "limerick":
+                self._copy_to_control(
+                    data_path / "limerick/user-data", remote_tmp
+                )
+                cmd = f"sudo cp {remote_tmp}/user-data {base}/system-boot/"
+                self._run_control(cmd)
             if image_type == "pi-desktop":
                 # make a spot to scp files to
-                remote_tmp = Path("/tmp") / self.agent_name
                 self._run_control("mkdir -p {}".format(remote_tmp))
-
-                data_path = Path(__file__).parent / "../../data/pi-desktop"
 
                 # Override oem-config so that it uses the preseed
                 self._copy_to_control(
-                    data_path / "oem-config.service", remote_tmp
+                    data_path / "pi-desktop/oem-config.service", remote_tmp
                 )
                 cmd = (
                     "sudo cp {}/oem-config.service "
@@ -326,7 +340,9 @@ class MuxPi:
                 self._run_control(cmd)
 
                 # Copy the preseed
-                self._copy_to_control(data_path / "preseed.cfg", remote_tmp)
+                self._copy_to_control(
+                    data_path / "pi-desktop/preseed.cfg", remote_tmp
+                )
                 cmd = "sudo cp {}/preseed.cfg {}/writable/preseed.cfg".format(
                     remote_tmp, self.mount_point
                 )
