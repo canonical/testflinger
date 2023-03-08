@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% set active_page = 'queues' %}
+{% block content %}
+<div class="general-info center">
+    <table>
+        <tr>
+            <th>Queue Name:</th>
+            <td>{{ queue.name }}</td>
+        </tr>
+        <tr>
+            <th>Description:</th>
+            <td>{{ queue.description }}</td>
+        </tr>
+    </table>
+</div>
+<br>
+<br>
+<div class="filter-table center">
+    <table width="100%">
+        <tr>
+            <th>Job ID</th>
+            <th>State</th>
+            <th>Created At</th>
+        </tr>
+        {% for job in jobs %}
+        <tr class="tr-highlight">
+            <td><a href="/jobs/{{ job.job_id}}">{{ job.job_id }}</a></td>
+            <td>{{ job.result_data.job_state }}</td>
+            <td>{{ job.created_at }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

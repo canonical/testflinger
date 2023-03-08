@@ -96,3 +96,24 @@ def queues():
         ]
     )
     return render_template("queues.html", queues=queue_data)
+
+
+@views.route("/queues/<queue_id>")
+def queue_detail(queue_id):
+    """Queue detailed view"""
+    queue_data = mongo.db.queues.find_one({"name": queue_id})
+    if not queue_data:
+        # If it's not an advertised queue, create some dummy data
+        queue_data = {"name": queue_id, "description": "No description"}
+
+    # Find all the jobs active jobs in this queue
+    job_data = mongo.db.jobs.find(
+        {
+            "job_data.job_queue": queue_id,
+            "result_data.job_state": {"$nin": ["complete", "cancelled"]},
+        }
+    )
+
+    return render_template(
+        "queue_detail.html", queue=queue_data, jobs=job_data
+    )
