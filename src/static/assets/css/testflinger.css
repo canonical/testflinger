@@ -11,11 +11,11 @@ main {
     width: 95%;
 }
 
-table {
+.general-info table {
     text-align: left;
 }
 
-table td {
+.general-info table td {
     padding: 2px 2px 2px 30px;
 }
 
@@ -77,6 +77,10 @@ table td {
     color: white;
     text-align: left;
     text-decoration: underline;
+}
+
+.filter-table table td {
+    text-align: left;
 }
 
 .scrollable {
