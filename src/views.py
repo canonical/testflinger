@@ -1,4 +1,4 @@
-# Copyright (C) 2022 Canonical
+# Copyright (C) 2023 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -42,6 +42,13 @@ def jobs():
     """Jobs view"""
     jobs_data = mongo.db.jobs.find()
     return render_template("jobs.html", jobs=jobs_data)
+
+
+@views.route("/jobs/<job_id>")
+def job_detail(job_id):
+    """Job detail view"""
+    job_data = mongo.db.jobs.find_one({"job_id": job_id})
+    return render_template("job_detail.html", job=job_data)
 
 
 @views.route("/queues")

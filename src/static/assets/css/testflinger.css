@@ -11,6 +11,14 @@ main {
     width: 95%;
 }
 
+.general-info table {
+    text-align: left;
+}
+
+.general-info table td {
+    padding: 2px 2px 2px 30px;
+}
+
 .center {
     margin: auto;
     padding: 10px;
@@ -71,9 +79,13 @@ main {
     text-decoration: underline;
 }
 
+.filter-table table td {
+    text-align: left;
+}
+
 .scrollable {
-    background-color: lightgrey;
+    background-color: rgb(230, 230, 230);
     max-height: 500px;
     max-width: 80%;
-    overflow: scroll;
+    overflow: auto;
 }
