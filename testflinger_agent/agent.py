@@ -113,11 +113,6 @@ class TestflingerAgent:
                     )
                     break
 
-    def check_job_state(self, job_id):
-        job_data = self.client.get_result(job_id)
-        if job_data:
-            return job_data.get("job_state")
-
     def mark_device_offline(self):
         # Create the offline file, this should work even if it exists
         open(self.get_offline_files()[0], "w").close()
@@ -152,7 +147,7 @@ class TestflingerAgent:
 
                 for phase in TEST_PHASES:
                     # First make sure the job hasn't been cancelled
-                    if self.check_job_state(job.job_id) == "cancelled":
+                    if self.client.check_job_state(job.job_id) == "cancelled":
                         logger.info("Job cancellation was requested, exiting.")
                         break
                     # Try to update the job_state on the testflinger server
@@ -174,7 +169,8 @@ class TestflingerAgent:
                     while proc.is_alive():
                         proc.join(10)
                         if (
-                            self.check_job_state(job.job_id) == "cancelled"
+                            self.client.check_job_state(job.job_id)
+                            == "cancelled"
                             and phase != "provision"
                         ):
                             logger.info(
