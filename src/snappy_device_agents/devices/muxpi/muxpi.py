@@ -17,10 +17,10 @@
 import json
 import logging
 import multiprocessing
-import os
 import subprocess
 import time
 from contextlib import contextmanager
+from pathlib import Path
 
 import yaml
 
@@ -48,7 +48,7 @@ class MuxPi:
         with open(job_data) as j:
             self.job_data = json.load(j)
         self.agent_name = self.config.get("agent_name")
-        self.mount_point = os.path.join("/mnt", self.agent_name)
+        self.mount_point = Path("/mnt") / self.agent_name
 
     def _run_control(self, cmd, timeout=60):
         """
@@ -195,7 +195,7 @@ class MuxPi:
         lsblk_json = json.loads(lsblk_data.decode())
         # List of (name, label) pairs
         return [
-            (x.get("name"), os.path.join(self.mount_point, x.get("label")))
+            (x.get("name"), self.mount_point / x.get("label"))
             for x in lsblk_json["blockdevices"][0]["children"]
             if x.get("name") and x.get("label")
         ]
@@ -253,7 +253,7 @@ class MuxPi:
 
         for path, img_type in self.IMAGE_PATH_IDS.items():
             try:
-                path = os.path.join(self.mount_point, path)
+                path = self.mount_point / path
                 check_path(path)
                 logger.info("Image type detected: {}".format(img_type))
                 return img_type
@@ -309,16 +309,14 @@ class MuxPi:
         try:
             if image_type == "pi-desktop":
                 # make a spot to scp files to
-                remote_tmp = os.path.join("/tmp", self.agent_name)
+                remote_tmp = Path("/tmp") / self.agent_name
                 self._run_control("mkdir -p {}".format(remote_tmp))
 
-                data_path = os.path.join(
-                    os.path.dirname(__file__), "../../data/pi-desktop"
-                )
+                data_path = Path(__file__).parent / "../../data/pi-desktop"
 
                 # Override oem-config so that it uses the preseed
                 self._copy_to_control(
-                    os.path.join(data_path, "oem-config.service"), remote_tmp
+                    data_path / "oem-config.service", remote_tmp
                 )
                 cmd = (
                     "sudo cp {}/oem-config.service "
@@ -328,9 +326,7 @@ class MuxPi:
                 self._run_control(cmd)
 
                 # Copy the preseed
-                self._copy_to_control(
-                    os.path.join(data_path, "preseed.cfg"), remote_tmp
-                )
+                self._copy_to_control(data_path / "preseed.cfg", remote_tmp)
                 cmd = "sudo cp {}/preseed.cfg {}/writable/preseed.cfg".format(
                     remote_tmp, self.mount_point
                 )
@@ -360,8 +356,8 @@ class MuxPi:
                 )
                 return
             if image_type == "core20":
-                base = os.path.join(self.mount_point, "ubuntu-seed")
-                ci_path = os.path.join(base, "data/etc/cloud/cloud.cfg.d")
+                base = self.mount_point / "ubuntu-seed"
+                ci_path = base / "data/etc/cloud/cloud.cfg.d"
                 self._run_control("sudo mkdir -p {}".format(ci_path))
                 write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
                 self._run_control(
@@ -369,12 +365,12 @@ class MuxPi:
                 )
             else:
                 # For core or ubuntu classic images
-                base = os.path.join(self.mount_point, "writable")
+                base = self.mount_point / "writable"
                 if image_type == "core":
-                    base = os.path.join(base, "system-data")
+                    base = base / "system-data"
                 if image_type == "ubuntu-cpc":
-                    base = os.path.join(self.mount_point, "cloudimg-rootfs")
-                ci_path = os.path.join(base, "var/lib/cloud/seed/nocloud-net")
+                    base = self.mount_point / "cloudimg-rootfs"
+                ci_path = base / "var/lib/cloud/seed/nocloud-net"
                 self._run_control("sudo mkdir -p {}".format(ci_path))
                 write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
                 self._run_control(
@@ -387,9 +383,7 @@ class MuxPi:
                     # This needs to be removed on classic for rpi, else
                     # cloud-init won't find the user-data we give it
                     rm_cmd = "sudo rm -f {}".format(
-                        os.path.join(
-                            base, "etc/cloud/cloud.cfg.d/99-fake?cloud.cfg"
-                        )
+                        base / "etc/cloud/cloud.cfg.d/99-fake?cloud.cfg"
                     )
                     self._run_control(rm_cmd)
         except Exception:
