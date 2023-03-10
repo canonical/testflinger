@@ -256,7 +256,7 @@ class MuxPi:
             disk_info_path = self.mount_point / "writable/.disk/info"
             self._run_control(f"grep limerick {disk_info_path}")
             return "limerick"
-        except subprocess.CalledProcessError:
+        except ProvisioningError:
             # Not a limerick image
             pass
 
