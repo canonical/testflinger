@@ -319,6 +319,7 @@ class MuxPi:
         try:
             data_path = Path(__file__).parent / "../../data"
             if image_type == "limerick":
+                self._run_control("mkdir -p {}".format(remote_tmp))
                 self._copy_to_control(
                     data_path / "limerick/user-data", remote_tmp
                 )
