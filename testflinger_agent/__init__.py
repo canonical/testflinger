@@ -67,7 +67,7 @@ class ReqBufferHandler(logging.Handler):
             connect=retries,
             backoff_factor=0.3,
             status_forcelist=(500, 502, 503, 504),
-            method_whitelist=False,  # allow post retry
+            allowed_methods=False,  # allow retry on all methods
         )
         adapter = HTTPAdapter(max_retries=retry)
         session.mount("http://", adapter)
