@@ -21,7 +21,6 @@ import time
 
 import yaml
 
-from snappy_device_agents import CmdTimeoutError
 from snappy_device_agents.devices import ProvisioningError, RecoveryError
 
 logger = logging.getLogger()
@@ -32,12 +31,12 @@ class OemRecovery:
     """Device Agent for OEM Recovery."""
 
     def __init__(self, config, job_data):
-        with open(config) as configfile:
+        with open(config, encoding="utf-8") as configfile:
             self.config = yaml.safe_load(configfile)
-        with open(job_data) as j:
-            self.job_data = json.load(j)
+        with open(job_data, encoding="utf-8") as job_json:
+            self.job_data = json.load(job_json)
 
-    def _run_device(self, cmd, timeout=60):
+    def run_on_control_host(self, cmd, timeout=60):
         """
         Run a command on the control host over ssh
 
@@ -46,7 +45,7 @@ class OemRecovery:
         :param timeout:
             Timeout (default 60)
         :returns:
-            Return output from the command, if any
+            returncode, stdout
         """
         try:
             test_username = self.job_data.get("test_data", {}).get(
@@ -60,16 +59,17 @@ class OemRecovery:
             "StrictHostKeyChecking=no",
             "-o",
             "UserKnownHostsFile=/dev/null",
-            "{}@{}".format(test_username, self.config["device_ip"]),
+            f"{test_username}@{self.config['device_ip']}",
             cmd,
         ]
-        try:
-            output = subprocess.check_output(
-                ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout
-            )
-        except subprocess.CalledProcessError as e:
-            raise ProvisioningError(e.output)
-        return output
+        proc = subprocess.run(
+            ssh_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=timeout,
+            check=False,
+        )
+        return proc.returncode, proc.stdout
 
     def provision(self):
         """Provision the device"""
@@ -87,6 +87,7 @@ class OemRecovery:
         self.check_device_booted()
 
     def copy_ssh_id(self):
+        """Copy the ssh id to the device"""
         try:
             test_username = self.job_data.get("test_data", {}).get(
                 "test_username", "ubuntu"
@@ -106,11 +107,12 @@ class OemRecovery:
             "StrictHostKeyChecking=no",
             "-o",
             "UserKnownHostsFile=/dev/null",
-            "{}@{}".format(test_username, self.config["device_ip"]),
+            f"{test_username}@{self.config['device_ip']}",
         ]
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
 
     def check_device_booted(self):
+        """Check to see if the device is booted and reachable with ssh"""
         logger.info("Checking to see if the device is available.")
         started = time.time()
         # Wait for provisioning to complete - can take a very long time
@@ -119,7 +121,7 @@ class OemRecovery:
                 time.sleep(90)
                 self.copy_ssh_id()
                 return True
-            except Exception:
+            except subprocess.SubprocessError:
                 pass
         # If we get here, then we didn't boot in time
         agent_name = self.config.get("agent_name")
@@ -140,9 +142,15 @@ class OemRecovery:
         for cmd in cmdlist:
             logger.info("Running %s", cmd)
             try:
-                output = self._run_device(cmd, timeout=600)
-            except CmdTimeoutError:
-                raise ProvisioningError("timeout reaching control host!")
+                return_code, output = self.run_on_control_host(
+                    cmd, timeout=600
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise ProvisioningError(
+                    "timeout reaching control host!"
+                ) from exc
+            if return_code:
+                raise ProvisioningError(output)
             logger.info(output)
 
     def hardreset(self):
@@ -160,5 +168,5 @@ class OemRecovery:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
-            except Exception:
-                raise RecoveryError("timeout reaching control host!")
+            except subprocess.SubprocessError as exc:
+                raise RecoveryError("Error running reboot script!") from exc
