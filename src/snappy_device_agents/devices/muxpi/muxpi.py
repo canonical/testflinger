@@ -324,6 +324,7 @@ class MuxPi:
                 )
                 cmd = f"sudo cp {remote_tmp}/user-data {base}/system-boot/"
                 self._run_control(cmd)
+                self._configure_sudo()
             if image_type == "pi-desktop":
                 # make a spot to scp files to
                 self._run_control("mkdir -p {}".format(remote_tmp))
@@ -360,16 +361,7 @@ class MuxPi:
                 )
                 self._run_control(cmd)
 
-                # Setup sudoers data
-                sudo_data = "ubuntu ALL=(ALL) NOPASSWD:ALL"
-                sudo_path = "{}/writable/etc/sudoers.d/ubuntu".format(
-                    self.mount_point
-                )
-                self._run_control(
-                    "sudo bash -c \"echo '{}' > {}\"".format(
-                        sudo_data, sudo_path
-                    )
-                )
+                self._configure_sudo()
                 return
             if image_type == "core20":
                 base = self.mount_point / "ubuntu-seed"
@@ -404,6 +396,14 @@ class MuxPi:
                     self._run_control(rm_cmd)
         except Exception:
             raise ProvisioningError("Error creating user files")
+
+    def _configure_sudo(self):
+        # Setup sudoers data
+        sudo_data = "ubuntu ALL=(ALL) NOPASSWD:ALL"
+        sudo_path = "{}/writable/etc/sudoers.d/ubuntu".format(self.mount_point)
+        self._run_control(
+            "sudo bash -c \"echo '{}' > {}\"".format(sudo_data, sudo_path)
+        )
 
     def check_test_image_booted(self):
         logger.info("Checking if test image booted.")
