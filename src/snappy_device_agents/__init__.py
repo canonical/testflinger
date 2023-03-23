@@ -277,9 +277,10 @@ def configure_logging(config):
             return True
 
     logging.basicConfig(
+        level=logging.INFO,
         format="%(asctime)s %(agent_name)s %(levelname)s: "
         "DEVICE AGENT: "
-        "%(message)s"
+        "%(message)s",
     )
     agent_name = config.get("agent_name", "")
     logger.addFilter(AgentFilter(agent_name))
