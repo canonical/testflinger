@@ -29,7 +29,7 @@ class TestflingerAgent:
     def __init__(self, client):
         self.client = client
         self._state = multiprocessing.Array("c", 16)
-        self.set_state("waiting")
+        self.set_agent_state("waiting")
         self.advertised_queues = self.client.config.get(
             "advertised_queues", {}
         )
@@ -57,7 +57,8 @@ class TestflingerAgent:
                     self.client.post_images(self.advertised_images)
             time.sleep(120)
 
-    def set_state(self, state):
+    def set_agent_state(self, state):
+        """Send the agent state to the server"""
         self.client.post_agent_data({"state": state})
         self._state.value = state.encode("utf-8")
 
@@ -93,9 +94,9 @@ class TestflingerAgent:
         possible_files = self.get_offline_files()
         for offline_file in possible_files:
             if os.path.exists(offline_file):
-                self.set_state("offline")
+                self.set_agent_state("offline")
                 return offline_file
-        self.set_state("waiting")
+        self.set_agent_state("waiting")
         return ""
 
     def check_restart(self):
@@ -105,7 +106,7 @@ class TestflingerAgent:
                 try:
                     os.unlink(restart_file)
                     logger.info("Restarting agent")
-                    self.set_state("offline")
+                    self.set_agent_state("offline")
                     raise SystemExit("Restart Requested")
                 except OSError:
                     logger.error(
@@ -150,14 +151,8 @@ class TestflingerAgent:
                     if self.client.check_job_state(job.job_id) == "cancelled":
                         logger.info("Job cancellation was requested, exiting.")
                         break
-                    # Try to update the job_state on the testflinger server
-                    try:
-                        self.client.post_result(
-                            job.job_id, {"job_state": phase}
-                        )
-                    except TFServerError:
-                        pass
-                    self.set_state(phase)
+                    self.post_job_state(job.job_id, phase)
+                    self.set_agent_state(phase)
                     exitcode = job.run_test_phase(phase, rundir)
 
                     # exit code 46 is our indication that recovery failed!
@@ -188,13 +183,20 @@ class TestflingerAgent:
                 logger.exception(e)
                 results_basedir = self.client.config.get("results_basedir")
                 shutil.move(rundir, results_basedir)
-            self.set_state("waiting")
+            self.set_agent_state("waiting")
 
             self.check_restart()
             if self.check_offline():
                 # Don't get a new job if we are now marked offline
                 break
             job_data = self.client.check_jobs()
+
+    def post_job_state(self, job_id, phase):
+        """Update the job_state on the testflinger server"""
+        try:
+            self.client.post_result(job_id, {"job_state": phase})
+        except TFServerError:
+            pass
 
     def retry_old_results(self):
         """Retry sending results that we previously failed to send"""
