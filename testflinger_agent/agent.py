@@ -153,7 +153,26 @@ class TestflingerAgent:
                         break
                     self.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase)
-                    exitcode = job.run_test_phase(phase, rundir)
+                    proc = multiprocessing.Process(
+                        target=job.run_test_phase,
+                        args=(
+                            phase,
+                            rundir,
+                        ),
+                    )
+                    proc.start()
+                    while proc.is_alive():
+                        proc.join(10)
+                        if (
+                            self.client.check_job_state(job.job_id)
+                            == "cancelled"
+                            and phase != "provision"
+                        ):
+                            logger.info(
+                                "Job cancellation was requested, exiting."
+                            )
+                            proc.terminate()
+                    exitcode = proc.exitcode
 
                     # exit code 46 is our indication that recovery failed!
                     # In this case, we need to mark the device offline
@@ -170,9 +189,17 @@ class TestflingerAgent:
                 logger.exception(e)
             finally:
                 # Always run the cleanup, even if the job was cancelled
-                job.run_test_phase("cleanup", rundir)
+                proc = multiprocessing.Process(
+                    target=job.run_test_phase,
+                    args=(
+                        "cleanup",
+                        rundir,
+                    ),
+                )
                 # clear job id
                 self.client.post_agent_data({"job_id": ""})
+                proc.start()
+                proc.join()
 
             try:
                 self.client.transmit_job_outcome(rundir)

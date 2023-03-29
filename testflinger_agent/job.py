@@ -16,6 +16,7 @@ import fcntl
 import json
 import logging
 import os
+import select
 import signal
 import sys
 import subprocess
@@ -81,7 +82,7 @@ class TestflingerJob:
             self._update_phase_results(
                 results_file, phase, exitcode, output_log, serial_log
             )
-        return exitcode
+        sys.exit(exitcode)
 
     def _update_phase_results(
         self, results_file, phase, exitcode, output_log, serial_log
@@ -152,6 +153,7 @@ class TestflingerJob:
         start_time = time.time()
         with open(logfile, "a", encoding="utf-8") as f:
             live_output_buffer = ""
+            readpoll = select.poll()
             buffer_timeout = time.time()
             process = subprocess.Popen(
                 cmd,
@@ -167,21 +169,19 @@ class TestflingerJob:
 
             signal.signal(signal.SIGTERM, cleanup)
             set_nonblock(process.stdout.fileno())
-
-            while True:
-                line = process.stdout.readline()
-                if not line and process.poll() is not None:
-                    # Process exited
-                    break
-
-                if line:
-                    # Write the latest output to the log file, stdout, and
-                    # the live output buffer
-                    buf = line.decode(sys.stdout.encoding, errors="replace")
-                    sys.stdout.write(buf)
-                    live_output_buffer += buf
-                    f.write(buf)
-                    f.flush()
+            readpoll.register(process.stdout, select.POLLIN)
+            while process.poll() is None:
+                # Check if there's any new data, timeout after 10s
+                data_ready = readpoll.poll(10000)
+                if data_ready:
+                    buf = process.stdout.read().decode(
+                        sys.stdout.encoding, errors="replace"
+                    )
+                    if buf:
+                        sys.stdout.write(buf)
+                        live_output_buffer += buf
+                        f.write(buf)
+                        f.flush()
                 else:
                     if (
                         self.phase == "test"
@@ -189,22 +189,12 @@ class TestflingerJob:
                     ):
                         buf = (
                             "\nERROR: Output timeout reached! "
-                            f"({output_timeout}s)\n"
+                            "({}s)\n".format(output_timeout)
                         )
                         live_output_buffer += buf
                         f.write(buf)
                         process.kill()
                         break
-
-                # Check if it's time to send the output buffer to the server
-                if live_output_buffer and time.time() - buffer_timeout > 10:
-                    if self.client.post_live_output(
-                        self.job_id, live_output_buffer
-                    ):
-                        live_output_buffer = ""
-                        buffer_timeout = time.time()
-
-                # Check global timeout
                 if (
                     self.phase != "reserve"
                     and time.time() - start_time > global_timeout
@@ -216,19 +206,24 @@ class TestflingerJob:
                     f.write(buf)
                     process.kill()
                     break
-
-                # Check if job was canceled
-                if (
-                    self.client.check_job_state(self.job_id) == "cancelled"
-                    and self.phase != "provision"
-                ):
-                    logger.info("Job cancellation was requested, exiting.")
-                    process.kill()
-                    break
-
+                # Don't spam the server, only flush the buffer if there
+                # is output and it's been more than 10s
+                if live_output_buffer and time.time() - buffer_timeout > 10:
+                    buffer_timeout = time.time()
+                    # Try to stream output, if we can't connect, then
+                    # keep buffer for the next pass through this
+                    if self.client.post_live_output(
+                        self.job_id, live_output_buffer
+                    ):
+                        live_output_buffer = ""
+            buf = process.stdout.read()
+            if buf:
+                buf = buf.decode(sys.stdout.encoding, errors="replace")
+                sys.stdout.write(buf)
+                live_output_buffer += buf
+                f.write(buf)
             if live_output_buffer:
                 self.client.post_live_output(self.job_id, live_output_buffer)
-
             try:
                 status = process.wait(10)  # process.returncode
             except TimeoutError:
