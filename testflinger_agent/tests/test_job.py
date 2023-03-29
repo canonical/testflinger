@@ -61,7 +61,6 @@ class TestJob:
         logfile = os.path.join(self.tmpdir, "testlog")
         fake_job_data = {"global_timeout": 1}
         requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, status_code=200)
         job = _TestflingerJob(fake_job_data, client)
         job.phase = "test"
         job.run_with_log("sleep 3", logfile)
@@ -76,7 +75,6 @@ class TestJob:
         self.config["global_timeout"] = 1
         fake_job_data = {"global_timeout": 3}
         requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, status_code=200)
         job = _TestflingerJob(fake_job_data, client)
         job.phase = "test"
         job.run_with_log("sleep 3", logfile)
@@ -90,7 +88,6 @@ class TestJob:
         logfile = os.path.join(self.tmpdir, "testlog")
         fake_job_data = {"output_timeout": 1}
         requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, status_code=200)
         job = _TestflingerJob(fake_job_data, client)
         job.phase = "test"
         # unfortunately, we need to sleep for longer that 10 seconds here
@@ -107,7 +104,6 @@ class TestJob:
         self.config["output_timeout"] = 1
         fake_job_data = {"output_timeout": 30}
         requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, status_code=200)
         job = _TestflingerJob(fake_job_data, client)
         job.phase = "test"
         # unfortunately, we need to sleep for longer that 10 seconds here
@@ -123,7 +119,6 @@ class TestJob:
         logfile = os.path.join(self.tmpdir, "testlog")
         fake_job_data = {"output_timeout": 1}
         requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, status_code=200)
         job = _TestflingerJob(fake_job_data, client)
         job.phase = "provision"
         # unfortunately, we need to sleep for longer that 10 seconds here
