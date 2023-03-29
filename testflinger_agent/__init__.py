@@ -90,17 +90,19 @@ class ReqBufferHandler(logging.Handler):
 
     def flush(self):
         """Flush and post buffer"""
-        for record in list(self.reqbuffer):
-            try:
-                self.session.post(
-                    url=self.url, json=self.format(record), timeout=5
-                )
-            except (requests.RequestException, HTTPError) as error:
-                logger.debug(error)
+        # list conversion for atomic iteration
+        records = [record.getMessage() for record in list(self.reqbuffer)]
 
-                return  # preserve buffer
+        try:
+            self.session.post(
+                url=self.url, json=self.format(records), timeout=5
+            )
+        except (requests.RequestException, HTTPError) as error:
+            logger.debug(error)
 
-            self.reqbuffer.popleft()
+            return  # preserve buffer
+
+        self.reqbuffer.clear()
 
     def close(self):
         """Cleanup on handler close"""
@@ -110,8 +112,8 @@ class ReqBufferHandler(logging.Handler):
 class ReqBufferFormatter(logging.Formatter):
     """Format logging messages"""
 
-    def format(self, record):
-        return {"log": [record.getMessage()]}
+    def format(self, records):
+        return {"log": records}
 
 
 def start_agent():
