@@ -172,6 +172,7 @@ def configure_logging(config):
     logger.addHandler(file_log)
     # requests logging
     # inherit from logger __name__
+    """ DEBUG: Temporarily disable sending agent logs to the server
     req_logger = logging.getLogger()
     request_formatter = ReqBufferFormatter()
     request_handler = ReqBufferHandler(
@@ -180,6 +181,7 @@ def configure_logging(config):
     request_handler.setFormatter(request_formatter)
     req_logger.addHandler(request_handler)
     req_logger.setLevel(log_level)
+    """
     if not config.get("logging_quiet"):
         console_log = logging.StreamHandler()
         console_log.setFormatter(logfmt)
