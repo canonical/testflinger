@@ -87,6 +87,10 @@ class Multi:
 
         logger.info("Creating test jobs")
         for job in jobs_list:
+            if not isinstance(job, dict):
+                logger.error("Job is not a dict: %s", job)
+                continue
+            job = self.inject_allocate_data(job)
             try:
                 job_id = self.client.submit_job(job)
             except OSError as exc:
@@ -98,6 +102,16 @@ class Multi:
 
             logger.info("Created job %s", job_id)
             self.jobs.append(job_id)
+
+    def inject_allocate_data(self, job):
+        """Inject the allocate_data section into the job
+
+        :param job: the job to inject the allocate data into
+        :returns: the job with the allocate_data injected
+        """
+        allocate_data = {"allocate_data": {"allocate": True}}
+        job.update(allocate_data)
+        return job
 
     def cancel_jobs(self):
         """Try to cancel any jobs that were created"""
