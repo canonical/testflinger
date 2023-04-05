@@ -13,6 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 import imp
+import json
 import logging
 import multiprocessing
 import os
@@ -137,6 +138,16 @@ class DefaultDevice:
             serial_proc.stop()
         snappy_device_agents.logmsg(logging.INFO, "END testrun")
         return exitcode
+
+    def allocate(self, args):
+        """Default method for allocating devices for multi-agent jobs"""
+        with open(args.config) as configfile:
+            config = yaml.safe_load(configfile)
+        device_ip = config["device_ip"]
+        device_info = {"device_ip": device_ip}
+        print(device_info)
+        with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
+            devinfo_file.write(json.dumps(device_info))
 
     def reserve(self, args):
         """Default method for reserving systems"""
