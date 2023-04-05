@@ -144,7 +144,7 @@ class DefaultDevice:
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         device_ip = config["device_ip"]
-        device_info = {"device_ip": device_ip}
+        device_info = {"device_info": {"device_ip": device_ip}}
         print(device_info)
         with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
             devinfo_file.write(json.dumps(device_info))
