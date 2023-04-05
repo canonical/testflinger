@@ -109,6 +109,13 @@ class TestflingerClient:
             )
             raise TFServerError(job_request.status_code)
 
+    def post_job_state(self, job_id, phase):
+        """Update the job_state on the testflinger server"""
+        try:
+            self.post_result(job_id, {"job_state": phase})
+        except TFServerError:
+            pass
+
     def post_result(self, job_id, data):
         """Post data to the testflinger server result for this job
 

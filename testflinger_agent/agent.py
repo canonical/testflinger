@@ -151,7 +151,7 @@ class TestflingerAgent:
                     if self.client.check_job_state(job.job_id) == "cancelled":
                         logger.info("Job cancellation was requested, exiting.")
                         break
-                    self.post_job_state(job.job_id, phase)
+                    self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase)
                     proc = multiprocessing.Process(
                         target=job.run_test_phase,
@@ -217,13 +217,6 @@ class TestflingerAgent:
                 # Don't get a new job if we are now marked offline
                 break
             job_data = self.client.check_jobs()
-
-    def post_job_state(self, job_id, phase):
-        """Update the job_state on the testflinger server"""
-        try:
-            self.client.post_result(job_id, {"job_state": phase})
-        except TFServerError:
-            pass
 
     def retry_old_results(self):
         """Retry sending results that we previously failed to send"""
