@@ -34,6 +34,7 @@ SCHEMA_V1 = {
     voluptuous.Required("setup_command", default=""): str,
     voluptuous.Required("provision_command", default=""): str,
     voluptuous.Required("test_command", default=""): str,
+    voluptuous.Required("allocate_command", default=""): str,
     voluptuous.Required("reserve_command", default=""): str,
     voluptuous.Required("cleanup_command", default=""): str,
     voluptuous.Optional("provision_type"): str,
