@@ -242,6 +242,10 @@ class DefaultDevice:
         )
         time.sleep(int(timeout))
 
+    def cleanup(self, _):
+        """Default method for cleaning up devices"""
+        pass
+
 
 def catch(exception, returnval=0):
     """Decorator for catching Exceptions and returning values instead
