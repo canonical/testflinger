@@ -40,6 +40,7 @@ def main():
         for cmd, func in (
             ("provision", dev_module.provision),
             ("runtest", dev_module.runtest),
+            ("allocate", dev_module.allocate),
             ("reserve", dev_module.reserve),
         ):
             cmd_parser = cmd_subparser.add_parser(cmd)
