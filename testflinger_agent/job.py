@@ -22,6 +22,8 @@ import sys
 import subprocess
 import time
 
+from testflinger_agent.errors import TFServerError
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,6 +63,8 @@ class TestflingerJob:
         if phase == "test" and not self.job_data.get("test_data"):
             logger.info("No test_data defined in job data, skipping...")
             return 0
+        if phase == "allocate" and not self.job_data.get("allocate_data"):
+            return 0
         if phase == "reserve" and not self.job_data.get("reserve_data"):
             return 0
         results_file = os.path.join(rundir, "testflinger-outcome.json")
@@ -82,6 +86,8 @@ class TestflingerJob:
             self._update_phase_results(
                 results_file, phase, exitcode, output_log, serial_log
             )
+        if phase == "allocate":
+            self.allocate_phase(rundir)
         sys.exit(exitcode)
 
     def _update_phase_results(
@@ -113,6 +119,33 @@ class TestflingerJob:
             outcome_data[phase + "_status"] = exitcode
             results.seek(0)
             json.dump(outcome_data, results)
+
+    def allocate_phase(self, rundir):
+        """
+        Read the json dict from "device-info.json" and send it to the server
+        so that the multi-device agent can find the IP addresses of all
+        subordinate jobs
+        """
+        device_info_file = os.path.join(rundir, "device-info.json")
+        with open(device_info_file, "r") as f:
+            device_info = json.load(f)
+
+        # The allocated state MUST be reflected on the server or the multi-
+        # device job can't continue
+        while True:
+            try:
+                self.client.post_result(self.job_id, device_info)
+                break
+            except TFServerError:
+                logger.warning("Failed to post device_info, retrying...")
+                time.sleep(60)
+
+        self.client.post_job_state(self.job_id, "allocated")
+
+        # For now, we can wait with signal.pause() because another thread is
+        # monitoring for completion. But if this changes, we'll need to watch
+        # for changes to our own job state
+        signal.pause()
 
     def _set_truncate(self, f, size=1024 * 1024):
         """Set up an open file so that we don't read more than a specified
