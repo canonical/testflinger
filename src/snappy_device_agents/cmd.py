@@ -42,6 +42,7 @@ def main():
             ("runtest", dev_module.runtest),
             ("allocate", dev_module.allocate),
             ("reserve", dev_module.reserve),
+            ("cleanup", dev_module.cleanup),
         ):
             cmd_parser = cmd_subparser.add_parser(cmd)
             cmd_parser.add_argument(

@@ -144,7 +144,7 @@ class DefaultDevice:
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         device_ip = config["device_ip"]
-        device_info = {"device_ip": device_ip}
+        device_info = {"device_info": {"device_ip": device_ip}}
         print(device_info)
         with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
             devinfo_file.write(json.dumps(device_info))
@@ -241,6 +241,10 @@ class DefaultDevice:
             "cancel {}".format(job_id)
         )
         time.sleep(int(timeout))
+
+    def cleanup(self, _):
+        """Default method for cleaning up devices"""
+        pass
 
 
 def catch(exception, returnval=0):
