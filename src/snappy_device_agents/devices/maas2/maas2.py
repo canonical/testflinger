@@ -212,7 +212,9 @@ class Maas2:
             "ubuntu@{}".format(self.config["device_ip"]),
             "cat /sys/class/tpm/tpm0/ppi/request",
         ]
-        proc = subprocess.run(cmd, timeout=30, check=False)
+        proc = subprocess.run(
+            cmd, timeout=30, capture_output=True, check=False
+        )
         if proc.returncode:
             return False
 
