@@ -120,7 +120,7 @@ class TestflingerAgent:
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
-        TEST_PHASES = ["setup", "provision", "test", "allocate", "reserve"]
+        TEST_PHASES = ["setup", "provision", "test", "reserve"]
 
         # First, see if we have any old results that we couldn't send last time
         self.retry_old_results()
@@ -153,6 +153,7 @@ class TestflingerAgent:
                         break
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase)
+                    self.client.post_influx(job.job_id, phase=phase)
                     proc = multiprocessing.Process(
                         target=job.run_test_phase,
                         args=(
@@ -161,6 +162,7 @@ class TestflingerAgent:
                         ),
                     )
                     proc.start()
+                    start_time = time.time()
                     while proc.is_alive():
                         proc.join(10)
                         if (
@@ -173,7 +175,6 @@ class TestflingerAgent:
                             )
                             proc.terminate()
                     exitcode = proc.exitcode
-
                     # exit code 46 is our indication that recovery failed!
                     # In this case, we need to mark the device offline
                     if exitcode == 46:
@@ -188,6 +189,9 @@ class TestflingerAgent:
             except Exception as e:
                 logger.exception(e)
             finally:
+                end_time = time.time()
+                duration = end_time - start_time
+                self.client.post_influx(job.job_id, duration=duration)
                 # Always run the cleanup, even if the job was cancelled
                 proc = multiprocessing.Process(
                     target=job.run_test_phase,

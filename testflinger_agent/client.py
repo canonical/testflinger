@@ -19,6 +19,7 @@ import requests
 import shutil
 import tempfile
 import time
+import influxdb
 
 from urllib.parse import urljoin
 from requests.adapters import HTTPAdapter
@@ -39,6 +40,8 @@ class TestflingerClient:
         if not self.server.lower().startswith("http"):
             self.server = "http://" + self.server
         self.session = self._requests_retry(retries=5)
+        self.influx_agent_db = "agent_jobs"
+        self.influx_client = self._configure_influx()
 
     def _requests_retry(self, retries=3):
         session = requests.Session()
@@ -54,6 +57,23 @@ class TestflingerClient:
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         return session
+
+    def _configure_influx(self):
+        host = os.environ.get("INFLUX_HOST")
+        port = os.environ.get("INFLUX_PORT", 8086)
+        user = os.environ.get("INFLUX_USER")
+        password = os.environ.get("INFLUX_PW")
+
+        try:
+            # check if we've exports env vars successfully
+            influx_client = influxdb.InfluxDBClient(
+                host, int(port), user, password, self.influx_agent_db
+            )
+        except influxdb.exceptions.InfluxDBClientError as exc:
+            logger.error(exc)
+            return None
+
+        return influx_client
 
     def check_jobs(self):
         """Check for new jobs for on the Testflinger server
@@ -274,3 +294,34 @@ class TestflingerClient:
             self.session.post(agent_data_url, json=data, timeout=30)
         except RequestException as exc:
             logger.error(exc)
+
+    def post_influx(self, job_id, phase=None, duration=None, result=None):
+        if phase:
+            measurement = "job phase"
+            fields = {"job id": job_id, "job phase": phase}
+        if duration:
+            measurement = "phase duration"
+            fields = {"job id": job_id, "duration": duration}
+        if result:
+            measurement = "job result"
+            fields = {"job_id": job_id, "result": result}
+
+        data = [
+            {
+                "measurement": measurement,
+                "tags": {"agent": self.config.get("agent_id")},
+                "fields": fields,
+                "time": int(time.time()),
+            },
+        ]
+
+        if self.influx_client:
+            try:
+                self.influx_client.write_points(
+                    data,
+                    database=self.influx_agent_db,
+                    time_precision="s",
+                    protocol="json",
+                )
+            except influxdb.exceptions.InfluxDBClientError:
+                pass
