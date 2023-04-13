@@ -120,7 +120,7 @@ class TestflingerAgent:
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
-        TEST_PHASES = ["setup", "provision", "test", "reserve"]
+        TEST_PHASES = ["setup", "provision", "test", "allocate", "reserve"]
 
         # First, see if we have any old results that we couldn't send last time
         self.retry_old_results()
@@ -175,6 +175,7 @@ class TestflingerAgent:
                             )
                             proc.terminate()
                     exitcode = proc.exitcode
+
                     # exit code 46 is our indication that recovery failed!
                     # In this case, we need to mark the device offline
                     if exitcode == 46:

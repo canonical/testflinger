@@ -14,6 +14,7 @@
 
 import pytest
 import uuid
+import influxdb
 
 import requests_mock as rmock
 

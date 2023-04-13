@@ -5,6 +5,7 @@ import tempfile
 import uuid
 import requests_mock as rmock
 import pytest
+import influxdb
 
 from mock import patch
 
