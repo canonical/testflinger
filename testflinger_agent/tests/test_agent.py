@@ -14,6 +14,8 @@ from testflinger_agent.errors import TFServerError
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
 
+del influxdb
+
 
 class TestClient:
     @pytest.fixture
