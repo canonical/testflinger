@@ -153,28 +153,9 @@ class TestflingerAgent:
                         break
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase)
-                    proc = multiprocessing.Process(
-                        target=job.run_test_phase,
-                        args=(
-                            phase,
-                            rundir,
-                        ),
-                    )
-                    proc.start()
+
                     start_time = time.time()
-                    while proc.is_alive():
-                        proc.join(10)
-                        if (
-                            self.client.check_job_state(job.job_id)
-                            == "cancelled"
-                            and phase != "provision"
-                        ):
-                            logger.info(
-                                "Job cancellation was requested, exiting."
-                            )
-                            proc.terminate()
-                            break
-                    exitcode = proc.exitcode
+                    exitcode = job.run_test_phase(phase, rundir)
 
                     end_time = time.time()
                     duration = end_time - start_time
@@ -200,17 +181,9 @@ class TestflingerAgent:
                 logger.exception(e)
             finally:
                 # Always run the cleanup, even if the job was cancelled
-                proc = multiprocessing.Process(
-                    target=job.run_test_phase,
-                    args=(
-                        "cleanup",
-                        rundir,
-                    ),
-                )
+                job.run_test_phase("cleanup", rundir)
                 # clear job id
                 self.client.post_agent_data({"job_id": ""})
-                proc.start()
-                proc.join()
 
             try:
                 self.client.transmit_job_outcome(rundir)
