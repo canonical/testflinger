@@ -14,13 +14,10 @@
 
 import pytest
 import uuid
-import influxdb
 
 import requests_mock as rmock
 
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
-
-del influxdb
 
 
 class TestClient:

@@ -5,7 +5,6 @@ import tempfile
 import uuid
 import requests_mock as rmock
 import pytest
-import influxdb
 
 from mock import patch
 
@@ -13,8 +12,6 @@ import testflinger_agent
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
-
-del influxdb
 
 
 class TestClient:
