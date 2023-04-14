@@ -217,7 +217,7 @@ class TestflingerJob:
             set_nonblock(process.stdout.fileno())
 
             while True:
-                line = process.stdout.readline()
+                line = process.stdout.read()
                 if not line and process.poll() is not None:
                     # Process exited
                     break
