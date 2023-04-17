@@ -305,12 +305,12 @@ class TestflingerClient:
         :param data:
             dict of various agent data points to send to the api server
         """
+        measurement = "%s phase result" % job_id
         data = [
             {
-                "measurement": "phase result",
+                "measurement": measurement,
                 "tags": {
                     "agent": self.config.get("agent_id"),
-                    "job_id": job_id,
                 },
                 "fields": {
                     "phase": phase,
