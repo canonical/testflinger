@@ -74,15 +74,11 @@ class TestflingerClient:
         user = os.environ.get("INFLUX_USER")
         password = os.environ.get("INFLUX_PW")
 
-        try:
-            # check if we've exported env vars successfully
-            influx_client = influxdb.InfluxDBClient(
-                host, port, user, password, self.influx_agent_db
-            )
-        except influxdb.exceptions.InfluxDBClientError as exc:
-            logger.error(exc)
-        else:
-            return influx_client
+        influx_client = influxdb.InfluxDBClient(
+            host, port, user, password, self.influx_agent_db
+        )
+
+        return influx_client
 
     def check_jobs(self):
         """Check for new jobs for on the Testflinger server
