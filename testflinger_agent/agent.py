@@ -179,9 +179,9 @@ class TestflingerAgent:
                     duration = end_time - start_time
                     self.client.post_influx(
                         job.job_id,
-                        phase=phase,
-                        duration=duration,
-                        result=exitcode,
+                        phase,
+                        duration,
+                        exitcode,
                     )
 
                     # exit code 46 is our indication that recovery failed!
