@@ -59,21 +59,30 @@ class TestflingerClient:
         return session
 
     def _configure_influx(self):
+        """Configure InfluxDB client using environment variables.
+
+        :return: InfluxDBClient object
+        """
+        # required influxdb env vars
+        req_env_vars = ["INFLUX_HOST", "INFLUX_USER", "INFLUX_PW"]
+
+        if not all(var in os.environ for var in req_env_vars):
+            return
+
         host = os.environ.get("INFLUX_HOST")
-        port = os.environ.get("INFLUX_PORT", 8086)
+        port = int(os.environ.get("INFLUX_PORT", 8086))
         user = os.environ.get("INFLUX_USER")
         password = os.environ.get("INFLUX_PW")
 
         try:
-            # check if we've exports env vars successfully
+            # check if we've exported env vars successfully
             influx_client = influxdb.InfluxDBClient(
-                host, int(port), user, password, self.influx_agent_db
+                host, port, user, password, self.influx_agent_db
             )
         except influxdb.exceptions.InfluxDBClientError as exc:
             logger.error(exc)
-            return None
-
-        return influx_client
+        else:
+            return influx_client
 
     def check_jobs(self):
         """Check for new jobs for on the Testflinger server
@@ -296,20 +305,28 @@ class TestflingerClient:
             logger.error(exc)
 
     def post_influx(self, job_id, phase=None, duration=None, result=None):
+        """Post the relevant data points to testflinger server
+
+        :param data:
+            dict of various agent data points to send to the api server
+        """
         if phase:
             measurement = "job phase"
-            fields = {"job id": job_id, "job phase": phase}
+            fields = {"job phase": phase}
         if duration:
             measurement = "phase duration"
-            fields = {"job id": job_id, "duration": duration}
+            fields = {"duration": duration}
         if result:
             measurement = "job result"
-            fields = {"job_id": job_id, "result": result}
+            fields = {"result": result}
 
         data = [
             {
                 "measurement": measurement,
-                "tags": {"agent": self.config.get("agent_id")},
+                "tags": {
+                    "agent": self.config.get("agent_id"),
+                    "job_id": job_id,
+                },
                 "fields": fields,
                 "time": int(time.time()),
             },
