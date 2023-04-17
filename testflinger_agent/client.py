@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 class TestflingerClient:
     def __init__(self, config):
         self.config = config
-        self.agent = self.config.get("agent_id")
         self.server = self.config.get(
             "server_address", "https://testflinger.canonical.com"
         )
@@ -294,7 +293,7 @@ class TestflingerClient:
             dict of various agent data points to send to the api server
         """
         agent_data_uri = urljoin(self.server, "/v1/agents/data/")
-        agent_data_url = urljoin(agent_data_uri, self.agent)
+        agent_data_url = urljoin(agent_data_uri, self.config.get("agent_id"))
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
         except RequestException as exc:
@@ -310,7 +309,7 @@ class TestflingerClient:
             {
                 "measurement": "phase result",
                 "tags": {
-                    "agent": self.agent,
+                    "agent": self.config.get("agent_id"),
                     "job_id": job_id,
                 },
                 "fields": {
