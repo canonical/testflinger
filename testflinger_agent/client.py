@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 class TestflingerClient:
     def __init__(self, config):
         self.config = config
+        self.agent = self.config.get("agent_id")
         self.server = self.config.get(
             "server_address", "https://testflinger.canonical.com"
         )
@@ -292,38 +293,31 @@ class TestflingerClient:
         :param data:
             dict of various agent data points to send to the api server
         """
-        agent = self.config.get("agent_id")
         agent_data_uri = urljoin(self.server, "/v1/agents/data/")
-        agent_data_url = urljoin(agent_data_uri, agent)
+        agent_data_url = urljoin(agent_data_uri, self.agent)
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
         except RequestException as exc:
             logger.error(exc)
 
-    def post_influx(self, job_id, phase=None, duration=None, result=None):
+    def post_influx(self, job_id, phase, duration, result):
         """Post the relevant data points to testflinger server
 
         :param data:
             dict of various agent data points to send to the api server
         """
-        if phase:
-            measurement = "job phase"
-            fields = {"job phase": phase}
-        if duration:
-            measurement = "phase duration"
-            fields = {"duration": duration}
-        if result:
-            measurement = "job result"
-            fields = {"result": result}
-
         data = [
             {
-                "measurement": measurement,
+                "measurement": "phase result",
                 "tags": {
-                    "agent": self.config.get("agent_id"),
+                    "agent": self.agent,
                     "job_id": job_id,
                 },
-                "fields": fields,
+                "fields": {
+                    "phase": phase,
+                    "duration": duration,
+                    "result": result,
+                },
                 "time": int(time.time()),
             },
         ]
