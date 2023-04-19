@@ -146,3 +146,14 @@ class TestJob:
             # It won't be exactly 100 bytes, because a warning is added
             assert len(contents) < 150
             assert "WARNING" in contents
+
+    @pytest.mark.timeout(1)
+    def test_wait_for_completion(self, client):
+        """Test that wait_for_completion works"""
+
+        # Make sure we return "completed" for the parent job state
+        client.check_job_state = lambda _: "completed"
+
+        job = _TestflingerJob({"parent_job_id": "999"}, client)
+        job.wait_for_completion()
+        # No assertions needed, just make sure we don't timeout

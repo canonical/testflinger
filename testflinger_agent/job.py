@@ -142,10 +142,25 @@ class TestflingerJob:
 
         self.client.post_job_state(self.job_id, "allocated")
 
-        # For now, we can wait with signal.pause() because another thread is
-        # monitoring for completion. But if this changes, we'll need to watch
+        self.wait_for_completion()
+
+    def wait_for_completion(self):
+        """Monitor the parent job and exit when it completes"""
+        # For now, we don't have to monitor our own job state, since the
+        # another thread monitors it. But if this changes, we'll need to watch
         # for changes to our own job state
-        signal.pause()
+
+        while True:
+            try:
+                parent_job_state = self.client.check_job_state(
+                    self.job_data.get("parent_job_id")
+                )
+                if parent_job_state in ("completed", "cancelled"):
+                    logger.info("Parent job completed, exiting...")
+                    break
+            except TFServerError:
+                logger.warning("Failed to get parent job, retrying...")
+            time.sleep(60)
 
     def _set_truncate(self, f, size=1024 * 1024):
         """Set up an open file so that we don't read more than a specified
