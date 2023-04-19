@@ -19,12 +19,13 @@ import requests
 import shutil
 import tempfile
 import time
-import influxdb
 
 from urllib.parse import urljoin
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-from requests.exceptions import RequestException
+from requests.exceptions import RequestException, ConnectionError
+from influxdb import InfluxDBClient
+from influxdb.exceptions import InfluxDBClientError
 
 from testflinger_agent.errors import TFServerError
 
@@ -61,24 +62,27 @@ class TestflingerClient:
     def _configure_influx(self):
         """Configure InfluxDB client using environment variables.
 
-        :return: InfluxDBClient object
+        :return: influxdb object or None
         """
-        # required influxdb env vars
-        req_env_vars = ["INFLUX_HOST", "INFLUX_USER", "INFLUX_PW"]
-
-        if not all(var in os.environ for var in req_env_vars):
+        user = os.environ.get("INFLUX_USER", "")
+        password = os.environ.get("INFLUX_PW", "")
+        port = int(os.environ.get("INFLUX_PORT", 8086))
+        host = os.environ.get("INFLUX_HOST")
+        if not host:
+            logger.error("InfluxDB host undefined")
             return
 
-        host = os.environ.get("INFLUX_HOST")
-        port = int(os.environ.get("INFLUX_PORT", 8086))
-        user = os.environ.get("INFLUX_USER")
-        password = os.environ.get("INFLUX_PW")
-
-        influx_client = influxdb.InfluxDBClient(
+        influx_client = InfluxDBClient(
             host, port, user, password, self.influx_agent_db
         )
 
-        return influx_client
+        # ensure we can connect to influxdb host
+        try:
+            influx_client.ping()
+        except ConnectionError as exc:
+            logger.error(exc)
+        else:
+            return influx_client
 
     def check_jobs(self):
         """Check for new jobs for on the Testflinger server
@@ -305,10 +309,12 @@ class TestflingerClient:
         :param data:
             dict of various agent data points to send to the api server
         """
-        measurement = "%s phase result" % job_id
+        if not self.influx_client:
+            return
+
         data = [
             {
-                "measurement": measurement,
+                "measurement": "phase result",
                 "tags": {
                     "agent": self.config.get("agent_id"),
                 },
@@ -321,13 +327,12 @@ class TestflingerClient:
             },
         ]
 
-        if self.influx_client:
-            try:
-                self.influx_client.write_points(
-                    data,
-                    database=self.influx_agent_db,
-                    time_precision="s",
-                    protocol="json",
-                )
-            except influxdb.exceptions.InfluxDBClientError:
-                pass
+        try:
+            self.influx_client.write_points(
+                data,
+                database=self.influx_agent_db,
+                time_precision="s",
+                protocol="json",
+            )
+        except InfluxDBClientError as exc:
+            logger.error(exc)
