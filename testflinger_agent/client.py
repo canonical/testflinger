@@ -317,11 +317,11 @@ class TestflingerClient:
                 "measurement": "phase result",
                 "tags": {
                     "agent": self.config.get("agent_id"),
+                    "phase": phase,
+                    "result": result,
                 },
                 "fields": {
-                    "phase": phase,
                     "duration": duration,
-                    "result": result,
                 },
                 "time": int(time.time()),
             },
