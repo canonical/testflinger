@@ -42,3 +42,22 @@ def test_inject_allocate_data():
     test_agent.create_jobs()
     for job in test_agent.job_data["provision_data"]["jobs"]:
         assert job["allocate_data"]["allocate"] is True
+
+
+def test_inject_parent_jobid():
+    """Test that parent_jobid is injected into job"""
+    test_config = {"agent_name": "test_agent"}
+    parent_job_id = "11111111-1111-1111-1111-111111111111"
+    job_data = {
+        "job_id": parent_job_id,
+        "provision_data": {
+            "jobs": [
+                {"job_id": "1"},
+                {"job_id": "2"},
+            ]
+        },
+    }
+    test_agent = Multi(test_config, job_data, MockTFClient("http://localhost"))
+    test_agent.create_jobs()
+    for job in test_agent.job_data["provision_data"]["jobs"]:
+        assert job["parent_job_id"] == parent_job_id
