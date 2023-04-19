@@ -23,7 +23,9 @@ import time
 from urllib.parse import urljoin
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-from requests.exceptions import RequestException
+from requests.exceptions import RequestException, ConnectionError
+from influxdb import InfluxDBClient
+from influxdb.exceptions import InfluxDBClientError
 
 from testflinger_agent.errors import TFServerError
 
@@ -39,6 +41,8 @@ class TestflingerClient:
         if not self.server.lower().startswith("http"):
             self.server = "http://" + self.server
         self.session = self._requests_retry(retries=5)
+        self.influx_agent_db = "agent_jobs"
+        self.influx_client = self._configure_influx()
 
     def _requests_retry(self, retries=3):
         session = requests.Session()
@@ -54,6 +58,31 @@ class TestflingerClient:
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         return session
+
+    def _configure_influx(self):
+        """Configure InfluxDB client using environment variables.
+
+        :return: influxdb object or None
+        """
+        user = os.environ.get("INFLUX_USER", "")
+        password = os.environ.get("INFLUX_PW", "")
+        port = int(os.environ.get("INFLUX_PORT", 8086))
+        host = os.environ.get("INFLUX_HOST")
+        if not host:
+            logger.error("InfluxDB host undefined")
+            return
+
+        influx_client = InfluxDBClient(
+            host, port, user, password, self.influx_agent_db
+        )
+
+        # ensure we can connect to influxdb host
+        try:
+            influx_client.ping()
+        except ConnectionError as exc:
+            logger.error(exc)
+        else:
+            return influx_client
 
     def check_jobs(self):
         """Check for new jobs for on the Testflinger server
@@ -267,10 +296,43 @@ class TestflingerClient:
         :param data:
             dict of various agent data points to send to the api server
         """
-        agent = self.config.get("agent_id")
         agent_data_uri = urljoin(self.server, "/v1/agents/data/")
-        agent_data_url = urljoin(agent_data_uri, agent)
+        agent_data_url = urljoin(agent_data_uri, self.config.get("agent_id"))
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
         except RequestException as exc:
+            logger.error(exc)
+
+    def post_influx(self, job_id, phase, duration, result):
+        """Post the relevant data points to testflinger server
+
+        :param data:
+            dict of various agent data points to send to the api server
+        """
+        if not self.influx_client:
+            return
+
+        data = [
+            {
+                "measurement": "phase result",
+                "tags": {
+                    "agent": self.config.get("agent_id"),
+                    "phase": phase,
+                    "result": result,
+                },
+                "fields": {
+                    "duration": duration,
+                },
+                "time": int(time.time()),
+            },
+        ]
+
+        try:
+            self.influx_client.write_points(
+                data,
+                database=self.influx_agent_db,
+                time_precision="s",
+                protocol="json",
+            )
+        except InfluxDBClientError as exc:
             logger.error(exc)

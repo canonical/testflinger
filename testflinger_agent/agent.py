@@ -161,6 +161,7 @@ class TestflingerAgent:
                         ),
                     )
                     proc.start()
+                    start_time = time.time()
                     while proc.is_alive():
                         proc.join(10)
                         if (
@@ -173,6 +174,15 @@ class TestflingerAgent:
                             )
                             proc.terminate()
                     exitcode = proc.exitcode
+
+                    end_time = time.time()
+                    duration = end_time - start_time
+                    self.client.post_influx(
+                        job.job_id,
+                        phase,
+                        duration,
+                        exitcode,
+                    )
 
                     # exit code 46 is our indication that recovery failed!
                     # In this case, we need to mark the device offline
