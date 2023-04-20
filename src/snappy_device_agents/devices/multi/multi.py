@@ -58,6 +58,9 @@ class Multi:
         while unallocated:
             time.sleep(10)
             for job in unallocated:
+                if self.this_job_complete():
+                    self.cancel_jobs(self.jobs)
+                    raise ProvisioningError("Job cancelled or completed")
                 state = self.client.get_status(job)
                 if state == "allocated":
                     unallocated.remove(job)
@@ -77,6 +80,18 @@ class Multi:
                 )
 
         self.save_job_list_file()
+
+    def this_job_complete(self):
+        """
+        If the job is complete, or cancelled, then we need to exit the
+        provision phase, and cleanup the subordinate jobs
+        """
+
+        job_id = self.job_data.get("job_id")
+        status = self.client.get_status(job_id)
+        if status in ("cancelled", "completed"):
+            return True
+        return False
 
     def save_job_list_file(self):
         """
