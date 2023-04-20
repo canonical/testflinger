@@ -173,6 +173,7 @@ class TestflingerAgent:
                                 "Job cancellation was requested, exiting."
                             )
                             proc.terminate()
+                            break
                     exitcode = proc.exitcode
 
                     end_time = time.time()
