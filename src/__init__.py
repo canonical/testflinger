@@ -1,4 +1,4 @@
-# Copyright (C) 2016-2022 Canonical
+# Copyright (C) 2016-2023 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@ This sets up the Testflinger web application
 
 import logging
 import os
+import urllib
 
 from flask import Flask, request
 from flask.logging import create_logger
@@ -162,6 +163,10 @@ def setup_mongodb(application):
 
     mongo_user = os.environ.get("MONGODB_USERNAME")
     mongo_pass = os.environ.get("MONGODB_PASSWORD")
+    if mongo_pass:
+        # password might contain special chars
+        mongo_pass = urllib.parse.quote_plus(mongo_pass)
+
     mongo_db = os.environ.get("MONGODB_DATABASE")
     mongo_host = os.environ.get("MONGODB_HOST")
     mongo_port = os.environ.get("MONGODB_PORT", "27017")
