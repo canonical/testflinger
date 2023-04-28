@@ -64,13 +64,13 @@ class TestflingerClient:
 
         :return: influxdb object or None
         """
-        user = os.environ.get("INFLUX_USER", "")
-        password = os.environ.get("INFLUX_PW", "")
-        port = int(os.environ.get("INFLUX_PORT", 8086))
         host = os.environ.get("INFLUX_HOST")
         if not host:
             logger.error("InfluxDB host undefined")
-            return
+            return None
+        port = int(os.environ.get("INFLUX_PORT", 8086))
+        user = os.environ.get("INFLUX_USER", "")
+        password = os.environ.get("INFLUX_PW", "")
 
         influx_client = InfluxDBClient(
             host, port, user, password, self.influx_agent_db
@@ -81,8 +81,14 @@ class TestflingerClient:
             influx_client.ping()
         except ConnectionError as exc:
             logger.error(exc)
-        else:
-            return influx_client
+            return None
+
+        # create agent job db if it doesn't exist
+        db_list = influx_client.get_list_database()
+        if not any(db["name"] == self.influx_agent_db for db in db_list):
+            influx_client.create_database(self.influx_agent_db)
+
+        return influx_client
 
     def check_jobs(self):
         """Check for new jobs for on the Testflinger server
