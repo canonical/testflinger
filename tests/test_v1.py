@@ -112,7 +112,7 @@ def test_get_job_no_queue(mongo_app):
 def test_add_job_bad(mongo_app):
     """Test for error when posting an empty job"""
     app, _ = mongo_app
-    output = app.post("/v1/job")
+    output = app.post("/v1/job", json={})
     assert 400 == output.status_code
 
 
