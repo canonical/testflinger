@@ -64,7 +64,6 @@ def create_flask_app(config=None):
             dsn=sentry_dsn, integrations=[FlaskIntegration()]
         )
 
-    tf_app.add_url_rule("/", "home", v1.home)
     tf_app.add_url_rule("/v1/job", "job_post", v1.job_post, methods=["POST"])
     tf_app.add_url_rule("/v1/job", "job_get", v1.job_get, methods=["GET"])
     tf_app.add_url_rule(

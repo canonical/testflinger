@@ -17,11 +17,17 @@
 Additional views not associated with the API
 """
 
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, redirect, url_for
 from prometheus_client import generate_latest
 from src.database import mongo
 
 views = Blueprint("testflinger", __name__)
+
+
+@views.route("/")
+def home():
+    """Home view"""
+    return redirect(url_for("testflinger.agents"))
 
 
 @views.route("/metrics")

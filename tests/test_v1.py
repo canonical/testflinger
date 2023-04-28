@@ -20,15 +20,7 @@ Unit tests for Testflinger v1 API
 import json
 
 from io import BytesIO
-import src
 from src.api import v1
-
-
-def test_home(mongo_app):
-    """Test root URL returns the version"""
-    app, _ = mongo_app
-    output = app.get("/")
-    assert src.api.v1.get_version() == output.text
 
 
 def test_add_job_good(mongo_app):
