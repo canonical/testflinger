@@ -23,6 +23,14 @@ from io import BytesIO
 from src.api import v1
 
 
+def test_home(mongo_app):
+    """Test that queries to / are redirected to /agents"""
+    app, _ = mongo_app
+    response = app.get("/")
+    assert 302 == response.status_code
+    assert "/agents" == response.headers.get("Location")
+
+
 def test_add_job_good(mongo_app):
     """Test that adding a new job works"""
     job_data = json.dumps({"job_queue": "test"})
