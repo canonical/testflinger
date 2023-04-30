@@ -20,15 +20,15 @@ Unit tests for Testflinger v1 API
 import json
 
 from io import BytesIO
-import src
 from src.api import v1
 
 
 def test_home(mongo_app):
-    """Test root URL returns the version"""
+    """Test that queries to / are redirected to /agents"""
     app, _ = mongo_app
-    output = app.get("/")
-    assert src.api.v1.get_version() == output.text
+    response = app.get("/")
+    assert 302 == response.status_code
+    assert "/agents" == response.headers.get("Location")
 
 
 def test_add_job_good(mongo_app):
