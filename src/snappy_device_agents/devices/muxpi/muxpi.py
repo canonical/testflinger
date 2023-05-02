@@ -267,38 +267,10 @@ class MuxPi:
 
     def create_user(self, image_type):
         """Create user account for default ubuntu user"""
-        metadata = "instance_id: cloud-image"
-        userdata = (
-            "#cloud-config\n"
-            "password: ubuntu\n"
-            "chpasswd:\n"
-            "    list:\n"
-            "        - ubuntu:ubuntu\n"
-            "    expire: False\n"
-            "ssh_pwauth: True"
-        )
-        # For core20:
-        uc20_ci_data = (
-            "#cloud-config\n"
-            "datasource_list: [ NoCloud, None ]\n"
-            "datasource:\n"
-            "  NoCloud:\n"
-            "    user-data: |\n"
-            "      #cloud-config\n"
-            "      password: ubuntu\n"
-            "      chpasswd:\n"
-            "          list:\n"
-            "              - ubuntu:ubuntu\n"
-            "          expire: False\n"
-            "      ssh_pwauth: True\n"
-            "    meta-data: |\n"
-            "      instance_id: cloud-image"
-        )
-
         base = self.mount_point
         remote_tmp = Path("/tmp") / self.agent_name
         try:
-            data_path = Path(__file__).parent / "../../data"
+            data_path = Path(__file__).parent / "../../data/muxpi"
             if image_type == "limerick":
                 self._run_control("mkdir -p {}".format(remote_tmp))
                 self._copy_to_control(
@@ -348,11 +320,13 @@ class MuxPi:
             if image_type == "core20":
                 base = self.mount_point / "ubuntu-seed"
                 ci_path = base / "data/etc/cloud/cloud.cfg.d"
-                self._run_control("sudo mkdir -p {}".format(ci_path))
-                write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
-                self._run_control(
-                    write_cmd.format(uc20_ci_data, ci_path, "99_nocloud.cfg")
+                self._run_control(f"sudo mkdir -p {ci_path}")
+                self._run_control("mkdir -p {}".format(remote_tmp))
+                self._copy_to_control(
+                    data_path / "uc20/99_nocloud.cfg", remote_tmp
                 )
+                cmd = f"sudo cp {remote_tmp}/99_nocloud.cfg {ci_path}"
+                self._run_control(cmd)
             else:
                 # For core or ubuntu classic images
                 base = self.mount_point / "writable"
@@ -361,14 +335,13 @@ class MuxPi:
                 if image_type == "ubuntu-cpc":
                     base = self.mount_point / "cloudimg-rootfs"
                 ci_path = base / "var/lib/cloud/seed/nocloud-net"
-                self._run_control("sudo mkdir -p {}".format(ci_path))
-                write_cmd = "sudo bash -c \"echo '{}' > /{}/{}\""
-                self._run_control(
-                    write_cmd.format(metadata, ci_path, "meta-data")
+                self._run_control(f"sudo mkdir -p {ci_path}")
+                self._run_control("mkdir -p {}".format(remote_tmp))
+                self._copy_to_control(
+                    data_path / "classic/user-data", remote_tmp
                 )
-                self._run_control(
-                    write_cmd.format(userdata, ci_path, "user-data")
-                )
+                cmd = f"sudo cp {remote_tmp}/user-data {ci_path}"
+                self._run_control(cmd)
                 if image_type == "ubuntu":
                     # This needs to be removed on classic for rpi, else
                     # cloud-init won't find the user-data we give it
