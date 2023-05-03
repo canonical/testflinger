@@ -78,14 +78,10 @@ class TestflingerClient:
 
         # ensure we can connect to influxdb
         try:
-            db_list = influx_client.get_list_database()
+            influx_client.create_database(self.influx_agent_db)
         except ConnectionError as exc:
             logger.error(exc)
         else:
-            # create agent job db if it doesn't exist
-            if not any(db["name"] == self.influx_agent_db for db in db_list):
-                influx_client.create_database(self.influx_agent_db)
-
             return influx_client
 
     def check_jobs(self):
