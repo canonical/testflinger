@@ -64,21 +64,21 @@ class TestflingerClient:
 
         :return: influxdb object or None
         """
-        user = os.environ.get("INFLUX_USER", "")
-        password = os.environ.get("INFLUX_PW", "")
-        port = int(os.environ.get("INFLUX_PORT", 8086))
         host = os.environ.get("INFLUX_HOST")
         if not host:
             logger.error("InfluxDB host undefined")
-            return
+            return None
+        port = int(os.environ.get("INFLUX_PORT", 8086))
+        user = os.environ.get("INFLUX_USER", "")
+        password = os.environ.get("INFLUX_PW", "")
 
         influx_client = InfluxDBClient(
             host, port, user, password, self.influx_agent_db
         )
 
-        # ensure we can connect to influxdb host
+        # ensure we can connect to influxdb
         try:
-            influx_client.ping()
+            influx_client.create_database(self.influx_agent_db)
         except ConnectionError as exc:
             logger.error(exc)
         else:
