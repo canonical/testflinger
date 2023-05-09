@@ -62,8 +62,9 @@ def test_inject_parent_jobid():
     for job in test_agent.job_data["provision_data"]["jobs"]:
         assert job["parent_job_id"] == parent_job_id
 
+
 def test_this_job_complete():
-    """Test that this_job_complete returns True only when the job is complete"""
+    """Test this_job_complete() returns True only when the job is complete"""
     test_config = {"agent_name": "test_agent"}
     job_data = {
         "job_id": "11111111-1111-1111-1111-111111111111",
