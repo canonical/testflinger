@@ -61,3 +61,28 @@ def test_inject_parent_jobid():
     test_agent.create_jobs()
     for job in test_agent.job_data["provision_data"]["jobs"]:
         assert job["parent_job_id"] == parent_job_id
+
+def test_this_job_complete():
+    """Test that this_job_complete returns True only when the job is complete"""
+    test_config = {"agent_name": "test_agent"}
+    job_data = {
+        "job_id": "11111111-1111-1111-1111-111111111111",
+    }
+
+    # completed state is complete
+    complete_client = MockTFClient("http://localhost")
+    complete_client.get_status = lambda job_id: "completed"
+    test_agent = Multi(test_config, job_data, complete_client)
+    assert test_agent.this_job_complete() is True
+
+    # cancelled state is complete
+    cancelled_client = MockTFClient("http://localhost")
+    cancelled_client.get_status = lambda job_id: "cancelled"
+    test_agent = Multi(test_config, job_data, cancelled_client)
+    assert test_agent.this_job_complete() is True
+
+    # anything else is not complete
+    incomplete_client = MockTFClient("http://localhost")
+    incomplete_client.get_status = lambda job_id: "something else"
+    test_agent = Multi(test_config, job_data, incomplete_client)
+    assert test_agent.this_job_complete() is False
