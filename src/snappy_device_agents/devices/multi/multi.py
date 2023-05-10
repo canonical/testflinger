@@ -57,6 +57,7 @@ class Multi:
 
         while unallocated:
             time.sleep(10)
+            self.terminate_if_parent_complete()
             for job in unallocated:
                 state = self.client.get_status(job)
                 if state == "allocated":
@@ -77,6 +78,24 @@ class Multi:
                 )
 
         self.save_job_list_file()
+
+    def terminate_if_parent_complete(self):
+        """If parent job is complete or cancelled, cancel sub jobs"""
+        if self.this_job_complete():
+            self.cancel_jobs(self.jobs)
+            raise ProvisioningError("Job cancelled or completed")
+
+    def this_job_complete(self):
+        """
+        If the job is complete, or cancelled, then we need to exit the
+        provision phase, and cleanup the subordinate jobs
+        """
+
+        job_id = self.job_data.get("job_id")
+        status = self.client.get_status(job_id)
+        if status in ("cancelled", "completed"):
+            return True
+        return False
 
     def save_job_list_file(self):
         """
@@ -122,6 +141,8 @@ class Multi:
                 logger.error("Job is not a dict: %s", job)
                 continue
             job = self.inject_allocate_data(job)
+            job = self.inject_parent_jobid(job)
+
             try:
                 job_id = self.client.submit_job(job)
             except OSError as exc:
@@ -142,6 +163,16 @@ class Multi:
         """
         allocate_data = {"allocate_data": {"allocate": True}}
         job.update(allocate_data)
+        return job
+
+    def inject_parent_jobid(self, job):
+        """Inject the parent job_id into the job
+
+        :param job: the job to inject the parent job_id into
+        :returns: the job with parent_job_id added to it
+        """
+        parent_job_id = {"parent_job_id": self.job_data.get("job_id")}
+        job.update(parent_job_id)
         return job
 
     def cancel_jobs(self, jobs):
