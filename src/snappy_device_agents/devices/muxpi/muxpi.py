@@ -338,6 +338,11 @@ class MuxPi:
                 self._run_control(f"sudo mkdir -p {ci_path}")
                 self._run_control("mkdir -p {}".format(remote_tmp))
                 self._copy_to_control(
+                    data_path / "classic/meta-data", remote_tmp
+                )
+                cmd = f"sudo cp {remote_tmp}/meta-data {ci_path}"
+                self._run_control(cmd)
+                self._copy_to_control(
                     data_path / "classic/user-data", remote_tmp
                 )
                 cmd = f"sudo cp {remote_tmp}/user-data {ci_path}"
