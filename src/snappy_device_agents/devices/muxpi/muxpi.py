@@ -16,7 +16,6 @@
 
 import json
 import logging
-import multiprocessing
 import subprocess
 import time
 from contextlib import contextmanager
@@ -24,7 +23,6 @@ from pathlib import Path
 
 import yaml
 
-import snappy_device_agents
 from snappy_device_agents.devices import ProvisioningError, RecoveryError
 
 logger = logging.getLogger()
@@ -109,7 +107,6 @@ class MuxPi:
     def provision(self):
         try:
             url = self.job_data["provision_data"]["url"]
-            snappy_device_agents.download(url, "snappy.img")
         except KeyError:
             raise ProvisioningError(
                 'You must specify a "url" value in '
@@ -120,21 +117,8 @@ class MuxPi:
         self._run_control(cmd)
         time.sleep(5)
         logger.info("Flashing Test image")
-        image_file = snappy_device_agents.compress_file("snappy.img")
-        server_ip = snappy_device_agents.get_local_ip_addr()
-        serve_q = multiprocessing.Queue()
-        file_server = multiprocessing.Process(
-            target=snappy_device_agents.serve_file,
-            args=(
-                serve_q,
-                image_file,
-            ),
-        )
-        file_server.start()
-        server_port = serve_q.get()
         try:
-            self.flash_test_image(server_ip, server_port)
-            file_server.terminate()
+            self.flash_test_image(url)
             with self.remote_mount():
                 image_type = self.get_image_type()
                 logger.info("Creating Test User")
@@ -148,23 +132,20 @@ class MuxPi:
         except Exception:
             raise
 
-    def flash_test_image(self, server_ip, server_port):
+    def flash_test_image(self, url):
         """
         Flash the image at :image_url to the sd card.
 
-        :param server_ip:
-            IP address of the image server. The image will be downloaded and
-            uncompressed over the SD card.
-        :param server_port:
-            TCP port to connect to on server_ip for downloading the image
+        :param url:
+            URL to download the image from
         :raises ProvisioningError:
             If the command times out or anything else fails.
         """
         # First unmount, just in case
         self.unmount_writable_partition()
-        cmd = "nc.traditional {} {}| xzcat| sudo dd of={} bs=16M".format(
-            server_ip, server_port, self.config["test_device"]
-        )
+
+        test_device = self.config["test_device"]
+        cmd = f"curl -s {url} | xzcat| sudo dd of={test_device} bs=16M"
         logger.info("Running: %s", cmd)
         try:
             # XXX: I hope 30 min is enough? but maybe not!
