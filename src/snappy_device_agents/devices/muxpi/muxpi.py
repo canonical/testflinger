@@ -145,7 +145,10 @@ class MuxPi:
         self.unmount_writable_partition()
 
         test_device = self.config["test_device"]
-        cmd = f"curl -s {url} | xzcat| sudo dd of={test_device} bs=16M"
+        cmd = (
+            f"(set -o pipefail; curl -sf {url} | xzcat| "
+            f"sudo dd of={test_device} bs=16M)"
+        )
         logger.info("Running: %s", cmd)
         try:
             # XXX: I hope 30 min is enough? but maybe not!
