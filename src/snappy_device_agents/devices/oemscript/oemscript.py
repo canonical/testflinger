@@ -102,7 +102,7 @@ class OemScript:
         """Download and run the OEM recovery script"""
         device_ip = self.config["device_ip"]
 
-        data_path = Path(__file__).parent / "../../data/oemscript"
+        data_path = Path(__file__).parent / "../../data/muxpi/oemscript"
         recovery_script = data_path / "recovery-from-iso.sh"
 
         # Run the recovery script
