@@ -170,6 +170,7 @@ def setup_mongodb(application):
     mongo_host = os.environ.get("MONGODB_HOST")
     mongo_port = os.environ.get("MONGODB_PORT", "27017")
     mongo_uri = os.environ.get("MONGODB_URI")
+    mongo_auth = os.environ.get("MONGODB_AUTH_SOURCE", "admin")
 
     if not mongo_uri:
         if not (mongo_host and mongo_db):
@@ -179,6 +180,7 @@ def setup_mongodb(application):
         )
         mongo_uri = (
             f"mongodb://{mongo_creds}{mongo_host}:{mongo_port}/{mongo_db}"
+            f"?authSource={mongo_auth}"
         )
 
     mongo.init_app(

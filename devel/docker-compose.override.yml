@@ -13,6 +13,7 @@ services:
       - MONGODB_PASSWORD=testflinger
       - MONGODB_DATABASE=testflinger_db
       - MONGODB_HOST=mongo
+      - MONGODB_AUTH_SOURCE=testflinger_db
     volumes:
       - .:/srv/testflinger
 
