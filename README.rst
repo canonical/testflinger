@@ -69,6 +69,8 @@ Currently supported configuration values are:
 
 - **MONGODB_DATABASE**: Name of the MongoDB database to use
 
+- **MONGODB_AUTH_SOURCE**: Name of the database to use for authentication (Default: admin)
+
 - **MONGODB_HOST**: host or ip of the MongoDB server
 
 - **MONGODB_PORT**: MongoDB port to connect to (Default: 27017)
