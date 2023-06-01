@@ -1,0 +1,21 @@
+name: testflinger-k8s
+display-name: testflinger-k8s
+summary: Juju k8s charm for testflinger server
+
+description: |
+  Juju k8s charm for testflinger server
+
+containers:
+  testflinger:
+    resource: testflinger-image
+
+resources:
+  testflinger-image:
+    type: oci-image
+    description: OCI image for the 'testflinger' container
+    upstream-source: plars/testflinger:latest
+
+requires:
+  mongodb_client:
+    interface: mongodb_client
+    limit: 1
