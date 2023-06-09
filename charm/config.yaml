@@ -1,0 +1,5 @@
+options:
+  external_hostname:
+    default: testflinger.local
+    description: external hostname for accessing testflinger server
+    type: string
