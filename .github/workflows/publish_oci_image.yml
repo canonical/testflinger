@@ -15,7 +15,7 @@ jobs:
       packages: write
 
     env:
-      IMAGE_NAME: ${{ github.repository }}/api
+      IMAGE_NAME: ${{ github.repository }}
 
     steps:
       - name: Checkout repository
