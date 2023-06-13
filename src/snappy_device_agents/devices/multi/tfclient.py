@@ -30,6 +30,11 @@ class TFClient:
 
         :param url: URL of the Testflinger server
         """
+        if not url or not url.startswith("http"):
+            raise ValueError(
+                "Config item testflinger_server URL for multi-device agents"
+                " must be specified and must start with http or https!"
+            )
         self.server = url
 
     def get(self, uri_frag, timeout=15):
