@@ -19,3 +19,5 @@ requires:
   mongodb_client:
     interface: mongodb_client
     limit: 1
+  nginx-route:
+    interface: nginx-route

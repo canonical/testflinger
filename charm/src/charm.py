@@ -9,6 +9,7 @@ import sys
 from ops.pebble import Layer
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
+from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,8 @@ class TestflingerCharm(ops.CharmBase):
         self._stored.set_default(
             reldata={},
         )
+
+        self._require_nginx_route()
 
         self.mongodb = DatabaseRequires(
             self,
@@ -55,6 +58,14 @@ class TestflingerCharm(ops.CharmBase):
         """Report the current version of the app"""
         # TODO: get the version somehow and return it
         return "Version ?"
+
+    def _require_nginx_route(self):
+        require_nginx_route(
+            charm=self,
+            service_hostname=self.config["external_hostname"],
+            service_name=self.app.name,
+            service_port=5000,
+        )
 
     def _on_testflinger_pebble_ready(
         self, event: ops.PebbleReadyEvent
