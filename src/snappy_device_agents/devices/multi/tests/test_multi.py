@@ -15,6 +15,8 @@
 """Unit tests for multi-device support code."""
 
 from uuid import uuid4
+
+import pytest
 from snappy_device_agents.devices.multi.multi import Multi
 from snappy_device_agents.devices.multi.tfclient import TFClient
 
@@ -25,6 +27,14 @@ class MockTFClient(TFClient):
     def submit_job(self, job_data):
         """Return a fake job id"""
         return str(uuid4())
+
+
+def test_bad_tfclient_url():
+    """Test that Multi raises an exception when TFClient URL is bad"""
+    with pytest.raises(ValueError):
+        TFClient(None)
+    with pytest.raises(ValueError):
+        TFClient("foo.com")
 
 
 def test_inject_allocate_data():
