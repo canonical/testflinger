@@ -13,7 +13,7 @@ resources:
   testflinger-image:
     type: oci-image
     description: OCI image for the 'testflinger' container
-    upstream-source: plars/testflinger:latest
+    upstream-source: ghcr.io/canonical/testflinger:main
 
 requires:
   mongodb_client:
