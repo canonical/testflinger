@@ -12,10 +12,10 @@ target machines.
 .. A paragraph of one to three short sentences, that describe what the product does.
 Each testflinger system consists of:
 
-* a microservce (called just testflinger) that provides an API to request jobs by placing
-  them on a queue,
+* a web service (called just testflinger) that provides an API to request jobs
+  by placing them on a queue
 * per machine agents that wait for jobs to placed on queues they can service
-  and then process them.
+  and then process them
 
 Jobs can be either fully automated scripts that can attempt to complete within
 the alloted time or interactive shell sessions.
@@ -60,14 +60,16 @@ In this documentation
 Project and community
 ---------------------
 
-Example Project is a member of the Ubuntu family. It’s an open source project that warmly welcomes community projects, contributions, suggestions, fixes and constructive feedback.
+Testflinger is a member of the Ubuntu family. It’s an open source project that
+warmly welcomes community projects, contributions, suggestions, fixes and
+constructive feedback.
 
 * :ref:`Code of conduct <home>`
 * :ref:`Get support <home>`
 * :ref:`Join our online chat <home>`
 * :ref:`Contribute <home>`
 * :ref:`Roadmap <home>`
-* :ref:`Thinking about using Example Product for your next project? Get in touch! <home>`
+* :ref:`Thinking about using Testflinger for your next project? Get in touch! <home>`
 
 
 .. toctree::
