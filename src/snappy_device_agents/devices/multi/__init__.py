@@ -16,6 +16,7 @@
 
 import json
 import logging
+import os
 import yaml
 
 import snappy_device_agents
@@ -89,9 +90,15 @@ class DeviceAgent(DefaultDevice):
         snappy_device_agents.logmsg(logging.INFO, "END testrun")
         return exitcode
 
-    def get_job_list_data(self):
-        """Read job_list.json and return the data"""
-        with open("job_list.json") as job_list_file:
+    def get_job_list_data(self, job_list_file: str = "job_list.json") -> list:
+        """Read job_list.json and return the list data"""
+        if not os.path.exists(job_list_file):
+            logmsg(
+                logging.ERROR,
+                "Unable to find multi-job data file, job_list.json not found",
+            )
+            return []
+        with open(job_list_file) as job_list_file:
             job_list_data = json.load(job_list_file)
         return job_list_data
 
