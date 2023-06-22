@@ -1,7 +1,7 @@
 Tutorial
 ========
 
-Example Product is a complex piece of software.
+Testflinger is a complex piece of software.
 
 This tutorial will introduce you to key concepts, tools, processes and
 operations, starting from your first installation to a cloud deployment.
@@ -44,5 +44,3 @@ Once you have completed the core tutorial, the extended optional tutorial sectio
    widget
    gadget
 
-Follow the core tutorial steps in sequence; they take you on a learning journey through the product.
-Installation - install <product> in a Multipass virtual machine
