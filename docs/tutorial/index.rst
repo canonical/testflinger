@@ -10,7 +10,7 @@ more detailed information.
 
 You can expect to spend three to four hours working through the complete
 tutorial. It’s a strongly-recommended investment of time if you’re new to
-Example Product - it will save you many more hours later on. Follow the
+Testflinger - it will save you many more hours later on. Follow the
 tutorial steps in sequence; they take you on a learning journey through the
 product.
 
