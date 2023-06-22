@@ -9,13 +9,13 @@ import sys
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Documentation starter pack'
+project = 'Testflinger'
 author = 'Canonical Group Ltd'
 copyright = "%s, %s" % (datetime.date.today().year, author)
 release = '1.0'
 
 # Open Graph configuration - defines what is displayed in the website preview
-ogp_site_url = "https://canonical-starter-pack.readthedocs-hosted.com/"
+ogp_site_url = "https://testflinger.readthedocs.io/"
 ogp_site_name = project
 ogp_image = "https://assets.ubuntu.com/v1/253da317-image-document-ubuntudocs.svg"
 
@@ -23,7 +23,7 @@ html_context = {
     # Change to the discourse instance you want to be able to link to
     "discourse_prefix": "https://discourse.ubuntu.com/t/",
     # Change to the GitHub info for your project
-    "github_url": "https://github.com/canonical/starter-pack",
+    "github_url": "https://github.com/canonical/testflinger",
     "github_version": "main",
     "github_folder": "/",
     "github_filetype": "rst"

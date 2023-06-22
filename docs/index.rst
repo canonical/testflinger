@@ -80,4 +80,3 @@ constructive feedback.
    how-to/index
    reference/index
    explanation/index
-   ReadMe <readme>
