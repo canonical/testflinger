@@ -3,3 +3,9 @@ line-length = 79
 exclude = [
   "charm/lib"
 ]
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "charm/src",
+  "charm/lib"
+]
