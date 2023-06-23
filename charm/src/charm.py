@@ -1,10 +1,26 @@
 #!/usr/bin/env python3
-# Copyright 2023 Paul Larson
-# See LICENSE file for licensing details.
+# Copyright (C) 2023 Canonical
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+"""
+Testflinger Juju charm
+"""
 
 import logging
-import ops
 import sys
+import ops
 
 from ops.pebble import Layer
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent
@@ -56,7 +72,6 @@ class TestflingerCharm(ops.CharmBase):
     @property
     def version(self) -> str:
         """Report the current version of the app"""
-        # TODO: get the version somehow and return it
         return "Version ?"
 
     def _require_nginx_route(self):
@@ -90,7 +105,7 @@ class TestflingerCharm(ops.CharmBase):
         if initial != self._stored.reldata["mongodb"]:
             self._update_layer_and_restart(None)
 
-    def _update_layer_and_restart(self, event) -> None:
+    def _update_layer_and_restart(self, _) -> None:
         """Define and start layer for testflinger using Pebble"""
         if not self.container.can_connect():
             self.unit.status = ops.WaitingStatus(
@@ -117,9 +132,7 @@ class TestflingerCharm(ops.CharmBase):
         self.unit.set_workload_version(self.version)
         self.unit.status = ops.ActiveStatus()
 
-    def _on_mongodb_client_relation_removed(
-        self, event: ops.framework.EventBase
-    ) -> None:
+    def _on_mongodb_client_relation_removed(self, _) -> None:
         """Event is fired when relation with mongodb is broken."""
         self.unit.status = ops.WaitingStatus("Waiting for database relation")
         sys.exit()
@@ -191,7 +204,3 @@ class TestflingerCharm(ops.CharmBase):
             "db_database": data.get("database"),
         }
         return db_data
-
-
-if __name__ == "__main__":
-    ops.main(TestflingerCharm)
