@@ -1,2 +1,2 @@
 [run]
-omit = setup.py, env
+omit = setup.py, env, testflinger.py, charm/lib/**
