@@ -38,7 +38,7 @@ In this documentation
 
    ..  grid-item:: :doc:`Tutorial <tutorial/index>`
 
-       **Start here**: a hands-on introduction to Example Product for new users
+       **Start here**: a hands-on introduction to Testflinger for new users
 
    ..  grid-item:: :doc:`How-to guides <how-to/index>`
 
@@ -80,4 +80,3 @@ constructive feedback.
    how-to/index
    reference/index
    explanation/index
-   ReadMe <readme>

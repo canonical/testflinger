@@ -1,7 +1,7 @@
 Tutorial
 ========
 
-Example Product is a complex piece of software.
+Testflinger is a complex piece of software.
 
 This tutorial will introduce you to key concepts, tools, processes and
 operations, starting from your first installation to a cloud deployment.
@@ -10,7 +10,7 @@ more detailed information.
 
 You can expect to spend three to four hours working through the complete
 tutorial. It’s a strongly-recommended investment of time if you’re new to
-Example Product - it will save you many more hours later on. Follow the
+Testflinger - it will save you many more hours later on. Follow the
 tutorial steps in sequence; they take you on a learning journey through the
 product.
 
@@ -44,5 +44,3 @@ Once you have completed the core tutorial, the extended optional tutorial sectio
    widget
    gadget
 
-Follow the core tutorial steps in sequence; they take you on a learning journey through the product.
-Installation - install <product> in a Multipass virtual machine
