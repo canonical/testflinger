@@ -24,6 +24,8 @@ from collections import OrderedDict
 import yaml
 
 from snappy_device_agents.devices import ProvisioningError, RecoveryError
+from snappy_device_agents.devices.maas2.maas_storage import MaasStorage
+
 
 logger = logging.getLogger()
 
@@ -72,7 +74,12 @@ class Maas2:
         distro = provision_data.get("distro", "xenial")
         kernel = provision_data.get("kernel")
         user_data = provision_data.get("user_data")
-        self.deploy_node(distro, kernel, user_data)
+        storage_data = provision_data.get("disks")
+        if storage_data:
+            maas_storage = MaasStorage(
+                self.maas_user, self.node_id, storage_data
+            )
+        self.deploy_node(distro, kernel, user_data, maas_storage)
 
     def _install_efitools_snap(self):
         cmd = [
@@ -223,7 +230,13 @@ class Maas2:
             return True
         return False
 
-    def deploy_node(self, distro="bionic", kernel=None, user_data=None):
+    def deploy_node(
+            self,
+            distro=None,
+            kernel=None,
+            user_data=None,
+            maas_storage=None
+    ):
         # Deploy the node in maas, default to bionic if nothing is specified
         self.recover()
         self._logger_info("Acquiring node")
@@ -241,6 +254,9 @@ class Maas2:
         if proc.returncode:
             self._logger_error(f"maas error running: {' '.join(cmd)}")
             raise ProvisioningError(proc.stdout.decode())
+        # provision storage if configured
+        if maas_storage:
+            maas_storage.configure_node_storage()
         self._logger_info(
             "Starting node {} "
             "with distro {}".format(self.agent_name, distro)
