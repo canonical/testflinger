@@ -238,18 +238,21 @@ class Maas2:
         self.recover()
         status = self.node_status()
         # configuring storage must take place when node is in a ready state
-        if maas_storage and status == "Ready":
+        if maas_storage:
+            if not status == "Ready":
+                error = (
+                    f"Node status: {status}; must be Ready to config storage"
+                )
+                self._logger_error(error)
+                raise ProvisioningError(error)
+
             try:
                 maas_storage.configure_node_storage()
             except MaasStorageError as error:
-                self._logger_error(f"Unable to configure node storage {error}")
+                self._logger_error(
+                    f"Unable to configure node storage {error}"
+                )
                 raise ProvisioningError(error)
-        else:
-            error = (
-                f"Node status: {status}; must be Ready to configure storage"
-            )
-            self._logger_error(error)
-            raise ProvisioningError(error)
 
         self._logger_info("Acquiring node")
         cmd = [
