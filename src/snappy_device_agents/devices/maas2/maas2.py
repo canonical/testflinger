@@ -25,6 +25,7 @@ import yaml
 
 from snappy_device_agents.devices import ProvisioningError, RecoveryError
 from snappy_device_agents.devices.maas2.maas_storage import MaasStorage
+from snappy_device_agents.devices.maas2.maas_storage import MaasStorageError
 
 
 logger = logging.getLogger()
@@ -231,7 +232,11 @@ class Maas2:
         return False
 
     def deploy_node(
-        self, distro=None, kernel=None, user_data=None, maas_storage=None
+            self,
+            distro=None,
+            kernel=None,
+            user_data=None,
+            maas_storage=None
     ):
         # Deploy the node in maas, default to bionic if nothing is specified
         self.recover()
@@ -252,7 +257,11 @@ class Maas2:
             raise ProvisioningError(proc.stdout.decode())
         # provision storage if configured
         if maas_storage:
-            maas_storage.configure_node_storage()
+            try:
+                maas_storage.configure_node_storage()
+            except MaasStorageError as error:
+                self._logger_error(f"Unable to configure node storage {error}")
+                raise ProvisioningError(error)
         self._logger_info(
             "Starting node {} "
             "with distro {}".format(self.agent_name, distro)

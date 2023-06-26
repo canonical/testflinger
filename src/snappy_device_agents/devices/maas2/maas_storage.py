@@ -50,7 +50,6 @@ class MaasStorage:
 
     @staticmethod
     def call_cmd(cmd, output_json=False):
-        logging.i(cmd)
         proc = subprocess.run(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
         )
@@ -61,11 +60,9 @@ class MaasStorage:
             output = proc.stdout.decode()
 
             if output_json:
-                data = json.loads(output)
-            else:
-                data = output
+                return json.loads(output)
 
-            return data
+            return output
 
     @staticmethod
     def convert_size_to_bytes(size_str):
@@ -141,16 +138,6 @@ class MaasStorage:
                             str(blkdev["id"]),
                         ]
                     )
-                self.call_cmd(
-                    [
-                        "maas",
-                        self.maas_user,
-                        "block-device",
-                        "unformat",
-                        self.node_id,
-                        str(blkdev["id"]),
-                    ]
-                )
                 self.call_cmd(
                     [
                         "maas",
@@ -391,11 +378,11 @@ class MaasStorage:
             "partitions",
             "create",
             self.node_id,
-            device["top_level_parent_block_id"],
+            device['top_level_parent_block_id'],
             f"size={device['size']}",
         ]
 
-        return self.call_cmd(cmd)
+        return self.call_cmd(cmd, output_json=True)
 
     def process_partition(self, device):
         """Process given partitions from the storage layout config."""
@@ -409,9 +396,8 @@ class MaasStorage:
                 "parent block-id": device["top_level_parent_block_id"],
             }
         )
-        partition_id = self._create_partition(device)
-        device["partition_id"] = partition_id
-        # device['partition_id'] = device['id']
+        partition_data = self._create_partition(device)
+        device['partition_id'] = str(partition_data['id'])
 
     def _get_format_partition_id(self, volume):
         """Get the partition id from the specified format."""
@@ -447,7 +433,7 @@ class MaasStorage:
                     f"label={device['label']}",
                 ]
             )
-        # format blkdev
+        # format block-device
         else:
             self.call_cmd(
                 [
