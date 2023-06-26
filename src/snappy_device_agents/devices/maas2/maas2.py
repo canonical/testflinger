@@ -241,7 +241,8 @@ class Maas2:
         if maas_storage:
             if not status == "Ready":
                 error = (
-                    f"Node status: {status}; must be Ready to config storage"
+                    f"Node status: {status}; must be Ready to configure "
+                    "storage"
                 )
                 self._logger_error(error)
                 raise ProvisioningError(error)
@@ -250,7 +251,7 @@ class Maas2:
                 maas_storage.configure_node_storage()
             except MaasStorageError as error:
                 self._logger_error(
-                    f"Unable to configure node storage {error}"
+                    f"Unable to configure node storage: {error}"
                 )
                 raise ProvisioningError(error)
 
