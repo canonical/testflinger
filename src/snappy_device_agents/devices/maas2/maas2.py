@@ -232,11 +232,7 @@ class Maas2:
         return False
 
     def deploy_node(
-            self,
-            distro=None,
-            kernel=None,
-            user_data=None,
-            maas_storage=None
+        self, distro=None, kernel=None, user_data=None, maas_storage=None
     ):
         # Deploy the node in maas, default to bionic if nothing is specified
         self.recover()

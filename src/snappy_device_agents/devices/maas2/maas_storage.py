@@ -378,7 +378,7 @@ class MaasStorage:
             "partitions",
             "create",
             self.node_id,
-            device['top_level_parent_block_id'],
+            device["top_level_parent_block_id"],
             f"size={device['size']}",
         ]
 
@@ -397,7 +397,7 @@ class MaasStorage:
             }
         )
         partition_data = self._create_partition(device)
-        device['partition_id'] = str(partition_data['id'])
+        device["partition_id"] = str(partition_data["id"])
 
     def _get_format_partition_id(self, volume):
         """Get the partition id from the specified format."""
