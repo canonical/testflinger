@@ -27,7 +27,6 @@ from charm import TestflingerCharm
 
 CHARMDIR = Path(__file__).parent.parent.parent.resolve()
 METADATA_FILE = CHARMDIR / "metadata.yaml"
-# METADATA = str(yaml.safe_load(Path("metadata.yaml").read_text()))
 METADATA = str(yaml.safe_load(METADATA_FILE.read_text()))
 
 

@@ -104,9 +104,9 @@ class TestflingerCharm(ops.CharmBase):
             self.mongodb.fetch_relation_data()[event.relation.id]
         )
         if initial != self._stored.reldata["mongodb"]:
-            self._update_layer_and_restart(None)
+            self._update_layer_and_restart()
 
-    def _update_layer_and_restart(self, _) -> None:
+    def _update_layer_and_restart(self) -> None:
         """Define and start layer for testflinger using Pebble"""
         if not self.container.can_connect():
             self.unit.status = ops.WaitingStatus(
@@ -133,14 +133,22 @@ class TestflingerCharm(ops.CharmBase):
         self.unit.set_workload_version(self.version)
         self.unit.status = ops.ActiveStatus()
 
-    def _on_mongodb_client_relation_removed(self, _) -> None:
-        """Event is fired when relation with mongodb is broken."""
+    def _on_mongodb_client_relation_removed(
+        self, _: ops.framework.EventBase
+    ) -> None:
+        """
+        Event is fired when relation with mongodb is broken.
+        We need to accept the event as an argument, but we don't use it
+        """
         self.unit.status = ops.WaitingStatus("Waiting for database relation")
         sys.exit()
 
-    def _on_config_changed(self, event: ops.framework.EventBase) -> None:
-        """Handle config changed event"""
-        self._update_layer_and_restart(event)
+    def _on_config_changed(self, _: ops.framework.EventBase) -> None:
+        """
+        Handle config changed event
+        We need to accept the event as an argument, but we don't use it
+        """
+        self._update_layer_and_restart()
 
     @property
     def _pebble_layer(self):
