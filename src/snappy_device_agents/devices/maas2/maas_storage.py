@@ -113,7 +113,7 @@ class MaasStorage:
 
     def clear_storage_config(self):
         """Clear the node's exisitng storage configuration."""
-        self._logger_info('Clearing existing storage configuration:')
+        self._logger_info("Clearing existing storage configuration:")
         for blkdev in self.node_info:
             if blkdev["type"] == "virtual":
                 continue
@@ -212,8 +212,10 @@ class MaasStorage:
                     continue
 
                 size_bd = int(blkdev["size"])
-                self._logger_info(f"Comparing size: Partition: {size}, "
-                                  f"Block Device: {size_bd}")
+                self._logger_info(
+                    f"Comparing size: Partition: {size}, "
+                    f"Block Device: {size_bd}"
+                )
 
                 if size <= size_bd:
                     # map disk_id to block device id
@@ -268,9 +270,7 @@ class MaasStorage:
                 if "alloc_pct" in dev:
                     # round pct up if necessary
                     dev["size"] = str(
-                        math.ceil(
-                            (total_size * dev.get("alloc_pct", 0)) / 100
-                        )
+                        math.ceil((total_size * dev.get("alloc_pct", 0)) / 100)
                     )
                 else:
                     if "size" not in dev:
@@ -320,7 +320,8 @@ class MaasStorage:
                     except MaasStorageError as error:
                         raise MaasStorageError(
                             f"Unable to process device: {dev} "
-                            f"of type: {type_}") from error
+                            f"of type: {type_}"
+                        ) from error
 
     def _set_boot_disk(self, block_id):
         """Mark node block-device as boot disk."""
@@ -341,7 +342,7 @@ class MaasStorage:
         """Get children devices from parent device."""
         children = []
         for dev in self.device_list:
-            if dev['top_level_parent'] == parent_device['id']:
+            if dev["top_level_parent"] == parent_device["id"]:
                 children.append(dev)
         return children
 
@@ -350,10 +351,10 @@ class MaasStorage:
         self._logger_info("Disk:")
         self._logger_info(
             {
-                "device_id": device['id'],
-                "name": device['name'],
-                "number": device.get('number'),
-                "block-id": device['top_level_parent_block_id'],
+                "device_id": device["id"],
+                "name": device["name"],
+                "number": device.get("number"),
+                "block-id": device["top_level_parent_block_id"],
             }
         )
         # find boot mounts on child types
@@ -365,7 +366,7 @@ class MaasStorage:
                     f"Disk {device['id']} has a child mount with "
                     f"'boot' in its path: {child['path']}"
                 )
-                self._set_boot_disk(device['top_level_parent_block_id'])
+                self._set_boot_disk(device["top_level_parent_block_id"])
                 break
         # apply disk name
         if "name" in device:
@@ -377,8 +378,8 @@ class MaasStorage:
                     "block-device",
                     "update",
                     self.node_id,
-                    device['top_level_parent_block_id'],
-                    f"name={device['name']}"
+                    device["top_level_parent_block_id"],
+                    f"name={device['name']}",
                 ]
             )
 
@@ -390,7 +391,7 @@ class MaasStorage:
             "partitions",
             "create",
             self.node_id,
-            device['top_level_parent_block_id'],
+            device["top_level_parent_block_id"],
             f"size={device['size']}",
         ]
 
@@ -401,38 +402,38 @@ class MaasStorage:
         self._logger_info("Partition:")
         self._logger_info(
             {
-                "device_id": device['id'],
-                "size": device['size'],
-                "number": device.get('number'),
-                "parent disk": device['top_level_parent'],
-                "parent block-id": device['top_level_parent_block_id'],
+                "device_id": device["id"],
+                "size": device["size"],
+                "number": device.get("number"),
+                "parent disk": device["top_level_parent"],
+                "parent block-id": device["top_level_parent_block_id"],
             }
         )
         partition_id = self._create_partition(device)
-        device['partition_id'] = partition_id
+        device["partition_id"] = partition_id
         # device['partition_id'] = device['id']
 
     def _get_format_partition_id(self, volume):
         """Get the partition id from the specified format."""
         for dev in self.device_list:
-            if volume == dev['id']:
-                return dev['partition_id']
+            if volume == dev["id"]:
+                return dev["partition_id"]
 
     def process_format(self, device):
         """Process given parition formats from the storage layout config."""
         self._logger_info("Format:")
         self._logger_info(
             {
-                "device_id": device['id'],
-                "fstype": device['fstype'],
-                "label": device['label'],
-                "parent disk": device['top_level_parent'],
-                "parent block-id": device['top_level_parent_block_id'],
+                "device_id": device["id"],
+                "fstype": device["fstype"],
+                "label": device["label"],
+                "parent disk": device["top_level_parent"],
+                "parent block-id": device["top_level_parent_block_id"],
             }
         )
         # format partition
         if "volume" in device:
-            partition_id = self._get_format_partition_id(device['volume'])
+            partition_id = self._get_format_partition_id(device["volume"])
             self.call_cmd(
                 [
                     "maas",
@@ -440,7 +441,7 @@ class MaasStorage:
                     "partition",
                     "format",
                     self.node_id,
-                    device['top_level_parent_block_id'],
+                    device["top_level_parent_block_id"],
                     partition_id,
                     f"fstype={device['fstype']}",
                     f"label={device['label']}",
@@ -455,7 +456,7 @@ class MaasStorage:
                     "partition",
                     "format",
                     self.node_id,
-                    device['top_level_parent_block_id'],
+                    device["top_level_parent_block_id"],
                     f"fstype={device['fstype']}",
                     f"label={device['label']}",
                 ]
@@ -464,21 +465,21 @@ class MaasStorage:
     def _get_mount_partition_id(self, device):
         """Get the partiton-id of the specified mount path."""
         for dev in self.device_list:
-            if device == dev['id']:
-                return self._get_format_partition_id(dev['volume'])
+            if device == dev["id"]:
+                return self._get_format_partition_id(dev["volume"])
 
     def process_mount(self, device):
         """Process given mounts/paths from the storage layout config."""
         self._logger_info("Mount:")
         self._logger_info(
             {
-                "device_id": device['id'],
-                "path": device['path'],
-                "parent disk": device['top_level_parent'],
-                "parent block-id": device['top_level_parent_block_id'],
+                "device_id": device["id"],
+                "path": device["path"],
+                "parent disk": device["top_level_parent"],
+                "parent block-id": device["top_level_parent_block_id"],
             }
         )
-        partition_id = self._get_mount_partition_id(device['device'])
+        partition_id = self._get_mount_partition_id(device["device"])
         # mount on partition
         if partition_id:
             self._logger_info(f"  on partition_id: {partition_id}")
@@ -489,7 +490,7 @@ class MaasStorage:
                     "partition",
                     "mount",
                     self.node_id,
-                    device['top_level_parent_block_id'],
+                    device["top_level_parent_block_id"],
                     partition_id,
                     f"mount_point={device['path']}",
                 ]
@@ -504,7 +505,7 @@ class MaasStorage:
                     "block-device",
                     "mount",
                     self.node_id,
-                    device['top_level_parent_block_id'],
+                    device["top_level_parent_block_id"],
                     f"mount_point={device['path']}",
                 ]
             )
