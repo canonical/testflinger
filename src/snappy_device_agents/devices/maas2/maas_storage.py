@@ -383,7 +383,7 @@ class MaasStorage:
         for child in children:
             if child["type"] == "mount" and "/boot" in child["path"]:
                 self._logger_debug(
-                    f"Disk {device['id']} has a child mount with "
+                    f"Disk {device['id']} has a mount with "
                     f"'boot' in its path: {child['path']}"
                 )
                 self._set_boot_disk(device["parent_disk_blkid"])
