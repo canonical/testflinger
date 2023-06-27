@@ -239,14 +239,6 @@ class Maas2:
         status = self.node_status()
         # configuring storage must take place when node is in a ready state
         if maas_storage:
-            if not status == "Ready":
-                error = (
-                    f"Node status: {status}; must be Ready to configure "
-                    "storage"
-                )
-                self._logger_error(error)
-                raise ProvisioningError(error)
-
             try:
                 maas_storage.configure_node_storage()
             except MaasStorageError as error:

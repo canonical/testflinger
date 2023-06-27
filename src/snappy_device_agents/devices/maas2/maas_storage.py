@@ -118,14 +118,16 @@ class MaasStorage:
         self.create_partition_sizes()
         # group devices by type
         devs_by_type = self.group_by_type()
+
         # clear existing storage on node
+        self._logger_info("Clearing existing storage configuration")
         self.clear_storage_config()
         # apply configured storage to node
+        self._logger_info("Applying storage layout")
         self.process_by_type(devs_by_type)
 
     def clear_storage_config(self):
         """Clear the node's exisitng storage configuration."""
-        self._logger_info("Clearing existing storage configuration:")
         for block_dev in self.node_info:
             if block_dev["type"] == "virtual":
                 continue
@@ -221,7 +223,7 @@ class MaasStorage:
     def parse_block_devices(self):
         """Find appropriate node block-device for use in layout."""
         for partition_id, partition_size in self.partition_sizes.items():
-            self._logger_info(f"Comparing size: Partition: {partition_size}")
+            self._logger_debug(f"Comparing size: Partition: {partition_size}")
             block_device_id = self._select_block_dev(
                 partition_id, partition_size
             )
@@ -318,7 +320,7 @@ class MaasStorage:
         for type_ in type_order:
             devices = devs_by_type.get(type_)
             if devices:
-                self._logger_info(f"Processing type '{type_}':")
+                self._logger_debug(f"Processing type '{type_}':")
                 for dev in devices:
                     try:
                         if type_ == "partition":
@@ -337,7 +339,7 @@ class MaasStorage:
 
         :param block_id: ID of the block-device
         """
-        self._logger_info(f"Setting boot disk {block_id}")
+        self._logger_debug(f"Setting boot disk {block_id}")
         # self.call_cmd(
         self.call_cmd(
             [
@@ -367,8 +369,7 @@ class MaasStorage:
 
         :param device: the disk device to process
         """
-        self._logger_info("Disk:")
-        self._logger_info(
+        self._logger_debug(
             {
                 "device_id": device["id"],
                 "name": device["name"],
@@ -381,7 +382,7 @@ class MaasStorage:
 
         for child in children:
             if child["type"] == "mount" and "/boot" in child["path"]:
-                self._logger_info(
+                self._logger_debug(
                     f"Disk {device['id']} has a child mount with "
                     f"'boot' in its path: {child['path']}"
                 )
@@ -425,8 +426,7 @@ class MaasStorage:
 
         :param device: the partition device to process
         """
-        self._logger_info("Partition:")
-        self._logger_info(
+        self._logger_debug(
             {
                 "device_id": device["id"],
                 "size": device["size"],
@@ -453,8 +453,7 @@ class MaasStorage:
 
         :param device: the format device to process
         """
-        self._logger_info("Format:")
-        self._logger_info(
+        self._logger_debug(
             {
                 "device_id": device["id"],
                 "fstype": device["fstype"],
@@ -509,8 +508,7 @@ class MaasStorage:
 
         :param device: the mount device to process
         """
-        self._logger_info("Mount:")
-        self._logger_info(
+        self._logger_debug(
             {
                 "device_id": device["id"],
                 "path": device["path"],
@@ -521,7 +519,7 @@ class MaasStorage:
         partition_id = self._get_mount_partition_id(device["device"])
         # mount on partition
         if partition_id:
-            self._logger_info(f"  on partition_id: {partition_id}")
+            self._logger_debug(f"  on partition_id: {partition_id}")
             self.call_cmd(
                 [
                     "maas",
@@ -536,7 +534,7 @@ class MaasStorage:
             )
         # mount on block-device
         else:
-            self._logger_info(f"  on disk: {device['parent_disk']}")
+            self._logger_debug(f"  on disk: {device['parent_disk']}")
             self.call_cmd(
                 [
                     "maas",
