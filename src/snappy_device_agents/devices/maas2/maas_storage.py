@@ -248,9 +248,7 @@ class MaasStorage:
         for dev in self.device_list:
             if dev["type"] == "partition":
                 # add pct together (default to 0 if unnused)
-                alloc_pct_values[dev["parent_disk"]] += dev.get(
-                    "alloc_pct", 0
-                )
+                alloc_pct_values[dev["parent_disk"]] += dev.get("alloc_pct", 0)
 
         for dev_id, alloc_pct in alloc_pct_values.items():
             if alloc_pct > 100:
