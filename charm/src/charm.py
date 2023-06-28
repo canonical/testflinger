@@ -1,12 +1,29 @@
 #!/usr/bin/env python3
-# Copyright 2023 Paul Larson
-# See LICENSE file for licensing details.
+# Copyright (C) 2023 Canonical
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+"""
+Testflinger Juju charm
+"""
 
 import logging
-import ops
 import sys
+import ops
 
 from ops.pebble import Layer
+from ops.main import main
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
 from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
@@ -56,7 +73,6 @@ class TestflingerCharm(ops.CharmBase):
     @property
     def version(self) -> str:
         """Report the current version of the app"""
-        # TODO: get the version somehow and return it
         return "Version ?"
 
     def _require_nginx_route(self):
@@ -88,9 +104,9 @@ class TestflingerCharm(ops.CharmBase):
             self.mongodb.fetch_relation_data()[event.relation.id]
         )
         if initial != self._stored.reldata["mongodb"]:
-            self._update_layer_and_restart(None)
+            self._update_layer_and_restart()
 
-    def _update_layer_and_restart(self, event) -> None:
+    def _update_layer_and_restart(self) -> None:
         """Define and start layer for testflinger using Pebble"""
         if not self.container.can_connect():
             self.unit.status = ops.WaitingStatus(
@@ -118,15 +134,21 @@ class TestflingerCharm(ops.CharmBase):
         self.unit.status = ops.ActiveStatus()
 
     def _on_mongodb_client_relation_removed(
-        self, event: ops.framework.EventBase
+        self, _: ops.framework.EventBase
     ) -> None:
-        """Event is fired when relation with mongodb is broken."""
+        """
+        Event is fired when relation with mongodb is broken.
+        We need to accept the event as an argument, but we don't use it
+        """
         self.unit.status = ops.WaitingStatus("Waiting for database relation")
         sys.exit()
 
-    def _on_config_changed(self, event: ops.framework.EventBase) -> None:
-        """Handle config changed event"""
-        self._update_layer_and_restart(event)
+    def _on_config_changed(self, _: ops.framework.EventBase) -> None:
+        """
+        Handle config changed event
+        We need to accept the event as an argument, but we don't use it
+        """
+        self._update_layer_and_restart()
 
     @property
     def _pebble_layer(self):
@@ -194,4 +216,4 @@ class TestflingerCharm(ops.CharmBase):
 
 
 if __name__ == "__main__":
-    ops.main(TestflingerCharm)
+    main(TestflingerCharm)
