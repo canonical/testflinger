@@ -294,6 +294,7 @@ class MuxPi:
                 self._configure_sudo()
             if image_type == "tegra":
                 self._configure_sudo()
+                return
             if image_type == "pi-desktop":
                 # make a spot to scp files to
                 self._run_control("mkdir -p {}".format(remote_tmp))
