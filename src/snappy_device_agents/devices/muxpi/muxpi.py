@@ -121,6 +121,7 @@ class MuxPi:
             self.flash_test_image(url)
             with self.remote_mount():
                 image_type = self.get_image_type()
+                logger.info("Image type detected: {}".format(image_type))
                 logger.info("Creating Test User")
                 self.create_user(image_type)
             self.run_post_provision_script()
@@ -146,7 +147,7 @@ class MuxPi:
 
         test_device = self.config["test_device"]
         cmd = (
-            f"(set -o pipefail; curl -sf {url} | xzcat| "
+            f"(set -o pipefail; curl -sf {url} | zstdcat| "
             f"sudo dd of={test_device} bs=16M)"
         )
         logger.info("Running: %s", cmd)
@@ -244,11 +245,20 @@ class MuxPi:
             # Not a limerick image
             pass
 
+        try:
+            disk_info_path = (
+                self.mount_point / "writable/lib/firmware/*-tegra/"
+            )
+            self._run_control(f"ls {disk_info_path} &>/dev/null")
+            return "tegra"
+        except ProvisioningError:
+            # Not a tegra image
+            pass
+
         for path, img_type in self.IMAGE_PATH_IDS.items():
             try:
                 path = self.mount_point / path
                 check_path(path)
-                logger.info("Image type detected: {}".format(img_type))
                 return img_type
             except Exception:
                 # Path was not found, continue trying others
@@ -282,6 +292,9 @@ class MuxPi:
                 cmd = f"sudo cp {remote_tmp}/user-data {base}/system-boot/"
                 self._run_control(cmd)
                 self._configure_sudo()
+            if image_type == "tegra":
+                self._configure_sudo()
+                return
             if image_type == "pi-desktop":
                 # make a spot to scp files to
                 self._run_control("mkdir -p {}".format(remote_tmp))
