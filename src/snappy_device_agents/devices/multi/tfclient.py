@@ -109,7 +109,7 @@ class TFClient:
             data = json.loads(self.get(endpoint))
             state = data.get("job_state")
         except OSError:
-            logger.exception("Unable to get status for job %s", job_id)
+            logger.error("Unable to get status for job %s", job_id)
             state = "unknown"
         return state
 
@@ -125,7 +125,7 @@ class TFClient:
             endpoint = f"/v1/result/{job_id}"
             data = json.loads(self.get(endpoint))
         except OSError:
-            logger.exception("Unable to get results for job %s", job_id)
+            logger.error("Unable to get results for job %s", job_id)
             data = {}
         return data
 
