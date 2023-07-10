@@ -44,6 +44,7 @@ class Maas2:
         self.node_id = self.config.get("node_id")
         self.agent_name = self.config.get("agent_name")
         self.timeout_min = int(self.config.get("timeout_min", 60))
+        self.maas_storage = MaasStorage(self.maas_user, self.node_id)
 
     def _logger_debug(self, message):
         logger.debug("MAAS: {}".format(message))
@@ -76,11 +77,8 @@ class Maas2:
         kernel = provision_data.get("kernel")
         user_data = provision_data.get("user_data")
         storage_data = provision_data.get("disks")
-        if storage_data:
-            maas_storage = MaasStorage(
-                self.maas_user, self.node_id, storage_data
-            )
-        self.deploy_node(distro, kernel, user_data, maas_storage)
+
+        self.deploy_node(distro, kernel, user_data, storage_data)
 
     def _install_efitools_snap(self):
         cmd = [
@@ -232,20 +230,39 @@ class Maas2:
         return False
 
     def deploy_node(
-        self, distro="bionic", kernel=None, user_data=None, maas_storage=None
+        self, distro="bionic", kernel=None, user_data=None, storage_data=None
     ):
         # Deploy the node in maas, default to bionic if nothing is specified
         self.recover()
         status = self.node_status()
         # configuring storage must take place when node is in a ready state
-        if maas_storage:
+        if storage_data:
             try:
-                maas_storage.configure_node_storage()
+                self.maas_storage.configure_node_storage(storage_data)
             except MaasStorageError as error:
                 self._logger_error(
                     f"Unable to configure node storage: {error}"
                 )
-                raise ProvisioningError(error)
+                raise ProvisioningError from error
+        else:
+            def_storage_data = self.config.get("default_disks")
+            if not def_storage_data:
+                self._logger_warn(
+                    "'default_disks' and/or 'disks' unspecified; \
+                    skipping storage layout configuration"
+                )
+            else:
+                # reset to the default layout
+                try:
+                    self.maas_storage.configure_node_storage(
+                        def_storage_data, reset=True
+                    )
+                except MaasStorageError as error:
+                    self._logger_error(
+                        f"Unable to reset node storage to \
+                        default_disk layout: {error}"
+                    )
+                    raise ProvisioningError from error
 
         self._logger_info("Acquiring node")
         cmd = [

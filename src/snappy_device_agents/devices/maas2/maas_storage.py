@@ -30,10 +30,13 @@ class MaasStorageError(Exception):
 
 
 class MaasStorage:
-    def __init__(self, maas_user, node_id, storage_data):
+    """Maas device agent storage module."""
+
+    def __init__(self, maas_user, node_id):
         self.maas_user = maas_user
         self.node_id = node_id
-        self.device_list = storage_data
+        self.device_list = None
+        self.init_data = None
         self.node_info = self._node_read()
         self.block_ids = {}
         self.partition_sizes = {}
@@ -59,11 +62,16 @@ class MaasStorage:
         :param cmd: command to run
         :param output_json: output the result as JSON
         :return: subprocess stdout
+        :raises MaasStorageError: on subprocess non-zero return code
         """
-        proc = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
-        )
-        if proc.returncode:
+        try:
+            proc = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+        except subprocess.CalledProcessError:
             raise MaasStorageError(proc.stdout.decode())
 
         if proc.stdout:
@@ -83,17 +91,18 @@ class MaasStorage:
         :raises MaasStorageError: on invalid size unit/type
         """
         size_str = size_str.upper()
-        if "T" in size_str:
-            return round(float(size_str.replace("T", "")) * (1000**4))
-        elif "G" in size_str:
-            return round(float(size_str.replace("G", "")) * (1000**3))
-        elif "M" in size_str:
-            return round(float(size_str.replace("M", "")) * (1000**2))
-        elif "K" in size_str:
-            return round(float(size_str.replace("K", "")) * 1000)
-        elif "B" in size_str:
-            return int(size_str.replace("B", ""))
-        else:
+        size_pow = {"T": 4, "G": 3, "M": 2, "K": 1, "B": 0}
+
+        try:
+            return round(
+                float("".join(char for char in size_str if char.isdigit()))
+            ) * (
+                1000
+                ** size_pow[
+                    "".join(char for char in size_str if not char.isdigit())
+                ]
+            )
+        except KeyError:
             try:
                 # attempt to convert the size string to an integer
                 return int(size_str)
@@ -103,19 +112,23 @@ class MaasStorage:
                     "when no unit is provided."
                 )
 
-    def configure_node_storage(self):
+    def configure_node_storage(self, storage_data, reset=False):
         """Configure the node's storage layout, from provisioning data."""
-        self._logger_info("Configuring node storage")
-        # map top level parent disk to every device
-        self.assign_parent_disk()
-        # tally partition requirements for each disk
-        self.gather_partitions()
-        # find appropriate block devices for each partition
-        self.parse_block_devices()
-        # map block ids to top level parents
-        self.map_block_ids()
-        # calculate partition sizes
-        self.create_partition_sizes()
+        self.device_list = storage_data
+
+        if not reset:
+            self._logger_info("Configuring node storage")
+            # map top level parent disk to every device
+            self.assign_parent_disk()
+            # tally partition requirements for each disk
+            self.gather_partitions()
+            # find appropriate block devices for each partition
+            self.parse_block_devices()
+            # map block ids to top level parents
+            self.map_block_ids()
+            # calculate partition sizes
+            self.create_partition_sizes()
+
         # group devices by type
         devs_by_type = self.group_by_type()
 
@@ -124,7 +137,7 @@ class MaasStorage:
         self.clear_storage_config()
         # apply configured storage to node
         self._logger_info("Applying storage layout")
-        self.process_by_type(devs_by_type)
+        self.process_by_dev_type(devs_by_type)
 
     def clear_storage_config(self):
         """Clear the node's exisitng storage configuration."""
@@ -140,7 +153,7 @@ class MaasStorage:
                         "delete",
                         self.node_id,
                         str(block_dev["id"]),
-                        str(partition["id"]),
+                        str(str(partition["id"])),
                     ]
                 )
             if block_dev["filesystem"] is not None:
@@ -278,7 +291,7 @@ class MaasStorage:
                 else:
                     if "size" not in dev:
                         raise ValueError(
-                            f"Partition '{dev['id']}' does not have an "
+                            f"Partition '{str(dev['id'])}' does not have an "
                             "alloc_pct or size value."
                         )
                     else:
@@ -297,7 +310,7 @@ class MaasStorage:
 
         return devs_by_type
 
-    def process_by_type(self, devs_by_type):
+    def process_by_dev_type(self, devs_by_type):
         """Process each storage type together in sequence.
 
         :param devs_by_type: dict with device types as keys and
@@ -305,9 +318,9 @@ class MaasStorage:
         :raises MaasStorageError: if an error occurs during device processing
         """
         # order in which storage types are processed
-        type_order = ["disk", "partition", "format", "mount"]
+        dev_type_order = ["disk", "partition", "format", "mount"]
         # maps the device type to the method that processes it
-        type_to_method = {
+        dev_type_to_method = {
             "disk": self.process_disk,
             "partition": self.process_partition,
             "mount": self.process_mount,
@@ -315,21 +328,23 @@ class MaasStorage:
         }
         partn_data = {}
 
-        for type_ in type_order:
-            devices = devs_by_type.get(type_)
+        for dev_type in dev_type_order:
+            devices = devs_by_type.get(dev_type)
             if devices:
-                self._logger_debug(f"Processing type '{type_}':")
+                self._logger_debug(f"Processing type '{dev_type}':")
                 for dev in devices:
                     try:
-                        if type_ == "partition":
-                            partn_data[dev["id"]] = type_to_method[type_](dev)
+                        if dev_type == "partition":
+                            partn_data[dev["id"]] = dev_type_to_method[
+                                dev_type
+                            ](dev)
                         else:
-                            type_to_method[type_](dev)
+                            dev_type_to_method[dev_type](dev)
                     # do not proceed to subsequent/child types
                     except MaasStorageError as error:
                         raise MaasStorageError(
                             f"Unable to process device: {dev} "
-                            f"of type: {type_}"
+                            f"of type: {dev_type}"
                         ) from error
 
     def _set_boot_disk(self, block_id):
