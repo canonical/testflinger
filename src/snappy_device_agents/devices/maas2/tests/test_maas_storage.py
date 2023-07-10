@@ -30,7 +30,6 @@ class TestMaasStorage:
         [
             {
                 "id": 1,
-                "type": "disk",
                 "name": "sda",
                 "type": "physical",
                 "size": "300000000000",
@@ -52,7 +51,6 @@ class TestMaasStorage:
             },
             {
                 "id": 2,
-                "type": "disk",
                 "name": "sdb",
                 "type": "physical",
                 "size": "400000000000",
@@ -73,7 +71,6 @@ class TestMaasStorage:
             },
             {
                 "id": 3,
-                "type": "disk",
                 "name": "sdc",
                 "type": "physical",
                 "size": "900000000000",
