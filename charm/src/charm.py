@@ -197,7 +197,7 @@ class TestflingerCharm(ops.CharmBase):
             self.unit.status = ops.WaitingStatus(
                 "Waiting for database relation"
             )
-            raise SystemExit(0)
+            sys.exit()
 
         for val in data.values():
             if not val:
