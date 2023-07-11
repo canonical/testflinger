@@ -191,26 +191,31 @@ class TestflingerCharm(ops.CharmBase):
 
     def fetch_mongodb_relation_data(self) -> dict:
         """Get relation data from the mongodb charm"""
-        data = self._stored.reldata.get("mongodb", {})
+        data = self.mongodb.fetch_relation_data()
         logger.debug("Got following database data: %s", data)
         if not data:
             self.unit.status = ops.WaitingStatus(
                 "Waiting for database relation"
             )
-            raise SystemExit(0)
+            sys.exit()
 
-        if ":" in data.get("endpoints"):
-            host, port = data.get("endpoints").split(":")
-        else:
-            host = data.get("endpoints")
-            port = "27017"
-
+        for val in data.values():
+            if not val:
+                continue
+            if ":" in val.get("endpoints"):
+                host, port = val.get("endpoints").split(":")
+            else:
+                host = val.get("endpoints")
+                port = "27017"
+            username = val.get("username")
+            password = val.get("password")
+            database = val.get("database")
         db_data = {
             "db_host": host,
             "db_port": port,
-            "db_username": data.get("username"),
-            "db_password": data.get("password"),
-            "db_database": data.get("database"),
+            "db_username": username,
+            "db_password": password,
+            "db_database": database,
         }
         return db_data
 
