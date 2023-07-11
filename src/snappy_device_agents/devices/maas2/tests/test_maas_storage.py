@@ -450,7 +450,7 @@ class TestMaasStorage:
 
         maas_storage.process_partition(device)
 
-        assert maas_storage._create_partition.call_args_list == [call(device)]
+        maas_storage._create_partition.assert_called_with(device)
 
         assert device["partition_id"] == "3"
 
