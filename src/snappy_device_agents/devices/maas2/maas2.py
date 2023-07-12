@@ -24,8 +24,9 @@ from collections import OrderedDict
 import yaml
 
 from snappy_device_agents.devices import ProvisioningError, RecoveryError
-from snappy_device_agents.devices.maas2.maas_storage import MaasStorage
-from snappy_device_agents.devices.maas2.maas_storage import MaasStorageError
+from snappy_device_agents.devices.maas2.maas_storage import (
+    MaasStorage, MaasStorageError,
+)
 
 
 logger = logging.getLogger()
@@ -235,7 +236,7 @@ class Maas2:
         # Deploy the node in maas, default to bionic if nothing is specified
         self.recover()
         status = self.node_status()
-        # configuring storage must take place when node is in a ready state
+        # do not process an empty dataset
         if storage_data:
             try:
                 self.maas_storage.configure_node_storage(storage_data)
