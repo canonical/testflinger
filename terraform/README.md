@@ -18,7 +18,7 @@ juju in this howto: https://juju.is/docs/olm/microk8s
 
 1. First, create the model
 ```
-    $ juju add-model testflinger-dev --credential k8s-certification
+    $ juju add-model testflinger-dev
 ```
 
 2. The terraform juju provider doesn't currently support specifying storage
