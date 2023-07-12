@@ -210,6 +210,11 @@ class TestflingerCharm(ops.CharmBase):
             username = val.get("username")
             password = val.get("password")
             database = val.get("database")
+            break
+        else:
+            logger.error("No database relation data found yet")
+            sys.exit()
+
         db_data = {
             "db_host": host,
             "db_port": port,
