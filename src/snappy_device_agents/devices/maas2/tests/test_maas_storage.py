@@ -19,7 +19,8 @@ import pytest
 import json
 from unittest.mock import Mock, MagicMock, call
 from snappy_device_agents.devices.maas2.maas_storage import (
-    MaasStorage, MaasStorageError,
+    MaasStorage,
+    MaasStorageError,
 )
 
 

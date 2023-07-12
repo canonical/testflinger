@@ -25,7 +25,8 @@ import yaml
 
 from snappy_device_agents.devices import ProvisioningError, RecoveryError
 from snappy_device_agents.devices.maas2.maas_storage import (
-    MaasStorage, MaasStorageError,
+    MaasStorage,
+    MaasStorageError,
 )
 
 
