@@ -5,16 +5,30 @@ the Testflinger server into a dev, staging, or production environment.
 For development, it is recommended to use Juju with Microk8s.
 
 
-## Deploying an Environment
+## Setting up microk8s and juju for development
 
-For purposes of this example, we will be deploying a **dev**
-environment.
-
-This assumes that you have an existing Juju + k8s environment.
 Microk8s makes a great environment for development and testing this,
 and you can find more information about deploying it and using it with
 juju in this howto: https://juju.is/docs/olm/microk8s
 
+However, the required steps are:
+
+```
+sudo snap install microk8s --channel=1.27-strict/stable
+sudo usermod -a -G snap_microk8s $USER
+sudo chown -f -R $USER ~/.kube
+newgrp snap_microk8s
+sudo microk8s enable hostpath-storage dns ingress
+sudo snap alias microk8s.kubectl kubectl
+sudo snap install juju --channel=3.1/stable
+mkdir -p ~/.local/share
+juju bootstrap microk8s tf-controller
+```
+
+## Deploying an Environment
+
+For purposes of this example, we will be deploying a **dev**
+environment.
 
 1. First, create the model
 ```
