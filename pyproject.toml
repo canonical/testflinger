@@ -1,8 +1,6 @@
 [tool.black]
 line-length = 79
-exclude = [
-  "charm/lib"
-]
+exclude = "charm/lib"
 
 [tool.pytest.ini_options]
 pythonpath = [
