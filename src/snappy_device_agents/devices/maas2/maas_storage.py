@@ -63,14 +63,14 @@ class MaasStorage:
         :return: subprocess stdout
         :raises MaasStorageError: on subprocess non-zero return code
         """
-        try:
-            proc = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                check=False,
-            )
-        except subprocess.CalledProcessError:
+        proc = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+
+        if proc.returncode != 0:
             raise MaasStorageError(proc.stdout.decode())
 
         if proc.stdout:
@@ -293,9 +293,9 @@ class MaasStorage:
                             f"Partition '{str(dev['id'])}' does not have an "
                             "alloc_pct or size value."
                         )
-                    else:
-                        # default to minimum required partition size
-                        dev["size"] = self.convert_size_to_bytes(dev["size"])
+
+                    # default to minimum required partition size
+                    dev["size"] = self.convert_size_to_bytes(dev["size"])
 
     def group_by_type(self):
         """Group storage devices by type for processing.

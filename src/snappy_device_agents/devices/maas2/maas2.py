@@ -249,9 +249,9 @@ class Maas2:
         else:
             def_storage_data = self.config.get("default_disks")
             if not def_storage_data:
-                self._logger_warn(
-                    "'default_disks' and/or 'disks' unspecified; \
-                    skipping storage layout configuration"
+                self._logger_warning(
+                    "'default_disks' and/or 'disks' unspecified; "
+                    "skipping storage layout configuration"
                 )
             else:
                 # reset to the default layout
@@ -261,8 +261,8 @@ class Maas2:
                     )
                 except MaasStorageError as error:
                     self._logger_error(
-                        f"Unable to reset node storage to \
-                        default_disk layout: {error}"
+                        "Unable to reset node storage to "
+                        f"default_disk layout: {error}"
                     )
                     raise ProvisioningError from error
 
