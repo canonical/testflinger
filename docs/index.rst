@@ -6,10 +6,12 @@ Testflinger
 ============
 
 .. A single sentence that says what the product is, succinctly and memorably.
+
 Testflinger is a system for orchestrating the time-sharing of access to a pool of
 target machines.
 
 .. A paragraph of one to three short sentences, that describe what the product does.
+
 Each testflinger system consists of:
 
 * a web service (called just testflinger) that provides an API to request jobs
@@ -21,11 +23,13 @@ Jobs can be either fully automated scripts that can attempt to complete within
 the alloted time or interactive shell sessions.
 
 .. A third paragraph of similar length, this time explaining what need the product meets.
+
 The tesflinger system is particular useful for sharing finite machine resources
 between different consumers in a predicatable fashion.
  
 
 .. Finally, a paragraph that describes whom the product is useful for.
+
 Typically this has been used for managing a test lab where CI/CD test runs and
 also exploratory testing by human operators is desired.
 
