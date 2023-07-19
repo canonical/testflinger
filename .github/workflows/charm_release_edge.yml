@@ -1,0 +1,24 @@
+name: Release testflinger-k8s charm to latest/edge
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Release to Charmhub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Upload charm to charmhub
+        uses: canonical/charming-actions/upload-charm@2.3.0
+        with:
+          charm-path: charm
+          credentials: "${{ secrets.CHARMHUB_TOKEN }}"
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          upload-image: "true"
+          channel: "latest/edge"

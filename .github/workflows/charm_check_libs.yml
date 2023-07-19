@@ -1,0 +1,22 @@
+name: Check Charm Libs on Pull Request
+
+on: 
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Check charm libraries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  
+      - name: Check libraries
+        uses: canonical/charming-actions/check-libraries@2.3.0
+        with:
+          charm-path: charm
+          credentials: "${{ secrets.CHARMHUB_TOKEN }}"
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
