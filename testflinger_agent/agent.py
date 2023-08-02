@@ -14,7 +14,6 @@
 
 import json
 import logging
-import multiprocessing
 import os
 import shutil
 import time
@@ -28,39 +27,43 @@ logger = logging.getLogger(__name__)
 class TestflingerAgent:
     def __init__(self, client):
         self.client = client
-        self._state = multiprocessing.Array("c", 16)
         self.set_agent_state("waiting")
-        self.advertised_queues = self.client.config.get(
-            "advertised_queues", {}
-        )
-        self.advertised_images = self.client.config.get("advertised_images")
-        location = self.client.config.get("location", "")
-        if self.advertised_queues or location:
-            self.client.post_agent_data(
-                {"queues": self.advertised_queues, "location": location}
-            )
-        if self.advertised_queues or self.advertised_images:
-            self.status_proc = multiprocessing.Process(
-                target=self._status_worker
-            )
-            self.status_proc.daemon = True
-            self.status_proc.start()
+        self._post_initial_agent_data()
 
-    def _status_worker(self):
-        # Report advertised queues to testflinger server when we are listening
-        while True:
-            # Post every 2min unless the agent is offline
-            if self._state.value.decode("utf-8") != "offline":
-                if self.advertised_queues:
-                    self.client.post_queues(self.advertised_queues)
-                if self.advertised_images:
-                    self.client.post_images(self.advertised_images)
-            time.sleep(120)
+    def _post_initial_agent_data(self):
+        """Post the initial agent data to the server once on agent startup"""
+
+        location = self.client.config.get("location", "")
+        advertised_queues = self._post_advertised_queues()
+        self._post_advertised_images()
+
+        if advertised_queues or location:
+            self.client.post_agent_data(
+                {"queues": advertised_queues, "location": location}
+            )
+
+    def _post_advertised_queues(self):
+        """
+        Get the advertised queues from the config and send them to the server
+
+        :return: Dictionary of advertised queues
+        """
+        advertised_queues = self.client.config.get("advertised_queues", {})
+        if advertised_queues:
+            self.client.post_queues(advertised_queues)
+        return advertised_queues
+
+    def _post_advertised_images(self):
+        """
+        Get the advertised images from the config and post them to the server
+        """
+        advertised_images = self.client.config.get("advertised_images")
+        if advertised_images:
+            self.client.post_images(advertised_images)
 
     def set_agent_state(self, state):
         """Send the agent state to the server"""
         self.client.post_agent_data({"state": state})
-        self._state.value = state.encode("utf-8")
 
     def get_offline_files(self):
         # Return possible restart filenames with and without dashes
@@ -153,28 +156,9 @@ class TestflingerAgent:
                         break
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase)
-                    proc = multiprocessing.Process(
-                        target=job.run_test_phase,
-                        args=(
-                            phase,
-                            rundir,
-                        ),
-                    )
-                    proc.start()
+
                     start_time = time.time()
-                    while proc.is_alive():
-                        proc.join(10)
-                        if (
-                            self.client.check_job_state(job.job_id)
-                            == "cancelled"
-                            and phase != "provision"
-                        ):
-                            logger.info(
-                                "Job cancellation was requested, exiting."
-                            )
-                            proc.terminate()
-                            break
-                    exitcode = proc.exitcode
+                    exitcode = job.run_test_phase(phase, rundir)
 
                     end_time = time.time()
                     duration = end_time - start_time
@@ -200,17 +184,9 @@ class TestflingerAgent:
                 logger.exception(e)
             finally:
                 # Always run the cleanup, even if the job was cancelled
-                proc = multiprocessing.Process(
-                    target=job.run_test_phase,
-                    args=(
-                        "cleanup",
-                        rundir,
-                    ),
-                )
+                job.run_test_phase("cleanup", rundir)
                 # clear job id
                 self.client.post_agent_data({"job_id": ""})
-                proc.start()
-                proc.join()
 
             try:
                 self.client.transmit_job_outcome(rundir)
