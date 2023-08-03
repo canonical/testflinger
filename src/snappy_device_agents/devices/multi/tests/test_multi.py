@@ -80,13 +80,13 @@ def test_this_job_complete():
         "job_id": "11111111-1111-1111-1111-111111111111",
     }
 
-    # completed state is complete
+    # complete state is detected as complete
     complete_client = MockTFClient("http://localhost")
-    complete_client.get_status = lambda job_id: "completed"
+    complete_client.get_status = lambda job_id: "complete"
     test_agent = Multi(test_config, job_data, complete_client)
     assert test_agent.this_job_complete() is True
 
-    # cancelled state is complete
+    # cancelled state is detected as complete
     cancelled_client = MockTFClient("http://localhost")
     cancelled_client.get_status = lambda job_id: "cancelled"
     test_agent = Multi(test_config, job_data, cancelled_client)

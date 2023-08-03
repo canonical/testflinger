@@ -93,7 +93,7 @@ class Multi:
 
         job_id = self.job_data.get("job_id")
         status = self.client.get_status(job_id)
-        if status in ("cancelled", "completed"):
+        if status in ("cancelled", "complete"):
             return True
         return False
 
