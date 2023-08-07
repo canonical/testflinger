@@ -16,7 +16,6 @@ import json
 import logging
 import os
 import shutil
-import time
 
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
@@ -64,6 +63,7 @@ class TestflingerAgent:
     def set_agent_state(self, state):
         """Send the agent state to the server"""
         self.client.post_agent_data({"state": state})
+        self.client.post_influx(state)
 
     def get_offline_files(self):
         # Return possible restart filenames with and without dashes
@@ -157,17 +157,9 @@ class TestflingerAgent:
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase)
 
-                    start_time = time.time()
                     exitcode = job.run_test_phase(phase, rundir)
 
-                    end_time = time.time()
-                    duration = end_time - start_time
-                    self.client.post_influx(
-                        job.job_id,
-                        phase,
-                        duration,
-                        exitcode,
-                    )
+                    self.client.post_influx(phase, exitcode)
 
                     # exit code 46 is our indication that recovery failed!
                     # In this case, we need to mark the device offline
