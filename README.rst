@@ -49,7 +49,7 @@ The following configuration options are supported:
 
   - Time to sleep between polling for new tests (default: 10s)
 
-- **server address**:
+- **server_address**:
 
   - Host/IP and port of the testflinger server
 
@@ -60,6 +60,10 @@ The following configuration options are supported:
 - **logging_basedir**:
 
   - Base directory to use for agent logging (default: /tmp/testflinger/logs)
+
+- **results_basedir**:
+
+  - Base directory to use for temporary storage of test results to be transmitted to the server (default: /tmp/testflinger/results)
 
 - **logging_level**:
 
@@ -81,6 +85,14 @@ The following configuration options are supported:
 
   - List of images to associate with a queue name so that they can be referenced by name when using testflinger reserve
 
+- **global_timeout**:
+
+  - Maximum global timeout (in seconds) a job is allowed to specify for this device agent. The job will timeout during the provision or test phase if it takes longer than the requested global_timeout to run. (Default 4 hours)
+
+- **output_timeout**:
+
+  - Maximum output timeout (in seconds) a job is allowed to specify for this device agent. The job will timeout if there has been no output in the test phase for longer than the requested output_timeout. (Default 15 min.)
+
 - **setup_command**:
 
   - Command to run for the setup phase
@@ -89,9 +101,17 @@ The following configuration options are supported:
 
   - Command to run for the provision phase
 
+- **allocate_command**:
+
+  - Command to run for the allocate phase
+
 - **test_command**:
 
   - Command to run for the testing phase
+
+- **reserve_command**:
+
+  - Command to run for the reserve phase
 
 - **cleanup_command**:
 
