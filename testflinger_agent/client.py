@@ -312,9 +312,7 @@ class TestflingerClient:
         if not self.influx_client:
             return
 
-        fields = {
-            "phase": phase
-        }
+        fields = {"phase": phase}
 
         if result is not None:
             fields["result"] = result
