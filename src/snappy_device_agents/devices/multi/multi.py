@@ -57,13 +57,13 @@ class Multi:
 
         while unallocated:
             time.sleep(10)
-            self.terminate_if_parent_complete()
+            self.terminate_if_parent_completed()
             for job in unallocated:
                 state = self.client.get_status(job)
                 if state == "allocated":
                     unallocated.remove(job)
                     break
-                if state in ("cancelled", "complete"):
+                if state in ("cancelled", "complete", "completed"):
                     logger.error(
                         "Job %s failed to allocate, cancelling remaining jobs",
                         job,
@@ -79,21 +79,21 @@ class Multi:
 
         self.save_job_list_file()
 
-    def terminate_if_parent_complete(self):
-        """If parent job is complete or cancelled, cancel sub jobs"""
-        if self.this_job_complete():
+    def terminate_if_parent_completed(self):
+        """If parent job is completed or cancelled, cancel sub jobs"""
+        if self.this_job_completed():
             self.cancel_jobs(self.jobs)
             raise ProvisioningError("Job cancelled or completed")
 
-    def this_job_complete(self):
+    def this_job_completed(self):
         """
-        If the job is complete, or cancelled, then we need to exit the
+        If the job is completed, or cancelled, then we need to exit the
         provision phase, and cleanup the subordinate jobs
         """
 
         job_id = self.job_data.get("job_id")
         status = self.client.get_status(job_id)
-        if status in ("cancelled", "complete"):
+        if status in ("cancelled", "completed"):
             return True
         return False
 
