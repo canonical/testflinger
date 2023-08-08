@@ -24,13 +24,20 @@ variable "tls_secret_name" {
   type        = string
 }
 
-resource "juju_model" "testflinger_model" {
-  name = "testflinger-${var.environment}"
+variable "db_offer" {
+  description = "Name of the juju offer for mongodb to use for the cross-model relation"
+  type        = string
+}
+
+locals {
+  app_model = "testflinger-${var.environment}"
 }
 
 resource "juju_application" "testflinger" {
   name  = "testflinger"
-  model = juju_model.testflinger_model.name
+  model = local.app_model
+
+  units = 2
 
   charm {
     name    = "testflinger-k8s"
@@ -45,7 +52,7 @@ resource "juju_application" "testflinger" {
 
 resource "juju_application" "ingress" {
   name  = "ingress"
-  model = juju_model.testflinger_model.name
+  model = local.app_model
   trust = true
 
   charm {
@@ -59,19 +66,19 @@ resource "juju_application" "ingress" {
 }
 
 resource "juju_integration" "testflinger-database-relation" {
-  model = juju_model.testflinger_model.name
+  model = local.app_model
 
   application {
-    name     = juju_application.testflinger.name
+    name = juju_application.testflinger.name
   }
 
   application {
-    name     = "mongodb-k8s"
+    offer_url = var.db_offer
   }
 }
 
 resource "juju_integration" "testflinger-ingress-relation" {
-  model = juju_model.testflinger_model.name
+  model = local.app_model
 
   application {
     name     = juju_application.testflinger.name
