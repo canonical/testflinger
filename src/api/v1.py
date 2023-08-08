@@ -445,10 +445,12 @@ def cancel_job(job_id):
     response = mongo.db.jobs.update_one(
         {
             "job_id": job_id,
-            "result_data.job_state": {"$nin": ["cancelled", "complete"]},
+            "result_data.job_state": {
+                "$nin": ["cancelled", "complete", "completed"]
+            },
         },
         {"$set": {"result_data.job_state": "cancelled"}},
     )
     if response.modified_count == 0:
-        return "The job is already complete or cancelled", 400
+        return "The job is already completed or cancelled", 400
     return "OK"

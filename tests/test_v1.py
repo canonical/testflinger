@@ -363,8 +363,8 @@ def test_get_invalid(mongo_app):
     assert 404 == output.status_code
 
 
-def test_cancel_job_complete(mongo_app):
-    """Test that a job can't be cancelled if complete or cancelled already"""
+def test_cancel_job_completed(mongo_app):
+    """Test that a job can't be cancelled if completed or cancelled already"""
     app, _ = mongo_app
     job_data = json.dumps({"job_queue": "test"})
     job_output = app.post(
@@ -373,9 +373,9 @@ def test_cancel_job_complete(mongo_app):
     job_id = job_output.json.get("job_id")
     result_url = f"/v1/result/{job_id}"
 
-    # Set the job to cancelled and complete to ensure we get an error when
+    # Set the job to cancelled and completed to ensure we get an error when
     # trying to cancel it in that state
-    for state in ["cancelled", "complete"]:
+    for state in ["cancelled", "complete", "completed"]:
         data = json.dumps({"job_state": state})
         output = app.post(
             result_url, data=data, content_type="application/json"
@@ -383,7 +383,7 @@ def test_cancel_job_complete(mongo_app):
         output = app.post(
             f"/v1/job/{job_id}/action", data=json.dumps({"action": "cancel"})
         )
-        assert "The job is already complete or cancelled" == output.text
+        assert "The job is already completed or cancelled" == output.text
         assert 400 == output.status_code
 
 
