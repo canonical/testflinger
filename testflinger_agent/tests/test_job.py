@@ -156,8 +156,8 @@ class TestJob:
     def test_wait_for_completion(self, client):
         """Test that wait_for_completion works"""
 
-        # Make sure we return "complete" for the parent job state
-        client.check_job_state = lambda _: "complete"
+        # Make sure we return "completed" for the parent job state
+        client.check_job_state = lambda _: "completed"
 
         job = _TestflingerJob({"parent_job_id": "999"}, client)
         job.wait_for_completion()

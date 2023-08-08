@@ -151,11 +151,11 @@ class TestflingerJob:
                 parent_job_state = self.client.check_job_state(
                     self.job_data.get("parent_job_id")
                 )
-                if parent_job_state in ("complete", "cancelled"):
+                if parent_job_state in ("complete", "completed", "cancelled"):
                     logger.info("Parent job completed, exiting...")
                     break
                 this_job_state = self.client.check_job_state(self.job_id)
-                if this_job_state in ("complete", "cancelled"):
+                if this_job_state in ("complete", "completed", "cancelled"):
                     logger.info("This job completed, exiting...")
                     break
             except TFServerError:
