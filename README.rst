@@ -54,7 +54,7 @@ You can check on the status of that job by running:
 
 To watch the output from the job as it runs, you can use the 'poll'
 subcommand. This will display output in 10s chunks and exit when the
-job is complete.
+job is completed.
 .. code-block:: console
 
   $ testflinger-cli poll <job_id>

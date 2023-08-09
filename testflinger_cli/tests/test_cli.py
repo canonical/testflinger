@@ -32,13 +32,13 @@ URL = "https://testflinger.canonical.com"
 def test_status(capsys, requests_mock):
     """Status should report job_state data"""
     jobid = str(uuid.uuid1())
-    fake_return = {"job_state": "complete"}
+    fake_return = {"job_state": "completed"}
     requests_mock.get(URL + "/v1/result/" + jobid, json=fake_return)
     sys.argv = ["", "status", jobid]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.status()
     std = capsys.readouterr()
-    assert std.out == "complete\n"
+    assert std.out == "completed\n"
 
 
 def test_cancel(requests_mock):
@@ -73,22 +73,22 @@ def test_submit(capsys, tmp_path, requests_mock):
 def test_show(capsys, requests_mock):
     """Exercise show command"""
     jobid = str(uuid.uuid1())
-    fake_return = {"job_state": "complete"}
+    fake_return = {"job_state": "completed"}
     requests_mock.get(URL + "/v1/job/" + jobid, json=fake_return)
     sys.argv = ["", "show", jobid]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.show()
     std = capsys.readouterr()
-    assert "complete" in std.out
+    assert "completed" in std.out
 
 
 def test_results(capsys, requests_mock):
     """results should report job_state data"""
     jobid = str(uuid.uuid1())
-    fake_return = {"job_state": "complete"}
+    fake_return = {"job_state": "completed"}
     requests_mock.get(URL + "/v1/result/" + jobid, json=fake_return)
     sys.argv = ["", "results", jobid]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.results()
     std = capsys.readouterr()
-    assert "complete" in std.out
+    assert "completed" in std.out

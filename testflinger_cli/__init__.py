@@ -191,7 +191,7 @@ class TestflingerCli:
         )
         arg_list_queues.set_defaults(func=self.list_queues)
         arg_poll = sub.add_parser(
-            "poll", help="Poll for output from a job until it is complete"
+            "poll", help="Poll for output from a job until it is completed"
         )
         arg_poll.set_defaults(func=self.poll)
         arg_poll.add_argument(
@@ -418,7 +418,7 @@ class TestflingerCli:
         print("Artifacts downloaded to {}".format(self.args.filename))
 
     def poll(self):
-        """Poll for output from a job until it is complete"""
+        """Poll for output from a job until it is completed"""
         if self.args.oneshot:
             # This could get an IOError for connection errors or timeouts
             # Raise it since it's not running continuously in this mode
@@ -442,7 +442,7 @@ class TestflingerCli:
             try:
                 job_state = self.get_job_state(job_id)
                 self.history.update(job_id, job_state)
-                if job_state in ("cancelled", "complete"):
+                if job_state in ("cancelled", "complete", "completed"):
                     break
                 if job_state == "waiting":
                     queue_pos = self.client.get_job_position(job_id)
@@ -490,7 +490,7 @@ class TestflingerCli:
         for job_id, jobdata in self.history.history.items():
             if self.args.status:
                 job_state = jobdata.get("job_state")
-                if job_state not in ("cancelled", "complete"):
+                if job_state not in ("cancelled", "complete", "completed"):
                     job_state = self.get_job_state(job_id)
                     self.history.update(job_id, job_state)
             else:

@@ -94,7 +94,7 @@ class Client:
         :return:
             String containing the job_state for the specified ID
             (waiting, setup, provision, test, reserved, released,
-             cancelled, complete)
+             cancelled, completed)
         """
         endpoint = "/v1/result/{}".format(job_id)
         data = json.loads(self.get(endpoint))
