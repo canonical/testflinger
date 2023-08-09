@@ -69,7 +69,8 @@ def queues():
     """Queues view"""
 
     # This finds all the publicly advertised queues, but also provides a count
-    # of the jobs associated with that queue that are not complete or cancelled
+    # of the jobs associated with that queue that are not completed or
+    # cancelled
     queue_data = mongo.db.queues.aggregate(
         [
             {
@@ -84,7 +85,11 @@ def queues():
                                     "$not": {
                                         "$in": [
                                             "$result_data.job_state",
-                                            ["complete", "cancelled"],
+                                            [
+                                                "complete",
+                                                "completed",
+                                                "cancelled",
+                                            ],
                                         ]
                                     }
                                 }
@@ -123,7 +128,9 @@ def queue_detail(queue_id):
     job_data = mongo.db.jobs.find(
         {
             "job_data.job_queue": queue_id,
-            "result_data.job_state": {"$nin": ["complete", "cancelled"]},
+            "result_data.job_state": {
+                "$nin": ["complete", "completed", "cancelled"]
+            },
         }
     )
 

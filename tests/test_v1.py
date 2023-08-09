@@ -375,7 +375,7 @@ def test_cancel_job_completed(mongo_app):
 
     # Set the job to cancelled and completed to ensure we get an error when
     # trying to cancel it in that state
-    for state in ["cancelled", "completed"]:
+    for state in ["cancelled", "complete", "completed"]:
         data = json.dumps({"job_state": state})
         output = app.post(
             result_url, data=data, content_type="application/json"

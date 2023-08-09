@@ -445,7 +445,9 @@ def cancel_job(job_id):
     response = mongo.db.jobs.update_one(
         {
             "job_id": job_id,
-            "result_data.job_state": {"$nin": ["cancelled", "completed"]},
+            "result_data.job_state": {
+                "$nin": ["cancelled", "complete", "completed"]
+            },
         },
         {"$set": {"result_data.job_state": "cancelled"}},
     )
