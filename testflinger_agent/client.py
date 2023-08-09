@@ -303,7 +303,7 @@ class TestflingerClient:
         except RequestException as exc:
             logger.error(exc)
 
-    def post_influx(self, job_id, phase, duration, result):
+    def post_influx(self, phase, result=None):
         """Post the relevant data points to testflinger server
 
         :param data:
@@ -312,26 +312,26 @@ class TestflingerClient:
         if not self.influx_client:
             return
 
+        fields = {"phase": phase}
+
+        if result is not None:
+            fields["result"] = result
+
         data = [
             {
                 "measurement": "phase result",
                 "tags": {
                     "agent": self.config.get("agent_id"),
-                    "phase": phase,
-                    "result": result,
                 },
-                "fields": {
-                    "duration": duration,
-                },
-                "time": int(time.time()),
-            },
+                "fields": fields,
+                "time": time.time_ns(),
+            }
         ]
 
         try:
             self.influx_client.write_points(
                 data,
                 database=self.influx_agent_db,
-                time_precision="s",
                 protocol="json",
             )
         except InfluxDBClientError as exc:
