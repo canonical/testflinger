@@ -117,6 +117,66 @@ The following configuration options are supported:
 
   - Command to run for the cleanup phase
 
+Test Phases
+-----------
+The test will go through several phases depending on the configuration of the
+test job and the configuration testflinger agent itself. If a <phase>_command
+is not set in the testflinger-agent.conf (see above), then that phase will
+be skipped. Even if the phase_command is configured, there are some phases
+that are not mandatory, and will be skipped if the job does not contain data
+for it, such as the provision, test, allocate, and reserve phases.
+
+The following test phases are currently supported:
+
+- **setup**:
+
+  - This phase is run first, and is used to setup the environment for the
+    test. The test job has no input for this phase and it is completely up to
+    the device owner to include commands that may need to run here.
+
+- **provision**:
+
+  - This phase is run after the setup phase, and is used to provision the
+    device by installing (if possible) the image requested in the test job.
+    If the provision_data section is missing from the job, this phase will
+    not run.
+
+- **test**:
+  
+  - This phase is run after the provision phase, and is used to run the
+    test_cmds defined in the test_data section of the job. If the test_data
+    section is missing from the job, this will not run.
+
+- **allocate**:
+
+  - This phase is normally only used by multi-device jobs and is used to
+    lock the agent into an allocated state to be externally controlled by
+    another job. During this phase, it will gather device_ip information
+    and push that information to the results data on the testflinger server
+    under the running job's job_id.  Once that data is pushed successfully
+    to the server, it will transition the job to a **allocated** state, which
+    is just a signal that the parent job can make use of that data.  The
+    **allocated** state is just a *job* state though, and not a phase that
+    needs a separate command configured on the agent.
+    Normally, the allocate_data section will be missing from the test job,
+    and this phase will be skipped.
+
+- **reserve**:
+  
+  - This phase is used for reserving a system for manual control.  This
+    will push the requested ssh key specified in the job data to the
+    device once it's provisioned and ready for use, then publish output
+    to the polling log with information on how to reach the device over
+    ssh.  If the reserve_data section is missing from the job, then this
+    phase will be skipped.
+
+- **cleanup**:
+  
+  - This phase is run after the reserve phase, and is used to cleanup the
+    device after the test.  The test job has no input for this phase and
+    it is completely up to the device owner to include commands
+    that may need to run here.
+
 Usage
 -----
 
