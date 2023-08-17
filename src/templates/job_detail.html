@@ -30,6 +30,7 @@
         {{ job.job_data.provision_data }}
     </div>
 
+    {% if job.job_data.test_data %}
     <hr>
     test_cmds:
     <div class="center scrollable">
@@ -37,6 +38,7 @@
             {{ job.job_data.test_data.test_cmds }}
         </span>
     </div>
+    {% endif %}
 
     <hr>
     provision_status: {{ job.result_data.provision_status }}<br>
