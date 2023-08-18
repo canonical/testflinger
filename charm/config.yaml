@@ -3,3 +3,7 @@ options:
     default: testflinger.local
     description: external hostname for accessing testflinger server
     type: string
+  keepalive:
+    default: 10
+    description: Number of seconds to wait for keepalive connections
+    type: int
