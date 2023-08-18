@@ -153,9 +153,14 @@ class TestflingerCharm(ops.CharmBase):
     @property
     def _pebble_layer(self):
         """Return a dictionary representing a Pebble layer."""
+        keepalive = str(self.config["keepalive"])
         command = " ".join(
             [
                 "gunicorn",
+                "-k",
+                "gevent",
+                "--keep-alive",
+                keepalive,
                 "--bind",
                 "0.0.0.0:5000",
                 "testflinger:app",
