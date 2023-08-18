@@ -53,7 +53,7 @@ def agent_detail(agent_id):
 @views.route("/jobs")
 def jobs():
     """Jobs view"""
-    jobs_data = mongo.db.jobs.find()
+    jobs_data = mongo.db.jobs.find(sort=[("created_at", -1)])
     return render_template("jobs.html", jobs=jobs_data)
 
 
