@@ -236,13 +236,13 @@ class MuxPi:
         def check_path(dir):
             self._run_control("test -e {}".format(dir))
 
-        # First check if this is a limerick image
+        # First check if this is an oem image
         try:
             disk_info_path = self.mount_point / "writable/.disk/info"
-            self._run_control(f"grep limerick {disk_info_path}")
-            return "limerick"
+            self._run_control(f"grep -E 'limerick|erlangen' {disk_info_path}")
+            return "oem"
         except ProvisioningError:
-            # Not a limerick image
+            # Not an oem image
             pass
 
         try:
@@ -284,10 +284,10 @@ class MuxPi:
         remote_tmp = Path("/tmp") / self.agent_name
         try:
             data_path = Path(__file__).parent / "../../data/muxpi"
-            if image_type == "limerick":
+            if image_type == "oem":
                 self._run_control("mkdir -p {}".format(remote_tmp))
                 self._copy_to_control(
-                    data_path / "limerick/user-data", remote_tmp
+                    data_path / "oem/user-data", remote_tmp
                 )
                 cmd = f"sudo cp {remote_tmp}/user-data {base}/system-boot/"
                 self._run_control(cmd)
