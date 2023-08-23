@@ -287,9 +287,7 @@ class MuxPi:
             data_path = Path(__file__).parent / "../../data/muxpi"
             if image_type == "ce-oem-iot":
                 self._run_control("mkdir -p {}".format(remote_tmp))
-                self._copy_to_control(
-                    data_path / "ce-oem-iot/user-data", remote_tmp
-                )
+                self._copy_to_control(data_path / "ce-oem-iot/user-data", remote_tmp)
                 cmd = f"sudo cp {remote_tmp}/user-data {base}/system-boot/"
                 self._run_control(cmd)
                 self._configure_sudo()
