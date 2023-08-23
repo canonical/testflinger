@@ -27,7 +27,7 @@ from werkzeug.exceptions import NotFound
 from pymongo.errors import ConnectionFailure
 
 from src.database import mongo
-from src.api import v1
+from src.api.v1 import v1
 from src.views import views
 
 # Constants for TTL indexes
@@ -64,76 +64,6 @@ def create_flask_app(config=None):
             dsn=sentry_dsn, integrations=[FlaskIntegration()]
         )
 
-    tf_app.add_url_rule("/v1/job", "job_post", v1.job_post, methods=["POST"])
-    tf_app.add_url_rule("/v1/job", "job_get", v1.job_get, methods=["GET"])
-    tf_app.add_url_rule(
-        "/v1/job/<job_id>", "job_get_id", v1.job_get_id, methods=["GET"]
-    )
-    tf_app.add_url_rule(
-        "/v1/job/<job_id>/position",
-        "job_position_get",
-        v1.job_position_get,
-        methods=["GET"],
-    )
-    tf_app.add_url_rule(
-        "/v1/result/<job_id>", "result_post", v1.result_post, methods=["POST"]
-    )
-    tf_app.add_url_rule(
-        "/v1/result/<job_id>", "result_get", v1.result_get, methods=["GET"]
-    )
-    tf_app.add_url_rule(
-        "/v1/result/<job_id>/artifact",
-        "artifacts_post",
-        v1.artifacts_post,
-        methods=["POST"],
-    )
-    tf_app.add_url_rule(
-        "/v1/result/<job_id>/artifact",
-        "artifacts_get",
-        v1.artifacts_get,
-        methods=["GET"],
-    )
-    tf_app.add_url_rule(
-        "/v1/result/<job_id>/output",
-        "output_post",
-        v1.output_post,
-        methods=["POST"],
-    )
-    tf_app.add_url_rule(
-        "/v1/result/<job_id>/output",
-        "output_get",
-        v1.output_get,
-        methods=["GET"],
-    )
-    tf_app.add_url_rule(
-        "/v1/job/<job_id>/action",
-        "action_post",
-        v1.action_post,
-        methods=["POST"],
-    )
-    tf_app.add_url_rule(
-        "/v1/agents/queues", "queues_get", v1.queues_get, methods=["GET"]
-    )
-    tf_app.add_url_rule(
-        "/v1/agents/queues", "queues_post", v1.queues_post, methods=["POST"]
-    )
-    tf_app.add_url_rule(
-        "/v1/agents/images/<queue>",
-        "images_get",
-        v1.images_get,
-        methods=["GET"],
-    )
-    tf_app.add_url_rule(
-        "/v1/agents/images", "images_post", v1.images_post, methods=["POST"]
-    )
-
-    tf_app.add_url_rule(
-        "/v1/agents/data/<agent_name>",
-        "agents_post",
-        v1.agents_post,
-        methods=["POST"],
-    )
-
     @tf_app.errorhandler(NotFound)
     def handle_404(exc):
         tf_log.error("[404] Not found: %s", request.url)
@@ -150,6 +80,7 @@ def create_flask_app(config=None):
         return "Unhandled Exception: {}\n".format(exc), 500
 
     tf_app.register_blueprint(views)
+    tf_app.register_blueprint(v1, url_prefix="/v1")
 
     return tf_app
 
