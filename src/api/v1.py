@@ -22,7 +22,8 @@ import uuid
 from datetime import datetime
 
 import pkg_resources
-from flask import Blueprint, jsonify, request, send_file
+from apiflask import APIBlueprint
+from flask import jsonify, request, send_file
 from gridfs import GridFS
 from gridfs.errors import NoFile
 from prometheus_client import Counter
@@ -36,7 +37,7 @@ reservations_metric = Counter(
 )
 
 
-v1 = Blueprint("v1", __name__)
+v1 = APIBlueprint("v1", __name__)
 
 
 @v1.get("/")
