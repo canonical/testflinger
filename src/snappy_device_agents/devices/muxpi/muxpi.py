@@ -239,7 +239,8 @@ class MuxPi:
         # First check if this is a ce-oem-iot image
         try:
             disk_info_path = self.mount_point / "writable/.disk/info"
-            buildstamp = '"iot-[a-z]+-[a-z-]*(classic-(server|desktop)-[0-9]+|core-[0-9]+)"'
+            buildstamp = '"iot-[a-z]+-[a-z-]*(classic-(server|desktop)-[0-9]+'
+            buildstamp += '|core-[0-9]+)"'
             self._run_control(f"grep -E {buildstamp} {disk_info_path}")
             return "ce-oem-iot"
         except ProvisioningError:
@@ -287,7 +288,9 @@ class MuxPi:
             data_path = Path(__file__).parent / "../../data/muxpi"
             if image_type == "ce-oem-iot":
                 self._run_control("mkdir -p {}".format(remote_tmp))
-                self._copy_to_control(data_path / "ce-oem-iot/user-data", remote_tmp)
+                self._copy_to_control(
+                    data_path / "ce-oem-iot/user-data", remote_tmp
+                )
                 cmd = f"sudo cp {remote_tmp}/user-data {base}/system-boot/"
                 self._run_control(cmd)
                 self._configure_sudo()
