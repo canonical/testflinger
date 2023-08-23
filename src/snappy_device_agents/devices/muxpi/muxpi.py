@@ -239,7 +239,8 @@ class MuxPi:
         # First check if this is a ce-oem-iot image
         try:
             disk_info_path = self.mount_point / "writable/.disk/info"
-            self._run_control(f"grep -E 'limerick|erlangen' {disk_info_path}")
+            buildstamp = '"iot-[a-z]+-[a-z-]*(classic-(server|desktop)-[0-9]+|core-[0-9]+)"'
+            self._run_control(f"grep -E {buildstamp} {disk_info_path}")
             return "ce-oem-iot"
         except ProvisioningError:
             # Not a ce-oem-iot image
