@@ -20,15 +20,15 @@ Testflinger v1 API
 import json
 import uuid
 from datetime import datetime
-from gridfs import GridFS
-from gridfs.errors import NoFile
 
 import pkg_resources
-from flask import jsonify, request, send_file
-from werkzeug.exceptions import BadRequest
+from flask import Blueprint, jsonify, request, send_file
+from gridfs import GridFS
+from gridfs.errors import NoFile
 from prometheus_client import Counter
-from src.database import mongo
+from werkzeug.exceptions import BadRequest
 
+from src.database import mongo
 
 jobs_metric = Counter("jobs", "Number of jobs", ["queue"])
 reservations_metric = Counter(
@@ -36,6 +36,10 @@ reservations_metric = Counter(
 )
 
 
+v1 = Blueprint("v1", __name__)
+
+
+@v1.get("/")
 def home():
     """Identify ourselves"""
     return get_version()
@@ -50,6 +54,7 @@ def get_version():
     return "Testflinger Server v{}".format(version)
 
 
+@v1.post("/job")
 def job_post():
     """Add a job to the queue"""
     try:
@@ -100,6 +105,7 @@ def job_builder(data):
     return job
 
 
+@v1.get("/job")
 def job_get():
     """Request a job to run from supported queues"""
     queue_list = request.args.getlist("queue")
@@ -111,6 +117,7 @@ def job_get():
     return "", 204
 
 
+@v1.get("/job/<job_id>")
 def job_get_id(job_id):
     """Request the json job definition for a specified job, even if it has
        already run
@@ -136,6 +143,7 @@ def job_get_id(job_id):
     return jsonify(job_data), 200
 
 
+@v1.post("/result/<job_id>")
 def result_post(job_id):
     """Post a result for a specified job_id
 
@@ -157,6 +165,7 @@ def result_post(job_id):
     return "OK"
 
 
+@v1.get("/result/<job_id>")
 def result_get(job_id):
     """Return results for a specified job_id
 
@@ -175,6 +184,7 @@ def result_get(job_id):
     return jsonify(results)
 
 
+@v1.post("/result/<job_id>/artifact")
 def artifacts_post(job_id):
     """Post artifact bundle for a specified job_id
 
@@ -198,6 +208,7 @@ def artifacts_post(job_id):
     return "OK"
 
 
+@v1.get("/result/<job_id>/artifact")
 def artifacts_get(job_id):
     """Return artifact bundle for a specified job_id
 
@@ -219,6 +230,7 @@ def artifacts_get(job_id):
     return send_file(file, download_name="artifact.tar.gz")
 
 
+@v1.get("/result/<job_id>/output")
 def output_get(job_id):
     """Get latest output for a specified job ID
 
@@ -238,6 +250,7 @@ def output_get(job_id):
     return "", 204
 
 
+@v1.post("/result/<job_id>/output")
 def output_post(job_id):
     """Post output for a specified job ID
 
@@ -261,6 +274,7 @@ def output_post(job_id):
     return "OK"
 
 
+@v1.post("/job/<job_id>/action")
 def action_post(job_id):
     """Take action on the job status for a specified job ID
 
@@ -279,6 +293,7 @@ def action_post(job_id):
     return "Invalid action\n", 400
 
 
+@v1.get("/agents/queues")
 def queues_get():
     """Get a current list of all advertised queues from this server"""
     all_queues = mongo.db.queues.find(
@@ -291,6 +306,7 @@ def queues_get():
     return jsonify(queue_dict)
 
 
+@v1.post("/agents/queues")
 def queues_post():
     """Tell testflinger the queue names that are being serviced
 
@@ -307,6 +323,7 @@ def queues_post():
     return "OK"
 
 
+@v1.get("/agents/images/<queue>")
 def images_get(queue):
     """Get a list of known images for a given queue"""
     queue_data = mongo.db.queues.find_one(
@@ -316,6 +333,7 @@ def images_get(queue):
     return jsonify(queue_data.get("images", {}))
 
 
+@v1.post("/agents/images")
 def images_post():
     """Tell testflinger about known images for a specified queue
     images will be stored in a list of key/value pairs as part of the queues
@@ -343,6 +361,7 @@ def images_post():
     return "OK"
 
 
+@v1.post("/agents/data/<agent_name>")
 def agents_post(agent_name):
     """Post information about the agent to the server
 
@@ -411,6 +430,7 @@ def get_job(queue_list):
     return job
 
 
+@v1.get("/job/<job_id>/position")
 def job_position_get(job_id):
     """Return the position of the specified jobid in the queue"""
     response, http_code = job_get_id(job_id)
