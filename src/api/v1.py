@@ -17,12 +17,11 @@
 Testflinger v1 API
 """
 
-import json
 import uuid
 from datetime import datetime
 
 import pkg_resources
-from apiflask import APIBlueprint
+from apiflask import APIBlueprint, abort
 from flask import jsonify, request, send_file
 from gridfs import GridFS
 from gridfs.errors import NoFile
@@ -30,6 +29,8 @@ from prometheus_client import Counter
 from werkzeug.exceptions import BadRequest
 
 from src.database import mongo
+
+from . import schemas
 
 jobs_metric = Counter("jobs", "Number of jobs", ["queue"])
 reservations_metric = Counter(
@@ -56,7 +57,9 @@ def get_version():
 
 
 @v1.post("/job")
-def job_post():
+@v1.input(schemas.JobIn, location="json")
+@v1.output(schemas.JobOut)
+def job_post(json_data: dict):
     """Add a job to the queue"""
     try:
         data = request.get_json()
@@ -70,7 +73,7 @@ def job_post():
     try:
         job = job_builder(data)
     except ValueError:
-        return "Invalid job_id specified\n", 400
+        abort(400, message="Invalid job_id specified")
 
     jobs_metric.labels(queue=job_queue).inc()
     if "reserve_data" in data:
@@ -276,7 +279,8 @@ def output_post(job_id):
 
 
 @v1.post("/job/<job_id>/action")
-def action_post(job_id):
+@v1.input(schemas.ActionIn, location="json")
+def action_post(job_id, json_data):
     """Take action on the job status for a specified job ID
 
     :param job_id:
@@ -284,14 +288,12 @@ def action_post(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    data = json.loads(request.get_data())
-    action = data["action"]
-    actions = {
+    action = json_data["action"]
+    supported_actions = {
         "cancel": cancel_job,
     }
-    if action in actions:
-        return actions[action](job_id)
-    return "Invalid action\n", 400
+    # Validation of actions happens in schemas.py:ActionIn
+    return supported_actions[action](job_id)
 
 
 @v1.get("/agents/queues")
@@ -363,7 +365,8 @@ def images_post():
 
 
 @v1.post("/agents/data/<agent_name>")
-def agents_post(agent_name):
+@v1.input(schemas.AgentIn, location="json")
+def agents_post(agent_name, json_data):
     """Post information about the agent to the server
 
     The json sent to this endpoint may contain data such as the following:
@@ -376,18 +379,14 @@ def agents_post(agent_name):
     }
     """
 
-    data = request.get_json()
-    # We should receive json, if so it would now be a dict
-    if not isinstance(data, dict):
-        return "Invalid data\n", 400
-    data["name"] = agent_name
-    data["updated_at"] = datetime.utcnow()
+    json_data["name"] = agent_name
+    json_data["updated_at"] = datetime.utcnow()
     # extract log from data so we can push it instead of setting it
-    log = data.pop("log", [])
+    log = json_data.pop("log", [])
 
     mongo.db.agents.update_one(
         {"name": agent_name},
-        {"$set": data, "$push": {"log": {"$each": log, "$slice": -100}}},
+        {"$set": json_data, "$push": {"log": {"$each": log, "$slice": -100}}},
         upsert=True,
     )
     return "OK"

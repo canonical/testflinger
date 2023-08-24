@@ -113,7 +113,7 @@ def test_add_job_bad(mongo_app):
     """Test for error when posting an empty job"""
     app, _ = mongo_app
     output = app.post("/v1/job", json={})
-    assert 400 == output.status_code
+    assert 422 == output.status_code
 
 
 def test_add_job_bad_job_id(mongo_app):
@@ -124,7 +124,7 @@ def test_add_job_bad_job_id(mongo_app):
         data=json.dumps({"job_id": "bad", "job_queue": "test"}),
         content_type="application/json",
     )
-    assert "Invalid job_id specified\n" == output.text
+    assert "Invalid job_id specified" in output.text
     assert 400 == output.status_code
 
 
@@ -136,8 +136,8 @@ def test_add_job_bad_job_queue(mongo_app):
         data=json.dumps({"foo": "test"}),
         content_type="application/json",
     )
-    assert "Invalid data or no job_queue specified\n" == output.text
-    assert 400 == output.status_code
+    assert "Validation error" in output.text
+    assert 422 == output.status_code
 
 
 def test_result_get_result_not_exists(mongo_app):
@@ -268,7 +268,7 @@ def test_job_get_result_no_data(mongo_app):
 def test_job_get_id_with_data(mongo_app):
     """Test getting the json for a job that has been submitted"""
     app, _ = mongo_app
-    job_data = {"job_queue": "test", "provision_data": "test"}
+    job_data = {"job_queue": "test", "provision_data": {"url": "test"}}
     # Place a job on the queue
     output = app.post(
         "/v1/job", data=json.dumps(job_data), content_type="application/json"
@@ -310,19 +310,25 @@ def test_job_position(mongo_app):
     assert app.get("/v1/job/{}/position".format(job_id[2])).text == "1"
     # Cancel the next job in the queue
     output = app.post(
-        f"/v1/job/{job_id[1]}/action", data=json.dumps({"action": "cancel"})
+        f"/v1/job/{job_id[1]}/action",
+        data=json.dumps({"action": "cancel"}),
+        content_type="application/json",
     )
     # The position of the remaining job should decrement again
     assert app.get("/v1/job/{}/position".format(job_id[2])).text == "0"
 
 
 def test_action_post(mongo_app):
-    """Test getting 400 code for an unsupported action"""
+    """Test getting 422 code for an unsupported action"""
     app, _ = mongo_app
     action_url = "/v1/job/00000000-0000-0000-0000-000000000000/action"
     action_data = {"action": "foo"}
-    output = app.post(action_url, data=json.dumps(action_data))
-    assert 400 == output.status_code
+    output = app.post(
+        action_url,
+        data=json.dumps(action_data),
+        content_type="application/json",
+    )
+    assert 422 == output.status_code
 
 
 def test_queues_post(mongo_app):
@@ -381,7 +387,9 @@ def test_cancel_job_completed(mongo_app):
             result_url, data=data, content_type="application/json"
         )
         output = app.post(
-            f"/v1/job/{job_id}/action", data=json.dumps({"action": "cancel"})
+            f"/v1/job/{job_id}/action",
+            data=json.dumps({"action": "cancel"}),
+            content_type="application/json",
         )
         assert "The job is already completed or cancelled" == output.text
         assert 400 == output.status_code
@@ -403,7 +411,9 @@ def test_cancel_job_good(mongo_app):
 
     # Cancel the job
     output = app.post(
-        f"/v1/job/{job_id}/action", data=json.dumps({"action": "cancel"})
+        f"/v1/job/{job_id}/action",
+        data=json.dumps({"action": "cancel"}),
+        content_type="application/json",
     )
     assert "OK" == output.text
     job = mongo.jobs.find_one({"job_id": job_id})
@@ -457,5 +467,5 @@ def test_agents_post_bad(mongo_app):
         content_type="application/json",
     )
 
-    assert 400 == output.status_code
-    assert "Invalid data\n" == output.text
+    assert 422 == output.status_code
+    assert "Validation error" in output.text
