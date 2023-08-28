@@ -93,8 +93,8 @@ class TestflingerClient:
             job_uri = urljoin(self.server, "/v1/job")
             queue_list = self.config.get("job_queues")
             logger.debug("Requesting a job")
-            job_request = requests.get(
-                job_uri, params={"queue": queue_list}, timeout=10
+            job_request = self.session.get(
+                job_uri, params={"queue": queue_list}, timeout=30
             )
             if job_request.content:
                 return job_request.json()
@@ -156,7 +156,7 @@ class TestflingerClient:
         result_uri = urljoin(self.server, "/v1/result/")
         result_uri = urljoin(result_uri, job_id)
         try:
-            job_request = requests.post(result_uri, json=data, timeout=30)
+            job_request = self.session.post(result_uri, json=data, timeout=30)
         except RequestException as exc:
             logger.error(exc)
             raise TFServerError("other exception") from exc
@@ -179,7 +179,7 @@ class TestflingerClient:
         result_uri = urljoin(self.server, "/v1/result/")
         result_uri = urljoin(result_uri, job_id)
         try:
-            job_request = requests.get(result_uri, timeout=30)
+            job_request = self.session.get(result_uri, timeout=30)
         except RequestException as exc:
             logger.error(exc)
             return {}
@@ -223,7 +223,7 @@ class TestflingerClient:
                     file_upload = {
                         "file": ("file", tarball, "application/x-gzip")
                     }
-                    artifact_request = requests.post(
+                    artifact_request = self.session.post(
                         artifact_uri, files=file_upload, timeout=600
                     )
                 if not artifact_request:
@@ -258,7 +258,7 @@ class TestflingerClient:
             self.server, "/v1/result/{}/output".format(job_id)
         )
         try:
-            job_request = requests.post(
+            job_request = self.session.post(
                 output_uri, data=data.encode("utf-8"), timeout=60
             )
         except RequestException as exc:
@@ -274,7 +274,7 @@ class TestflingerClient:
         """
         queues_uri = urljoin(self.server, "/v1/agents/queues")
         try:
-            requests.post(queues_uri, json=data, timeout=30)
+            self.session.post(queues_uri, json=data, timeout=30)
         except RequestException as exc:
             logger.error(exc)
 
@@ -286,7 +286,7 @@ class TestflingerClient:
         """
         images_uri = urljoin(self.server, "/v1/agents/images")
         try:
-            requests.post(images_uri, json=data, timeout=30)
+            self.session.post(images_uri, json=data, timeout=30)
         except RequestException as exc:
             logger.error(exc)
 
