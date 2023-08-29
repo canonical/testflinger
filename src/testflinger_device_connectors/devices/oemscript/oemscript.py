@@ -32,8 +32,10 @@ logger = logging.getLogger()
 
 
 class OemScript:
-
     """Device Connector for OEM Script."""
+
+    # Extra arguments to pass to the OEM script
+    extra_script_args = []
 
     def __init__(self, config, job_data):
         with open(config, encoding="utf-8") as configfile:
@@ -112,6 +114,7 @@ class OemScript:
         logger.info("Running recovery script")
         cmd = [
             recovery_script,
+            *self.extra_script_args,
             "--local-iso",
             image_file,
             "--inject-ssh-key",
