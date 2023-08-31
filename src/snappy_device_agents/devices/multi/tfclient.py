@@ -78,7 +78,9 @@ class TFClient:
         try:
             req = requests.post(uri, json=data, timeout=timeout)
         except requests.exceptions.ConnectTimeout:
-            logger.error("Timout while trying to communicate with the server.")
+            logger.error(
+                "Timeout while trying to communicate with the server."
+            )
             raise
         except requests.exceptions.ConnectionError:
             logger.error("Unable to communicate with specified server.")
@@ -145,6 +147,10 @@ class TFClient:
         """Tell the server to cancel a specified job_id"""
         try:
             self.post(f"/v1/job/{job_id}/action", {"action": "cancel"})
+        except requests.exceptions.HTTPError as exc:
+            # Ignore it if the job is already cancelled or completed
+            if exc.response.status_code != 400:
+                raise
         except OSError:
             logger.error("Unable to cancel job %s", job_id)
             raise
