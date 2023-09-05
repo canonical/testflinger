@@ -133,7 +133,7 @@ def test_result_get_bad(mongo_app):
     """Test for error when getting results from a bad job ID"""
     app, _ = mongo_app
     output = app.get("/v1/result/BAD_JOB_ID")
-    assert "Invalid job id\n" == output.text
+    assert "Invalid job_id specified" in output.text
     assert 400 == output.status_code
 
 
@@ -154,17 +154,17 @@ def test_result_post_bad(mongo_app):
     """Test for error when posting to a bad job ID"""
     app, _ = mongo_app
     response = app.post("/v1/result/BAD_JOB_ID")
-    assert "Invalid job id\n" == response.text
+    assert "Invalid job_id specified" in response.text
     assert 400 == response.status_code
 
 
-def test_result_post_nodata(mongo_app):
+def test_result_post_baddata(mongo_app):
     """Test that we get an error for posting results with no data"""
     app, _ = mongo_app
     result_url = "/v1/result/00000000-0000-0000-0000-000000000000"
-    response = app.post(result_url, data="", content_type="application/json")
-    assert "Invalid result data\n" == response.text
-    assert 400 == response.status_code
+    response = app.post(result_url, json={"foo": "bar"})
+    assert "Validation error" in response.text
+    assert 422 == response.status_code
 
 
 def test_state_update_keeps_results(mongo_app):
@@ -173,13 +173,13 @@ def test_state_update_keeps_results(mongo_app):
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
     result_url = f"/v1/result/{job_id}"
-    data = {"foo": "test", "job_state": "waiting"}
+    data = {"setup_output": "test", "job_state": "waiting"}
     output = app.post(result_url, json=data)
     data = {"job_state": "provision"}
     output = app.post(result_url, json=data)
     output = app.get(result_url)
     current_results = output.json
-    assert current_results.get("foo") == "test"
+    assert current_results.get("setup_output") == "test"
 
 
 def test_artifact_post_good(mongo_app):

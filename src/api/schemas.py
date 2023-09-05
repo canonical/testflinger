@@ -17,13 +17,12 @@
 Testflinger v1 OpenAPI schemas
 """
 
-import uuid
 from apiflask import Schema, fields
 from apiflask.validators import OneOf
 
 
 class AgentIn(Schema):
-    """Agent data schema"""
+    """Agent data input schema"""
 
     state = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
@@ -33,21 +32,53 @@ class AgentIn(Schema):
 
 
 class ActionIn(Schema):
-    """Action data schema"""
+    """Action data input schema"""
 
     action = fields.String(required=True, validate=OneOf(["cancel"]))
 
 
-class JobIn(Schema):
+class Job(Schema):
+    """Job schema"""
+
     job_id = fields.String(required=False)
+    parent_job_id = fields.String(required=False)
+    name = fields.String(required=False)
     job_queue = fields.String(required=True)
     global_timeout = fields.Integer(required=False)
     output_timeout = fields.Integer(required=False)
+    allocation_timeout = fields.Integer(required=False)
     provision_data = fields.Dict(required=False)
     test_data = fields.Dict(required=False)
     allocate_data = fields.Dict(required=False)
     recover_data = fields.Dict(required=False)
 
 
-class JobOut(Schema):
+class JobId(Schema):
+    """Job ID schema"""
+
     job_id = fields.String(required=True)
+
+
+class Result(Schema):
+    """Result schema"""
+
+    setup_status = fields.Integer(required=False)
+    setup_output = fields.String(required=False)
+    setup_serial = fields.String(required=False)
+    provision_status = fields.Integer(required=False)
+    provision_output = fields.String(required=False)
+    provision_serial = fields.String(required=False)
+    test_status = fields.Integer(required=False)
+    test_output = fields.String(required=False)
+    test_serial = fields.String(required=False)
+    recover_status = fields.Integer(required=False)
+    recover_output = fields.String(required=False)
+    recover_serial = fields.String(required=False)
+    allocate_status = fields.Integer(required=False)
+    allocate_output = fields.String(required=False)
+    allocate_serial = fields.String(required=False)
+    cleanup_status = fields.Integer(required=False)
+    cleanup_output = fields.String(required=False)
+    cleanup_serial = fields.String(required=False)
+    device_info = fields.Dict(required=False)
+    job_state = fields.String(required=False)
