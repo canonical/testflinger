@@ -24,6 +24,7 @@ import uuid
 import pytest
 
 import testflinger_cli
+from testflinger_cli.client import HTTPError
 
 
 URL = "https://testflinger.canonical.com"
@@ -39,6 +40,20 @@ def test_status(capsys, requests_mock):
     tfcli.status()
     std = capsys.readouterr()
     assert std.out == "completed\n"
+
+
+def test_cancel_503(requests_mock):
+    """Cancel should fail loudly if cancel action returns 503"""
+    jobid = str(uuid.uuid1())
+    requests_mock.post(
+        URL + "/v1/job/" + jobid + "/action",
+        status_code=503,
+    )
+    sys.argv = ["", "cancel", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(HTTPError) as err:
+        tfcli.cancel()
+    assert err.value.status == 503
 
 
 def test_cancel(requests_mock):
