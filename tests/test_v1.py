@@ -122,6 +122,14 @@ def test_add_job_bad_job_queue(mongo_app):
     assert 422 == output.status_code
 
 
+def test_add_job_empty_queue(mongo_app):
+    """Test for error when adding a job with an empty queue"""
+    app, _ = mongo_app
+    output = app.post("/v1/job", json={"job_queue": ""})
+    assert "Invalid data or no job_queue specified" in output.text
+    assert 422 == output.status_code
+
+
 def test_result_get_result_not_exists(mongo_app):
     """Test for 204 when getting a nonexistent result"""
     app, _ = mongo_app

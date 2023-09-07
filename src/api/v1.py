@@ -67,7 +67,7 @@ def job_post(json_data: dict):
         # Set job_queue to None so we take the failure path below
         job_queue = ""
     if not job_queue:
-        return "Invalid data or no job_queue specified\n", 400
+        abort(422, message="Invalid data or no job_queue specified")
 
     try:
         job = job_builder(json_data)
