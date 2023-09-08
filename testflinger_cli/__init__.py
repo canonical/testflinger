@@ -274,6 +274,7 @@ class TestflingerCli:
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
                 ) from exc
+            raise
 
     def configure(self):
         """Print or set configuration values"""
