@@ -1,5 +1,8 @@
 # Device Firmware Upgrade Tool
 
+This is the prototype for firmware upgrade test. It will be temporarily placed in `/extras` folder until we figure out a proper way to merge it into device agent codes. 
+Currently, it only supports `fwupd/LVFS` update method on selected device types (DMI chassis type = All In One, Desktop) with selected OEM (HP, Dell, and Lenovo). Note that it hasn't be widely tested on all supported devices.
+
 ## How to use this tool directly
 ### Upgrade all firmware on the DUT to the latest version.
 `$ upgrade_fw.py upgrade $DEVICE_IP`
