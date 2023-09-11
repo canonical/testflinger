@@ -82,3 +82,55 @@ class Result(Schema):
     cleanup_serial = fields.String(required=False)
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
+
+
+job_empty = {
+    204: {
+        "description": "No job found",
+        "content": {
+            "application/json": {
+                "schema": {"type": "object", "properties": {}}
+            }
+        },
+    }
+}
+
+queues_out = {
+    200: {
+        "description": "Mapping of queue names and descriptions",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string",
+                    },
+                    "example": {
+                        "device001": "Queue for device001",
+                        "some-queue": "some other queue",
+                    },
+                },
+            },
+        },
+    },
+}
+
+images_out = {
+    200: {
+        "description": "Mapping of image names and provision data",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string",
+                    },
+                    "example": {
+                        "core22": "url: http://.../core22.img.xz",
+                        "server-22.04": "url: http://.../ubuntu-22.04.img.xz",
+                    },
+                },
+            },
+        },
+    },
+}

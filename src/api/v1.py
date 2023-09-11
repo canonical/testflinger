@@ -110,6 +110,7 @@ def job_builder(data):
 
 @v1.get("/job")
 @v1.output(schemas.Job)
+@v1.doc(responses=schemas.job_empty)
 def job_get():
     """Request a job to run from supported queues"""
     queue_list = request.args.getlist("queue")
@@ -290,6 +291,7 @@ def action_post(job_id, json_data):
 
 
 @v1.get("/agents/queues")
+@v1.doc(responses=schemas.queues_out)
 def queues_get():
     """Get all advertised queues from this server
 
@@ -327,6 +329,7 @@ def queues_post():
 
 
 @v1.get("/agents/images/<queue>")
+@v1.doc(responses=schemas.images_out)
 def images_get(queue):
     """Get a dict of known images for a given queue"""
     queue_data = mongo.db.queues.find_one(
