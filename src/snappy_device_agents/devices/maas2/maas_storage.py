@@ -372,10 +372,7 @@ class MaasStorage:
         """
         children = []
         for dev in self.device_list:
-            if (
-                "parent_disk" in dev
-                and dev["parent_disk"] == parent_device["id"]
-            ):
+            if dev.get("parent_disk") == parent_device["id"]:
                 children.append(dev)
         return children
 
@@ -503,20 +500,21 @@ class MaasStorage:
                     f"label={device['label']}",
                 ]
             )
+            return
+
         # if the device does not have a 'volume' key, it's a block device
-        else:
-            self.call_cmd(
-                [
-                    "maas",
-                    self.maas_user,
-                    "partition",
-                    "format",
-                    self.node_id,
-                    device["parent_disk_blkid"],
-                    f"fstype={device['fstype']}",
-                    f"label={device['label']}",
-                ]
-            )
+        self.call_cmd(
+            [
+                "maas",
+                self.maas_user,
+                "partition",
+                "format",
+                self.node_id,
+                device["parent_disk_blkid"],
+                f"fstype={device['fstype']}",
+                f"label={device['label']}",
+            ]
+        )
 
     def _get_mount_partition_id(self, device):
         """Get the partition ID from the specified mount path.
