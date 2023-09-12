@@ -487,7 +487,6 @@ class TestMaasStorage:
         else:
             maas_storage.process_format(device)
 
-            # Add other assertions for the valid case here...
             maas_storage.call_cmd_mock.assert_called_with(
                 [
                     "maas",
