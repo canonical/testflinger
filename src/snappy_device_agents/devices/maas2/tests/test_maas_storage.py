@@ -484,22 +484,22 @@ class TestMaasStorage:
                 expected_error, match=r"Unable to find partition ID for volume"
             ):
                 maas_storage.process_format(device)
-        else:
-            maas_storage.process_format(device)
 
-            maas_storage.call_cmd_mock.assert_called_with(
-                [
-                    "maas",
-                    maas_storage.maas_user,
-                    "partition",
-                    "format",
-                    maas_storage.node_id,
-                    device["parent_disk_blkid"],
-                    partition_id,
-                    f"fstype={device['fstype']}",
-                    f"label={device['label']}",
-                ]
-            )
+        maas_storage.process_format(device)
+
+        maas_storage.call_cmd_mock.assert_called_with(
+            [
+                "maas",
+                maas_storage.maas_user,
+                "partition",
+                "format",
+                maas_storage.node_id,
+                device["parent_disk_blkid"],
+                partition_id,
+                f"fstype={device['fstype']}",
+                f"label={device['label']}",
+            ]
+        )
 
     def test_process_mount(self, maas_storage):
         """Checks if 'process_mount' correctly processes a 'mount'
