@@ -458,8 +458,8 @@ class TestMaasStorage:
         "partition_id, expected_error",
         [
             (2, None),  # Valid partition ID
-            (None, MaasStorageError)  # Invalid partition ID
-        ]
+            (None, MaasStorageError),  # Invalid partition ID
+        ],
     )
     def test_process_format(self, maas_storage, partition_id, expected_error):
         """Checks if 'process_format' correctly processes a 'format'
