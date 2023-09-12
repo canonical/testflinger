@@ -454,9 +454,16 @@ class TestMaasStorage:
 
         assert device["partition_id"] == "3"
 
-    def test_process_format(self, maas_storage):
+    @pytest.mark.parametrize(
+        "partition_id, expected_error",
+        [
+            (2, None),  # Valid partition ID
+            (None, MaasStorageError),  # Invalid partition ID
+        ],
+    )
+    def test_process_format(self, maas_storage, partition_id, expected_error):
         """Checks if 'process_format' correctly processes a 'format'
-        device type.
+        device type, with and without a valid 'volume' attribute.
         """
         device = {
             "id": 4,
@@ -468,27 +475,30 @@ class TestMaasStorage:
             "volume": "volume",
         }
 
-        maas_storage._get_format_partition_id = MagicMock(return_value=2)
-
-        maas_storage.process_format(device)
-
-        maas_storage._get_format_partition_id.assert_called_with(
-            device["volume"]
+        maas_storage._get_format_partition_id = MagicMock(
+            return_value=partition_id
         )
 
-        maas_storage.call_cmd_mock.assert_called_with(
-            [
-                "maas",
-                maas_storage.maas_user,
-                "partition",
-                "format",
-                maas_storage.node_id,
-                device["parent_disk_blkid"],
-                2,
-                f"fstype={device['fstype']}",
-                f"label={device['label']}",
-            ]
-        )
+        if expected_error:
+            with pytest.raises(
+                expected_error, match=r"Unable to find partition ID for volume"
+            ):
+                maas_storage.process_format(device)
+        else:
+            maas_storage.process_format(device)
+            maas_storage.call_cmd_mock.assert_called_with(
+                [
+                    "maas",
+                    maas_storage.maas_user,
+                    "partition",
+                    "format",
+                    maas_storage.node_id,
+                    device["parent_disk_blkid"],
+                    partition_id,
+                    f"fstype={device['fstype']}",
+                    f"label={device['label']}",
+                ]
+            )
 
     def test_process_mount(self, maas_storage):
         """Checks if 'process_mount' correctly processes a 'mount'

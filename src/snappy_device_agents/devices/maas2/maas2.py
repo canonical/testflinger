@@ -238,7 +238,7 @@ class Maas2:
         self.recover()
         status = self.node_status()
         # do not process an empty dataset
-        if storage_data:
+        if storage_data is not None:
             try:
                 self.maas_storage.configure_node_storage(storage_data)
             except MaasStorageError as error:
@@ -248,6 +248,7 @@ class Maas2:
                 raise ProvisioningError from error
         else:
             def_storage_data = self.config.get("default_disks")
+            self._logger_debug(f"Using def storage data: {def_storage_data}")
             if not def_storage_data:
                 self._logger_warning(
                     "'default_disks' and/or 'disks' unspecified; "

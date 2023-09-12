@@ -372,7 +372,7 @@ class MaasStorage:
         """
         children = []
         for dev in self.device_list:
-            if dev["parent_disk"] == parent_device["id"]:
+            if dev.get("parent_disk") == parent_device["id"]:
                 children.append(dev)
         return children
 
@@ -384,11 +384,11 @@ class MaasStorage:
         self._logger_debug(
             {
                 "device_id": device["id"],
-                "name": device["name"],
                 "number": device.get("number"),
                 "block-id": device["parent_disk_blkid"],
             }
         )
+
         # find boot mounts on child types
         children = self._get_child_device(device)
 
@@ -401,8 +401,8 @@ class MaasStorage:
                 self._set_boot_disk(device["parent_disk_blkid"])
                 break
         # apply disk name
-        if "name" in device:
-            # self.call_cmd(
+        if device.get("name"):
+            self._logger_debug({"name": device["name"]})
             self.call_cmd(
                 [
                     "maas",
@@ -457,7 +457,12 @@ class MaasStorage:
         :return: the node partition ID
         """
         for dev in self.device_list:
-            if volume == dev["id"]:
+            # sanitize comparison to accomidate user defined types
+            if dev["type"] == "partition" and str(volume) in [
+                str(dev["id"]),
+                str(dev["device"]),
+                str(dev["number"]),
+            ]:
                 return dev["partition_id"]
 
     def process_format(self, device):
@@ -474,9 +479,14 @@ class MaasStorage:
                 "parent disk block-id": device["parent_disk_blkid"],
             }
         )
-        # format partition
-        if "volume" in device:
+        if device.get("volume"):
             partition_id = self._get_format_partition_id(device["volume"])
+            # make sure we can fetch the newly created parent partition_id
+            if partition_id is None:
+                raise MaasStorageError(
+                    "Unable to find partition ID for volume"
+                    f" {device['volume']}"
+                )
             self.call_cmd(
                 [
                     "maas",
@@ -490,20 +500,21 @@ class MaasStorage:
                     f"label={device['label']}",
                 ]
             )
-        # format block-device
-        else:
-            self.call_cmd(
-                [
-                    "maas",
-                    self.maas_user,
-                    "partition",
-                    "format",
-                    self.node_id,
-                    device["parent_disk_blkid"],
-                    f"fstype={device['fstype']}",
-                    f"label={device['label']}",
-                ]
-            )
+            return
+
+        # if the device does not have a 'volume' key, it's a block device
+        self.call_cmd(
+            [
+                "maas",
+                self.maas_user,
+                "partition",
+                "format",
+                self.node_id,
+                device["parent_disk_blkid"],
+                f"fstype={device['fstype']}",
+                f"label={device['label']}",
+            ]
+        )
 
     def _get_mount_partition_id(self, device):
         """Get the partition ID from the specified mount path.
