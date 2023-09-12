@@ -46,7 +46,8 @@ def detect_device(ip: str, user: str, password: str = "", **options):
                 + err_msg
             )
             logger.error(err_msg)
-            raise RuntimeError(err_msg)
+            print(err_msg)
+            exit(1)
 
         type_index = int(type_string)
         upgrade_type = Dmi.chassis_types[type_index]
@@ -57,14 +58,12 @@ def detect_device(ip: str, user: str, password: str = "", **options):
                 if dev.fw_update_type in upgrade_type
                 and any(x == vendor_string for x in dev.vendor)
             ][0]
-            logger.info("%s is a %s %s" % (ip, vendor_string, dev.__name__))
+            logger.info(f"{ip} is a {vendor_string} {dev.__name__}")
         except IndexError:
-            err_msg = "Cannot find a proper Device class for %s: %s" % (
-                vendor_string,
-                Dmi.chassis_names[type_index],
-            )
+            err_msg = f"{vendor_string} {Dmi.chassis_names[type_index]} Device is not in current support scope"
             logger.error(err_msg)
-            raise RuntimeError(err_msg)
+            print(err_msg)
+            exit(1)
 
         if issubclass(dev, LVFSDevice):
             return dev(ip, user, password)
@@ -74,10 +73,10 @@ def detect_device(ip: str, user: str, password: str = "", **options):
                 and "bmc_user" in options
                 and "bmc_password" in options
             ):
-                raise RuntimeError(
+                print(
                     "Please provide $BMC_IP, $BMC_USER, $BMC_PASSWORD for this device"
                 )
-            exit()
+                exit(1)
             return dev(
                 options.get("bmc_ip"),
                 options.get("bmc_user"),
@@ -105,17 +104,17 @@ def main():
     )
     parser.add_argument("device_ip", help="$DEVICE_IP")
     parser.add_argument(
-        "--bmc_ip",
+        "--bmc-ip",
         "-i",
         nargs="?",
     )
     parser.add_argument(
-        "--bmc_user",
+        "--bmc-user",
         "-u",
         nargs="?",
     )
     parser.add_argument(
-        "--bmc_password",
+        "--bmc-password",
         "-p",
         nargs="?",
     )
@@ -143,9 +142,9 @@ def main():
 
     target_device.get_fw_info()
     if args.action == "detect":
-        print("Check %s for details." % log_file)
+        print(f"Check {log_file} for details.")
         return
-    elif args.action == "upgrade":
+    if args.action == "upgrade":
         reboot_required = target_device.upgrade()
     else:
         reboot_required = target_device.downgrade()
@@ -153,8 +152,8 @@ def main():
         target_device.reboot()
         target_device.check_results()
     else:
-        print("Firmware %s is not performed." % args.action)
-    print("Check %s for more details." % log_file)
+        print(f"Firmware {args.action} is not performed.")
+    print(f"Check {log_file} for more details.")
 
 
 if __name__ == "__main__":

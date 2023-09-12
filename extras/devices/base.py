@@ -1,9 +1,10 @@
 import logging
+from abc import ABC, abstractmethod
 
 logger = logging
 
 
-class AbstractDevice:
+class AbstractDevice(ABC):
     fw_update_type = ""
     vendor = ""
 
@@ -13,23 +14,30 @@ class AbstractDevice:
         self.password = password
         self.fw_info = []
 
+    @abstractmethod
     def run_cmd(self):
-        pass
+        return NotImplemented
 
+    @abstractmethod
     def get_fw_info(self):
-        pass
+        return NotImplemented
 
+    @abstractmethod
     def upgrade(self):
-        pass
+        return NotImplemented
 
+    @abstractmethod
     def downgrade(self):
-        pass
+        return NotImplemented
 
+    @abstractmethod
     def check_results(self):
-        pass
+        return NotImplemented
 
+    @abstractmethod
     def check_connectable(self):
-        pass
+        return NotImplemented
 
+    @abstractmethod
     def reboot(self):
-        pass
+        return NotImplemented

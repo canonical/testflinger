@@ -1,5 +1,6 @@
 import unittest
 import upgrade_fw
+import pytest
 from devices import *
 from unittest.mock import patch
 
@@ -59,31 +60,25 @@ class TestUpgradeFW(unittest.TestCase):
             self.assertTrue(isinstance(device, LVFSDevice))
 
     def test_detect_device_unsupported(self):
-        with patch("devices.LVFS.LVFS.LVFSDevice.run_cmd") as mock_path:
-            try:
+        with pytest.raises(SystemExit) as pytest_wrapped_e:
+            with patch("devices.LVFS.LVFS.LVFSDevice.run_cmd") as mock_path:
                 mock_path.side_effect = self.mock_run_cmd_unsupported
                 upgrade_fw.detect_device("", "", "")
-            except RuntimeError as e:
-                self.assertIn("Cannot find a proper Device class for", str(e))
+        assert pytest_wrapped_e.type == SystemExit
+        assert pytest_wrapped_e.value.code == 1
 
     def test_detect_device_fail(self):
-        with patch("devices.LVFS.LVFS.LVFSDevice.run_cmd") as mock_path:
-            try:
+        with pytest.raises(SystemExit) as pytest_wrapped_e:
+            with patch("devices.LVFS.LVFS.LVFSDevice.run_cmd") as mock_path:
                 mock_path.side_effect = self.mock_run_cmd_fail
                 upgrade_fw.detect_device("", "", "")
-            except RuntimeError as e:
-                self.assertIn(
-                    "Unable to detect device vendor/type due to lacking of dmi info",
-                    str(e),
-                )
+        assert pytest_wrapped_e.type == SystemExit
+        assert pytest_wrapped_e.value.code == 1
 
     def test_detect_device_nossh(self):
-        with patch("devices.LVFS.LVFS.LVFSDevice.run_cmd") as mock_path:
-            try:
+        with pytest.raises(SystemExit) as pytest_wrapped_e:
+            with patch("devices.LVFS.LVFS.LVFSDevice.run_cmd") as mock_path:
                 mock_path.side_effect = self.mock_run_cmd_nossh
                 upgrade_fw.detect_device("", "", "")
-            except RuntimeError as e:
-                self.assertIn(
-                    "Unable to detect device vendor/type due to lacking of dmi info",
-                    str(e),
-                )
+        assert pytest_wrapped_e.type == SystemExit
+        assert pytest_wrapped_e.value.code == 1
