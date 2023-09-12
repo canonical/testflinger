@@ -165,10 +165,6 @@ class TestflingerAgent:
                     # In this case, we need to mark the device offline
                     if exitcode == 46:
                         self.mark_device_offline()
-                        self.client.repost_job(job_data)
-                        shutil.rmtree(rundir)
-                        # Return NOW so we don't keep trying to process jobs
-                        return
                     if phase != "test" and exitcode:
                         logger.debug("Phase %s failed, aborting job" % phase)
                         break
