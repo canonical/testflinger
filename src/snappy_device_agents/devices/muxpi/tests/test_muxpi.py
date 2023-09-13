@@ -19,9 +19,26 @@ from snappy_device_agents.devices.muxpi.muxpi import MuxPi
 
 def test_check_ce_oem_iot_image(mocker):
     """Test check_ce_oem_iot_image."""
+    buildstamp = "iot-limerick-kria-classic-desktop-2204-x07-20230302-63"
     mocker.patch(
         "subprocess.check_output",
-        return_value="iot-limerick-kria-classic-desktop-2204".encode(),
+        return_value=buildstamp.encode(),
+    )
+    muxpi = MuxPi()
+    assert muxpi.check_ce_oem_iot_image() is True
+
+    buildstamp = "iot-baoshan-classic-server-2204-x04-20230807-149"
+    mocker.patch(
+        "subprocess.check_output",
+        return_value=buildstamp.encode(),
+    )
+    muxpi = MuxPi()
+    assert muxpi.check_ce_oem_iot_image() is True
+
+    buildstamp = "iot-havana-core-20-ptz-gm3-uc20-20230911-2"
+    mocker.patch(
+        "subprocess.check_output",
+        return_value=buildstamp.encode(),
     )
     muxpi = MuxPi()
     assert muxpi.check_ce_oem_iot_image() is True
