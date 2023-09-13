@@ -17,7 +17,7 @@
         </tr>
         <tr>
             <th>Created At:</th>
-            <td>{{ job.created_at }}</td>
+            <td>{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
         </tr>
     </table>
     <br>

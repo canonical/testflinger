@@ -26,7 +26,7 @@
         <tr class="tr-highlight">
             <td><a href="/jobs/{{ job.job_id}}">{{ job.job_id }}</a></td>
             <td>{{ job.result_data.job_state }}</td>
-            <td>{{ job.created_at }}</td>
+            <td>{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
         </tr>
         {% endfor %}
     </table>
