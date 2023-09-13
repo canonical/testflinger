@@ -78,6 +78,10 @@ main {
     background-color: lightgrey;
 }
 
+.filter-table table {
+    table-layout: auto;
+}
+
 .filter-table table th {
     background-color: #333333;
     color: white;
