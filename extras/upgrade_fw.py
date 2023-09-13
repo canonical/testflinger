@@ -65,7 +65,7 @@ def detect_device(
                 if dev.fw_update_type in upgrade_type
                 and any(x == vendor_string for x in dev.vendor)
             ][0]
-            logger.info("%s is a %s %s" % (ip, vendor_string, dev.__name__))
+            logger.info("%s is a %s %s", ip, vendor_string, dev.__name__)
         except IndexError:
             err_msg = f"{vendor_string} {Dmi.chassis_names[type_index]} Device is not in current support scope"
             logger.error(err_msg)
