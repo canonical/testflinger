@@ -1,7 +1,7 @@
 """ fwupdmgr json outputs """
 
 
-get_results = """{
+GET_RESULTS_RESPONSE_DATA = """{
   "Name" : "System Firmware",
   "DeviceId" : "a45df35ac0e948ee180fe216a5f703f32dda163f",
   "Guid" : [
@@ -68,7 +68,7 @@ get_results = """{
 }
 """
 
-get_results_err = """
+GET_RESULTS_ERROR_RESPONSE_DATA = """
 {
   "Error" : {
     "Domain" : "FwupdError",
@@ -78,7 +78,7 @@ get_results_err = """
 }
 """
 
-get_device = """{
+GET_DEVICES_RESPONSE_DATA = """{
   "Devices" : [
     {
       "Name" : "Core™ i7-9800X CPU @ 3.80GHz",
