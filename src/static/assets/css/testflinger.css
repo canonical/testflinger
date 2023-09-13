@@ -28,7 +28,7 @@ main {
 .header {
     color: white;
     overflow: hidden;
-    background-color: #3f3f3f;
+    background-color: #333;
     padding: 0px 10px;
 }
 
@@ -44,6 +44,7 @@ main {
 
 .header a.logo {
     color: white;
+    background-color: #E95420;
     font-size: 25px;
     font-weight: bold;
 }
@@ -51,17 +52,19 @@ main {
 .header a.logo:hover {
     color: white;
     text-decoration: none;
-    background-color: #202020;
+    /* $color-brand */
+    background-color: #E95420;
 }
 
 .header a:hover {
-    background-color: #202020;
+    background-color: #2b2b2b;
     color: white;
     text-decoration: underline;
 }
 
 .header a.active {
-    background-color: #202020;
+    /* $color-brand */
+    background-color: #E95420;
     color: white;
 }
 
@@ -76,7 +79,7 @@ main {
 }
 
 .filter-table table th {
-    background-color: #3f3f3f;
+    background-color: #333333;
     color: white;
     text-align: left;
     text-decoration: underline;
