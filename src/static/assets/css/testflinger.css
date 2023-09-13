@@ -26,12 +26,13 @@ main {
 
 /* Header bar related */
 .header {
+    color: white;
     overflow: hidden;
     background-color: #3f3f3f;
     padding: 0px 10px;
 }
 
-.header a {
+.header a, .header a:visited {
     float: left;
     color: white;
     text-align: center;
@@ -42,6 +43,7 @@ main {
 }
 
 .header a.logo {
+    color: white;
     font-size: 25px;
     font-weight: bold;
 }
@@ -64,6 +66,7 @@ main {
 }
 
 .header-right {
+    color: white;
     float: right;
 }
 
