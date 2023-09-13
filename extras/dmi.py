@@ -1,3 +1,6 @@
+"""This maps DMI chassis type to readable name"""
+
+
 class Dmi:
     chassis = (
         ("Undefined", "unknown"),  # 0x00

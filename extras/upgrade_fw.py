@@ -1,7 +1,10 @@
 #!/usr/bin/python3
+"""The main program to trigger firmware upgrading/downgrading on a DUT"""
+
 import subprocess
 import argparse
 import logging
+import sys
 from dmi import Dmi
 from devices import *
 
@@ -15,12 +18,17 @@ def all_subclasses(cls):
     ]
 
 
-def detect_device(ip: str, user: str, password: str = "", **options):
+def detect_device(
+    ip: str, user: str, password: str = "", **options
+) -> AbstractDevice:
     """
-    detect device's firmware upgrade type by checking on DMI data
+    Detect device's firmware upgrade type by checking on DMI data
 
-    :returns: device object
-    :rtype: object of subclass of AbstractDevice
+    :ip:        DUT IP
+    :user:      DUT user
+    :password:  DUT password (default=blank)
+    :return:    device class object
+    :rtype:     an instance of a class that implements AbstractDevice
     """
     temp_device = LVFSDevice(ip, user, password)
     run_ssh = temp_device.run_cmd
@@ -46,8 +54,7 @@ def detect_device(ip: str, user: str, password: str = "", **options):
                 + err_msg
             )
             logger.error(err_msg)
-            print(err_msg)
-            exit(1)
+            sys.exit(err_msg)
 
         type_index = int(type_string)
         upgrade_type = Dmi.chassis_types[type_index]
@@ -58,12 +65,11 @@ def detect_device(ip: str, user: str, password: str = "", **options):
                 if dev.fw_update_type in upgrade_type
                 and any(x == vendor_string for x in dev.vendor)
             ][0]
-            logger.info(f"{ip} is a {vendor_string} {dev.__name__}")
+            logger.info("%s is a %s %s" % (ip, vendor_string, dev.__name__))
         except IndexError:
             err_msg = f"{vendor_string} {Dmi.chassis_names[type_index]} Device is not in current support scope"
             logger.error(err_msg)
-            print(err_msg)
-            exit(1)
+            sys.exit(err_msg)
 
         if issubclass(dev, LVFSDevice):
             return dev(ip, user, password)
@@ -73,10 +79,9 @@ def detect_device(ip: str, user: str, password: str = "", **options):
                 and "bmc_user" in options
                 and "bmc_password" in options
             ):
-                print(
+                sys.exit(
                     "Please provide $BMC_IP, $BMC_USER, $BMC_PASSWORD for this device"
                 )
-                exit(1)
             return dev(
                 options.get("bmc_ip"),
                 options.get("bmc_user"),
