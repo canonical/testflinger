@@ -40,11 +40,16 @@ class MuxPi:
         "cloudimg-rootfs/etc/cloud/cloud.cfg": "ubuntu-cpc",
     }
 
-    def __init__(self, config, job_data):
-        with open(config) as configfile:
-            self.config = yaml.safe_load(configfile)
-        with open(job_data) as j:
-            self.job_data = json.load(j)
+    def __init__(self, config=None, job_data=None):
+        if config and job_data:
+            with open(config) as configfile:
+                self.config = yaml.safe_load(configfile)
+            with open(job_data) as j:
+                self.job_data = json.load(j)
+        else:
+            # For testing
+            self.config = {"agent_name": "test"}
+            self.job_data = {}
         self.agent_name = self.config.get("agent_name")
         self.mount_point = Path("/mnt") / self.agent_name
 
@@ -236,14 +241,9 @@ class MuxPi:
         def check_path(dir):
             self._run_control("test -e {}".format(dir))
 
-        # First check if this is a limerick image
-        try:
-            disk_info_path = self.mount_point / "writable/.disk/info"
-            self._run_control(f"grep limerick {disk_info_path}")
-            return "limerick"
-        except ProvisioningError:
-            # Not a limerick image
-            pass
+        # First check if this is a ce-oem-iot image
+        if self.check_ce_oem_iot_image():
+            return "ce-oem-iot"
 
         try:
             disk_info_path = (
@@ -266,6 +266,23 @@ class MuxPi:
         # We have no idea what kind of image this is
         return "unknown"
 
+    def check_ce_oem_iot_image(self) -> bool:
+        """
+        Determine if this is a ce-oem-iot image
+
+        These images will have a .disk/info file with a buildstamp in it
+        that looks like:
+        iot-$project-$series-classic-(server|desktop)-$buildId
+        """
+        try:
+            disk_info_path = self.mount_point / "writable/.disk/info"
+            buildstamp = '"iot-[a-z]+-[a-z-]*(classic-(server|desktop)-[0-9]+'
+            buildstamp += '|core-[0-9]+)"'
+            self._run_control(f"grep -E {buildstamp} {disk_info_path}")
+            return True
+        except ProvisioningError:
+            return False
+
     def unmount_writable_partition(self):
         try:
             self._run_control(
@@ -284,10 +301,10 @@ class MuxPi:
         remote_tmp = Path("/tmp") / self.agent_name
         try:
             data_path = Path(__file__).parent / "../../data/muxpi"
-            if image_type == "limerick":
+            if image_type == "ce-oem-iot":
                 self._run_control("mkdir -p {}".format(remote_tmp))
                 self._copy_to_control(
-                    data_path / "limerick/user-data", remote_tmp
+                    data_path / "ce-oem-iot/user-data", remote_tmp
                 )
                 cmd = f"sudo cp {remote_tmp}/user-data {base}/system-boot/"
                 self._run_control(cmd)
