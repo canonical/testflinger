@@ -8,3 +8,6 @@ dist
 .tox
 .coverage
 *.charm
+_build
+.wordlist.dic
+docs/.sphinx/warnings.txt
