@@ -7,9 +7,6 @@ terraform {
   }
 }
 
-provider "juju" {}
-
-
 variable "environment" {
   description = "The environment to deploy to (dev, staging, prod)"
 }
