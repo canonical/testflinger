@@ -1,5 +1,5 @@
 # Copyright 2023 Canonical Ltd.
-# Licensed under the Apache2.0, see LICENCE file in charm source for details.
+# Licensed under the Apache2.0. See LICENSE file in charm source for details.
 """Library for the nginx-route relation.
 
 This library contains the require and provide functions for handling
@@ -34,12 +34,12 @@ As an example, add the following to `src/charm.py`:
 ```python
 from charms.nginx_ingress_integrator.v0.nginx_route import NginxRouteRequirer
 
-# In your charm's `__init__` method.
+# In your charm's `__init__` method (assuming your app is listening on port 8080).
 require_nginx_route(
     charm=self,
-    service_hostname=self.config["external_hostname"],
+    service_hostname=self.app.name,
     service_name=self.app.name,
-    service_port=80
+    service_port=8080
 )
 
 ```
@@ -52,6 +52,23 @@ requires:
 You _must_ require nginx route as part of the `__init__` method
 rather than, for instance, a config-changed event handler, for the relation
 changed event to be properly handled.
+
+In the example above we're setting `service_hostname` (which translates to the
+external hostname for the application when related to nginx-ingress-integrator)
+to `self.app.name` here. This ensures by default the charm will be available on
+the name of the deployed juju application, but can be overridden in a
+production deployment by setting `service-hostname` on the
+nginx-ingress-integrator charm. For example:
+```bash
+juju deploy nginx-ingress-integrator
+juju deploy my-charm
+juju relate nginx-ingress-integrator my-charm:nginx-route
+# The service is now reachable on the ingress IP(s) of your k8s cluster at
+# 'http://my-charm'.
+juju config nginx-ingress-integrator service-hostname='my-charm.example.com'
+# The service is now reachable on the ingress IP(s) of your k8s cluster at
+# 'http://my-charm.example.com'.
+```
 """
 import logging
 import typing
@@ -69,7 +86,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 2
+LIBPATCH = 3
 
 __all__ = ["require_nginx_route", "provide_nginx_route"]
 
@@ -153,7 +170,9 @@ class _NginxRouteRequirer(ops.framework.Object):
             relation_app_data.update({k: str(v) for k, v in self._config.items()})
 
 
-def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches
+# C901 is ignored since the method has too many ifs but wouldn't be
+# necessarily good to reduce to smaller methods.
+def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches # noqa: C901
     *,
     charm: ops.charm.CharmBase,
     service_hostname: str,
@@ -303,6 +322,9 @@ class _NginxRouteProvider(ops.framework.Object):
 
         Args:
             event: Event triggering the relation-changed hook for the relation.
+
+        Raises:
+            RuntimeError: if _on_relation changed is triggered by a broken relation.
         """
         # `self.unit` isn't available here, so use `self.model.unit`.
         if not self._charm.model.unit.is_leader():
@@ -376,6 +398,10 @@ def provide_nginx_route(
         on_nginx_route_broken: Callback function for the nginx-route-broken event.
         nginx_route_relation_name: Specifies the relation name of the relation handled by this
             provider class. The relation must have the nginx-route interface.
+
+    Raises:
+        RuntimeError: If provide_nginx_route was invoked twice with
+            the same nginx-route relation name
     """
     if __provider_references.get(charm, {}).get(nginx_route_relation_name) is not None:
         raise RuntimeError(

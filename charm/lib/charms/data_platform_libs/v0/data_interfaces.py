@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Library to manage the relation for the data-platform products.
+r"""Library to manage the relation for the data-platform products.
 
 This library contains the Requires and Provides classes for handling the relation
 between an application and multiple managed application supported by the data-team:
@@ -296,17 +296,17 @@ import logging
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from ops.charm import (
     CharmBase,
     CharmEvents,
     RelationChangedEvent,
+    RelationCreatedEvent,
     RelationEvent,
-    RelationJoinedEvent,
 )
 from ops.framework import EventSource, Object
-from ops.model import Relation
+from ops.model import Application, ModelError, Relation, Unit
 
 # The unique Charmhub library identifier, never change it
 LIBID = "6c3e6b6680d64e9c89e611d1a15f65be"
@@ -316,7 +316,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 12
+LIBPATCH = 17
 
 PYDEPS = ["ops>=2.0.0"]
 
@@ -331,7 +331,7 @@ changed - keys that still exist but have new values
 deleted - key that were deleted"""
 
 
-def diff(event: RelationChangedEvent, bucket: str) -> Diff:
+def diff(event: RelationChangedEvent, bucket: Union[Unit, Application]) -> Diff:
     """Retrieves the diff of the data in the relation changed databag.
 
     Args:
@@ -345,9 +345,11 @@ def diff(event: RelationChangedEvent, bucket: str) -> Diff:
     # Retrieve the old data from the data key in the application relation databag.
     old_data = json.loads(event.relation.data[bucket].get("data", "{}"))
     # Retrieve the new data from the event relation databag.
-    new_data = {
-        key: value for key, value in event.relation.data[event.app].items() if key != "data"
-    }
+    new_data = (
+        {key: value for key, value in event.relation.data[event.app].items() if key != "data"}
+        if event.app
+        else {}
+    )
 
     # These are the keys that were added to the databag and triggered this event.
     added = new_data.keys() - old_data.keys()
@@ -363,11 +365,11 @@ def diff(event: RelationChangedEvent, bucket: str) -> Diff:
     return Diff(added, changed, deleted)
 
 
-# Base DataProvides and DataRequires
+# Base DataRelation
 
 
-class DataProvides(Object, ABC):
-    """Base provides-side of the data products relation."""
+class DataRelation(Object, ABC):
+    """Base relation data mainpulation class."""
 
     def __init__(self, charm: CharmBase, relation_name: str) -> None:
         super().__init__(charm, relation_name)
@@ -377,23 +379,11 @@ class DataProvides(Object, ABC):
         self.relation_name = relation_name
         self.framework.observe(
             charm.on[relation_name].relation_changed,
-            self._on_relation_changed,
+            self._on_relation_changed_event,
         )
 
-    def _diff(self, event: RelationChangedEvent) -> Diff:
-        """Retrieves the diff of the data in the relation changed databag.
-
-        Args:
-            event: relation changed event.
-
-        Returns:
-            a Diff instance containing the added, deleted and changed
-                keys from the event relation databag.
-        """
-        return diff(event, self.local_app)
-
     @abstractmethod
-    def _on_relation_changed(self, event: RelationChangedEvent) -> None:
+    def _on_relation_changed_event(self, event: RelationChangedEvent) -> None:
         """Event emitted when the relation data has changed."""
         raise NotImplementedError
 
@@ -402,16 +392,19 @@ class DataProvides(Object, ABC):
 
         This function can be used to retrieve data from a relation
         in the charm code when outside an event callback.
+        Function cannot be used in `*-relation-broken` events and will raise an exception.
 
         Returns:
             a dict of the values stored in the relation data bag
-                for all relation instances (indexed by the relation id).
+                for all relation instances (indexed by the relation ID).
         """
         data = {}
         for relation in self.relations:
-            data[relation.id] = {
-                key: value for key, value in relation.data[relation.app].items() if key != "data"
-            }
+            data[relation.id] = (
+                {key: value for key, value in relation.data[relation.app].items() if key != "data"}
+                if relation.app
+                else {}
+            )
         return data
 
     def _update_relation_data(self, relation_id: int, data: dict) -> None:
@@ -427,12 +420,48 @@ class DataProvides(Object, ABC):
         """
         if self.local_unit.is_leader():
             relation = self.charm.model.get_relation(self.relation_name, relation_id)
-            relation.data[self.local_app].update(data)
+            if relation:
+                relation.data[self.local_app].update(data)
+
+    @staticmethod
+    def _is_relation_active(relation: Relation):
+        """Whether the relation is active based on contained data."""
+        try:
+            _ = repr(relation.data)
+            return True
+        except (RuntimeError, ModelError):
+            return False
 
     @property
     def relations(self) -> List[Relation]:
         """The list of Relation instances associated with this relation_name."""
-        return list(self.charm.model.relations[self.relation_name])
+        return [
+            relation
+            for relation in self.charm.model.relations[self.relation_name]
+            if self._is_relation_active(relation)
+        ]
+
+
+# Base DataProvides and DataRequires
+
+
+class DataProvides(DataRelation):
+    """Base provides-side of the data products relation."""
+
+    def __init__(self, charm: CharmBase, relation_name: str) -> None:
+        super().__init__(charm, relation_name)
+
+    def _diff(self, event: RelationChangedEvent) -> Diff:
+        """Retrieves the diff of the data in the relation changed databag.
+
+        Args:
+            event: relation changed event.
+
+        Returns:
+            a Diff instance containing the added, deleted and changed
+                keys from the event relation databag.
+        """
+        return diff(event, self.local_app)
 
     def set_credentials(self, relation_id: int, username: str, password: str) -> None:
         """Set credentials.
@@ -472,70 +501,26 @@ class DataProvides(Object, ABC):
         self._update_relation_data(relation_id, {"tls-ca": tls_ca})
 
 
-class DataRequires(Object, ABC):
+class DataRequires(DataRelation):
     """Requires-side of the relation."""
 
     def __init__(
         self,
         charm,
         relation_name: str,
-        extra_user_roles: str = None,
+        extra_user_roles: Optional[str] = None,
     ):
         """Manager of base client relations."""
         super().__init__(charm, relation_name)
-        self.charm = charm
         self.extra_user_roles = extra_user_roles
-        self.local_app = self.charm.model.app
-        self.local_unit = self.charm.unit
-        self.relation_name = relation_name
         self.framework.observe(
-            self.charm.on[relation_name].relation_joined, self._on_relation_joined_event
-        )
-        self.framework.observe(
-            self.charm.on[relation_name].relation_changed, self._on_relation_changed_event
+            self.charm.on[relation_name].relation_created, self._on_relation_created_event
         )
 
     @abstractmethod
-    def _on_relation_joined_event(self, event: RelationJoinedEvent) -> None:
-        """Event emitted when the application joins the relation."""
+    def _on_relation_created_event(self, event: RelationCreatedEvent) -> None:
+        """Event emitted when the relation is created."""
         raise NotImplementedError
-
-    @abstractmethod
-    def _on_relation_changed_event(self, event: RelationChangedEvent) -> None:
-        raise NotImplementedError
-
-    def fetch_relation_data(self) -> dict:
-        """Retrieves data from relation.
-
-        This function can be used to retrieve data from a relation
-        in the charm code when outside an event callback.
-        Function cannot be used in `*-relation-broken` events and will raise an exception.
-
-        Returns:
-            a dict of the values stored in the relation data bag
-                for all relation instances (indexed by the relation ID).
-        """
-        data = {}
-        for relation in self.relations:
-            data[relation.id] = {
-                key: value for key, value in relation.data[relation.app].items() if key != "data"
-            }
-        return data
-
-    def _update_relation_data(self, relation_id: int, data: dict) -> None:
-        """Updates a set of key-value pairs in the relation.
-
-        This function writes in the application data bag, therefore,
-        only the leader unit can call it.
-
-        Args:
-            relation_id: the identifier for a particular relation.
-            data: dict containing the key-value pairs
-                that should be updated in the relation.
-        """
-        if self.local_unit.is_leader():
-            relation = self.charm.model.get_relation(self.relation_name, relation_id)
-            relation.data[self.local_app].update(data)
 
     def _diff(self, event: RelationChangedEvent) -> Diff:
         """Retrieves the diff of the data in the relation changed databag.
@@ -549,25 +534,11 @@ class DataRequires(Object, ABC):
         """
         return diff(event, self.local_unit)
 
-    @property
-    def relations(self) -> List[Relation]:
-        """The list of Relation instances associated with this relation_name."""
-        return [
-            relation
-            for relation in self.charm.model.relations[self.relation_name]
-            if self._is_relation_active(relation)
-        ]
-
     @staticmethod
-    def _is_relation_active(relation: Relation):
-        try:
-            _ = repr(relation.data)
-            return True
-        except RuntimeError:
+    def _is_resource_created_for_relation(relation: Relation) -> bool:
+        if not relation.app:
             return False
 
-    @staticmethod
-    def _is_resource_created_for_relation(relation: Relation):
         return (
             "username" in relation.data[relation.app] and "password" in relation.data[relation.app]
         )
@@ -599,10 +570,7 @@ class DataRequires(Object, ABC):
         else:
             return (
                 all(
-                    [
-                        self._is_resource_created_for_relation(relation)
-                        for relation in self.relations
-                    ]
+                    self._is_resource_created_for_relation(relation) for relation in self.relations
                 )
                 if self.relations
                 else False
@@ -618,6 +586,9 @@ class ExtraRoleEvent(RelationEvent):
     @property
     def extra_user_roles(self) -> Optional[str]:
         """Returns the extra user roles that were requested."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("extra-user-roles")
 
 
@@ -627,21 +598,33 @@ class AuthenticationEvent(RelationEvent):
     @property
     def username(self) -> Optional[str]:
         """Returns the created username."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("username")
 
     @property
     def password(self) -> Optional[str]:
         """Returns the password for the created user."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("password")
 
     @property
     def tls(self) -> Optional[str]:
         """Returns whether TLS is configured."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("tls")
 
     @property
     def tls_ca(self) -> Optional[str]:
         """Returns TLS CA."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("tls-ca")
 
 
@@ -654,6 +637,9 @@ class DatabaseProvidesEvent(RelationEvent):
     @property
     def database(self) -> Optional[str]:
         """Returns the database that was requested."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("database")
 
 
@@ -676,6 +662,9 @@ class DatabaseRequiresEvent(RelationEvent):
     @property
     def database(self) -> Optional[str]:
         """Returns the database name."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("database")
 
     @property
@@ -685,6 +674,9 @@ class DatabaseRequiresEvent(RelationEvent):
         In VM charms, this is the primary's address.
         In kubernetes charms, this is the service to the primary pod.
         """
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("endpoints")
 
     @property
@@ -694,6 +686,9 @@ class DatabaseRequiresEvent(RelationEvent):
         In VM charms, this is the address of all the secondary instances.
         In kubernetes charms, this is the service to all replica pod instances.
         """
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("read-only-endpoints")
 
     @property
@@ -702,6 +697,9 @@ class DatabaseRequiresEvent(RelationEvent):
 
         MongoDB only.
         """
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("replset")
 
     @property
@@ -710,6 +708,9 @@ class DatabaseRequiresEvent(RelationEvent):
 
         MongoDB, Redis, OpenSearch.
         """
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("uris")
 
     @property
@@ -718,6 +719,9 @@ class DatabaseRequiresEvent(RelationEvent):
 
         Version as informed by the database daemon.
         """
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("version")
 
 
@@ -750,12 +754,12 @@ class DatabaseRequiresEvents(CharmEvents):
 class DatabaseProvides(DataProvides):
     """Provider-side of the database relations."""
 
-    on = DatabaseProvidesEvents()
+    on = DatabaseProvidesEvents()  # pyright: ignore [reportGeneralTypeIssues]
 
     def __init__(self, charm: CharmBase, relation_name: str) -> None:
         super().__init__(charm, relation_name)
 
-    def _on_relation_changed(self, event: RelationChangedEvent) -> None:
+    def _on_relation_changed_event(self, event: RelationChangedEvent) -> None:
         """Event emitted when the relation has changed."""
         # Only the leader should handle this event.
         if not self.local_unit.is_leader():
@@ -767,7 +771,9 @@ class DatabaseProvides(DataProvides):
         # Emit a database requested event if the setup key (database name and optional
         # extra user roles) was added to the relation databag by the application.
         if "database" in diff.added:
-            self.on.database_requested.emit(event.relation, app=event.app, unit=event.unit)
+            getattr(self.on, "database_requested").emit(
+                event.relation, app=event.app, unit=event.unit
+            )
 
     def set_database(self, relation_id: int, database_name: str) -> None:
         """Set database name.
@@ -844,15 +850,15 @@ class DatabaseProvides(DataProvides):
 class DatabaseRequires(DataRequires):
     """Requires-side of the database relation."""
 
-    on = DatabaseRequiresEvents()
+    on = DatabaseRequiresEvents()  # pyright: ignore [reportGeneralTypeIssues]
 
     def __init__(
         self,
         charm,
         relation_name: str,
         database_name: str,
-        extra_user_roles: str = None,
-        relations_aliases: List[str] = None,
+        extra_user_roles: Optional[str] = None,
+        relations_aliases: Optional[List[str]] = None,
     ):
         """Manager of database client relations."""
         super().__init__(charm, relation_name, extra_user_roles)
@@ -894,11 +900,8 @@ class DatabaseRequires(DataRequires):
 
         # Return if an alias was already assigned to this relation
         # (like when there are more than one unit joining the relation).
-        if (
-            self.charm.model.get_relation(self.relation_name, relation_id)
-            .data[self.local_unit]
-            .get("alias")
-        ):
+        relation = self.charm.model.get_relation(self.relation_name, relation_id)
+        if relation and relation.data[self.local_unit].get("alias"):
             return
 
         # Retrieve the available aliases (the ones that weren't assigned to any relation).
@@ -911,7 +914,8 @@ class DatabaseRequires(DataRequires):
 
         # Set the alias in the unit relation databag of the specific relation.
         relation = self.charm.model.get_relation(self.relation_name, relation_id)
-        relation.data[self.local_unit].update({"alias": available_aliases[0]})
+        if relation:
+            relation.data[self.local_unit].update({"alias": available_aliases[0]})
 
     def _emit_aliased_event(self, event: RelationChangedEvent, event_name: str) -> None:
         """Emit an aliased event to a particular relation if it has an alias.
@@ -974,7 +978,9 @@ class DatabaseRequires(DataRequires):
         try:
             with psycopg.connect(connection_string) as connection:
                 with connection.cursor() as cursor:
-                    cursor.execute(f"SELECT TRUE FROM pg_extension WHERE extname='{plugin}';")
+                    cursor.execute(
+                        "SELECT TRUE FROM pg_extension WHERE extname=%s::text;", (plugin,)
+                    )
                     return cursor.fetchone() is not None
         except psycopg.Error as e:
             logger.exception(
@@ -982,8 +988,8 @@ class DatabaseRequires(DataRequires):
             )
             return False
 
-    def _on_relation_joined_event(self, event: RelationJoinedEvent) -> None:
-        """Event emitted when the application joins the database relation."""
+    def _on_relation_created_event(self, event: RelationCreatedEvent) -> None:
+        """Event emitted when the database relation is created."""
         # If relations aliases were provided, assign one to the relation.
         self._assign_relation_alias(event.relation.id)
 
@@ -1010,7 +1016,9 @@ class DatabaseRequires(DataRequires):
         if "username" in diff.added and "password" in diff.added:
             # Emit the default event (the one without an alias).
             logger.info("database created at %s", datetime.now())
-            self.on.database_created.emit(event.relation, app=event.app, unit=event.unit)
+            getattr(self.on, "database_created").emit(
+                event.relation, app=event.app, unit=event.unit
+            )
 
             # Emit the aliased event (if any).
             self._emit_aliased_event(event, "database_created")
@@ -1024,7 +1032,9 @@ class DatabaseRequires(DataRequires):
         if "endpoints" in diff.added or "endpoints" in diff.changed:
             # Emit the default event (the one without an alias).
             logger.info("endpoints changed on %s", datetime.now())
-            self.on.endpoints_changed.emit(event.relation, app=event.app, unit=event.unit)
+            getattr(self.on, "endpoints_changed").emit(
+                event.relation, app=event.app, unit=event.unit
+            )
 
             # Emit the aliased event (if any).
             self._emit_aliased_event(event, "endpoints_changed")
@@ -1038,7 +1048,7 @@ class DatabaseRequires(DataRequires):
         if "read-only-endpoints" in diff.added or "read-only-endpoints" in diff.changed:
             # Emit the default event (the one without an alias).
             logger.info("read-only-endpoints changed on %s", datetime.now())
-            self.on.read_only_endpoints_changed.emit(
+            getattr(self.on, "read_only_endpoints_changed").emit(
                 event.relation, app=event.app, unit=event.unit
             )
 
@@ -1055,11 +1065,17 @@ class KafkaProvidesEvent(RelationEvent):
     @property
     def topic(self) -> Optional[str]:
         """Returns the topic that was requested."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("topic")
 
     @property
     def consumer_group_prefix(self) -> Optional[str]:
         """Returns the consumer-group-prefix that was requested."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("consumer-group-prefix")
 
 
@@ -1082,21 +1098,33 @@ class KafkaRequiresEvent(RelationEvent):
     @property
     def topic(self) -> Optional[str]:
         """Returns the topic."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("topic")
 
     @property
     def bootstrap_server(self) -> Optional[str]:
         """Returns a comma-separated list of broker uris."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("endpoints")
 
     @property
     def consumer_group_prefix(self) -> Optional[str]:
         """Returns the consumer-group-prefix."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("consumer-group-prefix")
 
     @property
     def zookeeper_uris(self) -> Optional[str]:
         """Returns a comma separated list of Zookeeper uris."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("zookeeper-uris")
 
 
@@ -1124,12 +1152,12 @@ class KafkaRequiresEvents(CharmEvents):
 class KafkaProvides(DataProvides):
     """Provider-side of the Kafka relation."""
 
-    on = KafkaProvidesEvents()
+    on = KafkaProvidesEvents()  # pyright: ignore [reportGeneralTypeIssues]
 
     def __init__(self, charm: CharmBase, relation_name: str) -> None:
         super().__init__(charm, relation_name)
 
-    def _on_relation_changed(self, event: RelationChangedEvent) -> None:
+    def _on_relation_changed_event(self, event: RelationChangedEvent) -> None:
         """Event emitted when the relation has changed."""
         # Only the leader should handle this event.
         if not self.local_unit.is_leader():
@@ -1141,7 +1169,9 @@ class KafkaProvides(DataProvides):
         # Emit a topic requested event if the setup key (topic name and optional
         # extra user roles) was added to the relation databag by the application.
         if "topic" in diff.added:
-            self.on.topic_requested.emit(event.relation, app=event.app, unit=event.unit)
+            getattr(self.on, "topic_requested").emit(
+                event.relation, app=event.app, unit=event.unit
+            )
 
     def set_topic(self, relation_id: int, topic: str) -> None:
         """Set topic name in the application relation databag.
@@ -1183,7 +1213,7 @@ class KafkaProvides(DataProvides):
 class KafkaRequires(DataRequires):
     """Requires-side of the Kafka relation."""
 
-    on = KafkaRequiresEvents()
+    on = KafkaRequiresEvents()  # pyright: ignore [reportGeneralTypeIssues]
 
     def __init__(
         self,
@@ -1200,8 +1230,20 @@ class KafkaRequires(DataRequires):
         self.topic = topic
         self.consumer_group_prefix = consumer_group_prefix or ""
 
-    def _on_relation_joined_event(self, event: RelationJoinedEvent) -> None:
-        """Event emitted when the application joins the Kafka relation."""
+    @property
+    def topic(self):
+        """Topic to use in Kafka."""
+        return self._topic
+
+    @topic.setter
+    def topic(self, value):
+        # Avoid wildcards
+        if value == "*":
+            raise ValueError(f"Error on topic '{value}', cannot be a wildcard.")
+        self._topic = value
+
+    def _on_relation_created_event(self, event: RelationCreatedEvent) -> None:
+        """Event emitted when the Kafka relation is created."""
         # Sets topic, extra user roles, and "consumer-group-prefix" in the relation
         relation_data = {
             f: getattr(self, f.replace("-", "_"), "")
@@ -1220,7 +1262,7 @@ class KafkaRequires(DataRequires):
         if "username" in diff.added and "password" in diff.added:
             # Emit the default event (the one without an alias).
             logger.info("topic created at %s", datetime.now())
-            self.on.topic_created.emit(event.relation, app=event.app, unit=event.unit)
+            getattr(self.on, "topic_created").emit(event.relation, app=event.app, unit=event.unit)
 
             # To avoid unnecessary application restarts do not trigger
             # “endpoints_changed“ event if “topic_created“ is triggered.
@@ -1231,7 +1273,7 @@ class KafkaRequires(DataRequires):
         if "endpoints" in diff.added or "endpoints" in diff.changed:
             # Emit the default event (the one without an alias).
             logger.info("endpoints changed on %s", datetime.now())
-            self.on.bootstrap_server_changed.emit(
+            getattr(self.on, "bootstrap_server_changed").emit(
                 event.relation, app=event.app, unit=event.unit
             )  # here check if this is the right design
             return
@@ -1246,6 +1288,9 @@ class OpenSearchProvidesEvent(RelationEvent):
     @property
     def index(self) -> Optional[str]:
         """Returns the index that was requested."""
+        if not self.relation.app:
+            return None
+
         return self.relation.data[self.relation.app].get("index")
 
 
@@ -1287,12 +1332,12 @@ class OpenSearchRequiresEvents(CharmEvents):
 class OpenSearchProvides(DataProvides):
     """Provider-side of the OpenSearch relation."""
 
-    on = OpenSearchProvidesEvents()
+    on = OpenSearchProvidesEvents()  # pyright: ignore[reportGeneralTypeIssues]
 
     def __init__(self, charm: CharmBase, relation_name: str) -> None:
         super().__init__(charm, relation_name)
 
-    def _on_relation_changed(self, event: RelationChangedEvent) -> None:
+    def _on_relation_changed_event(self, event: RelationChangedEvent) -> None:
         """Event emitted when the relation has changed."""
         # Only the leader should handle this event.
         if not self.local_unit.is_leader():
@@ -1304,7 +1349,9 @@ class OpenSearchProvides(DataProvides):
         # Emit an index requested event if the setup key (index name and optional extra user roles)
         # have been added to the relation databag by the application.
         if "index" in diff.added:
-            self.on.index_requested.emit(event.relation, app=event.app, unit=event.unit)
+            getattr(self.on, "index_requested").emit(
+                event.relation, app=event.app, unit=event.unit
+            )
 
     def set_index(self, relation_id: int, index: str) -> None:
         """Set the index in the application relation databag.
@@ -1339,7 +1386,7 @@ class OpenSearchProvides(DataProvides):
 class OpenSearchRequires(DataRequires):
     """Requires-side of the OpenSearch relation."""
 
-    on = OpenSearchRequiresEvents()
+    on = OpenSearchRequiresEvents()  # pyright: ignore[reportGeneralTypeIssues]
 
     def __init__(
         self, charm, relation_name: str, index: str, extra_user_roles: Optional[str] = None
@@ -1349,8 +1396,8 @@ class OpenSearchRequires(DataRequires):
         self.charm = charm
         self.index = index
 
-    def _on_relation_joined_event(self, event: RelationJoinedEvent) -> None:
-        """Event emitted when the application joins the OpenSearch relation."""
+    def _on_relation_created_event(self, event: RelationCreatedEvent) -> None:
+        """Event emitted when the OpenSearch relation is created."""
         # Sets both index and extra user roles in the relation if the roles are provided.
         # Otherwise, sets only the index.
         data = {"index": self.index}
@@ -1371,14 +1418,16 @@ class OpenSearchRequires(DataRequires):
         updates = {"username", "password", "tls", "tls-ca"}
         if len(set(diff._asdict().keys()) - updates) < len(diff):
             logger.info("authentication updated at: %s", datetime.now())
-            self.on.authentication_updated.emit(event.relation, app=event.app, unit=event.unit)
+            getattr(self.on, "authentication_updated").emit(
+                event.relation, app=event.app, unit=event.unit
+            )
 
         # Check if the index is created
         # (the OpenSearch charm shares the credentials).
         if "username" in diff.added and "password" in diff.added:
             # Emit the default event (the one without an alias).
             logger.info("index created at: %s", datetime.now())
-            self.on.index_created.emit(event.relation, app=event.app, unit=event.unit)
+            getattr(self.on, "index_created").emit(event.relation, app=event.app, unit=event.unit)
 
             # To avoid unnecessary application restarts do not trigger
             # “endpoints_changed“ event if “index_created“ is triggered.
@@ -1389,7 +1438,7 @@ class OpenSearchRequires(DataRequires):
         if "endpoints" in diff.added or "endpoints" in diff.changed:
             # Emit the default event (the one without an alias).
             logger.info("endpoints changed on %s", datetime.now())
-            self.on.endpoints_changed.emit(
+            getattr(self.on, "endpoints_changed").emit(
                 event.relation, app=event.app, unit=event.unit
             )  # here check if this is the right design
             return
