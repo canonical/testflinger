@@ -17,12 +17,12 @@
 Testflinger v1 API
 """
 
-import json
 import uuid
 from datetime import datetime
 
 import pkg_resources
-from flask import Blueprint, jsonify, request, send_file
+from apiflask import APIBlueprint, abort
+from flask import jsonify, request, send_file
 from gridfs import GridFS
 from gridfs.errors import NoFile
 from prometheus_client import Counter
@@ -30,13 +30,15 @@ from werkzeug.exceptions import BadRequest
 
 from src.database import mongo
 
+from . import schemas
+
 jobs_metric = Counter("jobs", "Number of jobs", ["queue"])
 reservations_metric = Counter(
     "reservations", "Number of reservations", ["queue"]
 )
 
 
-v1 = Blueprint("v1", __name__)
+v1 = APIBlueprint("v1", __name__)
 
 
 @v1.get("/")
@@ -55,24 +57,25 @@ def get_version():
 
 
 @v1.post("/job")
-def job_post():
+@v1.input(schemas.Job, location="json")
+@v1.output(schemas.JobId)
+def job_post(json_data: dict):
     """Add a job to the queue"""
     try:
-        data = request.get_json()
-        job_queue = data.get("job_queue")
+        job_queue = json_data.get("job_queue")
     except (AttributeError, BadRequest):
         # Set job_queue to None so we take the failure path below
         job_queue = ""
     if not job_queue:
-        return "Invalid data or no job_queue specified\n", 400
+        abort(422, message="Invalid data or no job_queue specified")
 
     try:
-        job = job_builder(data)
+        job = job_builder(json_data)
     except ValueError:
-        return "Invalid job_id specified\n", 400
+        abort(400, message="Invalid job_id specified")
 
     jobs_metric.labels(queue=job_queue).inc()
-    if "reserve_data" in data:
+    if "reserve_data" in json_data:
         reservations_metric.labels(queue=job_queue).inc()
 
     # CAUTION! If you ever move this line, you may need to pass data as a copy
@@ -106,6 +109,8 @@ def job_builder(data):
 
 
 @v1.get("/job")
+@v1.output(schemas.Job)
+@v1.doc(responses=schemas.job_empty)
 def job_get():
     """Request a job to run from supported queues"""
     queue_list = request.args.getlist("queue")
@@ -114,10 +119,11 @@ def job_get():
     job = get_job(queue_list)
     if job:
         return jsonify(job)
-    return "", 204
+    return {}, 204
 
 
 @v1.get("/job/<job_id>")
+@v1.output(schemas.Job)
 def job_get_id(job_id):
     """Request the json job definition for a specified job, even if it has
        already run
@@ -126,46 +132,41 @@ def job_get_id(job_id):
         UUID as a string for the job
     :return:
         JSON data for the job or error string and http error
-
-    >>> job_get_id('foo')
-    ('Invalid job id\\n', 400)
     """
 
     if not check_valid_uuid(job_id):
-        return "Invalid job id\n", 400
+        abort(400, message="Invalid job_id specified")
     response = mongo.db.jobs.find_one(
         {"job_id": job_id}, projection={"job_data": True, "_id": False}
     )
     if not response:
-        return "", 204
+        return {}, 204
     job_data = response.get("job_data")
     job_data["job_id"] = job_id
-    return jsonify(job_data), 200
+    return job_data
 
 
 @v1.post("/result/<job_id>")
-def result_post(job_id):
+@v1.input(schemas.Result, location="json")
+def result_post(job_id, json_data):
     """Post a result for a specified job_id
 
     :param job_id:
         UUID as a string for the job
     """
     if not check_valid_uuid(job_id):
-        return "Invalid job id\n", 400
-    try:
-        result_data = request.get_json()
-    except BadRequest:
-        return "Invalid result data\n", 400
+        abort(400, message="Invalid job_id specified")
 
     # First, we need to prepend "result_data" to each key in the result_data
-    for key in list(result_data):
-        result_data[f"result_data.{key}"] = result_data.pop(key)
+    for key in list(json_data):
+        json_data[f"result_data.{key}"] = json_data.pop(key)
 
-    mongo.db.jobs.update_one({"job_id": job_id}, {"$set": result_data})
+    mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
     return "OK"
 
 
 @v1.get("/result/<job_id>")
+@v1.output(schemas.Result)
 def result_get(job_id):
     """Return results for a specified job_id
 
@@ -173,7 +174,7 @@ def result_get(job_id):
         UUID as a string for the job
     """
     if not check_valid_uuid(job_id):
-        return "Invalid job id\n", 400
+        abort(400, message="Invalid job_id specified")
     response = mongo.db.jobs.find_one(
         {"job_id": job_id}, {"result_data": True, "_id": False}
     )
@@ -181,7 +182,7 @@ def result_get(job_id):
     if not response or not (results := response.get("result_data")):
         return "", 204
     results = response.get("result_data")
-    return jsonify(results)
+    return results
 
 
 @v1.post("/result/<job_id>/artifact")
@@ -257,13 +258,10 @@ def output_post(job_id):
     :param job_id:
         UUID as a string for the job
     :param data:
-        A list containing the lines of output to post
-
-    >>> output_post('foo')
-    ('Invalid job id\\n', 400)
+        A string containing the latest lines of output to post
     """
     if not check_valid_uuid(job_id):
-        return "Invalid job id\n", 400
+        abort(400, message="Invalid job_id specified")
     data = request.get_data().decode("utf-8")
     timestamp = datetime.utcnow()
     mongo.db.output.update_one(
@@ -275,7 +273,8 @@ def output_post(job_id):
 
 
 @v1.post("/job/<job_id>/action")
-def action_post(job_id):
+@v1.input(schemas.ActionIn, location="json")
+def action_post(job_id, json_data):
     """Take action on the job status for a specified job ID
 
     :param job_id:
@@ -283,19 +282,25 @@ def action_post(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    data = json.loads(request.get_data())
-    action = data["action"]
-    actions = {
+    action = json_data["action"]
+    supported_actions = {
         "cancel": cancel_job,
     }
-    if action in actions:
-        return actions[action](job_id)
-    return "Invalid action\n", 400
+    # Validation of actions happens in schemas.py:ActionIn
+    return supported_actions[action](job_id)
 
 
 @v1.get("/agents/queues")
+@v1.doc(responses=schemas.queues_out)
 def queues_get():
-    """Get a current list of all advertised queues from this server"""
+    """Get all advertised queues from this server
+
+    Returns a dict of queue names and descriptions, ex:
+    {
+        "some_queue": "A queue for testing",
+        "other_queue": "A queue for something else"
+    }
+    """
     all_queues = mongo.db.queues.find(
         {}, projection={"_id": False, "name": True, "description": True}
     )
@@ -324,8 +329,9 @@ def queues_post():
 
 
 @v1.get("/agents/images/<queue>")
+@v1.doc(responses=schemas.images_out)
 def images_get(queue):
-    """Get a list of known images for a given queue"""
+    """Get a dict of known images for a given queue"""
     queue_data = mongo.db.queues.find_one(
         {"name": queue}, {"_id": False, "images": True}
     )
@@ -336,19 +342,17 @@ def images_get(queue):
 @v1.post("/agents/images")
 def images_post():
     """Tell testflinger about known images for a specified queue
-    images will be stored in a list of key/value pairs as part of the queues
-    collection. That list will contain image_name:provision_data mappings, ex:
-    [
-        "name":"some_queue",
-        ...
-        "images": [
-            {"core22": "http://cdimage.ubuntu.com/.../core-22.tar.gz"},
-            {"jammy": "http://cdimage.ubuntu.com/.../ubuntu-22.04.tar.gz"}
-        ],
-        "other_queue": [
+    images will be stored in a dict of key/value pairs as part of the queues
+    collection. That dict will contain image_name:provision_data mappings, ex:
+    {
+        "some_queue": {
+            "core22": "http://cdimage.ubuntu.com/.../core-22.tar.gz",
+            "jammy": "http://cdimage.ubuntu.com/.../ubuntu-22.04.tar.gz"
+        },
+        "other_queue": {
             ...
-        ]
-    ]
+        }
+    }
     """
     image_dict = request.get_json()
     # We need to delete and recreate the images in case some were removed
@@ -362,7 +366,8 @@ def images_post():
 
 
 @v1.post("/agents/data/<agent_name>")
-def agents_post(agent_name):
+@v1.input(schemas.AgentIn, location="json")
+def agents_post(agent_name, json_data):
     """Post information about the agent to the server
 
     The json sent to this endpoint may contain data such as the following:
@@ -375,18 +380,14 @@ def agents_post(agent_name):
     }
     """
 
-    data = request.get_json()
-    # We should receive json, if so it would now be a dict
-    if not isinstance(data, dict):
-        return "Invalid data\n", 400
-    data["name"] = agent_name
-    data["updated_at"] = datetime.utcnow()
+    json_data["name"] = agent_name
+    json_data["updated_at"] = datetime.utcnow()
     # extract log from data so we can push it instead of setting it
-    log = data.pop("log", [])
+    log = json_data.pop("log", [])
 
     mongo.db.agents.update_one(
         {"name": agent_name},
-        {"$set": data, "$push": {"log": {"$each": log, "$slice": -100}}},
+        {"$set": json_data, "$push": {"log": {"$each": log, "$slice": -100}}},
         upsert=True,
     )
     return "OK"
@@ -433,14 +434,13 @@ def get_job(queue_list):
 @v1.get("/job/<job_id>/position")
 def job_position_get(job_id):
     """Return the position of the specified jobid in the queue"""
-    response, http_code = job_get_id(job_id)
-    if http_code != 200:
-        return response, http_code
-    job_data = response.json
-    if not job_data:
+    job_data, status = job_get_id(job_id)
+    if status == 204:
         return "Job not found or already started\n", 410
+    if status != 200:
+        return job_data
     try:
-        queue = job_data.get("job_queue")
+        queue = job_data.json.get("job_queue")
     except (AttributeError, TypeError):
         return "Invalid json returned for id: {}\n".format(job_id), 400
     # Get all jobs with job_queue=queue and return only the _id

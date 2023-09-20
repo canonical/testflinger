@@ -27,6 +27,7 @@ INSTALL_REQUIRES = [
     "prometheus-client",
     "pyyaml",
     "sentry-sdk[flask]",
+    "apiflask",
 ]
 
 setup(

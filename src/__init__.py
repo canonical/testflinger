@@ -21,10 +21,11 @@ import logging
 import os
 import urllib
 
-from flask import Flask, request
+from flask import request
 from flask.logging import create_logger
 from werkzeug.exceptions import NotFound
 from pymongo.errors import ConnectionFailure
+from apiflask import APIFlask
 
 from src.database import mongo
 from src.api.v1 import v1
@@ -43,7 +44,7 @@ except ImportError:
 
 def create_flask_app(config=None):
     """Create the flask app"""
-    tf_app = Flask(__name__)
+    tf_app = APIFlask(__name__)
     if config:
         tf_app.config.from_object(config)
     tf_log = create_logger(tf_app)

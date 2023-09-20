@@ -292,6 +292,7 @@ server will only return one job.
   - HTTP 200 (OK)
   - HTTP 400 (Bad Request) - the job is already completed or cancelled
   - HTTP 404 (Not Found) - the job isn't found
+  - HTTP 422 (Unprocessable) - The action or the argument to it could not be processed
 
 - Supported Actions:
 
