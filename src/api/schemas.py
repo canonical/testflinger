@@ -51,6 +51,7 @@ class Job(Schema):
     test_data = fields.Dict(required=False)
     allocate_data = fields.Dict(required=False)
     recover_data = fields.Dict(required=False)
+    reserve_data = fields.Dict(required=False)
 
 
 class JobId(Schema):
