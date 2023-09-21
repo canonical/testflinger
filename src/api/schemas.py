@@ -50,7 +50,6 @@ class Job(Schema):
     provision_data = fields.Dict(required=False)
     test_data = fields.Dict(required=False)
     allocate_data = fields.Dict(required=False)
-    recover_data = fields.Dict(required=False)
     reserve_data = fields.Dict(required=False)
 
 
@@ -72,12 +71,12 @@ class Result(Schema):
     test_status = fields.Integer(required=False)
     test_output = fields.String(required=False)
     test_serial = fields.String(required=False)
-    recover_status = fields.Integer(required=False)
-    recover_output = fields.String(required=False)
-    recover_serial = fields.String(required=False)
     allocate_status = fields.Integer(required=False)
     allocate_output = fields.String(required=False)
     allocate_serial = fields.String(required=False)
+    reserve_status = fields.Integer(required=False)
+    reserve_output = fields.String(required=False)
+    reserve_serial = fields.String(required=False)
     cleanup_status = fields.Integer(required=False)
     cleanup_output = fields.String(required=False)
     cleanup_serial = fields.String(required=False)
