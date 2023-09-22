@@ -68,11 +68,8 @@ Testflinger is a member of the Ubuntu family. It’s an open source project that
 warmly welcomes community projects, contributions, suggestions, fixes and
 constructive feedback.
 
-* :ref:`Code of conduct <home>`
-* :ref:`Get support <home>`
-* :ref:`Join our online chat <home>`
-* :ref:`Contribute <home>`
-* :ref:`Roadmap <home>`
+* This project follows the `Ubuntu Code of Conduct`_
+* This project is `hosted on Github`_, contributions welcome
 * :ref:`Thinking about using Testflinger for your next project? Get in touch! <home>`
 
 
@@ -84,3 +81,6 @@ constructive feedback.
    how-to/index
    reference/index
    explanation/index
+
+.. _Ubuntu Code of Conduct: https://ubuntu.com/community/ethos/code-of-conduct
+.. _hosted on Github: https://github.com/canonical/testflinger
