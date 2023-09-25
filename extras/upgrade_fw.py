@@ -124,7 +124,6 @@ def main():
         nargs="?",
     )
     args = parser.parse_args()
-
     log_file = "/tmp/upgrade_fw.log"
     logger.basicConfig(
         level=logging.DEBUG,
@@ -138,7 +137,9 @@ def main():
         target_device = detect_device(
             args.device_ip,
             target_device_username,
-            options=vars(args),
+            bmc_ip=args.bmc_ip,
+            bmc_user=args.bmc_user,
+            bmc_password=args.bmc_password,
         )
     else:
         target_device = detect_device(
