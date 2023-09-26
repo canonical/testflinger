@@ -124,6 +124,7 @@ def main():
         nargs="?",
     )
     args = parser.parse_args()
+
     log_file = "/tmp/upgrade_fw.log"
     logger.basicConfig(
         level=logging.DEBUG,
