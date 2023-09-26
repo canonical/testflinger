@@ -8,9 +8,8 @@ class OEMDevice(AbstractDevice):
 
     fw_update_type = "OEM-defined"
 
-
-class HPEDevice(OEMDevice):
-    """Place-holder for device class for HPE server"""
-
-    fw_update_type = "OEM-defined"
-    vendor = "HPE"
+    def __init__(self, ipaddr: str, user: str, password: str):
+        self.ipaddr = ipaddr
+        self.user = user
+        self.password = password
+        self.fw_info = []
