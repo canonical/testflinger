@@ -15,10 +15,7 @@ class LVFSDevice(AbstractDevice):
 
     fw_update_type = "LVFS"
     vendor = ["HP", "Dell Inc.", "LENOVO"]
-    reboot_timeout = 600
-
-    def __init__(self, ipaddr: str, user: str, password: str):
-        super().__init__(ipaddr, user, password)
+    reboot_timeout = 900
 
     def run_cmd(
         self, cmd: str, raise_stderr: bool = True, timeout: int = 30
@@ -36,13 +33,19 @@ class LVFSDevice(AbstractDevice):
             ssh_cmd = f'ssh -t {SSH_OPTS} {self.user}@{self.ipaddr} "{cmd}"'
         else:
             ssh_cmd = f'sshpass -p {self.password}  ssh -t {SSH_OPTS} {self.user}@{self.ipaddr} "{cmd}"'
-        logger.debug("Run command: %s", ssh_cmd)
-        r = subprocess.run(
-            ssh_cmd,
-            shell=True,
-            capture_output=True,
-            timeout=timeout,
-        )
+        logger.debug("Run command on DUT: %s", ssh_cmd)
+        try:
+            r = subprocess.run(
+                ssh_cmd,
+                shell=True,
+                capture_output=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as e:
+            if raise_stderr:
+                raise e
+            else:
+                return 124, f"command timeout after {timeout}s", ""
         rc, stdout, stderr = (
             r.returncode,
             r.stdout.decode().strip(),
@@ -67,7 +70,7 @@ class LVFSDevice(AbstractDevice):
         self._parse_fwupd_raw(stdout)
 
     def _install_fwupd(self):
-        self.run_cmd("sudo apt update", timeout=120)
+        self.run_cmd("sudo apt update", raise_stderr=False, timeout=120)
         self.run_cmd("sudo apt install -y fwupd")
         rc, stdout, stderr = self.run_cmd("sudo fwupdmgr --version")
         logger.debug(stdout)
@@ -290,7 +293,7 @@ class LVFSDevice(AbstractDevice):
                 shell=True,
                 universal_newlines=True,
             ).strip()
-        if status != "0":
+        if status != "0" and status != "124":
             err_msg = f"Failed to SSH to {self.ipaddr} after {timeout}s"
             logger.error(err_msg)
             raise RuntimeError(err_msg)
@@ -313,4 +316,4 @@ class LenovoNB(LVFSDevice):
     """
 
     fw_update_type = "LVFS-ext"
-    vendor = "LENOVO"
+    vendor = ["LENOVO"]

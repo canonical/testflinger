@@ -69,7 +69,7 @@ class TestUpgradeFW(unittest.TestCase):
 
     def test_detect_device_supported(self):
         """Test if detects_device returns a correct device class"""
-        with patch("devices.LVFS.LVFS.LVFSDevice.run_cmd") as mock_path:
+        with patch("devices.LVFSDevice.run_cmd") as mock_path:
             mock_path.side_effect = self.mock_run_cmd_supported
             device = upgrade_fw.detect_device("", "", "")
             self.assertTrue(isinstance(device, LVFSDevice))
@@ -77,7 +77,7 @@ class TestUpgradeFW(unittest.TestCase):
     def test_detect_device_unsupported(self):
         """Test if detects_device exits while given a unsupported device"""
         with pytest.raises(SystemExit) as pytest_wrapped_e:
-            with patch("devices.LVFS.LVFS.LVFSDevice.run_cmd") as mock_path:
+            with patch("devices.LVFSDevice.run_cmd") as mock_path:
                 mock_path.side_effect = self.mock_run_cmd_unsupported
                 upgrade_fw.detect_device("", "", "")
         self.assertEqual(pytest_wrapped_e.type, SystemExit)
@@ -89,7 +89,7 @@ class TestUpgradeFW(unittest.TestCase):
     def test_detect_device_fail(self):
         """Test if detects_device exits while given a device without dmi data"""
         with pytest.raises(SystemExit) as pytest_wrapped_e:
-            with patch("devices.LVFS.LVFS.LVFSDevice.run_cmd") as mock_path:
+            with patch("devices.LVFSDevice.run_cmd") as mock_path:
                 mock_path.side_effect = self.mock_run_cmd_fail
                 upgrade_fw.detect_device("", "", "")
         self.assertEqual(pytest_wrapped_e.type, SystemExit)
@@ -101,7 +101,7 @@ class TestUpgradeFW(unittest.TestCase):
     def test_detect_device_nossh(self):
         """Test if detects_device exits while given an unreachable device"""
         with pytest.raises(SystemExit) as pytest_wrapped_e:
-            with patch("devices.LVFS.LVFS.LVFSDevice.run_cmd") as mock_path:
+            with patch("devices.LVFSDevice.run_cmd") as mock_path:
                 mock_path.side_effect = self.mock_run_cmd_nossh
                 upgrade_fw.detect_device("", "", "")
         self.assertEqual(pytest_wrapped_e.type, SystemExit)
