@@ -15,7 +15,7 @@ jobs:
         with:
           fetch-depth: 0  
       - name: Check libraries
-        uses: canonical/charming-actions/check-libraries@2.3.0
+        uses: canonical/charming-actions/check-libraries@2.4.0
         with:
           charm-path: charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
