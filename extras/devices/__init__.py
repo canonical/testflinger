@@ -1,6 +1,6 @@
 from devices.base import AbstractDevice, logger
-from devices.LVFS import LVFSDevice, LenovoNB
-from devices.OEM import OEMDevice, HPEDevice
+from devices.LVFS.LVFS import LVFSDevice, LenovoNB
+from devices.OEM.OEM import OEMDevice, HPEDevice
 
 __all__ = [
     "logger",
