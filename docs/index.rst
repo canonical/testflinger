@@ -64,12 +64,12 @@ In this documentation
 Project and community
 ---------------------
 
-Testflinger is a member of the Ubuntu family. It’s an open source project that
+Testflinger is a member of the Ubuntu family. It's an open source project that
 warmly welcomes community projects, contributions, suggestions, fixes and
 constructive feedback.
 
 * This project follows the `Ubuntu Code of Conduct`_
-* This project is `hosted on Github`_, contributions welcome
+* This project is `hosted on GitHub`_, contributions welcome
 * :ref:`Thinking about using Testflinger for your next project? Get in touch! <home>`
 
 
@@ -83,4 +83,4 @@ constructive feedback.
    explanation/index
 
 .. _Ubuntu Code of Conduct: https://ubuntu.com/community/ethos/code-of-conduct
-.. _hosted on Github: https://github.com/canonical/testflinger
+.. _hosted on GitHub: https://github.com/canonical/testflinger

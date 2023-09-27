@@ -9,6 +9,8 @@ Diátaxis
 EBS
 EKS
 favicon
+Git
+GitHub
 Grafana
 IAM
 installable
@@ -34,6 +36,7 @@ RTD
 subdirectories
 subtree
 subfolders
+Testflinger
 txt
 UI
 VM
