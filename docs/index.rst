@@ -12,20 +12,20 @@ target machines.
 
 .. A paragraph of one to three short sentences, that describe what the product does.
 
-Each testflinger system consists of:
+Each Testflinger system consists of:
 
-* a web service (called just testflinger) that provides an API to request jobs
+* a web service (called just Testflinger) that provides an API to request jobs
   by placing them on a queue
 * per machine agents that wait for jobs to placed on queues they can service
   and then process them
 
 Jobs can be either fully automated scripts that can attempt to complete within
-the alloted time or interactive shell sessions.
+the allocated time or interactive shell sessions.
 
 .. A third paragraph of similar length, this time explaining what need the product meets.
 
-The tesflinger system is particular useful for sharing finite machine resources
-between different consumers in a predicatable fashion.
+The Testflinger system is particular useful for sharing finite machine resources
+between different consumers in a predictable fashion.
  
 
 .. Finally, a paragraph that describes whom the product is useful for.
