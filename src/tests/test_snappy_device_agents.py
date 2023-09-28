@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import snappy_device_agents
+import testflinger_device_connectors
 
 
 class TestCommandsTemplate:
@@ -26,7 +26,9 @@ class TestCommandsTemplate:
         config = {"item": "foo"}
         expected = "test foo"
         assert (
-            snappy_device_agents._process_cmds_template_vars(cmds, config)
+            testflinger_device_connectors._process_cmds_template_vars(
+                cmds, config
+            )
             == expected
         )
 
@@ -35,7 +37,9 @@ class TestCommandsTemplate:
         cmds = "test  {unknown_item}"
         config = {}
         assert (
-            snappy_device_agents._process_cmds_template_vars(cmds, config)
+            testflinger_device_connectors._process_cmds_template_vars(
+                cmds, config
+            )
             == cmds
         )
 
@@ -45,6 +49,8 @@ class TestCommandsTemplate:
         config = {"item": "foo"}
         expected = "test {item}"
         assert (
-            snappy_device_agents._process_cmds_template_vars(cmds, config)
+            testflinger_device_connectors._process_cmds_template_vars(
+                cmds, config
+            )
             == expected
         )
