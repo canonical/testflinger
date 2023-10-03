@@ -17,6 +17,12 @@ variable "db_offer" {
   type        = string
 }
 
+variable "nginx_ingress_integrator_charm_whitelist_source_range" {
+  description = "Allowed client IP source ranges. The value is a comma separated list of CIDRs."
+  type        = string
+  default     = ""
+}
+
 locals {
   app_model = "testflinger-${var.environment}"
 }
