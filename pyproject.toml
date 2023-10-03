@@ -7,9 +7,9 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "snappy-device-agents"
+name = "testflinger-device-connectors"
 version = "0.0.2"
-description = "Testflinger device agents"
+description = "Testflinger device connectors"
 license = {text = "GPLv3"}
 readme = "README.rst"
 requires-python = ">=3.8"
@@ -20,9 +20,10 @@ dependencies = [
 
 [project.scripts]
 snappy-device-agent = "snappy_device_agents.cmd:main"
+testflinger-device-connector = "testflinger_device_connectors.cmd:main"
 
 [tool.setuptools.package-data]
-snappy_device_agents = ["data/**"]
+testflinger_device_connectors = ["data/**"]
 
 [tool.black]
 line-length = 79

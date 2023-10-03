@@ -1,23 +1,23 @@
-Snappy Device Agents
+Testflinger Device Connectors
 ####################
 
-Device agents scripts for provisioning and running tests on Snappy
+Device connectors scripts for provisioning and running tests on Testflinger
 devices
 
 Supported Devices
 =================
 
-The following device agent types are currently supported, however most of them
+The following device connector types are currently supported, however most of them
 require a very specific environment in order to work properly. That's part of
 the reason why they are broken out into a separate project. Nothing here is
 really required to run testflinger, only to support these devices in our
-environment. Alternative device agents could be written in order to support
+environment. Alternative device connectors could be written in order to support
 testing on other types of devices.
 
 - cm3 - Raspberry PI CM3 with a sidecar device and tools to support putting it in otg mode to flash an image
 - dragonboard - dragonboard with a stable image on usb and test images are flashed to a wiped sd with a dual boot process
 - maas2 - Metal as a Service (MaaS) systems, which support additional features such as disk layouts. Images provisioned must be imported first!
-- multi - multi-device agent used for provisioning jobs that span multiple devices at once
+- multi - multi-device connector used for provisioning jobs that span multiple devices at once
 - muxpi - muxpi/sdwire provisioned devices that utilize a device that can write to an sd the boot it on the DUT
 - netboot - minimal netboot initramfs process for a specific device that couldn't be provisioned with MaaS
 - noprovision - devices which need to run tests, but can't be provisioned (yet)
@@ -28,9 +28,9 @@ testing on other types of devices.
 Exit Status
 ===========
 
-Device agents will exit with a value of ''46'' if something goes wrong during
+Device connectors will exit with a value of ''46'' if something goes wrong during
 device recovery. This can be used as an indication that the device is unusable
 for some reason, and can't be recovere using automated recovery mechanisms.
-The system calling the device agent may want to take further action, such
+The system calling the device connector may want to take further action, such
 as alerting someone that it needs manual recovery, or to stop attempting to
 run tests on it until it's fixed.
