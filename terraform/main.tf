@@ -7,7 +7,7 @@ resource "juju_application" "testflinger" {
   charm {
     name    = "testflinger-k8s"
     series  = "jammy"
-    channel = "edge"
+    channel = var.environment == "production" ? "stable" : "edge"
   }
 
   config = {
