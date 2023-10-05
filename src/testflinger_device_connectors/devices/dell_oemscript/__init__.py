@@ -13,7 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Ubuntu OEM Recovery Provisioning for Lenovo OEM devices
+Ubuntu OEM Recovery provisioning for Dell OEM devices
 Use this for systems that can use the oem recovery-from-iso.sh script
 for provisioning, but require the --ubr flag in order to use the
 "ubuntu recovery" method.
@@ -23,25 +23,29 @@ import logging
 
 import yaml
 
-import snappy_device_agents
-from snappy_device_agents import logmsg
-from snappy_device_agents.devices import DefaultDevice, RecoveryError, catch
-from .lenovo_oemscript import LenovoOemScript
+import testflinger_device_connectors
+from testflinger_device_connectors import logmsg
+from testflinger_device_connectors.devices import (
+    DefaultDevice,
+    RecoveryError,
+    catch,
+)
+from .dell_oemscript import DellOemScript
 
-device_name = "lenovo_oemscript"
+device_name = "dell_oemscript"
 
 
 class DeviceAgent(DefaultDevice):
 
-    """Tool for provisioning Lenovo OEM devices with an oem image."""
+    """Tool for provisioning Dell OEM devices with an oem image."""
 
     @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-        snappy_device_agents.configure_logging(config)
-        device = LenovoOemScript(args.config, args.job_data)
+        testflinger_device_connectors.configure_logging(config)
+        device = DellOemScript(args.config, args.job_data)
         logmsg(logging.INFO, "BEGIN provision")
         logmsg(logging.INFO, "Provisioning device")
         device.provision()
