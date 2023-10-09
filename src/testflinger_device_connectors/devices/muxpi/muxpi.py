@@ -250,7 +250,7 @@ class MuxPi:
 
         try:
             disk_info_path = (
-                self.mount_point / "writable/lib/firmware/*-tegra/"
+                self.mount_point / "writable/lib/firmware/*-tegra*/"
             )
             self._run_control(f"ls {disk_info_path} &>/dev/null")
             return "tegra"
@@ -313,6 +313,15 @@ class MuxPi:
                 self._run_control(cmd)
                 self._configure_sudo()
             if image_type == "tegra":
+                base = self.mount_point / "writable"
+                ci_path = base / "var/lib/cloud/seed/nocloud"
+                self._run_control(f"sudo mkdir -p {ci_path}")
+                self._run_control(f"mkdir -p {remote_tmp}")
+                self._copy_to_control(
+                    data_path / "classic/user-data", remote_tmp
+                )
+                cmd = f"sudo cp {remote_tmp}/user-data {ci_path}"
+                self._run_control(cmd)
                 self._configure_sudo()
                 return
             if image_type == "pi-desktop":
