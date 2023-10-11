@@ -11,7 +11,7 @@ Working with device connectors
   
     device-connector-types
     device-connector-conf
-
+    provisioning-methods
 
 Working with Testflinger servers and agents
 --------------------------------------------

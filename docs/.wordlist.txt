@@ -84,6 +84,7 @@ URI
 USB
 UUID
 VM
+xenial
 webhook
 xenial
 yaml
