@@ -35,7 +35,7 @@ from .lenovo_oemscript import LenovoOemScript
 device_name = "lenovo_oemscript"
 
 
-class DeviceAgent(DefaultDevice):
+class DeviceConnector(DefaultDevice):
 
     """Tool for provisioning Lenovo OEM devices with an oem image."""
 
