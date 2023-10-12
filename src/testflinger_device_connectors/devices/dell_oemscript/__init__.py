@@ -35,7 +35,7 @@ from .dell_oemscript import DellOemScript
 device_name = "dell_oemscript"
 
 
-class DeviceAgent(DefaultDevice):
+class DeviceConnector(DefaultDevice):
 
     """Tool for provisioning Dell OEM devices with an oem image."""
 
