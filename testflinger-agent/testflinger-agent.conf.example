@@ -1,0 +1,50 @@
+# Unique identifier for this agent
+# agent_id: agent-007
+
+# Time to sleep between polling for new tests (default: 10s)
+# polling_interval: 10
+
+# Host/IP and port of the testflinger server
+# server_address: 127.0.0.1:8000
+
+# Base directory to use for running jobs
+#   (default: /tmp/testflinger/run)
+# execution_basedir: /tmp/testflinger/run
+
+# Base directory to use for agent logging
+#   (default: /tmp/testflinger/logs)
+# logging_basedir: /tmp/testflinger/logs
+
+# Base directory to use for queuing results for retransmit
+#   (default: /tmp/testflinger/results)
+# results_basedir: /tmp/testflinger/results
+
+# Python loglevel name to use for logging (default: INFO)
+# logging_level: DEBUG
+
+# Only log to the logfile, and not to the console (default: False)
+# logging_quiet: True
+
+# List of queues that can be serviced by this device
+# job_queues:
+#   - myqueue
+#   - anotherqueue
+
+# List of advertised queues to show users when they ask
+# advertised_queues:
+#   myqueue: A brief description of myqueue
+
+# List of advertised images and the provision_data for using them
+# advertised_images:
+#   myqueue:
+#     - latest: "url: http://path/to/latest.img.xz"
+#     - stable: "url: http://path/to/stable.img.xz"
+
+# Command to run for the setup phase
+# setup_command: echo setup phase && run-setup-tasks.sh
+
+# Command to run for the provision phase
+# provision_command: echo provision phase && provision-system.sh
+
+# Command to run for the testing phase
+# test_command: echo test phase && run-test.sh
