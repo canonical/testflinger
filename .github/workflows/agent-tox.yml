@@ -3,11 +3,18 @@ name: Run unit tests
 on:
   push:
     branches: [ main ]
+    paths:
+      - testflinger-agent/**
   pull_request:
     branches: [ main ]
+    paths:
+      - testflinger-agent/**
 
 jobs:
   build:
+    defaults:
+      run:
+        working-directory: testflinger-agent
     runs-on: ubuntu-latest
     strategy:
       matrix:
