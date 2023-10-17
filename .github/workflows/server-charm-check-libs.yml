@@ -4,6 +4,8 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - testflinger-server/**
 
 jobs:
   build:
@@ -17,6 +19,6 @@ jobs:
       - name: Check libraries
         uses: canonical/charming-actions/check-libraries@2.4.0
         with:
-          charm-path: charm
+          charm-path: testflinger-server/charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"

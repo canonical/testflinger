@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - testflinger-server/**
 
 jobs:
   build:
@@ -17,7 +19,7 @@ jobs:
       - name: Upload charm to charmhub
         uses: canonical/charming-actions/upload-charm@2.4.0
         with:
-          charm-path: charm
+          charm-path: testflinger-server/charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           upload-image: "true"
