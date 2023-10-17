@@ -3,11 +3,18 @@ name: Run unit tests
 on:
   push:
     branches: [ main ]
+    paths:
+      - testflinger-device-connectors/**
   pull_request:
     branches: [ main ]
+    paths:
+      - testflinger-device-connectors/**
 
 jobs:
   build:
+    defaults:
+      run:
+        working-directory: testflinger-device-connectors
     runs-on: ubuntu-latest
     strategy:
       matrix:
