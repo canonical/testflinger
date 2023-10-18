@@ -27,6 +27,7 @@ from ops.main import main
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
 from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
+from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,19 @@ class TestflingerCharm(ops.CharmBase):
             self,
             relation_name="mongodb_client",
             database_name="testflinger_db",
+        )
+
+        self._prometheus_scraping = MetricsEndpointProvider(
+            self,
+            relation_name="metrics-endpoint",
+            jobs=[
+                {
+                    "static_configs": [
+                        {"targets": [f"*:{self.config['api_port']}"]}
+                    ]
+                }
+            ],
+            refresh_event=self.on.config_changed,
         )
 
         self.framework.observe(
@@ -80,7 +94,7 @@ class TestflingerCharm(ops.CharmBase):
             charm=self,
             service_hostname=self.config["external_hostname"],
             service_name=self.app.name,
-            service_port=5000,
+            service_port=self.config["api_port"],
         )
 
     def _on_testflinger_pebble_ready(
@@ -162,7 +176,7 @@ class TestflingerCharm(ops.CharmBase):
                 "--keep-alive",
                 keepalive,
                 "--bind",
-                "0.0.0.0:5000",
+                f"0.0.0.0:{self.config['api_port']}",
                 "testflinger:app",
             ]
         )
