@@ -1,6 +1,8 @@
 addons
 API
 APIs
+artifact
+artifacts
 balancer
 CharmHub
 CLI

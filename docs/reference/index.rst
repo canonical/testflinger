@@ -12,6 +12,7 @@ Working with device connectors
     device-connector-types
     device-connector-conf
 
+
 Working with Testflinger servers and agents
 --------------------------------------------
 
@@ -20,3 +21,4 @@ Working with Testflinger servers and agents
 
     testflinger-server-conf
     testflinger-agent-conf
+    test-phases
