@@ -71,7 +71,7 @@ Example configuration
       - rpi4-001
   setup_command: echo Nothing needed for setup
   provision_command: testflinger-device-connector muxpi provision -c /path/to/default.yaml testflinger.json
-  firmware_update_command: echo Updating device firmware to the latest version
+  firmware_update_command: testflinger-device-connector muxpi firmware_update -c /path/to/default.yaml testflinger.json
   allocate_command: testflinger-device-connector muxpi allocate -c /path/to/default.yaml testflinger.json
   # You may want to consider running test_command under a container
   # in order to ensure a clean environment every time
