@@ -7,3 +7,7 @@ options:
     default: 10
     description: Number of seconds to wait for keepalive connections
     type: int
+  api_port:
+    default: 5000
+    description: Gunicorn API port
+    type: int

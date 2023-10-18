@@ -21,3 +21,7 @@ requires:
     limit: 1
   nginx-route:
     interface: nginx-route
+
+provides:
+  metrics-endpoint:
+    interface: prometheus_scrape
