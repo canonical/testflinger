@@ -60,7 +60,7 @@ class TestflingerCharm(ops.CharmBase):
             jobs=[
                 {
                     "static_configs": [
-                        {"targets": [f"*:{self.config['api_port']}"]}
+                        {"targets": [f"*:5000"]}
                     ]
                 }
             ],
@@ -94,7 +94,7 @@ class TestflingerCharm(ops.CharmBase):
             charm=self,
             service_hostname=self.config["external_hostname"],
             service_name=self.app.name,
-            service_port=self.config["api_port"],
+            service_port=5000,
         )
 
     def _on_testflinger_pebble_ready(
@@ -176,7 +176,7 @@ class TestflingerCharm(ops.CharmBase):
                 "--keep-alive",
                 keepalive,
                 "--bind",
-                f"0.0.0.0:{self.config['api_port']}",
+                "0.0.0.0:5000",
                 "testflinger:app",
             ]
         )
