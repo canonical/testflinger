@@ -25,7 +25,7 @@ The following configuration options are supported by the Testflinger Agent:
     * - ``logging_level``
       - Python log level name to use for logging (default: ``INFO``)
     * - ``logging_quiet``
-      - Only log to the logfile, and not to the console (default: ``False``)
+      - If enabled, logs are only written to the logfile, and not to the console (default: ``False``)
     * - ``job_queues``
       - List of queues that can be serviced by this device
     * - ``advertised_queues``
@@ -40,6 +40,8 @@ The following configuration options are supported by the Testflinger Agent:
       - Command to run for the setup phase
     * - ``provision_command``
       - Command to run for the provision phase
+    * - ``firmware_update_command``
+      - Command to run for the firmware_update phase
     * - ``allocate_command``
       - Command to run for the allocate phase
     * - ``test_command``
@@ -49,7 +51,7 @@ The following configuration options are supported by the Testflinger Agent:
     * - ``cleanup_command``
       - Command to run for the cleanup phase
     * - ``provision_type``
-      - (optional) type of device connector used. This is sometimes useful when templating the call to the external device-agent command, but is not required
+      - (Optional) type of device connector used. This is sometimes useful when templating the call to the external device-agent command, but is not required. For the list of supported provision types, see :doc:`device-connector-types`.
 
 Example configuration
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -68,11 +70,12 @@ Example configuration
       - rpi4
       - rpi4-001
   setup_command: echo Nothing needed for setup
-  provision_command: snappy-device-agent muxpi provision -c /path/to/default.yaml testflinger.json
-  allocate_command: snappy-device-agent muxpi allocate -c /path/to/default.yaml testflinger.json
+  provision_command: testflinger-device-connector muxpi provision -c /path/to/default.yaml testflinger.json
+  firmware_update_command: echo Updating device firmware to the latest version
+  allocate_command: testflinger-device-connector muxpi allocate -c /path/to/default.yaml testflinger.json
   # You may want to consider running test_command under a container
   # in order to ensure a clean environment every time
-  test_command: snappy-device-agent muxpi test -c /path/to/default.yaml testflinger.json
-  reserve_command: snappy-device-agent muxpi reserve -c /path/to/default.yaml testflinger.json
+  test_command: testflinger-device-connector muxpi test -c /path/to/default.yaml testflinger.json
+  reserve_command: testflinger-device-connector muxpi reserve -c /path/to/default.yaml testflinger.json
   cleanup_command: echo Consider removing containers or other necessary cleanup steps here
   provision_type: muxpi

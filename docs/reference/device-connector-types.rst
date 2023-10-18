@@ -2,6 +2,8 @@ Supported device connector types
 =================================
 
 The following device connector types are currently supported. Note that with the exception of “noprovision” and “maas2”, most of these device connectors require special hardware and/or configuration that is specific to our lab environment. However, the intent is that device connectors can be written to contain any amount of special handling necessary to handle any site-specific requirements.
+ 
+To specify the commands to run by the device in each test phase, set the ``testflinger-device-connector`` command in the :doc:`Testflinger agent host configuration file <testflinger-agent-conf>` for each device connector. You can optionally configure each command to be called with different parameters or using containers.
 
 .. list-table:: Supported device connector types
    :header-rows: 1
@@ -24,7 +26,7 @@ The following device connector types are currently supported. Note that with the
      - General device connector that does not support provisioning, but can run tests on a device where provisioning is not needed or not possible to do automatically.
    * - oemrecovery 
      - device connector where provisioning involves triggering a “recovery” mode to reset the image back to its original state.  This is useful for things like Ubuntu Core images with full disk encryption, which can be preloaded with cloud-init data to ensure user creation, then a command is configured for the device connector that will cause it to be reset back to its original state.
-   * - oemscript 
-     - This device connector is used for OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
-
-The ``snappy-device-agent`` command to call for each test phase is configured in the agent host config (see above) for each device connector.  This way, commands can (optionally) be called in different ways, using containers, etc. if desired.
+   * - dell_oemscript
+     - This device connector is used for Dell OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
+   * - lenovo_oemscript 
+     - This device connector is used for Lenovo OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
