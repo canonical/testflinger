@@ -57,13 +57,7 @@ class TestflingerCharm(ops.CharmBase):
         self._prometheus_scraping = MetricsEndpointProvider(
             self,
             relation_name="metrics-endpoint",
-            jobs=[
-                {
-                    "static_configs": [
-                        {"targets": [f"*:5000"]}
-                    ]
-                }
-            ],
+            jobs=[{"static_configs": [{"targets": [f"*:5000"]}]}],
             refresh_event=self.on.config_changed,
         )
 
