@@ -4,17 +4,17 @@ on:
   push:
     branches: [ main ]
     paths:
-      - testflinger-server/**
+      - server/**
   pull_request:
     branches: [ main ]
     paths:
-      - testflinger-server/**
+      - server/**
 
 jobs:
   build:
     defaults:
       run:
-        working-directory: testflinger-server
+        working-directory: server
     runs-on: ubuntu-latest
     strategy:
       matrix:

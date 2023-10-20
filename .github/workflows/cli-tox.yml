@@ -4,17 +4,17 @@ on:
   push:
     branches: [ main ]
     paths:
-      - testflinger-cli/**
+      - cli/**
   pull_request:
     branches: [ main ]
     paths:
-      - testflinger-cli/**
+      - cli/**
 
 jobs:
   build:
     defaults:
       run:
-        working-directory: testflinger-cli
+        working-directory: cli
     runs-on: ubuntu-latest
     strategy:
       matrix:

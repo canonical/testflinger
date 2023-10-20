@@ -4,17 +4,17 @@ on:
   push:
     branches: [ main ]
     paths:
-      - testflinger-device-connectors/**
+      - device-connectors/**
   pull_request:
     branches: [ main ]
     paths:
-      - testflinger-device-connectors/**
+      - device-connectors/**
 
 jobs:
   build:
     defaults:
       run:
-        working-directory: testflinger-device-connectors
+        working-directory: device-connectors
     runs-on: ubuntu-latest
     strategy:
       matrix:

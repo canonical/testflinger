@@ -4,17 +4,17 @@ on:
   push:
     branches: [ main ]
     paths:
-      - testflinger-agent/**
+      - agent/**
   pull_request:
     branches: [ main ]
     paths:
-      - testflinger-agent/**
+      - agent/**
 
 jobs:
   build:
     defaults:
       run:
-        working-directory: testflinger-agent
+        working-directory: agent
     runs-on: ubuntu-latest
     strategy:
       matrix:
