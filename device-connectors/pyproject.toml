@@ -1,0 +1,29 @@
+[build-system]
+requires = [
+    "wheel",
+    "setuptools",
+    "setuptools-scm",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "testflinger-device-connectors"
+version = "0.0.2"
+description = "Testflinger device connectors"
+license = {text = "GPLv3"}
+readme = "README.rst"
+requires-python = ">=3.8"
+dependencies = [
+    "PyYAML>=3.11",
+    "requests",
+]
+
+[project.scripts]
+snappy-device-agent = "testflinger_device_connectors.cmd:main"
+testflinger-device-connector = "testflinger_device_connectors.cmd:main"
+
+[tool.setuptools.package-data]
+testflinger_device_connectors = ["data/**"]
+
+[tool.black]
+line-length = 79

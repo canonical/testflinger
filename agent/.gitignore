@@ -1,0 +1,12 @@
+*~
+.coverage
+.vscode/
+build/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.conf
+*.egg*
+*.bak
+.swp

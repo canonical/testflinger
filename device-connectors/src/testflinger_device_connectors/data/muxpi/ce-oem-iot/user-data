@@ -1,0 +1,14 @@
+#cloud-config
+ssh_pwauth: True
+users:
+ - name: ubuntu
+   gecos: ubuntu
+   uid: 1000
+   shell: /bin/bash
+   lock_passwd: False
+   groups: [ adm, dialout, cdrom, floppy, sudo, audio, dip, video, plugdev, lxd, netdev, render ]
+   plain_text_passwd: 'ubuntu'
+chpasswd:
+  list: |
+    ubuntu:ubuntu
+  expire: False
