@@ -89,6 +89,72 @@ class OemRecovery:
         self._run_cmd_list(recovery_cmds)
         self.check_device_booted()
 
+    def check_generic_classic(self):
+        try:
+            test_username = self.job_data.get("test_data", {}).get(
+                "test_username", "ubuntu"
+            )
+            test_password = self.job_data.get("test_data", {}).get(
+                "test_password", "ubuntu"
+            )
+        except AttributeError:
+            test_username = "ubuntu"
+            test_password = "ubuntu"
+
+        image_type = (
+            subprocess.check_output(
+                (
+                    "sshpass -p {} ssh -o StrictHostKeyChecking=no "
+                    "-o UserKnownHostsFile=/dev/null "
+                    "{}@{} snap model | grep model"
+                ).format(
+                    test_password,
+                    test_username,
+                    self.config["device_ip"],
+                ),
+                shell=True,
+            )
+        ).decode()
+
+        if "generic-classic" in image_type:
+            return True
+
+        return False
+
+    def check_device_initialized(self):
+        try:
+            test_username = self.job_data.get("test_data", {}).get(
+                "test_username", "ubuntu"
+            )
+            test_password = self.job_data.get("test_data", {}).get(
+                "test_password", "ubuntu"
+            )
+        except AttributeError:
+            test_username = "ubuntu"
+            test_password = "ubuntu"
+
+        boot_state = (
+            subprocess.check_output(
+                (
+                    "sshpass -p {} ssh "
+                    "-o StrictHostKeyChecking=no "
+                    "-o UserKnownHostsFile=/dev/null "
+                    "{}@{} snap changes "
+                    '| grep "Initialize device"'
+                ).format(
+                    test_password,
+                    test_username,
+                    self.config["device_ip"],
+                ),
+                shell=True,
+            )
+        ).decode()
+
+        if "Done" in boot_state:
+            return True
+
+        return False
+
     def copy_ssh_id(self):
         """Copy the ssh id to the device"""
         try:
@@ -122,8 +188,15 @@ class OemRecovery:
         while time.time() - started < 3600:
             try:
                 time.sleep(90)
-                self.copy_ssh_id()
-                return True
+                if (
+                    self.check_generic_classic()
+                    or self.check_device_initialized()
+                ):
+                    # We can only copy ssh key after device is initialized
+                    # or the ssh key would be missing
+                    self.copy_ssh_id()
+                    return True
+
             except subprocess.SubprocessError:
                 pass
         # If we get here, then we didn't boot in time
