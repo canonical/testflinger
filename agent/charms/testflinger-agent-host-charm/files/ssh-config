@@ -1,0 +1,8 @@
+StrictHostKeyChecking no
+UserKnownHostsFile /dev/null
+LogLevel QUIET
+ConnectTimeout 30
+Host *
+   StrictHostKeyChecking no
+   UserKnownHostsFile=/dev/null
+
