@@ -305,3 +305,4 @@ server will only return one job.
     $ curl http://localhost:8000/v1/job/00000000-0000-0000-0000-000000000000/action \
          -X POST --header "Content-Type: application/json" \
          --data '{ "action":"cancel" }'
+FOO
