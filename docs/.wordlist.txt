@@ -19,6 +19,8 @@ EFI
 EKS
 EMMC
 favicon
+Git
+GitHub
 Grafana
 IAM
 init

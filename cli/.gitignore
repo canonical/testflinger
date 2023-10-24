@@ -1,0 +1,6 @@
+env/
+dist/
+build/
+testflinger_cli.egg-info/
+**/__pycache__/
+.coverage

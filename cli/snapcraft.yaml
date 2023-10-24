@@ -1,0 +1,36 @@
+name: testflinger-cli
+summary: testflinger-cli
+description: |
+  The testflinger-cli tool is used for interacting with the testflinger
+  server for submitting test jobs, checking status, getting results, and
+  streaming output.
+confinement: strict
+base: core20
+adopt-info: testflinger-cli
+
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+  - build-on: armhf
+
+apps:
+  testflinger-cli:
+    command: bin/testflinger-cli.wrapper
+    plugs:
+      - home
+      - network
+
+parts:
+  launcher:
+    plugin: dump
+    source: .
+    organize:
+      testflinger-cli.wrapper: bin/testflinger-cli.wrapper
+  testflinger-cli:
+    plugin: python
+    source: .
+    override-pull: |
+      set -e
+      snapcraftctl pull
+      snapcraftctl set-version "$(date +%Y%m%d)"
+      snapcraftctl set-grade "stable"

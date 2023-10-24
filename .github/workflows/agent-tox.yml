@@ -1,0 +1,32 @@
+name: "[agent] Run unit tests"
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - agent/**
+  pull_request:
+    branches: [ main ]
+    paths:
+      - agent/**
+
+jobs:
+  build:
+    defaults:
+      run:
+        working-directory: agent
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.8", "3.10"]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python }}
+    - name: Install tox
+      run: pip install tox
+    - name: Run tests
+      run: |
+        tox
