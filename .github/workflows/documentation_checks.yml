@@ -1,0 +1,79 @@
+name: Documentation checks
+
+on:  
+  pull_request:
+    branches: 
+      - main
+    paths:
+      - 'docs/**'  
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true  
+
+jobs:
+  spellcheck:
+    name: Spelling check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Aspell
+        run: |
+          sudo apt-get install aspell aspell-en
+
+      - name: Install the doc framework
+        working-directory: docs/
+        run: |
+          make install
+
+      - name: Build docs and run spelling checker
+        working-directory: docs/
+        run: |
+          make spelling
+
+  woke:
+    name: Inclusive language check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install the doc framework
+        working-directory: docs/
+        run: |
+          make install
+
+      - name: Run Woke
+        working-directory: docs/
+        run: |
+          make woke
+
+  linkcheck:
+    name: Link check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install the doc framework
+        working-directory: docs/
+        run: |
+          make install
+
+      - name: Run linkchecker
+        working-directory: docs/
+        run: |
+          make linkcheck
+  
