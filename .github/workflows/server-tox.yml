@@ -2,7 +2,7 @@ name: "[server] Run unit tests"
 
 on:
   push:
-    branches: [ main, try-self-hosted ]
+    branches: [ main ]
     paths:
       - server/**
   pull_request:

@@ -2,7 +2,7 @@ name: "[device-connectors] Run unit tests"
 
 on:
   push:
-    branches: [ main, try-self-hosted ]
+    branches: [ main ]
     paths:
       - device-connectors/**
   pull_request:

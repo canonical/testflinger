@@ -71,3 +71,4 @@ Finally, to download the artifact tarball from the job, you can use the
 
   $ testflinger-cli artifact [--filename <DEFAULT:artifact.tgz>] <job_id>
 
+FOO
