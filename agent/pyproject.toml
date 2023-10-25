@@ -22,3 +22,6 @@ testflinger-agent = "testflinger_agent.cmd:main"
 
 [tool.black]
 line-length = 79
+
+[tool.setuptools]
+packages = ["testflinger_agent"]
