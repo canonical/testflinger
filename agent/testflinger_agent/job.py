@@ -59,6 +59,13 @@ class TestflingerJob:
         if phase == "provision" and not self.job_data.get("provision_data"):
             logger.info("No provision_data defined in job data, skipping...")
             return 0
+        if phase == "firmware_update" and not self.job_data.get(
+            "firmware_update_data"
+        ):
+            logger.info(
+                "No firmware_update_data defined in job data, skipping..."
+            )
+            return 0
         if phase == "test" and not self.job_data.get("test_data"):
             logger.info("No test_data defined in job data, skipping...")
             return 0

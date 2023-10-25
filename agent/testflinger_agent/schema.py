@@ -33,6 +33,7 @@ SCHEMA_V1 = {
     voluptuous.Required("job_queues"): list,
     voluptuous.Required("setup_command", default=""): str,
     voluptuous.Required("provision_command", default=""): str,
+    voluptuous.Required("firmware_update_command", default=""): str,
     voluptuous.Required("test_command", default=""): str,
     voluptuous.Required("allocate_command", default=""): str,
     voluptuous.Required("reserve_command", default=""): str,

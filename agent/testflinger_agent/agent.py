@@ -123,7 +123,14 @@ class TestflingerAgent:
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
-        TEST_PHASES = ["setup", "provision", "test", "allocate", "reserve"]
+        TEST_PHASES = [
+            "setup",
+            "provision",
+            "firmware_update",
+            "test",
+            "allocate",
+            "reserve",
+        ]
 
         # First, see if we have any old results that we couldn't send last time
         self.retry_old_results()
