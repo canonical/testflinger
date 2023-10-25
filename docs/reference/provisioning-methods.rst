@@ -1,7 +1,7 @@
 Supported provisioning methods
 ===================================
 
-This document lists the basic provisioning methods currently supported by Testflinger device connectors. 
+This document lists the basic provisioning methods currently supported by :doc:`Testflinger device connectors <device-connector-types>`. 
 
 Provision data are specified as a key-value pair in the ``provisioning_data`` section of a Testflinger job definition file:
 
@@ -11,7 +11,7 @@ Provision data are specified as a key-value pair in the ``provisioning_data`` se
   provision_data:
     key: value    # Data to pass to the provisioning step
 
-The type of provision data usually varies on device types. For example, our MAAS provisioner currently only needs to to know which ``distro`` series to use, whereas the devices that install all-snaps images (such as Dragonboard) may need to know which channel to use when building the image instead.
+The type of provision data usually varies on device types. For example, our MAAS provisioner currently only needs to to know which ``distro`` series to use, whereas the devices that install all-snaps images may need to know which URL to use when building the image instead.
 
 .. list-table:: Required provision data 
     :header-rows: 1
