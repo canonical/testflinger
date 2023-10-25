@@ -30,6 +30,16 @@
         {{ job.job_data.provision_data }}
     </div>
 
+    {% if job.job_data.firmware_update_data %}
+    <hr>
+    firmware_update_data:
+    <div class="center scrollable">
+        <span style="white-space: pre-line">
+            {{ job.job_data.firmware_update_data }}
+        </span>
+    </div>
+    {% endif %}
+
     {% if job.job_data.test_data %}
     <hr>
     test_cmds:
@@ -46,6 +56,15 @@
     <div class="center scrollable">
         <span style="white-space: pre-line">
             {{ job.result_data.provision_output }}
+        </span>
+    </div>
+
+    <hr>
+    firmware_update_status: {{ job.result_data.firmware_update_status }}<br>
+    firmware_update_output:
+    <div class="center scrollable">
+        <span style="white-space: pre-line">
+            {{ job.result_data.firmware_update_output }}
         </span>
     </div>
 
