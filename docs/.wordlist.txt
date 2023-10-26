@@ -4,6 +4,7 @@ APIs
 artifact
 artifacts
 balancer
+BG
 CharmHub
 CLI
 CM3
@@ -32,11 +33,13 @@ Juju
 Kubeflow
 Kubernetes
 Lenovo
+lifecycle
 logfile
 maas
 MaaS
 MAAS
 Makefile
+microservice
 MUX
 muxpi
 MuxPi
@@ -67,6 +70,7 @@ runtime
 SDWire
 SecureBoot
 SKU
+SSID
 subdirectories
 subfolders
 subtree
@@ -79,7 +83,9 @@ Ubuntu
 UI
 URI
 USB
+virtualenv
 VM
 webhook
+WPA
 xenial
 yaml
