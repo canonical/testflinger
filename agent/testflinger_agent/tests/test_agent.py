@@ -16,7 +16,7 @@ from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
 
 class TestClient:
     @pytest.fixture
-    def agent(self):
+    def agent(self, requests_mock):
         self.tmpdir = tempfile.mkdtemp()
         self.config = {
             "agent_id": "test01",
@@ -31,6 +31,8 @@ class TestClient:
         }
         testflinger_agent.configure_logging(self.config)
         client = _TestflingerClient(self.config)
+        requests_mock.get(rmock.ANY)
+        requests_mock.post(rmock.ANY)
         yield _TestflingerAgent(client)
         # Inside tests, we patch rmtree so that we can check files after the
         # run, so we need to clean up the tmpdirs here
