@@ -32,11 +32,13 @@ Juju
 Kubeflow
 Kubernetes
 Lenovo
+lifecycle
 logfile
 maas
 MaaS
 MAAS
 Makefile
+microservice
 MUX
 muxpi
 MuxPi
@@ -52,6 +54,7 @@ OEM
 oemrecovery
 oemscript
 OLM
+passwordless
 Permalink
 preloaded
 provisionable
@@ -79,6 +82,7 @@ Ubuntu
 UI
 URI
 USB
+UUID
 VM
 webhook
 xenial
