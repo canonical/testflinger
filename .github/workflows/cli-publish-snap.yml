@@ -1,0 +1,22 @@
+name: Publish Testflinger CLI snap to edge
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - cli/**
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: snapcore/action-build@v1
+      id: build
+      with:
+        path: cli
+    - uses: snapcore/action-publish@v1
+      env:
+        SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_LOGIN }}
+      with:
+        snap: ${{ steps.build.outputs.snap }}
+        release: edge
