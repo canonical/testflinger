@@ -2,7 +2,7 @@ name: "[cli] Run unit tests"
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, try-self-hosted ]
     paths:
       - cli/**
   pull_request:
@@ -15,7 +15,7 @@ jobs:
     defaults:
       run:
         working-directory: cli
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64]
     strategy:
       matrix:
         python: ["3.8", "3.10"]
