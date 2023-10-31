@@ -16,13 +16,14 @@ from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
 
 class TestClient:
     @pytest.fixture
-    def agent(self):
+    def agent(self, requests_mock):
         self.tmpdir = tempfile.mkdtemp()
         self.config = {
             "agent_id": "test01",
             "polling_interval": "2",
             "server_address": "127.0.0.1:8000",
             "job_queues": ["test"],
+            "location": "nowhere",
             "execution_basedir": self.tmpdir,
             "logging_basedir": self.tmpdir,
             "results_basedir": os.path.join(self.tmpdir, "results"),
@@ -30,6 +31,8 @@ class TestClient:
         }
         testflinger_agent.configure_logging(self.config)
         client = _TestflingerClient(self.config)
+        requests_mock.get(rmock.ANY)
+        requests_mock.post(rmock.ANY)
         yield _TestflingerAgent(client)
         # Inside tests, we patch rmtree so that we can check files after the
         # run, so we need to clean up the tmpdirs here
@@ -203,3 +206,16 @@ class TestClient:
             assert agent.check_offline()
         if os.path.exists(OFFLINE_FILE):
             os.unlink(OFFLINE_FILE)
+
+    def test_post_agent_data(self, agent):
+        # Make sure we post the initial agent data
+        with patch.object(
+            testflinger_agent.client.TestflingerClient, "post_agent_data"
+        ) as mock_post_agent_data:
+            agent._post_initial_agent_data()
+            mock_post_agent_data.assert_called_with(
+                {
+                    "queues": self.config["job_queues"],
+                    "location": self.config["location"],
+                }
+            )

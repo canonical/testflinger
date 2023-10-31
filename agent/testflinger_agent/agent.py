@@ -33,13 +33,11 @@ class TestflingerAgent:
         """Post the initial agent data to the server once on agent startup"""
 
         location = self.client.config.get("location", "")
-        advertised_queues = self._post_advertised_queues()
+        self._post_advertised_queues()
         self._post_advertised_images()
 
-        if advertised_queues or location:
-            self.client.post_agent_data(
-                {"queues": advertised_queues, "location": location}
-            )
+        queues = self.client.config.get("job_queues", [])
+        self.client.post_agent_data({"queues": queues, "location": location})
 
     def _post_advertised_queues(self):
         """
@@ -50,7 +48,6 @@ class TestflingerAgent:
         advertised_queues = self.client.config.get("advertised_queues", {})
         if advertised_queues:
             self.client.post_queues(advertised_queues)
-        return advertised_queues
 
     def _post_advertised_images(self):
         """
