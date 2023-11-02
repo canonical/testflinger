@@ -47,10 +47,8 @@ class TestflingerAgentCharm(CharmBase):
         self.framework.observe(self.on.remove, self.on_remove)
         self.framework.observe(self.on.update_action, self.on_update_action)
         self._stored.set_default(
-            testflinger_agent_repo="",
-            testflinger_agent_branch="",
-            device_agent_repo="",
-            device_agent_branch="",
+            testflinger_repo="",
+            testflinger_branch="",
             unit_path=(
                 f"/etc/systemd/system/testflinger-agent-{self.app.name}"
                 ".service"
@@ -127,57 +125,57 @@ class TestflingerAgentCharm(CharmBase):
         an update to the git repos
         """
         update_needed = False
-        repo = self.config.get("testflinger-agent-repo")
-        if repo != self._stored.testflinger_agent_repo:
-            self._stored.testflinger_agent_repo = repo
+        repo = self.config.get("testflinger-repo")
+        if repo != self._stored.testflinger_repo:
+            self._stored.testflinger_repo = repo
             update_needed = True
-        branch = self.config.get("testflinger-agent-branch")
-        if branch != self._stored.testflinger_agent_branch:
-            self._stored.testflinger_agent_branch = branch
-            update_needed = True
-        repo = self.config.get("device-agent-repo")
-        if repo != self._stored.device_agent_repo:
-            self._stored.device_agent_repo = repo
-            update_needed = True
-        branch = self.config.get("device-agent-branch")
-        if branch != self._stored.device_agent_branch:
-            self._stored.device_agent_branch = branch
+        branch = self.config.get("testflinger-branch")
+        if branch != self._stored.testflinger_branch:
+            self._stored.testflinger_branch = branch
             update_needed = True
         if update_needed:
             self.update_repos()
 
     def update_repos(self):
         """Recreate the git repos and reinstall everything needed"""
-        tf_agent_dir = f"{self._stored.agent_path}/testflinger-agent"
-        device_agent_dir = f"{self._stored.agent_path}/snappy-device-agents"
-        shutil.rmtree(tf_agent_dir, ignore_errors=True)
-        shutil.rmtree(device_agent_dir, ignore_errors=True)
+        self.cleanup_agent_dirs()
+        repo_path = f"{self._stored.agent_path}/testflinger"
         Repo.clone_from(
-            self._stored.testflinger_agent_repo,
-            tf_agent_dir,
-            multi_options=[f"-b {self._stored.testflinger_agent_branch}"],
+            url=self._stored.testflinger_repo,
+            to_path=repo_path,
+            no_checkout=True,
+            depth=1,
         )
-        self.run_with_logged_errors(
-            [
-                f"{self._stored.venv_path}/bin/pip3",
-                "install",
-                "-I",
-                tf_agent_dir,
-            ]
+        repo = Repo(repo_path)
+        # do a sparse checkout of only agent and device-connectors
+        repo.git.checkout(
+            f"origin/{self._stored.testflinger_branch}",
+            "--",
+            "agent",
+            "device-connectors",
         )
-        Repo.clone_from(
-            self._stored.device_agent_repo,
-            device_agent_dir,
-            multi_options=[f"-b {self._stored.device_agent_branch}"],
+        # Install the agent and device-connectors
+        for dir in ("agent", "device-connectors"):
+            self.run_with_logged_errors(
+                [
+                    f"{self._stored.venv_path}/bin/pip3",
+                    "install",
+                    "-I",
+                    f"{repo_path}/{dir}",
+                ]
+            )
+
+    def cleanup_agent_dirs(self):
+        """Remove old agent dirs before checking out again"""
+        dirs_to_remove = (
+            "testflinger",
+            "testflinger-agent",
+            "snappy-device-agents",
         )
-        self.run_with_logged_errors(
-            [
-                f"{self._stored.venv_path}/bin/pip3",
-                "install",
-                "-I",
-                device_agent_dir,
-            ]
-        )
+        for dir in dirs_to_remove:
+            shutil.rmtree(
+                f"{self._stored.agent_path}/{dir}", ignore_errors=True
+            )
 
     def signal_restart_agent(self):
         """Signal testflinger-agent to restart when it's not busy"""
@@ -192,14 +190,11 @@ class TestflingerAgentCharm(CharmBase):
     def write_config_files(self):
         """Overwrite the config files if they were changed"""
         tf_agent_config_path = (
-            f"{self._stored.agent_path}/testflinger-agent/"
-            "testflinger-agent.conf"
+            f"{self._stored.agent_path}/testflinger-agent.conf"
         )
         tf_agent_config = self.read_resource("testflinger_agent_configfile")
         self.write_file(tf_agent_config_path, tf_agent_config)
-        device_config_path = (
-            f"{self._stored.agent_path}/" "snappy-device-agents/default.yaml"
-        )
+        device_config_path = f"{self._stored.agent_path}/default.yaml"
         device_config = self.read_resource("device_configfile")
         self.write_file(device_config_path, device_config)
 
@@ -233,6 +228,7 @@ class TestflingerAgentCharm(CharmBase):
         self.unit.status = MaintenanceStatus("Handling config_changed hook")
         self.check_update_repos_needed()
         self.write_config_files()
+        self.render_systemd_unit()
         self.signal_restart_agent()
         self.unit.status = ActiveStatus()
 

@@ -1,18 +1,10 @@
 options:
-  testflinger-agent-repo:
+  testflinger-repo:
     type: string
-    description: git repo for testflinger-agent
-    default: "https://github.com/canonical/testflinger-agent"
-  testflinger-agent-branch:
+    description: git repo for testflinger
+    default: "https://github.com/canonical/testflinger"
+  testflinger-branch:
     type: string
-    description: git branch for testflinger-agent
-    default: "main"
-  device-agent-repo:
-    type: string
-    description: git repo for device-agent
-    default: "https://github.com/canonical/snappy-device-agents"
-  device-agent-branch:
-    type: string
-    description: git branch for device-agent
+    description: git branch for testflinger
     default: "main"
 
