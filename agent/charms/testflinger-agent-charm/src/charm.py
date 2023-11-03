@@ -140,13 +140,12 @@ class TestflingerAgentCharm(CharmBase):
         """Recreate the git repos and reinstall everything needed"""
         self.cleanup_agent_dirs()
         repo_path = f"{self._stored.agent_path}/testflinger"
-        Repo.clone_from(
+        repo = Repo.clone_from(
             url=self._stored.testflinger_repo,
             to_path=repo_path,
             no_checkout=True,
             depth=1,
         )
-        repo = Repo(repo_path)
         # do a sparse checkout of only agent and device-connectors
         repo.git.checkout(
             f"origin/{self._stored.testflinger_branch}",
