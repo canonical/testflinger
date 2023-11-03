@@ -166,11 +166,12 @@ class TestflingerAgentCharm(CharmBase):
 
     def cleanup_agent_dirs(self):
         """Remove old agent dirs before checking out again"""
-        dirs_to_remove = (
-            "testflinger",
-            "testflinger-agent",
-            "snappy-device-agents",
-        )
+        dirs_to_remove = ("testflinger",)
+        # Temporarily skip removing the following two things so that we
+        # don't accidentally remove it from a job in progress. Add these
+        # back after this version has deployed everywhere.
+        #    "testflinger-agent",
+        #    "snappy-device-agents",
         for dir in dirs_to_remove:
             shutil.rmtree(
                 f"{self._stored.agent_path}/{dir}", ignore_errors=True
