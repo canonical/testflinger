@@ -30,29 +30,29 @@ class TestflingerAgentHostCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.framework.observe(self.on.install, self._on_install)
-        self.framework.observe(self.on.start, self._on_start)
-        self.framework.observe(self.on.config_changed, self._on_config_changed)
+        self.framework.observe(self.on.install, self.on_install)
+        self.framework.observe(self.on.start, self.on_start)
+        self.framework.observe(self.on.config_changed, self.on_config_changed)
         self._stored.set_default(
             ssh_priv="",
             ssh_pub="",
         )
 
-    def _on_install(self, _):
+    def on_install(self, _):
         """Install hook"""
         self.unit.status = MaintenanceStatus("Installing dependencies")
-        self._install_apt_packages(
+        self.install_apt_packages(
             ["python3-pip", "python3-virtualenv", "docker.io"]
         )
         # maas cli comes from maas snap now
-        self._run_with_logged_errors(["snap", "install", "maas"])
-        self._setup_docker()
+        self.run_with_logged_errors(["snap", "install", "maas"])
+        self.setup_docker()
 
-    def _setup_docker(self):
-        self._run_with_logged_errors(["groupadd", "docker"])
-        self._run_with_logged_errors(["gpasswd", "-a", "ubuntu", "docker"])
+    def setup_docker(self):
+        self.run_with_logged_errors(["groupadd", "docker"])
+        self.run_with_logged_errors(["gpasswd", "-a", "ubuntu", "docker"])
 
-    def _run_with_logged_errors(self, cmd):
+    def run_with_logged_errors(self, cmd):
         """Run a command, log output if errors, return proc just in case"""
         proc = subprocess.run(
             cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, text=True
@@ -61,33 +61,33 @@ class TestflingerAgentHostCharm(CharmBase):
             logger.error(proc.stdout)
         return proc
 
-    def _write_file(self, location, contents):
+    def write_file(self, location, contents):
         # Sanity check to make sure we're actually about to write something
         if not contents:
             return
         with open(location, "w", encoding="utf-8", errors="ignore") as out:
             out.write(contents)
 
-    def _copy_ssh_keys(self):
-        priv_key = self._read_resource("ssh_priv_key")
+    def copy_ssh_keys(self):
+        priv_key = self.read_resource("ssh_priv_key")
         if self._stored.ssh_priv != priv_key:
             self._stored.ssh_priv = priv_key
-            self._write_file("/home/ubuntu/.ssh/id_rsa", priv_key)
-        pub_key = self._read_resource("ssh_pub_key")
+            self.write_file("/home/ubuntu/.ssh/id_rsa", priv_key)
+        pub_key = self.read_resource("ssh_pub_key")
         if self._stored.ssh_pub != pub_key:
             self._stored.ssh_pub = pub_key
-            self._write_file("/home/ubuntu/.ssh/id_rsa.pub", pub_key)
+            self.write_file("/home/ubuntu/.ssh/id_rsa.pub", pub_key)
 
-    def _on_start(self, _):
+    def on_start(self, _):
         """Start the service"""
         self.unit.status = ActiveStatus()
 
-    def _on_config_changed(self, _):
+    def on_config_changed(self, _):
         self.unit.status = MaintenanceStatus("Handling config_changed hook")
-        self._copy_ssh_keys()
+        self.copy_ssh_keys()
         self.unit.status = ActiveStatus()
 
-    def _install_apt_packages(self, packages: list):
+    def install_apt_packages(self, packages: list):
         """Simple wrapper around 'apt-get install -y"""
         try:
             apt.update()
@@ -101,7 +101,7 @@ class TestflingerAgentHostCharm(CharmBase):
             logger.error("could not install package")
             self.unit.status = BlockedStatus("Failed to install packages")
 
-    def _read_resource(self, resource):
+    def read_resource(self, resource):
         """Read the specified resource and return the contents"""
         try:
             resource_file = self.model.resources.fetch(resource)
@@ -109,8 +109,8 @@ class TestflingerAgentHostCharm(CharmBase):
             # resource doesn't exist yet, return empty string
             return ""
         if (
-            not isinstance(resource_file, PosixPath) or not
-            resource_file.exists()
+            not isinstance(resource_file, PosixPath)
+            or not resource_file.exists()
         ):
             # Return empty string if it's invalid
             return ""
