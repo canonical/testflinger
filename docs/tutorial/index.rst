@@ -32,7 +32,7 @@ The most convenient way to install the CLI is through the *Snap Store*. Open a t
 
 Once the installation is finished, you can execute the ``testflinger-cli`` command to check the installation. For example, you can run with the ``--help`` or ``-h`` option to display the CLI help page, which is useful anytime when you need a reference about how to use the tool:
 
-.. code-block:: shell
+.. code-block::
 
   $ testflinger-cli --help
 
@@ -110,7 +110,7 @@ Run the following command in the terminal to retrieve the available job queues t
 
 If the connection is successful, a list of job queues is returned with their queue names and short descriptions:
 
-.. code-block:: shell
+.. code-block::
 
   Advertised queues on this server:
     example-queue-1 - for testing device model-1
