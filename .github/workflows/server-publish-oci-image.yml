@@ -5,6 +5,7 @@ on:
     tags: ["v*.*.*"]
     paths:
       - server/**
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
