@@ -39,7 +39,6 @@ class LVFSDevice(AbstractDevice):
                 f"sshpass -p {self.password}  ssh -t {SSH_OPTS} "
                 + f' {self.user}@{self.ipaddr} "{cmd}"'
             )
-        logmsg(logging.DEBUG, f"Run command on DUT: {ssh_cmd}")
         try:
             r = subprocess.run(
                 ssh_cmd,
@@ -59,7 +58,6 @@ class LVFSDevice(AbstractDevice):
         )
         if raise_stderr and rc != 0:
             err_msg = f"Failed to execute {cmd}:\n [{rc}] {stdout} {stderr}"
-            logmsg(logging.DEBUG, err_msg)
             raise RuntimeError(err_msg)
         return rc, stdout, stderr
 
@@ -72,14 +70,14 @@ class LVFSDevice(AbstractDevice):
         logmsg(logging.INFO, "collect firmware info")
         self.run_cmd("sudo fwupdmgr refresh --force")
         rc, stdout, stderr = self.run_cmd("sudo fwupdmgr get-devices --json")
-        logmsg(logging.DEBUG, f"$fwupdmgr get-devices = \n{stdout}")
+        logmsg(logging.INFO, f"output of '$fwupdmgr get-devices'\n{stdout}")
         self._parse_fwupd_raw(stdout)
 
     def _install_fwupd(self):
         self.run_cmd("sudo apt update", raise_stderr=False, timeout=120)
         self.run_cmd("sudo apt install -y fwupd")
         rc, stdout, stderr = self.run_cmd("sudo fwupdmgr --version")
-        logmsg(logging.DEBUG, stdout)
+        logmsg(logging.INFO, f"fwupd version\n{stdout}")
 
     def _parse_fwupd_raw(self, fwupd_raw: str) -> bool:
         """
@@ -155,20 +153,18 @@ class LVFSDevice(AbstractDevice):
                         raise_stderr=False,
                     )
                     if rc == 0:
-                        logmsg(logging.DEBUG, stdout)
                         reboot = True
                     else:
                         logmsg(
                             logging.ERROR,
                             f"[{dev_name}] Failed to upgrade to "
-                            + f"{latest_ver['Version']}",
+                            + f"{latest_ver['Version']}\n"
+                            + f"error: {stdout}",
                         )
-                        logmsg(logging.DEBUG, stdout)
                 else:
                     logmsg(
-                        logging.DEBUG,
-                        f"[{dev_name}] unsupported Flags: "
-                        + f"{str(latest_ver['Flags'])}",
+                        logging.INFO,
+                        f"[{dev_name}] not an upgradable component",
                     )
             else:
                 logmsg(
@@ -221,19 +217,18 @@ class LVFSDevice(AbstractDevice):
                     raise_stderr=False,
                 )
                 if rc == 0:
-                    logmsg(logging.DEBUG, stdout)
                     reboot = True
                 else:
                     logmsg(
                         logging.ERROR,
                         f"[{dev_name}] fail to force install (downgrade) "
-                        + f"firmware {fw_file}",
+                        + f"firmware {fw_file}\n"
+                        + f"error: {stdout}",
                     )
-                    logmsg(logging.DEBUG, stdout)
             else:
                 logmsg(
-                    logging.DEBUG,
-                    f"[{dev_name}] unsupported Flags: {prev_ver['Flags']}",
+                    logging.INFO,
+                    f"[{dev_name}] not a downgradable component",
                 )
         return reboot
 
@@ -257,7 +252,6 @@ class LVFSDevice(AbstractDevice):
                 f"sudo fwupdmgr get-results {dev['DeviceId']} --json"
             )
             get_results = json.loads(stdout)
-            logmsg(logging.DEBUG, f"$fwupdmgr get-result = {stdout}%s")
             try:
                 new_fw = get_results["Releases"][0]
                 update_state = get_results["UpdateState"]
@@ -266,7 +260,7 @@ class LVFSDevice(AbstractDevice):
                     f"[{dev_name}] unable to determine if new firmware "
                     + "is landed due to missing results"
                 )
-                logmsg(logging.INFO, msg)
+                logmsg(logging.ERROR, msg)
                 fwupd_result = False
                 continue
 
@@ -275,6 +269,7 @@ class LVFSDevice(AbstractDevice):
                     f"[{dev_name}] firmware flashed {dev['Version']}"
                     + f" → {expected_ver}"
                 )
+                log_level = logging.INFO
             else:
                 FwupdUpdateState = [
                     "FWUPD_UPDATE_STATE_UNKNOWN",
@@ -290,8 +285,9 @@ class LVFSDevice(AbstractDevice):
                     f"[{dev_name}] {FwupdUpdateState[update_state]}:"
                     + f" {update_err}"
                 )
+                log_level = logging.ERROR
                 fwupd_result = False
-            logmsg(logging.INFO, msg)
+            logmsg(log_level, msg)
 
         return fwupd_result
 
