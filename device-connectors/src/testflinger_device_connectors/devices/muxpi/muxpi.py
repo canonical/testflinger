@@ -322,6 +322,20 @@ class MuxPi:
                 )
                 cmd = f"sudo cp {remote_tmp}/user-data {ci_path}"
                 self._run_control(cmd)
+
+                # Set grub timeouts to 0 to workaround reboot getting stuck
+                # if spurious input is received on serial
+                cmd = (
+                    "sudo sed -i 's/timeout=[0-9]*/timeout=0/g' "
+                    f"{base}/boot/grub/grub.cfg"
+                )
+                self._run_control(cmd)
+                cmd = (
+                    f"grep -rl 'GRUB_TIMEOUT=' {base}/etc/default/ | xargs "
+                    "sudo sed -i 's/GRUB_TIMEOUT=[0-9]*/GRUB_TIMEOUT=0/g'"
+                )
+                self._run_control(cmd)
+
                 self._configure_sudo()
                 return
             if image_type == "pi-desktop":
