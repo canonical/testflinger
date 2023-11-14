@@ -12,11 +12,19 @@ the status of them, and getting results.
 Installation
 ------------
 
-You can either run testflinger-cli from a checkout of the code, or
-install it like any other python project.
+It is recommended that you install testflinger-cli from the snap, however it
+can also be installed with pip directly from the source.
 
-To run it from a checkout, please make sure to first install python3-click
-and python3-requests
+To install testflinger using the snap:
+
+.. code-block:: console
+
+  $ sudo snap install testflinger-cli
+
+When changes are made to the CLI, the snap is automatically built and uploaded
+to the `edge` channel. Once sufficient testing has been performed, this snap
+is also published to the `stable` channel. If you prefer to use the latest
+code, then you can specify `edge` instead in the command above.
 
 To install it in a virtual environment:
 
