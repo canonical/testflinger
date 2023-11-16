@@ -110,7 +110,7 @@ Run the following command in the terminal to retrieve the available job queues t
 
 If the connection is successful, a list of job queues is returned with their queue names and short descriptions:
 
-.. code-block::
+.. code-block:: text
 
   Advertised queues on this server:
     example-queue-1 - for testing device model-1
