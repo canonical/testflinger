@@ -8,6 +8,7 @@ import logging
 from typing import Tuple
 from testflinger_device_connectors.fw_devices.base import AbstractDevice
 from testflinger_device_connectors import logmsg
+from enum import Enum, auto
 
 
 SSH_OPTS = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
@@ -264,25 +265,20 @@ class LVFSDevice(AbstractDevice):
                 fwupd_result = False
                 continue
 
-            if new_fw["Version"] == expected_ver and update_state == 2:
+            if (
+                new_fw["Version"] == expected_ver
+                and update_state
+                == FwupdUpdateState.FWUPD_UPDATE_STATE_SUCCESS.value
+            ):
                 msg = (
                     f"[{dev_name}] firmware flashed {dev['Version']}"
                     + f" → {expected_ver}"
                 )
                 log_level = logging.INFO
             else:
-                FwupdUpdateState = [
-                    "FWUPD_UPDATE_STATE_UNKNOWN",
-                    "FWUPD_UPDATE_STATE_PENDING",
-                    "FWUPD_UPDATE_STATE_SUCCESS",
-                    "FWUPD_UPDATE_STATE_FAILED",
-                    "FWUPD_UPDATE_STATE_NEEDS_REBOOT",
-                    "FWUPD_UPDATE_STATE_FAILED_TRANSIENT",
-                    "FWUPD_UPDATE_STATE_LAST",
-                ]
                 update_err = get_results.get("UpdateError", "")
                 msg = (
-                    f"[{dev_name}] {FwupdUpdateState[update_state]}:"
+                    f"[{dev_name}] {FwupdUpdateState(update_state).name}:"
                     + f" {update_err}"
                 )
                 log_level = logging.ERROR
@@ -306,13 +302,20 @@ class LVFSDevice(AbstractDevice):
         timeout_start = time.time()
 
         while status != "0" and time.time() < timeout_start + timeout:
-            status = subprocess.check_output(
-                f"timeout 10 ssh {SSH_OPTS} {self.user}@{self.ipaddr} "
-                + "/bin/true 2>/dev/null; echo $?",
-                shell=True,
-                universal_newlines=True,
-            ).strip()
-        if status != "0" and status != "124":
+            try:
+                status = subprocess.check_output(
+                    f"ssh {SSH_OPTS} {self.user}@{self.ipaddr} "
+                    + "/bin/true 2>/dev/null; echo $?",
+                    shell=True,
+                    universal_newlines=True,
+                    timeout=10,
+                ).strip()
+            except (
+                subprocess.TimeoutExpired,
+                subprocess.CalledProcessError,
+            ):
+                pass
+        if status != "0":
             err_msg = f"Failed to SSH to {self.ipaddr} after {timeout}s"
             logmsg(logging.ERROR, err_msg)
             raise RuntimeError(err_msg)
@@ -325,3 +328,13 @@ class LVFSDevice(AbstractDevice):
         self.run_cmd("sudo reboot", raise_stderr=False)
         time.sleep(10)
         self.check_connectable(self.reboot_timeout)
+
+
+class FwupdUpdateState(Enum):
+    FWUPD_UPDATE_STATE_UNKNOWN = 0
+    FWUPD_UPDATE_STATE_PENDING = auto()
+    FWUPD_UPDATE_STATE_SUCCESS = auto()
+    FWUPD_UPDATE_STATE_FAILED = auto()
+    FWUPD_UPDATE_STATE_NEEDS_REBOOT = auto()
+    FWUPD_UPDATE_STATE_FAILED_TRANSIENT = auto()
+    FWUPD_UPDATE_STATE_LAST = auto()

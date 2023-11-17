@@ -1,5 +1,8 @@
 from testflinger_device_connectors.fw_devices.base import AbstractDevice
-from testflinger_device_connectors.fw_devices.LVFS.LVFS import LVFSDevice
+from testflinger_device_connectors.fw_devices.LVFS.LVFS import (
+    LVFSDevice,
+    FwupdUpdateState,
+)
 from testflinger_device_connectors.fw_devices.OEM.OEM import (
     OEMDevice,
     HPEDevice,
@@ -12,4 +15,5 @@ __all__ = [
     "OEMDevice",
     "HPEDevice",
     "logmsg",
+    "FwupdUpdateState",
 ]

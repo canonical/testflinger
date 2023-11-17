@@ -4,7 +4,10 @@
 import unittest
 import json
 from unittest.mock import patch
-from testflinger_device_connectors.fw_devices import LVFSDevice
+from testflinger_device_connectors.fw_devices import (
+    LVFSDevice,
+    FwupdUpdateState,
+)
 from testflinger_device_connectors.fw_devices.LVFS.tests import fwupd_data
 
 device_results = json.loads(fwupd_data.GET_RESULTS_RESPONSE_DATA)
@@ -90,7 +93,9 @@ class TestLVFSDevice(unittest.TestCase):
             device = LVFSDevice("", "", "")
             device._parse_fwupd_raw(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             device_results = json.loads(fwupd_data.GET_RESULTS_RESPONSE_DATA)
-            device_results["UpdateState"] = 2
+            device_results[
+                "UpdateState"
+            ] = FwupdUpdateState.FWUPD_UPDATE_STATE_SUCCESS.value
             device_results["Releases"][0]["Version"] = "2.90"
             device.fw_info[2]["targetVersion"] = "2.90"
             self.assertTrue(device.check_results())
