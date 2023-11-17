@@ -34,6 +34,7 @@ Kubeflow
 Kubernetes
 Lenovo
 lifecycle
+LTS
 logfile
 maas
 MaaS

@@ -44,18 +44,30 @@ The following table lists the key elements that a job definition file should con
       |   - reserve 
       | For detailed information about how to define the data to include in each test phase, see :doc:`test-phases`. 
 
-Example job in YAML
+Example jobs in YAML
 ----------------------------
 
-The following example YAML file defines a job that retrieves the Ubuntu 22.04-jammy  system image from the given URL, provisions the image on the device at IP address ``DEVICE_IP``, and prints the distribution-specific information on the provisioned device:
+The following example YAML file defines a job that provisions the Ubuntu Core 22 system on a Raspberry Pi 4 device. The job retrieves the image from the given URL, provisions the image on the device at IP address ``DEVICE_IP``, and prints the distribution-specific information on the provisioned device:
 
 .. code-block:: yaml
 
-  job-queue: example-queue
+  job_queue: raspi4b
   global-timeout: 28800
   output-timeout: 3600
   provision_data:
-    url: https://cdimage.ubuntu.com/ubuntu/releases/jammy/release/example.img.xz
+    url: https://cdimage.ubuntu.com/ubuntu-core/22/stable/current/ubuntu-core-22-arm64+raspi.img.xz
   test_data:
     test_cmds: |
       ssh -t ubuntu@DEVICE_IP lsb_release -a
+
+Data specified in the ``provision_data`` section varies on device types. For example, to provision server images on a MAAS device, the ``distro`` field should be used to indicate the system version. The following YAML file defines a job that provisions the Ubuntu 22.04 LTS (Jammy Jellyfish) server install image on a MAAS device and prints the information about its processors and network interface configurations:
+
+.. code-block:: yaml
+
+  job_queue: maas-x86-node 
+  provision_data:   
+    distro: jammy 
+  test_data:
+    test_cmds: |
+      ssh ubuntu@$DEVICE_IP cat /proc/cpuinfo
+      ssh ubuntu@$DEVICE_IP ifconfig
