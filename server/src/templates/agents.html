@@ -1,16 +1,22 @@
 {% extends 'base.html' %}
 {% set active_page = 'agents' %}
 {% block content %}
-<script type="text/javascript" src="/static/assets/js/filter.js"></script>
-<div class="filter-table center">
-    <input type="text" id="inputFilter" placeholder="Search" onkeyup="runFilter()">
-    <table id="filterTable" width="100%">
+<form class="p-search-box">
+    <input aria-label="search" type="search" class="p-search-box__input" name="search" placeholder="Search" required
+        autocomplete="on">
+    <button type="reset" class="p-search-box__reset"><i class="p-icon--close"></i></button>
+    <button type="submit" class="p-search-box__button"><i class="p-icon--search"></i></button>
+</form>
+<table aria-label="Agents table" class="p-table--mobile-card">
+    <thead>
         <tr>
             <th>Name</th>
             <th>State</th>
             <th>Updated At</th>
             <th>Job ID</th>
         </tr>
+    </thead>
+    <tbody>
         {% for agent in agents %}
         <tr>
             <td><a href="/agents/{{ agent.name }}">{{ agent.name }}</a></td>
@@ -19,6 +25,6 @@
             <td>{{ agent.job_id }}</td>
         </tr>
         {% endfor %}
-    </table>
-</div>
+    </tbody>
+</table>
 {% endblock %}

@@ -1,14 +1,16 @@
 {% extends 'base.html' %}
 {% set active_page = 'jobs' %}
 {% block content %}
-<div class="filter-table center">
-    <table width="100%">
+<table aria-label="Jobs table" class="p-table--mobile-card">
+    <thead>
         <tr>
             <th>Job ID</th>
             <th>Queue</th>
             <th>State</th>
-            <th>Created At</th>
+            <th>Created at</th>
         </tr>
+    </thead>
+    <tbody>
         {% for job in jobs %}
         <tr>
             <td><a href="/jobs/{{ job.job_id}}">{{ job.job_id }}</a></td>
@@ -17,7 +19,6 @@
             <td>{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
         </tr>
         {% endfor %}
-    </table>
-</div>
-<script type="text/javascript" src="/static/assets/js/filter.js"></script>
+    </tbody>
+</table>
 {% endblock %}

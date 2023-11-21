@@ -6,7 +6,7 @@
     <title>{% block title %} {% endblock %} - Testflinger</title>
     <!-- Site CSS Files -->
     <link href="/static/assets/css/testflinger.css" rel="stylesheet" />
-    <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla-framework-version-4.2.0.min.css" />
+    <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla-framework-version-4.5.0.min.css" />
     <!-- Don't request favicon -->
     <link rel="icon" href="data:,">
     <!-- Page specific CSS Files -->
@@ -14,27 +14,60 @@
 </head>
 
 <body>
-    {% set nav_bar = [
+    {%- set nav_bar = [
     {'name': 'Agents', 'url': '/agents'},
     {'name': 'Jobs', 'url': '/jobs'},
     {'name': 'Queues', 'url': '/queues'},
-    ] %}
-    {% set active_page = active_page|default('agents') %}
+    ] -%}
+    {%- set active_page = active_page|default('agents') %}
 
-    <div class="header">
-        <a href="#" class="logo">Testflinger</a>
-        <div class="header-right">
-            {% for item in nav_bar %}
-            <a {% if item.name|lower==active_page %} class="active" {% endif %} href="{{ item.url }}">{{ item.name
-                }}</a>
-            {% endfor %}
+    <header id="navigation" class="p-navigation is-dark">
+        <div class="p-navigation__row">
+            <div class="p-navigation__banner">
+                <div class="p-navigation__tagged-logo">
+                    <a class="p-navigation__link" href="/">
+                        <div class="p-navigation__logo-tag">
+                            <img class="p-navigation__logo-icon"
+                                src="https://assets.ubuntu.com/v1/82818827-CoF_white.svg" alt="">
+                        </div>
+                        <span class="p-navigation__logo-title">Testflinger</span>
+                    </a>
+                </div>
+                <a href="#navigation" class="p-navigation__toggle--open" title="menu">Menu</a>
+                <a href="#navigation-closed" class="p-navigation__toggle--close" title="close menu">Close menu</a>
+            </div>
+            <nav class="p-navigation__nav u-image-position" aria-label="Example main">
+                <span class="u-off-screen">
+                    <a href="#main-content">Jump to main content</a>
+                </span>
+                <ul class="p-navigation__items">
+                    {%- for item in nav_bar %}
+                    <li {% if item.name|lower==active_page %} class="p-navigation__item is-selected" {% else %}
+                        class="p-navigation__item" {% endif %}>
+                        <a class="p-navigation__link" href="{{ item.url }}">{{ item.name }}</a>
+                    </li>
+                    {%- endfor %}
+                </ul>
+            </nav>
         </div>
-    </div>
-    <main class="center">
-        <div class="content">
-            {% block content %} {% endblock %}
+    </header>
+
+    {% block content %} {% endblock %}
+
+    <hr>
+    <footer id="footer" class="p-strip" role="contentinfo">
+        <div id="copyright" class="row">
+            <p>&copy;2023 Canonical Ltd. Ubuntu and Canonical are registered trademarks of Canonical Ltd.</p>
+            <ul class="p-inline-list--middot">
+                <li class="p-inline-list__item">
+                    <a href="http://www.ubuntu.com/legal">Legal information</a>
+                </li>
+                <li class="p-inline-list__item">
+                    <a href="https://ubuntu.com/legal/data-privacy">Data privacy</a>
+                </li>
+            </ul>
         </div>
-    </main>
+    </footer>
 </body>
 
 </html>

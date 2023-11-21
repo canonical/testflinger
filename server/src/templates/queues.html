@@ -1,15 +1,21 @@
 {% extends 'base.html' %}
 {% set active_page = 'queues' %}
 {% block content %}
-<script type="text/javascript" src="/static/assets/js/filter.js"></script>
-<div class="filter-table center">
-    <input type="text" id="inputFilter" placeholder="Search" onkeyup="runFilter()">
-    <table id="filterTable" width="100%">
+<form class="p-search-box">
+    <input aria-label="search" type="search" class="p-search-box__input" name="search" placeholder="Search" required
+        autocomplete="on">
+    <button type="reset" class="p-search-box__reset"><i class="p-icon--close"></i></button>
+    <button type="submit" class="p-search-box__button"><i class="p-icon--search"></i></button>
+</form>
+<table aria-label="Queues table" class="p-table--mobile-card">
+    <thead>
         <tr>
             <th>Name</th>
-            <th># Jobs</th>
+            <th>Number of jobs</th>
             <th>Description</th>
         </tr>
+    </thead>
+    <tbody>
         {% for queue in queues %}
         <tr>
             <td><a href="/queues/{{ queue.name }}">{{ queue.name }}</a></td>
@@ -17,6 +23,6 @@
             <td>{{ queue.description }}</td>
         </tr>
         {% endfor %}
-    </table>
-</div>
+    </tbody>
+</table>
 {% endblock %}
