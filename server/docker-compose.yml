@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   mongo:
-    image: bitnami/mongodb:latest
+    image: mongo:5
     env_file:
       - testflinger.env
     ports:
