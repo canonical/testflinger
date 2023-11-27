@@ -1,10 +1,8 @@
 services:
   mongo:
     environment:
-      - MONGODB_USERNAME=testflinger
-      - MONGODB_PASSWORD=testflinger
-      - MONGODB_DATABASE=testflinger_db
-      - MONGODB_ROOT_PASSWORD=testflinger
+      - MONGO_INITDB_ROOT_USERNAME=testflinger
+      - MONGO_INITDB_ROOT_PASSWORD=testflinger
 
   testflinger:
     command: gunicorn --bind 0.0.0.0:5000 --reload testflinger:app
@@ -13,7 +11,7 @@ services:
       - MONGODB_PASSWORD=testflinger
       - MONGODB_DATABASE=testflinger_db
       - MONGODB_HOST=mongo
-      - MONGODB_AUTH_SOURCE=testflinger_db
+      - MONGODB_AUTH_SOURCE=admin
     volumes:
       - .:/srv/testflinger
 
