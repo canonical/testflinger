@@ -51,7 +51,7 @@ The following example YAML file defines a job that provisions the Ubuntu Core 22
 
 .. code-block:: yaml
 
-  job_queue: raspi4b
+  job_queue: rpi4b
   global-timeout: 28800
   output-timeout: 3600
   provision_data:
