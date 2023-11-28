@@ -1,6 +1,6 @@
-""" fwupdmgr json outputs """
+"""This file provides fwupdmgr outputs for unit tests"""
 
-
+"""normal output of `fwupdmgr get-results <DeviceId> --json`"""
 GET_RESULTS_RESPONSE_DATA = """{
   "Name" : "System Firmware",
   "DeviceId" : "a45df35ac0e948ee180fe216a5f703f32dda163f",
@@ -68,6 +68,7 @@ GET_RESULTS_RESPONSE_DATA = """{
 }
 """
 
+"""output of `fwupdmgr get-results <DeviceId> --json` with error"""
 GET_RESULTS_ERROR_RESPONSE_DATA = """
 {
   "Error" : {
@@ -78,6 +79,7 @@ GET_RESULTS_ERROR_RESPONSE_DATA = """
 }
 """
 
+"""output of `fwupdmgr get-devices --json`"""
 GET_DEVICES_RESPONSE_DATA = """{
   "Devices" : [
     {
