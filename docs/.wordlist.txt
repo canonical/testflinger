@@ -34,7 +34,6 @@ Kubeflow
 Kubernetes
 Lenovo
 lifecycle
-LTS
 logfile
 maas
 MaaS
@@ -84,9 +83,11 @@ Ubuntu
 UI
 URI
 USB
-virtualenv
+UUID
 VM
 webhook
 WPA
 xenial
 yaml
+LTS
+virtualenv
