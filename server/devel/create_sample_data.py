@@ -211,9 +211,7 @@ def extract_queue_names(queues: Iterator) -> Tuple[str, ...]:
     :return: Tuple of queue names
     """
     return tuple(
-        queue_name
-        for queue_entry in queues
-        for queue_name in queue_entry.keys()
+        queue_name for queue_entry in queues for queue_name in queue_entry
     )
 
 
