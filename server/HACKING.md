@@ -24,6 +24,31 @@ this running on your system:
     $ docker-compose up -d
 ```
 
+If you want to add some sample data to your local dev environment created
+using the commands above, there's a helper script for this.
+```
+    $ devel/create_sample_data.py -h
+
+    usage: create_sample_data.py [-h] [-a AGENTS] [-j JOBS] [-q QUEUES] [-s SERVER]
+
+    Create sample data for testing Testflinger
+
+    options:
+    -h, --help            show this help message and exit
+    -a AGENTS, --agents AGENTS
+                            Number of agents to create
+    -j JOBS, --jobs JOBS  Number of jobs to create
+    -q QUEUES, --queues QUEUES
+                            Number of queues to create
+    -s SERVER, --server SERVER
+                            URL of testflinger server starting with 'http(s)://...' (must not be production server)
+```
+
+The defaults are intended to be used with a server running on
+http://localhost:5000 which is what will be deployed by default if you use
+the docker-compose setup above. So if this is what you want, you can just
+call it with no options.
+
 
 ## Multipass
 
