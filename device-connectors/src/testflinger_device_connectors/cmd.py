@@ -39,6 +39,7 @@ def main():
         cmd_subparser = dev_subparser.add_subparsers()
         for cmd, func in (
             ("provision", dev_module.provision),
+            ("firmware_update", dev_module.firmware_update),
             ("runtest", dev_module.runtest),
             ("allocate", dev_module.allocate),
             ("reserve", dev_module.reserve),

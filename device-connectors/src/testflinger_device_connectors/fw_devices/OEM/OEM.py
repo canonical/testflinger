@@ -1,6 +1,6 @@
 """Device classes for flashing firmware on device with OEM-specific methods"""
 
-from devices.base import AbstractDevice
+from testflinger_device_connectors.fw_devices.base import AbstractDevice
 
 
 class OEMDevice(AbstractDevice):

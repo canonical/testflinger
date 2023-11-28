@@ -26,6 +26,9 @@ from datetime import datetime, timedelta
 import yaml
 
 import testflinger_device_connectors
+from testflinger_device_connectors.fw_devices.firmware_update import (
+    detect_device,
+)
 
 
 class ProvisioningError(Exception):
@@ -115,6 +118,59 @@ class RealSerialLogger:
 
 
 class DefaultDevice:
+    def firmware_update(self, args):
+        """Default method for processing firmware update commands"""
+        with open(args.config) as configfile:
+            config = yaml.safe_load(configfile)
+        testflinger_device_connectors.configure_logging(config)
+        testflinger_device_connectors.logmsg(
+            logging.INFO, "BEGIN firmware_update"
+        )
+
+        test_opportunity = testflinger_device_connectors.get_test_opportunity(
+            args.job_data
+        )
+        fw_config = test_opportunity.get("firmware_update_data")
+        ignore_failure = fw_config.get("ignore_failure", False)
+        version = fw_config.get("version")
+        device_ip = config["device_ip"]
+        target_device_username = "ubuntu"
+        exitcode = 0
+        supported_version = ["latest"]
+
+        if version not in supported_version:
+            testflinger_device_connectors.logmsg(
+                logging.INFO,
+                "Fail to provide version in firmware_update_data. "
+                + "Current supported version: latest",
+            )
+            exitcode = 1
+        else:
+            try:
+                target_device = detect_device(
+                    device_ip, target_device_username
+                )
+                target_device.get_fw_info()
+                if version == "latest":
+                    reboot_required = target_device.upgrade()
+                if reboot_required:
+                    target_device.reboot()
+                    update_succeeded = target_device.check_results()
+                    if not update_succeeded:
+                        exitcode = 1
+            except Exception as e:
+                testflinger_device_connectors.logmsg(
+                    logging.ERROR, f"Firmware Update failed: {str(e)}"
+                )
+                exitcode = 1
+            finally:
+                testflinger_device_connectors.logmsg(
+                    logging.INFO, "END firmware_update"
+                )
+        if ignore_failure:
+            exitcode = 0
+        return exitcode
+
     def runtest(self, args):
         """Default method for processing test commands"""
         with open(args.config) as configfile:

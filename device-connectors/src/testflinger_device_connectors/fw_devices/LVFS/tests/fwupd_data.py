@@ -57,7 +57,7 @@ GET_RESULTS_RESPONSE_DATA = """{
       "CapsuleApplyMethod" : "nvram",
       "LinuxLockdown" : "none",
       "CompileVersion(com.hughsie.libjcat)" : "0.1.4",
-      "Pcr0_SHA256" : "580aaf47328accd895515cc0143903c7e88579769d319a511ca9567575bd547f",
+      "Pcr0_SHA256" : "580aaf47328accd895515cc014390",
       "EfivarNvramUsed" : "100530",
       "KernelCmdline" : "automatic-oem-config",
       "DistroId" : "ubuntu",
@@ -73,7 +73,7 @@ GET_RESULTS_ERROR_RESPONSE_DATA = """
   "Error" : {
     "Domain" : "FwupdError",
     "Code" : 9,
-    "Message" : "Failed to find 4bde70ba4e39b28f9eab1628f9dd6e6244c03027 in history database: No devices found"
+    "Message" : "Failed to find 4bde70ba4e39b28f9eab1628f9dd6e6244c03027"
   }
 }
 """
@@ -242,8 +242,8 @@ GET_DEVICES_RESPONSE_DATA = """{
           "ReleaseId" : "28623",
           "RemoteId" : "lvfs",
           "Name" : "Z4 G4 Core-X Workstation",
-          "Summary" : "System Firmware (BIOS) for HP Z4 G4 Workstations (Core X-series processors), family P62",
-          "Description" : "<p>Fixes and enhancements in P62 2.91:</p><ul><li>Includes enhancements to mitigate security vulnerabilities.</li><li>Added support for a new DIMM manufacturer.</li><li>Added support for HP Anyware Remote System Controller features.</li></ul>",
+          "Summary" : "System Firmware (BIOS) for HP Z4 G4 Workstations",
+          "Description" : "<p>Fixes and enhancements in P62 2.91:</p>",
           "Version" : "2.91",
           "Filename" : "9af72a66c38ab97ed17f1388582eb6baa0929295",
           "Protocol" : "org.uefi.capsule",
@@ -258,9 +258,9 @@ GET_DEVICES_RESPONSE_DATA = """{
           "Size" : 16781312,
           "Created" : 1679514694,
           "Locations" : [
-            "https://fwupd.org/downloads/2571fa9e4ca038aa41c86ded57d355a70d1da3a02bcd12aa02b9c5ab84d8a2ee-P62_0291.cab"
+            "https://fwupd.org/downloads/2571fa9e4ca038aa41c86ded57d355a7.cab"
           ],
-          "Uri" : "https://fwupd.org/downloads/2571fa9e4ca038aa41c86ded57d355a70d1da3a02bcd12aa02b9c5ab84d8a2ee-P62_0291.cab",
+          "Uri" : "https://fwupd.org/downloads/2571fa9e4ca038aa41c86ded5.cab",
           "Homepage" : "http://www.hp.com/go/workstations",
           "Vendor" : "HP",
           "Flags" : [
@@ -272,8 +272,8 @@ GET_DEVICES_RESPONSE_DATA = """{
           "ReleaseId" : "22717",
           "RemoteId" : "lvfs",
           "Name" : "Z4 G4 Core-X Workstation",
-          "Summary" : "System Firmware (BIOS) for HP Z4 G4 Workstations (Core X-series processors), family P62",
-          "Description" : "<p>Fixes and enhancements in P62 2.90:</p><ul><li>Added SATA hot plug support.</li><li>Includes enhancements to mitigate security vulnerabilities.</li><li>HP strongly recommends promptly transitioning to this updated BIOS version.</li><li>Updates UEFI-based Hardware Diagnostics to version 2.3.2.0&gt;</li><li>Addressed changes introduced in previous BIOS which prevented a custom logo from being set.</li></ul>",
+          "Summary" : "System Firmware (BIOS) for HP Z4 G4 Workstations",
+          "Description" : "<p>Fixes and enhancements in P62 2.90:</p><",
           "Version" : "2.90",
           "Filename" : "ba3142d342afce4c5bde21ee469871156cb8add3",
           "Protocol" : "org.uefi.capsule",
@@ -288,9 +288,9 @@ GET_DEVICES_RESPONSE_DATA = """{
           "Size" : 16781312,
           "Created" : 1675389026,
           "Locations" : [
-            "https://fwupd.org/downloads/90c505fd9b6f56311a4202d8fb95e711ab240dfcd50b0ff82a9ebe5f4750eed6-P62_0290.cab"
+            "https://fwupd.org/downloads/90c505fd9b6f56311a4202d8fb95e711.cab"
           ],
-          "Uri" : "https://fwupd.org/downloads/90c505fd9b6f56311a4202d8fb95e711ab240dfcd50b0ff82a9ebe5f4750eed6-P62_0290.cab",
+          "Uri" : "https://fwupd.org/downloads/90c505fd9b6f56311a4202d8f.cab",
           "Homepage" : "http://www.hp.com/go/workstations",
           "Vendor" : "HP"
         },
@@ -299,8 +299,8 @@ GET_DEVICES_RESPONSE_DATA = """{
           "ReleaseId" : "14966",
           "RemoteId" : "lvfs",
           "Name" : "Z4 G4 Core-X Workstation",
-          "Summary" : "System Firmware (BIOS) for HP Z4 G4 Workstations (Core X-series processors), family P62",
-          "Description" : "<p>Fixes and enhancements in P62 2.85:</p><ul><li>Includes enhancements to mitigate security vulnerabilities.</li><li>HP strongly recommends promptly transitioning to this updated BIOS version.</li><li>Adds SMBIOS System Enclosure or Chassis (Type 3) entry.</li><li>Fixes an issue where Network BIOS Update would fail in Legacy mode.</li><li>Fixes an issue where system would not boot with a certain PCIe serial card installed.</li><li>Fixes a performance issue with a certain PCIe FireWire card.</li></ul>",
+          "Summary" : "System Firmware (BIOS) for HP Z4 G4 Workstations",
+          "Description" : "<p>Fixes and enhancements in P62 2.85:</p>",
           "Version" : "2.85",
           "Filename" : "8e9bfcf011d2a6c38986d7bebdf5fc8b39e23bd3",
           "Protocol" : "org.uefi.capsule",
@@ -315,9 +315,9 @@ GET_DEVICES_RESPONSE_DATA = """{
           "Size" : 16781312,
           "Created" : 1658274892,
           "Locations" : [
-            "https://fwupd.org/downloads/f328b807e6318c51d531771bd9e1b17efffcad755d7ca9ac3913faa1015f340d-P62_0285.cab"
+            "https://fwupd.org/downloads/f328b807e6318c51d531771bd9e1b17e.cab"
           ],
-          "Uri" : "https://fwupd.org/downloads/f328b807e6318c51d531771bd9e1b17efffcad755d7ca9ac3913faa1015f340d-P62_0285.cab",
+          "Uri" : "https://fwupd.org/downloads/f328b807e6318c51d531771bd.cab",
           "Homepage" : "http://www.hp.com/go/workstations",
           "Vendor" : "HP",
           "Flags" : [

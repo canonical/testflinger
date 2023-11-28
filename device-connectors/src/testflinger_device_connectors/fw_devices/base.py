@@ -1,10 +1,6 @@
 """Base class for flashing firmware on devices"""
 
-
-import logging
 from abc import ABC, abstractmethod
-
-logger = logging
 
 
 class AbstractDevice(ABC):
