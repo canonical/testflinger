@@ -18,12 +18,15 @@ This will send the data to the Testflinger server specified, but will not
 allow you to use the production server.
 """
 
+import logging
 import random
 import sys
 from argparse import ArgumentParser, Namespace
 from typing import Iterator, Optional, Tuple
 
 import requests
+
+logging.basicConfig(level=logging.INFO)
 
 
 def get_args() -> Namespace:
@@ -223,7 +226,7 @@ def main():
 
     queues = QueueDataGenerator(num_queues=args.queues)
     testflinger_client.post_queue_data(queues=queues)
-    print(f"Created {args.queues} queues")
+    logging.info("Created %s queues", args.queues)
 
     valid_queue_names = extract_queue_names(queues=queues)
 
@@ -231,16 +234,16 @@ def main():
         num_agents=args.agents, queue_list=valid_queue_names
     )
     testflinger_client.post_agent_data(agents=agents)
-    print(f"Created {args.agents} agents")
+    logging.info("Created %s agents", args.agents)
 
     jobs = JobDataGenerator(num_jobs=args.jobs, queue_list=valid_queue_names)
     testflinger_client.post_job_data(jobs=jobs)
-    print(f"Created {args.jobs} jobs")
+    logging.info("Created %s jobs", args.jobs)
 
 
 if __name__ == "__main__":
     try:
         main()
     except requests.exceptions.RequestException as error:
-        print(f"Error: {error}")
+        logging.error(error)
         sys.exit(1)
