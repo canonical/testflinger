@@ -27,8 +27,7 @@ class TestFirmwareUpdate(unittest.TestCase):
 
     def mock_run_cmd_unsupported(*args, **kwargs):
         """
-        Mock run_cmd for an Intel Desktop device (201808-26453), which
-        doesn't have a supported Device class.
+        Mock run_cmd for a device which doesn't have a supported Device class.
         """
         if args[1] == vendor_cmd:
             return 0, "Default string", ""
@@ -37,8 +36,7 @@ class TestFirmwareUpdate(unittest.TestCase):
 
     def mock_run_cmd_fail(*args, **kwargs):
         """
-        Mock run_cmd for a Rigado Cascade 500 device (201810-26506), which
-        doesn't provide dmi data.
+        Mock run_cmd for a device which couldn't provide dmi data.
         """
         if args[1] == vendor_cmd:
             return (
@@ -63,14 +61,14 @@ class TestFirmwareUpdate(unittest.TestCase):
             return (
                 255,
                 "",
-                "ssh: connect to host 10.102.161.93 port 22: "
+                "ssh: connect to host 10.10.10.10 port 22: "
                 "No route to host",
             )
         elif args[1] == type_cmd:
             return (
                 255,
                 "",
-                "ssh: connect to host 10.102.161.93 port 22: "
+                "ssh: connect to host 10.10.10.10 port 22: "
                 "No route to host",
             )
 
