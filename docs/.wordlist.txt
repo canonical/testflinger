@@ -4,6 +4,7 @@ APIs
 artifact
 artifacts
 balancer
+BG
 CharmHub
 CLI
 CM3
@@ -70,6 +71,7 @@ runtime
 SDWire
 SecureBoot
 SKU
+SSID
 subdirectories
 subfolders
 subtree
@@ -85,5 +87,8 @@ USB
 UUID
 VM
 webhook
+WPA
 xenial
 yaml
+LTS
+virtualenv

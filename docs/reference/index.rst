@@ -9,6 +9,7 @@ Working with device connectors
 .. toctree::
     :maxdepth: 1
   
+    job-schema
     device-connector-types
     device-connector-conf
 
