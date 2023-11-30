@@ -45,6 +45,10 @@ The following configuration options are supported:
 
   - Unique identifier for this agent
 
+- **identifier**:
+
+  - Additional identifier such as a serial number that will be sent to the server and can be used for cross-referencing with other systems
+
 - **polling_interval**:
 
   - Time to sleep between polling for new tests (default: 10s)

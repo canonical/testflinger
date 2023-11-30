@@ -37,7 +37,12 @@ class TestflingerAgent:
         self._post_advertised_images()
 
         queues = self.client.config.get("job_queues", [])
-        self.client.post_agent_data({"queues": queues, "location": location})
+        identifier = self.client.config.get("identifier")
+        agent_data = {"queues": queues, "location": location}
+        if identifier:
+            agent_data["identifier"] = identifier
+
+        self.client.post_agent_data(agent_data)
 
     def _post_advertised_queues(self):
         """

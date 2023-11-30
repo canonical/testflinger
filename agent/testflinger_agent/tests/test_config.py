@@ -21,8 +21,10 @@ from unittest import TestCase
 
 GOOD_CONFIG = """
 agent_id: test01
+identifier: 12345-123456
 polling_interval: 10
 server_address: 127.0.0.1:8000
+location: earth
 job_queues:
     - test
 """
