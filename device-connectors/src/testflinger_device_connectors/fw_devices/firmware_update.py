@@ -2,6 +2,7 @@
 
 import subprocess
 import logging
+import json
 from testflinger_device_connectors.fw_devices.dmi import Dmi
 from testflinger_device_connectors.fw_devices import (
     AbstractDevice,
@@ -20,19 +21,16 @@ def all_subclasses(cls):
     ]
 
 
-def detect_device(
-    ip: str, user: str, password: str = "", **options
-) -> AbstractDevice:
+def detect_device(ip: str, user: str, config: dict) -> AbstractDevice:
     """
     Detect device's firmware upgrade type by checking on DMI data
 
     :param ip:        DUT IP
     :param user:      DUT user
-    :param password:  DUT password (default=blank)
     :return:          device class object
     :rtype:           an instance of a class that implements AbstractDevice
     """
-    temp_device = LVFSDevice(ip, user, password)
+    temp_device = LVFSDevice(ip, user)
     run_ssh = temp_device.run_cmd
     devices = all_subclasses(AbstractDevice)
 
@@ -83,7 +81,27 @@ def detect_device(
         raise RuntimeError(err_msg)
 
     if issubclass(dev, LVFSDevice):
-        return dev(ip, user, password)
+        return dev(ip, user)
     elif issubclass(dev, OEMDevice):
-        logmsg(logging.INFO, err_msg)
-        raise RuntimeError(err_msg)
+        # get BMC info from MAAS
+        try:
+            cmd = f"maas {config['maas_user']} node power-parameters {config['node_id']}"
+            out = subprocess.check_output(
+                cmd,
+                shell=True,
+                universal_newlines=True,
+            ).strip()
+            bmc_info = json.loads(out)
+            return dev(
+                ip,
+                user,
+                bmc_info["power_address"],
+                bmc_info["power_user"],
+                bmc_info["power_pass"],
+            )
+        except KeyError:
+            raise RuntimeError("MAAS info isn't provided in config file")
+        except subprocess.CalledProcessError:
+            msg = f"maas error running: {' '.join(cmd)}"
+            logmsg(logging.ERROR, msg)
+            raise RuntimeError(msg)

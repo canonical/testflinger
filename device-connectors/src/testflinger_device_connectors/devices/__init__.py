@@ -148,7 +148,7 @@ class DefaultDevice:
         else:
             try:
                 target_device = detect_device(
-                    device_ip, target_device_username
+                    device_ip, target_device_username, config
                 )
                 target_device.get_fw_info()
                 if version == "latest":
