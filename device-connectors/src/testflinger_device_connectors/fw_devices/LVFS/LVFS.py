@@ -6,12 +6,12 @@ import json
 import time
 import logging
 from typing import Tuple
-from testflinger_device_connectors.fw_devices.base import AbstractDevice
+from testflinger_device_connectors.fw_devices.base import (
+    AbstractDevice,
+    SSH_OPTS,
+)
 from testflinger_device_connectors import logmsg
 from enum import Enum, auto
-
-
-SSH_OPTS = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 
 class LVFSDevice(AbstractDevice):
@@ -33,13 +33,10 @@ class LVFSDevice(AbstractDevice):
         :param timeout:      timeout for the command response
         :returns:            return code, stdout, stderr
         """
-        if self.password == "":
-            ssh_cmd = f'ssh -t {SSH_OPTS} {self.user}@{self.ipaddr} "{cmd}"'
-        else:
-            ssh_cmd = (
-                f"sshpass -p {self.password}  ssh -t {SSH_OPTS} "
-                + f' {self.user}@{self.ipaddr} "{cmd}"'
-            )
+        ssh_cmd = (
+            f"sshpass -p {self.password}  ssh -t {SSH_OPTS} "
+            + f' {self.user}@{self.ipaddr} "{cmd}"'
+        )
         try:
             r = subprocess.run(
                 ssh_cmd,
@@ -286,41 +283,6 @@ class LVFSDevice(AbstractDevice):
             logmsg(log_level, msg)
 
         return fwupd_result
-
-    def check_connectable(self, timeout: int):
-        """
-        After DUT reboot, check if SSH to DUT works within a given timeout
-        period
-
-        :param timeout: wait time for regaining DUT access
-        """
-        logmsg(
-            logging.INFO,
-            f"check and wait for {timeout}s until {self.ipaddr} is SSHable",
-        )
-        status = "1"
-        timeout_start = time.time()
-
-        while status != "0" and time.time() < timeout_start + timeout:
-            try:
-                status = subprocess.check_output(
-                    f"ssh {SSH_OPTS} {self.user}@{self.ipaddr} "
-                    + "/bin/true 2>/dev/null; echo $?",
-                    shell=True,
-                    universal_newlines=True,
-                    timeout=10,
-                ).strip()
-            except (
-                subprocess.TimeoutExpired,
-                subprocess.CalledProcessError,
-            ):
-                pass
-        if status != "0":
-            err_msg = f"Failed to SSH to {self.ipaddr} after {timeout}s"
-            logmsg(logging.ERROR, err_msg)
-            raise RuntimeError(err_msg)
-        delta = time.time() - timeout_start
-        logmsg(logging.INFO, f"{self.ipaddr} is SSHable after {int(delta)}s")
 
     def reboot(self):
         """Reboot the DUT from OS"""

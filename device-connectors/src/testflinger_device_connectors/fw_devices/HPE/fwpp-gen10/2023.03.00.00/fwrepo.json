@@ -1,0 +1,1122 @@
+{
+    "20_35_1012-MCX653435A-HDA_HPE_Ax.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) for HPE InfiniBand HDR/Ethernet 200Gb 1-port QSFP56 PCIe4 x16 OCP3 MCX653435A-HDAI Adapter : HPE part numbers  P31323-B21 and  P31323-H21",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "20.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101b15900347"
+        ]
+    },
+    "DL20ML30Gen10SPS_05.01.04.804.fwpkg": {
+        "description": "ROM Flash Firmware Package - Server Platform Services (SPS) Firmware  for HPE Gen10 Servers",
+        "deviceclass": "8e59d79d-ae28-4e35-8d63-3c0d75bee62e",
+        "version": "05.01.04.804",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Uefi"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-a3601590028d"
+        ]
+    },
+    "A46_2.68_02_06_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant XL225n Gen10 Plus (A46) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.68_02-06-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000229"
+        ]
+    },
+    "HPE_MR216i-a_Gen10_52.22.3-4650_B.fwpkg": {
+        "description": "Firmware Package - HPE MR216i-a Gen10 Plus Tri Mode Controller",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "52.22.3-4650",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "no",
+        "target": [
+            "a6b1a447-382a-5a4f-1000-10e21590032c"
+        ]
+    },
+    "HPE_E810_XXV4_OCP_4p10_NCSIwPLDMoMCTP_8001518A.fwpkg": {
+        "description": "Intel Firmware Package For E810-XXVDA4 Ethernet 10/25Gb 4-port SFP28 OCP3 Adapter",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "4.10",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-15938086000c"
+        ]
+    },
+    "28_35_1012-MCX75310AAS-HEAT_HPE_Ax.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) for HPE InfiniBand NDR200 1-port OSFP PCIe5 x16 MCX75310AAS-HEAT Adapter : HPE part numbers  P45642-B21 and P45642-H21",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "28.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-102115b30074"
+        ]
+    },
+    "HPE_E810_2CQDA2_O_SEC_4p10_PLDMoMCTP_8001518B.fwpkg": {
+        "description": "Intel Firmware Package For E810-2CQDA2 Ethernet 100Gb 2-port QSFP28 Adapter",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "4.10",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-15928086000e"
+        ]
+    },
+    "IEGen10Plus_1.0.0.22.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE Gen10 Plus Innovation Engine Firmware for HPE Gen10 Plus Servers",
+        "deviceclass": "c734e171-8721-48c9-9ed6-d5bc7da5ef8d",
+        "version": "1.0.0.22",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Uefi"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-3c10-87800a000303"
+        ]
+    },
+    "22_35_1012-MCX623106AS-CDA_Ax.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) for Mellanox MCX623106AS-CDAT Ethernet 100Gb 2-port QSFP56 Adapter for HPE",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "22.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101d15b30042"
+        ]
+    },
+    "U48_2.68_01_12_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant MicroServer Gen10 Plus (U48) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.68_01-12-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000222",
+            "00000000-0000-0000-0000-000000000224"
+        ]
+    },
+    "HPE_E810_CQDA2_4p10_PLDMoMCTP_8001518E.fwpkg": {
+        "description": "Intel Firmware Package For E810-CQDA2 Ethernet 100Gb 2-port QSFP28 Adapter",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "4.10",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-159280860002"
+        ]
+    },
+    "bcm224.1.102.0_Thor.pup.fwpkg": {
+        "description": "Broadcom Firmware Package for BCM5750x adapters",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "224.1.102.0",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-14e4-175114e41598",
+            "a6b1a447-382a-5a4f-14e4-180114e41598",
+            "a6b1a447-382a-5a4f-14e4-180414e41598",
+            "a6b1a447-382a-5a4f-14e4-175114e41599",
+            "a6b1a447-382a-5a4f-14e4-180114e41599",
+            "a6b1a447-382a-5a4f-14e4-180414e41599",
+            "a6b1a447-382a-5a4f-14e4-175014e4159a",
+            "a6b1a447-382a-5a4f-14e4-180214e4159a",
+            "a6b1a447-382a-5a4f-14e4-180514e4159a",
+            "a6b1a447-382a-5a4f-14e4-175014e4159b",
+            "a6b1a447-382a-5a4f-14e4-180214e4159b",
+            "a6b1a447-382a-5a4f-14e4-180514e4159b"
+        ]
+    },
+    "22_35_1012-MCX623105AS-VDA_Ax.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) for Mellanox MCX623105AS-VDAT Ethernet 200Gb 1-port QSFP56 Adapter for HPE",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "22.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101d15b30040"
+        ]
+    },
+    "U40_2.76_02_09_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE Apollo 4510 Gen10/HPE ProLiant XL450 Gen10 (U40) Servers ",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.76_02-09-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000020f"
+        ]
+    },
+    "U39_2.76_02_09_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE Apollo 4200 Gen10/HPE ProLiant XL420 Gen10 (U39) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.76_02-09-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000021b"
+        ]
+    },
+    "U45_2.76_02_09_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE Apollo 6500 Gen10/HPE ProLiant XL270d Gen10 (U45) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.76_02-09-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000219"
+        ]
+    },
+    "SC_DL20GEN10Plus_ME_06.00.03.309.fwpkg": {
+        "description": "ROM Flash Firmware Package - Server Platform Services (SPS) Firmware for HPE ProLiant DL20 Gen10 Plus Servers",
+        "deviceclass": "8e59d79d-ae28-4e35-8d63-3c0d75bee62e",
+        "version": "06.00.03.309",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Uefi"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-43e080867270"
+        ]
+    },
+    "SC_ML30GEN10Plus_ME_06.00.03.309.fwpkg": {
+        "description": "ROM Flash Firmware Package - Server Platform Services (SPS) Firmware for HPE ProLiant ML30 Gen10 Plus Servers",
+        "deviceclass": "8e59d79d-ae28-4e35-8d63-3c0d75bee62e",
+        "version": "06.00.03.309",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Uefi"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-43e080867270"
+        ]
+    },
+    "U50_1.72_02_02_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE Apollo 4200 Gen10 Plus/HPE ProLiant XL420 Gen10 Plus (U50) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "1.72_02-02-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000022b"
+        ]
+    },
+    "A40_2.68_02_02_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant DL385 Gen10 (A40) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.68_02-02-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000020a"
+        ]
+    },
+    "bcm224.1.102.0.pup.fwpkg": {
+        "description": "Broadcom Firmware Package for BCM5741x adapters",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "224.1.102.0",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-14e4-16d614e41595",
+            "a6b1a447-382a-5a4f-14e4-16de14e41595",
+            "a6b1a447-382a-5a4f-14e4-16eb14e41595",
+            "a6b1a447-382a-5a4f-14e4-16d614e41594",
+            "a6b1a447-382a-5a4f-14e4-16de14e41594",
+            "a6b1a447-382a-5a4f-14e4-16eb14e41594",
+            "a6b1a447-382a-5a4f-14e4-16d714e41597",
+            "a6b1a447-382a-5a4f-14e4-16ec14e41597",
+            "a6b1a447-382a-5a4f-14e4-16ed14e41597",
+            "a6b1a447-382a-5a4f-14e4-16d714e41596",
+            "a6b1a447-382a-5a4f-14e4-16ec14e41596",
+            "a6b1a447-382a-5a4f-14e4-16ed14e41596",
+            "a6b1a447-382a-5a4f-14e4-16d814e41593",
+            "a6b1a447-382a-5a4f-14e4-16ee14e41593",
+            "a6b1a447-382a-5a4f-14e4-16ef14e41593",
+            "a6b1a447-382a-5a4f-14e4-16d814e41592",
+            "a6b1a447-382a-5a4f-14e4-16ee14e41592",
+            "a6b1a447-382a-5a4f-14e4-16ef14e41592"
+        ]
+    },
+    "20_35_1012-MCX653436A-HDA_HPE_Ax.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) for HPE InfiniBand HDR/Ethernet 200Gb 2-port QSFP56 PCIe4 x16 OCP3 MCX653436A-HDAI Adapter : HPE part numbers  P31348-B21 and P31348-H21",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "20.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101b15900348"
+        ]
+    },
+    "U41_2.76_02_09_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant ML350 Gen10 (U41) Servers ",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.76_02-09-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000216"
+        ]
+    },
+    "HPE_NS204i_Gen10P_Gen11_1.2.14.1009_A.fwpkg": {
+        "description": "Firmware Package - HPE Gen11 Boot Controller NS204i-u, NS204i-d and HPE Gen10 Plus Boot Controller NS204i-p, NS204i-d, NS204i-t, NS204i-r",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "1.2.14.1009",
+        "minimum_active_version": "1.0.14.1063",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-1b4b-224115900379",
+            "a6b1a447-382a-5a4f-1b4b-224115900380",
+            "a6b1a447-382a-5a4f-1b4b-2241159002f6",
+            "a6b1a447-382a-5a4f-1b4b-22411590030e",
+            "a6b1a447-382a-5a4f-1b4b-22411590030f",
+            "a6b1a447-382a-5a4f-1b4b-224115900310"
+        ]
+    },
+    "U61_1.68_01_12_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant ML30 Gen10 Plus Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "1.68_01-12-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000023c"
+        ]
+    },
+    "16_35_1012-MCX515A-CCA_HPE_Ax.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) for HPE Ethernet 100Gb 1-port QSFP28 PCIe3 x16 MCX515A-CCAT Adapter : HPE part numbers P31246-B21 and P31246-H21",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "16.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101715900346"
+        ]
+    },
+    "20_35_1012-MCX653106A-ECA_HPE_Ax.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) for HPE InfiniBand HDR100/Ethernet 100Gb 2-port QSFP56 PCIe4 x16 MCX653106A-ECAT Adapter : HPE part numbers P23666-B21 and P23666-H21",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "20.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101b15b30074"
+        ]
+    },
+    "U44_2.68_01_12_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant ML30 Gen10 (U44) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.68_01-12-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000021a"
+        ]
+    },
+    "26_35_1012-MCX631102AS-ADA_Ax.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) - Mellanox MCX631102AS-ADAT Ethernet 10/25Gb 2-port SFP28 Adapter for HPE",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "26.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101f15b30012"
+        ]
+    },
+    "U33_2.76_02_09_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant ML110 Gen10 (U33) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.76_02-09-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000020b"
+        ]
+    },
+    "A47_2.68_02_06_2023.fwpkg": {
+        "description": "ROM Flash Universal Firmware Package - HPE Apollo 6500 Gen10 Plus/HPE ProLiant XL675d Gen10 Plus (A47) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.68_02-06-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000022d"
+        ]
+    },
+    "IEGen10_0.2.3.0.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE Gen10 Innovation Engine Firmware for HPE Gen10 Servers",
+        "deviceclass": "c734e171-8721-48c9-9ed6-d5bc7da5ef8d",
+        "version": "0.2.3.0",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Uefi"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-3c10-3c100a000303"
+        ]
+    },
+    "HPE_E810_XXVDA2_SD_4p10_PLDMoMCTP_80015188.fwpkg": {
+        "description": "Intel Firmware Package For E810-XXVDA2 Ethernet 10/25Gb 2-port SFP28 Adapter",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "4.10",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-159b80860003"
+        ]
+    },
+    "MicroserverGen10PlusSPS_05.01.04.804.fwpkg": {
+        "description": "ROM Flash Firmware Package - Server Platform Services (SPS) Firmware  for HPE MicroServer Gen10 Plus",
+        "deviceclass": "8e59d79d-ae28-4e35-8d63-3c0d75bee62e",
+        "version": "05.01.04.804",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Uefi"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-a3601590028d"
+        ]
+    },
+    "20_35_1012-MCX653105A-HDA_HPE_Ax.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) for HPE InfiniBand HDR/Ethernet 200Gb 1-port QSFP56 PCIe4 x16 MCX653105A-HDAT Adapter : HPE part numbers P23664-B21 and P23664-H21",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "20.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101b15b30068"
+        ]
+    },
+    "A43_2.68_02_06_2023.fwpkg": {
+        "description": "ROM Flash Universal Firmware Package - HPE ProLiant DL325/DL325 v2/DL345 Gen10 Plus (A43) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.68_02-06-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000021c",
+            "00000000-0000-0000-0000-000000000231",
+            "00000000-0000-0000-0000-000000000232"
+        ]
+    },
+    "ql_ah_mbi_open_8.65.01_pldm.fwpkg": {
+        "description": "Marvell FastLinQ Firmware Package for Arrowhead adapters",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "8.65.01",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-1077-807010770068",
+            "a6b1a447-382a-5a4f-1077-809010770068",
+            "a6b1a447-382a-5a4f-1077-80f010770068",
+            "a6b1a447-382a-5a4f-1077-807010770069",
+            "a6b1a447-382a-5a4f-1077-809010770069",
+            "a6b1a447-382a-5a4f-1077-80f010770069",
+            "a6b1a447-382a-5a4f-1077-807010770070",
+            "a6b1a447-382a-5a4f-1077-809010770070",
+            "a6b1a447-382a-5a4f-1077-80f010770070",
+            "a6b1a447-382a-5a4f-1077-807010770071",
+            "a6b1a447-382a-5a4f-1077-809010770071",
+            "a6b1a447-382a-5a4f-1077-80f010770071",
+            "a6b1a447-382a-5a4f-1077-807010770073",
+            "a6b1a447-382a-5a4f-1077-809010770073",
+            "a6b1a447-382a-5a4f-1077-80f010770073",
+            "a6b1a447-382a-5a4f-1077-807010770072",
+            "a6b1a447-382a-5a4f-1077-809010770072",
+            "a6b1a447-382a-5a4f-1077-80f010770072",
+            "a6b1a447-382a-5a4f-1077-807010770074",
+            "a6b1a447-382a-5a4f-1077-809010770074",
+            "a6b1a447-382a-5a4f-1077-80f010770074",
+            "a6b1a447-382a-5a4f-1077-807010770077",
+            "a6b1a447-382a-5a4f-1077-809010770077",
+            "a6b1a447-382a-5a4f-1077-80f010770077",
+            "a6b1a447-382a-5a4f-1077-807010770078",
+            "a6b1a447-382a-5a4f-1077-809010770078",
+            "a6b1a447-382a-5a4f-1077-80f010770078"
+        ]
+    },
+    "bcm224.1.102000.Optimized.pup.fwpkg": {
+        "description": "HPE Broadcom NetXtreme-E Firmware Package for BCM5741x adapters",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "224.1.102000",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-14e4-16d815900212",
+            "a6b1a447-382a-5a4f-14e4-16ee15900212",
+            "a6b1a447-382a-5a4f-14e4-16ef15900212",
+            "a6b1a447-382a-5a4f-14e4-16d81590020c",
+            "a6b1a447-382a-5a4f-14e4-16ee1590020c",
+            "a6b1a447-382a-5a4f-14e4-16ef1590020c",
+            "a6b1a447-382a-5a4f-14e4-16d615900230",
+            "a6b1a447-382a-5a4f-14e4-16de15900230",
+            "a6b1a447-382a-5a4f-14e4-16d7159002c3",
+            "a6b1a447-382a-5a4f-14e4-16ec159002c3",
+            "a6b1a447-382a-5a4f-14e4-16ed159002c3",
+            "a6b1a447-382a-5a4f-14e4-16d7159002c5",
+            "a6b1a447-382a-5a4f-14e4-16ec159002c5",
+            "a6b1a447-382a-5a4f-14e4-16ed159002c5",
+            "a6b1a447-382a-5a4f-14e4-16d715900211",
+            "a6b1a447-382a-5a4f-14e4-16ec15900211",
+            "a6b1a447-382a-5a4f-14e4-16ed15900211",
+            "a6b1a447-382a-5a4f-14e4-16d71590020e",
+            "a6b1a447-382a-5a4f-14e4-16ec1590020e",
+            "a6b1a447-382a-5a4f-14e4-16ed1590020e"
+        ]
+    },
+    "U46_1.72_02_02_2023.fwpkg": {
+        "description": "ROM Flash Universal Firmware Package - HPE ProLiant DL360/DL380 Gen10 Plus (U46) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "1.72_02-02-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000225",
+            "00000000-0000-0000-0000-000000000226",
+            "00000000-0000-0000-0000-00000000022c"
+        ]
+    },
+    "dcpmm_02.02.00.1553.fwpkg": {
+        "description": "Firmware package for HPE Persistent Memory featuring Intel Optane DC Persistent Memory on HPE Gen10 Plus Servers",
+        "deviceclass": "5727E0D6-F37B-447D-A9E4-5A7FB0B9DC8A",
+        "version": "02.02.00.1553",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Uefi"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "805dd01c-eb5a-1e76-8089-004080897b09",
+            "805dd01c-eb5a-1e76-8089-524580897b09",
+            "805dd01c-eb5a-1e76-8089-a74a80897b09",
+            "805dd01c-eb5a-1e76-8089-fc4f80897b09"
+        ]
+    },
+    "HPE_MR216i-p_Gen10_52.22.3-4650_C.fwpkg": {
+        "description": "Firmware Package - HPE MR216i-p Gen10 Plus Tri Mode Controller with Gen10 and Gen10 Plus servers",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "52.22.3-4650",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "no",
+        "target": [
+            "a6b1a447-382a-5a4f-1000-10e21590032b"
+        ]
+    },
+    "U30_2.76_02_09_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant DL380 Gen10 (U30) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.76_02-09-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000205"
+        ]
+    },
+    "ISS_NVMe_BP_PIC_flashV1B24.fwpkg": {
+        "description": "Firmware Package - Gen10 NVMe Backplane PIC Firmware",
+        "deviceclass": "3653aa90-7089-453a-899c-792827a50d67",
+        "version": "1.24",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000049535320",
+            "00000000-0000-0000-0000-00004e564d65"
+        ]
+    },
+    "A42_2.68_02_06_2023.fwpkg": {
+        "description": "ROM Flash Universal Firmware Package - HPE ProLiant DL365/DL385/DL385 v2 Gen10 Plus (A42) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.68_02-06-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000230",
+            "00000000-0000-0000-0000-00000000021d"
+        ]
+    },
+    "HPE_SR_Gen10_5.61_C.fwpkg": {
+        "description": "Firmware Package  - HPE Smart Array P408i-p, P408e-p, P408i-a, P408i-c, E208i-p, E208e-p, E208i-c, E208i-a, P408e-m, P204i-c and P816i-a SR Gen10 and Gen11 controllers",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "5.61",
+        "minimum_active_version": "5.32",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-9005-028f103c1100",
+            "a6b1a447-382a-5a4f-9005-028f103c1101",
+            "a6b1a447-382a-5a4f-9005-028f103c0601",
+            "a6b1a447-382a-5a4f-9005-028f103c0602",
+            "a6b1a447-382a-5a4f-9005-028f103c0603",
+            "a6b1a447-382a-5a4f-9005-028f103c0600",
+            "a6b1a447-382a-5a4f-9005-028f103c0700",
+            "a6b1a447-382a-5a4f-9005-028f103c0651",
+            "a6b1a447-382a-5a4f-9005-028f103c0654",
+            "a6b1a447-382a-5a4f-9005-028f103c0652",
+            "a6b1a447-382a-5a4f-9005-028f103c0650"
+        ]
+    },
+    "U32_2.76_02_09_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant DL360 Gen10 (U32) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.76_02-09-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000204"
+        ]
+    },
+    "HPE_E810_XXV4T_O_SEC_4p10_PLDMoMCTP_80015189.fwpkg": {
+        "description": "Intel Firmware Package For E810-XXVDA4 Ethernet 10/25Gb 4-port SFP28 MCLK Adapter ",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "4.10",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-15938086000e"
+        ]
+    },
+    "U31_2.76_02_09_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant DL160 Gen10/DL180 Gen10 (U31) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.76_02-09-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000208",
+            "00000000-0000-0000-0000-000000000209"
+        ]
+    },
+    "U38_2.76_02_09_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE Apollo 2000 Gen10/HPE ProLiant XL170r/XL190r Gen10 (U38) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.76_02-09-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000213"
+        ]
+    },
+    "A48_2.68_02_06_2023.fwpkg": {
+        "description": "ROM Flash Universal Firmware Package - HPE Apollo 6500 Gen10 Plus/HPE ProLiant XL645d Gen10 Plus (A48) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.68_02-06-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000022f"
+        ]
+    },
+    "26_35_1012-MCX631432AS-ADA_Ax.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) - Mellanox MCX631432AS-ADAI Ethernet 10/25Gb 2-port SFP28 OCP3 Adapter for HPE",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "26.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101f15b30007"
+        ]
+    },
+    "U37_2.76_02_09_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant XL230k Gen10 (U37) Server",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.76_02-09-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000020e"
+        ]
+    },
+    "ilo5_281.fwpkg": {
+        "description": "Online ROM Flash Firmware Package - HPE Integrated Lights-Out 5",
+        "deviceclass": "2f317b9d-c9e3-4d76-bff6-b9d0d085a952",
+        "version": "2.81",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "no",
+        "target": [
+            "c5b14abd-6d2f-41d7-b665-0447dfdac3a7",
+            "c0bcf2b9-1141-49af-aab8-c73791f0349c"
+        ]
+    },
+    "U64_1.68_01_12_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant MicroServer Gen10 Plus v2 (U64) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "1.68_01-12-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000253",
+            "00000000-0000-0000-0000-000000000254"
+        ]
+    },
+    "HPE_MR416i-p_Gen10_52.22.3-4650_C.fwpkg": {
+        "description": "Firmware Package - HPE MR416i-p Gen10 Plus Tri Mode Controller with Gen10 and Gen10 Plus servers",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "52.22.3-4650",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "no",
+        "target": [
+            "a6b1a447-382a-5a4f-1000-10e215900293"
+        ]
+    },
+    "HPE_MR416i-a_Gen10_52.22.3-4650_B.fwpkg": {
+        "description": "Firmware Package - HPE MR416i-a Gen10 Plus Tri Mode Controller",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "52.22.3-4650",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "no",
+        "target": [
+            "a6b1a447-382a-5a4f-1000-10e21590032a"
+        ]
+    },
+    "HPE_E810_CQDA2_OCP_4p10_NCSIwPLDMoMCTP_80015190.fwpkg": {
+        "description": "Intel Firmware Package For E810-CQDA2 Ethernet 100Gb 2-port QSFP28 OCP3 Adapter",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "4.10",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-159280860006"
+        ]
+    },
+    "PICGen10-1.0.8-1.fwpkg": {
+        "description": "ROM Flash Firmware Package - Advanced Power Capping Microcontroller Firmware for HPE Gen10 and Gen10 Plus Servers",
+        "deviceclass": "9e48a28a-586c-4519-8405-a04f84e27f0f",
+        "version": "1.0.8",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000504d05"
+        ]
+    },
+    "A41_2.68_02_02_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant DL325 Gen10 (A41) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.68_02-02-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000217"
+        ]
+    },
+    "U34_2.76_02_09_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant DL560 Gen10/DL580 Gen10 (U34) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.76_02-09-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000020c",
+            "00000000-0000-0000-0000-00000000020d"
+        ]
+    },
+    "SPSGen10_04.01.04.901.fwpkg": {
+        "description": "ROM Flash Firmware Package - Server Platform Services (SPS) Firmware for HPE Gen10 Servers",
+        "deviceclass": "b34e5677-21dc-45d3-872b-42f76fee9053",
+        "version": "04.01.04.901",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Uefi"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-3c10-86800a000101"
+        ]
+    },
+    "ql_hp_ah_mbi_8.65.01_pldm.fwpkg": {
+        "description": "HPE QLogic FastLinQ Firmware Package for Arrowhead adapters",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "8.65.01",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-1077-80701590021d",
+            "a6b1a447-382a-5a4f-1077-80901590021d",
+            "a6b1a447-382a-5a4f-1077-80701590021f",
+            "a6b1a447-382a-5a4f-1077-80801590021f",
+            "a6b1a447-382a-5a4f-1077-80841590021f",
+            "a6b1a447-382a-5a4f-1077-80901590021f",
+            "a6b1a447-382a-5a4f-1077-807015900220",
+            "a6b1a447-382a-5a4f-1077-809015900220",
+            "a6b1a447-382a-5a4f-1077-80701590021b",
+            "a6b1a447-382a-5a4f-1077-80801590021b",
+            "a6b1a447-382a-5a4f-1077-80841590021b",
+            "a6b1a447-382a-5a4f-1077-80901590021b",
+            "a6b1a447-382a-5a4f-1077-80701590021a",
+            "a6b1a447-382a-5a4f-1077-80801590021a",
+            "a6b1a447-382a-5a4f-1077-80841590021a",
+            "a6b1a447-382a-5a4f-1077-80901590021a",
+            "a6b1a447-382a-5a4f-1077-80f01590021d",
+            "a6b1a447-382a-5a4f-1077-80f01590021f",
+            "a6b1a447-382a-5a4f-1077-80f015900220",
+            "a6b1a447-382a-5a4f-1077-80f01590021b",
+            "a6b1a447-382a-5a4f-1077-80f01590021a",
+            "a6b1a447-382a-5a4f-1077-8070159002bd",
+            "a6b1a447-382a-5a4f-1077-8090159002bd",
+            "a6b1a447-382a-5a4f-1077-80f0159002bd"
+        ]
+    },
+    "20_35_1012-MCX653106A-HDA_HPE_Ax.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) for HPE InfiniBand HDR/Ethernet 200Gb 2-port QSFP56 PCIe4 x16 MCX653106A-HDAT Adapter :  HPE part numbers P31324-B21 and P31324-H21",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "20.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101b15900345"
+        ]
+    },
+    "HPE_E810_XXVDA2_SD_OCP_4p10_NCSIwPLDMoMCTP_8001518D.fwpkg": {
+        "description": "Intel Firmware Package For E810-XXVDA2 Ethernet 10/25Gb 2-port SFP28 OCP3 Adapter",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "4.10",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-159b80860005"
+        ]
+    },
+    "16_35_1012-MCX562A-ACA_Ax_Bx.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) for \t Mellanox MCX562A-ACAI Ethernet 10/25Gb 2-port SFP28 OCP3 Adapter for HPE",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "16.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101715b30052"
+        ]
+    },
+    "dcpmm_01.02.00.5446.fwpkg": {
+        "description": "Firmware package for HPE Persistent Memory featuring Intel Optane DC Persistent Memory on HPE Gen10 Servers",
+        "deviceclass": "5727E0D6-F37B-447D-A9E4-5A7FB0B9DC8A",
+        "version": "01.02.00.5446",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Uefi"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "805DD01C-EB5A-1E76-8089-514180897A09",
+            "805DD01C-EB5A-1E76-8089-560580897A09",
+            "805DD01C-EB5A-1E76-8089-001080897A09",
+            "805DD01C-EB5A-1E76-8089-551580897A09"
+        ]
+    },
+    "SPSGen10Plus_04.04.04.300.fwpkg": {
+        "description": "ROM Flash Firmware Package - Server Platform Services (SPS) Firmware  for HPE Gen10 Plus Servers",
+        "deviceclass": "b34e5677-21dc-45d3-872b-42f76fee9053",
+        "version": "04.04.04.300",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Uefi"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-3c10-87800a000101"
+        ]
+    },
+    "U56_1.72_02_02_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE DL110 Gen10 Plus Telco (U56) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "1.72_02-02-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000239"
+        ]
+    },
+    "16_35_1012-MCX512F-ACH_Ax_Bx.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package(FWPKG) for HPE Ethernet 10/25Gb 2-port SFP28 MCX512F-ACHT Adapter",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "16.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101715b30116"
+        ]
+    },
+    "SC_MicroServerv2GEN10Plus_ME_06.00.03.309.fwpkg": {
+        "description": "ROM Flash Firmware Package - Server Platform Services (SPS) Firmware for HPE ProLiant MicroServer Gen10 Plus v2 Servers",
+        "deviceclass": "8e59d79d-ae28-4e35-8d63-3c0d75bee62e",
+        "version": "06.00.03.309",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Uefi"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-43e080867270"
+        ]
+    },
+    "20_35_1012-MCX653105A-ECA_HPE_Ax.pldm.fwpkg": {
+        "description": "Mellanox Firmware Package (FWPKG) for HPE InfiniBand HDR100/Ethernet 100Gb 1-port QSFP56 PCIe4 x16 MCX653105A-ECAT Adapter : HPE part numbers P23665-B21 and P23665-H21",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "20.35.1012",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101b15b30069"
+        ]
+    },
+    "U47_1.72_02_02_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant XL220n/XL290n Gen10 Plus 1U Node and 2U Node Configure-to-order Server (U47) ",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "1.72_02-02-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000227"
+        ]
+    },
+    "U60_1.68_01_12_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE Proliant DL20 Gen10 Plus Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "1.68_01-12-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-00000000023e"
+        ]
+    },
+    "U43_2.68_01_12_2023.fwpkg": {
+        "description": "ROM Flash Firmware Package - HPE ProLiant DL20 Gen10 (U43) Servers",
+        "deviceclass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+        "version": "2.68_01-12-2023",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000218"
+        ]
+    },
+    "HPE_SR416_SR932_Gen10P_Gen11_03.01.17.056_B.fwpkg": {
+        "description": "Firmware Package - HPE SR932i-p Gen10 Plus /SR416i-a Gen10 Plus/SR932i-p Gen11/SR416ie-m Gen11 Controllers",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "03.01.17.056",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-9005-028f159002db",
+            "a6b1a447-382a-5a4f-9005-028f1590032e",
+            "a6b1a447-382a-5a4f-9005-028f15900381",
+            "a6b1a447-382a-5a4f-9005-028f159002dc",
+            "a6b1a447-382a-5a4f-9005-028f15900294"
+        ]
+    },
+    "HPE_E810_XXVDA4_FH_4p10_PLDMoMCTP_8001518F.fwpkg": {
+        "description": "Intel Firmware Package For E810-XXVDA4 Ethernet 10/25Gb 4-port SFP28 Adapter",
+        "deviceclass": "79f0c163-0c13-4662-9dea-09235fef90cb",
+        "version": "4.10",
+        "minimum_active_version": "null",
+        "updatableBy": [
+            "Bmc"
+        ],
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-8086-159380860005"
+        ]
+    }
+}
