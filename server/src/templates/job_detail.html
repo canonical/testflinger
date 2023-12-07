@@ -27,28 +27,38 @@
 
 
 <h2 class="p-muted-heading">Job Definition</h2>
-provision_data:
-<div>
-    {{ job.job_data.provision_data }}
+<div class="p-code-snippet">
+    <div class="p-code-snippet__header">
+        <h5 class="p-code-snippet__title">Provision Data</h5>
+    </div>
+    <pre class="p-code-snippet__block--numbered language-yaml">
+        <code>
+{{ job.job_data.provision_data }}
+        </code>
+    </pre>
 </div>
-
 {% if job.job_data.firmware_update_data %}
-<hr>
-firmware_update_data:
-<div class="center scrollable">
-    <span style="white-space: pre-line">
-        {{ job.job_data.firmware_update_data }}
-    </span>
+<div class="p-code-snippet">
+    <div class="p-code-snippet__header">
+        <h5 class="p-code-snippet__title">Firmware Update Data</h5>
+    </div>
+    <pre class="p-code-snippet__block--numbered language-yaml">
+        <code>
+{{ job.job_data.firmware_update_data }}
+        </code>
+    </pre>
 </div>
 {% endif %}
-
 {% if job.job_data.test_data %}
-<hr>
-test_cmds:
-<div class="center scrollable">
-    <span style="white-space: pre-line">
-        {{ job.job_data.test_data.test_cmds }}
-    </span>
+<div class="p-code-snippet">
+    <div class="p-code-snippet__header">
+        <h5 class="p-code-snippet__title">Test Commands</h5>
+    </div>
+    <pre class="p-code-snippet__block--numbered">
+        <code>
+{{ job.job_data.test_data.test_cmds }}
+        </code>
+    </pre>
 </div>
 {% endif %}
 
