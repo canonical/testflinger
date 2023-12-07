@@ -20,6 +20,7 @@ class TestClient:
         self.tmpdir = tempfile.mkdtemp()
         self.config = {
             "agent_id": "test01",
+            "identifier": "12345-123456",
             "polling_interval": "2",
             "server_address": "127.0.0.1:8000",
             "job_queues": ["test"],
@@ -215,6 +216,7 @@ class TestClient:
             agent._post_initial_agent_data()
             mock_post_agent_data.assert_called_with(
                 {
+                    "identifier": self.config["identifier"],
                     "queues": self.config["job_queues"],
                     "location": self.config["location"],
                 }

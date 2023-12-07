@@ -17,6 +17,8 @@ import voluptuous
 
 SCHEMA_V1 = {
     voluptuous.Required("agent_id"): str,
+    voluptuous.Optional("identifier"): str,
+    voluptuous.Optional("location"): str,
     voluptuous.Required("polling_interval", default=10): int,
     voluptuous.Required("server_address"): str,
     voluptuous.Required(
