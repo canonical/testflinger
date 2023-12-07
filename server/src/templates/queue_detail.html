@@ -1,27 +1,31 @@
 {% extends 'base.html' %}
 {% set active_page = 'queues' %}
 {% block content %}
-<div class="general-info center">
-    <table>
+<div class="p-strip is-shallow">
+    <div class="row">
+        <h1 class="p-heading--3">
+            Queue Detail - {{ queue.name }}
+        </h1>
+    </div>
+</div>
+<table aria-label="Agent table" class="p-table--mobile-card">
+    <tbody>
         <tr>
-            <th>Queue Name:</th>
-            <td>{{ queue.name }}</td>
-        </tr>
-        <tr>
-            <th>Description:</th>
+            <td>Description</td>
             <td>{{ queue.description }}</td>
         </tr>
-    </table>
-</div>
-<br>
-<br>
-<div class="filter-table center">
-    <table width="100%">
+    </tbody>
+</table>
+
+<table aria-label="Agents table" class="p-table--mobile-card">
+    <thead>
         <tr>
             <th>Job ID</th>
             <th>State</th>
             <th>Created At</th>
         </tr>
+    </thead>
+    <tbody>
         {% for job in jobs %}
         <tr class="tr-highlight">
             <td><a href="/jobs/{{ job.job_id}}">{{ job.job_id }}</a></td>
@@ -29,6 +33,7 @@
             <td>{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
         </tr>
         {% endfor %}
-    </table>
-</div>
+    </tbody>
+</table>
+
 {% endblock %}
