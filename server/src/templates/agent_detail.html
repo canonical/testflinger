@@ -1,29 +1,44 @@
 {% extends 'base.html' %}
 {% set active_page = 'agents' %}
 {% block content %}
-<div class="center">
-    <p>
-    Agent Name: {{ agent.name }}<br>
-    State: {{ agent.state }}<br>
-    Location: {{ agent.location }}<br>
-    Provision Type: {{ agent.provision_type }}<br>
-    Last Updated: {{ agent.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}<br>
-    </p>
-    <p>
-    Queues:
-    <ul>
-        {% for queue in agent.queues %}
-        <li><a href="/queues/{{ queue }}">{{ queue }}</a></li>
-        {% endfor %}
-    </ul>
-    </p>
-    <p>
-    Agent Log:
-    <div class="center scrollable">
-        <span style="white-space: pre-line">
-            {{ agent.log|join('\n') }}
-        </span>
+<div class="p-strip is-shallow">
+    <div class="row">
+        <h1 class="p-heading--3">
+            Agent Detail - {{ agent.name }}
+        </h1>
     </div>
-    </p>
 </div>
+<table aria-label="Agent table" class="p-table--mobile-card">
+    <tbody>
+        <tr>
+            <td>State</td>
+            <td>{{ agent.state }}</td>
+        </tr>
+        <tr>
+            <td>Location</td>
+            <td>{{ agent.location }}</td>
+        </tr>
+        <tr>
+            <td>Provision Type</td>
+            <td>{{ agent.provision_type }}</td>
+        </tr>
+        <tr>
+            <td>Last updated</td>
+            <td>{{ agent.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        </tr>
+    </tbody>
+</table>
+<h2 class="p-muted-heading">Queues</h2>
+<ul>
+    {% for queue in agent.queues %}
+    <li><a href="/queues/{{ queue }}">{{ queue }}</a></li>
+    {% endfor %}
+</ul>
+<h2 class="p-muted-heading">Agent Log</h2>
+<div class="center scrollable">
+    <span style="white-space: pre-line">
+        {{ agent.log|join('\n') }}
+    </span>
+</div>
+
 {% endblock %}
