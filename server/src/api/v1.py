@@ -365,6 +365,14 @@ def images_post():
     return "OK"
 
 
+@v1.get("/agents/data")
+@v1.output(schemas.AgentOut)
+def agents_get_all():
+    """Get all agent data"""
+    agents = mongo.db.agents.find({}, {"_id": False, "log": False})
+    return jsonify(list(agents))
+
+
 @v1.post("/agents/data/<agent_name>")
 @v1.input(schemas.AgentIn, location="json")
 def agents_post(agent_name, json_data):

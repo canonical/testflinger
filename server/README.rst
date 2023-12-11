@@ -305,3 +305,19 @@ server will only return one job.
     $ curl http://localhost:8000/v1/job/00000000-0000-0000-0000-000000000000/action \
          -X POST --header "Content-Type: application/json" \
          --data '{ "action":"cancel" }'
+
+**[GET] /v1/agents/data** - retrieve all agent data
+
+- Status Codes:
+
+  - HTTP 200 (OK)
+
+- Returns:
+
+  JSON data for all known agents, useful for external systems that need to gather this information
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl -X GET http://localhost:8000/v1/agents/data
