@@ -189,7 +189,7 @@ class Netboot:
         except Exception:
             # Any connection error will fail through the normal path
             pass
-        if "Testflinger Test Device Imager" in str(data):
+        if "Snappy Test Device Imager" in str(data):
             return True
         else:
             return False
