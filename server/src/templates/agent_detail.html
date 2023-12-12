@@ -28,17 +28,23 @@
         </tr>
     </tbody>
 </table>
+
 <h2 class="p-muted-heading">Queues</h2>
 <ul>
     {% for queue in agent.queues %}
     <li><a href="/queues/{{ queue }}">{{ queue }}</a></li>
     {% endfor %}
 </ul>
+
 <h2 class="p-muted-heading">Agent Log</h2>
-<div class="center scrollable">
-    <span style="white-space: pre-line">
-        {{ agent.log|join('\n') }}
-    </span>
+<div class="p-code-snippet">
+    <div class="scrollable">
+        <pre class="p-code-snippet__block">
+        <code>
+            {{ agent.log|join('\n') }}
+        </code>
+    </pre>
+    </div>
 </div>
 
 {% endblock %}
