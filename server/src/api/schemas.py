@@ -31,6 +31,15 @@ class AgentIn(Schema):
     log = fields.List(fields.String(), required=False)
 
 
+class AgentOut(Schema):
+    """Agent data input schema"""
+
+    state = fields.String(required=False)
+    queues = fields.List(fields.String(), required=False)
+    location = fields.String(required=False)
+    job_id = fields.String(required=False)
+
+
 class ActionIn(Schema):
     """Action data input schema"""
 

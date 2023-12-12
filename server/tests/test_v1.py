@@ -1,4 +1,4 @@
-# Copyright (C) 2016-2022 Canonical
+# Copyright (C) 2016-2023 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -401,3 +401,23 @@ def test_agents_post_bad(mongo_app):
 
     assert 422 == output.status_code
     assert "Validation error" in output.text
+
+
+def test_get_agents_data(mongo_app):
+    """Test api to retrieve agent data"""
+    app, _ = mongo_app
+    agent_name = "agent1"
+    agent_data = {
+        "state": "provision",
+        "queues": ["q1", "q2"],
+        "location": "here",
+    }
+    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    assert 200 == output.status_code
+
+    # Get the agent data
+    output = app.get("/v1/agents/data")
+    assert 200 == output.status_code
+    assert len(output.json) == 1
+    for key, value in agent_data.items():
+        assert output.json[0][key] == value
