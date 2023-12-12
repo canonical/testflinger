@@ -63,31 +63,78 @@
 {% endif %}
 
 <h2 class="p-muted-heading">Provision Phase</h2>
-provision_status: {{ job.result_data.provision_status }}<br>
-provision_output:
-<div class="center scrollable">
-    <span style="white-space: pre-line">
-        {{ job.result_data.provision_output }}
+<span class="p-chip">
+    {% if job.result_data.provision_status %}
+    <span class="p-chip__lead">
+        Success
     </span>
+    {% else %}
+    <span class="p-chip__lead">
+        Error
+    </span>
+    {% endif %}
+</span>
+<div class="p-code-snippet">
+    <div class="p-code-snippet__header">
+        <h5 class="p-code-snippet__title">Provision Output</h5>
+    </div>
+    <div class="scrollable">
+        <pre class="p-code-snippet__block">
+        <code>
+{{ job.result_data.provision_output }}
+        </code>
+    </pre>
+    </div>
 </div>
 
 <h2 class="p-muted-heading">Firmware Update Phase</h2>
-firmware_update_status: {{ job.result_data.firmware_update_status }}<br>
-firmware_update_output:
-<div class="center scrollable">
-    <span style="white-space: pre-line">
-        {{ job.result_data.firmware_update_output }}
+<span class="p-chip">
+    {% if job.result_data.provision_status %}
+    <span class="p-chip__lead">
+        Success
     </span>
+    {% else %}
+    <span class="p-chip__lead">
+        Error
+    </span>
+    {% endif %}
+</span>
+<div class="p-code-snippet">
+    <div class="p-code-snippet__header">
+        <h5 class="p-code-snippet__title">Firmware Update Output</h5>
+    </div>
+    <div class="scrollable">
+        <pre class="p-code-snippet__block">
+        <code>
+{{ job.result_data.firmware_update_output }}
+        </code>
+    </pre>
+    </div>
 </div>
 
 <h2 class="p-muted-heading">Test Phase</h2>
-test_status: {{ job.result_data.test_status }}<br>
-test_output:
-<div class="center scrollable">
-    <span style="white-space: pre-line">
-        {{ job.result_data.test_output }}
+<span class="p-chip">
+    {% if job.result_data.provision_status %}
+    <span class="p-chip__lead">
+        Success
     </span>
+    {% else %}
+    <span class="p-chip__lead">
+        Error
+    </span>
+    {% endif %}
+</span>
+<div class="p-code-snippet">
+    <div class="p-code-snippet__header">
+        <h5 class="p-code-snippet__title">Test Output</h5>
+    </div>
+    <div class="scrollable">
+        <pre class="p-code-snippet__block">
+        <code>
+{{ job.result_data.test_output }}
+        </code>
+    </pre>
+    </div>
 </div>
 
-<script type="text/javascript" src="/static/assets/js/filter.js"></script>
 {% endblock %}
