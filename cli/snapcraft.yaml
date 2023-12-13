@@ -31,6 +31,6 @@ parts:
     source: .
     override-pull: |
       set -e
-      snapcraftctl pull
-      snapcraftctl set-version "$(date +%Y%m%d)"
-      snapcraftctl set-grade "stable"
+      craftctl default
+      craftctl set-version "$(date +%Y%m%d)"
+      craftctl set-grade "stable"
