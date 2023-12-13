@@ -33,4 +33,4 @@ parts:
     override-pull: |
       set -e
       craftctl default
-      craftctl set-version "$(date +%Y%m%d)"
+      craftctl set version="$(date +%Y%m%d)"
