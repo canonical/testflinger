@@ -5,7 +5,8 @@ description: |
   server for submitting test jobs, checking status, getting results, and
   streaming output.
 confinement: strict
-base: core20
+base: core22
+grade: stable
 adopt-info: testflinger-cli
 
 architectures:
@@ -31,6 +32,5 @@ parts:
     source: .
     override-pull: |
       set -e
-      snapcraftctl pull
-      snapcraftctl set-version "$(date +%Y%m%d)"
-      snapcraftctl set-grade "stable"
+      craftctl default
+      craftctl set version="$(date +%Y%m%d)"
