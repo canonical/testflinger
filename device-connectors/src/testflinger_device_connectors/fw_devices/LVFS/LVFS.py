@@ -33,10 +33,7 @@ class LVFSDevice(AbstractDevice):
         :param timeout:      timeout for the command response
         :returns:            return code, stdout, stderr
         """
-        ssh_cmd = (
-            f"sshpass -p {self.password}  ssh -t {SSH_OPTS} "
-            + f' {self.user}@{self.ipaddr} "{cmd}"'
-        )
+        ssh_cmd = f'ssh -t {SSH_OPTS} {self.user}@{self.ipaddr} "{cmd}"'
         try:
             r = subprocess.run(
                 ssh_cmd,

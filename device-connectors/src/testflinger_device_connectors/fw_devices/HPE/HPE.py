@@ -12,8 +12,17 @@ from testflinger_device_connectors.fw_devices.base import (
     OEMDevice,
     SSH_OPTS,
 )
-from HPE_constants import *
 from typing import Tuple
+
+"""HPE firmware repository and index file"""
+HPE_SDR = "https://downloads.linux.hpe.com/SDR"
+HPE_SDR_REPO = f"{HPE_SDR}/repo"
+FW_REPOS = {
+    "rl": "rlcp",
+    "gen10": "fwpp-gen10",
+    "gen11": "fwpp-gen11",
+}
+INDEX_FILE = "fwrepo.json"
 
 
 class HPEDevice(OEMDevice):
@@ -42,8 +51,9 @@ class HPEDevice(OEMDevice):
     def _install_ilorest(self):
         """Install stable/current ilorest deb from HPE SDR"""
         install_cmd = [
-            f"curl {HPE_SDR}/hpePublicKey2048_key1.pub | sudo apt-key add -",
-            f"echo '# HPE ilorest\ndeb {HPE_SDR}/repo/ilorest stable/current"
+            f"curl -fsSL {HPE_SDR}/hpePublicKey2048_key1.pub"
+            + " | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/hpe.gpg",
+            f"echo '# HPE ilorest\ndeb {HPE_SDR_REPO}/ilorest stable/current"
             + " non-free' > /etc/apt/sources.list.d/ilorest.list",
             "apt update",
             "apt install -y ilorest",
@@ -106,37 +116,30 @@ class HPEDevice(OEMDevice):
         """Log out HPE machine's iLO via ilorest command"""
         self.run_cmd("logout")
 
-    def _repo_search(self, searchstring: str) -> list:
+    def _repo_search(self, device_cls: str, targets: list) -> list:
         """
         Search FW file by filename, description, or target IDs
 
-        :param searchstring: support searching with mulitple keywords,
-                             seperated by comma
-        :return:             a list of FW files with detailed information
+        :param device_cls: device class ID that allowed to be None
+        :param targets:    a list of target ID associate to the FW
+        :return:           a list of FW files with detailed information
         """
-
-        keywords = searchstring.split(",")
-        fwpkg_data = {}
-
+        fwpkg_data, temp_fw = {}, {}
         for spp, json_index in self.fwrepo_index.items():
             for fw_file in json_index:
-                if (
-                    all(key.lower() in fw_file.lower() for key in keywords)
-                    or all(
-                        key.lower()
-                        in json_index[fw_file]["description"].lower()
-                        for key in keywords
-                    )
-                    or any(
-                        searchstring.lower() in target.lower()
-                        for target in json_index[fw_file]["target"]
-                    )
-                    and "Bmc" in str(json_index[fw_file]["updatableBy"])
+                if any(
+                    t in str(json_index[fw_file]["target"]) for t in targets
+                ) and (
+                    json_index[fw_file]["deviceclass"] == device_cls
+                    or device_cls == None
                 ):
-                    fw_detail = {"file": fw_file, **json_index[fw_file]}
-                    fwpkg_data[spp] = fw_detail
-                    break
-
+                    if (
+                        temp_fw == {}
+                        or temp_fw["version"] < json_index[fw_file]["version"]
+                    ):
+                        temp_fw = {"file": fw_file, **json_index[fw_file]}
+            if temp_fw:
+                fwpkg_data[spp] = temp_fw
         return dict(sorted(fwpkg_data.items(), reverse=True))
 
     def get_fw_info(self):
@@ -144,19 +147,12 @@ class HPEDevice(OEMDevice):
         Get current firmware version of all updatable devices on HPE machine,
         and print out devices with upgradable/downgradable versions
         """
-        # collect firmware info via iLO
         rc, stdout, stderr = self.run_cmd(
-            "systeminfo --firmware --system --json"
+            "rawget /redfish/v1/UpdateService/FirmwareInventory/ --expand --silent"
         )
-        sysinfo = json.loads(stdout)
-        fw_data, sys_data = sysinfo["firmware"], sysinfo["system"]
-        current_fw = {k: v for k, v in fw_data.items() if v}
-
-        rc, stdout, stderr = self.run_cmd(
-            ["select HpeServerPciDevice", "list --json"]
-        )
-        pci_data = json.loads(stdout)
-        dev_model = sys_data["Model"]
+        fw_inventory = json.loads(stdout)["Members"]
+        rc, stdout, stderr = self.run_cmd("systeminfo --system --json")
+        dev_model = json.loads(stdout)["system"]["Model"]
 
         # load fw index meta file (fwrepo.json) according to HPE server model
         self.repo_name = [
@@ -164,104 +160,50 @@ class HPEDevice(OEMDevice):
             for x in list(FW_REPOS.keys())
             if x in dev_model.lower()
         ][0]
-        model_path = os.path.join(
+        logmsg(logging.INFO, f"HPE server model: {self.repo_name}")
+        repo_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             self.repo_name,
         )
+        logmsg(logging.INFO, repo_path)
         try:
-            for item in os.listdir(model_path):
-                fwrepo_path = os.path.join(model_path, item, INDEX_FILE)
+            for spp in os.listdir(repo_path):
                 with open(
-                    fwrepo_path,
+                    os.path.join(repo_path, spp, INDEX_FILE),
                     "r",
                 ) as json_index_file:
-                    self.fwrepo_index[item] = json.load(json_index_file)
+                    self.fwrepo_index[spp] = json.load(json_index_file)
         except:
-            msg = f"Unable to open cached copy of index {fwrepo_path}"
+            msg = f"Unable to open cached copy of index {spp}/{INDEX_FILE}"
             logmsg(logging.ERROR, msg)
             raise RuntimeError(msg)
 
-        # search and list available release for each firmware component
         server_fw_info = []
-        for fw in current_fw:
-            location = "N/A"
-            update_order = 4
-            fw_key = ""
-
-            # skip checking as this FW is not provided in the repository
-            if any(s.lower() in fw.lower() for s in IGNORE_LIST):
-                location = (
-                    "Bay 1/2"
-                    if "power supply" in fw.lower()
-                    else "System Board"
-                )
-
-            # UBM Backplane PIC PLDM Firmware
-            elif "ubm" in fw.lower():
-                location = "Embedded"
-                fw_key = [x for x in fw.split() if "ubm" in x.lower()][0]
-
-            # System Board Firmware
-            elif any(s.lower() in fw.lower() for s in SYSTEM_BOARD_FW):
-                location = "System Board"
-                if "system rom" in fw.lower():
-                    update_order = 0
-                    fw_key = f"({fw_data[fw].split()[0]})"
-                elif "server platform services" in fw.lower():
-                    update_order = 2
-                    if "gen11" in dev_model.lower():
-                        fw_key = f"SC_{fw_data['System ROM'].split()[0]}"
-                    else:
-                        fw_key = [
-                            GEN10_SPS_TYPES[x]
-                            for x in GEN10_SPS_TYPES
-                            if x.lower() in dev_model.lower()
-                        ][0] + "_"
-                elif "innovation engine" in fw.lower():
-                    update_order = 1
-                    fw_key = [
-                        IE_TYPES[x]
-                        for x in IE_TYPES
-                        if x.lower() in dev_model.lower()
-                    ][0] + "_"
-                else:
-                    if "ilo" in fw.lower():
-                        update_order = 3
-                    fw_key = [
-                        x for x in SYSTEM_BOARD_FW if x.lower() in fw.lower()
-                    ][0]
-
-            # Embedde/PCIe Device
-            else:
-                for pci in pci_data:
-                    if "Name" not in pci:
-                        continue
-                    if fw in pci["Name"]:
-                        vid = format(int(pci["VendorID"]), "04X").lower()
-                        did = format(int(pci["DeviceID"]), "04X").lower()
-                        svid = format(
-                            int(pci["SubsystemVendorID"]), "04X"
-                        ).lower()
-                        sdid = format(
-                            int(pci["SubsystemDeviceID"]), "04X"
-                        ).lower()
-                        fw_key = "%s%s-%s%s%s" % (
-                            TARGET_PREFIX,
-                            vid,
-                            did,
-                            svid,
-                            sdid,
-                        )
-                        location = pci["DeviceLocation"]
-                        break
-
-            fwpkg_data = self._repo_search(fw_key) if fw_key != "" else {}
+        update_prio = [
+            "system rom",
+            "server platform services",
+            "innovation engine",
+            "ilo",
+        ]
+        for fw in fw_inventory:
+            fwpkg_data = {}
+            update_order = 5
+            if fw["Updateable"]:
+                update_order = 4
+                if fw["Oem"]["Hpe"].get("Targets") != None:
+                    fwpkg_data = self._repo_search2(
+                        fw["Oem"]["Hpe"].get("DeviceClass"),
+                        fw["Oem"]["Hpe"]["Targets"],
+                    )
+                for x in update_prio:
+                    if x in fw["Name"].lower():
+                        update_order = update_prio.index(x)
             server_fw_info.append(
                 dict(
                     {
-                        "Firmware Name": fw,
-                        "Firmware Version": fw_data[fw],
-                        "Location": location,
+                        "Firmware Name": fw["Name"],
+                        "Firmware Version": fw["Version"],
+                        "Location": fw["Oem"]["Hpe"]["DeviceContext"],
                         "Fwpkg Available": fwpkg_data,
                         "Update Order": update_order,
                     }
@@ -294,23 +236,63 @@ class HPEDevice(OEMDevice):
         #          infwpkg (need to resolve version format mismatch issue)
         #       2. comparing "minimum_active_version" with "current version"
 
+        def purify_ver(ver_string):
+            ver_num = re.sub(
+                "\.|\)|\(|\/|-|_",
+                " ",
+                ver_string,
+            ).strip()
+            return "".join(map(str, list(map(int, ver_num.split(" ")))))
+
         logmsg(
             logging.INFO,
             f"Start flashing all firmware with files in SPP {spp}",
         )
         reboot = False
         install_list = []
+
         for fw in self.fw_info:
-            if fw.get("Fwpkg Available").get(spp) != None:
-                install_list.append(
-                    self._download_fwpkg(
-                        spp, fw["Fwpkg Available"][spp]["file"]
+            if fw.get("Fwpkg Available", {}).get(spp):
+                current_ver = (
+                    re.match(
+                        r"([^a-zA-Z]*)", fw["Firmware Version"].split("v")[-1]
                     )
+                    .group(1)
+                    .replace(" ", "")
                 )
-                fw["targetVersion"] = fw["Fwpkg Available"][spp]["version"]
+                new_ver = fw["Fwpkg Available"][spp]["version"]
+                min_req_ver = fw["Fwpkg Available"][spp][
+                    "minimum_active_version"
+                ]
+                if purify_ver(current_ver) == purify_ver(new_ver):
+                    logmsg(
+                        logging.INFO,
+                        f"[{fw['Firmware Name']}] no update is needed,"
+                        + f"already {fw['Firmware Version']}",
+                    )
+                elif min_req_ver != "null" and purify_ver(
+                    current_ver
+                ) < purify_ver(min_req_ver):
+                    logmsg(
+                        logging.INFO,
+                        f"[{fw['Firmware Name']}] current firmware "
+                        + f"{fw['Firmware Version']} not meet minimum "
+                        + f"active version {min_req_ver}",
+                    )
+                else:
+                    install_list.append(
+                        self._download_fwpkg(
+                            spp, fw["Fwpkg Available"][spp]["file"]
+                        )
+                    )
+                    fw["targetVersion"] = fw["Fwpkg Available"][spp]["version"]
+        if install_list == []:
+            return reboot
+
+        # get the IML before firmware flash
         self.iml_pre_update = self._get_IML()
 
-        # check and clear the task queue to prevent blocking the fw flashing
+        # check and clear the task queue to prevent blocking firmware flash
         logmsg(logging.INFO, "check and clear iLO taskqueue")
 
         rc, stdout, stderr = self.run_cmd("taskqueue", raise_stderr=False)
@@ -372,7 +354,7 @@ class HPEDevice(OEMDevice):
         :param fw_file: fwpkg file name
         :return:        full path of downloaded fwpkg file
         """
-        url = f"{HPE_SDR}/{self.repo_name}/{spp}/{fw_file}"
+        url = f"{HPE_SDR_REPO}/{self.repo_name}/{spp}/{fw_file}"
         FW_DIR = "/home/HPE_FW"
         fw_file_path = os.path.join(FW_DIR, fw_file)
         try:
