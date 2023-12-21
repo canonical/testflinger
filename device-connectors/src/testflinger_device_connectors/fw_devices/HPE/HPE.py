@@ -51,8 +51,8 @@ class HPEDevice(OEMDevice):
     def _install_ilorest(self):
         """Install stable/current ilorest deb from HPE SDR"""
         install_cmd = [
-            f"curl -fsSL {HPE_SDR}/hpePublicKey2048_key1.pub"
-            + " | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/hpe.gpg",
+            f"curl -fsSL {HPE_SDR}/hpePublicKey2048_key1.pub|sudo gpg"
+            + "--dearmor|sudo tee /etc/apt/trusted.gpg.d/hpe.gpg > /dev/null",
             f"echo '# HPE ilorest\ndeb {HPE_SDR_REPO}/ilorest stable/current"
             + " non-free' > /etc/apt/sources.list.d/ilorest.list",
             "apt update",
@@ -112,7 +112,7 @@ class HPEDevice(OEMDevice):
             % (self.bmc_ip, self.bmc_user, self.bmc_password)
         )
 
-    def _login_out(self):
+    def _logout_ilo(self):
         """Log out HPE machine's iLO via ilorest command"""
         self.run_cmd("logout")
 
@@ -165,18 +165,19 @@ class HPEDevice(OEMDevice):
             os.path.dirname(os.path.abspath(__file__)),
             self.repo_name,
         )
-        logmsg(logging.INFO, repo_path)
+        json_index = {}
         try:
             for spp in os.listdir(repo_path):
                 with open(
                     os.path.join(repo_path, spp, INDEX_FILE),
                     "r",
                 ) as json_index_file:
-                    self.fwrepo_index[spp] = json.load(json_index_file)
+                    json_index[spp] = json.load(json_index_file)
         except:
             msg = f"Unable to open cached copy of index {spp}/{INDEX_FILE}"
             logmsg(logging.ERROR, msg)
             raise RuntimeError(msg)
+        self.fwrepo_index = dict(sorted(json_index.items(), reverse=True))
 
         server_fw_info = []
         update_prio = [
@@ -191,7 +192,7 @@ class HPEDevice(OEMDevice):
             if fw["Updateable"]:
                 update_order = 4
                 if fw["Oem"]["Hpe"].get("Targets") != None:
-                    fwpkg_data = self._repo_search2(
+                    fwpkg_data = self._repo_search(
                         fw["Oem"]["Hpe"].get("DeviceClass"),
                         fw["Oem"]["Hpe"]["Targets"],
                     )
@@ -232,23 +233,18 @@ class HPEDevice(OEMDevice):
         :return:    `True` if reboot is needed, `False` otherwise
         """
 
-        # TODO: 1. skip firmware update if current version match the version
-        #          infwpkg (need to resolve version format mismatch issue)
-        #       2. comparing "minimum_active_version" with "current version"
-
         def purify_ver(ver_string):
             ver_num = re.sub(
                 "\.|\)|\(|\/|-|_",
                 " ",
                 ver_string,
             ).strip()
-            return "".join(map(str, list(map(int, ver_num.split(" ")))))
+            return ".".join(map(str, list(map(int, ver_num.split(" ")))))
 
         logmsg(
             logging.INFO,
             f"Start flashing all firmware with files in SPP {spp}",
         )
-        reboot = False
         install_list = []
 
         for fw in self.fw_info:
@@ -267,7 +263,7 @@ class HPEDevice(OEMDevice):
                 if purify_ver(current_ver) == purify_ver(new_ver):
                     logmsg(
                         logging.INFO,
-                        f"[{fw['Firmware Name']}] no update is needed,"
+                        f"[{fw['Firmware Name']}] no update is needed, "
                         + f"already {fw['Firmware Version']}",
                     )
                 elif min_req_ver != "null" and purify_ver(
@@ -280,6 +276,12 @@ class HPEDevice(OEMDevice):
                         + f"active version {min_req_ver}",
                     )
                 else:
+                    logmsg(
+                        logging.INFO,
+                        f"[{fw['Firmware Name']}] update current firmware "
+                        + f"{fw['Firmware Version']} to "
+                        + f"{fw['Fwpkg Available'][spp]['version']}",
+                    )
                     install_list.append(
                         self._download_fwpkg(
                             spp, fw["Fwpkg Available"][spp]["file"]
@@ -287,7 +289,7 @@ class HPEDevice(OEMDevice):
                     )
                     fw["targetVersion"] = fw["Fwpkg Available"][spp]["version"]
         if install_list == []:
-            return reboot
+            return False
 
         # get the IML before firmware flash
         self.iml_pre_update = self._get_IML()
@@ -313,7 +315,9 @@ class HPEDevice(OEMDevice):
             file_name = file.split("/")[-1]
             logmsg(logging.INFO, f"start flashing {file_name}")
             rc, stdout, stderr = self.run_cmd(
-                f"flashfwpkg --forceupload {file}", raise_stderr=False
+                f"flashfwpkg --forceupload {file}",
+                raise_stderr=False,
+                timeout=1200,
             )
 
             result = re.sub(r"Updating: .\r", "", stdout)
@@ -337,14 +341,8 @@ class HPEDevice(OEMDevice):
                     ):
                         break
                 time.sleep(10)
-        self._login_out()
-
-        if any(
-            reboot_str in str(flash_result.values()).lower()
-            for reboot_str in ["flash on reboot", "a reboot is required"]
-        ):
-            reboot = True
-        return reboot
+        self._logout_ilo()
+        return True
 
     def _download_fwpkg(self, spp, fw_file):
         """
@@ -454,8 +452,8 @@ class HPEDevice(OEMDevice):
         ]
         timeout_start = time.time()
         while time.time() < timeout_start + timeout:
-            rc, stdout, stderr = self.run_cmd(cmd)
-            if state in stdout:
+            rc, stdout, stderr = self.run_cmd(cmd, raise_stderr=False)
+            if rc == 0 and state in stdout:
                 delta = time.time() - timeout_start
                 msg = f"HPE machine reaches {state} after {int(delta)}s"
                 logmsg(logging.INFO, msg)
