@@ -8,10 +8,7 @@ import time
 import requests
 import re
 from testflinger_device_connectors import logmsg
-from testflinger_device_connectors.fw_devices.base import (
-    OEMDevice,
-    SSH_OPTS,
-)
+from testflinger_device_connectors.fw_devices.base import OEMDevice
 from typing import Tuple
 
 """HPE firmware repository and index file"""
@@ -51,21 +48,26 @@ class HPEDevice(OEMDevice):
     def _install_ilorest(self):
         """Install stable/current ilorest deb from HPE SDR"""
         install_cmd = [
-            f"curl -fsSL {HPE_SDR}/hpePublicKey2048_key1.pub|sudo gpg"
-            + "--dearmor|sudo tee /etc/apt/trusted.gpg.d/hpe.gpg > /dev/null",
-            f"echo '# HPE ilorest\ndeb {HPE_SDR_REPO}/ilorest stable/current"
-            + " non-free' > /etc/apt/sources.list.d/ilorest.list",
+            f"curl -fsSL {HPE_SDR}/hpePublicKey2048_key1.pub"
+            " | sudo gpg --dearmor | sudo tee"
+            " /etc/apt/trusted.gpg.d/hpe.gpg > /dev/null",
+            f"echo '# HPE ilorest\n"
+            f"deb {HPE_SDR_REPO}/ilorest stable/current non-free'"
+            " > /etc/apt/sources.list.d/ilorest.list",
             "apt update",
             "apt install -y ilorest",
         ]
         for cmd in install_cmd:
-            r = subprocess.run(
+            subprocess.run(
                 cmd,
                 shell=True,
                 capture_output=True,
             )
         rc, stdout, stderr = self.run_cmd("--version")
-        logmsg(logging.INFO, f"successfully installed {stdout}")
+        if rc == 0:
+            logmsg(logging.INFO, f"successfully installed {stdout}")
+        else:
+            raise RuntimeError("failed to install ilorest")
 
     def run_cmd(
         self, cmds: str, raise_stderr: bool = True, timeout: int = 30
@@ -94,26 +96,21 @@ class HPEDevice(OEMDevice):
         )
 
         if raise_stderr and rc != 0:
-            err_msg = "Failed to execute %s:\n [%d] %s %s" % (
-                ilorest_cmd,
-                rc,
-                stdout,
-                stderr,
+            err_msg = (
+                f"failed to execute {ilorest_cmd}:\n[{rc}] {stdout} {stderr}"
             )
-            logmsg(logging.ERROR, err_msg)
             raise RuntimeError(err_msg)
         else:
             return rc, stdout, stderr
 
     def _login_ilo(self):
-        """Log in HPE machine's iLO via ilorest command"""
+        """Log in HPE machine's iLO"""
         self.run_cmd(
-            "login %s -u %s -p %s"
-            % (self.bmc_ip, self.bmc_user, self.bmc_password)
+            f"login {self.bmc_ip} -u {self.bmc_user} -p {self.bmc_password}"
         )
 
     def _logout_ilo(self):
-        """Log out HPE machine's iLO via ilorest command"""
+        """Log out HPE machine's iLO"""
         self.run_cmd("logout")
 
     def _repo_search(self, device_cls: str, targets: list) -> list:
@@ -124,14 +121,15 @@ class HPEDevice(OEMDevice):
         :param targets:    a list of target ID associate to the FW
         :return:           a list of FW files with detailed information
         """
-        fwpkg_data, temp_fw = {}, {}
+        fwpkg_data = {}
         for spp, json_index in self.fwrepo_index.items():
+            temp_fw = {}
             for fw_file in json_index:
                 if any(
                     t in str(json_index[fw_file]["target"]) for t in targets
                 ) and (
                     json_index[fw_file]["deviceclass"] == device_cls
-                    or device_cls == None
+                    or device_cls is None
                 ):
                     if (
                         temp_fw == {}
@@ -142,43 +140,54 @@ class HPEDevice(OEMDevice):
                 fwpkg_data[spp] = temp_fw
         return dict(sorted(fwpkg_data.items(), reverse=True))
 
-    def get_fw_info(self):
-        """
-        Get current firmware version of all updatable devices on HPE machine,
-        and print out devices with upgradable/downgradable versions
-        """
+    def _rawget_firmware_inventory(self):
+        """Get iLO firmware inventory raw data"""
         rc, stdout, stderr = self.run_cmd(
-            "rawget /redfish/v1/UpdateService/FirmwareInventory/ --expand --silent"
+            "rawget /redfish/v1/UpdateService/FirmwareInventory/"
+            " --expand --silent"
         )
-        fw_inventory = json.loads(stdout)["Members"]
+        return json.loads(stdout)["Members"]
+
+    def _get_hpe_fw_repo(self):
+        """
+        Get firmware index file (fwrepo.json) according to server model
+        """
         rc, stdout, stderr = self.run_cmd("systeminfo --system --json")
         dev_model = json.loads(stdout)["system"]["Model"]
-
-        # load fw index meta file (fwrepo.json) according to HPE server model
         self.repo_name = [
             FW_REPOS[x]
             for x in list(FW_REPOS.keys())
             if x in dev_model.lower()
         ][0]
         logmsg(logging.INFO, f"HPE server model: {self.repo_name}")
+        # TODO: instead of using local files, downloading the index files from
+        #       HPE SDR once HPE updates them with multiple target IDs
         repo_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
+            "fwrepo",
             self.repo_name,
         )
         json_index = {}
         try:
             for spp in os.listdir(repo_path):
+                print(os.path.join(repo_path, spp, INDEX_FILE))
                 with open(
                     os.path.join(repo_path, spp, INDEX_FILE),
                     "r",
                 ) as json_index_file:
                     json_index[spp] = json.load(json_index_file)
-        except:
+        except IOError:
             msg = f"Unable to open cached copy of index {spp}/{INDEX_FILE}"
-            logmsg(logging.ERROR, msg)
             raise RuntimeError(msg)
         self.fwrepo_index = dict(sorted(json_index.items(), reverse=True))
 
+    def get_fw_info(self):
+        """
+        Get current firmware version of all updatable devices on HPE machine,
+        and print out devices with upgradable/downgradable versions
+        """
+        fw_inventory = self._rawget_firmware_inventory()
+        self._get_hpe_fw_repo()
         server_fw_info = []
         update_prio = [
             "system rom",
@@ -191,7 +200,7 @@ class HPEDevice(OEMDevice):
             update_order = 5
             if fw["Updateable"]:
                 update_order = 4
-                if fw["Oem"]["Hpe"].get("Targets") != None:
+                if fw["Oem"]["Hpe"].get("Targets") is not None:
                     fwpkg_data = self._repo_search(
                         fw["Oem"]["Hpe"].get("DeviceClass"),
                         fw["Oem"]["Hpe"]["Targets"],
@@ -213,17 +222,21 @@ class HPEDevice(OEMDevice):
         self.fw_info = sorted(server_fw_info, key=lambda x: x["Update Order"])
         logmsg(logging.INFO, f"firmware on HPE machine:\n{self.fw_info}")
 
-    def _get_IML(self):
-        """Fetch firmware flash log from iLO IML"""
-        rc, stdout, stderr = self.run_cmd(
-            "serverlogs --selectlog=IML --filter Oem/Hpe/Class=32 --json",
-            raise_stderr=False,
-        )
-        if rc == 0:
-            iml_fw_update = json.loads(stdout)
-        elif rc == 6:  # rc 6: Filter returned no matches
-            iml_fw_update = []
-        return iml_fw_update
+    def _purify_ver(self, ver_string: str) -> str:
+        """
+        Extract pure version number and unify the format
+
+        :param ver_string: version from iLO or fwrepo.json
+        :return:           purified numeric version
+        """
+        ver_num = re.sub(
+            r"\.|\)|\(|\/|-|_",
+            " ",
+            re.match(r"([^a-zA-Z]*)", ver_string.split("v")[-1])
+            .group(1)
+            .replace(" ", ""),
+        ).strip()
+        return ".".join(map(str, list(map(int, ver_num.split(" ")))))
 
     def _flash_fwpkg(self, spp: str) -> bool:
         """
@@ -232,55 +245,44 @@ class HPEDevice(OEMDevice):
         :param spp: HPE SPP released date = repo folder name
         :return:    `True` if reboot is needed, `False` otherwise
         """
-
-        def purify_ver(ver_string):
-            ver_num = re.sub(
-                "\.|\)|\(|\/|-|_",
-                " ",
-                ver_string,
-            ).strip()
-            return ".".join(map(str, list(map(int, ver_num.split(" ")))))
-
+        if spp not in str(self.fw_info):
+            raise RuntimeError(
+                f"SPP {spp} is not available in HPE FW repository."
+                " Please check if it's a valid SPP."
+            )
         logmsg(
             logging.INFO,
-            f"Start flashing all firmware with files in SPP {spp}",
+            f"start flashing all firmware with files in SPP {spp}",
         )
         install_list = []
-
         for fw in self.fw_info:
             if fw.get("Fwpkg Available", {}).get(spp):
-                current_ver = (
-                    re.match(
-                        r"([^a-zA-Z]*)", fw["Firmware Version"].split("v")[-1]
-                    )
-                    .group(1)
-                    .replace(" ", "")
-                )
+                current_ver = fw["Firmware Version"]
                 new_ver = fw["Fwpkg Available"][spp]["version"]
                 min_req_ver = fw["Fwpkg Available"][spp][
                     "minimum_active_version"
                 ]
-                if purify_ver(current_ver) == purify_ver(new_ver):
+                if self._purify_ver(current_ver) == self._purify_ver(new_ver):
                     logmsg(
                         logging.INFO,
                         f"[{fw['Firmware Name']}] no update is needed, "
-                        + f"already {fw['Firmware Version']}",
+                        f"already {fw['Firmware Version']}",
                     )
-                elif min_req_ver != "null" and purify_ver(
+                elif min_req_ver != "null" and self._purify_ver(
                     current_ver
-                ) < purify_ver(min_req_ver):
+                ) < self._purify_ver(min_req_ver):
                     logmsg(
-                        logging.INFO,
+                        logging.ERROR,
                         f"[{fw['Firmware Name']}] current firmware "
-                        + f"{fw['Firmware Version']} not meet minimum "
-                        + f"active version {min_req_ver}",
+                        f"{fw['Firmware Version']} not meet minimum "
+                        f"active version {min_req_ver}",
                     )
                 else:
                     logmsg(
                         logging.INFO,
                         f"[{fw['Firmware Name']}] update current firmware "
-                        + f"{fw['Firmware Version']} to "
-                        + f"{fw['Fwpkg Available'][spp]['version']}",
+                        f"{fw['Firmware Version']} to "
+                        f"{fw['Fwpkg Available'][spp]['version']}",
                     )
                     install_list.append(
                         self._download_fwpkg(
@@ -291,24 +293,20 @@ class HPEDevice(OEMDevice):
         if install_list == []:
             return False
 
-        # get the IML before firmware flash
-        self.iml_pre_update = self._get_IML()
-
         # check and clear the task queue to prevent blocking firmware flash
         logmsg(logging.INFO, "check and clear iLO taskqueue")
-
         rc, stdout, stderr = self.run_cmd("taskqueue", raise_stderr=False)
         if "No tasks found" not in stdout:
             self.run_cmd("taskqueue -c")
             rc, stdout, stderr = self.run_cmd("taskqueue", raise_stderr=False)
             if "No tasks found" not in stdout:
                 msg = (
-                    "there's still incomplete task(s) in task queue, which"
-                    + f" may impact firmware upgrade actions: {taskqueue}"
+                    "there's still incomplete task(s) in task queue, "
+                    f"which may impact firmware upgrade actions: {stdout}"
                 )
                 logmsg(logging.WARNING, msg)
 
-        # start flashing firmware in the install list
+        # start flashing firmware files in the install list
         flash_result = dict()
         for file in install_list:
             self._login_ilo()
@@ -319,12 +317,11 @@ class HPEDevice(OEMDevice):
                 raise_stderr=False,
                 timeout=1200,
             )
-
             result = re.sub(r"Updating: .\r", "", stdout)
-            flash_result[file.split("/")[-1]] = result
+            flash_result[file_name] = result
             logmsg(logging.INFO, result)
 
-            # wait for iLO to complete reboot before proceed to next operation
+            # wait for iLO to complete reboot before proceed to next firmware
             if "ilo will reboot" in stdout.lower():
                 logmsg(logging.INFO, "wait until iLO complete reboot")
                 for retry in range(20):
@@ -341,7 +338,6 @@ class HPEDevice(OEMDevice):
                     ):
                         break
                 time.sleep(10)
-        self._logout_ilo()
         return True
 
     def _download_fwpkg(self, spp, fw_file):
@@ -355,11 +351,10 @@ class HPEDevice(OEMDevice):
         url = f"{HPE_SDR_REPO}/{self.repo_name}/{spp}/{fw_file}"
         FW_DIR = "/home/HPE_FW"
         fw_file_path = os.path.join(FW_DIR, fw_file)
-        try:
+        if not os.path.isdir(FW_DIR):
             os.mkdir(FW_DIR)
-        except OSError as error:
-            pass
         if os.path.isfile(fw_file_path):
+            logmsg(logging.INFO, f"{fw_file} is already downloaded")
             return fw_file_path
         logmsg(logging.INFO, f"downloading {fw_file}")
         try:
@@ -370,16 +365,7 @@ class HPEDevice(OEMDevice):
                 with open(fw_file_path, "wb") as firmware_file:
                     firmware_file.write(html_request.content)
         except Exception as error:
-            if str(error) == "404":
-                raise RuntimeError(
-                    "Unable to download firmware (404 not found): %s" % url
-                )
-            elif str(error) == "401":
-                raise RuntimeError(
-                    "Unable to download firmware (401 not authorized)"
-                )
-            else:
-                raise RuntimeError("Unable to download. %s" % str(error))
+            raise RuntimeError(f"unable to download {str(error)}")
         return fw_file_path
 
     def check_results(self) -> bool:
@@ -391,34 +377,33 @@ class HPEDevice(OEMDevice):
         """
         update_result = True
         self._login_ilo()
-        iml_post_update = self._get_IML()
-        fw_iml = []
-        for iml in iml_post_update:
-            if not any(
-                iml_pre["Oem"]["Hpe"]["EventNumber"]
-                == iml["Oem"]["Hpe"]["EventNumber"]
-                for iml_pre in self.iml_pre_update
-            ):
-                fw_iml.append(iml)
-
+        fw_inventory = self._rawget_firmware_inventory()
         for fw in self.fw_info:
             if "targetVersion" not in fw:
                 continue
-            if any(fw["targetVersion"] in iml["Message"] for iml in fw_iml):
-                msg = (
+            new_fw = next(
+                (
+                    new_fw
+                    for new_fw in fw_inventory
+                    if new_fw["Name"] == fw["Firmware Name"]
+                ),
+                None,
+            )
+            if new_fw and self._purify_ver(
+                new_fw["Version"]
+            ) == self._purify_ver(fw["targetVersion"]):
+                logmsg(
+                    logging.INFO,
                     f"[{fw['Firmware Name']}] firmware flashed "
-                    + f"{fw['Firmware Version']} → {fw['targetVersion']}"
+                    f"{fw['Firmware Version']} → {new_fw['Version']}",
                 )
-                log_level = logging.INFO
             else:
-                msg = (
-                    f"[{fw['Firmware Name']}] firmware flashed "
-                    + f"{fw['Firmware Version']} → {fw['targetVersion']}"
+                logmsg(
+                    logging.ERROR,
+                    f"[{fw['Firmware Name']}] firmware update failed",
                 )
-                log_level = logging.ERROR
                 update_result = False
-            logmsg(log_level, msg)
-        self._login_out()
+        self._logout_ilo()
         return update_result
 
     def upgrade(self):
@@ -433,7 +418,15 @@ class HPEDevice(OEMDevice):
     def reboot(self):
         """Reboot HPE machine via iLO"""
         logmsg(logging.INFO, "reboot DUT")
-        self._login_ilo()
+        timeout_start = time.time()
+        # checking if Redfish resource is available after ilo reboot
+        while time.time() < timeout_start + 60:
+            self._login_ilo()
+            rc, stdout, stderr = self.run_cmd("types")
+            if "ComputerSystem" in stdout:
+                break
+            else:
+                self._logout_ilo()
         self.run_cmd("reboot")
         self._monitor_poststate("FinishedPost", self.reboot_timeout)
         self.check_connectable(self.reboot_timeout)

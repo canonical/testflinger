@@ -30,7 +30,7 @@ class TestLVFSDevice(unittest.TestCase):
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
             mock_path.side_effect = self.mock_run_cmd
-            device = LVFSDevice("", "", "")
+            device = LVFSDevice("", "")
             device._parse_fwupd_raw(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             self.assertTrue(device.upgrade())
             self.assertFalse(device.downgrade())
@@ -45,7 +45,7 @@ class TestLVFSDevice(unittest.TestCase):
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
             mock_path.side_effect = self.mock_run_cmd
-            device = LVFSDevice("", "", "")
+            device = LVFSDevice("", "")
 
             device_info = json.loads(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             device_info["Devices"][5]["Version"] = "2.91"
@@ -64,7 +64,7 @@ class TestLVFSDevice(unittest.TestCase):
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
             mock_path.side_effect = self.mock_run_cmd
-            device = LVFSDevice("", "", "")
+            device = LVFSDevice("", "")
             device._parse_fwupd_raw(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             device.fw_info[2]["targetVersion"] = "2.90"
             device_results = json.loads(fwupd_data.GET_RESULTS_RESPONSE_DATA)
@@ -78,7 +78,7 @@ class TestLVFSDevice(unittest.TestCase):
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
             mock_path.side_effect = self.mock_run_cmd
-            device = LVFSDevice("", "", "")
+            device = LVFSDevice("", "")
             device._parse_fwupd_raw(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             device.fw_info[2]["targetVersion"] = "2.91"
             self.assertFalse(device.check_results())
@@ -90,7 +90,7 @@ class TestLVFSDevice(unittest.TestCase):
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
             mock_path.side_effect = self.mock_run_cmd
-            device = LVFSDevice("", "", "")
+            device = LVFSDevice("", "")
             device._parse_fwupd_raw(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             device_results = json.loads(fwupd_data.GET_RESULTS_RESPONSE_DATA)
             device_results[
@@ -110,7 +110,7 @@ class TestLVFSDevice(unittest.TestCase):
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
             mock_path.side_effect = self.mock_run_cmd
-            device = LVFSDevice("", "", "")
+            device = LVFSDevice("", "")
             device._parse_fwupd_raw(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             device.fw_info[2]["targetVersion"] = "2.90"
             device_results = json.loads(
