@@ -170,7 +170,6 @@ class HPEDevice(OEMDevice):
         json_index = {}
         try:
             for spp in os.listdir(repo_path):
-                print(os.path.join(repo_path, spp, INDEX_FILE))
                 with open(
                     os.path.join(repo_path, spp, INDEX_FILE),
                     "r",
