@@ -23,7 +23,7 @@ snappy-device-agent = "testflinger_device_connectors.cmd:main"
 testflinger-device-connector = "testflinger_device_connectors.cmd:main"
 
 [tool.setuptools.package-data]
-testflinger_device_connectors = ["data/**"]
+testflinger_device_connectors = ["data/**", "fw_devices/HPE/fwrepo/**"]
 
 [tool.black]
 line-length = 79

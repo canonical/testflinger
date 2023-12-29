@@ -85,7 +85,10 @@ def detect_device(ip: str, user: str, config: dict) -> AbstractDevice:
     elif issubclass(dev, OEMDevice):
         # get BMC info from MAAS
         try:
-            cmd = f"maas {config['maas_user']} node power-parameters {config['node_id']}"
+            cmd = [
+                f"maas {config['maas_user']} "
+                f"node power-parameters {config['node_id']}"
+            ]
             out = subprocess.check_output(
                 cmd,
                 shell=True,
