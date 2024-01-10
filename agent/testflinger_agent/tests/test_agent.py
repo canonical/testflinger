@@ -25,6 +25,7 @@ class TestClient:
             "server_address": "127.0.0.1:8000",
             "job_queues": ["test"],
             "location": "nowhere",
+            "provision_type": "noprovision",
             "execution_basedir": self.tmpdir,
             "logging_basedir": self.tmpdir,
             "results_basedir": os.path.join(self.tmpdir, "results"),
@@ -219,5 +220,6 @@ class TestClient:
                     "identifier": self.config["identifier"],
                     "queues": self.config["job_queues"],
                     "location": self.config["location"],
+                    "provision_type": self.config["provision_type"],
                 }
             )
