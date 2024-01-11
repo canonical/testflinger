@@ -1,6 +1,9 @@
+**This image is for a specific use case and that most device connectors will not function properly this way, so it's not recommended for use in most cases.**
+
 # Description
 This Dockerfile is used to build an OCI image includes testflinger-agent, testflinger-cli, testfliger-device-connector inside.
 Testflinger-agent is the only application that running at beginning.
+
 # How to build
 ```shell
 docker build -t [where is the images registry]/[image name]:[tag] .
