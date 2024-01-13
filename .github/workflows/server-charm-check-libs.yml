@@ -5,7 +5,8 @@ on:
     branches:
       - main
     paths:
-      - server/**
+      - server/charm/**
+  workflow_dispatch:
 
 jobs:
   build:
