@@ -1,0 +1,20 @@
+config:
+    project_name: x8high-pdkv2
+    username: iotuc
+    password: iotuc
+    serial_console:
+        port: /dev/ttyUSB1
+        baud_rate: 115200
+    network: etheqos
+
+run_stage:
+    - sys_commands:
+        - usbrelay BITFT_1=0
+        - sleep 5
+        - usbrelay BITFT_1=1
+    - deploy:
+        utility: uuu
+        method: system-user
+    - eof_commands:
+      - cmd: sudo snap install --devmode checkbox-shiner --edge
+      - cmd: sudo snap refresh checkbox20 --beta

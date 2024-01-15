@@ -1,0 +1,35 @@
+Install the auto-sanity tool
+    1. pip3 install -U pip
+    2. pip3 install .
+
+Program your own tplan yaml
+    example:
+
+    ##############################
+        config:
+            project_name: x8high-pdkv2
+            username: target device user account
+            password: target device user password
+            serial_console:
+                port: /dev/ttyUSBxxx
+                baud_rate: baud rate, support[115200, 9600]
+            network: target device interface
+            extra-recepients: ["yourmail@mail.com"]
+
+        run_stage:
+            - sys_commands:
+                - first command to control PC
+                - second command to control PC
+
+            - deploy:
+                utility: deploy method, we currently support [utp_com, uuu, seed_override, seed_override_lk]
+                method: create account method, we currently support [cloud-init, system-user]
+            - eof_commands:
+                - first command to target device
+                - second command to target device
+
+
+    ###############################
+
+Run test
+    auto-sanity --sanity-launcher <your tplan>
