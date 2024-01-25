@@ -146,6 +146,47 @@ def job_get_id(job_id):
     return job_data
 
 
+@v1.get("/job/search")
+@v1.input(schemas.JobSearchRequest, location="query")
+@v1.output(schemas.JobSearchResponse)
+def search_jobs(query_data):
+    """Search for jobs by tags"""
+    tags = query_data.get("tags")
+    match = request.args.get("match", "any")
+    states = request.args.getlist("state")
+
+    if match not in ["any", "all"]:
+        abort(400, "Invalid match mode")
+
+    query = {}
+    if tags and match == "all":
+        query["job_data.tags"] = {"$all": tags}
+    elif tags and match == "any":
+        query["job_data.tags"] = {"$in": tags}
+
+    if states:
+        query["result_data.job_state"] = {"$in": states}
+    else:
+        # Exclude terminal states by default
+        query["result_data.job_state"] = {"$nin": ["cancelled", "complete"]}
+
+    pipeline = [
+        {"$match": query},
+        {
+            "$project": {
+                "job_id": True,
+                "created_at": True,
+                "job_state": "$result_data.job_state",
+                "_id": False,
+            },
+        },
+    ]
+
+    jobs = mongo.db.jobs.aggregate(pipeline)
+
+    return jsonify(list(jobs))
+
+
 @v1.post("/result/<job_id>")
 @v1.input(schemas.Result, location="json")
 def result_post(job_id, json_data):

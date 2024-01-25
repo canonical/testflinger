@@ -73,6 +73,24 @@ class JobId(Schema):
     job_id = fields.String(required=True)
 
 
+class JobSearchRequest(Schema):
+    """Job search request schema"""
+
+    tags = fields.List(fields.String, description="List of tags to search for")
+    match = fields.String(
+        description="Match mode - 'all' or 'any' (default 'any')"
+    )
+    state = fields.List(
+        fields.String, description="List of job states to include"
+    )
+
+
+class JobSearchResponse(Schema):
+    """Job search response schema"""
+
+    jobs = fields.List(fields.Nested(Job), required=True)
+
+
 class Result(Schema):
     """Result schema"""
 

@@ -421,3 +421,74 @@ def test_get_agents_data(mongo_app):
     assert len(output.json) == 1
     for key, value in agent_data.items():
         assert output.json[0][key] == value
+
+
+def test_search_jobs_by_tags(mongo_app):
+    """Test search_jobs by tags"""
+    app, _ = mongo_app
+
+    # Create some test jobs
+    job1 = {
+        "job_queue": "test",
+        "tags": ["tag1", "tag2"],
+    }
+    job2 = {
+        "job_queue": "test",
+        "tags": ["tag2", "tag3"],
+    }
+    job3 = {
+        "job_queue": "test",
+        "tags": ["tag3", "tag4"],
+    }
+    app.post("/v1/job", json=job1)
+    app.post("/v1/job", json=job2)
+    app.post("/v1/job", json=job3)
+
+    # Match any of the specified tags
+    output = app.get("/v1/job/search?tags=tag1&tags=tag2")
+    assert 200 == output.status_code
+    assert len(output.json) == 2
+
+    # Match all of the specified tags
+    output = app.get("/v1/job/search?tags=tag2&tags=tag3&match=all")
+    assert 200 == output.status_code
+    assert len(output.json) == 1
+
+
+def test_search_jobs_invalid_match(mongo_app):
+    """Test search_jobs with invalid match"""
+    app, _ = mongo_app
+
+    output = app.get("/v1/job/search?match=foo")
+    assert 400 == output.status_code
+    assert "Invalid match mode" in output.text
+
+
+def test_search_jobs_by_state(mongo_app):
+    """Test search jobs by state"""
+    app, _ = mongo_app
+
+    job = {
+        "job_queue": "test",
+        "tags": ["foo"],
+    }
+    # Two jobs that will stay in waiting state
+    app.post("/v1/job", json=job)
+    app.post("/v1/job", json=job)
+
+    # One job that will be cancelled
+    job_response = app.post("/v1/job", json=job)
+    job_id = job_response.json.get("job_id")
+    result_url = f"/v1/result/{job_id}"
+    data = {"job_state": "cancelled"}
+    app.post(result_url, json=data)
+
+    # By default, cancelled and completed jobs are filtered
+    output = app.get("/v1/job/search?tags=foo")
+    assert 200 == output.status_code
+    assert len(output.json) == 2
+
+    # But we can specify searching for one in any state
+    output = app.get("/v1/job/search?state=cancelled")
+    assert 200 == output.status_code
+    assert len(output.json) == 1
