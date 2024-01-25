@@ -33,7 +33,7 @@ def test_home(mongo_app):
 
 def test_add_job_good(mongo_app):
     """Test that adding a new job works"""
-    job_data = {"job_queue": "test"}
+    job_data = {"job_queue": "test", "tags": ["foo", "bar"]}
     # Place a job on the queue
     app, _ = mongo_app
     output = app.post("/v1/job", json=job_data)

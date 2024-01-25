@@ -55,6 +55,7 @@ class Job(Schema):
     job_id = fields.String(required=False)
     parent_job_id = fields.String(required=False)
     name = fields.String(required=False)
+    tags = fields.List(fields.String(), required=False)
     job_queue = fields.String(required=True)
     global_timeout = fields.Integer(required=False)
     output_timeout = fields.Integer(required=False)

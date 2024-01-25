@@ -16,6 +16,11 @@ The following table lists the key elements that a job definition file should con
     - String
     - /
     - Name of the job queue to which you want to submit the job. This field is mandatory.
+  * - ``tags``
+    - List of strings
+    - /
+    - | (Optional) List of tags that you want to associate with the job. 
+      | Tags can be used to search for jobs with the search API.
   * - ``global_timeout``
     - integer
     - | 14400
