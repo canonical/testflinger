@@ -155,20 +155,16 @@ def search_jobs(query_data):
     match = request.args.get("match", "any")
     states = request.args.getlist("state")
 
-    if match not in ["any", "all"]:
-        abort(400, "Invalid match mode")
-
     query = {}
     if tags and match == "all":
         query["job_data.tags"] = {"$all": tags}
     elif tags and match == "any":
         query["job_data.tags"] = {"$in": tags}
 
-    if states:
-        query["result_data.job_state"] = {"$in": states}
-    else:
-        # Exclude terminal states by default
+    if "active" in states:
         query["result_data.job_state"] = {"$nin": ["cancelled", "complete"]}
+    elif states:
+        query["result_data.job_state"] = {"$in": states}
 
     pipeline = [
         {"$match": query},

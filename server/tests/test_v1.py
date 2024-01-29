@@ -460,8 +460,8 @@ def test_search_jobs_invalid_match(mongo_app):
     app, _ = mongo_app
 
     output = app.get("/v1/job/search?match=foo")
-    assert 400 == output.status_code
-    assert "Invalid match mode" in output.text
+    assert 422 == output.status_code
+    assert "Must be one of" in output.text
 
 
 def test_search_jobs_by_state(mongo_app):
@@ -483,8 +483,13 @@ def test_search_jobs_by_state(mongo_app):
     data = {"job_state": "cancelled"}
     app.post(result_url, json=data)
 
-    # By default, cancelled and completed jobs are filtered
+    # By default, all jobs are included if we don't specify the state
     output = app.get("/v1/job/search?tags=foo")
+    assert 200 == output.status_code
+    assert len(output.json) == 3
+
+    # We can restrict this to active jobs
+    output = app.get("/v1/job/search?tags=foo&state=active")
     assert 200 == output.status_code
     assert len(output.json) == 2
 
@@ -492,3 +497,12 @@ def test_search_jobs_by_state(mongo_app):
     output = app.get("/v1/job/search?state=cancelled")
     assert 200 == output.status_code
     assert len(output.json) == 1
+
+
+def test_search_jobs_invalid_state(mongo_app):
+    """Test search jobs with invalid state"""
+    app, _ = mongo_app
+
+    output = app.get("/v1/job/search?state=foo")
+    assert 422 == output.status_code
+    assert "Must be one of" in output.text

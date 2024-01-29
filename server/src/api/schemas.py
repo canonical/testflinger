@@ -21,6 +21,21 @@ from apiflask import Schema, fields
 from apiflask.validators import OneOf
 
 
+ValidJobStates = (
+    "setup",
+    "provision",
+    "firmware_update",
+    "test",
+    "allocate",
+    "allocated",
+    "reserve",
+    "cleanup",
+    "cancelled",
+    "completed",
+    "active",  # fake state for jobs that are not completed or cancelled
+)
+
+
 class AgentIn(Schema):
     """Agent data input schema"""
 
@@ -78,10 +93,12 @@ class JobSearchRequest(Schema):
 
     tags = fields.List(fields.String, description="List of tags to search for")
     match = fields.String(
-        description="Match mode - 'all' or 'any' (default 'any')"
+        description="Match mode - 'all' or 'any' (default 'any')",
+        validate=OneOf(["any", "all"]),
     )
     state = fields.List(
-        fields.String, description="List of job states to include"
+        fields.String(validate=OneOf(ValidJobStates)),
+        description="List of job states to include",
     )
 
 

@@ -142,7 +142,7 @@ Parameters:
 
 tags (array): List of string tags to search for
 match (string): Match mode for tags - "all" or "any" (default "any")
-state (array): List of job states to include (default all states other than cancelled and completed)
+state (array): List of job states to include (or "active" to search all states other than cancelled and completed)
 Returns:
 
 Array of matching jobs

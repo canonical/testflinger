@@ -43,10 +43,9 @@ the value "all":
 Searching by Job State
 -----------------------
 
-By default, the search API will only return jobs that are not already marked as
-cancelled or completed. To specify searching for jobs in a specific state, you
-can provide the "state" query parameter with one of the
-:doc:`test phases <../reference/test-phases>`:
+By default, the search API will match jobs in any state.  To specify searching
+for jobs in a specific state, you can provide the "state" query parameter with
+one of the :doc:`test phases <../reference/test-phases>`:
 
 .. code-block:: console
 
@@ -60,4 +59,12 @@ for this will always be "any".
 
       $ curl 'http://localhost:8000/v1/job/search?state=cancelled&state=completed'
 
-This can be done with or without providing tags in the search query.
+To only search for jobs that have not been cancelled or completed, you can
+specify "active" for the state.
+
+.. code-block:: console
+
+      $ curl 'http://localhost:8000/v1/job/search?state=active'
+
+Searching for jobs by state can be done with or without providing tags in the
+search query.
