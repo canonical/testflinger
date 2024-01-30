@@ -136,6 +136,26 @@ server will only return one job.
     $ curl http://localhost:8000/v1/job?queue=foo\&queue=bar
 
 
+** [GET] /v1/job/search ** - Search for jobs by tag(s) and state(s)
+
+Parameters:
+
+tags (array): List of string tags to search for
+match (string): Match mode for tags - "all" or "any" (default "any")
+state (array): List of job states to include (or "active" to search all states other than cancelled and completed)
+Returns:
+
+Array of matching jobs
+
+Example:
+
+.. code-block:: console
+
+$ curl 'http://localhost:8000/v1/job/search?tags=foo&tags=bar&match=all'
+
+This will find jobs tagged with both "foo" and "bar".
+
+
 **[POST] /v1/result/<job_id>** - post job outcome data for the specified job_id
 
 - Parameters:
