@@ -372,6 +372,8 @@ def images_get(queue):
     queue_data = mongo.db.queues.find_one(
         {"name": queue}, {"_id": False, "images": True}
     )
+    if not queue_data:
+        return jsonify({})
     # It's ok for this to just return an empty result if there are none found
     return jsonify(queue_data.get("images", {}))
 
