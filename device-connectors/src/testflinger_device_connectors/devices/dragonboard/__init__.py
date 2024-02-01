@@ -30,8 +30,6 @@ from testflinger_device_connectors.devices.dragonboard.dragonboard import (
     Dragonboard,
 )
 
-device_name = "dragonboard"
-
 
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""

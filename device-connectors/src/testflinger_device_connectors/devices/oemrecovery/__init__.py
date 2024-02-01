@@ -29,8 +29,6 @@ from testflinger_device_connectors.devices.oemrecovery.oemrecovery import (
     OemRecovery,
 )
 
-device_name = "oemrecovery"
-
 
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""

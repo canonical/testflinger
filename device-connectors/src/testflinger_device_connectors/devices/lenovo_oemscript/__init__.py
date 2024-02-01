@@ -32,8 +32,6 @@ from testflinger_device_connectors.devices import (
 )
 from .lenovo_oemscript import LenovoOemScript
 
-device_name = "lenovo_oemscript"
-
 
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning Lenovo OEM devices with an oem image."""

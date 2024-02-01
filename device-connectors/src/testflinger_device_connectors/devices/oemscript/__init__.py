@@ -27,8 +27,6 @@ from testflinger_device_connectors.devices import (
 )
 from testflinger_device_connectors.devices.oemscript.oemscript import OemScript
 
-device_name = "oemscript"
-
 
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""

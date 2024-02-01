@@ -32,8 +32,6 @@ from testflinger_device_connectors.devices import (
 )
 from .dell_oemscript import DellOemScript
 
-device_name = "dell_oemscript"
-
 
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning Dell OEM devices with an oem image."""
