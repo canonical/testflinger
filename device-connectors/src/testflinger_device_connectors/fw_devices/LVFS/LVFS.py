@@ -1,6 +1,5 @@
 """Device class for flashing firmware on device supported by LVFS-fwupd"""
 
-
 import subprocess
 import json
 import time

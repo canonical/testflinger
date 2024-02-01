@@ -37,7 +37,6 @@ logger = logging.getLogger()
 
 
 class Maas2:
-
     """Device Connector for Maas2."""
 
     def __init__(self, config, job_data):

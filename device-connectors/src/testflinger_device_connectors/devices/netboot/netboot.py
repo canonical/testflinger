@@ -31,7 +31,6 @@ logger = logging.getLogger()
 
 
 class Netboot:
-
     """Testflinger Device Connector for Netboot."""
 
     def __init__(self, config):

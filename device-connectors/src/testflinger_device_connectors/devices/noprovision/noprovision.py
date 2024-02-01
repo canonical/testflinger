@@ -29,7 +29,6 @@ logger = logging.getLogger()
 
 
 class Noprovision:
-
     """Testflinger Device Connector for Noprovision."""
 
     def __init__(self, config):

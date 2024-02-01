@@ -30,7 +30,6 @@ logger = logging.getLogger()
 
 
 class OemRecovery:
-
     """Device Connector for OEM Recovery."""
 
     def __init__(self, config, job_data):
