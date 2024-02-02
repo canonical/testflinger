@@ -31,6 +31,8 @@ from testflinger_device_connectors.fw_devices.firmware_update import (
     detect_device,
 )
 
+logger = logging.getLogger(__name__)
+
 
 DEVICE_CONNECTORS = (
     "cm3",
@@ -102,9 +104,7 @@ class RealSerialLogger:
                 except Exception:
                     pass
                 # Keep trying if we can't connect, but sleep between attempts
-                testflinger_device_connectors.logmsg(
-                    logging.ERROR, "Error connecting to serial logging server"
-                )
+                logger.error("Error connecting to serial logging server")
                 time.sleep(30)
 
         self.proc = multiprocessing.Process(target=reconnector, daemon=True)
@@ -125,9 +125,7 @@ class RealSerialLogger:
                             )
                             f.flush()
                         else:
-                            testflinger_device_connectors.logmsg(
-                                logging.ERROR, "Serial Log connection closed"
-                            )
+                            logger.error("Serial Log connection closed")
                             return
 
     def stop(self):
@@ -140,10 +138,7 @@ class DefaultDevice:
         """Default method for processing firmware update commands"""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-        testflinger_device_connectors.configure_logging(config)
-        testflinger_device_connectors.logmsg(
-            logging.INFO, "BEGIN firmware_update"
-        )
+        logger.info("BEGIN firmware_update")
 
         test_opportunity = testflinger_device_connectors.get_test_opportunity(
             args.job_data
@@ -157,8 +152,7 @@ class DefaultDevice:
         supported_version = ["latest"]
 
         if version not in supported_version:
-            testflinger_device_connectors.logmsg(
-                logging.INFO,
+            logger.info(
                 "Fail to provide version in firmware_update_data. "
                 + "Current supported version: latest",
             )
@@ -176,15 +170,11 @@ class DefaultDevice:
                     update_succeeded = target_device.check_results()
                     if not update_succeeded:
                         exitcode = 1
-            except Exception as e:
-                testflinger_device_connectors.logmsg(
-                    logging.ERROR, f"Firmware Update failed: {str(e)}"
-                )
+            except Exception as err:
+                logger.error("Firmware Update failed: ", str(err))
                 exitcode = 1
             finally:
-                testflinger_device_connectors.logmsg(
-                    logging.INFO, "END firmware_update"
-                )
+                logger.info("END firmware_update")
         if ignore_failure:
             exitcode = 0
         return exitcode
@@ -193,8 +183,7 @@ class DefaultDevice:
         """Default method for processing test commands"""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-        testflinger_device_connectors.configure_logging(config)
-        testflinger_device_connectors.logmsg(logging.INFO, "BEGIN testrun")
+        logger.info("BEGIN testrun")
 
         test_opportunity = testflinger_device_connectors.get_test_opportunity(
             args.job_data
@@ -212,7 +201,7 @@ class DefaultDevice:
             raise e
         finally:
             serial_proc.stop()
-        testflinger_device_connectors.logmsg(logging.INFO, "END testrun")
+        logger.info("END testrun")
         return exitcode
 
     def allocate(self, args):
@@ -229,8 +218,7 @@ class DefaultDevice:
         """Default method for reserving systems"""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-        testflinger_device_connectors.configure_logging(config)
-        testflinger_device_connectors.logmsg(logging.INFO, "BEGIN reservation")
+        logger.info("BEGIN reservation")
         job_data = testflinger_device_connectors.get_test_opportunity(
             args.job_data
         )
@@ -249,10 +237,7 @@ class DefaultDevice:
             cmd = ["ssh-import-id", "-o", "key.pub", key]
             proc = subprocess.run(cmd)
             if proc.returncode != 0:
-                testflinger_device_connectors.logmsg(
-                    logging.ERROR,
-                    "Unable to import ssh key from: {}".format(key),
-                )
+                logger.error("Unable to import ssh key from: %s", key)
                 continue
             cmd = [
                 "ssh-copy-id",
@@ -274,19 +259,12 @@ class DefaultDevice:
                 except subprocess.TimeoutExpired:
                     # Log an error for timeout or any other problem
                     pass
-                testflinger_device_connectors.logmsg(
-                    logging.ERROR,
-                    "Error copying ssh key to device for: {}".format(key),
-                )
+                logger.error("Error copying ssh key to device for: %s", key)
                 if retry != 9:
-                    testflinger_device_connectors.logmsg(
-                        logging.INFO, "Retrying..."
-                    )
+                    logger.info("Retrying...")
                     time.sleep(60)
                 else:
-                    testflinger_device_connectors.logmsg(
-                        logging.ERROR, "Failed to copy ssh key: {}".format(key)
-                    )
+                    logger.error("Failed to copy ssh key: %s", key)
         # default reservation timeout is 1 hour
         timeout = int(reserve_data.get("timeout", "3600"))
         # If max_reserve_timeout isn't specified, default to 6 hours

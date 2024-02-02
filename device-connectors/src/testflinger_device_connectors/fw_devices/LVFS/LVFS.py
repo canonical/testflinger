@@ -6,8 +6,9 @@ import time
 import logging
 from typing import Tuple
 from testflinger_device_connectors.fw_devices.base import AbstractDevice
-from testflinger_device_connectors import logmsg
 from enum import Enum, auto
+
+logger = logging.getLogger()
 
 
 SSH_OPTS = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
@@ -67,17 +68,17 @@ class LVFSDevice(AbstractDevice):
         print out devices with upgradable/downgradable versions
         """
         self._install_fwupd()
-        logmsg(logging.INFO, "collect firmware info")
+        logger.info("collect firmware info")
         self.run_cmd("sudo fwupdmgr refresh --force")
         rc, stdout, stderr = self.run_cmd("sudo fwupdmgr get-devices --json")
-        logmsg(logging.INFO, f"output of '$fwupdmgr get-devices'\n{stdout}")
+        logger.info("output of '$fwupdmgr get-devices'\n%s", stdout)
         self._parse_fwupd_raw(stdout)
 
     def _install_fwupd(self):
         self.run_cmd("sudo apt update", raise_stderr=False, timeout=120)
         self.run_cmd("sudo apt install -y fwupd")
         rc, stdout, stderr = self.run_cmd("sudo fwupdmgr --version")
-        logmsg(logging.INFO, f"fwupd version\n{stdout}")
+        logger.info("fwupd version\n%s", stdout)
 
     def _parse_fwupd_raw(self, fwupd_raw: str) -> bool:
         """
@@ -122,7 +123,7 @@ class LVFSDevice(AbstractDevice):
             else:
                 msg += " - no available firmware on LVFS"
             if msg:
-                logmsg(logging.INFO, msg)
+                logger.info(msg)
 
     def upgrade(self) -> bool:
         """
@@ -131,7 +132,7 @@ class LVFSDevice(AbstractDevice):
         :return: `True` if upgrading is done and reboot is required, `False`
                  otherwise
         """
-        logmsg(logging.INFO, "start upgrading")
+        logger.info("start upgrading")
         reboot = False
         for dev in self.fw_info:
             dev_name = dev["Name"] if "Name" in dev else dev["DeviceId"]
@@ -141,10 +142,10 @@ class LVFSDevice(AbstractDevice):
                 continue
             if dev["Version"] != latest_ver["Version"]:
                 if "is-upgrade" in latest_ver["Flags"]:
-                    logmsg(
-                        logging.INFO,
-                        f"[{dev_name}] try upgrading to "
-                        + f"{latest_ver['Version']}",
+                    logger.info(
+                        "[%s] try upgrading to %s",
+                        dev_name,
+                        latest_ver["Version"],
                     )
                     dev["targetVersion"] = latest_ver["Version"]
                     rc, stdout, stderr = self.run_cmd(
@@ -155,22 +156,18 @@ class LVFSDevice(AbstractDevice):
                     if rc == 0:
                         reboot = True
                     else:
-                        logmsg(
-                            logging.ERROR,
-                            f"[{dev_name}] Failed to upgrade to "
-                            + f"{latest_ver['Version']}\n"
-                            + f"error: {stdout}",
+                        logger.error(
+                            "[%s] Failed to upgrade to %s\nerror: %s",
+                            dev_name,
+                            latest_ver["Version"],
+                            stdout,
                         )
                 else:
-                    logmsg(
-                        logging.INFO,
-                        f"[{dev_name}] not an upgradable component",
-                    )
+                    logger.info("[%s] not an upgradable component", dev_name)
             else:
-                logmsg(
-                    logging.INFO,
-                    f"[{dev_name}] already the latest available firmware"
-                    + "version",
+                logger.info(
+                    "[%s] already the latest available firmware version",
+                    dev_name,
                 )
         return reboot
 
@@ -181,7 +178,7 @@ class LVFSDevice(AbstractDevice):
         :return: `True` if downgrading is done and reboot is required, `False`
                  otherwise
         """
-        logmsg(logging.INFO, "start downgrading")
+        logger.info("start downgrading")
         reboot = False
         for dev in self.fw_info:
             dev_name = dev["Name"] if "Name" in dev else dev["DeviceId"]
@@ -190,17 +187,13 @@ class LVFSDevice(AbstractDevice):
             except (KeyError, IndexError):
                 continue
             if dev["Version"] == prev_ver["Version"]:
-                logmsg(
-                    logging.INFO,
-                    f"[{dev_name}] already the previous version",
-                )
+                logger.info("[%s] already the previous version", dev_name)
                 continue
             if "is-downgrade" in prev_ver["Flags"]:
                 dev["targetVersion"] = prev_ver["Version"]
                 fw_file = prev_ver["Uri"].split("/")[-1]
-                logmsg(
-                    logging.INFO,
-                    f"[{dev_name}] try downgrading to {prev_ver['Version']}",
+                logger.info(
+                    "[%s] try downgrading to %s", dev_name, prev_ver["Version"]
                 )
                 rc, stdout, stderr = self.run_cmd(
                     f"sudo fwupdmgr download {prev_ver['Uri']}",
@@ -219,17 +212,17 @@ class LVFSDevice(AbstractDevice):
                 if rc == 0:
                     reboot = True
                 else:
-                    logmsg(
-                        logging.ERROR,
-                        f"[{dev_name}] fail to force install (downgrade) "
-                        + f"firmware {fw_file}\n"
-                        + f"error: {stdout}",
+                    logger.error(
+                        (
+                            "[%s] fail to force install (downgrade) "
+                            "firmware %s\nerror: %s"
+                        ),
+                        dev_name,
+                        fw_file,
+                        stdout,
                     )
             else:
-                logmsg(
-                    logging.INFO,
-                    f"[{dev_name}] not a downgradable component",
-                )
+                logger.info("[%s] not a downgradable component", dev_name)
         return reboot
 
     def check_results(self) -> bool:
@@ -256,11 +249,13 @@ class LVFSDevice(AbstractDevice):
                 new_fw = get_results["Releases"][0]
                 update_state = get_results["UpdateState"]
             except KeyError:
-                msg = (
-                    f"[{dev_name}] unable to determine if new firmware "
-                    + "is landed due to missing results"
+                logger.error(
+                    (
+                        "[%s] unable to determine if new firmware is landed "
+                        "due to missing results"
+                    ),
+                    dev_name,
                 )
-                logmsg(logging.ERROR, msg)
                 fwupd_result = False
                 continue
 
@@ -269,20 +264,21 @@ class LVFSDevice(AbstractDevice):
                 and update_state
                 == FwupdUpdateState.FWUPD_UPDATE_STATE_SUCCESS.value
             ):
-                msg = (
-                    f"[{dev_name}] firmware flashed {dev['Version']}"
-                    + f" → {expected_ver}"
+                logger.info(
+                    "[%s] firmware flashed %s → %s",
+                    dev_name,
+                    dev["Version"],
+                    expected_ver,
                 )
-                log_level = logging.INFO
             else:
                 update_err = get_results.get("UpdateError", "")
-                msg = (
-                    f"[{dev_name}] {FwupdUpdateState(update_state).name}:"
-                    + f" {update_err}"
+                logger.error(
+                    "[%s] %s: %s",
+                    dev_name,
+                    FwupdUpdateState(update_state).name,
+                    update_err,
                 )
-                log_level = logging.ERROR
                 fwupd_result = False
-            logmsg(log_level, msg)
 
         return fwupd_result
 
@@ -293,9 +289,8 @@ class LVFSDevice(AbstractDevice):
 
         :param timeout: wait time for regaining DUT access
         """
-        logmsg(
-            logging.INFO,
-            f"check and wait for {timeout}s until {self.ipaddr} is SSHable",
+        logger.info(
+            "check and wait for %ss until %s is SSHable", timeout, self.ipaddr
         )
         status = "1"
         timeout_start = time.time()
@@ -316,14 +311,14 @@ class LVFSDevice(AbstractDevice):
                 pass
         if status != "0":
             err_msg = f"Failed to SSH to {self.ipaddr} after {timeout}s"
-            logmsg(logging.ERROR, err_msg)
+            logger.error(err_msg)
             raise RuntimeError(err_msg)
         delta = time.time() - timeout_start
-        logmsg(logging.INFO, f"{self.ipaddr} is SSHable after {int(delta)}s")
+        logger.info("%s is SSHable after %ds", self.ipaddr, int(delta))
 
     def reboot(self):
         """Reboot the DUT from OS"""
-        logmsg(logging.INFO, "reboot DUT")
+        logger.info("reboot DUT")
         self.run_cmd("sudo reboot", raise_stderr=False)
         time.sleep(10)
         self.check_connectable(self.reboot_timeout)

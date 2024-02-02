@@ -18,8 +18,6 @@ import logging
 
 import yaml
 
-import testflinger_device_connectors
-from testflinger_device_connectors import logmsg
 from testflinger_device_connectors.devices import (
     DefaultDevice,
     RecoveryError,
@@ -27,6 +25,8 @@ from testflinger_device_connectors.devices import (
     catch,
 )
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
+
+logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(DefaultDevice):
@@ -37,10 +37,9 @@ class DeviceConnector(DefaultDevice):
         """Method called when the command is invoked."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-        testflinger_device_connectors.configure_logging(config)
         device = MuxPi(args.config, args.job_data)
-        logmsg(logging.INFO, "BEGIN provision")
-        logmsg(logging.INFO, "Provisioning device")
+        logger.info("BEGIN provision")
+        logger.info("Provisioning device")
         serial_host = config.get("serial_host")
         serial_port = config.get("serial_port")
         serial_proc = SerialLogger(
@@ -53,4 +52,4 @@ class DeviceConnector(DefaultDevice):
             raise e
         finally:
             serial_proc.stop()
-        logmsg(logging.INFO, "END provision")
+        logger.info("END provision")

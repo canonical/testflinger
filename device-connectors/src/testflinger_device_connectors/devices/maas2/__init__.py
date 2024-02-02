@@ -18,8 +18,6 @@ import logging
 
 import yaml
 
-import testflinger_device_connectors
-from testflinger_device_connectors import logmsg
 from testflinger_device_connectors.devices import (
     DefaultDevice,
     ProvisioningError,
@@ -28,6 +26,8 @@ from testflinger_device_connectors.devices import (
     catch,
 )
 from testflinger_device_connectors.devices.maas2.maas2 import Maas2
+
+logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(DefaultDevice):
@@ -38,10 +38,9 @@ class DeviceConnector(DefaultDevice):
         """Method called when the command is invoked."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-        testflinger_device_connectors.configure_logging(config)
         device = Maas2(args.config, args.job_data)
-        logmsg(logging.INFO, "BEGIN provision")
-        logmsg(logging.INFO, "Provisioning device")
+        logger.info("BEGIN provision")
+        logger.info("Provisioning device")
         serial_host = config.get("serial_host")
         serial_port = config.get("serial_port")
         serial_proc = SerialLogger(
@@ -50,11 +49,11 @@ class DeviceConnector(DefaultDevice):
         serial_proc.start()
         try:
             device.provision()
-        except ProvisioningError as e:
-            logmsg(logging.ERROR, "Provisioning failed: {}".format(str(e)))
+        except ProvisioningError as err:
+            logger.error("Provisioning failed: %s", str(err))
             return 1
         except Exception as e:
             raise e
         finally:
             serial_proc.stop()
-        logmsg(logging.INFO, "END provision")
+        logger.info("END provision")

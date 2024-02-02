@@ -27,8 +27,9 @@ from testflinger_device_connectors.devices import (
 )
 
 import testflinger_device_connectors
-from testflinger_device_connectors import logmsg
 from testflinger_device_connectors.devices.netboot.netboot import Netboot
+
+logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(DefaultDevice):
@@ -39,7 +40,6 @@ class DeviceConnector(DefaultDevice):
         """Method called when the command is invoked."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-        testflinger_device_connectors.configure_logging(config)
         device = Netboot(args.config)
         image = testflinger_device_connectors.get_image(args.job_data)
         if not image:
@@ -54,8 +54,8 @@ class DeviceConnector(DefaultDevice):
         test_password = testflinger_device_connectors.get_test_password(
             job_data=args.job_data, default="admin"
         )
-        logmsg(logging.INFO, "BEGIN provision")
-        logmsg(logging.INFO, "Booting Master Image")
+        logger.info("BEGIN provision")
+        logger.info("Booting Master Image")
         """Initial recovery process
         If the netboot (master) image is already booted and we can get to then
         URL for it, then just continue with provisioning. Otherwise, try to
@@ -78,7 +78,7 @@ class DeviceConnector(DefaultDevice):
         )
         file_server.start()
         server_port = q.get()
-        logmsg(logging.INFO, "Flashing Test Image")
+        logger.info("Flashing Test Image")
         serial_host = config.get("serial_host")
         serial_port = config.get("serial_port")
         serial_proc = SerialLogger(
@@ -87,11 +87,11 @@ class DeviceConnector(DefaultDevice):
         serial_proc.start()
         try:
             device.flash_test_image(server_ip, server_port)
-            logmsg(logging.INFO, "Booting Test Image")
+            logger.info("Booting Test Image")
             device.ensure_test_image(test_username, test_password)
         except Exception as e:
             raise e
         finally:
             file_server.terminate()
             serial_proc.stop()
-        logmsg(logging.INFO, "END provision")
+        logger.info("END provision")
