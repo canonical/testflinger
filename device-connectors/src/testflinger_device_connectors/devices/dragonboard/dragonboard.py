@@ -33,7 +33,6 @@ logger = logging.getLogger()
 
 
 class Dragonboard:
-
     """Testflinger Device Connector for Dragonboard."""
 
     def __init__(self, config, job_data):

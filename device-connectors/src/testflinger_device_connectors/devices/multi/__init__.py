@@ -32,7 +32,6 @@ device_name = "multi"
 
 
 class DeviceConnector(DefaultDevice):
-
     """Device Connector for provisioning multiple devices at the same time"""
 
     def init_device(self, args):

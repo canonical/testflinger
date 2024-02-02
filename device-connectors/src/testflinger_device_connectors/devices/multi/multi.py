@@ -25,7 +25,6 @@ logger = logging.getLogger()
 
 
 class Multi:
-
     """Device Connector for multi-device"""
 
     def __init__(self, config, job_data, client):

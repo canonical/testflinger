@@ -32,7 +32,6 @@ logger = logging.getLogger()
 
 
 class MuxPi:
-
     """Device Connector for MuxPi."""
 
     IMAGE_PATH_IDS = {

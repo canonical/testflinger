@@ -34,7 +34,6 @@ device_name = "netboot"
 
 
 class DeviceConnector(DefaultDevice):
-
     """Tool for provisioning baremetal with a given image."""
 
     @catch(RecoveryError, 46)

@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Canonical
+# Copyright (C) 2015-2024 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,7 +12,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
-import imp
 import json
 import logging
 import multiprocessing
@@ -22,12 +21,31 @@ import socket
 import subprocess
 import time
 from datetime import datetime, timedelta
+from importlib import import_module
+from typing import Callable
 
 import yaml
 
 import testflinger_device_connectors
 from testflinger_device_connectors.fw_devices.firmware_update import (
     detect_device,
+)
+
+
+DEVICE_CONNECTORS = (
+    "cm3",
+    "dell_oemscript",
+    "dragonboard",
+    "hp_oemscript",
+    "iotscript",
+    "lenovo_oemscript",
+    "maas2",
+    "multi",
+    "muxpi",
+    "netboot",
+    "noprovision",
+    "oemrecovery",
+    "oemscript",
 )
 
 
@@ -329,21 +347,12 @@ def catch(exception, returnval=0):
     return _wrapper
 
 
-def load_devices():
-    devices = []
-    device_path = os.path.dirname(os.path.realpath(__file__))
-    devs = [
-        os.path.join(device_path, device)
-        for device in os.listdir(device_path)
-        if os.path.isdir(os.path.join(device_path, device))
-    ]
-    for device in devs:
-        if "__pycache__" in device:
-            continue
-        module = imp.load_source("module", os.path.join(device, "__init__.py"))
-        devices.append((module.device_name, module.DeviceConnector))
-    return tuple(devices)
-
-
-if __name__ == "__main__":
-    load_devices()
+def get_device_stage_func(device: str, stage: str) -> Callable:
+    """
+    Load the selected device connector and return the selected stage method
+    """
+    module = import_module(f".{device}", package=__package__)
+    device_class = getattr(module, "DeviceConnector")
+    device_instance = device_class()
+    stage_method = getattr(device_instance, stage)
+    return stage_method

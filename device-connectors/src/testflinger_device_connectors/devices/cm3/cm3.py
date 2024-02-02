@@ -32,7 +32,6 @@ logger = logging.getLogger()
 
 
 class CM3:
-
     """Device Connector for CM3."""
 
     IMAGE_PATH_IDS = {

@@ -36,7 +36,6 @@ device_name = "lenovo_oemscript"
 
 
 class DeviceConnector(DefaultDevice):
-
     """Tool for provisioning Lenovo OEM devices with an oem image."""
 
     @catch(RecoveryError, 46)

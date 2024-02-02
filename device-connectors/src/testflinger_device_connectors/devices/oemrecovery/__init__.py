@@ -33,7 +33,6 @@ device_name = "oemrecovery"
 
 
 class DeviceConnector(DefaultDevice):
-
     """Tool for provisioning baremetal with a given image."""
 
     @catch(RecoveryError, 46)

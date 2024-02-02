@@ -36,7 +36,6 @@ device_name = "hp_oemscript"
 
 
 class DeviceConnector(DefaultDevice):
-
     """Tool for provisioning HP OEM devices with an oem image."""
 
     @catch(RecoveryError, 46)

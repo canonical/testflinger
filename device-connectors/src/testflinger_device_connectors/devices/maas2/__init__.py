@@ -33,7 +33,6 @@ device_name = "maas2"
 
 
 class DeviceConnector(DefaultDevice):
-
     """Tool for provisioning baremetal with a given image."""
 
     @catch(RecoveryError, 46)
