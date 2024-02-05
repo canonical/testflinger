@@ -29,8 +29,6 @@ from testflinger_device_connectors.devices import (
 )
 from testflinger_device_connectors.devices.maas2.maas2 import Maas2
 
-device_name = "maas2"
-
 
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""

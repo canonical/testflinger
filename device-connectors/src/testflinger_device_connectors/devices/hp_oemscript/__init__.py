@@ -32,8 +32,6 @@ from testflinger_device_connectors.devices import (
 )
 from .hp_oemscript import HPOemScript
 
-device_name = "hp_oemscript"
-
 
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning HP OEM devices with an oem image."""

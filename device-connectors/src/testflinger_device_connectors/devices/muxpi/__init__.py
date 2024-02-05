@@ -28,8 +28,6 @@ from testflinger_device_connectors.devices import (
 )
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
 
-device_name = "muxpi"
-
 
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""

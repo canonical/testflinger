@@ -28,8 +28,6 @@ from testflinger_device_connectors.devices import (
 )
 from testflinger_device_connectors.devices.cm3.cm3 import CM3
 
-device_name = "cm3"
-
 
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""

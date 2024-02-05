@@ -30,8 +30,6 @@ import testflinger_device_connectors
 from testflinger_device_connectors import logmsg
 from testflinger_device_connectors.devices.netboot.netboot import Netboot
 
-device_name = "netboot"
-
 
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""

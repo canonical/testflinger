@@ -29,8 +29,6 @@ from testflinger_device_connectors.devices.noprovision.noprovision import (
     Noprovision,
 )
 
-device_name = "noprovision"
-
 
 class DeviceConnector(DefaultDevice):
     @catch(RecoveryError, 46)

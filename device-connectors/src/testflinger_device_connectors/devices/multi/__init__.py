@@ -28,8 +28,6 @@ from testflinger_device_connectors.devices import (
 from testflinger_device_connectors.devices.multi.multi import Multi
 from testflinger_device_connectors.devices.multi.tfclient import TFClient
 
-device_name = "multi"
-
 
 class DeviceConnector(DefaultDevice):
     """Device Connector for provisioning multiple devices at the same time"""
