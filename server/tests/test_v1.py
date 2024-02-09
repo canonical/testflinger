@@ -20,6 +20,7 @@ Unit tests for Testflinger v1 API
 import json
 
 from io import BytesIO
+from datetime import datetime
 from src.api import v1
 
 
@@ -506,3 +507,22 @@ def test_search_jobs_invalid_state(mongo_app):
     output = app.get("/v1/job/search?state=foo")
     assert 422 == output.status_code
     assert "Must be one of" in output.text
+
+
+def test_search_jobs_datetime_iso8601(mongo_app):
+    """Test that the created_at field is returned in ISO8601 format"""
+    app, mongo = mongo_app
+
+    job = {
+        "job_queue": "test",
+        "tags": ["foo"],
+    }
+    job_response = app.post("/v1/job", json=job)
+    job_id = job_response.json.get("job_id")
+    mongo.jobs.update_one(
+        {"job_id": job_id},
+        {"$set": {"created_at": datetime(2020, 1, 1)}},
+    )
+    output = app.get("/v1/job/search?tags=foo")
+    assert 200 == output.status_code
+    assert output.json[0]["created_at"] == "2020-01-01T00:00:00Z"
