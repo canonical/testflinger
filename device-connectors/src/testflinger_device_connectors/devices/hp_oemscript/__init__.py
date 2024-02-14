@@ -21,16 +21,14 @@ for provisioning, but require the --ubr flag in order to use the
 
 import logging
 
-import yaml
-
-import testflinger_device_connectors
-from testflinger_device_connectors import logmsg
 from testflinger_device_connectors.devices import (
     DefaultDevice,
     RecoveryError,
     catch,
 )
 from .hp_oemscript import HPOemScript
+
+logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(DefaultDevice):
@@ -39,11 +37,8 @@ class DeviceConnector(DefaultDevice):
     @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
-        with open(args.config) as configfile:
-            config = yaml.safe_load(configfile)
-        testflinger_device_connectors.configure_logging(config)
         device = HPOemScript(args.config, args.job_data)
-        logmsg(logging.INFO, "BEGIN provision")
-        logmsg(logging.INFO, "Provisioning device")
+        logger.info("BEGIN provision")
+        logger.info("Provisioning device")
         device.provision()
-        logmsg(logging.INFO, "END provision")
+        logger.info("END provision")

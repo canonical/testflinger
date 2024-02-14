@@ -19,14 +19,16 @@ Main testflinger-device-connectors command module
 
 import argparse
 import logging
+import yaml
 import sys
 
+from testflinger_device_connectors import configure_logging
 from testflinger_device_connectors.devices import (
     DEVICE_CONNECTORS,
     get_device_stage_func,
 )
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 STAGES = (
@@ -73,5 +75,9 @@ def main():
     Dynamically load the selected module and call the selected method
     """
     args = get_args()
+    with open(args.config) as configfile:
+        config = yaml.safe_load(configfile)
+    configure_logging(config)
+
     func = get_device_stage_func(args.device, args.stage)
     sys.exit(func(args))

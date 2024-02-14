@@ -29,7 +29,7 @@ import urllib.request
 
 IMAGEFILE = "install.img"
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class CmdTimeoutError(Exception):
@@ -263,46 +263,29 @@ def compress_file(filename):
 def configure_logging(config):
     """Setup logging"""
 
-    class AgentFilter(
-        logging.Filter
-    ):  # pylint: disable=too-few-public-methods
+    class AgentFormatter(logging.Formatter):
         """Add agent_name to log records"""
 
-        def __init__(self, agent_name):
-            super().__init__()
+        def __init__(self, fmt, agent_name):
+            super().__init__(fmt)
             self.agent_name = agent_name
 
-        def filter(self, record):
+        def format(self, record):
             record.agent_name = self.agent_name
-            return True
+            return super().format(record)
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(agent_name)s %(levelname)s: "
-        "DEVICE CONNECTOR: "
-        "%(message)s",
-    )
     agent_name = config.get("agent_name", "")
-    logger.addFilter(AgentFilter(agent_name))
+    fmt = (
+        "%(asctime)s %(agent_name)s %(levelname)s: DEVICE CONNECTOR: "
+        "%(message)s"
+    )
+    formatter = AgentFormatter(fmt, agent_name)
 
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
 
-def logmsg(level, msg, *args):
-    """
-    Front end to logging that splits messages into 4096 byte chunks
-
-    :param level:
-        log level
-    :param msg:
-        log message
-    :param args:
-        args for filling message variables
-    """
-
-    if args:
-        msg = msg % args
-    logger.log(level, msg[:4096])
-    if len(msg) > 4096:
-        logmsg(level, msg[4096:])
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
 
 
 def runcmd(cmd, env=None, timeout=None):
@@ -370,7 +353,7 @@ def run_test_cmds(cmds, config=None, env=None):
         return _run_test_cmds_list(cmds, config, env)
     if isinstance(cmds, str):
         return _run_test_cmds_str(cmds, config, env)
-    logmsg(logging.ERROR, "test_cmds field must be a list or string")
+    logger.error("test_cmds field must be a list or string")
     return 1
 
 
@@ -385,10 +368,7 @@ def _process_cmds_template_vars(cmds, config=None):
         Config data for the device which can be used for filling templates
     """
 
-    logmsg(
-        logging.WARNING,
-        "DEPRECATED - Detected use of double-braces in test_cmds",
-    )
+    logger.warning("DEPRECATED - Detected use of double-braces in test_cmds")
 
     class IgnoreUnknownFormatter(string.Formatter):
         """Try to allow both double and single curly braces"""
@@ -451,10 +431,10 @@ def _run_test_cmds_list(cmds, config=None, env=None):
         if "{{" in cmd:
             cmd = _process_cmds_template_vars(cmd, config)
 
-        logmsg(logging.INFO, "Running: %s", cmd)
+        logger.info("Running: %s", cmd)
         result = runcmd(cmd, env)
         if result:
-            logmsg(logging.WARNING, "Command failed, rc=%d", result)
+            logger.warning("Command failed, rc=%d", result)
     return result
 
 
@@ -485,5 +465,5 @@ def _run_test_cmds_str(cmds, config=None, env=None):
     os.chmod("tf_cmd_script", 0o775)
     result = runcmd("./tf_cmd_script", env)
     if result:
-        logmsg(logging.WARNING, "Tests failed, rc=%d", result)
+        logger.warning("Tests failed, rc=%d", result)
     return result
