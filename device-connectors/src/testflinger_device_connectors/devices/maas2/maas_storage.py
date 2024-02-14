@@ -19,12 +19,13 @@ import subprocess
 import collections
 import json
 import math
+from testflinger_device_connectors.devices import ProvisioningError
 
 
 logger = logging.getLogger()
 
 
-class MaasStorageError(Exception):
+class MaasStorageError(ProvisioningError):
     pass
 
 
