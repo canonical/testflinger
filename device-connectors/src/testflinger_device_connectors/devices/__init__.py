@@ -39,7 +39,6 @@ DEVICE_CONNECTORS = (
     "dell_oemscript",
     "dragonboard",
     "hp_oemscript",
-    "iotscript",
     "lenovo_oemscript",
     "maas2",
     "multi",
@@ -48,6 +47,7 @@ DEVICE_CONNECTORS = (
     "noprovision",
     "oemrecovery",
     "oemscript",
+    "zapper_iot",
 )
 
 
