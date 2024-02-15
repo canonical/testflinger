@@ -1,2 +1,2 @@
 # OEM Software Engineering
-device-connectors/src/testflinger_device_connectors/devices/iotscript @canonical/oem-swe-iot
+device-connectors/src/testflinger_device_connectors/devices/zapper_iot @canonical/oem-swe-iot
