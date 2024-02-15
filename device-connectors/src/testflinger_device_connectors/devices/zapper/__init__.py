@@ -74,6 +74,7 @@ class ZapperConnector(ABC, DefaultDevice):
         Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
+        raise NotImplementedError
 
     def _run(self, zapper_ip, *args, **kwargs):
         """
