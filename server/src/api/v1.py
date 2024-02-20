@@ -162,7 +162,9 @@ def search_jobs(query_data):
         query["job_data.tags"] = {"$in": tags}
 
     if "active" in states:
-        query["result_data.job_state"] = {"$nin": ["cancelled", "complete"]}
+        query["result_data.job_state"] = {
+            "$nin": ["cancelled", "complete", "completed"]
+        }
     elif states:
         query["result_data.job_state"] = {"$in": states}
 
