@@ -266,27 +266,27 @@ class TestflingerClient:
             return False
         return bool(job_request)
 
-    def post_queues(self, data):
-        """Post the list of advertised queues to testflinger server
-
-        :param data:
-            dict of queue name and descriptions to send to the server
-        """
+    def post_advertised_queues(self):
+        """Post the list of advertised queues to testflinger server"""
+        if "advertised_queues" not in self.config:
+            return
         queues_uri = urljoin(self.server, "/v1/agents/queues")
         try:
-            self.session.post(queues_uri, json=data, timeout=30)
+            self.session.post(
+                queues_uri, json=self.config["advertised_queues"], timeout=30
+            )
         except RequestException as exc:
             logger.error(exc)
 
-    def post_images(self, data):
-        """Post the list of advertised images to testflinger server
-
-        :param data:
-            dict of queues containing dicts of imgae names and provision data
-        """
+    def post_advertised_images(self):
+        """Post the list of advertised images to testflinger server"""
+        if "advertised_images" not in self.config:
+            return
         images_uri = urljoin(self.server, "/v1/agents/images")
         try:
-            self.session.post(images_uri, json=data, timeout=30)
+            self.session.post(
+                images_uri, json=self.config["advertised_images"], timeout=30
+            )
         except RequestException as exc:
             logger.error(exc)
 
