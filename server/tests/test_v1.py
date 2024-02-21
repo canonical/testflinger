@@ -484,10 +484,17 @@ def test_search_jobs_by_state(mongo_app):
     data = {"job_state": "cancelled"}
     app.post(result_url, json=data)
 
+    # One job that will be completed
+    job_response = app.post("/v1/job", json=job)
+    job_id = job_response.json.get("job_id")
+    result_url = f"/v1/result/{job_id}"
+    data = {"job_state": "completed"}
+    app.post(result_url, json=data)
+
     # By default, all jobs are included if we don't specify the state
     output = app.get("/v1/job/search?tags=foo")
     assert 200 == output.status_code
-    assert len(output.json) == 3
+    assert len(output.json) == 4
 
     # We can restrict this to active jobs
     output = app.get("/v1/job/search?tags=foo&state=active")
