@@ -62,55 +62,25 @@
 </div>
 {% endif %}
 
-<h2 class="p-muted-heading">Provision Phase</h2>
-<div class="p-code-snippet">
-    <div class="p-code-snippet__header">
-        <h5 class="p-code-snippet__title">Provision Exit Status: {{ job.result_data.provision_status|default("[unknown]") }}</h5>
-    </div>
-    <div class="p-code-snippet__header">
-        <h5 class="p-code-snippet__title">Provision Output</h5>
-    </div>
-    <div class="scrollable">
-        <pre class="p-code-snippet__block">
-        <code>
-{{ job.result_data.provision_output }}
-        </code>
-    </pre>
-    </div>
-</div>
-
-<h2 class="p-muted-heading">Firmware Update Phase</h2>
-<div class="p-code-snippet">
-    <div class="p-code-snippet__header">
-        <h5 class="p-code-snippet__title">Firmware Update Exit Status: {{ job.result_data.firmware_update_status|default("[unknown]") }}</h5>
-    </div>
-    <div class="p-code-snippet__header">
-        <h5 class="p-code-snippet__title">Firmware Update Output</h5>
-    </div>
-    <div class="scrollable">
-        <pre class="p-code-snippet__block">
-        <code>
-{{ job.result_data.firmware_update_output }}
-        </code>
-    </pre>
-    </div>
-</div>
-
-<h2 class="p-muted-heading">Test Phase</h2>
-<div class="p-code-snippet">
-    <div class="p-code-snippet__header">
-        <h5 class="p-code-snippet__title">Test Exit Status: {{ job.result_data.test_status|default("[unknown]") }}</h5>
-    </div>
-    <div class="p-code-snippet__header">
-        <h5 class="p-code-snippet__title">Test Output</h5>
-    </div>
-    <div class="scrollable">
-        <pre class="p-code-snippet__block">
-        <code>
-{{ job.result_data.test_output }}
-        </code>
-    </pre>
-    </div>
-</div>
+{% set phases = [
+    {"name": "Provision Phase", "status": job.result_data.provision_status, "output": job.result_data.provision_output},
+    {"name": "Firmware Update Phase", "status": job.result_data.firmware_update_status, "output": job.result_data.firmware_output},
+    {"name": "Test Phase", "status": job.result_data.test_status, "output": job.result_data.test_output}
+] %}
+{% for phase in phases %}
+    {% if phase.output %}
+        <h2 class="p-muted-heading">{{ phase.name }}</h2>
+        <div class="p-notification--information">
+            <div class="p-code-snippet">
+                <div class="scrollable">
+                    <pre class="p-code-snippet__block"><code>{{ phase.output }}</code></pre>
+                </div>
+            </div>
+            <p class="p-notification__response">
+                <span class="p-notification__status">Exit Status:</span> {{ phase.status }}
+            </p>
+        </div>
+    {% endif %}
+{% endfor %}
 
 {% endblock %}
