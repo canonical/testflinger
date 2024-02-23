@@ -70,7 +70,7 @@
 {% for phase in phases %}
     {% if phase.output %}
         <h2 class="p-muted-heading">{{ phase.name }}</h2>
-        <div class="p-notification--information">
+        <div class="{{ 'p-notification--positive' if phase.status == 0 else 'p-notification--negative' }}">
             <div class="p-code-snippet">
                 <div class="scrollable">
                     <pre class="p-code-snippet__block"><code>{{ phase.output }}</code></pre>
