@@ -103,6 +103,10 @@ class OemScript:
 
         self.check_device_booted()
 
+        # remove the .iso image
+        cmd = f"rm -f {image_file}"
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
+
     def run_recovery_script(self, image_file):
         """Download and run the OEM recovery script"""
         device_ip = self.config["device_ip"]
