@@ -124,7 +124,6 @@ def setup_mongodb(application):
         uri=mongo_uri,
         uuidRepresentation="standard",
         serverSelectionTimeoutMS=2000,
-        socketTimeoutMS=10000,
     )
 
     # Initialize collections and indices in case they don't exist already
