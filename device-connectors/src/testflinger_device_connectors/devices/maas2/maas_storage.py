@@ -19,12 +19,13 @@ import subprocess
 import collections
 import json
 import math
+from testflinger_device_connectors.devices import ProvisioningError
 
 
 logger = logging.getLogger()
 
 
-class MaasStorageError(Exception):
+class MaasStorageError(ProvisioningError):
     pass
 
 
@@ -63,12 +64,15 @@ class MaasStorage:
         :return: subprocess stdout
         :raises MaasStorageError: on subprocess non-zero return code
         """
-        proc = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            check=False,
-        )
+        try:
+            proc = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+        except FileNotFoundError as err:
+            raise MaasStorageError(err) from err
 
         if proc.returncode != 0:
             raise MaasStorageError(proc.stdout.decode())
