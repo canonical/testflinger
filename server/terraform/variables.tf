@@ -23,6 +23,12 @@ variable "nginx_ingress_integrator_charm_whitelist_source_range" {
   default     = ""
 }
 
+variable "application_units" {
+  description = "Number of units (pods) to start"
+  type        = number
+  default     = 2
+}
+
 locals {
   app_model = "testflinger-${var.environment}"
 }
