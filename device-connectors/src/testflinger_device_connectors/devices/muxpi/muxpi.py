@@ -19,6 +19,7 @@ import logging
 import subprocess
 import shlex
 import time
+import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -162,11 +163,14 @@ class MuxPi:
         logger.info("Flashing Test image")
         try:
             self.flash_test_image(url)
-            with self.remote_mount():
-                image_type = self.get_image_type()
-                logger.info("Image type detected: {}".format(image_type))
-                logger.info("Creating Test User")
-                self.create_user(image_type)
+            if self.job_data["provision_data"].get("create_user", True):
+                with self.remote_mount():
+                    image_type = self.get_image_type()
+                    logger.info("Image type detected: {}".format(image_type))
+                    logger.info("Creating Test User")
+                    self.create_user(image_type)
+            else:
+                logger.info("Skipping test user creation (create_user=False)")
             self.run_post_provision_script()
             logger.info("Booting Test Image")
             cmd = self.config.get("control_switch_device_cmd", "stm -dut")
@@ -469,9 +473,30 @@ class MuxPi:
         test_password = self.job_data.get("test_data", {}).get(
             "test_password", "ubuntu"
         )
+
+        boot_check_url = self.job_data.get("provision_data", {}).get(
+            "boot_check_url", None
+        )
+        if boot_check_url is not None:
+            # We don't support full shell expansion of the URL, but just
+            # replace a literal $DEVICE_IP to the device's IP address
+            boot_check_url = boot_check_url.replace(
+                "$DEVICE_IP", self.config["device_ip"]
+            )
+
         while time.time() - started < 1200:
             try:
                 time.sleep(10)
+
+                if boot_check_url is not None:
+                    with urllib.request.urlopen(
+                        boot_check_url, timeout=5
+                    ) as response:
+                        if response.status == 200:
+                            return True
+
+                    continue
+
                 cmd = [
                     "sshpass",
                     "-p",
