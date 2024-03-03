@@ -24,7 +24,7 @@
     </thead>
     <tbody>
         {% for queue in queues %}
-        <tr>
+        <tr class="searchable-row">
             <td><a href="/queues/{{ queue.name }}">{{ queue.name }}</a></td>
             <td>{{ queue.numjobs }}</td>
             <td>{{ queue.description }}</td>

@@ -25,7 +25,7 @@
     </thead>
     <tbody>
         {% for agent in agents %}
-        <tr>
+        <tr class="searchable-row">
             <td><a href="/agents/{{ agent.name }}">{{ agent.name }}</a></td>
             <td>{{ agent.state }}</td>
             <td>{{ agent.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
