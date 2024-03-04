@@ -7,9 +7,11 @@ import logging
 import time
 import requests
 import re
-from testflinger_device_connectors import logmsg
 from testflinger_device_connectors.fw_devices.base import OEMDevice
 from typing import Tuple
+
+logger = logging.getLogger()
+
 
 """HPE firmware repository and index file"""
 HPE_SDR = "https://downloads.linux.hpe.com/SDR"
@@ -65,7 +67,7 @@ class HPEDevice(OEMDevice):
             )
         rc, stdout, stderr = self.run_cmd("--version")
         if rc == 0:
-            logmsg(logging.INFO, f"successfully installed {stdout}")
+            logger.info("successfully installed %s" % stdout)
         else:
             raise RuntimeError("failed to install ilorest")
 
@@ -159,7 +161,7 @@ class HPEDevice(OEMDevice):
             for x in list(FW_REPOS.keys())
             if x in dev_model.lower()
         ][0]
-        logmsg(logging.INFO, f"HPE server model: {self.repo_name}")
+        logger.info("HPE server model: %s" % self.repo_name)
         # TODO: instead of using local files, downloading the index files from
         #       HPE SDR once HPE updates them with multiple target IDs
         repo_path = os.path.join(
@@ -219,7 +221,7 @@ class HPEDevice(OEMDevice):
                 )
             )
         self.fw_info = sorted(server_fw_info, key=lambda x: x["Update Order"])
-        logmsg(logging.INFO, f"firmware on HPE machine:\n{self.fw_info}")
+        logger.info("firmware on HPE machine:\n%s" % self.fw_info)
 
     def _purify_ver(self, ver_string: str) -> str:
         """
@@ -249,10 +251,7 @@ class HPEDevice(OEMDevice):
                 f"SPP {spp} is not available in HPE FW repository."
                 " Please check if it's a valid SPP."
             )
-        logmsg(
-            logging.INFO,
-            f"start flashing all firmware with files in SPP {spp}",
-        )
+        logger.info("start flashing all firmware with files in SPP %s" % spp)
         install_list = []
         for fw in self.fw_info:
             if fw.get("Fwpkg Available", {}).get(spp):
@@ -262,26 +261,30 @@ class HPEDevice(OEMDevice):
                     "minimum_active_version"
                 ]
                 if self._purify_ver(current_ver) == self._purify_ver(new_ver):
-                    logmsg(
-                        logging.INFO,
-                        f"[{fw['Firmware Name']}] no update is needed, "
-                        f"already {fw['Firmware Version']}",
+                    logger.info(
+                        "[%s] no update is needed, already %s"
+                        % (fw["Firmware Name"], fw["Firmware Version"])
                     )
                 elif min_req_ver != "null" and self._purify_ver(
                     current_ver
                 ) < self._purify_ver(min_req_ver):
-                    logmsg(
-                        logging.ERROR,
-                        f"[{fw['Firmware Name']}] current firmware "
-                        f"{fw['Firmware Version']} not meet minimum "
-                        f"active version {min_req_ver}",
+                    logger.error(
+                        "[%s] current firmware %s doesn't meet "
+                        "minimum active version %s"
+                        % (
+                            fw["Firmware Name"],
+                            fw["Firmware Version"],
+                            min_req_ver,
+                        )
                     )
                 else:
-                    logmsg(
-                        logging.INFO,
-                        f"[{fw['Firmware Name']}] update current firmware "
-                        f"{fw['Firmware Version']} to "
-                        f"{fw['Fwpkg Available'][spp]['version']}",
+                    logger.info(
+                        "[%s] update current firmware %s to %s"
+                        % (
+                            fw["Firmware Name"],
+                            fw["Firmware Version"],
+                            fw["Fwpkg Available"][spp]["version"],
+                        )
                     )
                     install_list.append(
                         self._download_fwpkg(
@@ -293,7 +296,7 @@ class HPEDevice(OEMDevice):
             return False
 
         # check and clear the task queue to prevent blocking firmware flash
-        logmsg(logging.INFO, "check and clear iLO taskqueue")
+        logger.info("check and clear iLO taskqueue")
         rc, stdout, stderr = self.run_cmd("taskqueue", raise_stderr=False)
         if "No tasks found" not in stdout:
             self.run_cmd("taskqueue -c")
@@ -303,14 +306,14 @@ class HPEDevice(OEMDevice):
                     "there's still incomplete task(s) in task queue, "
                     f"which may impact firmware upgrade actions: {stdout}"
                 )
-                logmsg(logging.WARNING, msg)
+                logger.warning(msg)
 
         # start flashing firmware files in the install list
         flash_result = dict()
         for file in install_list:
             self._login_ilo()
             file_name = file.split("/")[-1]
-            logmsg(logging.INFO, f"start flashing {file_name}")
+            logger.info("start flashing %s" % file_name)
             rc, stdout, stderr = self.run_cmd(
                 f"flashfwpkg --forceupload {file}",
                 raise_stderr=False,
@@ -318,11 +321,11 @@ class HPEDevice(OEMDevice):
             )
             result = re.sub(r"Updating: .\r", "", stdout)
             flash_result[file_name] = result
-            logmsg(logging.INFO, result)
+            logger.info(result)
 
             # wait for iLO to complete reboot before proceed to next firmware
             if "ilo will reboot" in stdout.lower():
-                logmsg(logging.INFO, "wait until iLO complete reboot")
+                logger.info("wait until iLO complete reboot")
                 for retry in range(20):
                     time.sleep(10)
                     if (
@@ -353,9 +356,9 @@ class HPEDevice(OEMDevice):
         if not os.path.isdir(FW_DIR):
             os.mkdir(FW_DIR)
         if os.path.isfile(fw_file_path):
-            logmsg(logging.INFO, f"{fw_file} is already downloaded")
+            logger.info("%s is already downloaded" % fw_file)
             return fw_file_path
-        logmsg(logging.INFO, f"downloading {fw_file}")
+        logger.info("downloading %s" % fw_file)
         try:
             html_request = requests.get(url)
             if html_request.status_code != 200:
@@ -391,15 +394,17 @@ class HPEDevice(OEMDevice):
             if new_fw and self._purify_ver(
                 new_fw["Version"]
             ) == self._purify_ver(fw["targetVersion"]):
-                logmsg(
-                    logging.INFO,
-                    f"[{fw['Firmware Name']}] firmware flashed "
-                    f"{fw['Firmware Version']} → {new_fw['Version']}",
+                logger.info(
+                    "[%s] firmware flashed %s → %s"
+                    % (
+                        fw["Firmware Name"],
+                        fw["Firmware Version"],
+                        new_fw["Version"],
+                    )
                 )
             else:
-                logmsg(
-                    logging.ERROR,
-                    f"[{fw['Firmware Name']}] firmware update failed",
+                logger.error(
+                    "[%s] firmware update failed" % fw["Firmware Name"]
                 )
                 update_result = False
         self._logout_ilo()
@@ -416,7 +421,7 @@ class HPEDevice(OEMDevice):
 
     def reboot(self):
         """Reboot HPE machine via iLO"""
-        logmsg(logging.INFO, "reboot DUT")
+        logger.info("reboot DUT")
         timeout_start = time.time()
         # checking if Redfish resource is available after ilo reboot
         while time.time() < timeout_start + 60:
@@ -448,7 +453,7 @@ class HPEDevice(OEMDevice):
             if rc == 0 and state in stdout:
                 delta = time.time() - timeout_start
                 msg = f"HPE machine reaches {state} after {int(delta)}s"
-                logmsg(logging.INFO, msg)
+                logger.info(msg)
                 return
             else:
                 time.sleep(10)

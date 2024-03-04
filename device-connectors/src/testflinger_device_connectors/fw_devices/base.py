@@ -4,8 +4,8 @@ import time
 import subprocess
 import logging
 from abc import ABC, abstractmethod
-from testflinger_device_connectors import logmsg
 
+logger = logging.getLogger()
 SSH_OPTS = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 
@@ -49,9 +49,9 @@ class AbstractDevice(ABC):
 
         :param timeout: wait time for regaining DUT access
         """
-        logmsg(
-            logging.INFO,
-            f"check and wait for {timeout}s until {self.ipaddr} is SSHable",
+        logger.info(
+            "check and wait for %ds until %s is SSHable"
+            % (timeout, self.ipaddr)
         )
         status = "1"
         timeout_start = time.time()
@@ -72,10 +72,10 @@ class AbstractDevice(ABC):
                 pass
         if status != "0":
             err_msg = f"Failed to SSH to {self.ipaddr} after {timeout}s"
-            logmsg(logging.ERROR, err_msg)
+            logger.error(err_msg)
             raise RuntimeError(err_msg)
         delta = time.time() - timeout_start
-        logmsg(logging.INFO, f"{self.ipaddr} is SSHable after {int(delta)}s")
+        logger.info("%s is SSHable after %ss" % (self.ipaddr, int(delta)))
 
 
 class OEMDevice(AbstractDevice):
