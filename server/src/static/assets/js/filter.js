@@ -1,19 +1,15 @@
-function runFilter() {
-  var input, filter, table, tr, td, i, txtValue;
-  input = document.getElementById("inputFilter");
-  filter = input.value.toUpperCase();
-  table = document.getElementById("filterTable");
-  tr = table.getElementsByTagName("tr");
+document.addEventListener('DOMContentLoaded', function() {
+    const searchBox = document.querySelector('.p-search-box__input');
+    const tableRows = Array.from(document.querySelectorAll('.p-table--mobile-card tbody tr.searchable-row'));
 
-  for (i = 0; i < tr.length; i++) {
-    td = tr[i].getElementsByTagName("td")[0];
-    if (td) {
-      txtValue = td.textContent || td.innerText;
-      if (txtValue.toUpperCase().indexOf(filter) > -1) {
-        tr[i].style.display = "";
-      } else {
-        tr[i].style.display = "none";
-      }
-    }
-  }
-}
+    searchBox.addEventListener('input', function() {
+        const searchTerm = searchBox.value.toLowerCase();
+
+        tableRows.forEach(function(row) {
+            const rowText = row.textContent.toLowerCase();
+            const isMatch = rowText.includes(searchTerm);
+
+            row.style.display = isMatch ? '' : 'none';
+        });
+    });
+});
