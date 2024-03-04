@@ -32,35 +32,23 @@ class TestflingerAgent:
     def _post_initial_agent_data(self):
         """Post the initial agent data to the server once on agent startup"""
 
-        location = self.client.config.get("location", "")
-        self._post_advertised_queues()
-        self._post_advertised_images()
+        self.client.post_advertised_queues()
+        self.client.post_advertised_images()
 
-        queues = self.client.config.get("job_queues", [])
         identifier = self.client.config.get("identifier")
-        agent_data = {"queues": queues, "location": location}
+        location = self.client.config.get("location", "")
+        provision_type = self.client.config.get("provision_type", "")
+        queues = self.client.config.get("job_queues", [])
+
+        agent_data = {
+            "location": location,
+            "queues": queues,
+            "provision_type": provision_type,
+        }
         if identifier:
             agent_data["identifier"] = identifier
 
         self.client.post_agent_data(agent_data)
-
-    def _post_advertised_queues(self):
-        """
-        Get the advertised queues from the config and send them to the server
-
-        :return: Dictionary of advertised queues
-        """
-        advertised_queues = self.client.config.get("advertised_queues", {})
-        if advertised_queues:
-            self.client.post_queues(advertised_queues)
-
-    def _post_advertised_images(self):
-        """
-        Get the advertised images from the config and post them to the server
-        """
-        advertised_images = self.client.config.get("advertised_images")
-        if advertised_images:
-            self.client.post_images(advertised_images)
 
     def set_agent_state(self, state):
         """Send the agent state to the server"""

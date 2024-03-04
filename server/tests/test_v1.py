@@ -20,6 +20,7 @@ Unit tests for Testflinger v1 API
 import json
 
 from io import BytesIO
+from datetime import datetime
 from src.api import v1
 
 
@@ -33,7 +34,7 @@ def test_home(mongo_app):
 
 def test_add_job_good(mongo_app):
     """Test that adding a new job works"""
-    job_data = {"job_queue": "test"}
+    job_data = {"job_queue": "test", "tags": ["foo", "bar"]}
     # Place a job on the queue
     app, _ = mongo_app
     output = app.post("/v1/job", json=job_data)
@@ -421,3 +422,114 @@ def test_get_agents_data(mongo_app):
     assert len(output.json) == 1
     for key, value in agent_data.items():
         assert output.json[0][key] == value
+
+
+def test_search_jobs_by_tags(mongo_app):
+    """Test search_jobs by tags"""
+    app, _ = mongo_app
+
+    # Create some test jobs
+    job1 = {
+        "job_queue": "test",
+        "tags": ["tag1", "tag2"],
+    }
+    job2 = {
+        "job_queue": "test",
+        "tags": ["tag2", "tag3"],
+    }
+    job3 = {
+        "job_queue": "test",
+        "tags": ["tag3", "tag4"],
+    }
+    app.post("/v1/job", json=job1)
+    app.post("/v1/job", json=job2)
+    app.post("/v1/job", json=job3)
+
+    # Match any of the specified tags
+    output = app.get("/v1/job/search?tags=tag1&tags=tag2")
+    assert 200 == output.status_code
+    assert len(output.json) == 2
+
+    # Match all of the specified tags
+    output = app.get("/v1/job/search?tags=tag2&tags=tag3&match=all")
+    assert 200 == output.status_code
+    assert len(output.json) == 1
+
+
+def test_search_jobs_invalid_match(mongo_app):
+    """Test search_jobs with invalid match"""
+    app, _ = mongo_app
+
+    output = app.get("/v1/job/search?match=foo")
+    assert 422 == output.status_code
+    assert "Must be one of" in output.text
+
+
+def test_search_jobs_by_state(mongo_app):
+    """Test search jobs by state"""
+    app, _ = mongo_app
+
+    job = {
+        "job_queue": "test",
+        "tags": ["foo"],
+    }
+    # Two jobs that will stay in waiting state
+    app.post("/v1/job", json=job)
+    app.post("/v1/job", json=job)
+
+    # One job that will be cancelled
+    job_response = app.post("/v1/job", json=job)
+    job_id = job_response.json.get("job_id")
+    result_url = f"/v1/result/{job_id}"
+    data = {"job_state": "cancelled"}
+    app.post(result_url, json=data)
+
+    # One job that will be completed
+    job_response = app.post("/v1/job", json=job)
+    job_id = job_response.json.get("job_id")
+    result_url = f"/v1/result/{job_id}"
+    data = {"job_state": "completed"}
+    app.post(result_url, json=data)
+
+    # By default, all jobs are included if we don't specify the state
+    output = app.get("/v1/job/search?tags=foo")
+    assert 200 == output.status_code
+    assert len(output.json) == 4
+
+    # We can restrict this to active jobs
+    output = app.get("/v1/job/search?tags=foo&state=active")
+    assert 200 == output.status_code
+    assert len(output.json) == 2
+
+    # But we can specify searching for one in any state
+    output = app.get("/v1/job/search?state=cancelled")
+    assert 200 == output.status_code
+    assert len(output.json) == 1
+
+
+def test_search_jobs_invalid_state(mongo_app):
+    """Test search jobs with invalid state"""
+    app, _ = mongo_app
+
+    output = app.get("/v1/job/search?state=foo")
+    assert 422 == output.status_code
+    assert "Must be one of" in output.text
+
+
+def test_search_jobs_datetime_iso8601(mongo_app):
+    """Test that the created_at field is returned in ISO8601 format"""
+    app, mongo = mongo_app
+
+    job = {
+        "job_queue": "test",
+        "tags": ["foo"],
+    }
+    job_response = app.post("/v1/job", json=job)
+    job_id = job_response.json.get("job_id")
+    mongo.jobs.update_one(
+        {"job_id": job_id},
+        {"$set": {"created_at": datetime(2020, 1, 1)}},
+    )
+    output = app.get("/v1/job/search?tags=foo")
+    assert 200 == output.status_code
+    assert output.json[0]["created_at"] == "2020-01-01T00:00:00Z"

@@ -1,6 +1,5 @@
 """Test detect_device in firmware_update.py"""
 
-
 import unittest
 import pytest
 from unittest.mock import patch

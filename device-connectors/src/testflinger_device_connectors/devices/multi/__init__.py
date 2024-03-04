@@ -20,7 +20,6 @@ import os
 import yaml
 
 import testflinger_device_connectors
-from testflinger_device_connectors import logmsg
 from testflinger_device_connectors.devices import (
     DefaultDevice,
     SerialLogger,
@@ -28,11 +27,10 @@ from testflinger_device_connectors.devices import (
 from testflinger_device_connectors.devices.multi.multi import Multi
 from testflinger_device_connectors.devices.multi.tfclient import TFClient
 
-device_name = "multi"
+logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(DefaultDevice):
-
     """Device Connector for provisioning multiple devices at the same time"""
 
     def init_device(self, args):
@@ -42,7 +40,6 @@ class DeviceConnector(DefaultDevice):
         self.job_data = testflinger_device_connectors.get_test_opportunity(
             args.job_data
         )
-        testflinger_device_connectors.configure_logging(self.config)
         testflinger_server = self.config.get("testflinger_server")
         tfclient = TFClient(testflinger_server)
         self.device = Multi(self.config, self.job_data, tfclient)
@@ -50,10 +47,10 @@ class DeviceConnector(DefaultDevice):
     def provision(self, args):
         """Method called when the command is invoked."""
         self.init_device(args)
-        logmsg(logging.INFO, "BEGIN provision")
-        logmsg(logging.INFO, "Provisioning device")
+        logger.info("BEGIN provision")
+        logger.info("Provisioning device")
         self.device.provision()
-        logmsg(logging.INFO, "END provision")
+        logger.info("END provision")
 
     def runtest(self, args):
         """
@@ -65,7 +62,7 @@ class DeviceConnector(DefaultDevice):
         """
         self.init_device(args)
 
-        logmsg(logging.INFO, "BEGIN testrun")
+        logger.info("BEGIN testrun")
 
         test_cmds = self.job_data.get("test_data").get("test_cmds")
         serial_host = self.config.get("serial_host")
@@ -87,14 +84,13 @@ class DeviceConnector(DefaultDevice):
             raise e
         finally:
             serial_proc.stop()
-        testflinger_device_connectors.logmsg(logging.INFO, "END testrun")
+        logger.info("END testrun")
         return exitcode
 
     def get_job_list_data(self, job_list_file: str = "job_list.json") -> list:
         """Read job_list.json and return the list data"""
         if not os.path.exists(job_list_file):
-            logmsg(
-                logging.ERROR,
+            logger.error(
                 "Unable to find multi-job data file, job_list.json not found",
             )
             return []

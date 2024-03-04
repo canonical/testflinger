@@ -1,6 +1,5 @@
 """Test LVFSDevice"""
 
-
 import unittest
 import json
 from unittest.mock import patch
@@ -93,9 +92,9 @@ class TestLVFSDevice(unittest.TestCase):
             device = LVFSDevice("", "")
             device._parse_fwupd_raw(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             device_results = json.loads(fwupd_data.GET_RESULTS_RESPONSE_DATA)
-            device_results[
-                "UpdateState"
-            ] = FwupdUpdateState.FWUPD_UPDATE_STATE_SUCCESS.value
+            device_results["UpdateState"] = (
+                FwupdUpdateState.FWUPD_UPDATE_STATE_SUCCESS.value
+            )
             device_results["Releases"][0]["Version"] = "2.90"
             device.fw_info[2]["targetVersion"] = "2.90"
             self.assertTrue(device.check_results())

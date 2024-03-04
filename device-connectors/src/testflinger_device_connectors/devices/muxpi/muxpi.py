@@ -17,6 +17,7 @@
 import json
 import logging
 import subprocess
+import shlex
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -32,7 +33,6 @@ logger = logging.getLogger()
 
 
 class MuxPi:
-
     """Device Connector for MuxPi."""
 
     IMAGE_PATH_IDS = {
@@ -155,7 +155,7 @@ class MuxPi:
 
         test_device = self.config["test_device"]
         cmd = (
-            f"(set -o pipefail; curl -sf {url} | zstdcat| "
+            f"(set -o pipefail; curl -sf {shlex.quote(url)} | zstdcat| "
             f"sudo dd of={test_device} bs=16M)"
         )
         logger.info("Running: %s", cmd)

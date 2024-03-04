@@ -2,7 +2,7 @@ resource "juju_application" "testflinger" {
   name  = "testflinger"
   model = local.app_model
 
-  units = 2
+  units = var.application_units
 
   charm {
     name    = "testflinger-k8s"

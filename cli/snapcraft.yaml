@@ -29,6 +29,8 @@ parts:
   testflinger-cli:
     plugin: python
     source: .
+    build-environment:
+    - PIP_NO_BINARY: ":all:"
     override-pull: |
       set -e
       craftctl default

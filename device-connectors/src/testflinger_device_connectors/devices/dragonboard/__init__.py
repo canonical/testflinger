@@ -18,8 +18,6 @@ import logging
 
 import yaml
 
-import testflinger_device_connectors
-from testflinger_device_connectors import logmsg
 from testflinger_device_connectors.devices import (
     DefaultDevice,
     RecoveryError,
@@ -30,11 +28,10 @@ from testflinger_device_connectors.devices.dragonboard.dragonboard import (
     Dragonboard,
 )
 
-device_name = "dragonboard"
+logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(DefaultDevice):
-
     """Tool for provisioning baremetal with a given image."""
 
     @catch(RecoveryError, 46)
@@ -42,10 +39,9 @@ class DeviceConnector(DefaultDevice):
         """Method called when the command is invoked."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-        testflinger_device_connectors.configure_logging(config)
         device = Dragonboard(args.config, args.job_data)
-        logmsg(logging.INFO, "BEGIN provision")
-        logmsg(logging.INFO, "Booting Master Image")
+        logger.info("BEGIN provision")
+        logger.info("Booting Master Image")
         serial_host = config.get("serial_host")
         serial_port = config.get("serial_port")
         serial_proc = SerialLogger(

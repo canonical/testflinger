@@ -16,7 +16,6 @@
 
 import logging
 
-import yaml
 from testflinger_device_connectors.devices import (
     DefaultDevice,
     RecoveryError,
@@ -24,24 +23,20 @@ from testflinger_device_connectors.devices import (
 )
 
 import testflinger_device_connectors
-from testflinger_device_connectors import logmsg
 from testflinger_device_connectors.devices.noprovision.noprovision import (
     Noprovision,
 )
 
-device_name = "noprovision"
+logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(DefaultDevice):
     @catch(RecoveryError, 46)
     def provision(self, args):
-        with open(args.config) as configfile:
-            config = yaml.safe_load(configfile)
-        testflinger_device_connectors.configure_logging(config)
         device = Noprovision(args.config)
         test_username = testflinger_device_connectors.get_test_username(
             args.job_data
         )
-        logmsg(logging.INFO, "BEGIN provision")
+        logger.info("BEGIN provision")
         device.ensure_test_image(test_username)
-        logmsg(logging.INFO, "END provision")
+        logger.info("END provision")

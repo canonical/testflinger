@@ -21,14 +21,31 @@ from apiflask import Schema, fields
 from apiflask.validators import OneOf
 
 
+ValidJobStates = (
+    "setup",
+    "provision",
+    "firmware_update",
+    "test",
+    "allocate",
+    "allocated",
+    "reserve",
+    "cleanup",
+    "cancelled",
+    "completed",
+    "active",  # fake state for jobs that are not completed or cancelled
+)
+
+
 class AgentIn(Schema):
     """Agent data input schema"""
 
-    state = fields.String(required=False)
-    queues = fields.List(fields.String(), required=False)
-    location = fields.String(required=False)
+    identifier = fields.String(required=False)
     job_id = fields.String(required=False)
+    location = fields.String(required=False)
     log = fields.List(fields.String(), required=False)
+    provision_type = fields.String(required=False)
+    queues = fields.List(fields.String(), required=False)
+    state = fields.String(required=False)
 
 
 class AgentOut(Schema):
@@ -37,6 +54,7 @@ class AgentOut(Schema):
     state = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     location = fields.String(required=False)
+    provision_type = fields.String(required=False)
     job_id = fields.String(required=False)
 
 
@@ -52,6 +70,7 @@ class Job(Schema):
     job_id = fields.String(required=False)
     parent_job_id = fields.String(required=False)
     name = fields.String(required=False)
+    tags = fields.List(fields.String(), required=False)
     job_queue = fields.String(required=True)
     global_timeout = fields.Integer(required=False)
     output_timeout = fields.Integer(required=False)
@@ -67,6 +86,26 @@ class JobId(Schema):
     """Job ID schema"""
 
     job_id = fields.String(required=True)
+
+
+class JobSearchRequest(Schema):
+    """Job search request schema"""
+
+    tags = fields.List(fields.String, description="List of tags to search for")
+    match = fields.String(
+        description="Match mode - 'all' or 'any' (default 'any')",
+        validate=OneOf(["any", "all"]),
+    )
+    state = fields.List(
+        fields.String(validate=OneOf(ValidJobStates)),
+        description="List of job states to include",
+    )
+
+
+class JobSearchResponse(Schema):
+    """Job search response schema"""
+
+    jobs = fields.List(fields.Nested(Job), required=True)
 
 
 class Result(Schema):

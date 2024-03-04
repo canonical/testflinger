@@ -5,7 +5,8 @@ on:
     branches:
       - main
     paths:
-      - server/**
+      - server/charm/**
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,7 +14,7 @@ jobs:
     runs-on: [self-hosted, linux, X64]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0  
       - name: Check libraries

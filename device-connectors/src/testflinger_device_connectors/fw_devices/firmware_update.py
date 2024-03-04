@@ -9,7 +9,8 @@ from testflinger_device_connectors.fw_devices import (
     LVFSDevice,
     OEMDevice,
 )
-from testflinger_device_connectors import logmsg
+
+logger = logging.getLogger()
 
 
 SSH_OPTS = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
@@ -43,9 +44,9 @@ def detect_device(ip: str, user: str, config: dict) -> AbstractDevice:
         rc2, type_string, stderr2 = run_ssh(
             dmi_chassis_type, raise_stderr=False
         )
-    except subprocess.CalledProcessError as e:
-        logmsg(logging.ERROR, e.output)
-        raise RuntimeError(e.output)
+    except subprocess.CalledProcessError as err:
+        logger.error(err.output)
+        raise RuntimeError(err.output)
 
     err_msg = ""
     if rc1 != 0:
@@ -57,7 +58,7 @@ def detect_device(ip: str, user: str, config: dict) -> AbstractDevice:
             "Unable to detect device vendor/type due to lacking of dmi info.\n"
             + err_msg
         )
-        logmsg(logging.ERROR, err_msg)
+        logger.error(err_msg)
         raise RuntimeError(err_msg)
 
     type_index = int(type_string)
@@ -75,9 +76,9 @@ def detect_device(ip: str, user: str, config: dict) -> AbstractDevice:
             if dev.fw_update_type in upgrade_type
             and any(x == vendor_string for x in dev.vendor)
         ][0]
-        logmsg(logging.INFO, f"{ip} is a {vendor_string} {dev.__name__}")
+        logger.info("%s is a %s %s", ip, vendor_string, dev.__name__)
     except IndexError:
-        logmsg(logging.ERROR, err_msg)
+        logger.error(err_msg)
         raise RuntimeError(err_msg)
 
     if issubclass(dev, LVFSDevice):
@@ -105,6 +106,6 @@ def detect_device(ip: str, user: str, config: dict) -> AbstractDevice:
         except KeyError:
             raise RuntimeError("MAAS info isn't provided in config file")
         except subprocess.CalledProcessError:
-            msg = f"maas error running: {' '.join(cmd)}"
-            logmsg(logging.ERROR, msg)
-            raise RuntimeError(msg)
+            err_msg = f"maas error running: {' '.join(cmd)}"
+            logger.error(err_msg)
+            raise RuntimeError(err_msg)

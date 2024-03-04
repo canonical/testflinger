@@ -16,10 +16,6 @@
 
 import logging
 
-import yaml
-
-import testflinger_device_connectors
-from testflinger_device_connectors import logmsg
 from testflinger_device_connectors.devices import (
     DefaultDevice,
     RecoveryError,
@@ -27,21 +23,17 @@ from testflinger_device_connectors.devices import (
 )
 from testflinger_device_connectors.devices.oemscript.oemscript import OemScript
 
-device_name = "oemscript"
+logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(DefaultDevice):
-
     """Tool for provisioning baremetal with a given image."""
 
     @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
-        with open(args.config) as configfile:
-            config = yaml.safe_load(configfile)
-        testflinger_device_connectors.configure_logging(config)
         device = OemScript(args.config, args.job_data)
-        logmsg(logging.INFO, "BEGIN provision")
-        logmsg(logging.INFO, "Provisioning device")
+        logger.info("BEGIN provision")
+        logger.info("Provisioning device")
         device.provision()
-        logmsg(logging.INFO, "END provision")
+        logger.info("END provision")

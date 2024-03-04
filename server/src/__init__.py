@@ -29,6 +29,7 @@ from apiflask import APIFlask
 
 from src.database import mongo
 from src.api.v1 import v1
+from src.providers import ISODatetimeProvider
 from src.views import views
 
 # Constants for TTL indexes
@@ -55,6 +56,9 @@ def create_flask_app(config=None):
         tf_log.addHandler(stream_handler)
 
     tf_app.config["PROPAGATE_EXCEPTIONS"] = True
+
+    # Return datetime objects as RFC3339/ISO8601 strings
+    tf_app.json = ISODatetimeProvider(tf_app)
 
     if tf_app.config.get("TESTING") is not True:
         setup_mongodb(tf_app)
@@ -120,7 +124,6 @@ def setup_mongodb(application):
         uri=mongo_uri,
         uuidRepresentation="standard",
         serverSelectionTimeoutMS=2000,
-        socketTimeoutMS=10000,
     )
 
     # Initialize collections and indices in case they don't exist already

@@ -8,20 +8,55 @@ on:
       - server/**
   workflow_dispatch:
 
+env:
+  REGISTRY: ghcr.io
+
 jobs:
-  build:
-    name: Release to Charmhub
+  build-and-push-charm:
     runs-on: [self-hosted, linux, X64]
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: ${{ github.repository }}
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
         with:
-          fetch-depth: 0
+          config-inline: |
+            [registry."docker.io"]
+              mirrors = ["https://github-runner-dockerhub-cache.canonical.com:5000"]
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@3d58c274f17dffee475a5520cbe67f0a882c4dbb
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push backend Docker image
+        uses: docker/build-push-action@4976231911ebf5f32aad765192d35f942aa48cb8
+        with:
+          context: ./server
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
       - name: Upload charm to charmhub
         uses: canonical/charming-actions/upload-charm@2.4.0
         with:
           charm-path: server/charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
-          upload-image: "true"
           channel: "latest/edge"
