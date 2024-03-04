@@ -1,6 +1,5 @@
 """Test LVFSDevice"""
 
-
 import unittest
 from unittest.mock import patch
 from testflinger_device_connectors.fw_devices import HPEDevice
