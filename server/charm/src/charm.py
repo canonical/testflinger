@@ -199,6 +199,7 @@ class TestflingerCharm(ops.CharmBase):
             "MONGODB_USERNAME": db_data.get("db_username"),
             "MONGODB_PASSWORD": db_data.get("db_password"),
             "MONGODB_DATABASE": db_data.get("db_database"),
+            "MONGODB_MAX_POOL_SIZE": str(self.config["max_pool_size"]),
         }
         return env
 

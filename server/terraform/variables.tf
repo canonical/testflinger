@@ -29,6 +29,12 @@ variable "application_units" {
   default     = 2
 }
 
+variable "max_pool_size" {
+  description = "Maximum number of concurrent connections to the database"
+  type        = int
+  default     = 100
+}
+
 locals {
   app_model = "testflinger-${var.environment}"
 }
