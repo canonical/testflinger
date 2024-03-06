@@ -29,7 +29,7 @@
             <td><a href="/agents/{{ agent.name }}">{{ agent.name }}</a></td>
             <td>{{ agent.state }}</td>
             <td>{{ agent.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-            <td>{{ agent.job_id }}</td>
+            <td class="u-align--right u-truncate"><a href="/jobs/{{ agent.job_id }}">{{ agent.job_id }}</a></td>
         </tr>
         {% endfor %}
     </tbody>
