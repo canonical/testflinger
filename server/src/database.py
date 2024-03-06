@@ -19,6 +19,7 @@ This returns a db object for talking to MongoDB
 
 from flask_pymongo import PyMongo
 
+
 # Constants for TTL indexes
 DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
@@ -46,3 +47,7 @@ def create_indexes():
     mongo.db.fs.files.create_index(
         "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
     )
+
+    # Faster lookups for common queries
+    mongo.db.jobs.create_index("job_id")
+    mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
