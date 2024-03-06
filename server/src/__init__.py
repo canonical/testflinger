@@ -27,14 +27,10 @@ from werkzeug.exceptions import NotFound
 from pymongo.errors import ConnectionFailure
 from apiflask import APIFlask
 
-from src.database import mongo
+from src.database import mongo, create_indexes
 from src.api.v1 import v1
 from src.providers import ISODatetimeProvider
 from src.views import views
-
-# Constants for TTL indexes
-DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
-OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 
 try:
     import sentry_sdk
@@ -127,19 +123,4 @@ def setup_mongodb(application):
         maxPoolSize=os.environ.get("MONGODB_MAX_POOL_SIZE", 100),
     )
 
-    # Initialize collections and indices in case they don't exist already
-    # Automatically expire jobs after 7 days if nothing runs them
-    mongo.db.jobs.create_index(
-        "created_at", expireAfterSeconds=DEFAULT_EXPIRATION
-    )
-    # Remove output 4 hours after the last entry if nothing polls for it
-    mongo.db.output.create_index(
-        "updated_at", expireAfterSeconds=OUTPUT_EXPIRATION
-    )
-    # Remove artifacts after 7 days
-    mongo.db.fs.chunks.create_index(
-        "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
-    )
-    mongo.db.fs.files.create_index(
-        "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
-    )
+    create_indexes()

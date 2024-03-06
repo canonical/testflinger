@@ -19,4 +19,35 @@ This returns a db object for talking to MongoDB
 
 from flask_pymongo import PyMongo
 
+
+# Constants for TTL indexes
+DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
+OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
+
 mongo = PyMongo()
+
+
+def create_indexes():
+    """Initialize collections and indexes in case they don't exist already"""
+
+    # Automatically expire jobs after 7 days if nothing runs them
+    mongo.db.jobs.create_index(
+        "created_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
+    # Remove output 4 hours after the last entry if nothing polls for it
+    mongo.db.output.create_index(
+        "updated_at", expireAfterSeconds=OUTPUT_EXPIRATION
+    )
+
+    # Remove artifacts after 7 days
+    mongo.db.fs.chunks.create_index(
+        "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+    mongo.db.fs.files.create_index(
+        "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
+    # Faster lookups for common queries
+    mongo.db.jobs.create_index("job_id")
+    mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
