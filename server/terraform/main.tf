@@ -12,6 +12,7 @@ resource "juju_application" "testflinger" {
 
   config = {
     external_hostname = var.external_ingress_hostname
+    max_pool_size = var.max_pool_size
   }
 }
 

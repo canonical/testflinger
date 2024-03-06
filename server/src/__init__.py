@@ -124,6 +124,7 @@ def setup_mongodb(application):
         uri=mongo_uri,
         uuidRepresentation="standard",
         serverSelectionTimeoutMS=2000,
+        maxPoolSize=os.environ.get("MONGODB_MAX_POOL_SIZE", 100),
     )
 
     # Initialize collections and indices in case they don't exist already
