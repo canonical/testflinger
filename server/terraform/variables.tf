@@ -31,7 +31,7 @@ variable "application_units" {
 
 variable "max_pool_size" {
   description = "Maximum number of concurrent connections to the database"
-  type        = int
+  type        = number
   default     = 100
 }
 
