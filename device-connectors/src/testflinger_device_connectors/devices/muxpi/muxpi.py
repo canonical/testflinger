@@ -86,6 +86,38 @@ class MuxPi:
             raise ProvisioningError(e.output)
         return output
 
+    def check_control_alive(self):
+        """Check if the control host is alive"""
+        try:
+            self._run_control("true")
+        except (ProvisioningError, subprocess.SubprocessError):
+            raise ProvisioningError(
+                "Control host is not responding, provisioning can't proceed!"
+            )
+
+    def reboot_control_host(self):
+        """
+        Reboot the control host
+
+        Sometimes the control host can end up in an unstable condition which
+        isn't easy to detect until it's too late. Since nothing else should
+        be using the control host, reboot it before provisioning to ensure
+        it's in a known good state.
+        """
+        self.check_control_alive()
+        logger.info("Rebooting control host")
+        # Use shutdown instead of reboot to avoid ssh disconnecting too quickly
+        self._run_control("sudo shutdown -r +1")
+        for _ in range(3):
+            time.sleep(60)
+            try:
+                self.check_control_alive()
+                break
+            except ProvisioningError:
+                logger.info("Waiting for control host to become active...")
+        # One final check to ensure the control host is alive, or fail
+        self.check_control_alive()
+
     def _copy_to_control(self, local_file, remote_file):
         """
         Copy a file to the control host over ssh
@@ -113,6 +145,7 @@ class MuxPi:
         return output
 
     def provision(self):
+        self.reboot_control_host()
         try:
             url = self.job_data["provision_data"]["url"]
         except KeyError:
