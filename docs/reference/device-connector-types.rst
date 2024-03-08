@@ -19,7 +19,7 @@ To specify the commands to run by the device in each test phase, set the ``testf
    * - ``multi`` 
      - Experimental device type that is used for provisioning multiple other devices in order to coordinate a job across multiple devices at the same time.
    * - ``muxpi`` 
-     - MuxPi or SDWire device capable of multiplexing the SD card so that it can be written, then control can be switched to the DUT to boot the image.
+     - MuxPi or SDWire device capable of multiplexing the SD card so that it can be written, then control can be switched to the DUT to boot the image, see :ref:`muxpi`.
    * - ``netboot`` 
      - Special purpose device connector for a few devices that must be booted and flashed remotely but the image they need is not compatible with MaaS.
    * - ``noprovision`` 
@@ -32,3 +32,54 @@ To specify the commands to run by the device in each test phase, set the ``testf
      - This device connector is used for Lenovo OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
    * - ``hp_oemscript`` 
      - This device connector is used for HP OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
+
+.. _muxpi:
+
+muxpi
+-----
+
+The ``muxpi`` device connector supports the following ``provision_data`` keys:
+
+.. list-table:: Supported ``provision_data`` keys for ``muxpi``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``url``
+     - URL to a compressed disk image that is downloaded, decompressed using
+       ``unzstd`` (**xz** format is recommended, but any format supported by
+       the ``zstd`` tool is supported) and
+       flashed to the SD card, which will be used to boot up the DUT.
+   * - ``create_user``
+     - Boolean (default ``true``) specifying whether a user account should be created.
+   * - ``boot_check_url``
+     - URL to use for checking if the DUT has finished booting; a literal
+       ``$DEVICE_IP`` in the URL will be replaced with the IP address of the DUT.
+       Requesting the URL has to return HTTP status code 200 for the device to
+       be considered "booted".
+       If not set, SSH will be used to check when the device comes online.
+       When ``boot_check_url`` is set, the SSH key for public key authentication
+       won't be installed on the DUT to allow for test cases without SSH.
+
+Image types recognised for user account creation
+(the device type is not used if ``create_user: false`` is set in ``provision_data``):
+
+.. list-table:: Supported image types
+   :header-rows: 1
+
+   * - Image type
+     - Description
+   * - ``ce-oem-iot``
+     - IoT OEM certification
+   * - ``tegra``
+     - NVidia Tegra
+   * - ``pi-desktop``
+     - Ubuntu Desktop on Raspberry Pi
+   * - ``ubuntu``
+     - Ubuntu Classic
+   * - ``core``
+     - Ubuntu Core
+   * - ``core20``
+     - Ubuntu Core 20
+   * - ``ubuntu-cpc``
+     - Ubuntu Certified Public Cloud

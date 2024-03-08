@@ -92,3 +92,7 @@ xenial
 yaml
 LTS
 virtualenv
+IoT
+Tegra
+zstd
+xz
