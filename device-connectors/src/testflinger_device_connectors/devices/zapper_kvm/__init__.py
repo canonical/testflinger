@@ -15,9 +15,16 @@
 """Zapper Connector for KVM provisioning."""
 
 import os
+import subprocess
 from typing import Any, Dict, Tuple
 
 from testflinger_device_connectors.devices.zapper import ZapperConnector
+from testflinger_device_connectors.devices.oemscript import OemScript
+from testflinger_device_connectors.devices.lenovo_oemscript import (
+    LenovoOemScript,
+)
+from testflinger_device_connectors.devices.dell_oemscript import DellOemScript
+from testflinger_device_connectors.devices.hp_oemscript import HPOemScript
 
 
 class DeviceConnector(ZapperConnector):
@@ -50,18 +57,86 @@ class DeviceConnector(ZapperConnector):
         for the Zapper `provision` API.
         """
 
-        provisioning_data = {
-            "url": self.job_data["provision_data"]["url"],
-            "username": self.job_data.get("test_data", {}).get(
+        if "alloem_url" in self.job_data["provision_data"]:
+            url = self.job_data["provision_data"]["alloem_url"]
+            username = "ubuntu"
+            password = "u"
+            retries = min(
+                2, self.job_data["provision_data"].get("robot_retries", 1)
+            )
+        else:
+            url = self.job_data["provision_data"]["url"]
+            username = self.job_data.get("test_data", {}).get(
                 "test_username", "ubuntu"
-            ),
-            "password": self.job_data.get("test_data", {}).get(
+            )
+            password = self.job_data.get("test_data", {}).get(
                 "test_password", "ubuntu"
-            ),
+            )
+            retries = self.job_data["provision_data"].get("robot_retries", 1)
+
+        provisioning_data = {
+            "url": url,
+            "username": username,
+            "password": password,
             "autoinstall_conf": self._get_autoinstall_conf(),
             "reboot_script": self.config["reboot_script"],
             "device_ip": self.config["device_ip"],
             "robot_tasks": self.job_data["provision_data"]["robot_tasks"],
+            "robot_retries": retries,
+            "cmdline_append": self.job_data["provision_data"].get(
+                "cmdline_append", ""
+            ),
+            "skip_download": self.job_data["provision_data"].get(
+                "skip_dowload", False
+            ),
         }
+        provisioning_data = {}
 
         return ((), provisioning_data)
+
+    def _post_run_actions(self, args):
+        super()._post_run_actions(args)
+
+        if "alloem_url" in self.job_data["provision_data"]:
+            self._run_oem(args)
+
+    def _run_oem(self, args):
+        """
+        If "alloem_url" was in scope, the Zapper only restored
+        the OEM reset partition. The usual oemscript will take care
+        of the rest.
+        """
+
+        # Replacing default password ("u") with the one specified
+        # in the test data.
+        self._change_password("ubuntu", "u")
+
+        oem = self.job_data.get("oem")
+        oemscript = {
+            "hp": HPOemScript,
+            "dell": DellOemScript,
+            "lenovo": LenovoOemScript,
+        }.get(oem, OemScript)(args.config, args.job_data)
+
+        oemscript.provision()
+
+    def _change_password(self, username, orig_password):
+        """Change password via SSH to the one specified in the job data."""
+
+        password = self.job_data.get("test_data", {}).get(
+            "test_password", "ubuntu"
+        )
+
+        cmd = [
+            "sshpass",
+            "-p",
+            orig_password,
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            f"{username}@{self.config['device_ip']}",
+            f"echo 'ubuntu:{password}' | sudo chpasswd",
+        ]
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)

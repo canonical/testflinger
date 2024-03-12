@@ -62,6 +62,8 @@ class ZapperConnector(ABC, DefaultDevice):
         (api_args, api_kwargs) = self._validate_configuration()
         self._run(self.config["control_host"], *api_args, **api_kwargs)
 
+        self._post_run_actions(args)
+
         logger.info("END provision")
 
     @abstractmethod
@@ -99,3 +101,6 @@ class ZapperConnector(ABC, DefaultDevice):
             logger=logger,
             **kwargs,
         )
+
+    def _post_run_actions(self, args):
+        """Run further actions after Zapper API returns succesfully."""
