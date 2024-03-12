@@ -148,7 +148,9 @@ class MuxPi:
         return output
 
     def provision(self):
-        self.reboot_control_host()
+        # If this is not a zapper, reboot before provisioning
+        if "zapper" not in self.config.get("control_switch_local_cmd", ""):
+            self.reboot_control_host()
         try:
             url = self.job_data["provision_data"]["url"]
         except KeyError:
