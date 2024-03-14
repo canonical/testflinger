@@ -23,23 +23,24 @@ from testflinger_device_connectors.devices.zapper import ZapperConnector
 class DeviceConnector(ZapperConnector):
     """Tool for provisioning baremetal with a given image."""
 
-    PROVISION_METHOD = "zapper_kvm"
+    PROVISION_METHOD = "ProvisioningKVM"
 
-    def _get_autoinstall_conf(self, config, job_data):
+    def _get_autoinstall_conf(self):
         """Prepare autoinstall-related configuration."""
         autoinstall_conf = {}
 
-        autoinstall_conf["storage_layout"] = job_data["provision_data"][
+        autoinstall_conf["storage_layout"] = self.job_data["provision_data"][
             "storage_layout"
         ]
-        autoinstall_conf["storage_password"] = job_data["provision_data"].get(
-            "storage_password"
-        )
 
-        if "base_user_data" in job_data["provision_data"]:
-            autoinstall_conf["base_user_data"] = job_data["provision_data"][
-                "base_user_data"
-            ]
+        autoinstall_conf["storage_password"] = self.job_data[
+            "provision_data"
+        ].get("storage_password")
+
+        if "base_user_data" in self.job_data["provision_data"]:
+            autoinstall_conf["base_user_data"] = self.job_data[
+                "provision_data"
+            ]["base_user_data"]
 
         with open(os.path.expanduser("~/.ssh/id_rsa.pub")) as pub:
             autoinstall_conf["authorized_keys"] = [pub.read()]
@@ -47,35 +48,26 @@ class DeviceConnector(ZapperConnector):
         return autoinstall_conf
 
     def _validate_configuration(
-        self, config, job_data
+        self,
     ) -> Tuple[Tuple[Any, ...], Dict[str, Any]]:
         """
         Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
-
-        Strictly required arguments are:
-        - url
-        - device_ip
-        - storage_layout
-        - robot_tasks
-        - reboot_script
         """
+
         provisioning_data = {}
-        provisioning_data["url"] = job_data["provision_data"]["url"]
-        provisioning_data["robot_tasks"] = job_data["provision_data"][
-            "robot_tasks"
-        ]
-        provisioning_data["reboot_script"] = config["reboot_script"]
-        provisioning_data["device_ip"] = config["device_ip"]
-        provisioning_data["username"] = job_data.get("test_data", {}).get(
+        provisioning_data["url"] = self.job_data["provision_data"]["url"]
+        provisioning_data["username"] = self.job_data.get("test_data", {}).get(
             "test_username", "ubuntu"
         )
-        provisioning_data["password"] = job_data.get("test_password", {}).get(
-            "test_password", "ubuntu"
-        )
-
-        provisioning_data["autoinstall_conf"] = self._get_autoinstall_conf(
-            config, job_data
-        )
+        provisioning_data["password"] = self.job_data.get(
+            "test_password", {}
+        ).get("test_password", "ubuntu")
+        provisioning_data["autoinstall_conf"] = self._get_autoinstall_conf()
+        provisioning_data["reboot_script"] = self.config["reboot_script"]
+        provisioning_data["device_ip"] = self.config["device_ip"]
+        provisioning_data["robot_tasks"] = self.job_data["provision_data"][
+            "robot_tasks"
+        ]
 
         return ((), provisioning_data)
