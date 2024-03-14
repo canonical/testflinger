@@ -377,6 +377,13 @@ class MuxPi:
                 )
                 self._run_control(cmd)
 
+                # Disable Unattended Upgrades
+                cmd = (
+                    'sudo sed -i \'s/"1"/"0"/g\' '
+                    f"{base}/etc/apt/apt.conf.d/20auto-upgrades"
+                )
+                self._run_control(cmd)
+
                 self._configure_sudo()
                 return
             if image_type == "pi-desktop":
