@@ -21,6 +21,7 @@ in the Zapper codebase and the connector serves as a pre-processing step,
 validating the configuration and preparing the API arguments.
 """
 
+import json
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
@@ -51,24 +52,24 @@ class ZapperConnector(ABC, DefaultDevice):
     @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
-        with open(args.config) as configfile:
-            config = yaml.safe_load(configfile)
-        testflinger_device_connectors.configure_logging(config)
+        with open(args.config, encoding="utf-8") as configfile:
+            self.config = yaml.safe_load(configfile)
+        with open(args.job_data, encoding="utf-8") as job_json:
+            self.job_data = json.load(job_json)
 
-        (api_args, api_kwargs) = self._validate_configuration(
-            args.config, args.job_data
-        )
+        testflinger_device_connectors.configure_logging(self.config)
 
         logger.info("BEGIN provision")
         logger.info("Provisioning device")
 
-        self._run(args.config["controller_host"], *api_args, **api_kwargs)
+        (api_args, api_kwargs) = self._validate_configuration()
+        self._run(self.config["control_host"], *api_args, **api_kwargs)
 
         logger.info("END provision")
 
     @abstractmethod
     def _validate_configuration(
-        self, config, job_data
+        self,
     ) -> Tuple[Tuple[Any, ...], Dict[str, Any]]:
         """
         Validate the job config and data and prepare the arguments
