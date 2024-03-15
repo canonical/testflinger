@@ -33,7 +33,7 @@ from testflinger_device_connectors.devices.maas2.maas_storage import (
 )
 
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class Maas2:
