@@ -8,6 +8,12 @@ import requests_mock as rmock
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.job import TestflingerJob as _TestflingerJob
+from testflinger_agent.runner import CommandRunner
+from testflinger_agent.handlers import LogUpdateHandler
+from testflinger_agent.stop_condition_checkers import (
+    GlobalTimeoutChecker,
+    OutputTimeoutChecker,
+)
 
 
 class TestJob:
@@ -27,111 +33,105 @@ class TestJob:
         yield _TestflingerClient(self.config)
         shutil.rmtree(self.tmpdir)
 
-    def test_skip_missing_provision_data(self, client):
+    @pytest.mark.parametrize(
+        "phase",
+        ["provision", "firmware_update", "test", "allocate", "reserve"],
+    )
+    def test_skip_missing_data(self, client, phase):
         """
-        Test that provision phase is skipped when provision_data is
-        absent
+        Test that optional phases are skipped when the data is missing
         """
-        self.config["provision_command"] = "/bin/true"
-        fake_job_data = {"global_timeout": 1}
-        job = _TestflingerJob(fake_job_data, client)
-        job.run_test_phase("provision", None)
-        logfile = os.path.join(self.tmpdir, "testflinger-agent.log")
-        with open(logfile) as log:
-            log_output = log.read()
-        assert "No provision_data defined in job data" in log_output
-
-    def test_skip_empty_provision_data(self, client):
-        """
-        Test that provision phase is skipped when provision_data is
-        present but empty
-        """
-        self.config["provision_command"] = "/bin/true"
         fake_job_data = {"global_timeout": 1, "provision_data": ""}
         job = _TestflingerJob(fake_job_data, client)
-        job.run_test_phase("provision", None)
-        logfile = os.path.join(self.tmpdir, "testflinger-agent.log")
-        with open(logfile) as log:
-            log_output = log.read()
-        assert "No provision_data defined in job data" in log_output
 
-    def test_job_global_timeout(self, client, requests_mock):
+        self.config[f"{phase}_command"] = "/bin/true"
+        return_value = job.run_test_phase(phase, None)
+        assert return_value == 0
+
+    @pytest.mark.parametrize(
+        "phase", ["setup", "provision", "test", "allocate", "reserve"]
+    )
+    def test_skip_empty_provision_data(self, client, phase):
+        """
+        Test that phases are skipped when there is no command configured
+        """
+        self.config[f"{phase}_command"] = ""
+        fake_job_data = {"global_timeout": 1, f"{phase}_data": "foo"}
+        job = _TestflingerJob(fake_job_data, client)
+        return_value = job.run_test_phase(phase, None)
+        assert return_value == 0
+
+    def test_job_global_timeout(self, tmp_path):
         """Test that timeout from job_data is respected"""
         timeout_str = "\nERROR: Global timeout reached! (1s)\n"
-        logfile = os.path.join(self.tmpdir, "testlog")
-        fake_job_data = {"global_timeout": 1}
-        requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, status_code=200)
-        job = _TestflingerJob(fake_job_data, client)
-        job.phase = "test"
-        job.run_with_log("sleep 3", logfile)
+        logfile = tmp_path / "testlog"
+        runner = CommandRunner(tmp_path, env={})
+        log_handler = LogUpdateHandler(logfile)
+        runner.register_output_handler(log_handler)
+        global_timeout_checker = GlobalTimeoutChecker(1)
+        runner.register_stop_condition_checker(global_timeout_checker)
+        runner.run("sleep 3")
         with open(logfile) as log:
             log_data = log.read()
         assert timeout_str == log_data
 
-    def test_config_global_timeout(self, client, requests_mock):
+    def test_config_global_timeout(self, client):
         """Test that timeout from device config is preferred"""
-        timeout_str = "\nERROR: Global timeout reached! (1s)\n"
-        logfile = os.path.join(self.tmpdir, "testlog")
         self.config["global_timeout"] = 1
         fake_job_data = {"global_timeout": 3}
-        requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, status_code=200)
         job = _TestflingerJob(fake_job_data, client)
-        job.phase = "test"
-        job.run_with_log("sleep 3", logfile)
-        with open(logfile) as log:
-            log_data = log.read()
-        assert timeout_str == log_data
+        timeout = job.get_global_timeout()
+        assert timeout == 1
 
-    def test_job_output_timeout(self, client, requests_mock):
+    def test_job_output_timeout(self, tmp_path):
         """Test that output timeout from job_data is respected"""
         timeout_str = "\nERROR: Output timeout reached! (1s)\n"
-        logfile = os.path.join(self.tmpdir, "testlog")
-        fake_job_data = {"output_timeout": 1}
-        requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, status_code=200)
-        job = _TestflingerJob(fake_job_data, client)
-        job.phase = "test"
+        logfile = tmp_path / "testlog"
+        runner = CommandRunner(tmp_path, env={})
+        log_handler = LogUpdateHandler(logfile)
+        runner.register_output_handler(log_handler)
+        output_timeout_checker = OutputTimeoutChecker(1)
+        runner.register_stop_condition_checker(output_timeout_checker)
         # unfortunately, we need to sleep for longer that 10 seconds here
         # or else we fall under the polling time
-        job.run_with_log("sleep 12", logfile)
+        runner.run("sleep 12")
         with open(logfile) as log:
             log_data = log.read()
         assert timeout_str == log_data
 
-    def test_config_output_timeout(self, client, requests_mock):
+    def test_config_output_timeout(self, client):
         """Test that output timeout from device config is preferred"""
-        timeout_str = "\nERROR: Output timeout reached! (1s)\n"
-        logfile = os.path.join(self.tmpdir, "testlog")
         self.config["output_timeout"] = 1
-        fake_job_data = {"output_timeout": 30}
-        requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, status_code=200)
+        fake_job_data = {"output_timeout": 3}
         job = _TestflingerJob(fake_job_data, client)
-        job.phase = "test"
-        # unfortunately, we need to sleep for longer that 10 seconds here
-        # or else we fall under the polling time
-        job.run_with_log("sleep 12", logfile)
-        with open(logfile) as log:
-            log_data = log.read()
-        assert timeout_str == log_data
+        timeout = job.get_output_timeout()
+        assert timeout == 1
 
-    def test_no_output_timeout_in_provision(self, client, requests_mock):
+    def test_no_output_timeout_in_provision(
+        self, client, tmp_path, requests_mock
+    ):
         """Test that output timeout is ignored when not in test phase"""
         timeout_str = "complete\n"
-        logfile = os.path.join(self.tmpdir, "testlog")
-        fake_job_data = {"output_timeout": 1}
+        logfile = tmp_path / "provision.log"
+        fake_job_data = {"output_timeout": 1, "provision_data": {"url": "foo"}}
+        self.config["provision_command"] = (
+            "bash -c 'sleep 12 && echo complete'"
+        )
         requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, status_code=200)
         job = _TestflingerJob(fake_job_data, client)
         job.phase = "provision"
+
+        # create the outcome file since we bypassed that
+        with open(tmp_path / "testflinger-outcome.json", "w") as outcome_file:
+            outcome_file.write("{}")
+
         # unfortunately, we need to sleep for longer that 10 seconds here
         # or else we fall under the polling time
-        job.run_with_log("sleep 12 && echo complete", logfile)
+        # job.run_with_log("sleep 12 && echo complete", logfile)
+        job.run_test_phase("provision", tmp_path)
         with open(logfile) as log:
             log_data = log.read()
-        assert timeout_str == log_data
+        assert timeout_str in log_data
 
     def test_set_truncate(self, client):
         """Test the _set_truncate method of TestflingerJob"""
