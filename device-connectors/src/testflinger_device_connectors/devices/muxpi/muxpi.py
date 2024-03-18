@@ -122,8 +122,28 @@ class MuxPi:
                 'the "provision_data" section of '
                 "your job_data"
             )
-        cmd = self.config.get("control_switch_local_cmd", "stm -ts")
-        self._run_control(cmd)
+        if "media" not in self.job_data["provision_data"]:
+            media = None
+            self.test_device = self.config["test_device"]
+            cmd = self.config.get("control_switch_local_cmd", "stm -ts")
+            self._run_control(cmd)
+        else:
+            media = self.job_data["provision_data"]["media"]
+            match media:
+                case "sd":
+                    self.test_device = "/dev/sd-disk"
+                case "usb":
+                    self.test_device = "/dev/tc-disk"
+                case _:
+                    self.test_device = self.config["test_device"]
+            # If media option is provided, then DUT is probably capable of
+            # booting from different media, we should switch both of them to TS
+            # side regardless of which one was previously used
+            cmd = "zapper sdwire set ZAPPER; zapper typecmux set TS"
+            try:
+                self._run_control(cmd)
+            except Exception:
+                pass
         time.sleep(5)
         logger.info("Flashing Test image")
         try:
@@ -138,7 +158,12 @@ class MuxPi:
                 logger.info("Skipping test user creation (create_user=False)")
             self.run_post_provision_script()
             logger.info("Booting Test Image")
-            cmd = self.config.get("control_switch_device_cmd", "stm -dut")
+            if media == "sd":
+                cmd = "zapper sdwire set DUT"
+            elif media == "usb":
+                cmd = "zapper typecmux set DUT"
+            else:
+                cmd = self.config.get("control_switch_device_cmd", "stm -dut")
             self._run_control(cmd)
             self.hardreset()
             self.check_test_image_booted()
@@ -157,10 +182,9 @@ class MuxPi:
         # First unmount, just in case
         self.unmount_writable_partition()
 
-        test_device = self.config["test_device"]
         cmd = (
             f"(set -o pipefail; curl -sf {shlex.quote(url)} | zstdcat| "
-            f"sudo dd of={test_device} bs=16M)"
+            f"sudo dd of={self.test_device} bs=16M)"
         )
         logger.info("Running: %s", cmd)
         try:
@@ -176,7 +200,7 @@ class MuxPi:
             time.sleep(30)
         try:
             self._run_control(
-                "sudo hdparm -z {}".format(self.config["test_device"]),
+                "sudo hdparm -z {}".format(self.test_device),
                 timeout=30,
             )
         except Exception:
@@ -185,9 +209,8 @@ class MuxPi:
             )
 
     def _get_part_labels(self):
-        test_device = self.config["test_device"]
         lsblk_data = self._run_control(
-            "lsblk -o NAME,LABEL -J {}".format(test_device)
+            "lsblk -o NAME,LABEL -J {}".format(self.test_device)
         )
         lsblk_json = json.loads(lsblk_data.decode())
         # List of (name, label) pairs
@@ -293,7 +316,7 @@ class MuxPi:
     def unmount_writable_partition(self):
         try:
             self._run_control(
-                "sudo umount {}*".format(self.config["test_device"]),
+                "sudo umount {}*".format(self.test_device),
                 timeout=30,
             )
         except KeyError:
