@@ -21,7 +21,7 @@ import time
 
 from testflinger_device_connectors.devices import ProvisioningError
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class Multi:

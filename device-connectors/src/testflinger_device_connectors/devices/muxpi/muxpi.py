@@ -30,7 +30,7 @@ from testflinger_device_connectors.devices import (
     RecoveryError,
 )
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class MuxPi:

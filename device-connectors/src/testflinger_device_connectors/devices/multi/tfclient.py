@@ -19,7 +19,7 @@ import logging
 import urllib.parse
 import requests
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class TFClient:

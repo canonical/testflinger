@@ -28,7 +28,7 @@ from testflinger_device_connectors.devices import (
 )
 from .lenovo_oemscript import LenovoOemScript
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(DefaultDevice):
