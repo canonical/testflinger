@@ -112,6 +112,7 @@ class OemRecovery:
                     self.config["device_ip"],
                 ),
                 shell=True,
+                timeout=5
             )
         ).decode()
 
@@ -146,6 +147,7 @@ class OemRecovery:
                     self.config["device_ip"],
                 ),
                 shell=True,
+                timeout=5
             )
         ).decode()
 
