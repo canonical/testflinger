@@ -50,19 +50,14 @@ class DeviceConnector(ZapperConnector):
         for the Zapper `provision` API.
         """
 
-        provisioning_data = {}
-        provisioning_data["url"] = self.job_data["provision_data"]["url"]
-        provisioning_data["username"] = self.job_data.get("test_data", {}).get(
-            "test_username", "ubuntu"
-        )
-        provisioning_data["password"] = self.job_data.get(
-            "test_password", {}
-        ).get("test_password", "ubuntu")
-        provisioning_data["autoinstall_conf"] = self._get_autoinstall_conf()
-        provisioning_data["reboot_script"] = self.config["reboot_script"]
-        provisioning_data["device_ip"] = self.config["device_ip"]
-        provisioning_data["robot_tasks"] = self.job_data["provision_data"][
-            "robot_tasks"
-        ]
+        provisioning_data = {
+            "url": self.job_data["provision_data"]["url"],
+            "username": self.job_data.get("test_data", {}).get("test_username", "ubuntu"),
+            "password": self.job_data.get("test_password", {}).get("test_password", "ubuntu"),
+            "autoinstall_conf": self._get_autoinstall_conf(),
+            "reboot_script": self.config["reboot_script"],
+            "device_ip": self.config["device_ip"],
+            "robot_tasks": self.job_data["provision_data"]["robot_tasks"]
+        }
 
         return ((), provisioning_data)
