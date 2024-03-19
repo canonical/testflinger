@@ -26,11 +26,14 @@ from typing import Callable, Optional, List
 
 logger = logging.getLogger(__name__)
 
+OutputHandlerType = Callable[[str], None]
+StopConditionType = Callable[[], Optional[str]]
+
 
 class CommandRunner:
     def __init__(self, cwd: Optional[str], env: Optional[dict]):
-        self.output_handlers: List[Callable] = []
-        self.stop_condition_checkers: List[Callable] = []
+        self.output_handlers: List[OutputHandlerType] = []
+        self.stop_condition_checkers: List[StopConditionType] = []
         self.process: Optional[subprocess.Popen] = None
         self.cwd = cwd
         self.env = os.environ.copy()
@@ -39,29 +42,25 @@ class CommandRunner:
                 {k: str(v) for k, v in env.items() if isinstance(v, str)}
             )
 
-    def register_output_handler(self, handler: Callable[[str], None]):
+    def register_output_handler(self, handler: OutputHandlerType):
         self.output_handlers.append(handler)
 
     def post_output(self, data: str):
         for handler in self.output_handlers:
             handler(data)
 
-    def register_stop_condition_checker(
-        self, checker: Callable[[], Optional[str]]
-    ):
+    def register_stop_condition_checker(self, checker: StopConditionType):
         self.stop_condition_checkers.append(checker)
 
-    def check_stop_conditions(self) -> bool:
+    def check_stop_conditions_and_post_output(self) -> bool:
         for checker in self.stop_condition_checkers:
             output = checker()
             if output:
-                # This shouldn't happen, but makes mypy happy
-                assert self.process is not None
                 self.post_output(output)
                 return True
         return False
 
-    def check_output(self):
+    def check_and_post_output(self):
         raw_output = self.process.stdout.read()
         if not raw_output:
             return
@@ -83,6 +82,7 @@ class CommandRunner:
         self.process.wait()
 
     def cleanup(self):
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
         if self.process is not None:
             self.process.kill()
 
@@ -102,17 +102,16 @@ class CommandRunner:
         while self.process.poll() is None:
             time.sleep(10)
 
-            if self.check_stop_conditions():
+            if self.check_stop_conditions_and_post_output():
                 self.cleanup()
                 break
 
-            self.check_output()
+            self.check_and_post_output()
+
         # Check for any final output before exiting
-
         run_cmd_thread.join()
-        self.check_output()
-
-        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        self.check_and_post_output()
+        self.cleanup()
 
         return self.process.returncode
 
