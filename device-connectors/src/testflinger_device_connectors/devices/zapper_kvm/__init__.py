@@ -27,15 +27,10 @@ class DeviceConnector(ZapperConnector):
 
     def _get_autoinstall_conf(self):
         """Prepare autoinstall-related configuration."""
-        autoinstall_conf = {}
-
-        autoinstall_conf["storage_layout"] = self.job_data["provision_data"][
-            "storage_layout"
-        ]
-
-        autoinstall_conf["storage_password"] = self.job_data[
-            "provision_data"
-        ].get("storage_password")
+        autoinstall_conf = {
+            "storage_layout": self.job_data["provision_data"]["storage_layout"],
+            "storage_password": self.job_data["provision_data"].get("storage_password")
+        }
 
         if "base_user_data" in self.job_data["provision_data"]:
             autoinstall_conf["base_user_data"] = self.job_data[
