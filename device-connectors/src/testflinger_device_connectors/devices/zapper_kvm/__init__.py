@@ -27,19 +27,15 @@ class DeviceConnector(ZapperConnector):
 
     def _get_autoinstall_conf(self) -> Dict[str, Any]:
         """Prepare autoinstall-related configuration."""
+        provision = self.job_data["provision_data"]
+
         autoinstall_conf = {
-            "storage_layout": self.job_data["provision_data"][
-                "storage_layout"
-            ],
-            "storage_password": self.job_data["provision_data"].get(
-                "storage_password"
-            ),
+            "storage_layout": provision["storage_layout"],
+            "storage_password": provision.get("storage_password"),
         }
 
-        if "base_user_data" in self.job_data["provision_data"]:
-            autoinstall_conf["base_user_data"] = self.job_data[
-                "provision_data"
-            ]["base_user_data"]
+        if "base_user_data" in provision:
+            autoinstall_conf["base_user_data"] = provision["base_user_data"]
 
         with open(os.path.expanduser("~/.ssh/id_rsa.pub")) as pub:
             autoinstall_conf["authorized_keys"] = [pub.read()]
@@ -59,7 +55,7 @@ class DeviceConnector(ZapperConnector):
             "username": self.job_data.get("test_data", {}).get(
                 "test_username", "ubuntu"
             ),
-            "password": self.job_data.get("test_password", {}).get(
+            "password": self.job_data.get("test_data", {}).get(
                 "test_password", "ubuntu"
             ),
             "autoinstall_conf": self._get_autoinstall_conf(),

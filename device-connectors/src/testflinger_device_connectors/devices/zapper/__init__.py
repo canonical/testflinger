@@ -29,7 +29,6 @@ from typing import Any, Dict, Tuple
 import rpyc
 import yaml
 
-import testflinger_device_connectors
 from testflinger_device_connectors.devices import (
     DefaultDevice,
     RecoveryError,
