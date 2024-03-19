@@ -25,7 +25,7 @@ from testflinger_device_connectors.devices.zapper import (
 class MockConnector(ZapperConnector):
     PROVISION_METHOD = "Test"
 
-    def _validate_configuration(self, config, job_data):
+    def _validate_configuration(self):
         return (), {}
 
 

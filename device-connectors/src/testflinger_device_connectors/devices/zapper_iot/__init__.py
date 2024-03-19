@@ -22,11 +22,11 @@ from testflinger_device_connectors.devices.zapper import ZapperConnector
 class DeviceConnector(ZapperConnector):
     """Tool for provisioning baremetal with a given image."""
 
-    PROVISION_METHOD = "zapper_iot"
+    PROVISION_METHOD = "ProvisioningIoT"
 
     def _validate_configuration(
-        self, config, job_data
-    ) -> Tuple[Tuple[Any, ...], Dict[str, Any]]:
+        self,
+    ) -> Tuple[Tuple, Dict[str, Any]]:
         """
         Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
