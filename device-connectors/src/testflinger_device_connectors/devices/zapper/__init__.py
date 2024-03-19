@@ -70,7 +70,7 @@ class ZapperConnector(ABC, DefaultDevice):
     @abstractmethod
     def _validate_configuration(
         self,
-    ) -> Tuple[Tuple[Any, ...], Dict[str, Any]]:
+    ) -> Tuple[Tuple, Dict[str, Any]]:
         """
         Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
