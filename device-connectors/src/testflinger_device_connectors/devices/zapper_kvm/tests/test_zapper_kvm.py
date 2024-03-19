@@ -14,7 +14,7 @@
 """Unit tests for Zapper KVM device connector."""
 
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, mock_open
 from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
 
 
@@ -52,17 +52,18 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
         connector._get_autoinstall_conf = Mock()
         args, kwargs = connector._validate_configuration()
+
+        expected = {
+            "url": "http://example.com/image.iso",
+            "username": "username",
+            "password": "password",
+            "autoinstall_conf": connector._get_autoinstall_conf.return_value,
+            "reboot_script": ["cmd1", "cmd2"],
+            "device_ip": "1.1.1.1",
+            "robot_tasks": ["job.robot", "another.robot"],
+        }
         self.assertEqual(args, ())
-        self.assertEqual(kwargs["url"], "http://example.com/image.iso")
-        self.assertEqual(kwargs["username"], "username")
-        self.assertEqual(kwargs["password"], "password")
-        self.assertEqual(
-            kwargs["autoinstall_conf"],
-            connector._get_autoinstall_conf.return_value,
-        )
-        self.assertEqual(kwargs["reboot_script"], ["cmd1", "cmd2"])
-        self.assertEqual(kwargs["device_ip"], "1.1.1.1")
-        self.assertEqual(kwargs["robot_tasks"], ["job.robot", "another.robot"])
+        self.assertDictEqual(kwargs, expected)
 
     def test_get_autoinstall_conf(self):
         """
@@ -88,15 +89,15 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             },
         }
 
-        with patch("builtins.open") as mock_open:
+        with patch("builtins.open", mock_open(read_data="mykey")):
             conf = connector._get_autoinstall_conf()
-        self.assertEqual(conf["storage_layout"], "lvm")
-        self.assertIsNone(conf["storage_password"])
-        self.assertNotIn("base_user_data", conf.keys())
-        self.assertIn(
-            mock_open.return_value.__enter__.return_value.read.return_value,
-            conf["authorized_keys"],
-        )
+
+        expected = {
+            "storage_layout": "lvm",
+            "storage_password": None,
+            "authorized_keys": ["mykey"],
+        }
+        self.assertDictEqual(conf, expected)
 
     def test_get_autoinstall_conf_full(self):
         """
@@ -124,12 +125,13 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             },
         }
 
-        with patch("builtins.open") as mock_open:
+        with patch("builtins.open", mock_open(read_data="mykey")):
             conf = connector._get_autoinstall_conf()
-        self.assertEqual(conf["storage_layout"], "lvm")
-        self.assertEqual(conf["storage_password"], "luks")
-        self.assertEqual(conf["base_user_data"], "base data content")
-        self.assertIn(
-            mock_open.return_value.__enter__.return_value.read.return_value,
-            conf["authorized_keys"],
-        )
+
+        expected = {
+            "storage_layout": "lvm",
+            "storage_password": "luks",
+            "base_user_data": "base data content",
+            "authorized_keys": ["mykey"],
+        }
+        self.assertDictEqual(conf, expected)
