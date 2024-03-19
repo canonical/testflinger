@@ -57,8 +57,6 @@ class ZapperConnector(ABC, DefaultDevice):
         with open(args.job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)
 
-        testflinger_device_connectors.configure_logging(self.config)
-
         logger.info("BEGIN provision")
         logger.info("Provisioning device")
 
