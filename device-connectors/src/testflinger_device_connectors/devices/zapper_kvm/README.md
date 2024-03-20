@@ -1,0 +1,41 @@
+# Zapper KVM
+
+Zapper-driven provisioning method that makes use of KVM assertions and actions.
+
+## Ubuntu Desktop / Server
+
+Support for vanilla Ubuntu is provided by [autoinstall](https://canonical-subiquity.readthedocs-hosted.com/en/latest/intro-to-autoinstall.html). Supported Ubuntu versions are:
+
+- Desktop >= 23.04
+- Server >= 20.04
+
+### Job parameters
+
+- __url__: URL to the image to install
+- __username__: username to configure
+- __password__: password to configure
+- **storage_layout**: can be either `lvm`, `direct`, `zfs` or `hybrid` (Desktop 23.10+)
+- **storage_password** (optional): only available with *storage_layout=lvm*, it's the password for LUKS encryption
+- **robot_tasks**: list of Zapper Robot tasks to run after a hard reset in order to follow the `autoinstall` installation
+- **cmdline_append** (optional): kernel parameters to append at the end of GRUB entry cmdline
+- **base_user_data** (optional): a custom base user-data file, it should be validated against [this schema](https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-schema.html)
+
+## Ubuntu Desktop OEM
+
+### Jammy
+
+Ubuntu OEM 22.04 is a two step process:
+
+1. Install using Zapper automations the `alloem` image which creates the reset partition on DUT and installs Ubuntu Jammy
+2. If URL is provided, run the OEM script to install an updated image on top of (1)
+
+#### Job parameters
+
+- __alloem_url__: URL to the `alloem` image
+- __url__ (optional): URL to the image to test, will be installed via the OEM script
+- __password__: password to configure
+- **robot_tasks**: list of Zapper Robot tasks to run after a hard reset in order to follow the `alloem` installation
+
+### Noble
+
+Ubuntu OEM 24.04 uses `autoinstall`. The procedure and the arguments are the same as _vanilla_ Ubuntu.
