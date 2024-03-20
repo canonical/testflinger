@@ -87,7 +87,7 @@ class DeviceConnector(ZapperConnector):
                 "cmdline_append", ""
             ),
             "skip_download": self.job_data["provision_data"].get(
-                "skip_dowload", False
+                "skip_download", False
             ),
         }
 

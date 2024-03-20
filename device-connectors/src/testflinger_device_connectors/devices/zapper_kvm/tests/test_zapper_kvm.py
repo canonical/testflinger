@@ -89,7 +89,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                 "storage_password": "luks",
                 "robot_retries": 3,
                 "cmdline_append": "more arguments",
-                "skip_dowload": True,
+                "skip_download": True,
             },
             "test_data": {
                 "test_username": "username",
