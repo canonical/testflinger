@@ -9,6 +9,8 @@ Support for vanilla Ubuntu is provided by [autoinstall](https://canonical-subiqu
 - Desktop >= 23.04
 - Server >= 20.04
 
+Unless specified via _autoinstall_ storage filter, the tool will select the largest storage device on the DUT. See [supported layouts](https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html#supported-layouts) for more information.
+
 ### Job parameters
 
 - __url__: URL to the image to install
@@ -28,6 +30,12 @@ Ubuntu OEM 22.04 is a two step process:
 
 1. Install using Zapper automations the `alloem` image which creates the reset partition on DUT and installs Ubuntu Jammy
 2. If URL is provided, run the OEM script to install an updated image on top of (1)
+
+The tool will select the storage device with the following priority:
+
+1. RAID
+2. NVME
+3. SATA
 
 #### Job parameters
 
