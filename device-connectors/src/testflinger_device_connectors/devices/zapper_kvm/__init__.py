@@ -37,7 +37,7 @@ class DeviceConnector(ZapperConnector):
         provision = self.job_data["provision_data"]
 
         autoinstall_conf = {
-            "storage_layout": provision["storage_layout"],
+            "storage_layout": provision.get("storage_layout", "lvm"),
             "storage_password": provision.get("storage_password"),
         }
 
@@ -61,7 +61,7 @@ class DeviceConnector(ZapperConnector):
             url = self.job_data["provision_data"]["alloem_url"]
             username = "ubuntu"
             password = "u"
-            retries = min(
+            retries = max(
                 2, self.job_data["provision_data"].get("robot_retries", 1)
             )
         else:
@@ -90,7 +90,6 @@ class DeviceConnector(ZapperConnector):
                 "skip_dowload", False
             ),
         }
-        provisioning_data = {}
 
         return ((), provisioning_data)
 

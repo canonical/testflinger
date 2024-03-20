@@ -13,6 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for Zapper KVM device connector."""
 
+import subprocess
 import unittest
 from unittest.mock import Mock, patch, mock_open
 from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
@@ -25,7 +26,49 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """
         Test whether the validate_configuration function returns
         the expected data merging the relevant bits from conf and job
-        data.
+        data when passing only the required arguments
+        """
+
+        connector = DeviceConnector()
+        connector.config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+            "reboot_script": ["cmd1", "cmd2"],
+        }
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://example.com/image.iso",
+                "robot_tasks": [
+                    "job.robot",
+                    "another.robot",
+                ],
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        args, kwargs = connector._validate_configuration()
+
+        expected = {
+            "url": "http://example.com/image.iso",
+            "username": "ubuntu",
+            "password": "ubuntu",
+            "autoinstall_conf": connector._get_autoinstall_conf.return_value,
+            "reboot_script": ["cmd1", "cmd2"],
+            "device_ip": "1.1.1.1",
+            "robot_tasks": ["job.robot", "another.robot"],
+            "robot_retries": 1,
+            "cmdline_append": "",
+            "skip_download": False,
+        }
+        self.assertEqual(args, ())
+        self.assertDictEqual(kwargs, expected)
+
+    def test_validate_configuration_w_opt(self):
+        """
+        Test whether the validate_configuration function returns
+        the expected data merging the relevant bits from conf and job
+        data when passing all the optional arguments.
         """
 
         connector = DeviceConnector()
@@ -43,6 +86,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                     "another.robot",
                 ],
                 "storage_layout": "lvm",
+                "storage_password": "luks",
+                "robot_retries": 3,
+                "cmdline_append": "more arguments",
+                "skip_dowload": True,
             },
             "test_data": {
                 "test_username": "username",
@@ -61,6 +108,59 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "reboot_script": ["cmd1", "cmd2"],
             "device_ip": "1.1.1.1",
             "robot_tasks": ["job.robot", "another.robot"],
+            "robot_retries": 3,
+            "cmdline_append": "more arguments",
+            "skip_download": True,
+        }
+        self.assertEqual(args, ())
+        self.assertDictEqual(kwargs, expected)
+
+    def test_validate_configuration_alloem(self):
+        """
+        Test whether the validate_configuration function returns
+        the expected data merging the relevant bits from conf and job
+        data when `alloem_url` is passed. In that case, username and
+        password are hardcoded and the Zapper shall try the procedures
+        at least twice because it can fail on purpose.
+        """
+
+        connector = DeviceConnector()
+        connector.config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+            "reboot_script": ["cmd1", "cmd2"],
+        }
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://example.com/image.iso",
+                "alloem_url": "http://example.com/alloem.iso",
+                "robot_tasks": [
+                    "job.robot",
+                    "another.robot",
+                ],
+                "storage_layout": "lvm",
+            },
+            "test_data": {
+                "test_username": "username",
+                "test_password": "password",
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        args, kwargs = connector._validate_configuration()
+
+        expected = {
+            "url": "http://example.com/alloem.iso",
+            "username": "ubuntu",
+            "password": "u",
+            "autoinstall_conf": connector._get_autoinstall_conf.return_value,
+            "reboot_script": ["cmd1", "cmd2"],
+            "device_ip": "1.1.1.1",
+            "robot_tasks": ["job.robot", "another.robot"],
+            "robot_retries": 2,
+            "cmdline_append": "",
+            "skip_download": False,
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -135,3 +235,111 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "authorized_keys": ["mykey"],
         }
         self.assertDictEqual(conf, expected)
+
+    def test_run_oem_default(self):
+        """
+        Test the function changes the default password on DUT and
+        the runs the base OemScript.
+        """
+
+        connector = DeviceConnector()
+        connector.job_data = {}
+        connector._change_password = Mock()
+        args = Mock()
+
+        with patch(
+            "testflinger_device_connectors.devices.zapper_kvm.OemScript"
+        ) as script:
+            connector._run_oem(args)
+
+        connector._change_password.assert_called_with("ubuntu", "u")
+        script.assert_called_with(args.config, args.job_data)
+        script.return_value.provision.assert_called_once()
+
+    def test_run_oem_hp(self):
+        """
+        Test the function changes the default password on DUT and
+        the runs the HP OemScript when oem=hp.
+        """
+
+        connector = DeviceConnector()
+        connector.job_data = {}
+        connector._change_password = Mock()
+        args = Mock()
+
+        with patch(
+            "testflinger_device_connectors.devices.zapper_kvm.OemScript"
+        ) as script:
+            connector._run_oem(args)
+
+        connector._change_password.assert_called_with("ubuntu", "u")
+        script.assert_called_with(args.config, args.job_data)
+        script.return_value.provision.assert_called_once()
+
+    def test_run_oem_dell(self):
+        """
+        Test the function changes the default password on DUT and
+        the runs the Dell OemScript when oem=dell.
+        """
+
+        connector = DeviceConnector()
+        connector.job_data = {"oem": "dell"}
+        connector._change_password = Mock()
+        args = Mock()
+
+        with patch(
+            "testflinger_device_connectors.devices.zapper_kvm.DellOemScript"
+        ) as script:
+            connector._run_oem(args)
+
+        connector._change_password.assert_called_with("ubuntu", "u")
+        script.assert_called_with(args.config, args.job_data)
+        script.return_value.provision.assert_called_once()
+
+    def test_run_oem_lenovo(self):
+        """
+        Test the function changes the default password on DUT and
+        the runs the Lenovo OemScript when oem=lenovo.
+        """
+
+        connector = DeviceConnector()
+        connector.job_data = {"oem": "lenovo"}
+        connector._change_password = Mock()
+        args = Mock()
+
+        with patch(
+            "testflinger_device_connectors.devices.zapper_kvm.LenovoOemScript"
+        ) as script:
+            connector._run_oem(args)
+
+        connector._change_password.assert_called_with("ubuntu", "u")
+        script.assert_called_with(args.config, args.job_data)
+        script.return_value.provision.assert_called_once()
+
+    @patch("subprocess.check_output")
+    def test_change_password(self, mock_check_output):
+        """
+        Test the function runs a command over SSH to change the
+        original password to the one specified in test_data.
+        """
+        connector = DeviceConnector()
+        connector.job_data = {"test_data": {"test_password": "new_password"}}
+        connector.config = {"device_ip": "localhost"}
+
+        connector._change_password("ubuntu", "u")
+
+        cmd = [
+            "sshpass",
+            "-p",
+            "u",
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "ubuntu@localhost",
+            "echo 'ubuntu:new_password' | sudo chpasswd",
+        ]
+        mock_check_output.assert_called_with(
+            cmd, stderr=subprocess.STDOUT, timeout=60
+        )
