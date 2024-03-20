@@ -14,6 +14,7 @@
 
 """Zapper Connector for KVM provisioning."""
 
+import logging
 import os
 import subprocess
 from typing import Any, Dict, Tuple
@@ -25,6 +26,8 @@ from testflinger_device_connectors.devices.lenovo_oemscript import (
 )
 from testflinger_device_connectors.devices.dell_oemscript import DellOemScript
 from testflinger_device_connectors.devices.hp_oemscript import HPOemScript
+
+logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(ZapperConnector):
@@ -97,20 +100,23 @@ class DeviceConnector(ZapperConnector):
         super()._post_run_actions(args)
 
         if "alloem_url" in self.job_data["provision_data"]:
-            self._run_oem(args)
+            self._change_password("ubuntu", "u")
+            self._run_oem_script(args)
 
-    def _run_oem(self, args):
+    def _run_oem_script(self, args):
         """
         If "alloem_url" was in scope, the Zapper only restored
         the OEM reset partition. The usual oemscript will take care
         of the rest.
         """
 
-        # Replacing default password ("u") with the one specified
-        # in the test data.
-        self._change_password("ubuntu", "u")
+        if not self.job_data["provision_data"].get("url"):
+            logger.warning(
+                "Provisioned with base `alloem` image, no test URL specified."
+            )
+            return
 
-        oem = self.job_data.get("oem")
+        oem = self.job_data["provision_data"].get("oem")
         oemscript = {
             "hp": HPOemScript,
             "dell": DellOemScript,
@@ -125,6 +131,7 @@ class DeviceConnector(ZapperConnector):
         password = self.job_data.get("test_data", {}).get(
             "test_password", "ubuntu"
         )
+        logger.info("Changing the original password to %s", password)
 
         cmd = [
             "sshpass",

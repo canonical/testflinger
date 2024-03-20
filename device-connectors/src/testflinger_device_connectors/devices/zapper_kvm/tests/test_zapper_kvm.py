@@ -236,83 +236,85 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
         self.assertDictEqual(conf, expected)
 
-    def test_run_oem_default(self):
+    def test_run_oem_no_url(self):
         """
-        Test the function changes the default password on DUT and
-        the runs the base OemScript.
+        Test the function returns without further action when URL
+        is not specified.
         """
 
         connector = DeviceConnector()
-        connector.job_data = {}
-        connector._change_password = Mock()
+        connector.job_data = {"provision_data": {}}
+
+        with patch(
+            "testflinger_device_connectors.devices.zapper_kvm.OemScript"
+        ) as script:
+            connector._run_oem_script("args")
+
+        script.assert_not_called()
+
+    def test_run_oem_default(self):
+        """Test the function runs the base OemScript."""
+
+        connector = DeviceConnector()
+        connector.job_data = {"provision_data": {"url": "file://image.iso"}}
         args = Mock()
 
         with patch(
             "testflinger_device_connectors.devices.zapper_kvm.OemScript"
         ) as script:
-            connector._run_oem(args)
+            connector._run_oem_script(args)
 
-        connector._change_password.assert_called_with("ubuntu", "u")
         script.assert_called_with(args.config, args.job_data)
         script.return_value.provision.assert_called_once()
 
     def test_run_oem_hp(self):
-        """
-        Test the function changes the default password on DUT and
-        the runs the HP OemScript when oem=hp.
-        """
+        """Test the function runs the HP OemScript when oem=hp."""
 
         connector = DeviceConnector()
-        connector.job_data = {}
-        connector._change_password = Mock()
+        connector.job_data = {
+            "provision_data": {"url": "file://image.iso", "oem": "hp"}
+        }
         args = Mock()
 
         with patch(
-            "testflinger_device_connectors.devices.zapper_kvm.OemScript"
+            "testflinger_device_connectors.devices.zapper_kvm.HPOemScript"
         ) as script:
-            connector._run_oem(args)
+            connector._run_oem_script(args)
 
-        connector._change_password.assert_called_with("ubuntu", "u")
         script.assert_called_with(args.config, args.job_data)
         script.return_value.provision.assert_called_once()
 
     def test_run_oem_dell(self):
-        """
-        Test the function changes the default password on DUT and
-        the runs the Dell OemScript when oem=dell.
-        """
+        """Test the function runs the Dell OemScript when oem=dell."""
 
         connector = DeviceConnector()
-        connector.job_data = {"oem": "dell"}
-        connector._change_password = Mock()
+        connector.job_data = {
+            "provision_data": {"url": "file://image.iso", "oem": "dell"}
+        }
         args = Mock()
 
         with patch(
             "testflinger_device_connectors.devices.zapper_kvm.DellOemScript"
         ) as script:
-            connector._run_oem(args)
+            connector._run_oem_script(args)
 
-        connector._change_password.assert_called_with("ubuntu", "u")
         script.assert_called_with(args.config, args.job_data)
         script.return_value.provision.assert_called_once()
 
     def test_run_oem_lenovo(self):
-        """
-        Test the function changes the default password on DUT and
-        the runs the Lenovo OemScript when oem=lenovo.
-        """
+        """Test the function runs the Lenovo OemScript when oem=lenovo."""
 
         connector = DeviceConnector()
-        connector.job_data = {"oem": "lenovo"}
-        connector._change_password = Mock()
+        connector.job_data = {
+            "provision_data": {"url": "file://image.iso", "oem": "lenovo"}
+        }
         args = Mock()
 
         with patch(
             "testflinger_device_connectors.devices.zapper_kvm.LenovoOemScript"
         ) as script:
-            connector._run_oem(args)
+            connector._run_oem_script(args)
 
-        connector._change_password.assert_called_with("ubuntu", "u")
         script.assert_called_with(args.config, args.job_data)
         script.return_value.provision.assert_called_once()
 
@@ -343,3 +345,20 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         mock_check_output.assert_called_with(
             cmd, stderr=subprocess.STDOUT, timeout=60
         )
+
+    def test_post_run_actions_alloem(self):
+        """
+        Test the function updates the password and run the OEM script
+        when `alloem_url` is in scope.
+        """
+        connector = DeviceConnector()
+        connector.job_data = {
+            "provision_data": {"alloem_url": "file://image.iso"}
+        }
+        connector._change_password = Mock()
+        connector._run_oem_script = Mock()
+
+        connector._post_run_actions("args")
+
+        connector._change_password.assert_called_with("ubuntu", "u")
+        connector._run_oem_script.assert_called_with("args")
