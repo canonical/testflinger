@@ -355,6 +355,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         connector.job_data = {
             "provision_data": {"alloem_url": "file://image.iso"}
         }
+        connector._copy_ssh_id = Mock()
         connector._change_password = Mock()
         connector._run_oem_script = Mock()
 
@@ -362,3 +363,4 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
         connector._change_password.assert_called_with("ubuntu", "u")
         connector._run_oem_script.assert_called_with("args")
+        connector._copy_ssh_id.assert_called()

@@ -101,6 +101,7 @@ class DeviceConnector(ZapperConnector):
 
         if "alloem_url" in self.job_data["provision_data"]:
             self._change_password("ubuntu", "u")
+            self._copy_ssh_id()
             self._run_oem_script(args)
 
     def _run_oem_script(self, args):
@@ -124,6 +125,32 @@ class DeviceConnector(ZapperConnector):
         }.get(oem, OemScript)(args.config, args.job_data)
 
         oemscript.provision()
+
+    def _copy_ssh_id(self):
+        """Copy the ssh id to the device"""
+        try:
+            test_username = self.job_data.get("test_data", {}).get(
+                "test_username", "ubuntu"
+            )
+            test_password = self.job_data.get("test_data", {}).get(
+                "test_password", "ubuntu"
+            )
+        except AttributeError:
+            test_username = "ubuntu"
+            test_password = "ubuntu"
+
+        cmd = [
+            "sshpass",
+            "-p",
+            test_password,
+            "ssh-copy-id",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            f"{test_username}@{self.config['device_ip']}",
+        ]
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
 
     def _change_password(self, username, orig_password):
         """Change password via SSH to the one specified in the job data."""
