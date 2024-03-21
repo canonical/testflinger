@@ -1,29 +1,28 @@
-=================
-Preamble
-=================
+MaaS Custom Storage Configuration
+=================================
 This extension of the Testflinger Maas Testflinger Device Connector to handle a variety of node storage layout configurations. This configuration will be passed to Testflinger via the node job configuration yaml file, as part of the SUT provision data (example below). This functionality is containted in the discreet Python module (‘maas-storage.py’) that sits alongside the Maas Testflinger Device Connector, to be imported and called when this device connector is instantiated, if a storage layout configuration is supplied.
 
 These storage layout configurations are to be passed along to MAAS, via the CLI API, when the device connector is created as part of its provision phase. While initial scope and use of this module will be limited to SQA’s testing requirements, the availability of this module implies additional consumers can specify disk layout configurations as part of their Testflinger job definitions.
 
 Of note: the initial scope of storage to be supported will be limited to flat layouts and simple partitions;  RAID, LVM or bcache configurations are currently unnsupported by this module. This functionality will be added in the future as the need arises.
 
-=================
 Job Configuration
-=================
+-----------------
 The storage configuration is traditionally supplied as a node bucket config, so we can duplicate how this is laid out in the SUT job configuration at the end of this document.
 
 As below, the storage configuration is defined under ‘disks’ key in the yaml file. It is composed of a list of storage configuration entries, which are dictionaries with at least these two fields, ‘type’ and ‘id’:
+
 -   **type**: the type of configuration entry. Currently this is one of:
 	- *disk* - a physical disk on the system
 	- *partition* - a partition on the system
 	- *format* - instructions to format a volume
 	- *mount* - instructions to mount a formatted partition
--   id: a label used to refer to this storage configuration entry. Other configuration entries will use this id to refer to this configuration item, or the component it configured.
+-   **id**: a label used to refer to this storage configuration entry. Other configuration entries will use this id to refer to this configuration item, or the component it configured.
 
-=================
 Storage Types
-=================
+-------------
 Each type of storage configuration entry has additional fields of:
+
 -   **Disk**: all storage configuration is ultimately applied to disks. These are referenced by ‘disk’ storage configuration entries.
 	- *disk* - The key of a disk in the machine's hardware configuration. By default, this is an integer value like ‘0’ or ‘1.’
 	- *ptable* - Type of partition table to use for the disk (‘gpt’ or ‘msdos’).
@@ -45,9 +44,8 @@ Each type of storage configuration entry has additional fields of:
 	- *device* - The ‘id’ of the ‘format’ entry this mount refers to.
 	- *path* - The path to mount the formatted volume at, e.g. ‘/boot.’
 
-=================
 Storage Configuration Instantiation
-=================
+-----------------------------------
 -   The existing storage configuration on the SUT is first cleared in order to start with a clean slate.
 -   We will then fetch the SUT block device config via the Maas API in order to verify and choose the appropriate physical disks which exist on the system. These disks must align with the configuration parameters (size, number of disks) presented in the config to proceed.
 -   Disk selection should be performed with the following criteria:
@@ -62,9 +60,8 @@ Storage Configuration Instantiation
 	- If a boot partition exists in the configuration, the parent disk will be flagged as a boot disk via the Maas API. The boot partition will then be created on this disk, including an EFI mount if desired.
 -   After the storage configuration is completed and written to the node’s physical disks, node provisioning will proceed to OS installation, in addition to any other provisioning steps outside of the node’s storage subsystem.
 
-=================
 Job Definition Reference
-=================
+------------------------
 ..  code-block:: yaml
     :caption: job.yaml
     :linenos:

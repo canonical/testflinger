@@ -12,6 +12,7 @@ Working with device connectors
     job-schema
     device-connector-types
     device-connector-conf
+    maas_storage
 
 
 Working with Testflinger servers and agents
