@@ -1,4 +1,4 @@
-# Copyright (C) 2017 Canonical
+# Copyright (C) 2017-2024 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,12 +16,16 @@ import fcntl
 import json
 import logging
 import os
-import signal
-import sys
-import subprocess
 import time
 
 from testflinger_agent.errors import TFServerError
+from .runner import CommandRunner
+from .handlers import LiveOutputHandler, LogUpdateHandler
+from .stop_condition_checkers import (
+    JobCancelledChecker,
+    GlobalTimeoutChecker,
+    OutputTimeoutChecker,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,16 +80,41 @@ class TestflingerJob:
         results_file = os.path.join(rundir, "testflinger-outcome.json")
         output_log = os.path.join(rundir, phase + ".log")
         serial_log = os.path.join(rundir, phase + "-serial.log")
+
         logger.info("Running %s_command: %s", phase, cmd)
-        # Set the exitcode to some failed status in case we get interrupted
-        exitcode = 99
+        runner = CommandRunner(cwd=rundir, env=self.client.config)
+        output_log_handler = LogUpdateHandler(output_log)
+        live_output_handler = LiveOutputHandler(self.client, self.job_id)
+        runner.register_output_handler(output_log_handler)
+        runner.register_output_handler(live_output_handler)
+
+        # Reserve phase uses a separate timeout handler
+        if phase != "reserve":
+            global_timeout_checker = GlobalTimeoutChecker(
+                self.get_global_timeout()
+            )
+            runner.register_stop_condition_checker(global_timeout_checker)
+
+        # We only need to check for output timeouts during the test phase
+        if phase == "test":
+            output_timeout_checker = OutputTimeoutChecker(
+                self.get_output_timeout()
+            )
+            runner.register_stop_condition_checker(output_timeout_checker)
+
+        # Do not allow cancellation during provision for safety reasons
+        if phase != "provision":
+            job_cancelled_checker = JobCancelledChecker(
+                self.client, self.job_id
+            )
+            runner.register_stop_condition_checker(job_cancelled_checker)
 
         for line in self.banner(
             "Starting testflinger {} phase on {}".format(phase, node)
         ):
-            self.run_with_log("echo '{}'".format(line), output_log, rundir)
+            runner.run(f"echo '{line}'")
         try:
-            exitcode = self.run_with_log(cmd, output_log, rundir)
+            exitcode = runner.run(cmd)
         except Exception as e:
             logger.exception(e)
         finally:
@@ -190,111 +219,6 @@ class TestflingerJob:
             f.seek(end - size, 0)
         else:
             f.seek(0, 0)
-
-    def run_with_log(self, cmd, logfile, cwd=None):
-        """Execute command in a subprocess and log the output
-
-        :param cmd:
-            Command to run
-        :param logfile:
-            Filename to save the output in
-        :param cwd:
-            Path to run the command from
-        :return:
-            returncode from the process
-        """
-        env = os.environ.copy()
-        # Make sure there all values we add are strings
-        env.update(
-            {k: v for k, v in self.client.config.items() if isinstance(v, str)}
-        )
-        global_timeout = self.get_global_timeout()
-        output_timeout = self.get_output_timeout()
-        start_time = time.time()
-        with open(logfile, "a", encoding="utf-8") as f:
-            live_output_buffer = ""
-            buffer_timeout = time.time()
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                shell=True,
-                cwd=cwd,
-                env=env,
-            )
-
-            def cleanup(signum, frame):
-                process.kill()
-
-            signal.signal(signal.SIGTERM, cleanup)
-            set_nonblock(process.stdout.fileno())
-
-            while True:
-                line = process.stdout.read()
-                if not line and process.poll() is not None:
-                    # Process exited
-                    break
-
-                if line:
-                    # Write the latest output to the log file, stdout, and
-                    # the live output buffer
-                    buf = line.decode(sys.stdout.encoding, errors="replace")
-                    sys.stdout.write(buf)
-                    live_output_buffer += buf
-                    f.write(buf)
-                    f.flush()
-                else:
-                    if (
-                        self.phase == "test"
-                        and time.time() - buffer_timeout > output_timeout
-                    ):
-                        buf = (
-                            "\nERROR: Output timeout reached! "
-                            "({}s)\n".format(output_timeout)
-                        )
-                        live_output_buffer += buf
-                        f.write(buf)
-                        process.kill()
-                        break
-
-                # Check if it's time to send the output buffer to the server
-                if live_output_buffer and time.time() - buffer_timeout > 10:
-                    if self.client.post_live_output(
-                        self.job_id, live_output_buffer
-                    ):
-                        live_output_buffer = ""
-                        buffer_timeout = time.time()
-
-                # Check global timeout
-                if (
-                    self.phase != "reserve"
-                    and time.time() - start_time > global_timeout
-                ):
-                    buf = "\nERROR: Global timeout reached! ({}s)\n".format(
-                        global_timeout
-                    )
-                    live_output_buffer += buf
-                    f.write(buf)
-                    process.kill()
-                    break
-
-                # Check if job was canceled
-                if (
-                    self.client.check_job_state(self.job_id) == "cancelled"
-                    and self.phase != "provision"
-                ):
-                    logger.info("Job cancellation was requested, exiting.")
-                    process.kill()
-                    break
-
-            if live_output_buffer:
-                self.client.post_live_output(self.job_id, live_output_buffer)
-
-            try:
-                status = process.wait(10)  # process.returncode
-            except TimeoutError:
-                status = 99  # Default in case something goes wrong
-            return status
 
     def get_global_timeout(self):
         """Get the global timeout for the test run in seconds"""

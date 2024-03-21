@@ -93,7 +93,9 @@ class TestClient:
         assert "test1" == testlog.splitlines()[-1].strip()
 
     def test_config_vars_in_env(self, agent, requests_mock):
-        self.config["test_command"] = "echo test_string is $test_string"
+        self.config["test_command"] = (
+            "bash -c 'echo test_string is $test_string'"
+        )
         fake_job_data = {
             "job_id": str(uuid.uuid1()),
             "job_queue": "test",
@@ -177,7 +179,7 @@ class TestClient:
         if os.path.exists(OFFLINE_FILE):
             os.unlink(OFFLINE_FILE)
         self.config["agent_id"] = "test001"
-        self.config["provision_command"] = "exit 46"
+        self.config["provision_command"] = "bash -c 'exit 46'"
         self.config["test_command"] = "echo test1"
         job_id = str(uuid.uuid1())
         fake_job_data = {
