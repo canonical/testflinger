@@ -15,13 +15,13 @@ To specify the commands to run by the device in each test phase, set the ``testf
    * - ``dragonboard`` 
      - Qualcomm Dragonboard 410c setup to boot from both a special image on a USB stick when the SD card is erased, as well as an SD card that can be provisioned by booting the stable image on a USB stick and then flashing the new image to the SD card.
    * - ``maas2`` 
-     - Uses `MaaS <https://maas.io/>`_ to provision supported images on devices that are capable of being controlled by a MaaS server.
+     - Uses `MAAS <https://maas.io/>`_ to provision supported images on devices that are capable of being controlled by a MAAS server.
    * - ``multi`` 
      - Experimental device type that is used for provisioning multiple other devices in order to coordinate a job across multiple devices at the same time.
    * - ``muxpi`` 
      - MuxPi or SDWire device capable of multiplexing the SD card so that it can be written, then control can be switched to the DUT to boot the image, see :ref:`muxpi`.
    * - ``netboot`` 
-     - Special purpose device connector for a few devices that must be booted and flashed remotely but the image they need is not compatible with MaaS.
+     - Special purpose device connector for a few devices that must be booted and flashed remotely but the image they need is not compatible with MAAS.
    * - ``noprovision`` 
      - General device connector that does not support provisioning, but can run tests on a device where provisioning is not needed or not possible to do automatically.
    * - ``oemrecovery`` 
@@ -83,21 +83,21 @@ The ``maas2`` device connector supports the following ``provision_data`` keys:
      - Description
    * - ``distro``
      - Name of the image to be used for provisioning. This is the name of the
-       image as it appears in the MaaS web UI and must already be imported into MaaS.
+       image as it appears in the MAAS web UI and must already be imported into MAAS.
    * - ``kernel``
      - Specify a kernel to use during deployment. This is the name of the
-       kernel as it appears in the MaaS web UI and must already be imported into MaaS.
+       kernel as it appears in the MAAS web UI and must already be imported into MAAS.
        For more information, see
-       `MaaS documentation <https://maas.io/docs/how-to-customise-machines#set-a-specific-kernel-during-machine-deployment-5>`_.
+       `MAAS documentation: Set a specific kernel <https://maas.io/docs/how-to-customise-machines#set-a-specific-kernel-during-machine-deployment-5>`_.
        on this topic
    * - ``user_data``
      - A string containing base64 encoded cloud-init user data to be used for provisioning.
        For more information, see
-       `MaaS documentation <https://maas.io/docs/how-to-customise-machines#pre-seed-cloud-init-2>`_.
+       `MAAS documentation: Pre-seed cloud-init <https://maas.io/docs/how-to-customise-machines#pre-seed-cloud-init-2>`_.
        on this topic
    * - ``disks``
      - Specify a custom disk configuration for the machine. For more information, see the
-       `MaaS custom storage reference documentation <../maas_storage>`_.
+       :doc:`maas_storage`.
 
 
 .. _muxpi:
