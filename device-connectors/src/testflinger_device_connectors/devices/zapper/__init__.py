@@ -103,4 +103,4 @@ class ZapperConnector(ABC, DefaultDevice):
         )
 
     def _post_run_actions(self, args):
-        """Run further actions after Zapper API returns succesfully."""
+        """Run further actions after Zapper API returns successfully."""
