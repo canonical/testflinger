@@ -118,7 +118,7 @@ If the connection is successful, a list of job queues is returned with their que
     example-queue-3 - for testing device model-3
     ...
 
-In this tutorial, let's assume that the job queue you will use is ``example-queue-1``.
+In this tutorial, let's assume that the job queue you will use is ``example-queue-1`` for a MAAS-provisioned device type.
 
 Alternatively, you can also visit the Web UI of this server at ``https://testflinger.example.com``, where the list of agents, queues and jobs are displayed.
 
@@ -130,13 +130,13 @@ Test jobs are YAML or JSON files that define the configurations and instructions
 
 A test job might contain a very complex command workflow that includes provisioning a system image onto the device, updating the firmware, executing a series test and more. In this tutorial, you will start with a simple test job.
 
-The following example shows a test job, written in YAML, that provisions an Ubuntu Jammy system image on the target device and then prints the distribution information:
+The following example shows a test job, written in YAML, that provisions an Ubuntu Jammy system image on a MAAS-provisioned device and then prints the distribution information:
 
 .. code-block:: yaml
 
   job_queue: example-queue-1
   provision_data:
-    url: https://cdimage.ubuntu.com/ubuntu/releases/jammy/release/example.img.xz
+    distro: jammy
   test_data:
     test_cmds: |
       ssh -t ubuntu@DEVICE_IP lsb_release -a
@@ -144,7 +144,7 @@ The following example shows a test job, written in YAML, that provisions an Ubun
 In the example job definition file:
 
 - ``job_queue``: specifies the queue name to which you will submit the job 
-- ``provision_data``: specifies the source of the system image to be provisioned on the target device. This example uses a URL of the system image to be downloaded, but the actual format of this section varies on device type.
+- ``provision_data``: specifies the source of the system image to be provisioned on the target device. This example uses the ``distro`` key to specify the version of the system image to be downloaded, but this key is specific to MAAS devices. The actual format of this section varies on device type. For more information, refer to :doc:`../reference/device-connector-types`.
 - ``test_data``: contains a ``test_cmds`` section that specifies the list of commands to be executed on the device after the system is provisioned. In this example, the device is instructed to execute the ``lsb_release -a`` command to print the Linux distribution information. 
 
 You might have noticed that the command is executed over an SSH connection. This is because the Testflinger system uses agents and device connectors to manage test jobs. The test commands are not executed on the test device itself, but on a host system that can reach your test device via SSH. Devices are set up with an SSH key to allow passwordless SSH connection from the test host at the time the provisioning is finished. 
