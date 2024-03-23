@@ -200,8 +200,16 @@ class TestflingerClient:
         :param rundir:
             Execution dir where the results can be found
         """
-        with open(os.path.join(rundir, "testflinger.json")) as f:
-            job_data = json.load(f)
+        try:
+            with open(os.path.join(rundir, "testflinger.json")) as f:
+                job_data = json.load(f)
+        except OSError:
+            logger.error(
+                f"Unable to read job ID from {rundir}/testflinger.json. "
+                "This may be a job that was already transmitted, but "
+                "couldn't be removed."
+            )
+            return
         job_id = job_data.get("job_id")
         # If we find an 'artifacts' dir under rundir, archive it, and transmit
         # it to the Testflinger server
