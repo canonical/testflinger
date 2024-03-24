@@ -87,6 +87,8 @@ class CommandRunner:
             self.process.kill()
 
     def run(self, cmd: str) -> int:
+        # Ensure that the process is None before starting
+        self.process = None
 
         signal.signal(signal.SIGTERM, lambda signum, frame: self.cleanup())
 
