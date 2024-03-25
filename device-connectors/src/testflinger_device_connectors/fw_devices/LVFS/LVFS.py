@@ -5,13 +5,14 @@ import json
 import time
 import logging
 from typing import Tuple
-from testflinger_device_connectors.fw_devices.base import AbstractDevice
+from testflinger_device_connectors.fw_devices.base import (
+    AbstractDevice,
+    SSH_OPTS,
+)
+
 from enum import Enum, auto
 
 logger = logging.getLogger()
-
-
-SSH_OPTS = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 
 class LVFSDevice(AbstractDevice):
@@ -33,13 +34,7 @@ class LVFSDevice(AbstractDevice):
         :param timeout:      timeout for the command response
         :returns:            return code, stdout, stderr
         """
-        if self.password == "":
-            ssh_cmd = f'ssh -t {SSH_OPTS} {self.user}@{self.ipaddr} "{cmd}"'
-        else:
-            ssh_cmd = (
-                f"sshpass -p {self.password}  ssh -t {SSH_OPTS} "
-                + f' {self.user}@{self.ipaddr} "{cmd}"'
-            )
+        ssh_cmd = f'ssh -t {SSH_OPTS} {self.user}@{self.ipaddr} "{cmd}"'
         try:
             r = subprocess.run(
                 ssh_cmd,

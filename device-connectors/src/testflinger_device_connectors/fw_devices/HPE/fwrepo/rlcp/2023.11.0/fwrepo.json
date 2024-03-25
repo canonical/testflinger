@@ -1,0 +1,103 @@
+{
+    "R11_1.30_06_29_2023_scp_2.10.20230517_appended_binded.fwpkg": {
+        "date": "20230706",
+        "description": "ROM Flash Firmware Package - HPE ProLiant RL300 Gen11 (R11)",
+        "deviceclass": "231cd606-a7f5-4ab6-bed8-823582227a3d",
+        "version": "1.30-06-29-2023",
+        "minimum_active_version": "null",
+        "updatableBy": "Bmc",
+        "reboot_required": "yes",
+        "target": [
+            "00000000-0000-0000-0000-000000000250"
+        ]
+    },
+    "firmware-hdd-vr000480kxlxf-hpk2_1.0.1.2_arm64.deb": {
+        "date": "20220930",
+        "description": "Online NVMe SSD Flash Component for Linux - VR000480KXLXF Drives",
+        "deviceclass": "F6DE0320-2E0F-489A-B238-6DD8AE7C3811",
+        "version": "HPK2",
+        "minimum_active_version": "null",
+        "updatableBy": "RuntimeAgent",
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-144d-a808144da801"
+        ]
+    },
+    "HPE_UBM4_1.24_D.fwpkg": {
+        "date": "20221011",
+        "description": "Firmware Package - UBM4 Backplane PIC PLDM Firmware for Gen10 Plus servers usage",
+        "deviceclass": "4149ebb7-d64b-4654-b679-4280f349ea50",
+        "version": "1.24",
+        "minimum_active_version": "null",
+        "updatableBy": "Bmc",
+        "reboot_required": "no",
+        "target": [
+            "9675b54e-1c96-44c3-a7a1-901504000000"
+        ]
+    },
+    "firmware-hdd-vo001920kydmt-vo003840kydmv-hpk1_1.0.1.1_arm64.deb": {
+        "date": "20220930",
+        "description": "Online NVMe SSD Flash Component for Linux - VO001920KYDMT and VO003840KYDMV Drives",
+        "deviceclass": "F6DE0320-2E0F-489A-B238-6DD8AE7C3811",
+        "version": "HPK1",
+        "minimum_active_version": "null",
+        "updatableBy": "RuntimeAgent",
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-144d-a808144da801",
+            "a6b1a447-382a-5a4f-144d-a808144da801"
+        ]
+    },
+    "firmware-nic-mlnx-mcx631102as-adat_26.33.1048_arm64.deb": {
+        "date": "20220930",
+        "description": "Mellanox MCX631102AS-ADAT Online Firmware Upgrade Utility for Linux aarch64",
+        "deviceclass": "F6DE0320-2E0F-489A-B238-6DD8AE7C3811",
+        "version": "26.33.1048",
+        "minimum_active_version": "null",
+        "updatableBy": "RuntimeAgent",
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101f15b30012"
+        ]
+    },
+    "ilo6_151.fwpkg": {
+        "date": "20230821",
+        "description": "Online ROM Flash Firmware Package - HPE Integrated Lights-Out 6",
+        "deviceclass": "2f317b9d-c9e3-4d76-bff6-b9d0d085a952",
+        "version": "1.51",
+        "minimum_active_version": "null",
+        "updatableBy": "Bmc",
+        "reboot_required": "no",
+        "target": [
+            "e6d3c844-14a6-4f1f-84a3-c06013910406",
+            "e6d3c844-14a6-4f1f-84a3-c06013910306",
+            "e6d3c844-14a6-4f1f-84a3-c06013910206",
+            "e6d3c844-14a6-4f1f-84a3-c06013910106",
+            "e6d3c844-14a6-4f1f-84a3-c06013910006"
+        ]
+    },
+    "firmware-nic-mlnx-mcx623106as-cdat_22.33.1048_arm64.deb": {
+        "date": "20220930",
+        "description": "Mellanox MCX623106AS-CDAT Online Firmware Upgrade Utility for Linux aarch64",
+        "deviceclass": "F6DE0320-2E0F-489A-B238-6DD8AE7C3811",
+        "version": "22.33.1048",
+        "minimum_active_version": "null",
+        "updatableBy": "RuntimeAgent",
+        "reboot_required": "yes",
+        "target": [
+            "a6b1a447-382a-5a4f-15b3-101d15b30042"
+        ]
+    },
+    "HPE_UBM6_1.02_C.fwpkg": {
+        "date": "20221127",
+        "description": "Firmware Package - UBM6 Backplane PIC PLDM Firmware for Gen11 RL300 server usage",
+        "deviceclass": "4149ebb7-d64b-4654-b679-4280f349ea50",
+        "version": "1.02",
+        "minimum_active_version": "null",
+        "updatableBy": "Bmc",
+        "reboot_required": "no",
+        "target": [
+            "9675b54e-1c96-44c3-a7a1-901506000000"
+        ]
+    }
+}
