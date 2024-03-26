@@ -42,7 +42,6 @@ class DeviceConnector(ZapperConnector):
 
         autoinstall_conf = {
             "storage_layout": provision.get("storage_layout", "lvm"),
-            "storage_password": provision.get("storage_password"),
         }
 
         if "base_user_data" in provision:

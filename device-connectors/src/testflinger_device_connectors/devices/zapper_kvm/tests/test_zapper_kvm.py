@@ -87,7 +87,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                     "another.robot",
                 ],
                 "storage_layout": "lvm",
-                "storage_password": "luks",
                 "robot_retries": 3,
                 "cmdline_append": "more arguments",
                 "skip_download": True,
@@ -195,7 +194,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
         expected = {
             "storage_layout": "lvm",
-            "storage_password": None,
             "authorized_keys": ["mykey"],
         }
         self.assertDictEqual(conf, expected)
@@ -217,7 +215,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                     "another.robot",
                 ],
                 "storage_layout": "lvm",
-                "storage_password": "luks",
                 "base_user_data": "base data content",
             },
             "test_data": {
@@ -231,7 +228,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
         expected = {
             "storage_layout": "lvm",
-            "storage_password": "luks",
             "base_user_data": "base data content",
             "authorized_keys": ["mykey"],
         }
