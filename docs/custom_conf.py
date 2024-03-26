@@ -62,7 +62,7 @@ html_context = {
     # Change to the discourse instance you want to be able to link to
     # using the :discourse: metadata at the top of a file
     # (use an empty value if you don't want to link)
-    'discourse': 'https://discourse.ubuntu.com',
+    'discourse': 'https://discourse.ubuntu.com/c/certification/165',
 
     # Change to the GitHub info for your project
     'github_url': 'https://github.com/canonical/testflinger',
@@ -110,7 +110,8 @@ linkcheck_ignore = [
 # (This list will be appended to linkcheck_anchors_ignore_for_url)
 
 custom_linkcheck_anchors_ignore_for_url = [
-    ]
+    r'https://maas\.io/docs/.*#'  # Ignore anchors on this page
+]
 
 ############################################################
 ### Additions to default configuration

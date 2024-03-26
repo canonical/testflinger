@@ -15,13 +15,13 @@ To specify the commands to run by the device in each test phase, set the ``testf
    * - ``dragonboard`` 
      - Qualcomm Dragonboard 410c setup to boot from both a special image on a USB stick when the SD card is erased, as well as an SD card that can be provisioned by booting the stable image on a USB stick and then flashing the new image to the SD card.
    * - ``maas2`` 
-     - Uses `MaaS <https://maas.io/>`_ to provision supported images on devices that are capable of being controlled by a MaaS server.
+     - Uses `MAAS <https://maas.io/>`_ to provision supported images on devices that are capable of being controlled by a MAAS server.
    * - ``multi`` 
      - Experimental device type that is used for provisioning multiple other devices in order to coordinate a job across multiple devices at the same time.
    * - ``muxpi`` 
      - MuxPi or SDWire device capable of multiplexing the SD card so that it can be written, then control can be switched to the DUT to boot the image, see :ref:`muxpi`.
    * - ``netboot`` 
-     - Special purpose device connector for a few devices that must be booted and flashed remotely but the image they need is not compatible with MaaS.
+     - Special purpose device connector for a few devices that must be booted and flashed remotely but the image they need is not compatible with MAAS.
    * - ``noprovision`` 
      - General device connector that does not support provisioning, but can run tests on a device where provisioning is not needed or not possible to do automatically.
    * - ``oemrecovery`` 
@@ -32,6 +32,73 @@ To specify the commands to run by the device in each test phase, set the ``testf
      - This device connector is used for Lenovo OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
    * - ``hp_oemscript`` 
      - This device connector is used for HP OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
+
+.. _cm3:
+
+cm3
+---
+
+The ``cm3`` device connector supports the following ``provision_data`` keys:
+
+.. list-table:: Supported ``provision_data`` keys for ``cm3``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``url``
+     - URL to a compressed disk image that is downloaded, decompressed using
+       ``unzstd`` (**xz** format is recommended, but any format supported by
+       the ``zstd`` tool is supported) and
+       flashed to the device, which will be used to boot up the DUT.
+
+.. _dragonboard:
+
+dragonboard
+-----------
+
+The ``dragonboard`` device connector supports the following ``provision_data`` keys:
+
+.. list-table:: Supported ``provision_data`` keys for ``dragonboard``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``url``
+     - URL to a compressed disk image that is downloaded, decompressed using
+       ``unzstd`` (**xz** format is recommended, but any format supported by
+       the ``zstd`` tool is supported) and
+       flashed to the SD card, which will be used to boot up the DUT.
+
+.. _maas2:
+
+maas2
+-----
+
+The ``maas2`` device connector supports the following ``provision_data`` keys:
+
+.. list-table:: Supported ``provision_data`` keys for ``maas2``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``distro``
+     - Name of the image to be used for provisioning. This is the name of the
+       image as it appears in the MAAS web UI and must already be imported into MAAS.
+   * - ``kernel``
+     - Specify a kernel to use during deployment. This is the name of the
+       kernel as it appears in the MAAS web UI and must already be imported into MAAS.
+       For more information, see
+       `MAAS documentation: Set a specific kernel <https://maas.io/docs/how-to-customise-machines#set-a-specific-kernel-during-machine-deployment-5>`_.
+       on this topic
+   * - ``user_data``
+     - A string containing base64 encoded cloud-init user data to be used for provisioning.
+       For more information, see
+       `MAAS documentation: Pre-seed cloud-init <https://maas.io/docs/how-to-customise-machines#pre-seed-cloud-init-2>`_.
+       on this topic
+   * - ``disks``
+     - Specify a custom disk configuration for the machine. For more information, see the
+       :doc:`maas_storage`.
+
 
 .. _muxpi:
 
@@ -83,3 +150,97 @@ Image types recognised for user account creation
      - Ubuntu Core 20
    * - ``ubuntu-cpc``
      - Ubuntu Certified Public Cloud
+
+.. _netboot:
+
+netboot
+-------
+
+The ``netboot`` device connector supports the following ``provision_data`` keys:
+
+.. list-table:: Supported ``provision_data`` keys for ``netboot``
+    :header-rows: 1
+  
+    * - Key
+      - Description
+    * - ``url``
+      - URL to a compressed disk image that is downloaded, decompressed using
+        ``unzstd`` (**xz** format is recommended, but any format supported by
+        the ``zstd`` tool is supported) and
+        flashed to the device, which will be used to boot up the DUT.
+
+.. _noprovision:
+
+noprovision
+-----------
+
+The ``noprovision`` device connector does not support any ``provision_data`` keys.
+However, you can specify any key in this dictionary (example: ``skip: false``) in
+order to ensure the provision step is run. The only effect this will have, is to
+ensure that the system is reachable with ssh before proceeding to the next step.
+
+.. _oemrecovery:
+
+oemrecovery
+-----------
+
+The ``oemrecovery`` device connector does not support any ``provision_data`` keys.
+Instead, this device connector uses a preconfigured command to reset the device back
+to its original state. In order to ensure that the provision step is run, and the
+system is reset back to the original state, you can specify any key in this dictionary
+(example: ``skip: false``). If you do not want the provision step to run, you can
+simply leave out the ``provision_data`` section.
+
+.. _dell_oemscript:
+
+dell_oemscript
+--------------
+
+The ``dell_oemscript`` device connector does not support any ``provision_data`` keys.
+
+.. list-table:: Supported ``provision_data`` keys for ``dell_oemscript``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``url``
+     - URL to a compressed disk image that is downloaded, decompressed using
+       ``unzstd`` (**xz** format is recommended, but any format supported by
+       the ``zstd`` tool is supported) and
+       flashed to the device, which will be used to boot up the DUT.
+
+.. _lenovo_oemscript:
+
+lenovo_oemscript
+----------------
+
+The ``lenovo_oemscript`` device connector does not support any ``provision_data`` keys.
+
+.. list-table:: Supported ``provision_data`` keys for ``lenovo_oemscript``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``url``
+     - URL to a compressed disk image that is downloaded, decompressed using
+       ``unzstd`` (**xz** format is recommended, but any format supported by
+       the ``zstd`` tool is supported) and
+       flashed to the device, which will be used to boot up the DUT.
+
+.. _hp_oemscript:
+
+hp_oemscript
+------------
+
+The ``hp_oemscript`` device connector does not support any ``provision_data`` keys.
+
+.. list-table:: Supported ``provision_data`` keys for ``hp_oemscript``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``url``
+     - URL to a compressed disk image that is downloaded, decompressed using
+       ``unzstd`` (**xz** format is recommended, but any format supported by
+       the ``zstd`` tool is supported) and
+       flashed to the device, which will be used to boot up the DUT.
