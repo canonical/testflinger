@@ -19,6 +19,7 @@ import os
 import subprocess
 from typing import Any, Dict, Tuple
 
+from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices.oemscript import OemScript
 from testflinger_device_connectors.devices.lenovo_oemscript import (
@@ -100,9 +101,24 @@ class DeviceConnector(ZapperConnector):
         super()._post_run_actions(args)
 
         if "alloem_url" in self.job_data["provision_data"]:
+            self._post_run_actions_oem(args)
+
+    def _post_run_actions_oem(self, args):
+        """Post run actions for 22.04 OEM images."""
+        try:
             self._change_password("ubuntu", "u")
             self._copy_ssh_id()
-            self._run_oem_script(args)
+        except subprocess.CalledProcessError as exc:
+            logger.error("Process failed with: %s", exc.output.decode())
+            raise ProvisioningError(
+                "Failed configuring SSH on the DUT."
+            ) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise ProvisioningError(
+                "Timed out configuring SSH on the DUT."
+            ) from exc
+
+        self._run_oem_script(args)
 
     def _run_oem_script(self, args):
         """
@@ -128,6 +144,9 @@ class DeviceConnector(ZapperConnector):
 
     def _copy_ssh_id(self):
         """Copy the ssh id to the device"""
+
+        logger.info("Copying the agent's SSH public key to the DUT.")
+
         try:
             test_username = self.job_data.get("test_data", {}).get(
                 "test_username", "ubuntu"
@@ -172,4 +191,5 @@ class DeviceConnector(ZapperConnector):
             f"{username}@{self.config['device_ip']}",
             f"echo 'ubuntu:{password}' | sudo chpasswd",
         ]
+
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)

@@ -16,6 +16,7 @@
 import subprocess
 import unittest
 from unittest.mock import Mock, patch, mock_open
+from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
 
 
@@ -364,3 +365,60 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         connector._change_password.assert_called_with("ubuntu", "u")
         connector._run_oem_script.assert_called_with("args")
         connector._copy_ssh_id.assert_called()
+
+    def test_post_run_actions_alloem_error(self):
+        """
+        Test the function raises the ProvisioningError
+        exception in case one of the SSH commands fail.
+        """
+        connector = DeviceConnector()
+        connector.job_data = {
+            "provision_data": {"alloem_url": "file://image.iso"}
+        }
+
+        connector._copy_ssh_id = Mock()
+        connector._change_password = Mock()
+        connector._run_oem_script = Mock()
+
+        connector._copy_ssh_id.side_effect = subprocess.CalledProcessError(
+            1, "", "A bad error".encode()
+        )
+        connector._change_password.side_effect = None
+
+        with self.assertRaises(ProvisioningError):
+            connector._post_run_actions("args")
+
+        connector._copy_ssh_id.side_effect = None
+        connector._change_password.side_effect = subprocess.CalledProcessError(
+            1, "", "A bad error".encode()
+        )
+
+        with self.assertRaises(ProvisioningError):
+            connector._post_run_actions("args")
+
+    def test_post_run_actions_alloem_timeout(self):
+        """
+        Test the function raises the ProvisioningError
+        exception in case one of the SSH commands times out.
+        """
+        connector = DeviceConnector()
+        connector.job_data = {
+            "provision_data": {"alloem_url": "file://image.iso"}
+        }
+        connector._copy_ssh_id = Mock()
+        connector._change_password = Mock()
+        connector._run_oem_script = Mock()
+
+        connector._copy_ssh_id.side_effect = subprocess.TimeoutExpired("", 1)
+        connector._change_password.side_effect = None
+
+        with self.assertRaises(ProvisioningError):
+            connector._post_run_actions("args")
+
+        connector._copy_ssh_id.side_effect = None
+        connector._change_password.side_effect = subprocess.TimeoutExpired(
+            "", 1
+        )
+
+        with self.assertRaises(ProvisioningError):
+            connector._post_run_actions("args")
