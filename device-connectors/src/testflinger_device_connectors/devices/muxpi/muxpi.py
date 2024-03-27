@@ -113,7 +113,6 @@ class MuxPi:
             raise ProvisioningError(e.output)
         return output
 
-
     def check_control_alive(self):
         """Check if the control host is alive"""
         try:
@@ -150,7 +149,6 @@ class MuxPi:
             time.sleep(10)
         # One final check to ensure the control host is alive, or fail
         self.check_control_alive()
-
 
     def provision(self):
         # If this is not a zapper, reboot before provisioning
