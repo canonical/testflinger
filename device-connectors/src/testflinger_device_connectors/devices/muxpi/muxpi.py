@@ -131,30 +131,25 @@ class MuxPi:
         be using the control host, check and power cycle it if needed before
         provisioning to ensure it's in a known good state.
         """
-        try:
-            self.check_control_alive()
-        except:
-            logger.info("Rebooting control host")
-            # disable/enable poe switch port power
-            for cmd in self.config["control_host_reboot_script"]:
-                logger.info("Running %s", cmd)
-                try:
-                    subprocess.check_call(cmd.split(), timeout=60)
-                except Exception:
-                    raise ProvisioningError("fail to reboot control host")
+        logger.info("Rebooting control host")
+        for cmd in self.config["control_host_reboot_script"]:
+            logger.info("Running %s", cmd)
+            try:
+                subprocess.check_call(cmd.split(), timeout=60)
+            except Exception:
+                raise ProvisioningError("fail to reboot control host")
 
-            time.sleep(120)
-            # It should be up after 120s, but wait up to 5min if necessary
-            for _ in range(24):
-                try:
-                    self.check_control_alive()
-                    break
-                except ProvisioningError:
-                    logger.info("Waiting for control host to become active...")
-                time.sleep(10)
-        finally:
-            # One final check to ensure the control host is alive, or fail
-            self.check_control_alive()
+        time.sleep(120)
+        # It should be up after 120s, but wait up to 5min if necessary
+        for _ in range(24):
+            try:
+                self.check_control_alive()
+                break
+            except ProvisioningError:
+                logger.info("Waiting for control host to become active...")
+            time.sleep(10)
+        # One final check to ensure the control host is alive, or fail
+        self.check_control_alive()
 
 
     def provision(self):
