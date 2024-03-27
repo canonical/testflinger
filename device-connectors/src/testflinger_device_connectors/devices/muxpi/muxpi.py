@@ -130,6 +130,12 @@ class MuxPi:
         be using the control host, check and power cycle it if needed before
         provisioning to ensure it's in a known good state.
         """
+        if not self.config.get("control_host_reboot_script"):
+            logger.warning(
+                "control_host_reboot_script not defined, "
+                "skip rebooting control host"
+            )
+            return
         logger.info("Rebooting control host")
         for cmd in self.config["control_host_reboot_script"]:
             logger.info("Running %s", cmd)
