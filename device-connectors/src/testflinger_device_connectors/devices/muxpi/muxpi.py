@@ -129,22 +129,29 @@ class MuxPi:
             self._run_control(cmd)
         else:
             media = self.job_data["provision_data"]["media"]
-            if media == "sd":
-                self.test_device = "/dev/sd-disk"
-            elif media == "usb":
-                self.test_device = "/dev/tc-disk"
-            else:
-                self.test_device = self.config["test_device"]
-            # If media option is provided, then DUT is probably capable of
-            # booting from different media, we should switch both of them to TS
-            # side regardless of which one was previously used
-            cmd = "zapper sdwire set ZAPPER; zapper typecmux set TS"
             try:
-                self._run_control(cmd)
+                # If media option is provided, then DUT is probably capable of
+                # booting from different media, we should switch both of them to TS
+                # side regardless of which one was previously used
+                cmd = "zapper sdwire plug_to_self"
+                sd_node = self._run_control(cmd)
+                cmd = "zapper typecmux plug_to_self"
+                usb_node = self._run_control(cmd)
             except Exception:
                 pass
+            if media == "sd":
+                self.test_device = sd_node.decode()
+            elif media == "usb":
+                self.test_device = usb_node.decode()
+            else:
+                raise ProvisioningError(
+                    'The "media" value in '
+                    'the "provision_data" section of '
+                    "your job_data must be either "
+                    "'sd' or 'usb'"
+                )
         time.sleep(5)
-        logger.info("Flashing Test image")
+        logger.info(f"Flashing Test image on {self.test_device}")
         try:
             self.flash_test_image(url)
             if self.job_data["provision_data"].get("create_user", True):

@@ -119,11 +119,8 @@ The ``muxpi`` device connector supports the following ``provision_data`` keys:
        flashed to the SD card, which will be used to boot up the DUT.
    * - ``media``
      - Optional paramer to indicate on which boot media the disk image should 
-       be programmed (using symlinks on the controller + zapper commands). 
-       Supported values are :
-
-       1. ``usb`` : symlink /dev/tc-disk
-       2. ``sd`` : symlink /dev/sd-disk
+       be programmed (using zapper commands). Supported values are ``usb`` or 
+       ``sd``
    * - ``create_user``
      - Boolean (default ``true``) specifying whether a user account should be created.
    * - ``boot_check_url``
