@@ -14,10 +14,21 @@
 
 """Zapper Connector for KVM provisioning."""
 
+import logging
 import os
+import subprocess
 from typing import Any, Dict, Tuple
 
+from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import ZapperConnector
+from testflinger_device_connectors.devices.oemscript import OemScript
+from testflinger_device_connectors.devices.lenovo_oemscript import (
+    LenovoOemScript,
+)
+from testflinger_device_connectors.devices.dell_oemscript import DellOemScript
+from testflinger_device_connectors.devices.hp_oemscript import HPOemScript
+
+logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(ZapperConnector):
@@ -30,8 +41,7 @@ class DeviceConnector(ZapperConnector):
         provision = self.job_data["provision_data"]
 
         autoinstall_conf = {
-            "storage_layout": provision["storage_layout"],
-            "storage_password": provision.get("storage_password"),
+            "storage_layout": provision.get("storage_layout", "lvm"),
         }
 
         if "base_user_data" in provision:
@@ -50,18 +60,135 @@ class DeviceConnector(ZapperConnector):
         for the Zapper `provision` API.
         """
 
-        provisioning_data = {
-            "url": self.job_data["provision_data"]["url"],
-            "username": self.job_data.get("test_data", {}).get(
+        if "alloem_url" in self.job_data["provision_data"]:
+            url = self.job_data["provision_data"]["alloem_url"]
+            username = "ubuntu"
+            password = "u"
+            retries = max(
+                2, self.job_data["provision_data"].get("robot_retries", 1)
+            )
+        else:
+            url = self.job_data["provision_data"]["url"]
+            username = self.job_data.get("test_data", {}).get(
                 "test_username", "ubuntu"
-            ),
-            "password": self.job_data.get("test_data", {}).get(
+            )
+            password = self.job_data.get("test_data", {}).get(
                 "test_password", "ubuntu"
-            ),
+            )
+            retries = self.job_data["provision_data"].get("robot_retries", 1)
+
+        provisioning_data = {
+            "url": url,
+            "username": username,
+            "password": password,
             "autoinstall_conf": self._get_autoinstall_conf(),
             "reboot_script": self.config["reboot_script"],
             "device_ip": self.config["device_ip"],
             "robot_tasks": self.job_data["provision_data"]["robot_tasks"],
+            "robot_retries": retries,
+            "cmdline_append": self.job_data["provision_data"].get(
+                "cmdline_append", ""
+            ),
+            "skip_download": self.job_data["provision_data"].get(
+                "skip_download", False
+            ),
         }
 
         return ((), provisioning_data)
+
+    def _post_run_actions(self, args):
+        super()._post_run_actions(args)
+
+        if "alloem_url" in self.job_data["provision_data"]:
+            self._post_run_actions_oem(args)
+
+    def _post_run_actions_oem(self, args):
+        """Post run actions for 22.04 OEM images."""
+        try:
+            self._change_password("ubuntu", "u")
+            self._copy_ssh_id()
+        except subprocess.CalledProcessError as exc:
+            logger.error("Process failed with: %s", exc.output.decode())
+            raise ProvisioningError(
+                "Failed configuring SSH on the DUT."
+            ) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise ProvisioningError(
+                "Timed out configuring SSH on the DUT."
+            ) from exc
+
+        self._run_oem_script(args)
+
+    def _run_oem_script(self, args):
+        """
+        If "alloem_url" was in scope, the Zapper only restored
+        the OEM reset partition. The usual oemscript will take care
+        of the rest.
+        """
+
+        if not self.job_data["provision_data"].get("url"):
+            logger.warning(
+                "Provisioned with base `alloem` image, no test URL specified."
+            )
+            return
+
+        oem = self.job_data["provision_data"].get("oem")
+        oemscript = {
+            "hp": HPOemScript,
+            "dell": DellOemScript,
+            "lenovo": LenovoOemScript,
+        }.get(oem, OemScript)(args.config, args.job_data)
+
+        oemscript.provision()
+
+    def _copy_ssh_id(self):
+        """Copy the ssh id to the device"""
+
+        logger.info("Copying the agent's SSH public key to the DUT.")
+
+        try:
+            test_username = self.job_data.get("test_data", {}).get(
+                "test_username", "ubuntu"
+            )
+            test_password = self.job_data.get("test_data", {}).get(
+                "test_password", "ubuntu"
+            )
+        except AttributeError:
+            test_username = "ubuntu"
+            test_password = "ubuntu"
+
+        cmd = [
+            "sshpass",
+            "-p",
+            test_password,
+            "ssh-copy-id",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            f"{test_username}@{self.config['device_ip']}",
+        ]
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
+
+    def _change_password(self, username, orig_password):
+        """Change password via SSH to the one specified in the job data."""
+
+        password = self.job_data.get("test_data", {}).get(
+            "test_password", "ubuntu"
+        )
+        logger.info("Changing the original password to %s", password)
+
+        cmd = [
+            "sshpass",
+            "-p",
+            orig_password,
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            f"{username}@{self.config['device_ip']}",
+            f"echo 'ubuntu:{password}' | sudo chpasswd",
+        ]
+
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
