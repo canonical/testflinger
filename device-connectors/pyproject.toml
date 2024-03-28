@@ -16,7 +16,7 @@ requires-python = ">=3.8"
 dependencies = [
     "PyYAML>=3.11",
     "requests",
-    "rpyc~=5.3.1",
+    "rpyc~=6.0.0",
 ]
 
 [project.scripts]
