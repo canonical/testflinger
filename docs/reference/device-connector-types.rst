@@ -118,7 +118,7 @@ The ``muxpi`` device connector supports the following ``provision_data`` keys:
        the ``zstd`` tool is supported) and
        flashed to the SD card, which will be used to boot up the DUT.
    * - ``media``
-     - Optional paramer to indicate on which boot media the disk image should 
+     - Optional parameter to indicate on which boot media the disk image should
        be programmed (using zapper commands). Supported values are ``usb`` or 
        ``sd``
    * - ``create_user``
