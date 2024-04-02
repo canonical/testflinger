@@ -15,7 +15,7 @@ jobs:
     defaults:
       run:
         working-directory: cli
-    runs-on: [self-hosted, linux, X64]
+    runs-on: [self-hosted, linux, jammy, X64]
     strategy:
       matrix:
         python: ["3.8", "3.10"]
