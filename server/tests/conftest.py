@@ -49,18 +49,13 @@ def mongo_app():
     """Create a pytest fixture for the app"""
     mock_mongo = MongoClientMock()
 
-    app = src.create_flask_app(TestingConfig)
-    old_src_mongo = src.mongo
-    old_v1_mongo = v1.mongo
-    src.mongo = mock_mongo
+    app = src.application.create_flask_app(TestingConfig)
     v1.mongo = mock_mongo
     yield app.test_client(), mock_mongo.db
-    src.mongo = old_src_mongo
-    v1.mongo = old_v1_mongo
 
 
 @pytest.fixture
 def testing_app():
     """Create an app for testing without using test_client"""
-    app = src.create_flask_app(TestingConfig)
+    app = src.application.create_flask_app(TestingConfig)
     yield app
