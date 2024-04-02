@@ -13,7 +13,7 @@ env:
 
 jobs:
   build-and-push-charm:
-    runs-on: [self-hosted, linux, X64]
+    runs-on: [self-hosted, linux, jammy, X64]
     permissions:
       contents: read
       packages: write
