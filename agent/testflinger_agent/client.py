@@ -15,6 +15,7 @@
 import logging
 import json
 import os
+from pathlib import Path
 import requests
 import shutil
 import tempfile
@@ -104,6 +105,30 @@ class TestflingerClient:
             logger.error(exc)
             # Wait a little extra before trying again
             time.sleep(60)
+
+    def get_attachments(self, job_id: int, path: Path):
+        """Download the attachment archive associated with a job
+
+        :param job_id:
+            Id for the job
+        :param path:
+            Where to save the attachment archive. If it is a folder,
+            the default filename `attachments.tar.gz` is used.
+        :returns path or None:
+            Where the attachment archive was saved or `None` id nothing
+            was retrieved
+        """
+        uri = urljoin(self.server, f"/v1/job/{job_id}/attachments")
+        if path.is_dir():
+            path = path / "attachments.tar.gz"
+        with requests.get(uri, stream=True, timeout=600) as response:
+            if response.status_code != 200:
+                return None
+            with open(path, "wb") as attachments:
+                for chunk in response.iter_content(chunk_size=4096):
+                    if chunk:
+                        attachments.write(chunk)
+        return path
 
     def check_job_state(self, job_id):
         job_data = self.get_result(job_id)

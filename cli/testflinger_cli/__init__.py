@@ -24,6 +24,9 @@ import json
 import logging
 import os
 import sys
+from pathlib import Path
+import tarfile
+import tempfile
 import time
 from argparse import ArgumentParser
 from datetime import datetime
@@ -117,6 +120,11 @@ def _print_queue_message():
         "descriptions, not ALL queues. If you can't find the queue you want "
         "to use, a job can still be submitted for queues not listed here.\n"
     )
+
+
+def tmp_dir() -> Path:
+    """Create a temporary directory and return the path to it"""
+    return Path(tempfile.mkdtemp())
 
 
 class TestflingerCli:
@@ -303,6 +311,53 @@ class TestflingerCli:
             print("{} = {}".format(k, v))
         print()
 
+    @staticmethod
+    def pack_attachments(job_data: dict) -> Path | None:
+        """Return the path to a compressed tarball of attachments"""
+
+        # pull together the attachement data per phase
+        phases = ["provision", "firmware_update", "test"]
+        attachment_data = {}
+        for phase in phases:
+            phase_str = f"{phase}_data"
+            try:
+                attachment_data[phase] = job_data[phase_str]["attachments"]
+            except KeyError:
+                pass
+        if not attachment_data:
+            return None
+
+        # create archive in a unique temporary folder
+        archive_dir = tmp_dir()
+        archive_path = archive_dir / "archive.tar.gz"
+
+        # use `tarfile` instead of `shutil` because:
+        # > [it] handles directories, regular files, hardlinks, symbolic links,
+        # > fifos, character devices and block devices and is able to acquire
+        # > and restore file information like timestamp, access permissions and
+        # > owner.
+        # ref: https://docs.python.org/3/library/tarfile.html
+
+        with tarfile.open(archive_path, "w:gz") as tar:
+            for phase, attachments in attachment_data.items():
+                phase_path = Path(phase)
+                # generate filenames for the current phase
+                filenames = (
+                    Path(attachment["local"]) for attachment in attachments
+                )
+                # add the corresponding files to the archive
+                # using a phase-prefixed archive filename
+                for filename in filenames:
+                    if filename.is_absolute():
+                        # absolute filenames become relative
+                        relative = filename.relative_to(filename.root)
+                        archive_name = phase_path / relative
+                    else:
+                        archive_name = phase_path / filename
+                    tar.add(filename, arcname=archive_name)
+
+        return archive_path
+
     def submit(self):
         """Submit a new test job to the server"""
         if self.args.filename == "-":
@@ -317,8 +372,16 @@ class TestflingerCli:
                 raise SystemExit(
                     "File not found: {}".format(self.args.filename)
                 ) from exc
-        job_id = self.submit_job_data(data)
-        queue = yaml.safe_load(data).get("job_queue")
+        job_dict = yaml.safe_load(data)
+
+        archive_path = self.pack_attachments(job_dict)
+        job_id = self.submit_job_data(job_dict)
+        if archive_path is not None:
+            # follow job submission with attachment submission, if required
+            self.submit_job_attachments(job_id, archive_path)
+            archive_path.unlink()
+
+        queue = job_dict.get("job_queue")
         self.history.new(job_id, queue)
         if self.args.quiet:
             print(job_id)
@@ -328,10 +391,10 @@ class TestflingerCli:
         if self.args.poll:
             self.do_poll(job_id)
 
-    def submit_job_data(self, data):
+    def submit_job_data(self, data_dict):
         """Submit data that was generated or read from a file as a test job"""
         try:
-            job_id = self.client.submit_job(data)
+            job_id = self.client.submit_job(data_dict)
         except client.HTTPError as exc:
             if exc.status == 400:
                 raise SystemExit(
@@ -350,6 +413,32 @@ class TestflingerCli:
                 "server: {}".format(exc.status)
             ) from exc
         return job_id
+
+    def submit_job_attachments(self, job_id: str, path: Path):
+        """Submit attachments archive for a job to the server
+
+        :param job_id:
+            ID for the test job
+        :param path:
+            The path to the attachment archive
+        """
+        try:
+            self.client.post_attachment(job_id, path)
+        except client.HTTPError as exc:
+            if exc.status == 400:
+                raise SystemExit(
+                    f"Unable to submit attachment archive for {job_id}"
+                ) from exc
+            if exc.status == 404:
+                raise SystemExit(
+                    "Received 404 error from server. Are you "
+                    "sure this is a testflinger server?"
+                ) from exc
+            # This shouldn't happen, so let's get more information
+            raise SystemExit(
+                "Unexpected error status from testflinger "
+                "server: {}".format(exc.status)
+            ) from exc
 
     def show(self):
         """Show the requested job JSON for a specified JOB_ID"""

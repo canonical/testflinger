@@ -1,6 +1,9 @@
 import json
 import os
+from pathlib import Path
+import re
 import shutil
+import tarfile
 import tempfile
 import uuid
 import requests_mock as rmock
@@ -91,6 +94,52 @@ class TestClient:
             os.path.join(self.tmpdir, fake_job_data.get("job_id"), "test.log")
         ).read()
         assert "test1" == testlog.splitlines()[-1].strip()
+
+    def test_attachments(self, agent, tmp_path):
+        # create file to be used as attachment
+        attachment = tmp_path / "random.bin"
+        attachment.write_bytes(os.urandom(128))
+        # create gzipped archive containing attachment
+        archive = tmp_path / "attachments.tar.gz"
+        with tarfile.open(archive, "w:gz") as attachments:
+            attachments.add(attachment, arcname=f"test/{attachment}")
+        # job data specifies how the attachment will be handled
+        fake_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test",
+            "test_data": {
+                "attachments": [
+                    {
+                        "local": str(attachment),
+                        "agent": str(attachment.name),
+                    }
+                ]
+            },
+            "attachments": "complete",
+        }
+
+        with rmock.Mocker() as mocker:
+            mocker.post(rmock.ANY, status_code=200)
+            # mock response to requesting jobs
+            mocker.get(
+                re.compile(r"/v1/job\?queue=\w+"),
+                [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+            )
+            # mock response to requesting job attachments
+            mocker.get(
+                re.compile(r"/v1/job/[-a-z0-9]+/attachments"),
+                content=archive.read_bytes(),
+            )
+            # mock response to results request
+            mocker.get(re.compile(r"/v1/result/"))
+
+            # request and process the job (should unpack the archive)
+            with patch("shutil.rmtree"):
+                agent.process_jobs()
+
+            # check that the attachment is where it's supposed to be
+            basepath = Path(self.tmpdir) / fake_job_data["job_id"]
+            assert (basepath / "attachments/test" / attachment.name).exists()
 
     def test_config_vars_in_env(self, agent, requests_mock):
         self.config["test_command"] = (

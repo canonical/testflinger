@@ -23,14 +23,12 @@ from datetime import datetime
 import pkg_resources
 from apiflask import APIBlueprint, abort
 from flask import jsonify, request, send_file
-from gridfs import GridFS
-from gridfs.errors import NoFile
 from prometheus_client import Counter
 from werkzeug.exceptions import BadRequest
 
-from src.database import mongo
-
+from src import database
 from . import schemas
+
 
 jobs_metric = Counter("jobs", "Number of jobs", ["queue"])
 reservations_metric = Counter(
@@ -80,8 +78,18 @@ def job_post(json_data: dict):
 
     # CAUTION! If you ever move this line, you may need to pass data as a copy
     # because it will get modified by submit_job and other things it calls
-    mongo.db.jobs.insert_one(job)
+    database.add_job(job)
     return jsonify(job_id=job.get("job_id"))
+
+
+def has_attachments(data: dict) -> bool:
+    """Predicate if the job described by `data` involves attachments"""
+    return any(
+        nested_field == "attachments"
+        for field, nested_dict in data.items()
+        if field.endswith("_data")
+        for nested_field in nested_dict
+    )
 
 
 def job_builder(data):
@@ -103,6 +111,8 @@ def job_builder(data):
         # This is a new job, so generate a new job_id
         job_id = str(uuid.uuid4())
 
+    # side effect: modify the job dict
+    data["attachments"] = "waiting" if has_attachments(data) else "none"
     job["job_id"] = job_id
     job["job_data"] = data
     return job
@@ -116,7 +126,7 @@ def job_get():
     queue_list = request.args.getlist("queue")
     if not queue_list:
         return "No queue(s) specified in request", 400
-    job = get_job(queue_list)
+    job = database.pop_job(queue_list=queue_list)
     if job:
         return jsonify(job)
     return {}, 204
@@ -133,10 +143,9 @@ def job_get_id(job_id):
     :return:
         JSON data for the job or error string and http error
     """
-
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
-    response = mongo.db.jobs.find_one(
+    response = database.mongo.db.jobs.find_one(
         {"job_id": job_id}, projection={"job_data": True, "_id": False}
     )
     if not response:
@@ -144,6 +153,44 @@ def job_get_id(job_id):
     job_data = response.get("job_data")
     job_data["job_id"] = job_id
     return job_data
+
+
+@v1.get("/job/<job_id>/attachments")
+def attachment_get(job_id):
+    """Return the attachments bundle for a specified job_id
+
+    :param job_id:
+        UUID as a string for the job
+    :return:
+        send_file stream of attachment tarball to download
+    """
+    if not check_valid_uuid(job_id):
+        return "Invalid job id\n", 400
+    try:
+        file = database.retrieve_file(filename=f"{job_id}.attachments")
+    except FileNotFoundError:
+        return "", 204
+    return send_file(file, mimetype="application/gzip")
+
+
+@v1.post("/job/<job_id>/attachments")
+def attachments_post(job_id):
+    """Post attachment bundle for a specified job_id
+
+    :param job_id:
+        UUID as a string for the job
+    """
+    if not check_valid_uuid(job_id):
+        return "Invalid job id\n", 400
+    if not database.awaits_attachments(job_id):
+        return "Invalid job id or job not awaiting attachments\n", 422
+    database.save_file(
+        data=request.files["file"],
+        filename=f"{job_id}.attachments",
+    )
+    # now the job can be processed
+    database.attachments_received(job_id)
+    return "OK", 200
 
 
 @v1.get("/job/search")
@@ -180,7 +227,7 @@ def search_jobs(query_data):
         },
     ]
 
-    jobs = mongo.db.jobs.aggregate(pipeline)
+    jobs = database.mongo.db.jobs.aggregate(pipeline)
 
     return jsonify(list(jobs))
 
@@ -200,7 +247,7 @@ def result_post(job_id, json_data):
     for key in list(json_data):
         json_data[f"result_data.{key}"] = json_data.pop(key)
 
-    mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
+    database.mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
     return "OK"
 
 
@@ -214,7 +261,7 @@ def result_get(job_id):
     """
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
-    response = mongo.db.jobs.find_one(
+    response = database.mongo.db.jobs.find_one(
         {"job_id": job_id}, {"result_data": True, "_id": False}
     )
 
@@ -233,17 +280,9 @@ def artifacts_post(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    file = request.files["file"]
-    filename = f"{job_id}.artifact"
-    # Normally we would use flask-pymongo save_file but it doesn't seem to
-    # work nicely for me with mongomock
-    storage = GridFS(mongo.db)
-    file_id = storage.put(file, filename=filename)
-
-    # Add a timestamp to the chunks - do this so we can set a TTL for them
-    timestamp = mongo.db.fs.files.find_one({"_id": file_id})["uploadDate"]
-    mongo.db.fs.chunks.update_many(
-        {"files_id": file_id}, {"$set": {"uploadDate": timestamp}}
+    database.save_file(
+        data=request.files["file"],
+        filename=f"{job_id}.artifact",
     )
     return "OK"
 
@@ -259,13 +298,9 @@ def artifacts_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    filename = f"{job_id}.artifact"
-    # Normally we would use flask-pymongo send_file but it doesn't seem to
-    # work nicely for me with mongomock
-    storage = GridFS(mongo.db)
     try:
-        file = storage.get_last_version(filename=filename)
-    except NoFile:
+        file = database.retrieve_file(filename=f"{job_id}.artifact")
+    except FileNotFoundError:
         return "", 204
     return send_file(file, download_name="artifact.tar.gz")
 
@@ -281,7 +316,7 @@ def output_get(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    response = mongo.db.output.find_one_and_delete(
+    response = database.mongo.db.output.find_one_and_delete(
         {"job_id": job_id}, {"_id": False}
     )
     output = response.get("output", []) if response else None
@@ -303,7 +338,7 @@ def output_post(job_id):
         abort(400, message="Invalid job_id specified")
     data = request.get_data().decode("utf-8")
     timestamp = datetime.utcnow()
-    mongo.db.output.update_one(
+    database.mongo.db.output.update_one(
         {"job_id": job_id},
         {"$set": {"updated_at": timestamp}, "$push": {"output": data}},
         upsert=True,
@@ -340,7 +375,7 @@ def queues_get():
         "other_queue": "A queue for something else"
     }
     """
-    all_queues = mongo.db.queues.find(
+    all_queues = database.mongo.db.queues.find(
         {}, projection={"_id": False, "name": True, "description": True}
     )
     queue_dict = {}
@@ -359,7 +394,7 @@ def queues_post():
     """
     queue_dict = request.get_json()
     for queue, description in queue_dict.items():
-        mongo.db.queues.update_one(
+        database.mongo.db.queues.update_one(
             {"name": queue},
             {"$set": {"description": description}},
             upsert=True,
@@ -371,7 +406,7 @@ def queues_post():
 @v1.doc(responses=schemas.images_out)
 def images_get(queue):
     """Get a dict of known images for a given queue"""
-    queue_data = mongo.db.queues.find_one(
+    queue_data = database.mongo.db.queues.find_one(
         {"name": queue}, {"_id": False, "images": True}
     )
     if not queue_data:
@@ -398,7 +433,7 @@ def images_post():
     image_dict = request.get_json()
     # We need to delete and recreate the images in case some were removed
     for queue, image_data in image_dict.items():
-        mongo.db.queues.update_one(
+        database.mongo.db.queues.update_one(
             {"name": queue},
             {"$set": {"images": image_data}},
             upsert=True,
@@ -410,7 +445,7 @@ def images_post():
 @v1.output(schemas.AgentOut)
 def agents_get_all():
     """Get all agent data"""
-    agents = mongo.db.agents.find({}, {"_id": False, "log": False})
+    agents = database.mongo.db.agents.find({}, {"_id": False, "log": False})
     return jsonify(list(agents))
 
 
@@ -434,7 +469,7 @@ def agents_post(agent_name, json_data):
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
-    mongo.db.agents.update_one(
+    database.mongo.db.agents.update_one(
         {"name": agent_name},
         {"$set": json_data, "$push": {"log": {"$each": log, "$slice": -100}}},
         upsert=True,
@@ -458,28 +493,6 @@ def check_valid_uuid(job_id):
     return True
 
 
-def get_job(queue_list):
-    """Get the next job in the queue"""
-    # The queue name and the job are returned, but we don't need the queue now
-    try:
-        response = mongo.db.jobs.find_one_and_update(
-            {
-                "result_data.job_state": "waiting",
-                "job_data.job_queue": {"$in": queue_list},
-            },
-            {"$set": {"result_data.job_state": "running"}},
-            projection={"job_id": True, "job_data": True, "_id": False},
-        )
-    except TypeError:
-        return None
-    if not response:
-        return None
-    # Flatten the job_data and include the job_id
-    job = response.get("job_data")
-    job["job_id"] = response.get("job_id")
-    return job
-
-
 @v1.get("/job/<job_id>/position")
 def job_position_get(job_id):
     """Return the position of the specified jobid in the queue"""
@@ -493,7 +506,7 @@ def job_position_get(job_id):
     except (AttributeError, TypeError):
         return "Invalid json returned for id: {}\n".format(job_id), 400
     # Get all jobs with job_queue=queue and return only the _id
-    jobs = mongo.db.jobs.find(
+    jobs = database.mongo.db.jobs.find(
         {"job_data.job_queue": queue, "result_data.job_state": "waiting"},
         {"job_id": 1},
     )
@@ -511,7 +524,7 @@ def cancel_job(job_id):
         UUID as a string for the job
     """
     # Set the job status to cancelled
-    response = mongo.db.jobs.update_one(
+    response = database.mongo.db.jobs.update_one(
         {
             "job_id": job_id,
             "result_data.job_state": {

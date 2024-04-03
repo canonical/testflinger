@@ -21,8 +21,8 @@ from dataclasses import dataclass
 import pytest
 import mongomock
 from mongomock.gridfs import enable_gridfs_integration
-import src
-from src.api import v1
+
+from src import database, application
 
 
 @dataclass
@@ -48,14 +48,13 @@ class MongoClientMock(mongomock.MongoClient):
 def mongo_app():
     """Create a pytest fixture for the app"""
     mock_mongo = MongoClientMock()
-
-    app = src.application.create_flask_app(TestingConfig)
-    v1.mongo = mock_mongo
+    database.mongo = mock_mongo
+    app = application.create_flask_app(TestingConfig)
     yield app.test_client(), mock_mongo.db
 
 
 @pytest.fixture
 def testing_app():
     """Create an app for testing without using test_client"""
-    app = src.application.create_flask_app(TestingConfig)
+    app = application.create_flask_app(TestingConfig)
     yield app

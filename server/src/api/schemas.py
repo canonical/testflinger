@@ -64,6 +64,30 @@ class ActionIn(Schema):
     action = fields.String(required=True, validate=OneOf(["cancel"]))
 
 
+class Attachment(Schema):
+    """Attachment pathnames schema
+
+    - `local`: path to attachment on the runner
+    - `agent`: path to copy the attachment in the testflinger agent (optional)
+    - `device`: path to copy the attachment in the device under test (optional)
+    """
+
+    local = fields.String(required=True)
+    agent = fields.String(required=False)
+    device = fields.String(required=False)
+
+
+class TestData(Schema):
+    """Schema for the `test_data` section of a testflinger job"""
+
+    test_cmds = fields.String(required=False)
+    attachments = fields.List(fields.Nested(Attachment), required=False)
+    # [TODO] Suggest removing these: introduce an `environment` field
+    # that specifies values for environment variables
+    test_username = fields.String(required=False)
+    test_password = fields.String(required=False)
+
+
 class Job(Schema):
     """Job schema"""
 
@@ -75,9 +99,13 @@ class Job(Schema):
     global_timeout = fields.Integer(required=False)
     output_timeout = fields.Integer(required=False)
     allocation_timeout = fields.Integer(required=False)
+    # [TODO] specify Nested schema to improve validation,
+    # i.e. expected fields within `provision_data`
     provision_data = fields.Dict(required=False)
+    # [TODO] specify Nested schema to improve validation,
+    # i.e. expected fields within `firmware_update_data`
     firmware_update_data = fields.Dict(required=False)
-    test_data = fields.Dict(required=False)
+    test_data = fields.Nested(TestData, required=False)
     allocate_data = fields.Dict(required=False)
     reserve_data = fields.Dict(required=False)
 

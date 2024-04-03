@@ -15,12 +15,25 @@
 import json
 import logging
 import os
+from pathlib import Path
 import shutil
+import tarfile
+import tempfile
 
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
 
 logger = logging.getLogger(__name__)
+
+
+def tmp_dir() -> Path:
+    """Create a temporary directory and return the path to it"""
+    return Path(tempfile.mkdtemp())
+
+
+def secure_filter(member, path):
+    """Combine the `data` and `tar` filter from `tarfile`"""
+    return tarfile.tar_filter(tarfile.data_filter(member, path), path)
 
 
 class TestflingerAgent:
@@ -111,6 +124,50 @@ class TestflingerAgent:
         # Create the offline file, this should work even if it exists
         open(self.get_offline_files()[0], "w").close()
 
+    def unpack_attachments(self, job_data: dict, cwd: Path):
+        """Download and unpack the attachments associated with a job"""
+
+        # download attachment archive to a unique temporary folder
+        archive_dir = tmp_dir()
+        archive_path = self.client.get_attachments(
+            job_id=job_data["job_id"], path=archive_dir
+        )
+        if archive_path is None:
+            raise FileNotFoundError
+        # extract archive data to a unique temporary folder and clean up
+        extracted_dir = tmp_dir()
+        with tarfile.open(archive_path, "r:gz") as tar:
+            tar.extractall(extracted_dir, filter=secure_filter)
+        shutil.rmtree(archive_dir)
+
+        # [TODO] clarify if this is an appropriate destination for extraction
+        attachment_dir = cwd / "attachments"
+
+        # move/rename extracted archive files to their specified destinations
+        for phase in ["provision", "firmware_update", "test"]:
+            try:
+                attachments = job_data[f"{phase}_data"]["attachments"]
+            except KeyError:
+                continue
+            for attachment in attachments:
+                original = Path(attachment["local"])
+                if original.is_absolute():
+                    # absolute filenames become relative
+                    original = original.relative_to(original.root)
+                # use renaming destination, if provided
+                # otherwise use the original one
+                destination_path = (
+                    attachment_dir / phase / attachment.get("agent", original)
+                )
+                try:
+                    # create intermediate path to destination, if required
+                    destination_path.resolve().parent.mkdir(parents=True)
+                except FileExistsError:
+                    pass
+                # move file
+                source_path = extracted_dir / phase / original
+                shutil.move(source_path, destination_path)
+
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
         TEST_PHASES = [
@@ -136,7 +193,13 @@ class TestflingerAgent:
                     self.client.config.get("execution_basedir"), job.job_id
                 )
                 os.makedirs(rundir)
+
                 self.client.post_agent_data({"job_id": job.job_id})
+
+                # handle job attachments, if any
+                if job_data.get("attachments", "none") == "complete":
+                    self.unpack_attachments(job_data, cwd=Path(rundir))
+
                 # Dump the job data to testflinger.json in our execution dir
                 with open(os.path.join(rundir, "testflinger.json"), "w") as f:
                     json.dump(job_data, f)
@@ -153,7 +216,6 @@ class TestflingerAgent:
                         break
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase)
-
                     exitcode = job.run_test_phase(phase, rundir)
 
                     self.client.post_influx(phase, exitcode)

@@ -19,9 +19,13 @@ Unit tests for testflinger-cli
 """
 
 import json
+import re
 import sys
+import tarfile
 import uuid
+
 import pytest
+from requests_mock import Mocker
 
 import testflinger_cli
 from testflinger_cli.client import HTTPError
@@ -83,6 +87,61 @@ def test_submit(capsys, tmp_path, requests_mock):
     tfcli.submit()
     std = capsys.readouterr()
     assert jobid in std.out
+
+
+def test_submit_with_attachments(tmp_path):
+    """Make sure jobs with attachments are submitted correctly"""
+
+    job_id = str(uuid.uuid1())
+    job_file = tmp_path / "test.json"
+    job_data = {
+        "queue": "fake",
+        "test_data": {
+            "attachments": [
+                {
+                    # include the submission JSON itself as a test attachment
+                    "local": str(job_file)
+                }
+            ]
+        },
+    }
+    job_file.write_text(json.dumps(job_data))
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with Mocker() as mocker:
+
+        # register responses for job and attachment submission endpoints
+        mock_response = {"job_id": job_id}
+        mocker.post(f"{URL}/v1/job", json=mock_response)
+        mocker.post(f"{URL}/v1/job/{job_id}/attachments")
+
+        # use cli to submit the job (processes `sys.argv` for arguments)
+        tfcli.submit()
+
+        # check the request history to confirm that:
+        # - there is a request to the job submission endpoint
+        # - there a request to the attachment submission endpoint
+        history = mocker.request_history
+        assert len(history) == 2
+        assert history[-2].path == "/v1/job"
+        assert history[-1].path == f"/v1/job/{job_id}/attachments"
+
+        # extract the binary file data from the request
+        # (`requests_mock` only provides access to the `PreparedRequest`)
+        match = re.search(b"\r\n\r\n(.+)\r\n--", history[-1].body, re.DOTALL)
+        data = match.group(1)
+        # write the binary data to a file
+        with open("attachments.tar.gz", "wb") as attachments:
+            attachments.write(data)
+        # and check that the contents match the originals
+        with tarfile.open("attachments.tar.gz") as attachments:
+            filenames = attachments.getnames()
+            assert len(filenames) == 1
+            attachments.extract(filenames[0], filter="data")
+        with open(filenames[0], "r", encoding="utf-8") as attachment:
+            assert json.load(attachment) == job_data
 
 
 def test_show(capsys, requests_mock):

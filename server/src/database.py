@@ -17,7 +17,12 @@
 This returns a db object for talking to MongoDB
 """
 
+import os
+import urllib
+from typing import Any
+
 from flask_pymongo import PyMongo
+from gridfs import GridFS, errors
 
 
 # Constants for TTL indexes
@@ -25,6 +30,46 @@ DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 
 mongo = PyMongo()
+
+
+def setup_mongodb(application):
+    """
+    Setup mongodb connection if we have valid config data
+    Otherwise leave it empty, which means we are probably running unit tests
+    """
+
+    mongo_user = os.environ.get("MONGODB_USERNAME")
+    mongo_pass = os.environ.get("MONGODB_PASSWORD")
+    if mongo_pass:
+        # password might contain special chars
+        mongo_pass = urllib.parse.quote_plus(mongo_pass)
+
+    mongo_db = os.environ.get("MONGODB_DATABASE")
+    mongo_host = os.environ.get("MONGODB_HOST")
+    mongo_port = os.environ.get("MONGODB_PORT", "27017")
+    mongo_uri = os.environ.get("MONGODB_URI")
+    mongo_auth = os.environ.get("MONGODB_AUTH_SOURCE", "admin")
+
+    if not mongo_uri:
+        if not (mongo_host and mongo_db):
+            raise SystemExit("No MongoDB URI configured!")
+        mongo_creds = (
+            f"{mongo_user}:{mongo_pass}@" if mongo_user and mongo_pass else ""
+        )
+        mongo_uri = (
+            f"mongodb://{mongo_creds}{mongo_host}:{mongo_port}/{mongo_db}"
+            f"?authSource={mongo_auth}"
+        )
+
+    mongo.init_app(
+        application,
+        uri=mongo_uri,
+        uuidRepresentation="standard",
+        serverSelectionTimeoutMS=2000,
+        maxPoolSize=os.environ.get("MONGODB_MAX_POOL_SIZE", 100),
+    )
+
+    create_indexes()
 
 
 def create_indexes():
@@ -51,3 +96,80 @@ def create_indexes():
     # Faster lookups for common queries
     mongo.db.jobs.create_index("job_id")
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
+
+
+def save_file(data: Any, filename: str):
+    """Store a file in the database (using GridFS)"""
+    # Normally we would use flask-pymongo save_file but it doesn't seem to
+    # work nicely for me with mongomock
+    storage = GridFS(mongo.db)
+    file_id = storage.put(data, filename=filename)
+    # Add a timestamp to the chunks - do this so we can set a TTL for them
+    timestamp = mongo.db.fs.files.find_one({"_id": file_id})["uploadDate"]
+    mongo.db.fs.chunks.update_many(
+        {"files_id": file_id}, {"$set": {"uploadDate": timestamp}}
+    )
+
+
+def retrieve_file(filename):
+    """Retrieve a file from the database (using GridFS)"""
+    # Normally we would use flask-pymongo send_file but it doesn't seem to
+    # work nicely for me with mongomock
+    storage = GridFS(mongo.db)
+    try:
+        return storage.get_last_version(filename=filename)
+    except errors.NoFile as error:
+        raise FileNotFoundError from error
+
+
+def awaits_attachments(job_id: str) -> bool:
+    """Check if a job with `job_id` is expecting attachments"""
+    response = mongo.db.jobs.find_one(
+        {
+            "job_id": job_id,
+            "result_data.job_state": "waiting",
+            "job_data.attachments": "waiting",
+        }
+    )
+    return response is not None
+
+
+def attachments_received(job_id):
+    """Inform the database that a job attachment archive has been stored"""
+    mongo.db.jobs.find_one_and_update(
+        {
+            "job_id": job_id,
+            "job_data.attachments": "waiting",
+        },
+        {"$set": {"job_data.attachments": "complete"}},
+        projection={},
+    )
+
+
+def add_job(job: dict):
+    """Add the `job` to the database"""
+    mongo.db.jobs.insert_one(job)
+
+
+def pop_job(queue_list):
+    """Get the next job in the queue"""
+    # The queue name and the job are returned, but we don't need the queue now
+    try:
+        response = mongo.db.jobs.find_one_and_update(
+            {
+                "result_data.job_state": "waiting",
+                "job_data.attachments": {"$in": ["none", "complete"]},
+                "job_data.job_queue": {"$in": queue_list},
+            },
+            {"$set": {"result_data.job_state": "running"}},
+            projection={"job_id": True, "job_data": True, "_id": False},
+        )
+    except TypeError:
+        return None
+    if not response:
+        return None
+    # Flatten the job_data and include the job_id
+    job = response.get("job_data")
+    job_id = response["job_id"]
+    job["job_id"] = job_id
+    return job
