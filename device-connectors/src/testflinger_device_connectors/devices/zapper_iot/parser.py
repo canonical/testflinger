@@ -7,7 +7,7 @@ from jsonschema import validate
 
 logger = logging.getLogger(__name__)
 
-LAUNCHER_SCHEMA = {
+TPLAN_SCHEMA = {
     "type": "object",
     "properties": {
         "config": {
@@ -182,10 +182,10 @@ LAUNCHER_SCHEMA = {
 }
 
 
-def validate_data(data):
+def validate_tplan(data):
     """for verify provision yaml"""
     try:
-        validate(instance=data, schema=LAUNCHER_SCHEMA)
+        validate(instance=data, schema=TPLAN_SCHEMA)
         logger.info("the JSON data is valid")
     except jsonschema.exceptions.ValidationError as err:
         raise ValueError("the JSON data is invalid") from err
@@ -193,6 +193,6 @@ def validate_data(data):
 
 def validate_url(url):
     """for verify url"""
-    for lnk in url:
-        if not validators.url(lnk):
+    for link in url:
+        if not validators.url(link):
             raise ValueError("url format is not correct")

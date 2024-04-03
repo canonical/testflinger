@@ -18,7 +18,7 @@ from typing import Any, Dict, Tuple
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_iot.parser import (
-    validate_data,
+    validate_tplan,
     validate_url,
 )
 
@@ -39,7 +39,7 @@ class DeviceConnector(ZapperConnector):
         """
         try:
             tplan = self.job_data["provision_data"]["iot_provision"]["tplan"]
-            validate_data(tplan)
+            validate_tplan(tplan)
         except KeyError as e:
             raise ProvisioningError from e
 
