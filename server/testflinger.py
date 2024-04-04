@@ -17,6 +17,6 @@
 Create the flask app
 """
 
-from src import create_flask_app
+from src.application import create_flask_app
 
 app = create_flask_app()

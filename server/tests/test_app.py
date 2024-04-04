@@ -18,7 +18,7 @@ Unit tests for Testflinger flask app
 """
 
 import pytest
-import src
+from src.application import create_flask_app
 
 
 def test_default_config(testing_app):
@@ -30,5 +30,5 @@ def test_default_config(testing_app):
 def test_setup_mongo_fails_without_config():
     """Ensure setup_mongo fails without config"""
     with pytest.raises(SystemExit) as exc:
-        src.create_flask_app()
+        create_flask_app()
     assert exc.value.code == "No MongoDB URI configured!"

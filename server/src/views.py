@@ -1,4 +1,4 @@
-# Copyright (C) 2023 Canonical
+# Copyright (C) 2023-2024 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -66,54 +66,53 @@ def job_detail(job_id):
 
 @views.route("/queues")
 def queues():
-    """Queues view"""
+    """
+    Queues view
 
-    # This finds all the publicly advertised queues, but also provides a count
-    # of the jobs associated with that queue that are not completed or
-    # cancelled
-    queue_data = mongo.db.queues.aggregate(
-        [
-            {
-                "$lookup": {
-                    "from": "jobs",
-                    "localField": "name",
-                    "foreignField": "job_data.job_queue",
-                    "pipeline": [
-                        {
-                            "$match": {
-                                "$expr": {
-                                    "$not": {
-                                        "$in": [
-                                            "$result_data.job_state",
-                                            [
-                                                "complete",
-                                                "completed",
-                                                "cancelled",
-                                            ],
-                                        ]
-                                    }
-                                }
-                            }
-                        }
-                    ],
-                    "as": "queuejobs",
-                }
-            },
-            {
-                "$addFields": {
-                    "numjobs": {"$size": "$queuejobs"},
-                }
-            },
-            {
-                "$project": {
-                    "name": 1,
-                    "numjobs": 1,
-                    "description": 1,
-                }
-            },
-        ]
-    )
+    Render a view with all known queues, descriptions if known, and the number
+    of jobs in each.
+    """
+    queue_data = queues_data()
     return render_template("queues.html", queues=queue_data)
+
+
+def queues_data():
+    """
+    Generate data for the queues view, this makes testing easier
+    """
+
+    # First, get all the advertised queues with descriptions
+    queue_data = list(
+        mongo.db.queues.find(
+            projection={"_id": 0, "name": 1, "description": 1}
+        )
+    )
+
+    # Get all the queues the agents say they are listening to from agent data
+    agent_data = mongo.db.agents.find({}, {"_id": 0, "queues": 1})
+    agent_queues_set = set(
+        queue for agent in agent_data for queue in agent["queues"]
+    )
+    advertised_queues_set = set(queue["name"] for queue in queue_data)
+
+    # Only keep the ones that weren't also in the advertised queues
+    unique_queues_from_agents = agent_queues_set - advertised_queues_set
+    for queue_name in unique_queues_from_agents:
+        queue_data.append(
+            {"name": queue_name, "description": "", "numjobs": 0}
+        )
+
+    # Get job counts for each queue
+    for queue in queue_data:
+        queue["numjobs"] = mongo.db.jobs.count_documents(
+            {
+                "job_data.job_queue": queue["name"],
+                "result_data.job_state": {
+                    "$nin": ["complete", "completed", "cancelled"]
+                },
+            }
+        )
+    return queue_data
 
 
 @views.route("/queues/<queue_id>")
