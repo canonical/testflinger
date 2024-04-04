@@ -91,8 +91,9 @@ def queues_data():
     # Get all the queues the agents say they are listening to from agent data
     agent_data = mongo.db.agents.find({}, {"_id": 0, "queues": 1})
     agent_queues_set = set(
-        queue for agent in agent_data for queue in agent["queues"]
+        queue for agent in agent_data for queue in agent.get("queues", [])
     )
+    #    queue for agent in agent_data for queue in agent["queues"]
     advertised_queues_set = set(queue["name"] for queue in queue_data)
 
     # Only keep the ones that weren't also in the advertised queues
