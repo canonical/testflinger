@@ -13,10 +13,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Zapper Connector for IOT provisioning."""
-
+import logging
 from typing import Any, Dict, Tuple
-
 from testflinger_device_connectors.devices.zapper import ZapperConnector
+from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices.zapper_iot.parser import (
+    validate_tplan,
+    validate_url,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(ZapperConnector):
@@ -31,4 +37,16 @@ class DeviceConnector(ZapperConnector):
         Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
-        raise NotImplementedError
+        try:
+            tplan = self.job_data["provision_data"]["iot_provision"]["tplan"]
+            validate_tplan(tplan)
+        except KeyError as e:
+            raise ProvisioningError from e
+
+        try:
+            url = self.job_data["provision_data"]["iot_provision"]["url"]
+            validate_url(url)
+        except KeyError:
+            url = []
+
+        return ((tplan, url), {})
