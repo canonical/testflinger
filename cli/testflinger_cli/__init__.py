@@ -110,6 +110,13 @@ def _get_ssh_keys():
                 print("Please enter keys in the form lp:userid or gh:userid")
     return key_list
 
+def _print_queue_message():
+    print(
+        "ATTENTION: This only shows a curated list of queues with "
+        "descriptions, not ALL queues. If you can't find the queue you want "
+        "to use, a job can still be submitted for queues not listed here.\n"
+    )
+
 
 class TestflingerCli:
     """Class for handling the Testflinger CLI"""
@@ -511,12 +518,7 @@ class TestflingerCli:
 
     def list_queues(self):
         """List the advertised queues on the current Testflinger server"""
-        print(
-            "ATTENTION: This only shows a curated list of queues with "
-            "descriptions, not ALL queues. If you can't find the queue you "
-            "want to use, a job can still be submitted for queues not listed "
-            "here.\n"
-        )
+        _print_queue_message()
         try:
             queues = self.client.get_queues()
         except client.HTTPError as exc:
@@ -531,12 +533,7 @@ class TestflingerCli:
 
     def reserve(self):
         """Install and reserve a system"""
-        print(
-            "ATTENTION: This only shows a curated list of queues with "
-            "descriptions, not ALL queues. If you can't find the queue you "
-            "want to use, a job can still be submitted for queues not listed "
-            "here.\n"
-        )
+        _print_queue_message()
         try:
             queues = self.client.get_queues()
         except OSError:
