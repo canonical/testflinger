@@ -45,6 +45,10 @@ def test_queues():
                 "name": "agent2",
                 "queues": ["queue2", "queue4", "advertised_queue2"],
             },
+            # There's an unlikely chance that an agent has no queues
+            {
+                "name": "agent2",
+            },
         ]
     )
     mongo.db.jobs.insert_many(
