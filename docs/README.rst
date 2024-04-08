@@ -90,3 +90,94 @@ Validate links within the documentation:
 .. code-block:: shell
 
    make linkcheck
+
+Configure the spelling check
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The spelling check uses ``aspell``.
+Its configuration is located in the ``.sphinx/spellingcheck.yaml`` file.
+
+To add exceptions for words flagged by the spelling check, edit the ``.custom_wordlist.txt`` file.
+You shouldn't edit ``.wordlist.txt``, because this file is maintained and updated centrally and contains words that apply across all projects.
+
+Configure the inclusive language check
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default, the inclusive language check is applied only to reST files located
+under the documentation directory (usually ``docs``). To check Markdown files,
+for example, or to use a location other than the ``docs`` sub-tree, you must
+change how the ``woke`` tool is invoked from within ``docs/Makefile`` (see
+the `woke User Guide <https://docs.getwoke.tech/usage/#file-globs>`_ for help).
+
+Inclusive language check exemptions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some circumstances may require you to use some non-inclusive words. In such
+cases you will need to create check-exemptions for them.
+
+This page provides an overview of two inclusive language check exemption
+methods for files written in reST format. See the `woke documentation <https://docs.getwoke.tech/ignore>`_ for full coverage.
+
+Exempt a word
+.............
+
+To exempt an individual word, place a custom ``none`` role (defined in the
+``canonical-sphinx-extensions`` Sphinx extension) anywhere on the line
+containing the word in question. The role syntax is:
+
+.. code-block:: none
+
+   :none:`wokeignore:rule=<SOME_WORD>,`
+
+For instance:
+
+.. code-block:: none
+
+   This is your text. The word in question is here: whitelist. More text. :none:`wokeignore:rule=whitelist,`
+
+To exempt an element of a URL, it is recommended to use the standard reST
+method of placing links at the bottom of the page (or in a separate file). In
+this case, a comment line is placed immediately above the URL line. The comment
+syntax is:
+
+.. code-block:: none
+
+   .. wokeignore:rule=<SOME_WORD>
+
+Here is an example where a URL element contains the string "master": :none:`wokeignore:rule=master,`
+
+.. code-block:: none
+
+   .. LINKS
+   .. wokeignore:rule=master
+   .. _link definition: https://some-external-site.io/master/some-page.html
+
+You can now refer to the label ``link definition_`` in the body of the text.
+
+Exempt an entire file
+.....................
+
+A more drastic solution is to make an exemption for the contents of an entire
+file. For example, to exempt file ``docs/foo/bar.rst`` add the following line
+to file ``.wokeignore``:
+
+.. code-block:: none
+
+   foo/bar.rst
+
+
+Configure the link check
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you have links in the documentation that you don't want to be checked (for
+example, because they are local links or give random errors even though they
+work), you can add them to the ``linkcheck_ignore`` variable in the ``custom_conf.py`` file.
+
+Some anchors in the URLs (the segments after ``#``) may cause the link checker to fail. To ignore these anchors, add them to the ``custom_linkcheck_anchors_ignore_for_url`` variable in the ``custom_conf.py`` file.
+
+Add redirects
+~~~~~~~~~~~~~
+
+You can add redirects to make sure existing links and bookmarks continue working when you move files around.
+To do so, specify the old and new paths in the ``redirects`` setting of the ``custom_conf.py`` file.
+
