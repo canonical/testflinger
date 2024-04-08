@@ -110,6 +110,7 @@ def _get_ssh_keys():
                 print("Please enter keys in the form lp:userid or gh:userid")
     return key_list
 
+
 def _print_queue_message():
     print(
         "ATTENTION: This only shows a curated list of queues with "
