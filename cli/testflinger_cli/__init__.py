@@ -61,6 +61,7 @@ def configure_logging():
 
 
 def _get_image(images):
+    """Ask the user to select an image from a list"""
     image = ""
     flex_url = ""
     if images and images[list(images.keys())[0]].startswith("url:"):
@@ -108,6 +109,14 @@ def _get_ssh_keys():
                 ssh_keys = ""
                 print("Please enter keys in the form lp:userid or gh:userid")
     return key_list
+
+
+def _print_queue_message():
+    print(
+        "ATTENTION: This only shows a curated list of queues with "
+        "descriptions, not ALL queues. If you can't find the queue you want "
+        "to use, a job can still be submitted for queues not listed here.\n"
+    )
 
 
 class TestflingerCli:
@@ -510,6 +519,7 @@ class TestflingerCli:
 
     def list_queues(self):
         """List the advertised queues on the current Testflinger server"""
+        _print_queue_message()
         try:
             queues = self.client.get_queues()
         except client.HTTPError as exc:
@@ -524,6 +534,7 @@ class TestflingerCli:
 
     def reserve(self):
         """Install and reserve a system"""
+        _print_queue_message()
         try:
             queues = self.client.get_queues()
         except OSError:
@@ -580,6 +591,7 @@ class TestflingerCli:
             self.do_poll(job_id)
 
     def _get_queue(self, queues):
+        """Ask the user which queue to use from a list"""
         queue = ""
         while not queue or queue == "?":
             queue = input("\nWhich queue do you want to use? ('?' to list) ")
