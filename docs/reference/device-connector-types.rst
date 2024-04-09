@@ -34,6 +34,8 @@ To specify the commands to run by the device in each test phase, set the ``testf
      - This device connector is used for HP OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
    * - ``zapper_iot``
      - This device connector is used for provisioning ubuntu-core to ARM IoT devices. It could be provision by set device to download mode or override seed partition and do recovery.
+   * - ``zapper_kvm``
+     - This device connector makes use of Zapper KVM capabilities to install multiple types of Ubuntu images (vanilla, OEM, ...).
 
 .. _cm3:
 
@@ -250,3 +252,55 @@ The ``hp_oemscript`` device connector does not support any ``provision_data`` ke
        ``unzstd`` (**xz** format is recommended, but any format supported by
        the ``zstd`` tool is supported) and
        flashed to the device, which will be used to boot up the DUT.
+
+.. _zapper_kvm:
+
+zapper_kvm
+------------
+
+The ``zapper_kvm`` device connector, depending on the target image, supports the following ``provision_data`` keys:
+
+.. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target autoinstall-driven provisioning
+    :header-rows: 1
+
+    * - Key
+      - Description
+    * - ``url``
+      - URL to a disk image that is downloaded and flashed to a USB storage device,
+        which will be used to boot up the DUT.
+    * - ``robot_tasks``
+      - List of Zapper/Robot snippets to run in sequence after the USB storage device
+        is plugged into the DUT and the system restarted. The snippet ID is the relative
+        path from the ``robot/snippets`` path in the Zapper repository.
+    * - ``storage_layout``
+      - When provisioning an image supporting *autoinstall*, the storage_layout can
+        be either ``lvm`` (default), ``direct``, ``zfs`` or ``hybrid`` (Desktop 23.10+)
+    * - ``cmdline_append``
+      - When provisioning an image supporting *autoinstall*, the cmdline_append can
+        be used to append Kernel parameters to the standard GRUB entry.
+    * - ``base_user_data``
+      - When provisioning an image supporting *autoinstall*, the base_user_data can
+        e used to provide a base user_data file instead of the basic one hosted by Zapper.
+        For more information, see
+        `Autoinstall Reference <https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html>`_.
+        on this topic
+
+.. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target Ubuntu OEM 22.04
+    :header-rows: 1
+
+    * - Key
+      - Description
+    * - ``alloem_url``
+      - URL to the ``alloem`` disk image that is downloaded and flashed to a USB storage device,
+        which will be used to boot up the DUT. It restores the OEM reset partition and installs
+        a base Ubuntu OEM 22.04 image.
+    * - ``robot_tasks``
+      - List of Zapper/Robot snippets to run in sequence after the USB storage device
+        is plugged into the DUT and the system restarted. The snippet ID is the relative
+        path from the ``robot/snippets`` path in the Zapper repository.
+    * - ``url``
+      - Optional URL to a disk image given as input to the ``oemscript`` to install on top of
+        the base OEM provisioning.
+    * - ``oem``
+      - Optional value to select the ``oemscript`` to run when specifying a ``url``, possible values
+        are ``dell``, ``hp`` and ``lenovo``.
