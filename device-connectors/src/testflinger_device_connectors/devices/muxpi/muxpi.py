@@ -83,7 +83,7 @@ class MuxPi:
             output = subprocess.check_output(
                 ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout
             )
-        except subprocess.CalledProcessError as e:
+        except subprocess.SubprocessError as e:
             raise ProvisioningError(e.output)
         return output
 
@@ -113,7 +113,45 @@ class MuxPi:
             raise ProvisioningError(e.output)
         return output
 
+    def reboot_control_host(self):
+        """
+        Reboot the control host
+        Sometimes the control host can end up in an unstable condition which
+        isn't easy to detect until it's too late. Since nothing else should
+        be using the control host, check and power cycle it if needed before
+        provisioning to ensure it's in a known good state.
+        """
+        if not self.config.get("control_host_reboot_script"):
+            logger.warning(
+                "control_host_reboot_script not defined, "
+                "skip rebooting control host"
+            )
+            return
+        logger.info("Rebooting control host")
+        for cmd in self.config["control_host_reboot_script"]:
+            logger.info("Running %s", cmd)
+            try:
+                subprocess.check_call(cmd.split(), timeout=60)
+            except Exception:
+                raise ProvisioningError("fail to reboot control host")
+
+        reboot_timeout = self.config.get("control_host_reboot_timeout", 120)
+        time.sleep(reboot_timeout)
+        # It should be up after 120s, but wait for another cycle if necessary
+        for _ in range(int(reboot_timeout / 10)):
+            try:
+                self._run_control("true")
+                break
+            except ProvisioningError:
+                logger.info("Waiting for control host to become active...")
+            time.sleep(10)
+        # One final check to ensure the control host is alive, or fail
+        self._run_control("true")
+
     def provision(self):
+        # If this is not a zapper, reboot before provisioning
+        if "zapper" not in self.config.get("control_switch_local_cmd", ""):
+            self.reboot_control_host()
         try:
             url = self.job_data["provision_data"]["url"]
         except KeyError:
