@@ -83,7 +83,7 @@ class MuxPi:
             output = subprocess.check_output(
                 ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout
             )
-        except subprocess.CalledProcessError as e:
+        except subprocess.SubprocessError as e:
             raise ProvisioningError(e.output)
         return output
 
@@ -113,15 +113,6 @@ class MuxPi:
             raise ProvisioningError(e.output)
         return output
 
-    def check_control_alive(self):
-        """Check if the control host is alive"""
-        try:
-            self._run_control("true")
-        except (ProvisioningError, subprocess.SubprocessError):
-            raise ProvisioningError(
-                "Control host is not responding, provisioning can't proceed!"
-            )
-
     def reboot_control_host(self):
         """
         Reboot the control host
@@ -144,17 +135,18 @@ class MuxPi:
             except Exception:
                 raise ProvisioningError("fail to reboot control host")
 
-        time.sleep(120)
-        # It should be up after 120s, but wait up to 5min if necessary
-        for _ in range(24):
+        reboot_timeout = self.config.get("control_host_reboot_timeout", 120)
+        time.sleep(reboot_timeout)
+        # It should be up after 120s, but wait for another cycle if necessary
+        for _ in range(int(reboot_timeout / 10)):
             try:
-                self.check_control_alive()
+                self._run_control("true")
                 break
             except ProvisioningError:
                 logger.info("Waiting for control host to become active...")
             time.sleep(10)
         # One final check to ensure the control host is alive, or fail
-        self.check_control_alive()
+        self._run_control("true")
 
     def provision(self):
         # If this is not a zapper, reboot before provisioning
