@@ -28,6 +28,7 @@ from pathlib import Path
 import tarfile
 import tempfile
 import time
+from typing import Optional
 from argparse import ArgumentParser
 from datetime import datetime
 import yaml
@@ -312,7 +313,7 @@ class TestflingerCli:
         print()
 
     @staticmethod
-    def pack_attachments(job_data: dict) -> Path | None:
+    def pack_attachments(job_data: dict) -> Optional[Path]:
         """Return the path to a compressed tarball of attachments"""
 
         # pull together the attachement data per phase
