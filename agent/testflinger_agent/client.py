@@ -115,7 +115,7 @@ class TestflingerClient:
             Where to save the attachment archive. If it is a folder,
             the default filename `attachments.tar.gz` is used.
         :returns path or None:
-            Where the attachment archive was saved or `None` id nothing
+            Where the attachment archive was saved or `None` if nothing
             was retrieved
         """
         uri = urljoin(self.server, f"/v1/job/{job_id}/attachments")

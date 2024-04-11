@@ -316,7 +316,7 @@ class TestflingerCli:
     def pack_attachments(job_data: dict) -> Optional[Path]:
         """Return the path to a compressed tarball of attachments"""
 
-        # pull together the attachement data per phase
+        # pull together the attachment data per phase
         phases = ["provision", "firmware_update", "test"]
         attachment_data = {}
         for phase in phases:
