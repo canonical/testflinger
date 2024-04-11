@@ -123,11 +123,6 @@ def _print_queue_message():
     )
 
 
-def tmp_dir() -> Path:
-    """Create a temporary directory and return the path to it"""
-    return Path(tempfile.mkdtemp())
-
-
 class TestflingerCli:
     """Class for handling the Testflinger CLI"""
 
@@ -313,10 +308,8 @@ class TestflingerCli:
         print()
 
     @staticmethod
-    def pack_attachments(job_data: dict) -> Optional[Path]:
-        """Return the path to a compressed tarball of attachments"""
-
-        # pull together the attachment data per phase
+    def extract_attachment_data(job_data: dict) -> Optional[dict]:
+        """Pull together the attachment data per phase from the `job_data`"""
         attachment_data = {}
         for phase in ("provision", "firmware_update", "test"):
             phase_str = f"{phase}_data"
@@ -326,19 +319,21 @@ class TestflingerCli:
                 pass
         if not attachment_data:
             return None
+        return attachment_data
 
-        # create archive in a unique temporary folder
-        archive_dir = tmp_dir()
-        archive_path = archive_dir / "archive.tar.gz"
+    @staticmethod
+    def pack_attachments(archive: str, attachment_data: dict):
+        """Pack the attachments specifed by `attachment_data` into `archive`
 
-        # use `tarfile` instead of `shutil` because:
-        # > [it] handles directories, regular files, hardlinks, symbolic links,
-        # > fifos, character devices and block devices and is able to acquire
-        # > and restore file information like timestamp, access permissions and
-        # > owner.
-        # ref: https://docs.python.org/3/library/tarfile.html
+        Use `tarfile` instead of `shutil` because:
+        > [it] handles directories, regular files, hardlinks, symbolic links,
+        > fifos, character devices and block devices and is able to acquire
+        > and restore file information like timestamp, access permissions and
+        > owner.
+        Ref: https://docs.python.org/3/library/tarfile.html
+        """
 
-        with tarfile.open(archive_path, "w:gz") as tar:
+        with tarfile.open(archive, "w:gz") as tar:
             for phase, attachments in attachment_data.items():
                 phase_path = Path(phase)
                 # generate filenames for the current phase
@@ -356,8 +351,6 @@ class TestflingerCli:
                         archive_name = phase_path / filename
                     tar.add(filename, arcname=archive_name)
 
-        return archive_path
-
     def submit(self):
         """Submit a new test job to the server"""
         if self.args.filename == "-":
@@ -374,12 +367,18 @@ class TestflingerCli:
                 ) from exc
         job_dict = yaml.safe_load(data)
 
-        archive_path = self.pack_attachments(job_dict)
-        job_id = self.submit_job_data(job_dict)
-        if archive_path is not None:
-            # follow job submission with attachment submission, if required
-            self.submit_job_attachments(job_id, archive_path)
-            archive_path.unlink()
+        attachments_data = self.extract_attachment_data(job_dict)
+        if attachments_data is None:
+            # submit job, no attachments
+            job_id = self.submit_job_data(job_dict)
+        else:
+            with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive:
+                archive_path = Path(archive.name)
+                # create attachments archive prior to job submission
+                self.pack_attachments(archive_path, attachments_data)
+                # submit job, followed by the submission of the archive
+                job_id = self.submit_job_data(job_dict)
+                self.submit_job_attachments(job_id, path=archive_path)
 
         queue = job_dict.get("job_queue")
         self.history.new(job_id, queue)
