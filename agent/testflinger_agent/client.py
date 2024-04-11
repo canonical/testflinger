@@ -124,8 +124,7 @@ class TestflingerClient:
                 raise TFServerError(response.status_code)
             with open(path, "wb") as attachments:
                 for chunk in response.iter_content(chunk_size=4096):
-                    if chunk:
-                        attachments.write(chunk)
+                    attachments.write(chunk)
         return path
 
     def check_job_state(self, job_id):
