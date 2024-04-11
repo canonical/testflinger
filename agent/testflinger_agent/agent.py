@@ -122,46 +122,43 @@ class TestflingerAgent:
 
     def unpack_attachments(self, job_data: dict, cwd: Path):
         """Download and unpack the attachments associated with a job"""
-
-        # download attachment archive to a unique temporary folder
         job_id = job_data["job_id"]
-        archive_dir = tmp_dir()
-        archive_path = self.client.get_attachments(job_id, path=archive_dir)
-        if archive_path is None:
-            raise FileNotFoundError(
-                f"Unable to retrieve attachments for job {job_id}"
-            )
-        # extract archive data to a unique temporary folder and clean up
-        extracted_dir = tmp_dir()
-        with tarfile.open(archive_path, "r:gz") as tar:
-            tar.extractall(extracted_dir, filter="data")
-        shutil.rmtree(archive_dir)
 
-        attachment_dir = cwd / ATTACHMENTS_DIR
-
-        # move/rename extracted archive files to their specified destinations
-        for phase in ("provision", "firmware_update", "test"):
-            try:
-                attachments = job_data[f"{phase}_data"]["attachments"]
-            except KeyError:
-                continue
-            for attachment in attachments:
-                original = Path(attachment["local"])
-                if original.is_absolute():
-                    # absolute filenames become relative
-                    original = original.relative_to(original.root)
-                # use renaming destination, if provided
-                # otherwise use the original one
-                destination_path = (
-                    attachment_dir / phase / attachment.get("agent", original)
-                )
-                # create intermediate path to destination, if required
-                destination_path.resolve().parent.mkdir(
-                    parents=True, exist_ok=True
-                )
-                # move file
-                source_path = extracted_dir / phase / original
-                shutil.move(source_path, destination_path)
+        with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive_tmp:
+            archive_path = Path(archive_tmp.name)
+            # download attachment archive
+            self.client.get_attachments(job_id, path=archive_path)
+            with tempfile.TemporaryDirectory() as extracted_tmp:
+                extracted_dir = Path(extracted_tmp)
+                # extract archive into a temporary folder
+                with tarfile.open(archive_path, "r:gz") as tar:
+                    tar.extractall(extracted_dir, filter="data")
+                # move/rename extracted archive files to their destinations
+                attachment_dir = cwd / ATTACHMENTS_DIR
+                for phase in ("provision", "firmware_update", "test"):
+                    try:
+                        attachments = job_data[f"{phase}_data"]["attachments"]
+                    except KeyError:
+                        continue
+                    for attachment in attachments:
+                        original = Path(attachment["local"])
+                        if original.is_absolute():
+                            # absolute filenames become relative
+                            original = original.relative_to(original.root)
+                        # use renaming destination, if provided
+                        # otherwise use the original one
+                        destination_path = (
+                            attachment_dir
+                            / phase
+                            / attachment.get("agent", original)
+                        )
+                        # create intermediate path to destination, if required
+                        destination_path.resolve().parent.mkdir(
+                            parents=True, exist_ok=True
+                        )
+                        # move file
+                        source_path = extracted_dir / phase / original
+                        shutil.move(source_path, destination_path)
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""

@@ -106,24 +106,22 @@ class TestflingerClient:
             # Wait a little extra before trying again
             time.sleep(60)
 
-    def get_attachments(self, job_id: int, path: Path):
+    def get_attachments(self, job_id: str, path: Path):
         """Download the attachment archive associated with a job
 
         :param job_id:
             Id for the job
         :param path:
-            Where to save the attachment archive. If it is a folder,
-            the default filename `attachments.tar.gz` is used.
-        :returns path or None:
-            Where the attachment archive was saved or `None` if nothing
-            was retrieved
+            Where to save the attachment archive.
         """
         uri = urljoin(self.server, f"/v1/job/{job_id}/attachments")
-        if path.is_dir():
-            path = path / "attachments.tar.gz"
         with requests.get(uri, stream=True, timeout=600) as response:
             if response.status_code != 200:
-                return None
+                logger.error(
+                    f"Unable to retrieve attachments for job {job_id} "
+                    f"(error: {response.status_code})"
+                )
+                raise TFServerError(response.status_code)
             with open(path, "wb") as attachments:
                 for chunk in response.iter_content(chunk_size=4096):
                     if chunk:
