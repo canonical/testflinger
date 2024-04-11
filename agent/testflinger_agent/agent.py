@@ -123,12 +123,13 @@ class TestflingerAgent:
         """Download and unpack the attachments associated with a job"""
 
         # download attachment archive to a unique temporary folder
+        job_id = job_data["job_id"]
         archive_dir = tmp_dir()
-        archive_path = self.client.get_attachments(
-            job_id=job_data["job_id"], path=archive_dir
-        )
+        archive_path = self.client.get_attachments(job_id, path=archive_dir)
         if archive_path is None:
-            raise FileNotFoundError
+            raise FileNotFoundError(
+                f"Unable to retrieve attachments for job {job_id}"
+            )
         # extract archive data to a unique temporary folder and clean up
         extracted_dir = tmp_dir()
         with tarfile.open(archive_path, "r:gz") as tar:

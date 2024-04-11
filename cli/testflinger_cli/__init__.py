@@ -432,7 +432,8 @@ class TestflingerCli:
             if exc.status == 404:
                 raise SystemExit(
                     "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
+                    "sure this is a testflinger server and "
+                    "that it supports attachments?"
                 ) from exc
             # This shouldn't happen, so let's get more information
             raise SystemExit(
