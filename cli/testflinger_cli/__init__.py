@@ -317,9 +317,8 @@ class TestflingerCli:
         """Return the path to a compressed tarball of attachments"""
 
         # pull together the attachment data per phase
-        phases = ["provision", "firmware_update", "test"]
         attachment_data = {}
-        for phase in phases:
+        for phase in ("provision", "firmware_update", "test"):
             phase_str = f"{phase}_data"
             try:
                 attachment_data[phase] = job_data[phase_str]["attachments"]
@@ -392,10 +391,10 @@ class TestflingerCli:
         if self.args.poll:
             self.do_poll(job_id)
 
-    def submit_job_data(self, data_dict):
+    def submit_job_data(self, data: dict):
         """Submit data that was generated or read from a file as a test job"""
         try:
-            job_id = self.client.submit_job(data_dict)
+            job_id = self.client.submit_job(data)
         except client.HTTPError as exc:
             if exc.status == 400:
                 raise SystemExit(
@@ -411,7 +410,7 @@ class TestflingerCli:
             # This shouldn't happen, so let's get more information
             raise SystemExit(
                 "Unexpected error status from testflinger "
-                "server: {}".format(exc.status)
+                f"server: {exc.status}"
             ) from exc
         return job_id
 
@@ -438,7 +437,7 @@ class TestflingerCli:
             # This shouldn't happen, so let's get more information
             raise SystemExit(
                 "Unexpected error status from testflinger "
-                "server: {}".format(exc.status)
+                f"server: {exc.status}"
             ) from exc
 
     def show(self):

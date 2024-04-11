@@ -144,7 +144,7 @@ class TestflingerAgent:
         attachment_dir = cwd / "attachments"
 
         # move/rename extracted archive files to their specified destinations
-        for phase in ["provision", "firmware_update", "test"]:
+        for phase in ("provision", "firmware_update", "test"):
             try:
                 attachments = job_data[f"{phase}_data"]["attachments"]
             except KeyError:
@@ -159,11 +159,10 @@ class TestflingerAgent:
                 destination_path = (
                     attachment_dir / phase / attachment.get("agent", original)
                 )
-                try:
-                    # create intermediate path to destination, if required
-                    destination_path.resolve().parent.mkdir(parents=True)
-                except FileExistsError:
-                    pass
+                # create intermediate path to destination, if required
+                destination_path.resolve().parent.mkdir(
+                    parents=True, exist_ok=True
+                )
                 # move file
                 source_path = extracted_dir / phase / original
                 shutil.move(source_path, destination_path)

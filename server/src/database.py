@@ -169,7 +169,7 @@ def pop_job(queue_list):
     if not response:
         return None
     # Flatten the job_data and include the job_id
-    job = response.get("job_data")
+    job = response["job_data"]
     job_id = response["job_id"]
     job["job_id"] = job_id
     return job
