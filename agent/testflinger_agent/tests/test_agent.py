@@ -12,6 +12,7 @@ import pytest
 from mock import patch
 
 import testflinger_agent
+from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
@@ -139,7 +140,8 @@ class TestClient:
 
             # check that the attachment is where it's supposed to be
             basepath = Path(self.tmpdir) / fake_job_data["job_id"]
-            assert (basepath / "attachments/test" / attachment.name).exists()
+            attachment = basepath / ATTACHMENTS_DIR / "test" / attachment.name
+            assert attachment.exists()
 
     def test_config_vars_in_env(self, agent, requests_mock):
         self.config["test_command"] = (

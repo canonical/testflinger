@@ -22,6 +22,7 @@ import tempfile
 
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
+from testflinger_agent.config import ATTACHMENTS_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -136,8 +137,7 @@ class TestflingerAgent:
             tar.extractall(extracted_dir, filter="data")
         shutil.rmtree(archive_dir)
 
-        # [TODO] clarify if this is an appropriate destination for extraction
-        attachment_dir = cwd / "attachments"
+        attachment_dir = cwd / ATTACHMENTS_DIR
 
         # move/rename extracted archive files to their specified destinations
         for phase in ("provision", "firmware_update", "test"):
