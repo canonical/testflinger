@@ -31,11 +31,6 @@ def tmp_dir() -> Path:
     return Path(tempfile.mkdtemp())
 
 
-def secure_filter(member, path):
-    """Combine the `data` and `tar` filter from `tarfile`"""
-    return tarfile.tar_filter(tarfile.data_filter(member, path), path)
-
-
 class TestflingerAgent:
     def __init__(self, client):
         self.client = client
@@ -137,7 +132,7 @@ class TestflingerAgent:
         # extract archive data to a unique temporary folder and clean up
         extracted_dir = tmp_dir()
         with tarfile.open(archive_path, "r:gz") as tar:
-            tar.extractall(extracted_dir, filter=secure_filter)
+            tar.extractall(extracted_dir, filter="data")
         shutil.rmtree(archive_dir)
 
         # [TODO] clarify if this is an appropriate destination for extraction
