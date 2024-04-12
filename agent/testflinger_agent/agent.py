@@ -27,9 +27,17 @@ from testflinger_agent.config import ATTACHMENTS_DIR
 logger = logging.getLogger(__name__)
 
 
-def tmp_dir() -> Path:
-    """Create a temporary directory and return the path to it"""
-    return Path(tempfile.mkdtemp())
+def secure_filter(member, path):
+    """Combine the `data` filter with custom attachment filtering
+
+    Makes sure that the starting folder for all attachments coincides
+    with one of the supported phases, i.e. that the attachment archive
+    has been created properly and no attachment will be extracted to an
+    unexpected location.
+    """
+    if not member.name.startswith(("provision", "firmware_update", "test")):
+        raise tarfile.OutsideDestinationError(member, path)
+    return tarfile.data_filter(member, path)
 
 
 class TestflingerAgent:
@@ -128,37 +136,9 @@ class TestflingerAgent:
             archive_path = Path(archive_tmp.name)
             # download attachment archive
             self.client.get_attachments(job_id, path=archive_path)
-            with tempfile.TemporaryDirectory() as extracted_tmp:
-                extracted_dir = Path(extracted_tmp)
-                # extract archive into a temporary folder
-                with tarfile.open(archive_path, "r:gz") as tar:
-                    tar.extractall(extracted_dir, filter="data")
-                # move/rename extracted archive files to their destinations
-                attachment_dir = cwd / ATTACHMENTS_DIR
-                for phase in ("provision", "firmware_update", "test"):
-                    try:
-                        attachments = job_data[f"{phase}_data"]["attachments"]
-                    except KeyError:
-                        continue
-                    for attachment in attachments:
-                        original = Path(attachment["local"])
-                        if original.is_absolute():
-                            # absolute filenames become relative
-                            original = original.relative_to(original.root)
-                        # use renaming destination, if provided
-                        # otherwise use the original one
-                        destination_path = (
-                            attachment_dir
-                            / phase
-                            / attachment.get("agent", original)
-                        )
-                        # create intermediate path to destination, if required
-                        destination_path.resolve().parent.mkdir(
-                            parents=True, exist_ok=True
-                        )
-                        # move file
-                        source_path = extracted_dir / phase / original
-                        shutil.move(source_path, destination_path)
+            # extract archive into the attachments folder
+            with tarfile.open(archive_path, "r:gz") as tar:
+                tar.extractall(cwd / ATTACHMENTS_DIR, filter=secure_filter)
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""

@@ -125,6 +125,13 @@ def _print_queue_message():
     )
 
 
+def make_relative(path: Path) -> Path:
+    """Return `path` stripped of its leading `/`, if there is one"""
+    if path.is_absolute():
+        return path.relative_to(path.root)
+    return path
+
+
 class AttachmentError(Exception):
     """Exception thrown when attachments fail to be submitted"""
 
@@ -323,9 +330,7 @@ class TestflingerCli:
                 attachment_data[phase] = job_data[phase_str]["attachments"]
             except KeyError:
                 pass
-        if not attachment_data:
-            return None
-        return attachment_data
+        return attachment_data if attachment_data else None
 
     @staticmethod
     def pack_attachments(archive: str, attachment_data: dict):
@@ -338,24 +343,20 @@ class TestflingerCli:
         > owner.
         Ref: https://docs.python.org/3/library/tarfile.html
         """
-
         with tarfile.open(archive, "w:gz") as tar:
             for phase, attachments in attachment_data.items():
                 phase_path = Path(phase)
-                # generate filenames for the current phase
-                filenames = (
-                    Path(attachment["local"]) for attachment in attachments
-                )
-                # add the corresponding files to the archive
-                # using a phase-prefixed archive filename
-                for filename in filenames:
-                    if filename.is_absolute():
-                        # absolute filenames become relative
-                        relative = filename.relative_to(filename.root)
-                        archive_name = phase_path / relative
-                    else:
-                        archive_name = phase_path / filename
-                    tar.add(filename, arcname=archive_name)
+                for attachment in attachments:
+                    local_path = Path(attachment["local"])
+                    # determine archive name for attachment
+                    # (essentially: the destination path on the agent host)
+                    agent_path = Path(attachment.get("agent", local_path))
+                    agent_path = make_relative(agent_path)
+                    archive_path = phase_path / agent_path
+                    tar.add(local_path, arcname=archive_path)
+                    # side effect: strip "local" information
+                    attachment["agent"] = str(agent_path)
+                    del attachment["local"]
 
     def submit(self):
         """Submit a new test job to the server"""

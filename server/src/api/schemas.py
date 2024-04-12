@@ -67,13 +67,11 @@ class ActionIn(Schema):
 class Attachment(Schema):
     """Attachment pathnames schema
 
-    - `local`: path to attachment on the runner
     - `agent`: path to copy the attachment in the testflinger agent (optional)
     - `device`: path to copy the attachment in the device under test (optional)
     """
 
-    local = fields.String(required=True)
-    agent = fields.String(required=False)
+    agent = fields.String(required=True)
     device = fields.String(required=False)
 
 

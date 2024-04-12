@@ -53,7 +53,7 @@ def test_add_job_good_with_attachments(mongo_app, tmp_path):
     """Test that adding a new job with attachments works"""
     job_data = {
         "job_queue": "test",
-        "test_data": {"attachments": [{"local": "filename"}]},
+        "test_data": {"attachments": [{"agent": "filename"}]},
     }
     # place a job on the queue
     app, _ = mongo_app
