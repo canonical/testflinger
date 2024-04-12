@@ -33,6 +33,8 @@ from argparse import ArgumentParser
 from datetime import datetime
 import yaml
 
+import requests
+
 from testflinger_cli import client, config, history
 
 logger = logging.getLogger(__name__)
@@ -121,6 +123,10 @@ def _print_queue_message():
         "descriptions, not ALL queues. If you can't find the queue you want "
         "to use, a job can still be submitted for queues not listed here.\n"
     )
+
+
+class AttachmentError(Exception):
+    """Exception thrown when attachments fail to be submitted"""
 
 
 class TestflingerCli:
@@ -378,7 +384,14 @@ class TestflingerCli:
                 self.pack_attachments(archive_path, attachments_data)
                 # submit job, followed by the submission of the archive
                 job_id = self.submit_job_data(job_dict)
-                self.submit_job_attachments(job_id, path=archive_path)
+                try:
+                    self.submit_job_attachments(job_id, path=archive_path)
+                except AttachmentError:
+                    self.cancel(job_id)
+                    sys.exit(
+                        f"Job {job_id} submitted and cancelled: "
+                        "failed to submit attachments"
+                    )
 
         queue = job_dict.get("job_queue")
         self.history.new(job_id, queue)
@@ -421,24 +434,45 @@ class TestflingerCli:
         :param path:
             The path to the attachment archive
         """
-        try:
-            self.client.post_attachment(job_id, path)
-        except client.HTTPError as exc:
-            if exc.status == 400:
-                raise SystemExit(
-                    f"Unable to submit attachment archive for {job_id}"
-                ) from exc
-            if exc.status == 404:
-                raise SystemExit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server and "
-                    "that it supports attachments?"
-                ) from exc
-            # This shouldn't happen, so let's get more information
-            raise SystemExit(
-                "Unexpected error status from testflinger "
-                f"server: {exc.status}"
-            ) from exc
+        # defaults for retries
+        wait = self.config.get("attachments_retry_wait") or 10
+        timeout = self.config.get("attachments_timeout") or 600
+        tries = self.config.get("attachments_tries") or 3
+
+        for _ in range(tries):
+            try:
+                self.client.post_attachment(job_id, path, timeout=timeout)
+            except requests.HTTPError as error:
+                # we can't recover from these errors, give up without retrying
+                if error.response.status_code == 400:
+                    raise AttachmentError(
+                        f"Unable to submit attachment archive for {job_id}: "
+                        f"{error.response.text}"
+                    ) from error
+                if error.response.status_code == 404:
+                    raise AttachmentError(
+                        "Received 404 error from server. Are you "
+                        "sure this is a testflinger server and "
+                        "that it supports attachments?"
+                    ) from error
+                # This shouldn't happen, so let's get more information
+                sys.exit(
+                    "Unexpected error status from testflinger server "
+                    f"({error.response.status_code}): {error.response.text}"
+                )
+            except (requests.Timeout, requests.ConnectionError):
+                # recoverable errors, try again
+                time.sleep(wait)
+                wait *= 0.3
+            else:
+                # success
+                return
+
+        # having reached this point, all tries have failed
+        raise AttachmentError(
+            f"Unable to submit attachment archive for {job_id}: "
+            f"failed after {tries} tries"
+        )
 
     def show(self):
         """Show the requested job JSON for a specified JOB_ID"""

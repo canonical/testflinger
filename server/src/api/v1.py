@@ -182,12 +182,21 @@ def attachments_post(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    if not database.awaits_attachments(job_id):
-        return "Invalid job id or job not awaiting attachments\n", 422
+    attachments_status = database.get_attachments_status(job_id)
+    if attachments_status is None:
+        return f"Job {job_id} is not valid\n", 422
+    if attachments_status == "none":
+        return f"Job {job_id} not awaiting attachments\n", 422
+    if attachments_status == "complete":
+        # attachments already submitted: successful, could be due to a retry
+        return "OK", 200
+
+    # save attachments archive in the database
     database.save_file(
         data=request.files["file"],
         filename=f"{job_id}.attachments",
     )
+
     # now the job can be processed
     database.attachments_received(job_id)
     return "OK", 200

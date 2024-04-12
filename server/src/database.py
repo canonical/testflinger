@@ -122,16 +122,23 @@ def retrieve_file(filename):
         raise FileNotFoundError from error
 
 
-def awaits_attachments(job_id: str) -> bool:
-    """Check if a job with `job_id` is expecting attachments"""
+def get_attachments_status(job_id: str) -> str:
+    """Return the attachments status of a job with `job_id`
+
+    :returns:
+        - None if no such job exists
+        - "none" if the job is not awaiting attachments
+        - "waiting" if the job is awaiting attachments
+        - "complete" if the job has already received attachments
+    """
     response = mongo.db.jobs.find_one(
         {
             "job_id": job_id,
             "result_data.job_state": "waiting",
-            "job_data.attachments": "waiting",
-        }
+        },
+        projection={"_id": False, "job_data": True},
     )
-    return response is not None
+    return None if response is None else response["job_data"]["attachments"]
 
 
 def attachments_received(job_id):

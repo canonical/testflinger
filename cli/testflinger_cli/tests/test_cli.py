@@ -25,6 +25,7 @@ import tarfile
 import uuid
 
 import pytest
+import requests
 from requests_mock import Mocker
 
 import testflinger_cli
@@ -125,8 +126,8 @@ def test_submit_with_attachments(tmp_path):
         # - there a request to the attachment submission endpoint
         history = mocker.request_history
         assert len(history) == 2
-        assert history[-2].path == "/v1/job"
-        assert history[-1].path == f"/v1/job/{job_id}/attachments"
+        assert history[0].path == "/v1/job"
+        assert history[1].path == f"/v1/job/{job_id}/attachments"
 
         # extract the binary file data from the request
         # (`requests_mock` only provides access to the `PreparedRequest`)
@@ -142,6 +143,160 @@ def test_submit_with_attachments(tmp_path):
             attachments.extract(filenames[0], filter="data")
         with open(filenames[0], "r", encoding="utf-8") as attachment:
             assert json.load(attachment) == job_data
+
+
+def test_submit_attachments_retries(tmp_path):
+    """Check retries after unsuccessful attachment submissions"""
+
+    job_id = str(uuid.uuid1())
+    job_file = tmp_path / "test.json"
+    job_data = {
+        "queue": "fake",
+        "test_data": {
+            "attachments": [
+                {
+                    # include the submission JSON itself as a test attachment
+                    "local": str(job_file)
+                }
+            ]
+        },
+    }
+    job_file.write_text(json.dumps(job_data))
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.config.data["attachments_retry_wait"] = 1
+    tfcli.config.data["attachments_timeout"] = 2
+    tfcli.config.data["attachments_tries"] = 4
+
+    with Mocker() as mocker:
+
+        # register responses for job and attachment submission endpoints
+        mock_response = {"job_id": job_id}
+        mocker.post(f"{URL}/v1/job", json=mock_response)
+        mocker.post(
+            f"{URL}/v1/job/{job_id}/attachments",
+            [
+                {"exc": requests.exceptions.ConnectionError},
+                {"exc": requests.exceptions.ConnectTimeout},
+                {"exc": requests.exceptions.ReadTimeout},
+                {"status_code": 200},
+            ],
+        )
+
+        # use cli to submit the job (processes `sys.argv` for arguments)
+        tfcli.submit()
+
+        # check the request history to confirm that:
+        # - there is a request to the job submission endpoint
+        # - there are repeated requests to the attachment submission endpoint
+        history = mocker.request_history
+        assert len(history) == 5
+        assert history[0].path == "/v1/job"
+        for entry in history[1:]:
+            assert entry.path == f"/v1/job/{job_id}/attachments"
+
+
+def test_submit_attachments_no_retries(tmp_path):
+    """Check no retries after attachment submission fails unrecoverably"""
+
+    job_id = str(uuid.uuid1())
+    job_file = tmp_path / "test.json"
+    job_data = {
+        "queue": "fake",
+        "test_data": {
+            "attachments": [
+                {
+                    # include the submission JSON itself as a test attachment
+                    "local": str(job_file)
+                }
+            ]
+        },
+    }
+    job_file.write_text(json.dumps(job_data))
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.config.data["attachments_tries"] = 2
+
+    with Mocker() as mocker:
+
+        # register responses for job and attachment submission endpoints
+        mocker.post(f"{URL}/v1/job", json={"job_id": job_id})
+        mocker.post(
+            f"{URL}/v1/job/{job_id}/attachments", [{"status_code": 400}]
+        )
+        mocker.post(f"{URL}/v1/job/{job_id}/action", [{"status_code": 200}])
+
+        with pytest.raises(SystemExit) as exc_info:
+            # use cli to submit the job (processes `sys.argv` for arguments)
+            tfcli.submit()
+            assert "failed to submit attachments" in exc_info.value
+
+        # check the request history to confirm that:
+        # - there is a request to the job submission endpoint
+        # - there is a single request to the attachment submission endpoint:
+        #   no retries
+        # - there is a final request to cancel the action
+        history = mocker.request_history
+        assert len(history) == 3
+        assert history[0].path == "/v1/job"
+        assert history[1].path == f"/v1/job/{job_id}/attachments"
+        assert history[2].path == f"/v1/job/{job_id}/action"
+
+
+def test_submit_attachments_timeout(tmp_path):
+    """Make timeout after repeated attachment submission timeouts"""
+
+    job_id = str(uuid.uuid1())
+    job_file = tmp_path / "test.json"
+    job_data = {
+        "queue": "fake",
+        "test_data": {
+            "attachments": [
+                {
+                    # include the submission JSON itself as a test attachment
+                    "local": str(job_file)
+                }
+            ]
+        },
+    }
+    job_file.write_text(json.dumps(job_data))
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.config.data["attachments_retry_wait"] = 1
+    tfcli.config.data["attachments_timeout"] = 2
+    tfcli.config.data["attachments_tries"] = 2
+
+    with Mocker() as mocker:
+
+        # register responses for job and attachment submission endpoints
+        mock_response = {"job_id": job_id}
+        mocker.post(f"{URL}/v1/job", json=mock_response)
+        mocker.post(
+            f"{URL}/v1/job/{job_id}/attachments",
+            [
+                {"exc": requests.exceptions.ReadTimeout},
+                {"exc": requests.exceptions.ReadTimeout},
+            ],
+        )
+        mocker.post(f"{URL}/v1/job/{job_id}/action", [{"status_code": 200}])
+
+        with pytest.raises(SystemExit) as exc_info:
+            # use cli to submit the job (processes `sys.argv` for arguments)
+            tfcli.submit()
+            assert "failed to submit attachments" in exc_info.value
+
+        # check the request history to confirm that:
+        # - there is a request to the job submission endpoint
+        # - there a request to the attachment submission endpoint
+        history = mocker.request_history
+        assert len(history) == 4
+        assert history[0].path == "/v1/job"
+        assert history[1].path == f"/v1/job/{job_id}/attachments"
+        assert history[2].path == f"/v1/job/{job_id}/attachments"
+        assert history[3].path == f"/v1/job/{job_id}/action"
 
 
 def test_show(capsys, requests_mock):
