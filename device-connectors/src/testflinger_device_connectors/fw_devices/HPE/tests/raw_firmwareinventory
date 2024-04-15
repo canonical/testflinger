@@ -1,0 +1,497 @@
+{
+    "@odata.context": "/redfish/v1/$metadata#SoftwareInventoryCollection.SoftwareInventoryCollection",
+    "@odata.etag": 'W/"9EA3BDF0"',
+    "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/",
+    "@odata.type": "#SoftwareInventoryCollection.SoftwareInventoryCollection",
+    "Description": "Firmware Inventory Collection",
+    "Members": [
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/1/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "SystemBMC",
+            "Id": "1",
+            "Name": "iLO 5",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "2f317b9d-c9e3-4d76-bff6-b9d0d085a952",
+                    "DeviceContext": "System Board",
+                    "Targets": [
+                        "4764a662-b342-4fc7-9ce9-258c5d99e815",
+                        "c0bcf2b9-1141-49af-aab8-c73791f0349c",
+                    ],
+                }
+            },
+            "Status": {"Health": "OK", "State": "Enabled"},
+            "Updateable": true,
+            "Version": "2.96 Aug 17 2023",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/2/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "SystemRomActive",
+            "Id": "2",
+            "Name": "System ROM",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "aa148d2e-6e09-453e-bc6f-63baa5f5ccc4",
+                    "DeviceContext": "System Board",
+                    "Targets": [
+                        "00000000-0000-0000-0000-000000000205",
+                        "00000000-0000-0000-0000-000001553330",
+                    ],
+                }
+            },
+            "Status": {"Health": "OK", "State": "Enabled"},
+            "Updateable": true,
+            "Version": "U30 v2.90 (07/20/2023)",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/3/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "PlatformDefinitionTable",
+            "Id": "3",
+            "Name": "Intelligent Platform Abstraction Data",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "b8f46d06-85db-465c-94fb-d106e61378ed",
+                    "DeviceContext": "System Board",
+                    "Targets": [
+                        "00000000-0000-0000-0000-000000000205",
+                        "00000000-0000-0000-0000-000001553330",
+                    ],
+                }
+            },
+            "Updateable": true,
+            "Version": "16.5.0 Build 53",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/4/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "SystemProgrammableLogicDevice",
+            "Id": "4",
+            "Name": "System Programmable Logic Device",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "b1ad439a-9dd1-41c1-a496-2da9313f1f07",
+                    "DeviceContext": "System Board",
+                    "Targets": ["00000000-0000-0000-0000-000000000205"],
+                }
+            },
+            "Status": {"Health": "OK", "State": "Enabled"},
+            "Updateable": true,
+            "Version": "0x31",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/5/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "PowerManagementController",
+            "Id": "5",
+            "Name": "Power Management Controller Firmware",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "9e48a28a-586c-4519-8405-a04f84e27f0f",
+                    "DeviceContext": "System Board",
+                    "Targets": [
+                        "00000000-0000-0000-0000-000000000205",
+                        "00000000-0000-0000-0000-000000504d05",
+                    ],
+                }
+            },
+            "Updateable": true,
+            "Version": "1.1.0",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/6/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "NVMeBackplane",
+            "Id": "6",
+            "Name": "NVMe Backplane Firmware",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "3653aa90-7089-453a-899c-792827a50d67",
+                    "DeviceContext": "System Board",
+                    "Targets": [
+                        "00000000-0000-0000-0000-000000000205",
+                        "00000000-0000-0000-0000-000049535320",
+                    ],
+                }
+            },
+            "Updateable": true,
+            "Version": "1.24",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/7/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "PowerSupplies",
+            "Id": "7",
+            "Name": "Power Supply Firmware",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "6bb86077-0275-4614-aae1-86618e8b1c27",
+                    "DeviceContext": "Bay 1",
+                    "Targets": ["0302b505-0002-0000-0000-0cf38db966ea"],
+                }
+            },
+            "Updateable": true,
+            "Version": "2.00",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/8/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "PowerSupplies",
+            "Id": "8",
+            "Name": "Power Supply Firmware",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "6bb86077-0275-4614-aae1-86618e8b1c27",
+                    "DeviceContext": "Bay 2",
+                    "Targets": ["0302b505-0002-0000-0000-0cf38db966ea"],
+                }
+            },
+            "Updateable": true,
+            "Version": "2.00",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/9/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "InnovationEngineFirmware",
+            "Id": "9",
+            "Name": "Innovation Engine (IE) Firmware",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "c734e171-8721-48c9-9ed6-d5bc7da5ef8d",
+                    "DeviceContext": "System Board",
+                    "Targets": [
+                        "00000000-0000-0000-0000-000000000205",
+                        "a6b1a447-382a-5a4f-3c10-3c100a000303",
+                    ],
+                }
+            },
+            "Status": {"Health": "OK", "State": "Enabled"},
+            "Updateable": true,
+            "Version": "0.2.3.0",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/10/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "SPSFirmwareVersionData",
+            "Id": "10",
+            "Name": "Server Platform Services (SPS) Firmware",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "b34e5677-21dc-45d3-872b-42f76fee9053",
+                    "DeviceContext": "System Board",
+                    "Targets": [
+                        "00000000-0000-0000-0000-000000000205",
+                        "a6b1a447-382a-5a4f-3c10-86800a000101",
+                    ],
+                }
+            },
+            "Status": {"Health": "OK", "State": "Enabled"},
+            "Updateable": true,
+            "Version": "4.1.5.2",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/11/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "SPSFirmwareDescriptor",
+            "Id": "11",
+            "Name": "Server Platform Services (SPS) Descriptor",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "3f30a329-d03c-46b8-8f0e-9567fad4ea9f",
+                    "DeviceContext": "System Board",
+                    "Targets": ["00000000-0000-0000-0000-000000000205"],
+                }
+            },
+            "Updateable": true,
+            "Version": "1.2 0",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/12/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "SystemRomBackup",
+            "Id": "12",
+            "Name": "Redundant System ROM",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": null,
+                    "DeviceContext": "System Board",
+                }
+            },
+            "Updateable": true,
+            "Version": "U30 v2.76 (02/09/2023)",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/13/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "Intelligent Provisioning",
+            "Id": "13",
+            "Name": "Intelligent Provisioning",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "ac963eeb-ed78-4f36-c18c-29d85f34a0ac",
+                    "DeviceContext": "System Board",
+                }
+            },
+            "Updateable": true,
+            "Version": "3.50.100",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/14/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "PowerManagementControllerBootloader",
+            "Id": "14",
+            "Name": "Power Management Controller FW Bootloader",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": null,
+                    "DeviceContext": "System Board",
+                }
+            },
+            "Updateable": true,
+            "Version": "1.1",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/15/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "15b31015159000d3",
+            "Id": "15",
+            "Name": "HPE Eth 10/25Gb 2p 640FLR-SFP28 Adptr",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": null,
+                    "DeviceContext": "Embedded ALOM",
+                    "DeviceInstance": "PciRoot(0x3)/Pci(0x2,0x0)/Pci(0x0,0x0)",
+                    "Targets": ["a6b1a447-382a-5a4f-15b3-1015159000d3"],
+                }
+            },
+            "Updateable": false,
+            "Version": "14.32.1010",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/16/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "9005028f103c0654",
+            "Id": "16",
+            "Name": "HPE Smart Array E208i-a SR Gen10",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": null,
+                    "DeviceContext": "Embedded RAID",
+                    "DeviceInstance": "PciRoot(0x3)/Pci(0x0,0x0)/Pci(0x0,0x0)",
+                    "Targets": ["a6b1a447-382a-5a4f-9005-028f103c0654"],
+                }
+            },
+            "Updateable": true,
+            "Version": "6.22",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/17/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "10de1eb810de12a2",
+            "Id": "17",
+            "Name": "NVIDIA Tesla T4",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": null,
+                    "DeviceContext": "PCI-E Slot 2",
+                    "DeviceInstance": "PciRoot(0x2)/Pci(0x0,0x0)/Pci(0x0,0x0)",
+                    "Targets": ["a6b1a447-382a-5a4f-10de-1eb810de12a2"],
+                }
+            },
+            "Updateable": false,
+            "Version": "90.04.96.00.01",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/18/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "10de1eb810de12a2",
+            "Id": "18",
+            "Name": "NVIDIA Tesla T4",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": null,
+                    "DeviceContext": "PCI-E Slot 3",
+                    "DeviceInstance": "PciRoot(0x1)/Pci(0x0,0x0)/Pci(0x0,0x0)",
+                    "Targets": ["a6b1a447-382a-5a4f-10de-1eb810de12a2"],
+                }
+            },
+            "Updateable": false,
+            "Version": "90.04.96.00.01",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/19/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "10de1eb810de12a2",
+            "Id": "19",
+            "Name": "NVIDIA Tesla T4",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": null,
+                    "DeviceContext": "PCI-E Slot 5",
+                    "DeviceInstance": "PciRoot(0x7)/Pci(0x0,0x0)/Pci(0x0,0x0)",
+                    "Targets": ["a6b1a447-382a-5a4f-10de-1eb810de12a2"],
+                }
+            },
+            "Updateable": false,
+            "Version": "90.04.96.00.01",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/20/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "10de1eb810de12a2",
+            "Id": "20",
+            "Name": "NVIDIA Tesla T4",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": null,
+                    "DeviceContext": "PCI-E Slot 6",
+                    "DeviceInstance": "PciRoot(0x8)/Pci(0x0,0x0)/Pci(0x0,0x0)",
+                    "Targets": ["a6b1a447-382a-5a4f-10de-1eb810de12a2"],
+                }
+            },
+            "Updateable": false,
+            "Version": "90.04.96.00.01",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/21/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "102b0538159000e4",
+            "Id": "21",
+            "Name": "Embedded Video Controller",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": null,
+                    "DeviceContext": "Embedded Device",
+                    "DeviceInstance": "PciRoot(0x0)/Pci(0x1C,0x4)/Pci(0x0,0x1)",
+                    "Targets": ["a6b1a447-382a-5a4f-102b-0538159000e4"],
+                }
+            },
+            "Updateable": false,
+            "Version": "2.5",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/22/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "Samsung SSD 983 DCT 960GB",
+            "Id": "22",
+            "Name": "NVMe Drive",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "f6de0320-2e0f-489a-b238-6dd8ae7c3811",
+                    "DeviceContext": "NVMe Drive Port 5B Box 1 Bay 1",
+                    "Targets": ["532340a5-6d61-7573-6e67-20532a9e3acf"],
+                }
+            },
+            "Updateable": false,
+            "Version": "EDA5302Q",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/23/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "Samsung SSD 983 DCT 960GB",
+            "Id": "23",
+            "Name": "NVMe Drive",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "f6de0320-2e0f-489a-b238-6dd8ae7c3811",
+                    "DeviceContext": "NVMe Drive Port 5B Box 1 Bay 2",
+                    "Targets": ["532340a5-6d61-7573-6e67-20532a9e3acf"],
+                }
+            },
+            "Updateable": false,
+            "Version": "EDA5302Q",
+        },
+        {
+            "@odata.context": "/redfish/v1/$metadata#SoftwareInventory.SoftwareInventory",
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/24/",
+            "@odata.type": "#SoftwareInventory.v1_2_0.SoftwareInventory",
+            "Description": "Universal Backplane Manager",
+            "Id": "24",
+            "Name": "HPE 2SFF NVMe/SAS/uFF Backplane",
+            "Oem": {
+                "Hpe": {
+                    "@odata.context": "/redfish/v1/$metadata#HpeiLOSoftwareInventory.HpeiLOSoftwareInventory",
+                    "@odata.type": "#HpeiLOSoftwareInventory.v2_1_0.HpeiLOSoftwareInventory",
+                    "DeviceClass": "4149ebb7-d64b-4654-b679-4280f349ea50",
+                    "DeviceContext": "Box=1",
+                    "Targets": ["9675b54e-1c96-44c3-a7a1-901500000000"],
+                }
+            },
+            "Updateable": true,
+            "Version": "1.24",
+        },
+    ],
+    "Members@odata.count": 24,
+    "Name": "Firmware Inventory Collection",
+}

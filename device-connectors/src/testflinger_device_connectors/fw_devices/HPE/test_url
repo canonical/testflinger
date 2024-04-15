@@ -1,0 +1,60 @@
+import requests
+
+# from bs4 import BeautifulSoup
+import re
+
+# URL of the HTML page
+url = "https://downloads.linux.hpe.com/SDR/repo/fwpp-gen10/"  # rlcp/firmware/"
+INDEX_FILE = "fwrepodata/fwrepo.json"
+
+r = requests.get(url)
+links = re.findall(r"\d{4}\.\d{2}\.\d{1,2}[\._]?[\w\._]*", r.text, re.I)
+# print(links)
+print(sorted(list(set(links)), reverse=True))
+r = requests.get(f"{url}/current/{INDEX_FILE}")
+current_json = r.json()
+# print(current_json)
+for spp in sorted(list(set(links)), reverse=True):
+    print(f"processing {spp}...")
+    r = requests.get(f"{url}{spp}/{INDEX_FILE}")
+    spp_json = r.json()
+    for name in spp_json:
+        # print(spp_json[name]["target"])
+        if spp_json[name].get("target") and isinstance(
+            spp_json[name]["target"], list
+        ):
+            # print("no update needed")
+            continue
+        elif name not in current_json:
+            # print(f"{name} not in current")
+            spp_json[name]["target"] = [spp_json[name]["target"]]
+        else:
+            # print("update")
+            spp_json[name]["target"] = current_json[name]["target"]
+
+    for name in spp_json:
+        if not isinstance(spp_json[name]["target"], list):
+            print(name)
+
+# # Fetch HTML content from the URL
+# response = requests.get(url)
+# html_content = response.content
+
+# # Parse the HTML content using BeautifulSoup
+# soup = BeautifulSoup(html_content, "html.parser")
+
+# # Find all 'a' tags within 'pre' tags
+# pre_tags = soup.find_all("pre")
+
+# # Extract folder names with date using regular expressions
+# folder_names_with_date = []
+# for pre_tag in pre_tags:
+#     a_tags = pre_tag.find_all("a", href=True)
+#     for a_tag in a_tags:
+#         href = a_tag["href"]
+#         match = re.search(r"(\d{4}\.\d{2}\.\d{1,2}[\._]?\w*)/", href)
+#         if match:
+#             folder_names_with_date.append(match.group(0))
+
+# # Print the extracted folder names with date
+# print(folder_names_with_date)
