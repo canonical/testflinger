@@ -41,9 +41,9 @@ class TestflingerCliConfig:
             self.data = OrderedDict(config["testflinger-cli"])
         self.configfile = configfile
 
-    def get(self, key):
+    def get(self, key, default=None):
         """Get config item"""
-        return self.data.get(key)
+        return self.data.get(key, default)
 
     def set(self, key, value):
         """Set config item"""

@@ -434,9 +434,9 @@ class TestflingerCli:
             The path to the attachment archive
         """
         # defaults for retries
-        wait = self.config.get("attachments_retry_wait") or 10
-        timeout = self.config.get("attachments_timeout") or 600
-        tries = self.config.get("attachments_tries") or 3
+        wait = self.config.get("attachments_retry_wait", 10)
+        timeout = self.config.get("attachments_timeout", 600)
+        tries = self.config.get("attachments_tries", 3)
 
         for _ in range(tries):
             try:
@@ -462,7 +462,7 @@ class TestflingerCli:
             except (requests.Timeout, requests.ConnectionError):
                 # recoverable errors, try again
                 time.sleep(wait)
-                wait *= 0.3
+                wait *= 1.3
             else:
                 # success
                 return
