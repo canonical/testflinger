@@ -126,10 +126,12 @@ def _print_queue_message():
 
 
 def make_relative(path: Path) -> Path:
-    """Return `path` stripped of its leading `/`, if there is one"""
+    """Return resolved relative `path`"""
     if path.is_absolute():
-        return path.relative_to(path.root)
-    return path
+        # strip leading '/' from absolute path
+        path = path.relative_to(path.root)
+    # resolve the path and make relative again
+    return path.resolve().relative_to(Path.cwd())
 
 
 class AttachmentError(Exception):
