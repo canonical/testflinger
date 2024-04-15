@@ -112,7 +112,7 @@ class TestflingerClient:
         :param job_id:
             Id for the job
         :param path:
-            Where to save the attachment archive.
+            Where to save the attachment archive
         """
         uri = urljoin(self.server, f"/v1/job/{job_id}/attachments")
         with requests.get(uri, stream=True, timeout=600) as response:
@@ -125,7 +125,6 @@ class TestflingerClient:
             with open(path, "wb") as attachments:
                 for chunk in response.iter_content(chunk_size=4096):
                     attachments.write(chunk)
-        return path
 
     def check_job_state(self, job_id):
         job_data = self.get_result(job_id)
