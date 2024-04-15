@@ -330,7 +330,7 @@ class TestflingerCli:
                 attachment_data[phase] = job_data[phase_str]["attachments"]
             except KeyError:
                 pass
-        return attachment_data if attachment_data else None
+        return attachment_data or None
 
     @staticmethod
     def pack_attachments(archive: str, attachment_data: dict):
