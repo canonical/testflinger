@@ -368,10 +368,8 @@ class TestflingerCli:
                     self.args.filename, encoding="utf-8", errors="ignore"
                 ) as job_file:
                     data = job_file.read()
-            except FileNotFoundError as exc:
-                raise SystemExit(
-                    "File not found: {}".format(self.args.filename)
-                ) from exc
+            except FileNotFoundError:
+                sys.exit("File not found: {self.args.filename}")
         job_dict = yaml.safe_load(data)
 
         attachments_data = self.extract_attachment_data(job_dict)
@@ -410,21 +408,21 @@ class TestflingerCli:
             job_id = self.client.submit_job(data)
         except client.HTTPError as exc:
             if exc.status == 400:
-                raise SystemExit(
+                sys.exit(
                     "The job you submitted contained bad data or "
                     "bad formatting, or did not specify a "
                     "job_queue."
-                ) from exc
+                )
             if exc.status == 404:
-                raise SystemExit(
+                sys.exit(
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
-                ) from exc
+                )
             # This shouldn't happen, so let's get more information
-            raise SystemExit(
+            sys.exit(
                 "Unexpected error status from testflinger "
                 f"server: {exc.status}"
-            ) from exc
+            )
         return job_id
 
     def submit_job_attachments(self, job_id: str, path: Path):
