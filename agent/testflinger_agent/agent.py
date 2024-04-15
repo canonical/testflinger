@@ -35,7 +35,15 @@ def secure_filter(member, path):
     has been created properly and no attachment will be extracted to an
     unexpected location.
     """
-    if not member.name.startswith(("provision", "firmware_update", "test")):
+    try:
+        resolved = Path(member.name).resolve().relative_to(Path.cwd())
+    except ValueError as error:
+        # essentially trying to extract higher than the attachments folder
+        raise tarfile.OutsideDestinationError(member, path) from error
+    if not str(resolved).startswith(
+        ("provision/", "firmware_update/", "test/")
+    ):
+        # trying to extract in an invalid folder, under the attachments folder
         raise tarfile.OutsideDestinationError(member, path)
     return tarfile.data_filter(member, path)
 
@@ -168,10 +176,6 @@ class TestflingerAgent:
 
                 self.client.post_agent_data({"job_id": job.job_id})
 
-                # handle job attachments, if any
-                if job_data.get("attachments", "none") == "complete":
-                    self.unpack_attachments(job_data, cwd=Path(rundir))
-
                 # Dump the job data to testflinger.json in our execution dir
                 with open(os.path.join(rundir, "testflinger.json"), "w") as f:
                     json.dump(job_data, f)
@@ -180,6 +184,12 @@ class TestflingerAgent:
                     os.path.join(rundir, "testflinger-outcome.json"), "w"
                 ) as f:
                     json.dump({}, f)
+
+                # handle job attachments, if any
+                # (always after creating "testflinger.json", for reporting
+                # in case of an unpacking error)
+                if job_data.get("attachments", "none") == "complete":
+                    self.unpack_attachments(job_data, cwd=Path(rundir))
 
                 for phase in TEST_PHASES:
                     # First make sure the job hasn't been cancelled
