@@ -147,7 +147,7 @@ class Client:
         """Submit a test job to the testflinger server
 
         :param job_data:
-            Dictionary containing json or yaml data for the job to submit
+            Dictionary containing data for the job to submit
         :return:
             ID for the test job
         """
