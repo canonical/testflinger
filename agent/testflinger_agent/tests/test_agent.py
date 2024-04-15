@@ -105,8 +105,9 @@ class TestClient:
         with tarfile.open(archive, "w:gz") as attachments:
             attachments.add(attachment, arcname="test/random.bin")
         # job data specifies how the attachment will be handled
-        fake_job_data = {
-            "job_id": str(uuid.uuid1()),
+        job_id = str(uuid.uuid1())
+        mock_job_data = {
+            "job_id": job_id,
             "job_queue": "test",
             "test_data": {
                 "attachments": [
@@ -116,7 +117,7 @@ class TestClient:
                     }
                 ]
             },
-            "attachments": "complete",
+            "attachments_status": "complete",
         }
 
         with rmock.Mocker() as mocker:
@@ -124,7 +125,7 @@ class TestClient:
             # mock response to requesting jobs
             mocker.get(
                 re.compile(r"/v1/job\?queue=\w+"),
-                [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+                [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
             )
             # mock response to requesting job attachments
             mocker.get(
@@ -138,8 +139,15 @@ class TestClient:
             with patch("shutil.rmtree"):
                 agent.process_jobs()
 
+            # check the request history to confirm that:
+            # - there is a request to the job retrieval endpoint
+            # - there a request to the attachment retrieval endpoint
+            history = mocker.request_history
+            assert history[0].path == "/v1/job"
+            assert history[2].path == f"/v1/job/{job_id}/attachments"
+
             # check that the attachment is where it's supposed to be
-            basepath = Path(self.tmpdir) / fake_job_data["job_id"]
+            basepath = Path(self.tmpdir) / mock_job_data["job_id"]
             attachment = basepath / ATTACHMENTS_DIR / "test" / attachment.name
             assert attachment.exists()
 
@@ -153,8 +161,9 @@ class TestClient:
             # note: archive name should start with a phase folder
             attachments.add(attachment, arcname="random.bin")
         # job data specifies how the attachment will be handled
-        fake_job_data = {
-            "job_id": str(uuid.uuid1()),
+        job_id = str(uuid.uuid1())
+        mock_job_data = {
+            "job_id": job_id,
             "job_queue": "test",
             "test_data": {
                 "attachments": [
@@ -164,7 +173,7 @@ class TestClient:
                     }
                 ]
             },
-            "attachments": "complete",
+            "attachments_status": "complete",
         }
 
         with rmock.Mocker() as mocker:
@@ -172,7 +181,7 @@ class TestClient:
             # mock response to requesting jobs
             mocker.get(
                 re.compile(r"/v1/job\?queue=\w+"),
-                [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+                [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
             )
             # mock response to requesting job attachments
             mocker.get(
@@ -186,8 +195,15 @@ class TestClient:
             with patch("shutil.rmtree"):
                 agent.process_jobs()
 
+            # check the request history to confirm that:
+            # - there is a request to the job retrieval endpoint
+            # - there a request to the attachment retrieval endpoint
+            history = mocker.request_history
+            assert history[0].path == "/v1/job"
+            assert history[2].path == f"/v1/job/{job_id}/attachments"
+
             # check that the attachment is *not* where it's supposed to be
-            basepath = Path(self.tmpdir) / fake_job_data["job_id"]
+            basepath = Path(self.tmpdir) / mock_job_data["job_id"]
             attachment = basepath / ATTACHMENTS_DIR / "test" / attachment.name
             assert not attachment.exists()
 
@@ -195,19 +211,19 @@ class TestClient:
         self.config["test_command"] = (
             "bash -c 'echo test_string is $test_string'"
         )
-        fake_job_data = {
+        mock_job_data = {
             "job_id": str(uuid.uuid1()),
             "job_queue": "test",
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(fake_job_data)}, {"text": "{}"}]
+            rmock.ANY, [{"text": json.dumps(mock_job_data)}, {"text": "{}"}]
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
             agent.process_jobs()
         testlog = open(
-            os.path.join(self.tmpdir, fake_job_data.get("job_id"), "test.log")
+            os.path.join(self.tmpdir, mock_job_data.get("job_id"), "test.log")
         ).read()
         assert "ThisIsATest" in testlog
 
@@ -215,14 +231,14 @@ class TestClient:
         # Make sure we stop running after a failed phase
         self.config["provision_command"] = "/bin/false"
         self.config["test_command"] = "echo test1"
-        fake_job_data = {
+        mock_job_data = {
             "job_id": str(uuid.uuid1()),
             "job_queue": "test",
             "provision_data": {"url": "foo"},
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(fake_job_data)}, {"text": "{}"}]
+            rmock.ANY, [{"text": json.dumps(mock_job_data)}, {"text": "{}"}]
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"), patch("os.unlink"):
@@ -230,7 +246,7 @@ class TestClient:
         outcome_file = os.path.join(
             os.path.join(
                 self.tmpdir,
-                fake_job_data.get("job_id"),
+                mock_job_data.get("job_id"),
                 "testflinger-outcome.json",
             )
         )
@@ -243,12 +259,12 @@ class TestClient:
         # Make sure we retry sending test results
         self.config["provision_command"] = "/bin/false"
         self.config["test_command"] = "echo test1"
-        fake_job_data = {"job_id": str(uuid.uuid1()), "job_queue": "test"}
+        mock_job_data = {"job_id": str(uuid.uuid1()), "job_queue": "test"}
         # Send an extra empty data since we will be calling get 3 times
         requests_mock.get(
             rmock.ANY,
             [
-                {"text": json.dumps(fake_job_data)},
+                {"text": json.dumps(mock_job_data)},
                 {"text": "{}"},
                 {"text": "{}"},
             ],
@@ -262,13 +278,13 @@ class TestClient:
             agent.process_jobs()
             first_dir = os.path.join(
                 self.config.get("execution_basedir"),
-                fake_job_data.get("job_id"),
+                mock_job_data.get("job_id"),
             )
             mock_transmit_job_outcome.assert_called_with(first_dir)
             # Try processing jobs again, now it should be in results_basedir
             agent.process_jobs()
             retry_dir = os.path.join(
-                self.config.get("results_basedir"), fake_job_data.get("job_id")
+                self.config.get("results_basedir"), mock_job_data.get("job_id")
             )
             mock_transmit_job_outcome.assert_called_with(retry_dir)
 

@@ -125,9 +125,10 @@ def retrieve_file(filename):
 def get_attachments_status(job_id: str) -> str:
     """Return the attachments status of a job with `job_id`
 
+    :raises:
+        `ValueError` if no such job exists
     :returns:
-        - None if no such job exists
-        - "none" if the job is not awaiting attachments
+        - None if the job is not awaiting attachments
         - "waiting" if the job is awaiting attachments
         - "complete" if the job has already received attachments
     """
@@ -138,7 +139,9 @@ def get_attachments_status(job_id: str) -> str:
         },
         projection={"_id": False, "job_data": True},
     )
-    return None if response is None else response["job_data"]["attachments"]
+    if response is None:
+        raise ValueError(f"{job_id} is not valid")
+    return response["job_data"].get("attachments_status")
 
 
 def attachments_received(job_id):
@@ -146,9 +149,9 @@ def attachments_received(job_id):
     mongo.db.jobs.find_one_and_update(
         {
             "job_id": job_id,
-            "job_data.attachments": "waiting",
+            "job_data.attachments_status": "waiting",
         },
-        {"$set": {"job_data.attachments": "complete"}},
+        {"$set": {"job_data.attachments_status": "complete"}},
         projection={},
     )
 
@@ -165,8 +168,11 @@ def pop_job(queue_list):
         response = mongo.db.jobs.find_one_and_update(
             {
                 "result_data.job_state": "waiting",
-                "job_data.attachments": {"$in": ["none", "complete"]},
                 "job_data.job_queue": {"$in": queue_list},
+                "$or": [
+                    {"job_data.attachments_status": {"$exists": False}},
+                    {"job_data.attachments_status": "complete"},
+                ],
             },
             {"$set": {"result_data.job_state": "running"}},
             projection={"job_id": True, "job_data": True, "_id": False},

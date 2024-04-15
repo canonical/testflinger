@@ -188,7 +188,7 @@ class TestflingerAgent:
                 # handle job attachments, if any
                 # (always after creating "testflinger.json", for reporting
                 # in case of an unpacking error)
-                if job_data.get("attachments", "none") == "complete":
+                if job_data.get("attachments_status") == "complete":
                     self.unpack_attachments(job_data, cwd=Path(rundir))
 
                 for phase in TEST_PHASES:

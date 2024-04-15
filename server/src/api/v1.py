@@ -112,7 +112,9 @@ def job_builder(data):
         job_id = str(uuid.uuid4())
 
     # side effect: modify the job dict
-    data["attachments"] = "waiting" if has_attachments(data) else "none"
+    if has_attachments(data):
+        data["attachments_status"] = "waiting"
+
     job["job_id"] = job_id
     job["job_data"] = data
     return job
@@ -182,10 +184,11 @@ def attachments_post(job_id):
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
-    attachments_status = database.get_attachments_status(job_id)
-    if attachments_status is None:
+    try:
+        attachments_status = database.get_attachments_status(job_id)
+    except ValueError:
         return f"Job {job_id} is not valid\n", 422
-    if attachments_status == "none":
+    if attachments_status is None:
         return f"Job {job_id} not awaiting attachments\n", 422
     if attachments_status == "complete":
         # attachments already submitted: successful, could be due to a retry
