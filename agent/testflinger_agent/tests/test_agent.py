@@ -102,8 +102,9 @@ class TestClient:
         attachment.write_bytes(os.urandom(128))
         # create gzipped archive containing attachment
         archive = tmp_path / "attachments.tar.gz"
+        archive_name = "test/random.bin"
         with tarfile.open(archive, "w:gz") as attachments:
-            attachments.add(attachment, arcname="test/random.bin")
+            attachments.add(attachment, arcname=archive_name)
         # job data specifies how the attachment will be handled
         job_id = str(uuid.uuid1())
         mock_job_data = {
@@ -148,18 +149,19 @@ class TestClient:
 
             # check that the attachment is where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
-            attachment = basepath / ATTACHMENTS_DIR / "test" / attachment.name
+            attachment = basepath / ATTACHMENTS_DIR / archive_name
             assert attachment.exists()
 
-    def test_attachments_insecure(self, agent, tmp_path):
+    def test_attachments_insecure_no_phase(self, agent, tmp_path):
         # create file to be used as attachment
         attachment = tmp_path / "random.bin"
         attachment.write_bytes(os.urandom(128))
         # create gzipped archive containing attachment
         archive = tmp_path / "attachments.tar.gz"
+        # note: archive name should be under a phase folder
+        archive_name = "random.bin"
         with tarfile.open(archive, "w:gz") as attachments:
-            # note: archive name should start with a phase folder
-            attachments.add(attachment, arcname="random.bin")
+            attachments.add(attachment, arcname=archive_name)
         # job data specifies how the attachment will be handled
         job_id = str(uuid.uuid1())
         mock_job_data = {
@@ -204,7 +206,64 @@ class TestClient:
 
             # check that the attachment is *not* where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
-            attachment = basepath / ATTACHMENTS_DIR / "test" / attachment.name
+            attachment = basepath / ATTACHMENTS_DIR / archive_name
+            assert not attachment.exists()
+
+    def test_attachments_insecure_out_of_hierarchy(self, agent, tmp_path):
+        # create file to be used as attachment
+        attachment = tmp_path / "random.bin"
+        attachment.write_bytes(os.urandom(128))
+        # create gzipped archive containing attachment
+        archive = tmp_path / "attachments.tar.gz"
+        # note: archive name should be under a phase folder
+        archive_name = "test/../random.bin"
+        with tarfile.open(archive, "w:gz") as attachments:
+            attachments.add(attachment, arcname=archive_name)
+        # job data specifies how the attachment will be handled
+        job_id = str(uuid.uuid1())
+        mock_job_data = {
+            "job_id": job_id,
+            "job_queue": "test",
+            "test_data": {
+                "attachments": [
+                    {
+                        "local": str(attachment),
+                        "agent": str(attachment.name),
+                    }
+                ]
+            },
+            "attachments_status": "complete",
+        }
+
+        with rmock.Mocker() as mocker:
+            mocker.post(rmock.ANY, status_code=200)
+            # mock response to requesting jobs
+            mocker.get(
+                re.compile(r"/v1/job\?queue=\w+"),
+                [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
+            )
+            # mock response to requesting job attachments
+            mocker.get(
+                re.compile(r"/v1/job/[-a-z0-9]+/attachments"),
+                content=archive.read_bytes(),
+            )
+            # mock response to results request
+            mocker.get(re.compile(r"/v1/result/"))
+
+            # request and process the job (should unpack the archive)
+            with patch("shutil.rmtree"):
+                agent.process_jobs()
+
+            # check the request history to confirm that:
+            # - there is a request to the job retrieval endpoint
+            # - there a request to the attachment retrieval endpoint
+            history = mocker.request_history
+            assert history[0].path == "/v1/job"
+            assert history[2].path == f"/v1/job/{job_id}/attachments"
+
+            # check that the attachment is *not* where it's supposed to be
+            basepath = Path(self.tmpdir) / mock_job_data["job_id"]
+            attachment = basepath / ATTACHMENTS_DIR / archive_name
             assert not attachment.exists()
 
     def test_config_vars_in_env(self, agent, requests_mock):
