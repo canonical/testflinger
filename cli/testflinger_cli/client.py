@@ -106,14 +106,17 @@ class Client:
                 response = requests.post(uri, files=files, timeout=timeout)
             except requests.exceptions.ConnectTimeout:
                 logger.error(
-                    "Timeout while trying to communicate with the server."
+                    "Timeout while trying to connect to the remote server"
                 )
                 raise
             except requests.exceptions.ReadTimeout:
-                logger.error("Timeout while communicating with the server.")
+                logger.error(
+                    "Connection established but the server did not send data "
+                    "in the alloted amount of time"
+                )
                 raise
             except requests.exceptions.ConnectionError:
-                logger.error("Unable to communicate with specified server.")
+                logger.error("A connection error occured")
                 raise
             response.raise_for_status()
 
