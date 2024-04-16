@@ -61,6 +61,11 @@ class AbstractDevice(ABC):
 
         while status != "0" and time.time() < timeout_start + timeout:
             try:
+                subprocess.run(
+                    f"ping {self.ipaddr} -c 5",
+                    stdout=subprocess.DEVNULL,
+                    shell=True,
+                )
                 status = subprocess.check_output(
                     f"ssh {SSH_OPTS} {self.user}@{self.ipaddr} "
                     + "/bin/true 2>/dev/null; echo $?",

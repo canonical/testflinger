@@ -36,6 +36,7 @@ def detect_device(ip: str, user: str, config: dict) -> AbstractDevice:
     devices = all_subclasses(AbstractDevice)
 
     try:
+        temp_device.check_connectable(60)
         dmi_chassis_vendor = "sudo cat /sys/class/dmi/id/chassis_vendor"
         dmi_chassis_type = "sudo cat /sys/class/dmi/id/chassis_type"
         rc1, vendor_string, stderr1 = run_ssh(

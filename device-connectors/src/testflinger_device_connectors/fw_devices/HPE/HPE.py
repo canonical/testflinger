@@ -24,7 +24,7 @@ FW_REPOS = {
     "gen10": "fwpp-gen10/",
     "gen11": "fwpp-gen11/",
 }
-INDEX_FILE = "fwrepodata/fwrepo.json"
+INDEX_FILE = "/fwrepodata/fwrepo.json"
 
 
 class HPEDevice(OEMDevice):
@@ -57,6 +57,10 @@ class HPEDevice(OEMDevice):
 
     def _install_ilorest(self):
         """Install stable/current ilorest deb from HPE SDR"""
+        rc, stdout, stderr = self.run_cmd("--version", raise_stderr=False)
+        if rc == 0:
+            logger.info("successfully installed %s", stdout)
+            return
         install_cmd = [
             f"curl -fsSL {HPE_SDR}hpePublicKey2048_key1.pub"
             " | sudo gpg --dearmor | sudo tee"
@@ -73,7 +77,7 @@ class HPEDevice(OEMDevice):
                 shell=True,
                 capture_output=True,
             )
-        rc, stdout, stderr = self.run_cmd("--version")
+        rc, stdout, stderr = self.run_cmd("--version", raise_stderr=False)
         if rc == 0:
             logger.info("successfully installed %s", stdout)
         else:
@@ -135,6 +139,8 @@ class HPEDevice(OEMDevice):
         for spp, json_index in self.fwrepo_index.items():
             temp_fw = {}
             for fw_file in json_index:
+                if ".fwpkg" not in fw_file:
+                    continue
                 if any(
                     t in str(json_index[fw_file]["target"]) for t in targets
                 ) and (
@@ -158,14 +164,12 @@ class HPEDevice(OEMDevice):
         )
         return json.loads(stdout)["Members"]
 
-    def _download_fwrepo(self, url):
+    def _download_file(self, url):
         err_msg = ""
         for _ in range(3):
             r = requests.get(url)
             if r.status_code != 200:
-                err_msg = (
-                    f"Failed to download HPE fwrepo {url}: {r.status_code}"
-                )
+                err_msg = f"Failed to download {url}: {r.status_code}"
                 logging.error(err_msg)
             else:
                 return r
@@ -183,11 +187,13 @@ class HPEDevice(OEMDevice):
             for x in list(FW_REPOS.keys())
             if x in dev_model.lower()
         ][0]
-        logger.info("HPE server model: %s", self.repo_name)
+        logger.info(
+            "HPE firmware repository: %s%s", HPE_SDR_REPO, self.repo_name
+        )
 
         self.repo_url = HPE_SDR_REPO + self.repo_name
         links, fwrepo_index_init = [], {}
-        r = self._download_fwrepo(self.repo_url)
+        r = self._download_file(self.repo_url)
         links = re.findall(
             r"\d{4}\.\d{2}\.\d{1,2}[\._]?[\w\._]*", r.text, re.I
         )
@@ -195,8 +201,8 @@ class HPEDevice(OEMDevice):
             "Available firmware options: %s",
             sorted(list(set(links)), reverse=True),
         )
-        current_url = f"{self.repo_url}current/{INDEX_FILE}"
-        self.fwrepo_current = self._download_fwrepo(current_url).json()
+        current_url = f"{self.repo_url}current{INDEX_FILE}"
+        self.fwrepo_current = self._download_file(current_url).json()
         for spp in sorted(list(set(links)), reverse=True):
             fwrepo_index_init[spp] = {}
         self.fwrepo_index = fwrepo_index_init
@@ -228,8 +234,6 @@ class HPEDevice(OEMDevice):
                 )
             )
         self.fw_info = server_fw_info
-        logger.info("firmware on HPE machine:\n%s", self.fw_info)
-
         self._get_hpe_fw_repo()
 
     def _purify_ver(self, ver_string: str) -> str:
@@ -254,7 +258,7 @@ class HPEDevice(OEMDevice):
 
         :param spp: HPE SPP released date = repo folder name
         """
-        fwrepo_url = self.HPE_SDR_REPO + self.repo_name + spp + INDEX_FILE
+        fwrepo_url = f"{HPE_SDR_REPO}{self.repo_name}{spp}{INDEX_FILE}"
         for retry in range(3):
             r = requests.get(fwrepo_url)
             if r.status_code != 200:
@@ -299,12 +303,13 @@ class HPEDevice(OEMDevice):
                     (
                         update_prio.index(x)
                         for x in update_prio
-                        if x in fw["Name"].lower()
+                        if x in fw["Firmware Name"].lower()
                     ),
                     5,
                 )
         temp_fw_info = sorted(self.fw_info, key=lambda x: x["Update Order"])
         self.fw_info = temp_fw_info
+        logger.info("firmware updatable on HPE machine:\n%s", self.fw_info)
 
     def _flash_fwpkg(self, spp: str) -> bool:
         """
@@ -327,8 +332,8 @@ class HPEDevice(OEMDevice):
 
         # compare current and target firmware version for each component and
         # only do the necessary and valid update
-        self._update_fw_info(spp)
         logger.info("start flashing all firmware with files in SPP %s", spp)
+        self._update_fw_info(spp)
         install_list = []
         for fw in self.fw_info:
             if fw.get("Fwpkg Available", {}).get(spp):
@@ -424,7 +429,7 @@ class HPEDevice(OEMDevice):
         :param fw_file: fwpkg file name
         :return:        full path of downloaded fwpkg file
         """
-        url = f"{HPE_SDR_REPO}/{self.repo_name}/{spp}/{fw_file}"
+        url = f"{HPE_SDR_REPO}{self.repo_name}{spp}/{fw_file}"
         FW_DIR = "/home/HPE_FW"
         fw_file_path = os.path.join(FW_DIR, fw_file)
         if not os.path.isdir(FW_DIR):
@@ -432,13 +437,10 @@ class HPEDevice(OEMDevice):
         if os.path.isfile(fw_file_path):
             logger.info("%s is already downloaded", fw_file)
             return fw_file_path
-        logger.info("downloading %s", fw_file)
-
-        html_request = requests.get(url)
-        if html_request.status_code != 200:
-            raise FirmwareUpdateError(f"Failed to download {url}")
+        logger.info("downloading %s", url)
+        r = self._download_file(url)
         with open(fw_file_path, "wb") as firmware_file:
-            firmware_file.write(html_request.content)
+            firmware_file.write(r.content)
         return fw_file_path
 
     def check_results(self) -> bool:
@@ -491,9 +493,10 @@ class HPEDevice(OEMDevice):
     def reboot(self):
         """Reboot HPE machine via iLO"""
         logger.info("reboot DUT")
+        ilo_reboot_timeout = 300
         timeout_start = time.time()
         # checking if Redfish resource is available after ilo reboot
-        while time.time() < timeout_start + 60:
+        while time.time() < timeout_start + ilo_reboot_timeout:
             self._login_ilo()
             rc, stdout, stderr = self.run_cmd("types")
             if "ComputerSystem" in stdout:

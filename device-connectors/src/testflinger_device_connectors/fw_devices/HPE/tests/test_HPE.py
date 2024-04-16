@@ -10,8 +10,8 @@ from testflinger_device_connectors.fw_devices import (
 )
 from testflinger_device_connectors.fw_devices.HPE.tests import HPE_data
 
+HPEDevice_path = "testflinger_device_connectors.fw_devices.HPEDevice"
 get_fw_cmd = "rawget /redfish/v1/UpdateService/FirmwareInventory/"
-
 get_sysinfo_cmd = "systeminfo --system --json"
 
 
@@ -33,11 +33,8 @@ class TestHPEDevice(unittest.TestCase):
     def test_purify_ver(self):
         """Test if _purify_ver is functional"""
 
-        with patch(
-            "testflinger_device_connectors.fw_devices.HPEDevice."
-            "_install_ilorest"
-        ) as mock1, patch(
-            "testflinger_device_connectors.fw_devices.HPEDevice._login_ilo"
+        with patch(f"{HPEDevice_path}._install_ilorest") as mock1, patch(
+            f"{HPEDevice_path}._login_ilo"
         ) as mock2:
             mock1.return_value = None
             mock2.return_value = None
@@ -82,18 +79,13 @@ class TestHPEDevice(unittest.TestCase):
         """
         Test if all raw FirmwareInventory data transferred to HPEDevice.fw_info
         """
-        with patch(
-            "testflinger_device_connectors.fw_devices.HPEDevice."
-            "_install_ilorest"
-        ) as mock1, patch(
-            "testflinger_device_connectors.fw_devices.HPEDevice._login_ilo"
+        with patch(f"{HPEDevice_path}._install_ilorest") as mock1, patch(
+            f"{HPEDevice_path}._login_ilo"
         ) as mock2:
             mock1.return_value = None
             mock2.return_value = None
             device = HPEDevice("", "", "127.0.0.1", "", "")
-        with patch(
-            "testflinger_device_connectors.fw_devices.HPEDevice.run_cmd"
-        ) as mock1:
+        with patch(f"{HPEDevice_path}.run_cmd") as mock1:
             mock1.side_effect = self.mock_run_cmd
             device.get_fw_info()
 
@@ -104,7 +96,7 @@ class TestHPEDevice(unittest.TestCase):
                 any(member["Name"] in fw.values() for fw in device.fw_info)
             )
 
-    def mock_download_fwrepo(*args, **kwargs):
+    def mock_download_file(*args, **kwargs):
         with open(
             os.path.join(
                 os.path.dirname(__file__), "mock_hpe_fwpp-gen10.html"
@@ -120,24 +112,18 @@ class TestHPEDevice(unittest.TestCase):
         """
         Test if FirmwareUpdateError is raised given a non-supported SPP version
         """
-        with patch(
-            "testflinger_device_connectors.fw_devices.HPEDevice."
-            "_install_ilorest"
-        ) as mock1, patch(
-            "testflinger_device_connectors.fw_devices.HPEDevice._login_ilo"
+        with patch(f"{HPEDevice_path}._install_ilorest") as mock1, patch(
+            f"{HPEDevice_path}._login_ilo"
         ) as mock2:
             mock1.return_value = None
             mock2.return_value = None
             device = HPEDevice("", "", "127.0.0.1", "", "")
 
-        with patch(
-            "testflinger_device_connectors.fw_devices.HPEDevice.run_cmd"
-        ) as mock1, patch(
-            "testflinger_device_connectors.fw_devices.HPEDevice."
-            "_download_fwrepo"
+        with patch(f"{HPEDevice_path}.run_cmd") as mock1, patch(
+            f"{HPEDevice_path}._download_file"
         ) as mock2:
             mock1.side_effect = self.mock_run_cmd
-            mock2.side_effect = self.mock_download_fwrepo
+            mock2.side_effect = self.mock_download_file
             device._get_hpe_fw_repo()
         with self.assertRaises(FirmwareUpdateError):
             device._flash_fwpkg("2023.09.10.04")
