@@ -165,16 +165,18 @@ class HPEDevice(OEMDevice):
         return json.loads(stdout)["Members"]
 
     def _download_file(self, url):
-        err_msg = ""
+        err_msg = f"Failed to download {url}"
         for _ in range(3):
-            r = requests.get(url)
+            try:
+                r = requests.get(url)
+            except requests.exceptions.ConnectionError as e:
+                logging.error(e.output)
+                continue
             if r.status_code != 200:
-                err_msg = f"Failed to download {url}: {r.status_code}"
                 logging.error(err_msg)
             else:
                 return r
-        if err_msg:
-            raise FirmwareUpdateError(err_msg)
+        raise FirmwareUpdateError(err_msg)
 
     def _get_hpe_fw_repo(self):
         """
@@ -492,17 +494,19 @@ class HPEDevice(OEMDevice):
 
     def reboot(self):
         """Reboot HPE machine via iLO"""
-        logger.info("reboot DUT")
         ilo_reboot_timeout = 300
         timeout_start = time.time()
         # checking if Redfish resource is available after ilo reboot
+        logger.info("check iLO access")
         while time.time() < timeout_start + ilo_reboot_timeout:
             self._login_ilo()
             rc, stdout, stderr = self.run_cmd("types")
             if "ComputerSystem" in stdout:
+                logger.info("iLO connection checked")
                 break
             else:
                 self._logout_ilo()
+        logger.info("reboot DUT")
         self.run_cmd("reboot")
         self._monitor_poststate("FinishedPost", self.reboot_timeout)
         self.check_connectable(self.reboot_timeout)
@@ -521,13 +525,19 @@ class HPEDevice(OEMDevice):
         ]
         timeout_start = time.time()
         while time.time() < timeout_start + timeout:
-            rc, stdout, stderr = self.run_cmd(cmd, raise_stderr=False)
-            if rc == 0 and state in stdout:
-                delta = time.time() - timeout_start
-                msg = f"HPE machine reaches {state} after {int(delta)}s"
-                logger.info(msg)
-                return
+            try:
+                rc, stdout, stderr = self.run_cmd(
+                    cmd, raise_stderr=False, timeout=10
+                )
+            except subprocess.TimeoutExpired:
+                continue
             else:
+                if rc == 0 and state in stdout:
+                    delta = time.time() - timeout_start
+                    msg = f"HPE machine reaches {state} after {int(delta)}s"
+                    logger.info(msg)
+                    return
+            finally:
                 time.sleep(10)
         err_msg = f"HPE machine failed to reach {state} after {timeout}s"
         raise FirmwareUpdateError(err_msg)
