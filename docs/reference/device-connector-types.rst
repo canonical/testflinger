@@ -75,8 +75,8 @@ The ``dragonboard`` device connector supports the following ``provision_data`` k
 
 .. _fake_connector:
 
-_fake_connector
----------------
+fake_connector
+--------------
 
 The ``fake_connector`` device connector doesn't actually provision any devices, but is useful for testing the Testflinger without needing to have any real devices connected.
 
