@@ -169,7 +169,7 @@ class HPEDevice(OEMDevice):
         for _ in range(3):
             try:
                 r = requests.get(url)
-            except requests.exceptions.ConnectionError as e:
+            except requests.exceptions.ConnectionError:
                 logging.error(err_msg)
                 continue
             if r.status_code != 200:
