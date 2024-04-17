@@ -170,7 +170,7 @@ class HPEDevice(OEMDevice):
             try:
                 r = requests.get(url)
             except requests.exceptions.ConnectionError as e:
-                logging.error(e.output)
+                logging.error(err_msg)
                 continue
             if r.status_code != 200:
                 logging.error(err_msg)
@@ -526,9 +526,11 @@ class HPEDevice(OEMDevice):
         timeout_start = time.time()
         while time.time() < timeout_start + timeout:
             try:
+                self._login_ilo()
                 rc, stdout, stderr = self.run_cmd(
                     cmd, raise_stderr=False, timeout=10
                 )
+                self._logout_ilo()
             except subprocess.TimeoutExpired:
                 continue
             else:
