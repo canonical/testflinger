@@ -16,6 +16,7 @@ testing on other types of devices.
 
 - cm3 - Raspberry PI CM3 with a sidecar device and tools to support putting it in otg mode to flash an image
 - dragonboard - dragonboard with a stable image on usb and test images are flashed to a wiped sd with a dual boot process
+- fake_connector - fake device connector that can be used for testing
 - maas2 - Metal as a Service (MaaS) systems, which support additional features such as disk layouts. Images provisioned must be imported first!
 - multi - multi-device connector used for provisioning jobs that span multiple devices at once
 - muxpi - muxpi/sdwire provisioned devices that utilize a device that can write to an sd the boot it on the DUT

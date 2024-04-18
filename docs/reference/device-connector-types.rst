@@ -73,6 +73,13 @@ The ``dragonboard`` device connector supports the following ``provision_data`` k
        the ``zstd`` tool is supported) and
        flashed to the SD card, which will be used to boot up the DUT.
 
+.. _fake_connector:
+
+fake_connector
+--------------
+
+The ``fake_connector`` device connector doesn't actually provision any devices, but is useful for testing the Testflinger without needing to have any real devices connected.
+
 .. _maas2:
 
 maas2

@@ -38,6 +38,7 @@ DEVICE_CONNECTORS = (
     "cm3",
     "dell_oemscript",
     "dragonboard",
+    "fake_connector",
     "hp_oemscript",
     "lenovo_oemscript",
     "maas2",
