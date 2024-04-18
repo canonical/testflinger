@@ -16,7 +16,6 @@ import logging
 import os
 import fcntl
 import sys
-import shlex
 import signal
 import subprocess
 import threading
@@ -70,11 +69,12 @@ class CommandRunner:
 
     def run_command_thread(self, cmd: str):
         self.process = subprocess.Popen(
-            shlex.split(cmd),
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             cwd=self.cwd,
             env=self.env,
+            shell=True,
         )
         # Ensure that the output doesn't get buffered on our end
         if self.process.stdout is not None:
