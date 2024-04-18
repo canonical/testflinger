@@ -24,10 +24,16 @@ import json
 import logging
 import os
 import sys
+from pathlib import Path
+import tarfile
+import tempfile
 import time
+from typing import Optional
 from argparse import ArgumentParser
 from datetime import datetime
 import yaml
+
+import requests
 
 from testflinger_cli import client, config, history
 
@@ -117,6 +123,19 @@ def _print_queue_message():
         "descriptions, not ALL queues. If you can't find the queue you want "
         "to use, a job can still be submitted for queues not listed here.\n"
     )
+
+
+def make_relative(path: Path) -> Path:
+    """Return resolved relative `path`"""
+    if path.is_absolute():
+        # strip leading '/' from absolute path
+        path = path.relative_to(path.root)
+    # resolve the path and make relative again
+    return path.resolve().relative_to(Path.cwd())
+
+
+class AttachmentError(Exception):
+    """Exception thrown when attachments fail to be submitted"""
 
 
 class TestflingerCli:
@@ -303,6 +322,44 @@ class TestflingerCli:
             print("{} = {}".format(k, v))
         print()
 
+    @staticmethod
+    def extract_attachment_data(job_data: dict) -> Optional[dict]:
+        """Pull together the attachment data per phase from the `job_data`"""
+        attachment_data = {}
+        for phase in ("provision", "firmware_update", "test"):
+            phase_str = f"{phase}_data"
+            try:
+                attachment_data[phase] = job_data[phase_str]["attachments"]
+            except KeyError:
+                pass
+        return attachment_data or None
+
+    @staticmethod
+    def pack_attachments(archive: str, attachment_data: dict):
+        """Pack the attachments specifed by `attachment_data` into `archive`
+
+        Use `tarfile` instead of `shutil` because:
+        > [it] handles directories, regular files, hardlinks, symbolic links,
+        > fifos, character devices and block devices and is able to acquire
+        > and restore file information like timestamp, access permissions and
+        > owner.
+        Ref: https://docs.python.org/3/library/tarfile.html
+        """
+        with tarfile.open(archive, "w:gz") as tar:
+            for phase, attachments in attachment_data.items():
+                phase_path = Path(phase)
+                for attachment in attachments:
+                    local_path = Path(attachment["local"])
+                    # determine archive name for attachment
+                    # (essentially: the destination path on the agent host)
+                    agent_path = Path(attachment.get("agent", local_path))
+                    agent_path = make_relative(agent_path)
+                    archive_path = phase_path / agent_path
+                    tar.add(local_path, arcname=archive_path)
+                    # side effect: strip "local" information
+                    attachment["agent"] = str(agent_path)
+                    del attachment["local"]
+
     def submit(self):
         """Submit a new test job to the server"""
         if self.args.filename == "-":
@@ -313,12 +370,31 @@ class TestflingerCli:
                     self.args.filename, encoding="utf-8", errors="ignore"
                 ) as job_file:
                     data = job_file.read()
-            except FileNotFoundError as exc:
-                raise SystemExit(
-                    "File not found: {}".format(self.args.filename)
-                ) from exc
-        job_id = self.submit_job_data(data)
-        queue = yaml.safe_load(data).get("job_queue")
+            except FileNotFoundError:
+                sys.exit("File not found: {self.args.filename}")
+        job_dict = yaml.safe_load(data)
+
+        attachments_data = self.extract_attachment_data(job_dict)
+        if attachments_data is None:
+            # submit job, no attachments
+            job_id = self.submit_job_data(job_dict)
+        else:
+            with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive:
+                archive_path = Path(archive.name)
+                # create attachments archive prior to job submission
+                self.pack_attachments(archive_path, attachments_data)
+                # submit job, followed by the submission of the archive
+                job_id = self.submit_job_data(job_dict)
+                try:
+                    self.submit_job_attachments(job_id, path=archive_path)
+                except AttachmentError:
+                    self.cancel(job_id)
+                    sys.exit(
+                        f"Job {job_id} submitted and cancelled: "
+                        "failed to submit attachments"
+                    )
+
+        queue = job_dict.get("job_queue")
         self.history.new(job_id, queue)
         if self.args.quiet:
             print(job_id)
@@ -328,28 +404,76 @@ class TestflingerCli:
         if self.args.poll:
             self.do_poll(job_id)
 
-    def submit_job_data(self, data):
+    def submit_job_data(self, data: dict):
         """Submit data that was generated or read from a file as a test job"""
         try:
             job_id = self.client.submit_job(data)
         except client.HTTPError as exc:
             if exc.status == 400:
-                raise SystemExit(
+                sys.exit(
                     "The job you submitted contained bad data or "
                     "bad formatting, or did not specify a "
                     "job_queue."
-                ) from exc
+                )
             if exc.status == 404:
-                raise SystemExit(
+                sys.exit(
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
-                ) from exc
+                )
             # This shouldn't happen, so let's get more information
-            raise SystemExit(
+            sys.exit(
                 "Unexpected error status from testflinger "
-                "server: {}".format(exc.status)
-            ) from exc
+                f"server: {exc.status}"
+            )
         return job_id
+
+    def submit_job_attachments(self, job_id: str, path: Path):
+        """Submit attachments archive for a job to the server
+
+        :param job_id:
+            ID for the test job
+        :param path:
+            The path to the attachment archive
+        """
+        # defaults for retries
+        wait = self.config.get("attachments_retry_wait", 10)
+        timeout = self.config.get("attachments_timeout", 600)
+        tries = self.config.get("attachments_tries", 3)
+
+        for _ in range(tries):
+            try:
+                self.client.post_attachment(job_id, path, timeout=timeout)
+            except requests.HTTPError as error:
+                # we can't recover from these errors, give up without retrying
+                if error.response.status_code == 400:
+                    raise AttachmentError(
+                        f"Unable to submit attachment archive for {job_id}: "
+                        f"{error.response.text}"
+                    ) from error
+                if error.response.status_code == 404:
+                    raise AttachmentError(
+                        "Received 404 error from server. Are you "
+                        "sure this is a testflinger server and "
+                        "that it supports attachments?"
+                    ) from error
+                # This shouldn't happen, so let's get more information
+                sys.exit(
+                    "Unexpected error status from testflinger server "
+                    f"({error.response.status_code}): {error.response.text}"
+                )
+            except (requests.Timeout, requests.ConnectionError):
+                # recoverable errors, try again
+                time.sleep(wait)
+                wait *= 1.3
+            else:
+                # success
+                return
+
+        # having reached this point, all tries have failed
+        raise AttachmentError(
+            f"Unable to submit attachment archive for {job_id}: "
+            f"failed after {tries} tries"
+        )
 
     def show(self):
         """Show the requested job JSON for a specified JOB_ID"""

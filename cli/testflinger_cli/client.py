@@ -20,10 +20,11 @@ Testflinger client module
 
 import json
 import logging
+from pathlib import Path
 import sys
 import urllib.parse
+
 import requests
-import yaml
 
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,9 @@ class Client:
         try:
             req = requests.post(uri, json=data, timeout=timeout)
         except requests.exceptions.ConnectTimeout:
-            logger.error("Timout while trying to communicate with the server.")
+            logger.error(
+                "Timeout while trying to communicate with the server."
+            )
             sys.exit(1)
         except requests.exceptions.ConnectionError:
             logger.error("Unable to communicate with specified server.")
@@ -85,6 +88,37 @@ class Client:
         if req.status_code != 200:
             raise HTTPError(req.status_code)
         return req.text
+
+    def put_file(self, uri_frag: str, path: Path, timeout: float):
+        """Stream a file to the server using a POST request
+
+        :param uri_frag:
+            endpoint for the POST request
+        :param path:
+            the file to be uploaded
+        :return:
+            String containing the response from the server
+        """
+        uri = urllib.parse.urljoin(self.server, uri_frag)
+        with open(path, "rb") as file:
+            try:
+                files = {"file": (path.name, file)}
+                response = requests.post(uri, files=files, timeout=timeout)
+            except requests.exceptions.ConnectTimeout:
+                logger.error(
+                    "Timeout while trying to connect to the remote server"
+                )
+                raise
+            except requests.exceptions.ReadTimeout:
+                logger.error(
+                    "Connection established but the server did not send data "
+                    "in the alloted amount of time"
+                )
+                raise
+            except requests.exceptions.ConnectionError:
+                logger.error("A connection error occured")
+                raise
+            response.raise_for_status()
 
     def get_status(self, job_id):
         """Get the status of a test job
@@ -112,18 +146,30 @@ class Client:
         data = {"job_state": state}
         self.put(endpoint, data)
 
-    def submit_job(self, job_data):
+    def submit_job(self, data: dict) -> str:
         """Submit a test job to the testflinger server
 
         :param job_data:
-            String containing json or yaml data for the job to submit
+            Dictionary containing data for the job to submit
         :return:
             ID for the test job
         """
         endpoint = "/v1/job"
-        data = yaml.safe_load(job_data)
         response = self.put(endpoint, data)
         return json.loads(response).get("job_id")
+
+    def post_attachment(self, job_id: str, path: Path, timeout: int):
+        """Send a test job attachment to the testflinger server
+
+        :param job_id:
+            ID for the test job
+        :param path:
+            The path to the attachment to be sent to the server
+        :return:
+            ID for the test job
+        """
+        endpoint = f"/v1/job/{job_id}/attachments"
+        self.put_file(endpoint, path, timeout=timeout)
 
     def show_job(self, job_id):
         """Show the JSON job definition for the specified ID

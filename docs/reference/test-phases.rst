@@ -187,6 +187,7 @@ If either ``reserve_command`` is missing from the agent configuration, or the th
   .. code-block:: yaml
 
     reserve_command: testflinger-device-connector muxpi reserve -c /path/to/default.yaml testflinger.json  
+
 * Example job definition:
 
   .. code-block:: yaml
@@ -209,6 +210,59 @@ Example agent configuration:
 
   cleanup_command: echo Consider removing containers or other necessary cleanup steps here
 
+
+Attachments
+------------
+In the `provisioning`, `firmware_update` and `test` phases, it is also possible to specify attachments, i.e. local files that are to be copied over to the Testflinger agent host.
+
+* Example job definition:
+
+  .. code-block:: yaml
+
+    job_queue: example-queue
+    provision_data:
+      attachments:
+        - local: "ubuntu-22.04.4-preinstalled-desktop-arm64+raspi.img.xz"
+    test_data:
+      attachments:
+        - local: "config.json"
+          agent: "data/config/config.json"
+        - local: "images/ubuntu-logo.png"
+        - local: "scripts/my_test_script.sh"
+          agent: "script.sh"
+      test_cmds: |
+        ls -alR
+        cat attachments/test/data/config/config.json
+        chmod u+x attachments/test/script.sh
+        attachments/test/script.sh
+
+  The `local` fields specify where the attachments are to be found locally, e.g. on the machine where the CLI is executed. For this particular example, this sort of file tree is expected:
+
+  .. code-block:: bash
+
+    .
+    ├── config.json
+    ├── images
+    │   └── ubuntu-logo.png
+    ├── scripts
+    │   └── my_test_script.sh
+    └── ubuntu-22.04.4-preinstalled-desktop-arm64+raspi.img.xz
+
+  On the agent host, the attachments are placed under the `attachments` folder and distributed in separate sub-folders according to phase. If an `agent` field is provided, the attachments are also moved or renamed accordingly. For the example above, the file tree on the agent host would look like this:
+
+  .. code-block:: bash
+
+    .
+    └── attachments
+        ├── provision
+        │   └── ubuntu-22.04.4-preinstalled-desktop-arm64+raspi.img.xz
+        └── test
+            ├── data
+            │   └── config
+            │       └── config.json
+            ├── images
+            │   └── ubuntu-logo.png
+            └── script.sh
 
 Output 
 ------------

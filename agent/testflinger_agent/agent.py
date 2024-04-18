@@ -15,12 +15,37 @@
 import json
 import logging
 import os
+from pathlib import Path
 import shutil
+import tarfile
+import tempfile
 
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
+from testflinger_agent.config import ATTACHMENTS_DIR
 
 logger = logging.getLogger(__name__)
+
+
+def secure_filter(member, path):
+    """Combine the `data` filter with custom attachment filtering
+
+    Makes sure that the starting folder for all attachments coincides
+    with one of the supported phases, i.e. that the attachment archive
+    has been created properly and no attachment will be extracted to an
+    unexpected location.
+    """
+    try:
+        resolved = Path(member.name).resolve().relative_to(Path.cwd())
+    except ValueError as error:
+        # essentially trying to extract higher than the attachments folder
+        raise tarfile.OutsideDestinationError(member, path) from error
+    if not str(resolved).startswith(
+        ("provision/", "firmware_update/", "test/")
+    ):
+        # trying to extract in an invalid folder, under the attachments folder
+        raise tarfile.OutsideDestinationError(member, path)
+    return tarfile.data_filter(member, path)
 
 
 class TestflingerAgent:
@@ -111,6 +136,18 @@ class TestflingerAgent:
         # Create the offline file, this should work even if it exists
         open(self.get_offline_files()[0], "w").close()
 
+    def unpack_attachments(self, job_data: dict, cwd: Path):
+        """Download and unpack the attachments associated with a job"""
+        job_id = job_data["job_id"]
+
+        with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive_tmp:
+            archive_path = Path(archive_tmp.name)
+            # download attachment archive
+            self.client.get_attachments(job_id, path=archive_path)
+            # extract archive into the attachments folder
+            with tarfile.open(archive_path, "r:gz") as tar:
+                tar.extractall(cwd / ATTACHMENTS_DIR, filter=secure_filter)
+
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
         TEST_PHASES = [
@@ -136,7 +173,9 @@ class TestflingerAgent:
                     self.client.config.get("execution_basedir"), job.job_id
                 )
                 os.makedirs(rundir)
+
                 self.client.post_agent_data({"job_id": job.job_id})
+
                 # Dump the job data to testflinger.json in our execution dir
                 with open(os.path.join(rundir, "testflinger.json"), "w") as f:
                     json.dump(job_data, f)
@@ -146,6 +185,12 @@ class TestflingerAgent:
                 ) as f:
                     json.dump({}, f)
 
+                # handle job attachments, if any
+                # (always after creating "testflinger.json", for reporting
+                # in case of an unpacking error)
+                if job_data.get("attachments_status") == "complete":
+                    self.unpack_attachments(job_data, cwd=Path(rundir))
+
                 for phase in TEST_PHASES:
                     # First make sure the job hasn't been cancelled
                     if self.client.check_job_state(job.job_id) == "cancelled":
@@ -153,7 +198,6 @@ class TestflingerAgent:
                         break
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase)
-
                     exitcode = job.run_test_phase(phase, rundir)
 
                     self.client.post_influx(phase, exitcode)

@@ -17,10 +17,11 @@
 Unit tests for Testflinger v1 API
 """
 
-import json
-
-from io import BytesIO
 from datetime import datetime
+from io import BytesIO
+import json
+import os
+
 from src.api import v1
 
 
@@ -46,6 +47,99 @@ def test_add_job_good(mongo_app):
     expected_data = set(job_data)
     actual_data = set(output.json)
     assert expected_data.issubset(actual_data)
+
+
+def test_add_job_good_with_attachments(mongo_app, tmp_path):
+    """Test that adding a new job with attachments works"""
+    job_data = {
+        "job_queue": "test",
+        "test_data": {"attachments": [{"agent": "filename"}]},
+    }
+    # place a job on the queue
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    job_id = output.json.get("job_id")
+    assert v1.check_valid_uuid(job_id)
+
+    # confirm that the job cannot be processed yet (attachments pending)
+    output = app.get("/v1/job?queue=test")
+    assert 204 == output.status_code
+
+    # create a mock attachments archive containing random data
+    # (for the purpose of testing the server endpoints, the archive doesn't
+    # need to match the attachments specified in the job)
+    filename = tmp_path / "attachments.tar.gz"
+    with open(filename, "wb") as attachments:
+        attachments.write(os.urandom(8000))
+
+    # submit the attachments archive for the job
+    attachments_endpoint = f"/v1/job/{job_id}/attachments"
+    with open(filename, "rb") as attachments:
+        file_data = {"file": (attachments, filename.name)}
+        output = app.post(
+            attachments_endpoint,
+            data=file_data,
+            content_type="multipart/form-data",
+        )
+    assert 200 == output.status_code
+    # check that the submitted attachments can be retrieved and
+    # that they match the original data
+    output = app.get(attachments_endpoint)
+    with open(filename, "rb") as attachments:
+        assert output.data == attachments.read()
+
+    # ask for a job from the queue and confirm the match
+    recovered_data = app.get("/v1/job?queue=test").json
+    assert recovered_data["job_id"] == job_id
+    assert set(job_data).issubset(recovered_data)
+
+
+def test_submit_attachment_without_job(mongo_app, tmp_path):
+    """Test for error when submitting attachments for a non-job"""
+    app, _ = mongo_app
+    nonexistent_id = "77777777-7777-7777-7777-777777777777"
+
+    # create a mock attachments archive containing random data
+    filename = tmp_path / "attachments.tar.gz"
+    with open(filename, "wb") as attachments:
+        attachments.write(os.urandom(8000))
+
+    # submit the attachments archive for the job
+    attachments_endpoint = f"/v1/job/{nonexistent_id}/attachments"
+    with open(filename, "rb") as attachments:
+        file_data = {"file": (attachments, filename.name)}
+        output = app.post(
+            attachments_endpoint,
+            data=file_data,
+            content_type="multipart/form-data",
+        )
+    assert 422 == output.status_code
+
+
+def test_retrieve_attachments_nonexistent_job(mongo_app):
+    """Test for error when requesting non-existent attachments"""
+    app, _ = mongo_app
+    nonexistent_id = "77777777-7777-7777-7777-777777777777"
+
+    # request the attachments archive for the job
+    attachments_endpoint = f"/v1/job/{nonexistent_id}/attachments"
+    output = app.get(attachments_endpoint)
+    assert 204 == output.status_code
+
+
+def test_retrieve_attachments_nonexistent_attachment(mongo_app):
+    """Test for error when requesting non-existent attachments"""
+    job_data = {"job_queue": "test", "tags": ["foo", "bar"]}
+    # place a job on the queue
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    job_id = output.json.get("job_id")
+    assert v1.check_valid_uuid(job_id)
+
+    # request the attachments archive for the job
+    attachments_endpoint = f"/v1/job/{job_id}/attachments"
+    output = app.get(attachments_endpoint)
+    assert 204 == output.status_code
 
 
 def test_add_job_good_with_jobid(mongo_app):
