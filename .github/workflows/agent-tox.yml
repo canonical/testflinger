@@ -15,10 +15,14 @@ jobs:
     defaults:
       run:
         working-directory: agent
-    runs-on: [self-hosted, linux, jammy, X64]
     strategy:
       matrix:
-        python: ["3.8.10", "3.10"]
+        include:
+          - python: 3.8.10
+            os: focal
+          - python: 3.10
+            os: jammy
+    runs-on: [self-hosted, linux, {{ matrix.os }}, X64]
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python
