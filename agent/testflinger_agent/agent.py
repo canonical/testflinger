@@ -167,6 +167,27 @@ class TestflingerAgent:
             with tarfile.open(archive_path, "r:gz") as tar:
                 tar.extractall(cwd / ATTACHMENTS_DIR, filter=secure_filter)
 
+        # side effect: remove all attachment data from `job_data`
+        # (so there is no interference with existing processes, especially
+        # provisioning or firmware update, which are triggered when these
+        # sections are not empty)
+        for phase in ("provision", "firmware_update", "test"):
+            phase_str = f"{phase}_data"
+            try:
+                phase_data = job_data[phase_str]
+            except KeyError:
+                pass
+            else:
+                try:
+                    del phase_data["attachments"]
+                except KeyError:
+                    pass
+                else:
+                    # it may be the case that attachments were the only data
+                    # included for this phase, so the phase can now be removed
+                    if not phase_data:
+                        del job_data[phase_str]
+
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
         TEST_PHASES = [
@@ -204,9 +225,15 @@ class TestflingerAgent:
                 ) as f:
                     json.dump({}, f)
 
-                # handle job attachments, if any
-                # (always after creating "testflinger.json", for reporting
-                # in case of an unpacking error)
+                # Handle job attachments, if any.
+                #
+                # *Always* place this after creating "testflinger.json":
+                # - If there is an unpacking error, the file is required
+                #   for reporting
+                # - The `unpack_attachments` method has a side effect on
+                #   `job_data`: it removes attachment data. However, the
+                #   file will still contain all the data received and
+                #   pass it on to the device container
                 if job_data.get("attachments_status") == "complete":
                     self.unpack_attachments(job_data, cwd=Path(rundir))
 
