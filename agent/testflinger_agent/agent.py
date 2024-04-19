@@ -160,8 +160,10 @@ class TestflingerAgent:
         with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive_tmp:
             archive_path = Path(archive_tmp.name)
             # download attachment archive
+            logger.info(f"Downloading attachments for {job_id}")
             self.client.get_attachments(job_id, path=archive_path)
             # extract archive into the attachments folder
+            logger.info(f"Unpacking attachments for {job_id}")
             with tarfile.open(archive_path, "r:gz") as tar:
                 tar.extractall(cwd / ATTACHMENTS_DIR, filter=secure_filter)
 
