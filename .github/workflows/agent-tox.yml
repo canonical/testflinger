@@ -19,10 +19,10 @@ jobs:
       matrix:
         include:
           - python: 3.8.10
-            os: focal
+            os: [ self-hosted, linux, focal, X64]
           - python: 3.10
-            os: jammy
-    runs-on: [self-hosted, linux, {{ matrix.os }}, X64]
+            os: [ self-hosted, linux, jammy, X64]
+    runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python
