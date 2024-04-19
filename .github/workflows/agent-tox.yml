@@ -18,10 +18,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - python: 3.8.10
-            os: [ self-hosted, linux, focal, X64]
-          - python: 3.10
-            os: [ self-hosted, linux, jammy, X64]
+          - python: "3.8.10"
+            os: [self-hosted, linux, focal, X64]
+          - python: "3.10"
+            os: [self-hosted, linux, jammy, X64]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
