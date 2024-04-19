@@ -16,13 +16,30 @@ import json
 import logging
 import os
 from pathlib import Path
+import platform
 import shutil
-import tarfile
 import tempfile
 
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.config import ATTACHMENTS_DIR
+
+python_version = tuple(
+    int(version) for version in platform.python_version_tuple()
+)
+if any(
+    python_version[:2] == feature_version[:2]
+    and python_version[2] < feature_version[2]
+    for feature_version in ((3, 8, 17), (3, 9, 17), (3, 10, 12), (3, 11, 4))
+):
+    # no `filter` attribute for `tarfile.extractall` in this version:
+    # import a (local) future implementation of `tarfile` that does
+    # [TODO] remove this selection statment and only keep `import tarfile`
+    # when all agents run versions of Python that support this feature;
+    # all other code will remain unaffected
+    from . import tarfile_cff0a2d as tarfile
+else:
+    import tarfile
 
 logger = logging.getLogger(__name__)
 
