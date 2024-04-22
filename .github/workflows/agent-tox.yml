@@ -46,8 +46,7 @@ jobs:
       run: |
         eval "$(pyenv init -)"
         eval "$(pyenv virtualenv-init -)"
-        pyenv virtualenv ${{ matrix.python }} venv
-        pyenv activate venv
+        pyenv local ${{ matrix.python }}
+        # pyenv virtualenv ${{ matrix.python }} venv
+        # pyenv activate venv
         tox -e ${{ matrix.env }}
-
-
