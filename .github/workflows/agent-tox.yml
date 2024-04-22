@@ -37,8 +37,12 @@ jobs:
         eval "$(pyenv init -)"
         eval "$(pyenv virtualenv-init -)"
         pyenv install ${{ matrix.python }}
+        pyenv virtualenv ${{ matrix.python }} venv
+        pyenv activate venv
     - name: Install tox
       run: pip install tox
     - name: Run tests
       run: |
         tox -e ${{ matrix.env }}
+
+
