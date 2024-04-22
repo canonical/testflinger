@@ -43,6 +43,8 @@ jobs:
       run: pip install tox
     - name: Run tests
       run: |
+        pyenv virtualenv ${{ matrix.python }} venv
+        pyenv activate venv
         tox -e ${{ matrix.env }}
 
 
