@@ -40,6 +40,8 @@ jobs:
       run: |
         eval "$(pyenv init -)"
         pyenv install ${{ matrix.python }}
+    - name: Install tox
+      run: pip install tox
     - name: Run tests
       run: |
         eval "$(pyenv init -)"
