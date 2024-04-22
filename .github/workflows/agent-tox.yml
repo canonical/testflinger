@@ -19,9 +19,9 @@ jobs:
       matrix:
         include:
           - python: "3.8.10"
-            os: [self-hosted, linux, focal, X64]
+            os: [self-hosted, linux, ubuntu-20.04, X64]
           - python: "3.10"
-            os: [self-hosted, linux, jammy, X64]
+            os: [self-hosted, linux, ubuntu-22.04, X64]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
