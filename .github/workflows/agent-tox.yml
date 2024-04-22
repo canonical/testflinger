@@ -38,11 +38,11 @@ jobs:
         echo "PATH=$HOME/.pyenv/bin:$PATH" >> "$GITHUB_ENV"
     - name: Install Python (using pyenv)
       run: |
-        eval "$(pyenv init --path)"
-        eval "$(pyenv virtualenv-init --path)"
+        eval "$(pyenv init -)"
         pyenv install ${{ matrix.python }}
     - name: Run tests
       run: |
+        eval "$(pyenv virtualenv-init -)"
         pyenv virtualenv ${{ matrix.python }} venv
         pyenv activate venv
         tox -e ${{ matrix.env }}
