@@ -19,18 +19,24 @@ jobs:
       matrix:
         include:
           - python: "3.8.10"
-            os: [self-hosted, linux, X64]
+            env: "py38"
+            os: [self-hosted, linux, jammy, X64]
           - python: "3.10"
+            env: "py310"
             os: [self-hosted, linux, jammy, X64]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
+    - name: Install pyenv
+      run: |
+        sudo apt-get update
+        sudo apt-get install build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev -y
+        curl https://pyenv.run | bash
     - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python }}
+      run: |
+        pyenv install ${{ matrix.python }}
     - name: Install tox
       run: pip install tox
     - name: Run tests
       run: |
-        tox
+        tox -e ${{ matrix.env }}
