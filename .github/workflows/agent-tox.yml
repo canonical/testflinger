@@ -36,7 +36,7 @@ jobs:
         curl https://pyenv.run | bash
         echo "PYENV_ROOT=$HOME/.pyenv" >> "$GITHUB_ENV"
         echo "PATH=$HOME/.pyenv/bin:$PATH" >> "$GITHUB_ENV"
-    - name: Install Python (using pyenv)
+    - name: Install Python ${{ matrix.python }} (using pyenv)
       run: |
         eval "$(pyenv init -)"
         pyenv install ${{ matrix.python }}
@@ -45,8 +45,5 @@ jobs:
     - name: Run tests
       run: |
         eval "$(pyenv init -)"
-        eval "$(pyenv virtualenv-init -)"
         pyenv local ${{ matrix.python }}
-        # pyenv virtualenv ${{ matrix.python }} venv
-        # pyenv activate venv
         tox -e ${{ matrix.env }}
