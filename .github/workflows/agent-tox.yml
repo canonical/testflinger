@@ -39,10 +39,11 @@ jobs:
         echo 'eval "$(pyenv init --path)"' >> ~/.bashrc
         echo 'eval "$(pyenv virtualenv-init --path)"' >> ~/.bashrc
     - name: Install Python (using pyenv)
-      run: pyenv install ${{ matrix.python }}
+      run: |
+        source ~/.bashrc
+        pyenv install ${{ matrix.python }}
     - name: Run tests
       run: |
-        #source ~/.bashrc
         pyenv virtualenv ${{ matrix.python }} venv
         pyenv activate venv
         tox -e ${{ matrix.env }}
