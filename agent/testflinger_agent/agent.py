@@ -175,15 +175,12 @@ class TestflingerAgent:
             except KeyError:
                 pass
             else:
-                try:
-                    del phase_data["attachments"]
-                except KeyError:
-                    pass
-                else:
-                    # it may be the case that attachments were the only data
-                    # included for this phase, so the phase can now be removed
-                    if not phase_data:
-                        del job_data[phase_str]
+                # delete attachments, if they exist
+                phase_data.pop("attachments", None)
+                # it may be the case that attachments were the only data
+                # included for this phase, so the phase can now be removed
+                if not phase_data:
+                    del job_data[phase_str]
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
