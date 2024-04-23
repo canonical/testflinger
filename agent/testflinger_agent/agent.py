@@ -23,10 +23,16 @@ from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.config import ATTACHMENTS_DIR
 
-# replace this with `import tarfile` when all agents run versions of Python
-# that support the `filter` attribute in `tarfile.extractall`; all other code
-# will remain unaffected
-from . import tarfile_patch as tarfile
+try:
+    # attempt importing a tarfile filter, to check if filtering is supported
+    from tarfile import data_filter
+    del data_filter
+except ImportError:
+    # import a patched version of `tarfile` that supports filtering
+    from . import tarfile_patch as tarfile
+else:
+    import tarfile
+
 
 logger = logging.getLogger(__name__)
 
