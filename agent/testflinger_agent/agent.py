@@ -29,7 +29,10 @@ try:
 
     del data_filter
 except ImportError:
-    # import a patched version of `tarfile` that supports filtering
+    # import a patched version of `tarfile` that supports filtering;
+    # this conditional import can be removed when all agents run
+    # versions of Python that support filtering, i.e. at least:
+    # 3.8.17, 3.9.17, 3.10.12, 3.11.4, 3.12
     from . import tarfile_patch as tarfile
 else:
     import tarfile
