@@ -26,6 +26,7 @@ from testflinger_agent.config import ATTACHMENTS_DIR
 try:
     # attempt importing a tarfile filter, to check if filtering is supported
     from tarfile import data_filter
+
     del data_filter
 except ImportError:
     # import a patched version of `tarfile` that supports filtering
