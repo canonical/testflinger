@@ -17,12 +17,26 @@ import logging
 import os
 from pathlib import Path
 import shutil
-import tarfile
 import tempfile
 
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.config import ATTACHMENTS_DIR
+
+try:
+    # attempt importing a tarfile filter, to check if filtering is supported
+    from tarfile import data_filter
+
+    del data_filter
+except ImportError:
+    # import a patched version of `tarfile` that supports filtering;
+    # this conditional import can be removed when all agents run
+    # versions of Python that support filtering, i.e. at least:
+    # 3.8.17, 3.9.17, 3.10.12, 3.11.4, 3.12
+    from . import tarfile_patch as tarfile
+else:
+    import tarfile
+
 
 logger = logging.getLogger(__name__)
 
@@ -143,10 +157,30 @@ class TestflingerAgent:
         with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive_tmp:
             archive_path = Path(archive_tmp.name)
             # download attachment archive
+            logger.info(f"Downloading attachments for {job_id}")
             self.client.get_attachments(job_id, path=archive_path)
             # extract archive into the attachments folder
+            logger.info(f"Unpacking attachments for {job_id}")
             with tarfile.open(archive_path, "r:gz") as tar:
                 tar.extractall(cwd / ATTACHMENTS_DIR, filter=secure_filter)
+
+        # side effect: remove all attachment data from `job_data`
+        # (so there is no interference with existing processes, especially
+        # provisioning or firmware update, which are triggered when these
+        # sections are not empty)
+        for phase in ("provision", "firmware_update", "test"):
+            phase_str = f"{phase}_data"
+            try:
+                phase_data = job_data[phase_str]
+            except KeyError:
+                pass
+            else:
+                # delete attachments, if they exist
+                phase_data.pop("attachments", None)
+                # it may be the case that attachments were the only data
+                # included for this phase, so the phase can now be removed
+                if not phase_data:
+                    del job_data[phase_str]
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
@@ -185,9 +219,15 @@ class TestflingerAgent:
                 ) as f:
                     json.dump({}, f)
 
-                # handle job attachments, if any
-                # (always after creating "testflinger.json", for reporting
-                # in case of an unpacking error)
+                # Handle job attachments, if any.
+                #
+                # *Always* place this after creating "testflinger.json":
+                # - If there is an unpacking error, the file is required
+                #   for reporting
+                # - The `unpack_attachments` method has a side effect on
+                #   `job_data`: it removes attachment data. However, the
+                #   file will still contain all the data received and
+                #   pass it on to the device container
                 if job_data.get("attachments_status") == "complete":
                     self.unpack_attachments(job_data, cwd=Path(rundir))
 
