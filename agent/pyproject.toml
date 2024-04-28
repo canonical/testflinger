@@ -1,27 +1,26 @@
-[build-system]
-requires = [
-    "setuptools",
-    "setuptools-scm",
-]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "testflinger-agent"
 description = "Testflinger agent"
 readme = "README.rst"
-dependencies = [
-    "PyYAML",
-    "requests",
-    "voluptuous",
-    "influxdb",
-]
-dynamic = ["version"]
+version = "1.1.0"                 # specify your version here
+authors = []
 
-[project.scripts]
+[tool.poetry.dependencies]
+python = "^3.8"        # specify your Python version requirement here
+influxdb = "^5.3.2"
+pyyaml = "^6.0.1"
+requests = "^2.31.0"
+voluptuous = "^0.14.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.1.2"
+
+[tool.poetry.scripts]
 testflinger-agent = "testflinger_agent.cmd:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 79
-
-[tool.setuptools]
-packages = ["testflinger_agent"]

@@ -21,7 +21,7 @@ To create a virtual environment and install testflinger-agent:
 
   $ virtualenv env
   $ . env/bin/activate
-  $ ./setup install
+  $ pip install .
 
 Testing
 -------
@@ -30,7 +30,7 @@ To run the unit tests, first install (see above) then:
 
 .. code-block:: console
 
-  $ ./setup test
+  $ tox
 
 Configuration
 -------------
