@@ -14,15 +14,17 @@
 
 """Ubuntu Raspberry PI muxpi support code."""
 
+from contextlib import contextmanager
 import json
 import logging
-import subprocess
-import shlex
-import time
-import urllib.request
-from contextlib import contextmanager
 from pathlib import Path
+import requests
+import subprocess
+import tempfile
+import time
+from typing import Optional
 
+import urllib.request
 import yaml
 
 from testflinger_device_connectors.devices import (
@@ -220,17 +222,43 @@ class MuxPi:
         except Exception:
             raise
 
-    def download_test_image(self, url):
+    def download(self, url: str, local: Path, timeout: Optional[int]):
+        with requests.Session() as session:
+            response = session.get(url, stream=True, timeout=timeout)
+            response.raise_for_status()
+            with open(local, "wb") as file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:  # filter out keep-alive new chunks
+                        file.write(chunk)
+
+    def transfer_test_image(self, local: Path, timeout: Optional[int] = None):
+        ssh_options = " ".join(self.get_ssh_options())
+        control_user, control_host = self.get_credentials()
         cmd = (
-            f"(set -o pipefail; curl -sf {shlex.quote(url)} | zstdcat| "
-            f"sudo dd of={self.test_device} bs=16M)"
+            "set -o pipefail; "
+            f"cat {local} | "
+            f"ssh {ssh_options} {control_user}@{control_host} "
+            f'"zstdcat | sudo dd of={self.test_device} bs=16M"'
         )
-        logger.info("Running: %s", cmd)
         try:
-            # XXX: I hope 30 min is enough? but maybe not!
-            self._run_control(cmd, timeout=1800)
-        except Exception:
-            raise ProvisioningError("timeout reached while flashing image!")
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                shell=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise ProvisioningError(
+                f"Timeout while piping the test image to {self.test_device} "
+                f"through {control_user}@{control_host} "
+                f"using a timeout of {timeout}: {error}"
+            ) from error
+        if result.returncode != 0:
+            raise ProvisioningError(
+                f"Error while piping the test image to {self.test_device} "
+                f"through {control_user}@{control_host}: {result.stderr}"
+            )
 
     def flash_test_image(self, url):
         """
@@ -243,7 +271,11 @@ class MuxPi:
         """
         # First unmount, just in case
         self.unmount_writable_partition()
-        self.download_test_image(url)
+
+        with tempfile.NamedTemporaryFile(delete=True) as test_image:
+            self.download(url, local=test_image.name, timeout=1200)
+            self.transfer_test_image(local=test_image.name, timeout=1200)
+
         try:
             self._run_control("sync")
         except Exception:
