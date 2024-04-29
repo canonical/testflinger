@@ -57,6 +57,20 @@ class MuxPi:
         self.agent_name = self.config.get("agent_name")
         self.mount_point = Path("/mnt") / self.agent_name
 
+    def get_ssh_options(self):
+        return (
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+        )
+
+    def get_credentials(self):
+        return (
+            self.config.get("control_user", "ubuntu"),
+            self.config.get("control_host"),
+        )
+
     def _run_control(self, cmd, timeout=60):
         """
         Run a command on the control host over ssh
@@ -68,15 +82,11 @@ class MuxPi:
         :returns:
             Return output from the command, if any
         """
-        control_host = self.config.get("control_host")
-        control_user = self.config.get("control_user", "ubuntu")
+        control_user, control_host = self.get_credentials()
         ssh_cmd = [
             "ssh",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
-            "{}@{}".format(control_user, control_host),
+            *self.get_ssh_options(),
+            f"{control_user}@{control_host}",
             cmd,
         ]
         try:
@@ -96,16 +106,12 @@ class MuxPi:
         :param remote_file:
             Remote filename
         """
-        control_host = self.config.get("control_host")
-        control_user = self.config.get("control_user", "ubuntu")
+        control_user, control_host = self.get_credentials()
         ssh_cmd = [
             "scp",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
+            *self.get_ssh_options(),
             local_file,
-            "{}@{}:{}".format(control_user, control_host, remote_file),
+            f"{control_user}@{control_host}:{remote_file}",
         ]
         try:
             output = subprocess.check_output(ssh_cmd, stderr=subprocess.STDOUT)
@@ -214,6 +220,18 @@ class MuxPi:
         except Exception:
             raise
 
+    def download_test_image(self, url):
+        cmd = (
+            f"(set -o pipefail; curl -sf {shlex.quote(url)} | zstdcat| "
+            f"sudo dd of={self.test_device} bs=16M)"
+        )
+        logger.info("Running: %s", cmd)
+        try:
+            # XXX: I hope 30 min is enough? but maybe not!
+            self._run_control(cmd, timeout=1800)
+        except Exception:
+            raise ProvisioningError("timeout reached while flashing image!")
+
     def flash_test_image(self, url):
         """
         Flash the image at :image_url to the sd card.
@@ -225,17 +243,7 @@ class MuxPi:
         """
         # First unmount, just in case
         self.unmount_writable_partition()
-
-        cmd = (
-            f"(set -o pipefail; curl -sf {shlex.quote(url)} | zstdcat| "
-            f"sudo dd of={self.test_device} bs=16M)"
-        )
-        logger.info("Running: %s", cmd)
-        try:
-            # XXX: I hope 30 min is enough? but maybe not!
-            self._run_control(cmd, timeout=1800)
-        except Exception:
-            raise ProvisioningError("timeout reached while flashing image!")
+        self.download_test_image(url)
         try:
             self._run_control("sync")
         except Exception:
@@ -528,17 +536,14 @@ class MuxPi:
                             return True
 
                     continue
-
+                device_ip = self.config["device_ip"]
                 cmd = [
                     "sshpass",
                     "-p",
                     test_password,
                     "ssh-copy-id",
-                    "-o",
-                    "StrictHostKeyChecking=no",
-                    "-o",
-                    "UserKnownHostsFile=/dev/null",
-                    "{}@{}".format(test_username, self.config["device_ip"]),
+                    *self.get_ssh_options(),
+                    f"{test_username}@{device_ip}",
                 ]
                 subprocess.check_output(
                     cmd, stderr=subprocess.STDOUT, timeout=60
