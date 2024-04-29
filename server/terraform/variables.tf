@@ -23,6 +23,13 @@ variable "nginx_ingress_integrator_charm_whitelist_source_range" {
   default     = ""
 }
 
+variable "nginx_ingress_integrator_charm_max_body_size" {
+  description = "Max allowed body-size (for file uploads) in megabytes, set to 0 to disable limits."
+  type        = number
+  default     = 20
+}
+
+
 variable "application_units" {
   description = "Number of units (pods) to start"
   type        = number

@@ -29,6 +29,7 @@ resource "juju_application" "ingress" {
   config = {
     tls-secret-name = var.tls_secret_name
     whitelist-source-range = var.nginx_ingress_integrator_charm_whitelist_source_range
+    max-body-size = var.nginx_ingress_integrator_charm_max_body_size
   }
 }
 
