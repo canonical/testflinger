@@ -245,6 +245,7 @@ class MuxPi:
                 capture_output=True,
                 text=True,
                 shell=True,
+                executable="/bin/bash",
                 timeout=timeout,
             )
         except subprocess.TimeoutExpired as error:
