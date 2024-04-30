@@ -48,6 +48,10 @@ The following table lists the key elements that a job definition file should con
       |   - allocate
       |   - reserve 
       | For detailed information about how to define the data to include in each test phase, see :doc:`test-phases`. 
+  * - ``job_status_webhook``
+    - String
+    - /
+    - | (Optional) URL to post job status updates to. These updates include the current job state and information about the test phases the job has completed.
 
 Example jobs in YAML
 ----------------------------

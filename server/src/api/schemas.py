@@ -106,6 +106,7 @@ class Job(Schema):
     test_data = fields.Nested(TestData, required=False)
     allocate_data = fields.Dict(required=False)
     reserve_data = fields.Dict(required=False)
+    job_status_webhook = fields.String(required=False)
 
 
 class JobId(Schema):
