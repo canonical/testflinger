@@ -197,7 +197,6 @@ class MuxPi:
                     "'sd' or 'usb'"
                 )
         time.sleep(5)
-        logger.info(f"Flashing Test image on {self.test_device}")
         try:
             self.flash_test_image(url)
             if self.job_data["provision_data"].get("create_user", True):
@@ -272,8 +271,21 @@ class MuxPi:
         # First unmount, just in case
         self.unmount_writable_partition()
 
-        with tempfile.NamedTemporaryFile(delete=True) as test_image:
-            self.download(url, local=test_image.name, timeout=1200)
+        # [TODO] temporary check to determine whether remote or local image
+        # should be used
+        if url.startswith("http"):
+            with tempfile.NamedTemporaryFile(delete=True) as test_image:
+                logger.info(f"Downloading test image from {url}")
+                self.download(url, local=test_image.name, timeout=1200)
+                logger.info(f"Flashing Test image on {self.test_device}")
+                self.transfer_test_image(local=test_image.name, timeout=1200)
+        else:
+            rundir = Path.cwd()
+            attachments_dir = rundir / "attachments/provision"
+            # [TODO] could raise a FileNotFoundError is no provisioning attachments are specified
+            provisioning_attachments = [item for item in attachments_dir.iterdir() if item.is_file()]
+            test_image = provisioning_attachments[0] if len(provisioning_attachments) == 1 else None
+            logger.info(f"Flashing Test image {test_image.name} on {self.test_device}")
             self.transfer_test_image(local=test_image.name, timeout=1200)
 
         try:
