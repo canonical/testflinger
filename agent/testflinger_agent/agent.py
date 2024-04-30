@@ -18,8 +18,8 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
-import datetime
-from datetime import timezone
+
+from datetime import timezone, datetime
 
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
@@ -194,11 +194,18 @@ class TestflingerAgent:
         self.retry_old_results()
 
         self.check_restart()
-
+        webhook = None
+        job_queue = ""
         job_data = self.client.check_jobs()
         while job_data:
+
             try:
                 job = TestflingerJob(job_data, self.client)
+                webhook = job_data.get("job_status_webhook")
+                job_queue = job_data.get("job_queue")
+                # List of phases to send to status endpoint on the server
+                completed_phases = []
+
                 logger.info("Starting job %s", job.job_id)
                 rundir = os.path.join(
                     self.client.config.get("execution_basedir"), job.job_id
@@ -281,7 +288,10 @@ class TestflingerAgent:
                 logger.exception(e)
             finally:
                 # Always run the cleanup, even if the job was cancelled
-                job.run_test_phase("cleanup", rundir)
+                job.run_test_phase(JobState.CLEANUP, rundir)
+                self.client.post_status_update(
+                    JobState.CLEANUP, webhook, completed_phases, job_queue
+                )
                 # clear job id
                 self.client.post_agent_data({"job_id": ""})
 

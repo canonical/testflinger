@@ -116,7 +116,9 @@ class TestClient:
         if there is a valid webhook
         """
         webhook = "http://foo"
-        requests_mock.post(webhook, status_code=200)
+        requests_mock.post(
+            "http://127.0.0.1:8000/v1/agents/status", status_code=200
+        )
         phases = [
             {"phase_name": "phase1", "result": 0},
             {"phase_name": "phase2", "result": 1},
@@ -126,7 +128,7 @@ class TestClient:
             "agent_id": client.config.get("agent_id"),
             "job_queue": "myjobqueue",
             "job_state": "myjobstate",
-            "webhook": webhook,
+            "job_status_webhook": webhook,
             "phases": phases,
         }
         assert requests_mock.last_request.json() == expected_json
