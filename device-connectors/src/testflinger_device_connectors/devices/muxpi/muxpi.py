@@ -240,25 +240,26 @@ class MuxPi:
             f'"zstdcat | sudo dd of={self.test_device} bs=16M"'
         )
         try:
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
                 capture_output=True,
+                check=True,
                 text=True,
                 shell=True,
                 executable="/bin/bash",
                 timeout=timeout,
             )
+        except subprocess.CalledProcessError as error:
+            raise ProvisioningError(
+                f"Error while piping the test image to {self.test_device} "
+                f"through {control_user}@{control_host}: {error}"
+            ) from error
         except subprocess.TimeoutExpired as error:
             raise ProvisioningError(
                 f"Timeout while piping the test image to {self.test_device} "
                 f"through {control_user}@{control_host} "
                 f"using a timeout of {timeout}: {error}"
             ) from error
-        if result.returncode != 0:
-            raise ProvisioningError(
-                f"Error while piping the test image to {self.test_device} "
-                f"through {control_user}@{control_host}: {result.stderr}"
-            )
 
     def flash_test_image(self, url):
         """
