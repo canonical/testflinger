@@ -109,3 +109,24 @@ class TestClient:
         """
         client.transmit_job_outcome(tmp_path)
         assert "Unable to read job ID" in caplog.text
+
+    def test_post_status_update(self, client, requests_mock):
+        """
+        Test that the agent sends a status update to the status endpoint
+        if there is a valid webhook
+        """
+        webhook = "http://foo"
+        requests_mock.post(webhook, status_code=200)
+        phases = [
+            {"phase_name": "phase1", "result": 0},
+            {"phase_name": "phase2", "result": 1},
+        ]
+        client.post_status_update("myjobstate", webhook, phases, "myjobqueue")
+        expected_json = {
+            "agent_id": client.config.get("agent_id"),
+            "job_queue": "myjobqueue",
+            "job_state": "myjobstate",
+            "webhook": webhook,
+            "phases": phases,
+        }
+        assert requests_mock.last_request.json() == expected_json

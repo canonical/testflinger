@@ -18,10 +18,13 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
+import datetime
+from datetime import timezone
 
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.config import ATTACHMENTS_DIR
+from testflinger_agent.enums import JobState, TestPhase
 
 try:
     # attempt importing a tarfile filter, to check if filtering is supported
@@ -184,14 +187,8 @@ class TestflingerAgent:
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
-        TEST_PHASES = [
-            "setup",
-            "provision",
-            "firmware_update",
-            "test",
-            "allocate",
-            "reserve",
-        ]
+
+        TEST_PHASES = [phase.value for phase in TestPhase]
 
         # First, see if we have any old results that we couldn't send last time
         self.retry_old_results()
@@ -231,14 +228,39 @@ class TestflingerAgent:
                 if job_data.get("attachments_status") == "complete":
                     self.unpack_attachments(job_data, cwd=Path(rundir))
 
+                # List of phases to send to status endpoint on the server
+                completed_phases = []
+                webhook = job_data.get("job_status_webhook")
+                job_queue = job_data.get("job_queue")
+
                 for phase in TEST_PHASES:
                     # First make sure the job hasn't been cancelled
-                    if self.client.check_job_state(job.job_id) == "cancelled":
+                    if (
+                        self.client.check_job_state(job.job_id)
+                        == JobState.CANCELLED
+                    ):
                         logger.info("Job cancellation was requested, exiting.")
+                        self.client.post_status_update(
+                            JobState.CANCELLED,
+                            webhook,
+                            completed_phases,
+                            job_queue,
+                        )
                         break
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase)
+                    self.client.post_status_update(
+                        phase, webhook, completed_phases, job_queue
+                    )
+                    cur_phase_data = {
+                        "phase_name": phase,
+                        "start": datetime.now(timezone.utc).isoformat(),
+                    }
                     exitcode = job.run_test_phase(phase, rundir)
+                    cur_phase_data["end"] = datetime.now(
+                        timezone.utc
+                    ).isoformat()
+                    cur_phase_data["result"] = exitcode
 
                     self.client.post_influx(phase, exitcode)
 
@@ -246,6 +268,12 @@ class TestflingerAgent:
                     # In this case, we need to mark the device offline
                     if exitcode == 46:
                         self.mark_device_offline()
+                        cur_phase_data["reason"] = "Recovery Failed"
+                    completed_phases.append(cur_phase_data)
+                    self.client.post_status_update(
+                        phase, webhook, completed_phases, job_queue
+                    )
+
                     if phase != "test" and exitcode:
                         logger.debug("Phase %s failed, aborting job" % phase)
                         break

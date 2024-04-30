@@ -365,3 +365,34 @@ class TestflingerClient:
             )
         except InfluxDBClientError as exc:
             logger.error(exc)
+
+    def post_status_update(self, job_state, webhook, phases, job_queue):
+        """
+        Posts status updates about the running job as long as there is a
+        webhook
+
+        :param job_state:
+            String of currently running jobstate
+        :param webhook:
+            String URL to post status update to
+        :param phases:
+            List of accumulated test phases that have run
+        :param job_queue:
+            TestFlinger queue the currently running job belongs to
+        """
+        status_update_request = {
+            "agent_id": self.config.get("agent_id"),
+            "job_queue": job_queue,
+            "job_state": job_state,
+            "job_status_webhook": webhook,
+            "phases": phases,
+        }
+
+        status_update_uri = urljoin(self.server, "/v1/agents/status")
+        try:
+            if webhook is not None:
+                self.session.post(
+                    status_update_uri, json=status_update_request, timeout=30
+                )
+        except RequestException as exc:
+            logger.error(exc)
