@@ -287,8 +287,7 @@ class MuxPi:
             provisioning_attachments = [item for item in attachments_dir.iterdir() if item.is_file()]
             test_image = provisioning_attachments[0] if len(provisioning_attachments) == 1 else None
             logger.info(f"Flashing Test image {test_image.name} on {self.test_device}")
-            self.transfer_test_image(local=test_image.name, timeout=1200)
-
+            self.transfer_test_image(local=test_image, timeout=1200)
         try:
             self._run_control("sync")
         except Exception:
