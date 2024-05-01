@@ -102,7 +102,7 @@ class Client:
         uri = urllib.parse.urljoin(self.server, uri_frag)
         with open(path, "rb") as file:
             try:
-                files = {"file": (path.name, file)}
+                files = {"file": (path.name, file, "application/x-gzip")}
                 response = requests.post(uri, files=files, timeout=timeout)
             except requests.exceptions.ConnectTimeout:
                 logger.error(
