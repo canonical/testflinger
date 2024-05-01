@@ -115,8 +115,8 @@ class Client:
                     "in the alloted amount of time"
                 )
                 raise
-            except requests.exceptions.ConnectionError:
-                logger.error("A connection error occured")
+            except requests.exceptions.ConnectionError as error:
+                logger.error(f"A connection error occured {error}")
                 raise
             response.raise_for_status()
 
