@@ -14,14 +14,16 @@
 
 """Ubuntu Raspberry PI muxpi support code."""
 
+from contextlib import contextmanager
 import json
 import logging
-import subprocess
-import shlex
-import time
-import urllib.request
-from contextlib import contextmanager
 from pathlib import Path
+import requests
+import subprocess
+import tempfile
+import time
+from typing import Optional, Union
+import urllib
 
 import yaml
 
@@ -31,6 +33,11 @@ from testflinger_device_connectors.devices import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# should mirror `testflinger_agent.config.ATTACHMENTS_DIR`
+# [TODO] Merge both constants into testflinger.common
+ATTACHMENTS_DIR = "attachments"
 
 
 class MuxPi:
@@ -57,6 +64,20 @@ class MuxPi:
         self.agent_name = self.config.get("agent_name")
         self.mount_point = Path("/mnt") / self.agent_name
 
+    def get_ssh_options(self):
+        return (
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+        )
+
+    def get_credentials(self):
+        return (
+            self.config.get("control_user", "ubuntu"),
+            self.config.get("control_host"),
+        )
+
     def _run_control(self, cmd, timeout=60):
         """
         Run a command on the control host over ssh
@@ -68,15 +89,11 @@ class MuxPi:
         :returns:
             Return output from the command, if any
         """
-        control_host = self.config.get("control_host")
-        control_user = self.config.get("control_user", "ubuntu")
+        control_user, control_host = self.get_credentials()
         ssh_cmd = [
             "ssh",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
-            "{}@{}".format(control_user, control_host),
+            *self.get_ssh_options(),
+            f"{control_user}@{control_host}",
             cmd,
         ]
         try:
@@ -96,16 +113,12 @@ class MuxPi:
         :param remote_file:
             Remote filename
         """
-        control_host = self.config.get("control_host")
-        control_user = self.config.get("control_user", "ubuntu")
+        control_user, control_host = self.get_credentials()
         ssh_cmd = [
             "scp",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
+            *self.get_ssh_options(),
             local_file,
-            "{}@{}:{}".format(control_user, control_host, remote_file),
+            f"{control_user}@{control_host}:{remote_file}",
         ]
         try:
             output = subprocess.check_output(ssh_cmd, stderr=subprocess.STDOUT)
@@ -149,17 +162,27 @@ class MuxPi:
         self._run_control("true")
 
     def provision(self):
-        # If this is not a zapper, reboot before provisioning
-        if "zapper" not in self.config.get("control_switch_local_cmd", ""):
-            self.reboot_control_host()
-        try:
-            url = self.job_data["provision_data"]["url"]
-        except KeyError:
-            raise ProvisioningError(
-                'You must specify a "url" value in '
-                'the "provision_data" section of '
-                "your job_data"
-            )
+        # determine where to get the provisioning image from
+        source = self.job_data["provision_data"].get("url")
+        if source is None:
+            image_name = self.job_data["provision_data"].get("use_attachment")
+            if image_name is None:
+                raise ProvisioningError(
+                    'In the "provision_data" section of your job_data '
+                    'you must provide a value for "url" to specify '
+                    "where to download an image from or a value for "
+                    '"use_attachment" to specify which attachment to use '
+                    "as an image"
+                )
+            source = Path.cwd() / ATTACHMENTS_DIR / "provision" / image_name
+            if not source.exists():
+                raise ProvisioningError(
+                    'In the "provision_data" section of your job_data '
+                    'you have provided a value for "use_attachment" but '
+                    f"that attachment doesn't exist: {image_name}"
+                )
+
+        # determine where to write the provisioning image
         if "media" not in self.job_data["provision_data"]:
             media = None
             self.test_device = self.config["test_device"]
@@ -188,54 +211,103 @@ class MuxPi:
                     "your job_data must be either "
                     "'sd' or 'usb'"
                 )
+
+        # If this is not a zapper, reboot before provisioning
+        if "zapper" not in self.config.get("control_switch_local_cmd", ""):
+            self.reboot_control_host()
         time.sleep(5)
-        logger.info(f"Flashing Test image on {self.test_device}")
+
+        self.flash_test_image(source)
+
+        if self.job_data["provision_data"].get("create_user", True):
+            with self.remote_mount():
+                image_type = self.get_image_type()
+                logger.info("Image type detected: {}".format(image_type))
+                logger.info("Creating Test User")
+                self.create_user(image_type)
+        else:
+            logger.info("Skipping test user creation (create_user=False)")
+        self.run_post_provision_script()
+        logger.info("Booting Test Image")
+        if media == "sd":
+            cmd = "zapper sdwire set DUT"
+        elif media == "usb":
+            cmd = "zapper typecmux set DUT"
+        else:
+            cmd = self.config.get("control_switch_device_cmd", "stm -dut")
+        self._run_control(cmd)
+        self.hardreset()
+        self.check_test_image_booted()
+
+    def download(self, url: str, local: Path, timeout: Optional[int]):
+        with requests.Session() as session:
+            response = session.get(url, stream=True, timeout=timeout)
+            response.raise_for_status()
+            with open(local, "wb") as file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:  # filter out keep-alive new chunks
+                        file.write(chunk)
+
+    def transfer_test_image(self, local: Path, timeout: Optional[int] = None):
+        ssh_options = " ".join(self.get_ssh_options())
+        control_user, control_host = self.get_credentials()
+        cmd = (
+            "set -o pipefail; "
+            f"cat {local} | "
+            f"ssh {ssh_options} {control_user}@{control_host} "
+            f'"zstdcat | sudo dd of={self.test_device} bs=16M"'
+        )
         try:
-            self.flash_test_image(url)
-            if self.job_data["provision_data"].get("create_user", True):
-                with self.remote_mount():
-                    image_type = self.get_image_type()
-                    logger.info("Image type detected: {}".format(image_type))
-                    logger.info("Creating Test User")
-                    self.create_user(image_type)
-            else:
-                logger.info("Skipping test user creation (create_user=False)")
-            self.run_post_provision_script()
-            logger.info("Booting Test Image")
-            if media == "sd":
-                cmd = "zapper sdwire set DUT"
-            elif media == "usb":
-                cmd = "zapper typecmux set DUT"
-            else:
-                cmd = self.config.get("control_switch_device_cmd", "stm -dut")
-            self._run_control(cmd)
-            self.hardreset()
-            self.check_test_image_booted()
-        except Exception:
-            raise
+            subprocess.run(
+                cmd,
+                capture_output=True,
+                check=True,
+                text=True,
+                shell=True,
+                executable="/bin/bash",
+                timeout=timeout,
+            )
+        except subprocess.CalledProcessError as error:
+            raise ProvisioningError(
+                f"Error while piping the test image to {self.test_device} "
+                f"through {control_user}@{control_host}: {error}"
+            ) from error
+        except subprocess.TimeoutExpired as error:
+            raise ProvisioningError(
+                f"Timeout while piping the test image to {self.test_device} "
+                f"through {control_user}@{control_host} "
+                f"using a timeout of {timeout}: {error}"
+            ) from error
 
-    def flash_test_image(self, url):
+    def flash_test_image(self, source: Union[str, Path]):
         """
-        Flash the image at :image_url to the sd card.
+        Flash the image at :source to the sd card.
 
-        :param url:
-            URL to download the image from
+        :param source:
+            URL or Path to retrieve the image from
         :raises ProvisioningError:
             If the command times out or anything else fails.
         """
         # First unmount, just in case
         self.unmount_writable_partition()
 
-        cmd = (
-            f"(set -o pipefail; curl -sf {shlex.quote(url)} | zstdcat| "
-            f"sudo dd of={self.test_device} bs=16M)"
-        )
-        logger.info("Running: %s", cmd)
-        try:
-            # XXX: I hope 30 min is enough? but maybe not!
-            self._run_control(cmd, timeout=1800)
-        except Exception:
-            raise ProvisioningError("timeout reached while flashing image!")
+        if isinstance(source, Path):
+            # the source is an existing attachment
+            logger.info(
+                f"Flashing Test image {source.name} on {self.test_device}"
+            )
+            self.transfer_test_image(local=source, timeout=1200)
+        else:
+            # the source is a URL
+            with tempfile.NamedTemporaryFile(delete=True) as source_file:
+                logger.info(f"Downloading test image from {source}")
+                self.download(source, local=source_file.name, timeout=1200)
+                url_name = Path(urllib.parse.urlparse(source).path).name
+                logger.info(
+                    f"Flashing Test image {url_name} on {self.test_device}"
+                )
+                self.transfer_test_image(local=source_file.name, timeout=1200)
+
         try:
             self._run_control("sync")
         except Exception:
@@ -247,10 +319,10 @@ class MuxPi:
                 "sudo hdparm -z {}".format(self.test_device),
                 timeout=30,
             )
-        except Exception:
+        except Exception as error:
             raise ProvisioningError(
                 "Unable to run hdparm to rescan " "partitions"
-            )
+            ) from error
 
     def _get_part_labels(self):
         lsblk_data = self._run_control(
@@ -528,17 +600,14 @@ class MuxPi:
                             return True
 
                     continue
-
+                device_ip = self.config["device_ip"]
                 cmd = [
                     "sshpass",
                     "-p",
                     test_password,
                     "ssh-copy-id",
-                    "-o",
-                    "StrictHostKeyChecking=no",
-                    "-o",
-                    "UserKnownHostsFile=/dev/null",
-                    "{}@{}".format(test_username, self.config["device_ip"]),
+                    *self.get_ssh_options(),
+                    f"{test_username}@{device_ip}",
                 ]
                 subprocess.check_output(
                     cmd, stderr=subprocess.STDOUT, timeout=60

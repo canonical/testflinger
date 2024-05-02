@@ -222,7 +222,8 @@ In the `provisioning`, `firmware_update` and `test` phases, it is also possible 
     job_queue: example-queue
     provision_data:
       attachments:
-        - local: "ubuntu-22.04.4-preinstalled-desktop-arm64+raspi.img.xz"
+        - local: ubuntu-22.04.4-preinstalled-desktop-arm64+raspi.img.xz
+      use_attachment: ubuntu-22.04.4-preinstalled-desktop-arm64+raspi.img.xz
     test_data:
       attachments:
         - local: "config.json"
@@ -263,6 +264,12 @@ In the `provisioning`, `firmware_update` and `test` phases, it is also possible 
             ├── images
             │   └── ubuntu-logo.png
             └── script.sh
+
+In this example, there is no `url` field under the `provision_data` to specify where to download the provisioning image from.
+Instead, there is a `use_attachment` field that indicates which attachment should be used as a provisioning image.
+The presence of *either* `url` or `use_attachment` is required.
+
+At the moment, only the `muxpi` device connector supports provisioning using an attached image.
 
 Output 
 ------------
