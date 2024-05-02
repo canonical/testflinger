@@ -113,13 +113,10 @@ class MuxPi:
             raise ProvisioningError(e.output)
         return output
 
-    def reboot_control_host(self):
+    def reboot_sdwire(self):
         """
-        Reboot the control host
-        Sometimes the control host can end up in an unstable condition which
-        isn't easy to detect until it's too late. Since nothing else should
-        be using the control host, check and power cycle it if needed before
-        provisioning to ensure it's in a known good state.
+        Reboot both control host and DUT to ensure SDwire be in a good state
+        before provisioning.
         """
         if not self.config.get("control_host_reboot_script"):
             logger.warning(
@@ -134,6 +131,9 @@ class MuxPi:
                 subprocess.check_call(cmd.split(), timeout=60)
             except Exception:
                 raise ProvisioningError("fail to reboot control host")
+
+        logger.info("Rebooting DUT")
+        self.hardreset()
 
         reboot_timeout = self.config.get("control_host_reboot_timeout", 120)
         time.sleep(reboot_timeout)
@@ -151,7 +151,7 @@ class MuxPi:
     def provision(self):
         # If this is not a zapper, reboot before provisioning
         if "zapper" not in self.config.get("control_switch_local_cmd", ""):
-            self.reboot_control_host()
+            self.reboot_sdwire()
         try:
             url = self.job_data["provision_data"]["url"]
         except KeyError:
