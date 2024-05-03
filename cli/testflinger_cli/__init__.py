@@ -382,10 +382,12 @@ class TestflingerCli:
             with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive:
                 archive_path = Path(archive.name)
                 # create attachments archive prior to job submission
+                logger.info("Packing attachments into %s", archive_path)
                 self.pack_attachments(archive_path, attachments_data)
                 # submit job, followed by the submission of the archive
                 job_id = self.submit_job_data(job_dict)
                 try:
+                    logger.info("Submitting attachments for %s", job_id)
                     self.submit_job_attachments(job_id, path=archive_path)
                 except AttachmentError:
                     self.cancel(job_id)
@@ -443,6 +445,11 @@ class TestflingerCli:
         for _ in range(tries):
             try:
                 self.client.post_attachment(job_id, path, timeout=timeout)
+            except KeyboardInterrupt as error:
+                raise AttachmentError(
+                    f"Unable to submit attachment archive for {job_id}: "
+                    f"attachment upload was cancelled by the user"
+                ) from error
             except requests.HTTPError as error:
                 # we can't recover from these errors, give up without retrying
                 if error.response.status_code == 400:
