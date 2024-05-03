@@ -102,7 +102,7 @@ class Client:
         uri = urllib.parse.urljoin(self.server, uri_frag)
         with open(path, "rb") as file:
             try:
-                files = {"file": (path.name, file)}
+                files = {"file": (path.name, file, "application/x-gzip")}
                 response = requests.post(uri, files=files, timeout=timeout)
             except requests.exceptions.ConnectTimeout:
                 logger.error(
@@ -115,8 +115,8 @@ class Client:
                     "in the alloted amount of time"
                 )
                 raise
-            except requests.exceptions.ConnectionError:
-                logger.error("A connection error occured")
+            except requests.exceptions.ConnectionError as error:
+                logger.error("A connection error occured %s", error)
                 raise
             response.raise_for_status()
 

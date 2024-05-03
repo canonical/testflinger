@@ -95,6 +95,7 @@ TPM
 txt
 Ubuntu
 ubuntu
+url
 UI
 URI
 USB
