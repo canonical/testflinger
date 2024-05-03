@@ -162,10 +162,6 @@ class MuxPi:
         self._run_control("true")
 
     def provision(self):
-        # If this is not a zapper, reboot before provisioning
-        if "zapper" not in self.config.get("control_switch_local_cmd", ""):
-            self.reboot_sdwire()
-
         # determine where to get the provisioning image from
         source = self.job_data["provision_data"].get("url")
         if source is None:
@@ -218,7 +214,7 @@ class MuxPi:
 
         # If this is not a zapper, reboot before provisioning
         if "zapper" not in self.config.get("control_switch_local_cmd", ""):
-            self.reboot_control_host()
+            self.reboot_sdwire()
         time.sleep(5)
 
         self.flash_test_image(source)
