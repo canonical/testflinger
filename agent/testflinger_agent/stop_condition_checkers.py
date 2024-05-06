@@ -43,9 +43,13 @@ class GlobalTimeoutChecker:
 class OutputTimeoutChecker:
     def __init__(self, timeout: int):
         self.timeout = timeout
-        self.start_time = time.time()
+        self.last_output_time = time.time()
 
     def __call__(self) -> Optional[str]:
-        if time.time() - self.start_time > self.timeout:
+        if time.time() - self.last_output_time > self.timeout:
             return f"\nERROR: Output timeout reached! ({self.timeout}s)\n"
         return None
+
+    def update(self):
+        """Update the last output time to the current time."""
+        self.last_output_time = time.time()

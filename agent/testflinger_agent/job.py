@@ -24,6 +24,7 @@ from .handlers import LiveOutputHandler, LogUpdateHandler
 from .stop_condition_checkers import (
     JobCancelledChecker,
     GlobalTimeoutChecker,
+    OutputTimeoutChecker,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,6 +94,16 @@ class TestflingerJob:
                 self.get_global_timeout()
             )
             runner.register_stop_condition_checker(global_timeout_checker)
+
+        # We only need to check for output timeouts during the test phase
+        if phase == "test":
+            output_timeout_checker = OutputTimeoutChecker(
+                self.get_output_timeout()
+            )
+            runner.register_stop_condition_checker(output_timeout_checker)
+            runner.subscribe_event(
+                "output_received", output_timeout_checker.update
+            )
 
         # Do not allow cancellation during provision for safety reasons
         if phase != "provision":

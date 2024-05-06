@@ -51,3 +51,14 @@ class TestStopConditionCheckers:
         assert checker() is None
         time.sleep(0.6)
         assert "ERROR: Output timeout reached! (0.5s)" in checker()
+
+    def test_output_timeout_update(self):
+        """
+        Test that the output timeout checker doesn't get triggered when we
+        keep updating the last output time.
+        """
+        checker = OutputTimeoutChecker(0.3)
+        for _ in range(5):
+            time.sleep(0.1)
+            checker.update()
+            assert checker() is None
