@@ -1,0 +1,52 @@
+name: Test-flinging
+description: Submit a job YAML file to a Testflinger server
+inputs:
+  job:
+    description: "Path to a job file (see https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema/ for more info)"
+    required: true
+  poll:
+    description: Specify if the submitted job should be tracked to completion
+    required: false
+    default: false
+  dry-run:
+    description: Specify if the job should really be submitted
+    required: false
+    default: false
+  server:
+    description: The Testflinger server to use
+    required: false
+    default: testflinger.canonical.com
+runs:
+  using: composite
+  steps:
+    - name: Install prerequisites
+      shell: bash
+      run: sudo snap install testflinger-cli jq
+
+    - name: Test connection to Testflinger server
+      shell: bash
+      run: nc -vz ${{ inputs.server }} 443
+
+    - name: Display contents of job file (for verification)
+      shell: bash
+      run: cat ${{ inputs.job }}
+
+    - name: Submit job to the Testflinger server
+      if: inputs.dry-run != 'true'
+      id: submit
+      shell: bash
+      run: |
+        JOB_ID=$(testflinger --server https://${{ inputs.server }} submit --quiet ${{ inputs.job }})
+        echo "job id: $JOB_ID"
+        echo "JOB_ID=$JOB_ID" >> $GITHUB_ENV
+
+    - name: Track the status of the job and mirror its exit status
+      if: inputs.poll == 'true' && inputs.dry-run != 'true'
+      shell: bash
+      run: |
+        # poll
+        PYTHONUNBUFFERED=1 testflinger --server https://${{ inputs.server }} poll $JOB_ID
+        # retrieve results
+        STATUS=$(testflinger --server https://${{ inputs.server }} results $JOB_ID | jq -er .test_status)
+        echo "Test exit status: $STATUS"
+        exit $STATUS
