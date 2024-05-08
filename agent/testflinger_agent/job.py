@@ -19,7 +19,7 @@ import os
 import time
 
 from testflinger_agent.errors import TFServerError
-from .runner import CommandRunner
+from .runner import CommandRunner, RunnerEvents
 from .handlers import LiveOutputHandler, LogUpdateHandler
 from .stop_condition_checkers import (
     JobCancelledChecker,
@@ -102,7 +102,7 @@ class TestflingerJob:
             )
             runner.register_stop_condition_checker(output_timeout_checker)
             runner.subscribe_event(
-                "output_received", output_timeout_checker.update
+                RunnerEvents.OUTPUT_RECEIVED, output_timeout_checker.update
             )
 
         # Do not allow cancellation during provision for safety reasons
