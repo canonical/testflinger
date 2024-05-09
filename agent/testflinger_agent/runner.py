@@ -21,6 +21,8 @@ import subprocess
 import threading
 import time
 
+from collections import defaultdict
+from enum import Enum
 from typing import Callable, Optional, List
 
 logger = logging.getLogger(__name__)
@@ -29,13 +31,29 @@ OutputHandlerType = Callable[[str], None]
 StopConditionType = Callable[[], Optional[str]]
 
 
+class RunnerEvents(Enum):
+    """
+    Runner events that can be subscribed to.
+    """
+
+    OUTPUT_RECEIVED = "output_received"
+
+
 class CommandRunner:
+    """
+    Run a command and handle output and stop conditions.
+
+    There are also events that can be subscribed to for notifications. The
+    known event types are defined in RunnerEvents.
+    """
+
     def __init__(self, cwd: Optional[str], env: Optional[dict]):
         self.output_handlers: List[OutputHandlerType] = []
         self.stop_condition_checkers: List[StopConditionType] = []
         self.process: Optional[subprocess.Popen] = None
         self.cwd = cwd
         self.env = os.environ.copy()
+        self.events = defaultdict(list)
         if env:
             self.env.update(
                 {k: str(v) for k, v in env.items() if isinstance(v, str)}
@@ -43,6 +61,15 @@ class CommandRunner:
 
     def register_output_handler(self, handler: OutputHandlerType):
         self.output_handlers.append(handler)
+
+    def subscribe_event(self, event_name: RunnerEvents, handler: Callable):
+        """Set a callback for an event that we want to be notified of"""
+        self.events[event_name].append(handler)
+
+    def post_event(self, event_name: RunnerEvents):
+        """Post an event for subscribers to be notified of"""
+        for handler in self.events[event_name]:
+            handler()
 
     def post_output(self, data: str):
         for handler in self.output_handlers:
@@ -63,6 +90,7 @@ class CommandRunner:
         raw_output = self.process.stdout.read()
         if not raw_output:
             return
+        self.post_event(RunnerEvents.OUTPUT_RECEIVED)
 
         output = raw_output.decode(sys.stdout.encoding, errors="replace")
         self.post_output(output)
