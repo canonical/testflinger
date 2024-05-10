@@ -25,7 +25,7 @@ class JobCancelledChecker:
 
     def __call__(self) -> Optional[str]:
         if self.client.check_job_state(self.job_id) == "cancelled":
-            return "\nJob cancellation was requested, exiting.\n"
+            return "Job cancellation was requested, exiting."
         return None
 
 
@@ -36,7 +36,7 @@ class GlobalTimeoutChecker:
 
     def __call__(self) -> Optional[str]:
         if time.time() - self.start_time > self.timeout:
-            return f"\nERROR: Global timeout reached! ({self.timeout}s)\n"
+            return f"ERROR: Global timeout reached! ({self.timeout}s)"
         return None
 
 
@@ -47,7 +47,7 @@ class OutputTimeoutChecker:
 
     def __call__(self) -> Optional[str]:
         if time.time() - self.last_output_time > self.timeout:
-            return f"\nERROR: Output timeout reached! ({self.timeout}s)\n"
+            return f"ERROR: Output timeout reached! ({self.timeout}s)"
         return None
 
     def update(self):

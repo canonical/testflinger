@@ -117,7 +117,7 @@ class TestflingerJob:
         ):
             runner.run(f"echo '{line}'")
         try:
-            exitcode = runner.run(cmd)
+            exitcode, exit_reason = runner.run(cmd)
         except Exception as e:
             logger.exception(e)
         finally:
