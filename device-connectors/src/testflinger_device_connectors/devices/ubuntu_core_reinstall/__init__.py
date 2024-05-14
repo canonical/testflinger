@@ -15,7 +15,7 @@
 """
 Ubuntu Core Re-Install Provisioning
 For machines running Ubuntu Core, it is possible to get to a clean system
-using the same image 
+using the same image by calling the "command snap reboot --install"
 """
 
 import logging
