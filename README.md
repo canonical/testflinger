@@ -35,4 +35,17 @@ This monorepo is organized in a way that is consistant with the components descr
     ├── device-connectors
     ├── cli
     └── docs
+```
 
+# Github actions
+
+If you need to submit a job to a testflinger server through a Github action (instead, for example, of using the command-line tool), you can use the [`submit` action](https://github.com/canonical/testflinger/blob/main/.github/actions/submit/action.yaml) in a CI workflow.
+
+The corresponding step in the workflow would look like this:
+```
+    - name: Submit job
+      uses: canonical/testflinger/.github/actions/submit@v1
+      with:
+        poll: true
+        job: ${{ steps.create-job.outputs.job }}
+```

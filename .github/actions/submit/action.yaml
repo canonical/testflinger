@@ -1,4 +1,4 @@
-name: Test-flinging
+name: submit
 description: Submit a job YAML file to a Testflinger server
 inputs:
   job:
