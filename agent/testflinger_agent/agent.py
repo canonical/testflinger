@@ -22,6 +22,7 @@ import tempfile
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.config import ATTACHMENTS_DIR
+from testflinger_common.enums import JobState, TestPhase
 
 try:
     # attempt importing a tarfile filter, to check if filtering is supported
@@ -168,7 +169,11 @@ class TestflingerAgent:
         # (so there is no interference with existing processes, especially
         # provisioning or firmware update, which are triggered when these
         # sections are not empty)
-        for phase in ("provision", "firmware_update", "test"):
+        for phase in (
+            TestPhase.PROVISION,
+            TestPhase.FIRMWARE_UPDATE,
+            TestPhase.TEST,
+        ):
             phase_str = f"{phase}_data"
             try:
                 phase_data = job_data[phase_str]
@@ -185,12 +190,12 @@ class TestflingerAgent:
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
         TEST_PHASES = [
-            "setup",
-            "provision",
-            "firmware_update",
-            "test",
-            "allocate",
-            "reserve",
+            TestPhase.SETUP,
+            TestPhase.PROVISION,
+            TestPhase.FIRMWARE_UPDATE,
+            TestPhase.TEST,
+            TestPhase.ALLOCATE,
+            TestPhase.RESERVE,
         ]
 
         # First, see if we have any old results that we couldn't send last time
@@ -233,7 +238,10 @@ class TestflingerAgent:
 
                 for phase in TEST_PHASES:
                     # First make sure the job hasn't been cancelled
-                    if self.client.check_job_state(job.job_id) == "cancelled":
+                    if (
+                        self.client.check_job_state(job.job_id)
+                        == JobState.CANCELLED
+                    ):
                         logger.info("Job cancellation was requested, exiting.")
                         break
                     self.client.post_job_state(job.job_id, phase)
@@ -253,7 +261,7 @@ class TestflingerAgent:
                 logger.exception(e)
             finally:
                 # Always run the cleanup, even if the job was cancelled
-                job.run_test_phase("cleanup", rundir)
+                job.run_test_phase(TestPhase.CLEANUP, rundir)
                 # clear job id
                 self.client.post_agent_data({"job_id": ""})
 
@@ -266,7 +274,7 @@ class TestflingerAgent:
                 logger.exception(e)
                 results_basedir = self.client.config.get("results_basedir")
                 shutil.move(rundir, results_basedir)
-            self.set_agent_state("waiting")
+            self.set_agent_state(JobState.WAITING)
 
             self.check_restart()
             if self.check_offline():
