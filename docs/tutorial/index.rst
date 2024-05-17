@@ -139,7 +139,7 @@ The following example shows a test job, written in YAML, that provisions an Ubun
     distro: jammy
   test_data:
     test_cmds: |
-      ssh -t ubuntu@DEVICE_IP lsb_release -a
+      ssh -t ubuntu@$DEVICE_IP lsb_release -a
 
 In the example job definition file:
 
