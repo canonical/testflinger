@@ -52,7 +52,7 @@ The following table lists the key elements that a job definition file should con
 Example jobs in YAML
 ----------------------------
 
-The following example YAML file defines a job that provisions the Ubuntu Core 22 system on a Raspberry Pi 4 device. The job retrieves the image from the given URL, provisions the image on the device at IP address ``DEVICE_IP``, and prints the distribution-specific information on the provisioned device:
+The following example YAML file defines a job that provisions the Ubuntu Core 22 system on a Raspberry Pi 4 device. The job retrieves the image from the given URL, provisions the image on the device at IP address stored in the ``$DEVICE_IP`` environment variable, and prints the distribution-specific information on the provisioned device:
 
 .. code-block:: yaml
 
@@ -63,7 +63,7 @@ The following example YAML file defines a job that provisions the Ubuntu Core 22
     url: https://cdimage.ubuntu.com/ubuntu-core/22/stable/current/ubuntu-core-22-arm64+raspi.img.xz
   test_data:
     test_cmds: |
-      ssh -t ubuntu@DEVICE_IP lsb_release -a
+      ssh -t ubuntu@$DEVICE_IP lsb_release -a
 
 Data specified in the ``provision_data`` section varies on device types. For example, to provision server images on a MAAS device, the ``distro`` field should be used to indicate the system version. The following YAML file defines a job that provisions the Ubuntu 22.04 LTS (Jammy Jellyfish) server install image on a MAAS device and prints the information about its processors and network interface configurations:
 
