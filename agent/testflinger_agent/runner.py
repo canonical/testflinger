@@ -23,7 +23,7 @@ import time
 
 from collections import defaultdict
 from enum import Enum
-from typing import Callable, Optional, List
+from typing import Callable, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -78,13 +78,16 @@ class CommandRunner:
     def register_stop_condition_checker(self, checker: StopConditionType):
         self.stop_condition_checkers.append(checker)
 
-    def check_stop_conditions_and_post_output(self) -> bool:
+    def check_stop_conditions(self) -> str:
+        """
+        Check stop conditions and return the reason if any are met. Otherwise,
+        return an empty string if none are met
+        """
         for checker in self.stop_condition_checkers:
             output = checker()
             if output:
-                self.post_output(output)
-                return True
-        return False
+                return output
+        return ""
 
     def check_and_post_output(self):
         raw_output = self.process.stdout.read()
@@ -114,9 +117,10 @@ class CommandRunner:
         if self.process is not None:
             self.process.kill()
 
-    def run(self, cmd: str) -> int:
+    def run(self, cmd: str) -> Tuple[int, str]:
         # Ensure that the process is None before starting
         self.process = None
+        stop_reason = ""
 
         signal.signal(signal.SIGTERM, lambda signum, frame: self.cleanup())
 
@@ -132,7 +136,8 @@ class CommandRunner:
         while self.process.poll() is None:
             time.sleep(10)
 
-            if self.check_stop_conditions_and_post_output():
+            if stop_reason := self.check_stop_conditions():
+                self.post_output(f"\n{stop_reason}\n")
                 self.cleanup()
                 break
 
@@ -142,8 +147,19 @@ class CommandRunner:
         run_cmd_thread.join()
         self.check_and_post_output()
         self.cleanup()
+        if stop_reason == "":
+            stop_reason = get_stop_reason(self.process.returncode, "")
 
-        return self.process.returncode
+        return self.process.returncode, stop_reason
+
+
+def get_stop_reason(returncode: int, stop_reason: str) -> str:
+    """
+    Try to give some reason for the job stopping based on what we know.
+    """
+    if returncode == 0:
+        return "Normal exit"
+    return f"Unknown error rc={returncode}"
 
 
 def set_nonblock(fd: int):

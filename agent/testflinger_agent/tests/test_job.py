@@ -63,17 +63,19 @@ class TestJob:
 
     def test_job_global_timeout(self, tmp_path):
         """Test that timeout from job_data is respected"""
-        timeout_str = "\nERROR: Global timeout reached! (1s)\n"
+        timeout_str = "ERROR: Global timeout reached! (1s)"
         logfile = tmp_path / "testlog"
         runner = CommandRunner(tmp_path, env={})
         log_handler = LogUpdateHandler(logfile)
         runner.register_output_handler(log_handler)
         global_timeout_checker = GlobalTimeoutChecker(1)
         runner.register_stop_condition_checker(global_timeout_checker)
-        runner.run("sleep 3")
+        exit_code, exit_reason = runner.run("sleep 12")
         with open(logfile) as log:
             log_data = log.read()
-        assert timeout_str == log_data
+        assert timeout_str in log_data
+        assert exit_reason == timeout_str
+        assert exit_code == -9
 
     def test_config_global_timeout(self, client):
         """Test that timeout from device config is preferred"""
@@ -85,7 +87,7 @@ class TestJob:
 
     def test_job_output_timeout(self, tmp_path):
         """Test that output timeout from job_data is respected"""
-        timeout_str = "\nERROR: Output timeout reached! (1s)\n"
+        timeout_str = "ERROR: Output timeout reached! (1s)"
         logfile = tmp_path / "testlog"
         runner = CommandRunner(tmp_path, env={})
         log_handler = LogUpdateHandler(logfile)
@@ -94,10 +96,12 @@ class TestJob:
         runner.register_stop_condition_checker(output_timeout_checker)
         # unfortunately, we need to sleep for longer that 10 seconds here
         # or else we fall under the polling time
-        runner.run("sleep 12")
+        exit_code, exit_reason = runner.run("sleep 12")
         with open(logfile) as log:
             log_data = log.read()
-        assert timeout_str == log_data
+        assert timeout_str in log_data
+        assert exit_reason == timeout_str
+        assert exit_code == -9
 
     def test_config_output_timeout(self, client):
         """Test that output timeout from device config is preferred"""
