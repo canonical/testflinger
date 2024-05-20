@@ -47,5 +47,17 @@ The corresponding step in the workflow would look like this:
       uses: canonical/testflinger/.github/actions/submit@v1
       with:
         poll: true
-        job: ${{ steps.create-job.outputs.job }}
+        job-path: ${{ steps.create-job.outputs.job-path }}
 ```
+
+This assumes that there is a previous `create-job` step in the workflow that creates the job file and outputs the path to it, so that it can be used as input to the `submit` action.
+Alternatively, you can use the `job` argument (instead of `job-path`) to provide the contents of the job inline:
+```
+    - name: Submit job
+      uses: canonical/testflinger/.github/actions/submit@v1
+      with:
+        poll: true
+        job: |
+            ...  # inline YAML for Testflinger job
+```
+In the latter case, do remember to use escapes for environment variables in the inline text, e.g. `\$DEVICE_IP`.
