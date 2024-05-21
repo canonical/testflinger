@@ -151,6 +151,7 @@ class TestflingerAgentCharm(CharmBase):
             f"origin/{self._stored.testflinger_branch}",
             "--",
             "agent",
+            "common",
             "device-connectors",
         )
         # Install the agent and device-connectors
