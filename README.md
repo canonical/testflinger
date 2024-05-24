@@ -35,4 +35,29 @@ This monorepo is organized in a way that is consistant with the components descr
     ├── device-connectors
     ├── cli
     └── docs
+```
 
+# Github actions
+
+If you need to submit a job to a testflinger server through a Github action (instead, for example, of using the command-line tool), you can use the [`submit` action](https://github.com/canonical/testflinger/blob/main/.github/actions/submit/action.yaml) in a CI workflow.
+
+The corresponding step in the workflow would look like this:
+```
+    - name: Submit job
+      uses: canonical/testflinger/.github/actions/submit@v1
+      with:
+        poll: true
+        job-path: ${{ steps.create-job.outputs.job-path }}
+```
+
+This assumes that there is a previous `create-job` step in the workflow that creates the job file and outputs the path to it, so that it can be used as input to the `submit` action.
+Alternatively, you can use the `job` argument (instead of `job-path`) to provide the contents of the job inline:
+```
+    - name: Submit job
+      uses: canonical/testflinger/.github/actions/submit@v1
+      with:
+        poll: true
+        job: |
+            ...  # inline YAML for Testflinger job
+```
+In the latter case, do remember to use escapes for environment variables in the inline text, e.g. `\$DEVICE_IP`.

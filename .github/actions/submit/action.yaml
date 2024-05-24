@@ -1,0 +1,78 @@
+name: Submit a Testflinger job
+description: Submit a job to a Testflinger server
+inputs:
+  job:
+    description: "Inline contents of a job file (see https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema/ for more info)"
+    required: false
+  job-path:
+    description: "Path to a job file (see https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema/ for more info)"
+    required: false
+  poll:
+    description: Specify if the submitted job should be tracked to completion
+    required: false
+    default: false
+  dry-run:
+    description: Specify if the job should really be submitted
+    required: false
+    default: false
+  server:
+    description: The Testflinger server to use
+    required: false
+    default: testflinger.canonical.com
+runs:
+  using: composite
+
+  steps:
+    - name: Create job file, if required
+      id: create-job-file
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.job-path }}" ]; then
+        # the `$JOB` environment variable points to the job path provided as input
+        echo "JOB=${{ inputs.job-path }}" >> $GITHUB_ENV
+        else
+        # write the inline job text to a file
+        FILE=${{ github.workspace }}/tmp_job.yaml
+        # do not ever indent these lines; the here-doc is sensitive to that
+        cat > $FILE << EOF
+        ${{ inputs.job }}
+        EOF
+        if [[ $(cat "$FILE" | wc -w) == 0 ]]; then
+          echo 'Neither of the `job` or `job-path` inputs have been specified'
+          exit 1
+        fi
+        # the `$JOB` environment variable points to the newly created job file
+        echo "JOB=$FILE" >> $GITHUB_ENV
+        fi
+
+    - name: Display contents of job file (for verification)
+      shell: bash
+      run: cat "$JOB"
+
+    - name: Install prerequisites
+      shell: bash
+      run: sudo snap install testflinger-cli jq
+
+    - name: Test connection to Testflinger server
+      shell: bash
+      run: nc -vz ${{ inputs.server }} 443
+
+    - name: Submit job to the Testflinger server
+      id: submit
+      if: inputs.dry-run != 'true'
+      shell: bash
+      run: |
+        JOB_ID=$(testflinger --server https://${{ inputs.server }} submit --quiet "$JOB")
+        echo "job id: $JOB_ID"
+        echo "JOB_ID=$JOB_ID" >> $GITHUB_ENV
+
+    - name: Track the status of the job and mirror its exit status
+      if: inputs.poll == 'true' && inputs.dry-run != 'true'
+      shell: bash
+      run: |
+        # poll
+        PYTHONUNBUFFERED=1 testflinger --server https://${{ inputs.server }} poll $JOB_ID
+        # retrieve results
+        STATUS=$(testflinger --server https://${{ inputs.server }} results $JOB_ID | jq -er .test_status)
+        echo "Test exit status: $STATUS"
+        exit $STATUS
