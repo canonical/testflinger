@@ -21,6 +21,7 @@ import shutil
 import tempfile
 import time
 
+from typing import List, Dict
 from urllib.parse import urljoin
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
@@ -365,3 +366,40 @@ class TestflingerClient:
             )
         except InfluxDBClientError as exc:
             logger.error(exc)
+
+    def post_status_update(
+        self, job_queue: str, webhook: str, events: List[Dict[str, str]]
+    ):
+        """
+        Posts status updates about the running job as long as there is a
+        webhook
+
+        :param job_queue:
+            TestFlinger queue the currently running job belongs to
+        :param webhook:
+            String URL to post status update to
+        :param events:
+            List of accumulated test events
+
+        """
+        if webhook is None:
+            return
+
+        status_update_request = {
+            "agent_id": self.config.get("agent_id"),
+            "job_queue": job_queue,
+            "job_status_webhook": webhook,
+            "events": events,
+        }
+        status_update_uri = urljoin(self.server, "/v1/agents/status")
+        try:
+            job_request = self.session.post(
+                status_update_uri, json=status_update_request, timeout=30
+            )
+        except RequestException as exc:
+            logger.error("Server Error: %s" % exc)
+        if not job_request:
+            logger.error(
+                "Unable to post status updates to: %s (error: %s)"
+                % (status_update_uri, job_request.status_code)
+            )
