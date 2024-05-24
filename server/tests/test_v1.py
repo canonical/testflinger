@@ -528,6 +528,28 @@ def test_agents_provision_logs_post(mongo_app):
     assert len(provision_log_records["provision_log"]) == 2
 
 
+def test_agents_status_put(mongo_app, requests_mock):
+    """Test api to receive agent status requests"""
+    app, _ = mongo_app
+    webhook = "http://mywebhook.com"
+    requests_mock.put(webhook, status_code=200, text="webhook requested")
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": webhook,
+        "events": [
+            {
+                "event_name": "my_event",
+                "timestamp": "2014-12-22T03:12:58.019077+00:00",
+                "detail": "mymsg",
+            }
+        ],
+    }
+    output = app.post("/v1/agents/status", json=status_update_data)
+    assert 200 == output.status_code
+    assert "webhook requested" == output.text
+
+
 def test_get_agents_data(mongo_app):
     """Test api to retrieve agent data"""
     app, _ = mongo_app

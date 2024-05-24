@@ -26,6 +26,10 @@ from flask import jsonify, request, send_file
 from prometheus_client import Counter
 from werkzeug.exceptions import BadRequest
 
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 from src import database
 from . import schemas
 
@@ -511,6 +515,48 @@ def agents_provision_logs_post(agent_name, json_data):
         upsert=True,
     )
     return "OK"
+
+
+@v1.post("/agents/status")
+@v1.input(schemas.StatusUpdate, location="json")
+def agents_status_post(json_data):
+    """Posts status updates from the agent to the server to be forwarded
+    to TestObserver
+
+    The json sent to this endpoint may contain data such as the following:
+    {
+        "agent_id": "<string>",
+        "job_queue": "<string>",
+        "job_status_webhook": "<URL as string>",
+        "events": [
+        {
+            "event_name": "<string enum of events>",
+            "timestamp": "<datetime>",
+            "detail": "<string>"
+        },
+        ...
+        ]
+    }
+
+    """
+    request_json = json_data
+    webhook_url = request_json.pop("job_status_webhook")
+    try:
+        s = requests.Session()
+        s.mount(
+            "",
+            HTTPAdapter(
+                max_retries=Retry(
+                    total=3,
+                    allowed_methods=frozenset(["PUT"]),
+                    backoff_factor=1,
+                )
+            ),
+        )
+        response = s.put(webhook_url, json=request_json, timeout=3)
+        return response.text, response.status_code
+    except requests.exceptions.Timeout:
+        return "Webhook Timeout", 504
 
 
 def check_valid_uuid(job_id):
