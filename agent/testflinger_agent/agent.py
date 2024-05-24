@@ -22,7 +22,9 @@ import tempfile
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.config import ATTACHMENTS_DIR
-from testflinger_common.enums import JobState, TestPhase
+from testflinger_agent.event_emitter import EventEmitter
+from testflinger_common.enums import JobState, TestPhase, TestEvent
+
 
 try:
     # attempt importing a tarfile filter, to check if filtering is supported
@@ -189,6 +191,7 @@ class TestflingerAgent:
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
+
         TEST_PHASES = [
             TestPhase.SETUP,
             TestPhase.PROVISION,
@@ -202,11 +205,17 @@ class TestflingerAgent:
         self.retry_old_results()
 
         self.check_restart()
-
         job_data = self.client.check_jobs()
         while job_data:
             try:
                 job = TestflingerJob(job_data, self.client)
+                event_emitter = EventEmitter(
+                    job_data.get("job_queue"),
+                    job_data.get("job_status_webhook"),
+                    self.client,
+                )
+                job_end_reason = TestEvent.NORMAL_EXIT
+
                 logger.info("Starting job %s", job.job_id)
                 rundir = os.path.join(
                     self.client.config.get("execution_basedir"), job.job_id
@@ -243,32 +252,48 @@ class TestflingerAgent:
                         == JobState.CANCELLED
                     ):
                         logger.info("Job cancellation was requested, exiting.")
+                        event_emitter.emit_event(TestEvent.CANCELLED)
                         break
+
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase)
-                    exit_code = job.run_test_phase(phase, rundir)
 
-                    self.client.post_influx(phase, exit_code)
+                    event_emitter.emit_event(TestEvent(phase + "_start"))
+                    exitcode, exit_event, exit_reason = job.run_test_phase(
+                        phase, rundir
+                    )
+                    self.client.post_influx(phase, exitcode)
+                    event_emitter.emit_event(exit_event, exit_reason)
 
-                    if phase == "provision":
+                    if exitcode:
                         # exit code 46 is our indication that recovery failed!
                         # In this case, we need to mark the device offline
-                        if exit_code == 46:
+                        if exitcode == 46:
                             self.mark_device_offline()
-                            # Replace with TestEvent enum values once it lands
-                            detail = "recovery_fail"
-                        detail = "provision_fail" if exit_code else ""
-                        self.client.post_provision_log(
-                            job.job_id, exit_code, detail
-                        )
-                    if phase != "test" and exit_code:
-                        logger.debug("Phase %s failed, aborting job" % phase)
-                        break
+                            exit_event = TestEvent.RECOVERY_FAIL
+                        else:
+                            exit_event = TestEvent(phase + "_fail")
+                        event_emitter.emit_event(exit_event)
+                        if phase == "provision":
+                            self.client.post_provision_log(
+                                job.job_id, exit_code, exit_event
+                            )
+                        if phase != "test":
+                            logger.debug(
+                                "Phase %s failed, aborting job" % phase
+                            )
+                            job_end_reason = exit_event
+                            break
+                    else:
+                        event_emitter.emit_event(TestEvent(phase + "_success"))
             except Exception as e:
                 logger.exception(e)
             finally:
                 # Always run the cleanup, even if the job was cancelled
+                event_emitter.emit_event(TestEvent.CLEANUP_START)
                 job.run_test_phase(TestPhase.CLEANUP, rundir)
+                event_emitter.emit_event(TestEvent.CLEANUP_SUCCESS)
+                event_emitter.emit_event(TestEvent.JOB_END, job_end_reason)
                 # clear job id
                 self.client.post_agent_data({"job_id": ""})
 

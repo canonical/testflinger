@@ -59,24 +59,24 @@ class TestflingerJob:
         node = self.client.config.get("agent_id")
         if not cmd:
             logger.info("No %s_command configured, skipping...", phase)
-            return 0
+            return 0, None, None
         if phase == "provision" and not self.job_data.get("provision_data"):
             logger.info("No provision_data defined in job data, skipping...")
-            return 0
+            return 0, None, None
         if phase == "firmware_update" and not self.job_data.get(
             "firmware_update_data"
         ):
             logger.info(
                 "No firmware_update_data defined in job data, skipping..."
             )
-            return 0
+            return 0, None, None
         if phase == "test" and not self.job_data.get("test_data"):
             logger.info("No test_data defined in job data, skipping...")
-            return 0
+            return 0, None, None
         if phase == "allocate" and not self.job_data.get("allocate_data"):
-            return 0
+            return 0, None, None
         if phase == "reserve" and not self.job_data.get("reserve_data"):
-            return 0
+            return 0, None, None
         results_file = os.path.join(rundir, "testflinger-outcome.json")
         output_log = os.path.join(rundir, phase + ".log")
         serial_log = os.path.join(rundir, phase + "-serial.log")
@@ -117,8 +117,8 @@ class TestflingerJob:
         ):
             runner.run(f"echo '{line}'")
         try:
-            exitcode, exit_reason = runner.run(cmd)
-        except Exception as exc:
+            exitcode, exit_event, exit_reason = runner.run(cmd)
+        except Exception as e:
             logger.exception(exc)
             exitcode = 100
             exit_reason = str(exc)  # noqa: F841 - ignore this until it's used
@@ -128,7 +128,7 @@ class TestflingerJob:
             )
         if phase == "allocate":
             self.allocate_phase(rundir)
-        return exitcode
+        return exitcode, exit_event, exit_reason
 
     def _update_phase_results(
         self, results_file, phase, exitcode, output_log, serial_log

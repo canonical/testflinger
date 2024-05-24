@@ -43,3 +43,36 @@ class TestPhase(StrEnum):
     RESERVE = "reserve"
     CLEANUP = "cleanup"
 
+
+class TestEvent(StrEnum):
+    SETUP_START = "setup_start"
+    PROVISION_START = "provision_start"
+    FIRMWARE_UPDATE_START = "firmware_update_start"
+    TEST_START = "test_start"
+    ALLOCATE_START = "allocate_start"
+    RESERVE_START = "reserve_start"
+    CLEANUP_START = "cleanup_start"
+
+    SETUP_SUCCESS = "setup_success"
+    PROVISION_SUCCESS = "provision_success"
+    FIRMWARE_UPDATE_SUCCESS = "firmware_update_success"
+    TEST_SUCCESS = "test_success"
+    ALLOCATE_SUCCESS = "allocate_success"
+    RESERVE_SUCCESS = "reserve_success"
+    CLEANUP_SUCCESS = "cleanup_success"
+
+    SETUP_FAIL = "setup_fail"
+    PROVISION_FAIL = "provision_fail"
+    FIRMWARE_UPDATE_FAIL = "firmware_update_fail"
+    TEST_FAIL = "test_fail"
+    ALLOCATE_FAIL = "allocate_fail"
+    RESERVE_FAIL = "reserve_fail"
+    CLEANUP_FAIL = "cleanup_fail"
+
+    CANCELLED = "cancelled"
+    GLOBAL_TIMEOUT = "global_timeout"
+    OUTPUT_TIMEOUT = "output_timeout"
+    RECOVERY_FAILED = "recovery_failed"
+
+    NORMAL_EXIT = "normal_exit"
+    JOB_END = "job_end"

@@ -25,6 +25,8 @@ from collections import defaultdict
 from enum import Enum
 from typing import Callable, List, Optional, Tuple
 
+from testflinger_common.enums import TestEvent
+
 logger = logging.getLogger(__name__)
 
 OutputHandlerType = Callable[[str], None]
@@ -78,16 +80,16 @@ class CommandRunner:
     def register_stop_condition_checker(self, checker: StopConditionType):
         self.stop_condition_checkers.append(checker)
 
-    def check_stop_conditions(self) -> str:
+    def check_stop_conditions(self) -> Tuple[Optional[TestEvent], str]:
         """
         Check stop conditions and return the reason if any are met. Otherwise,
         return an empty string if none are met
         """
         for checker in self.stop_condition_checkers:
-            output = checker()
-            if output:
-                return output
-        return ""
+            event, detail = checker()
+            if event is not None:
+                return event, detail
+        return None, ""
 
     def check_and_post_output(self):
         raw_output = self.process.stdout.read()
@@ -117,9 +119,10 @@ class CommandRunner:
         if self.process is not None:
             self.process.kill()
 
-    def run(self, cmd: str) -> Tuple[int, str]:
+    def run(self, cmd: str) -> Tuple[int, Optional[TestEvent], str]:
         # Ensure that the process is None before starting
         self.process = None
+        stop_event = None
         stop_reason = ""
 
         signal.signal(signal.SIGTERM, lambda signum, frame: self.cleanup())
@@ -136,7 +139,8 @@ class CommandRunner:
         while self.process.poll() is None:
             time.sleep(10)
 
-            if stop_reason := self.check_stop_conditions():
+            stop_event, stop_reason = self.check_stop_conditions()
+            if stop_event is not None:
                 self.post_output(f"\n{stop_reason}\n")
                 self.cleanup()
                 break
@@ -150,7 +154,7 @@ class CommandRunner:
         if stop_reason == "":
             stop_reason = get_stop_reason(self.process.returncode, "")
 
-        return self.process.returncode, stop_reason
+        return self.process.returncode, stop_event, stop_reason
 
 
 def get_stop_reason(returncode: int, stop_reason: str) -> str:
