@@ -211,6 +211,8 @@ Example agent configuration:
   cleanup_command: echo Consider removing containers or other necessary cleanup steps here
 
 
+.. _file_attachments:
+
 Attachments
 ------------
 In the `provisioning`, `firmware_update` and `test` phases, it is also possible to specify attachments, i.e. local files that are to be copied over to the Testflinger agent host.
@@ -269,7 +271,7 @@ In this example, there is no `url` field under the `provision_data` to specify w
 Instead, there is a `use_attachment` field that indicates which attachment should be used as a provisioning image.
 The presence of *either* `url` or `use_attachment` is required.
 
-At the moment, only the `muxpi` device connector supports provisioning using an attached image.
+At the moment, only the :ref:`muxpi` device connector supports provisioning using an attached image.
 
 Output 
 ------------
