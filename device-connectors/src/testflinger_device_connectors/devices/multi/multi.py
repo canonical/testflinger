@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import time
+import requests
 
 from testflinger_device_connectors.devices import ProvisioningError
 
@@ -144,11 +145,19 @@ class Multi:
 
             try:
                 job_id = self.client.submit_job(job)
-            except OSError as exc:
-                logger.exception("Unable to create job: %s", job_id)
+            except requests.exceptions.HTTPError as exc:
+                logger.error("Unable to create job: %s", exc.response.text)
                 self.cancel_jobs(self.jobs)
                 raise ProvisioningError(
-                    f"Unable to create job: {job_id}"
+                    f"Unable to create job: {exc.response.text}"
+                ) from exc
+            except OSError as exc:
+                logger.error(
+                    "An error occurred while creating the job: %s", exc
+                )
+                self.cancel_jobs(self.jobs)
+                raise ProvisioningError(
+                    "An error occurred while creating the job"
                 ) from exc
 
             logger.info("Created job %s", job_id)
