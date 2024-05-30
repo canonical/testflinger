@@ -46,11 +46,18 @@ class MongoClientMock(mongomock.MongoClient):
 
 @pytest.fixture
 def mongo_app():
-    """Create a pytest fixture for the app"""
+    """Create a pytest fixture for database and app"""
     mock_mongo = MongoClientMock()
     database.mongo = mock_mongo
     app = application.create_flask_app(TestingConfig)
     yield app.test_client(), mock_mongo.db
+
+
+@pytest.fixture
+def testapp():
+    """pytest fixture for just the app"""
+    app = application.create_flask_app(TestingConfig)
+    yield app
 
 
 @pytest.fixture

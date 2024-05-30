@@ -47,6 +47,8 @@ def agents():
 def agent_detail(agent_id):
     """Agent detail view"""
     agent_info = mongo.db.agents.find_one({"name": agent_id})
+    if not agent_info:
+        return render_template("agent_not_found.html", agent_id=agent_id)
     return render_template("agent_detail.html", agent=agent_info)
 
 

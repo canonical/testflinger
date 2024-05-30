@@ -19,7 +19,7 @@ Unit tests for Testflinger views
 
 import mongomock
 from mock import patch
-from src.views import queues_data
+from src.views import queues_data, agent_detail
 
 
 def test_queues():
@@ -82,3 +82,16 @@ def test_queues():
     assert len(advertised_queue2) == 1
     assert advertised_queue2[0]["description"] == "desc2"
     assert advertised_queue2[0]["numjobs"] == 2
+
+
+def test_agent_not_found(testapp):
+    """
+    Test that the agent_detail fails gracefully when an agent is not found
+    """
+
+    mongo = mongomock.MongoClient()
+    with patch("src.views.mongo", mongo):
+        with testapp.test_request_context():
+            data = agent_detail("agent1")
+
+    assert "Agent not found: agent1" in data
