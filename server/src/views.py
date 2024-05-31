@@ -17,7 +17,7 @@
 Additional views not associated with the API
 """
 
-from flask import Blueprint, render_template, redirect, url_for
+from flask import Blueprint, make_response, render_template, redirect, url_for
 from prometheus_client import generate_latest
 from src.database import mongo
 
@@ -48,7 +48,11 @@ def agent_detail(agent_id):
     """Agent detail view"""
     agent_info = mongo.db.agents.find_one({"name": agent_id})
     if not agent_info:
-        return render_template("agent_not_found.html", agent_id=agent_id)
+        response = make_response(
+            render_template("agent_not_found.html", agent_id=agent_id)
+        )
+        response.status_code = 404
+        return response
     return render_template("agent_detail.html", agent=agent_info)
 
 

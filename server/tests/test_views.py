@@ -92,6 +92,7 @@ def test_agent_not_found(testapp):
     mongo = mongomock.MongoClient()
     with patch("src.views.mongo", mongo):
         with testapp.test_request_context():
-            data = agent_detail("agent1")
+            response = agent_detail("agent1")
 
-    assert "Agent not found: agent1" in data
+    assert "Agent not found: agent1" in str(response.data)
+    assert response.status_code == 404
