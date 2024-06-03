@@ -142,6 +142,7 @@ class TestflingerAgentCharm(CharmBase):
         repo_path = f"{self._stored.agent_path}/testflinger"
         repo = Repo.clone_from(
             url=self._stored.testflinger_repo,
+            branch=self._stored.testflinger_branch,
             to_path=repo_path,
             no_checkout=True,
             depth=1,
@@ -151,6 +152,7 @@ class TestflingerAgentCharm(CharmBase):
             f"origin/{self._stored.testflinger_branch}",
             "--",
             "agent",
+            "common",
             "device-connectors",
         )
         # Install the agent and device-connectors
