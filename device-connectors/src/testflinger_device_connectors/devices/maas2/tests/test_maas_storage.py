@@ -17,6 +17,7 @@
 
 import pytest
 import json
+import subprocess
 from unittest.mock import Mock, MagicMock, call
 from testflinger_device_connectors.devices.maas2.maas_storage import (
     MaasStorage,
@@ -533,3 +534,138 @@ class TestMaasStorage:
                 f"mount_point={device['path']}",
             ]
         )
+
+
+class MockMaasStorageWithCallCmd(MaasStorage):
+    """Don't mock call_cmd, must provide node_info."""
+
+    def __init__(self, maas_user, node_id, node_info):
+        super().__init__(maas_user, node_id, node_info)
+
+
+class TestMaasStorageCallCmd:
+    """Test maas device connector storage module."""
+
+    node_info = json.dumps(
+        [
+            {
+                "id": 1,
+                "name": "sda",
+                "type": "physical",
+                "size": "300000000000",
+                "path": "/dev/disk/by-dname/sda",
+                "filesystem": None,
+                "partitions": [
+                    {
+                        "id": 10,
+                        "type": "partition",
+                        "size": "1000000000",
+                        "parent_disk": 1,
+                        "bootable": "true",
+                        "filesystem": {
+                            "mount_point": "/boot",
+                            "fstype": "ext4",
+                        },
+                    }
+                ],
+            },
+            {
+                "id": 2,
+                "name": "sdb",
+                "type": "physical",
+                "size": "400000000000",
+                "path": "/dev/disk/by-dname/sdb",
+                "filesystem": None,
+                "partitions": [
+                    {
+                        "id": 20,
+                        "type": "partition",
+                        "size": "20000000000",
+                        "parent_disk": 2,
+                        "filesystem": {
+                            "mount_point": "/data",
+                            "fstype": "ext4",
+                        },
+                    }
+                ],
+            },
+            {
+                "id": 3,
+                "name": "sdc",
+                "type": "physical",
+                "size": "900000000000",
+                "path": "/dev/disk/by-dname/sdc",
+                "filesystem": {"mount_point": "/backup", "fstype": "ext4"},
+                "partitions": [],
+            },
+            {
+                "id": 4,
+                "type": "virtual",
+            },
+        ]
+    )
+
+    @pytest.fixture
+    def maas_storage(self):
+        """Provides a MockMaasStorage instance for testing."""
+        maas_user = "maas_user"
+        node_id = "node_id"
+        yield MockMaasStorageWithCallCmd(maas_user, node_id, self.node_info)
+
+    def test_call_cmd_type_error(self, maas_storage):
+        """Checks if 'call_cmd' raises MaasStorageError for TypeError."""
+        with pytest.raises(MaasStorageError):
+            maas_storage.call_cmd(None)
+
+    def test_call_cmd_return_nonzero(self, maas_storage):
+        """Checks if 'call_cmd' raises MaasStorageError for non-zero return."""
+        subprocess.run = MagicMock()
+        subprocess.run.return_value = subprocess.CompletedProcess(
+            args=["foo"],
+            returncode=1,
+        )
+        with pytest.raises(MaasStorageError):
+            maas_storage.call_cmd(["foo"])
+
+    def test_call_cmd_return_empty_json(self, maas_storage):
+        """Checks if 'call_cmd' converts empty stdout to json when needed."""
+        subprocess.run = MagicMock()
+        subprocess.run.return_value = subprocess.CompletedProcess(
+            args=["foo"],
+            returncode=0,
+            stdout=b"",
+        )
+        assert maas_storage.call_cmd(["foo"], output_json=True) == {}
+
+    def test_call_cmd_json_decode_error(self, maas_storage):
+        """Checks if 'call_cmd' raises MaasStorageError on JSONDecodeError."""
+        subprocess.run = MagicMock()
+        subprocess.run.return_value = subprocess.CompletedProcess(
+            args=["foo"],
+            returncode=0,
+            stdout=b"foo",
+        )
+        with pytest.raises(MaasStorageError):
+            maas_storage.call_cmd(["foo"], output_json=True)
+
+    def test_call_cmd_good_text_output(self, maas_storage):
+        """Checks if 'call_cmd' returns text output when requested."""
+        subprocess.run = MagicMock()
+        subprocess.run.return_value = subprocess.CompletedProcess(
+            args=["foo"],
+            returncode=0,
+            stdout=b"foo",
+        )
+        assert maas_storage.call_cmd(["foo"], output_json=False) == "foo"
+
+    def test_call_cmd_good_json_output(self, maas_storage):
+        """Checks if 'call_cmd' returns json output when requested."""
+        subprocess.run = MagicMock()
+        subprocess.run.return_value = subprocess.CompletedProcess(
+            args=["foo"],
+            returncode=0,
+            stdout=b'{"foo": "bar"}',
+        )
+        assert maas_storage.call_cmd(["foo"], output_json=True) == {
+            "foo": "bar"
+        }
