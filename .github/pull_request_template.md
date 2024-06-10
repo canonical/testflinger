@@ -50,11 +50,4 @@ Please make sure that...
 
 <!--
 - How was this PR tested? Please provide steps to follow so that the reviewer(s) can test on their end.
-- Please provide a list of what tests were run.
 -->
-
-
-## Testing
-
-- How were these changes tested?
-- What should the reviewer do to test, if it's credibly locally testable? (Why is it not, if it isn't?)
