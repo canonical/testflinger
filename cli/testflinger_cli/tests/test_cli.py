@@ -90,6 +90,23 @@ def test_submit(capsys, tmp_path, requests_mock):
     assert jobid in std.out
 
 
+def test_submit_bad_data(tmp_path, requests_mock):
+    """Ensure a 422 response from bad data shows the returned errors"""
+    fake_data = {"badkey": "badvalue"}
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+    # return 422 and "expected error"
+    requests_mock.post(URL + "/v1/job", status_code=422, text="expected error")
+    sys.argv = ["", "submit", str(testfile)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as err:
+        tfcli.submit()
+    assert (
+        "Unexpected error status from testflinger server: [422] expected error"
+        in err.value.code
+    )
+
+
 def test_submit_with_attachments(tmp_path):
     """Make sure jobs with attachments are submitted correctly"""
 
