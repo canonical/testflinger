@@ -33,9 +33,10 @@ logger = logging.getLogger(__name__)
 class HTTPError(Exception):
     """Exception class for HTTP error codes"""
 
-    def __init__(self, status):
+    def __init__(self, status, msg=""):
         super().__init__(status)
         self.status = status
+        self.msg = msg
 
 
 class Client:
@@ -86,7 +87,7 @@ class Client:
             logger.error("Unable to communicate with specified server.")
             sys.exit(1)
         if req.status_code != 200:
-            raise HTTPError(req.status_code)
+            raise HTTPError(status=req.status_code, msg=req.text)
         return req.text
 
     def put_file(self, uri_frag: str, path: Path, timeout: float):
