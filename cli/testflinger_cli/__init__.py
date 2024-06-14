@@ -425,7 +425,7 @@ class TestflingerCli:
             # This shouldn't happen, so let's get more information
             sys.exit(
                 "Unexpected error status from testflinger "
-                f"server: {exc.status}"
+                f"server: [{exc.status}] {exc.msg}"
             )
         return job_id
 
