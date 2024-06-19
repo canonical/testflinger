@@ -1,0 +1,10 @@
+#!/bin/bash
+
+AGENT=$(echo $agent_id | sed 's/-\([0-9]*\)$/\1/g')
+PROVISION_TYPE="$provision_type"
+
+if [ -f /srv/testflinger-agent/$AGENT/testflinger-agent.conf ]; then
+        . /srv/testflinger-agent/$AGENT/env/bin/activate && PYTHONUNBUFFERED=1 testflinger-device-connector $PROVISION_TYPE reserve -c /srv/testflinger-agent/$AGENT/default.yaml testflinger.json
+else
+        . /srv/testflinger-agent/$AGENT/env/bin/activate && PYTHONIOENCODING=utf-8 PYTHONUNBUFFERED=1 snappy-device-agent $PROVISION_TYPE reserve -c /srv/testflinger-agent/$AGENT/snappy-device-agents/default.yaml testflinger.json
+fi

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+AGENT=$(echo $agent_id | sed 's/-\([0-9]*\)$/\1/g')
+PROVISION_TYPE="$provision_type"
+
+if [ -f /srv/testflinger-agent/$AGENT/testflinger-agent.conf ]; then
+        docker run -t --name $AGENT -v $PWD:/home/ubuntu -v ~/.ssh:/home/ubuntu/.ssh:ro -v /srv/testflinger-agent/$AGENT:/srv/testflinger-agent/$AGENT plars/testflinger-testenv-focal bash -c "(cd /srv/testflinger-agent/$AGENT/testflinger/device-connectors && sudo pip install . &> /dev/null) && PYTHONUNBUFFERED=1 testflinger-device-connector $PROVISION_TYPE runtest -c /srv/testflinger-agent/$AGENT/default.yaml testflinger.json"
+else
+        docker run -t --name $AGENT -v $PWD:/home/ubuntu -v ~/.ssh:/home/ubuntu/.ssh:ro -v /srv/testflinger-agent/$AGENT:/srv/testflinger-agent/$AGENT plars/testflinger-testenv-focal bash -c "(cd /srv/testflinger-agent/$AGENT/snappy-device-agents && sudo pip install . &> /dev/null) && PYTHONIOENCODING=utf-8 PYTHONUNBUFFERED=1 snappy-device-agent $PROVISION_TYPE runtest -c /srv/testflinger-agent/$AGENT/snappy-device-agents/default.yaml testflinger.json"
+fi

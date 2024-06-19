@@ -7,6 +7,8 @@
 
 import logging
 import subprocess
+import shutil
+import os
 from pathlib import Path, PosixPath
 
 from charms.operator_libs_linux.v0 import apt, systemd
@@ -47,6 +49,7 @@ class TestflingerAgentHostCharm(CharmBase):
         # maas cli comes from maas snap now
         self.run_with_logged_errors(["snap", "install", "maas"])
         self.setup_docker()
+        self.copy_tf_cmd_scripts()
 
     def setup_docker(self):
         self.run_with_logged_errors(["groupadd", "docker"])
@@ -77,6 +80,13 @@ class TestflingerAgentHostCharm(CharmBase):
         if self._stored.ssh_pub != pub_key:
             self._stored.ssh_pub = pub_key
             self.write_file("/home/ubuntu/.ssh/id_rsa.pub", pub_key)
+
+    def copy_tf_cmd_scripts(self):
+        tf_cmd_dir = "src/tf-cmd-scripts/"
+        for tf_cmd_file in os.listdir(tf_cmd_dir):
+            shutil.copy(
+                os.path.join(tf_cmd_dir, tf_cmd_file), "/usr/local/bin/"
+            )
 
     def on_start(self, _):
         """Start the service"""
