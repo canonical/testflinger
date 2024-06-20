@@ -21,8 +21,6 @@ inputs:
     default: testflinger.canonical.com
 runs:
   using: composite
-  env:
-    SERVER: https://${{ inputs.server }}
   steps:
     - name: Create job file, if required
       id: create-job-file
@@ -56,6 +54,8 @@ runs:
 
     - name: Test connection to Testflinger server
       shell: bash {0}  # allow curl to fail
+      env:
+        SERVER: https://${{ inputs.server }}
       run: |
         STATUS=$(curl -I -w "%{http_code}\n" -o /dev/null -s $SERVER/jobs)
         ERROR=$?
@@ -72,6 +72,8 @@ runs:
       id: submit
       if: inputs.dry-run != 'true'
       shell: bash
+      env:
+        SERVER: https://${{ inputs.server }}
       run: |
         JOB_ID=$(testflinger --server $SERVER submit --quiet "$JOB")
         echo "job id: $JOB_ID"
@@ -80,6 +82,8 @@ runs:
     - name: Track the status of the job and mirror its exit status
       if: inputs.poll == 'true' && inputs.dry-run != 'true'
       shell: bash
+      env:
+        SERVER: https://${{ inputs.server }}
       run: |
         # poll
         PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
