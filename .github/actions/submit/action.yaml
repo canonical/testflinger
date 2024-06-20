@@ -21,7 +21,8 @@ inputs:
     default: testflinger.canonical.com
 runs:
   using: composite
-
+  env:
+    SERVER: https://${{ inputs.server }}
   steps:
     - name: Create job file, if required
       id: create-job-file
@@ -54,15 +55,25 @@ runs:
       run: sudo snap install testflinger-cli jq
 
     - name: Test connection to Testflinger server
-      shell: bash
-      run: nc -vz ${{ inputs.server }} 443
-
+      shell: bash {0}  # allow curl to fail
+      run: |
+        STATUS=$(curl -I -w "%{http_code}\n" -o /dev/null -s $SERVER/jobs)
+        ERROR=$?
+        if [ ! $ERROR -eq 0 ]; then
+          echo "Unable to ping Testflinger server at $SERVER"
+          exit $ERROR
+        elif [ ! $STATUS -eq 200 ]; then
+          echo "Failed server ping at $SERVER, error status: $STATUS"
+          exit $STATUS
+        else
+          echo "Successful server ping at $SERVER, status: $status"
+        fi
     - name: Submit job to the Testflinger server
       id: submit
       if: inputs.dry-run != 'true'
       shell: bash
       run: |
-        JOB_ID=$(testflinger --server https://${{ inputs.server }} submit --quiet "$JOB")
+        JOB_ID=$(testflinger --server $SERVER submit --quiet "$JOB")
         echo "job id: $JOB_ID"
         echo "JOB_ID=$JOB_ID" >> $GITHUB_ENV
 
@@ -71,8 +82,8 @@ runs:
       shell: bash
       run: |
         # poll
-        PYTHONUNBUFFERED=1 testflinger --server https://${{ inputs.server }} poll $JOB_ID
+        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
         # retrieve results
-        STATUS=$(testflinger --server https://${{ inputs.server }} results $JOB_ID | jq -er .test_status)
+        STATUS=$(testflinger --server $SERVER results $JOB_ID | jq -er .test_status)
         echo "Test exit status: $STATUS"
         exit $STATUS
