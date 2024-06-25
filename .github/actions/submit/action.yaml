@@ -38,7 +38,7 @@ runs:
           cat error.log
           exit $STATUS
         else
-          echo "Successful server ping at $SERVER, status: $status"
+          echo "Successful server ping at $SERVER, status: $STATUS"
         fi
     - name: Create job file, if required
       id: create-job-file
