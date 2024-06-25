@@ -27,13 +27,15 @@ runs:
       env:
         SERVER: https://${{ inputs.server }}
       run: |
-        STATUS=$(curl -I -w "%{http_code}\n" -o /dev/null -s $SERVER/jobs)
+        STATUS=$(curl --stderr error.log -Ivw "%{http_code}\n" -o /dev/null $SERVER/jobs)
         ERROR=$?
         if [ ! $ERROR -eq 0 ]; then
           echo "Unable to ping Testflinger server at $SERVER"
+          cat error.log
           exit $ERROR
         elif [ ! $STATUS -eq 200 ]; then
           echo "Failed server ping at $SERVER, error status: $STATUS"
+          cat error.log
           exit $STATUS
         else
           echo "Successful server ping at $SERVER, status: $status"
