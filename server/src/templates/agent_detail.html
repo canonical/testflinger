@@ -36,6 +36,31 @@
     {% endfor %}
 </ul>
 
+<h2 class="p-muted-heading">Provision History</h2>
+<div>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 150pt">Timestamp</th>
+                <th style="width: 300pt">Job ID</th>
+                <th class="p-table__cell--icon-placeholder" style="width: 75pt">Status</th>
+                <th>Detail</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in agent.provision_log|reverse %}
+            <tr>
+                <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td><a href="/jobs/{{ log.job_id }}">{{ log.job_id }}</a></td>
+                <td class="u-align--right p-table__cell--icon-placeholder"><i class={{ 'p-icon--success' if
+                        log.exit_code==0 else 'p-icon--error' }}></i>{{ log.exit_code }}</td>
+                <td>{{ log.detail }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
 <h2 class="p-muted-heading">Agent Log</h2>
 <div class="p-code-snippet">
     <div class="scrollable">

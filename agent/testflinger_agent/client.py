@@ -365,3 +365,25 @@ class TestflingerClient:
             )
         except InfluxDBClientError as exc:
             logger.error(exc)
+
+    def post_provision_log(self, job_id: str, exit_code: int, detail: str):
+        """Post the outcome of provisioning to the server
+
+        :param job_id:
+            job_id of the job that was running
+        :param exitcode:
+            exit code from the provision phase
+        :param detail:
+            string with any known details of the failure
+        """
+        data = {
+            "job_id": job_id,
+            "exit_code": exit_code,
+            "detail": detail,
+        }
+        agent_data_uri = urljoin(self.server, "/v1/agents/provision_logs/")
+        agent_data_url = urljoin(agent_data_uri, self.config.get("agent_id"))
+        try:
+            self.session.post(agent_data_url, json=data, timeout=30)
+        except RequestException as exc:
+            logger.warning("Unable to post provision log to server: %s", exc)

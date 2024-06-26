@@ -498,6 +498,36 @@ def test_agents_post_bad(mongo_app):
     assert "Validation error" in output.text
 
 
+def test_agents_provision_logs_post(mongo_app):
+    """Test posting provision logs"""
+    app, mongo = mongo_app
+    agent_name = "agent1"
+    provision_log = {
+        "job_id": "00000000-0000-0000-0000-00000000000",
+        "exit_code": 1,
+        "detail": "provision_failed",
+    }
+
+    # Test that the post is successful
+    output = app.post(
+        f"/v1/agents/provision_logs/{agent_name}", json=provision_log
+    )
+    assert 200 == output.status_code
+    assert "OK" == output.text
+
+    # Test that the expected data was stored
+    provision_log_records = mongo.provision_logs.find_one({"name": agent_name})
+    assert (
+        provision_log.items()
+        <= provision_log_records["provision_log"][0].items()
+    )
+
+    # Now we should have two provision log entries
+    app.post(f"/v1/agents/provision_logs/{agent_name}", json=provision_log)
+    provision_log_records = mongo.provision_logs.find_one({"name": agent_name})
+    assert len(provision_log_records["provision_log"]) == 2
+
+
 def test_get_agents_data(mongo_app):
     """Test api to retrieve agent data"""
     app, _ = mongo_app
