@@ -309,7 +309,7 @@ class MuxPi:
                 logger.info(
                     f"Flashing Test image {url_name} on {self.test_device}"
                 )
-                self.transfer_test_image(local=source_file.name, timeout=1200)
+                self.transfer_test_image(local=source_file.name, timeout=1800)
 
         try:
             self._run_control("sync")
