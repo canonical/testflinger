@@ -67,6 +67,12 @@ def jobs():
 def job_detail(job_id):
     """Job detail view"""
     job_data = mongo.db.jobs.find_one({"job_id": job_id})
+    if not job_data:
+        response = make_response(
+            render_template("job_not_found.html", job_id=job_id)
+        )
+        response.status_code = 404
+        return response
     return render_template("job_detail.html", job=job_data)
 
 

@@ -19,7 +19,7 @@ Unit tests for Testflinger views
 
 import mongomock
 from mock import patch
-from src.views import queues_data, agent_detail
+from src.views import job_detail, queues_data, agent_detail
 
 
 def test_queues():
@@ -95,4 +95,18 @@ def test_agent_not_found(testapp):
             response = agent_detail("agent1")
 
     assert "Agent not found: agent1" in str(response.data)
+    assert response.status_code == 404
+
+
+def test_job_not_found(testapp):
+    """
+    Test that the job_detail fails gracefully when a job is not found
+    """
+
+    mongo = mongomock.MongoClient()
+    with patch("src.views.mongo", mongo):
+        with testapp.test_request_context():
+            response = job_detail("job1")
+
+    assert "Job not found: job1" in str(response.data)
     assert response.status_code == 404
