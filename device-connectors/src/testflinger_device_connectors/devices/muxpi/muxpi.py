@@ -195,12 +195,15 @@ class MuxPi:
             self._run_control(cmd)
         else:
             media = self.job_data["provision_data"]["media"]
+            # If media option is provided, then DUT is probably capable of
+            # booting from different media, we should switch both of them
+            # to TS side regardless of which one was previously used
             try:
-                # If media option is provided, then DUT is probably capable of
-                # booting from different media, we should switch both of them
-                # to TS side regardless of which one was previously used
                 cmd = "zapper sdwire plug_to_self"
                 sd_node = self._run_control(cmd)
+            except Exception:
+                pass
+            try:
                 cmd = "zapper typecmux plug_to_self"
                 usb_node = self._run_control(cmd)
             except Exception:
