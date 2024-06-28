@@ -296,7 +296,7 @@ class MuxPi:
             logger.info(
                 f"Flashing Test image {source.name} on {self.test_device}"
             )
-            self.transfer_test_image(local=source, timeout=1200)
+            self.transfer_test_image(local=source, timeout=1800)
         else:
             # the source is a URL
             with tempfile.NamedTemporaryFile(delete=True) as source_file:
