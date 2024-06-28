@@ -93,6 +93,16 @@ def create_indexes():
         "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
     )
 
+    # Remove agents that haven't checked in for 7 days
+    mongo.db.agents.create_index(
+        "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
+    # Remove advertised queues that haven't updated in over 7 days
+    mongo.db.queues.create_index(
+        "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
     # Faster lookups for common queries
     mongo.db.jobs.create_index("job_id")
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
