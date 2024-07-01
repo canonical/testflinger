@@ -21,6 +21,8 @@ from ..stop_condition_checkers import (
     OutputTimeoutChecker,
 )
 
+from testflinger_common.enums import TestEvent
+
 
 class TestStopConditionCheckers:
     def test_job_cancelled_checker(self, mocker):
@@ -30,27 +32,33 @@ class TestStopConditionCheckers:
 
         # Nothing should happen if the job is not cancelled
         mocker.patch.object(client, "check_job_state", return_value="test")
-        assert checker() is None
+        assert checker() == (None, "")
 
         # If the job is cancelled, the checker should return a message
         mocker.patch.object(
             client, "check_job_state", return_value="cancelled"
         )
-        assert "Job cancellation was requested, exiting." in checker()
+        stop_event, detail = checker()
+        assert "Job cancellation was requested, exiting." in detail
+        assert stop_event == TestEvent.CANCELLED
 
     def test_global_timeout_checker(self):
         """Test that the global timeout checker works as expected."""
         checker = GlobalTimeoutChecker(0.5)
-        assert checker() is None
+        assert checker() == (None, "")
         time.sleep(0.6)
-        assert "ERROR: Global timeout reached! (0.5s)" in checker()
+        stop_event, detail = checker()
+        assert "ERROR: Global timeout reached! (0.5s)" in detail
+        assert stop_event == TestEvent.GLOBAL_TIMEOUT
 
     def test_output_timeout_checker(self):
         """Test that the output timeout checker works as expected."""
         checker = OutputTimeoutChecker(0.5)
-        assert checker() is None
+        assert checker() == (None, "")
         time.sleep(0.6)
-        assert "ERROR: Output timeout reached! (0.5s)" in checker()
+        stop_event, detail = checker()
+        assert "ERROR: Output timeout reached! (0.5s)" in detail
+        assert stop_event == TestEvent.OUTPUT_TIMEOUT
 
     def test_output_timeout_update(self):
         """
@@ -61,4 +69,4 @@ class TestStopConditionCheckers:
         for _ in range(5):
             time.sleep(0.1)
             checker.update()
-            assert checker() is None
+            assert checker() == (None, "")
