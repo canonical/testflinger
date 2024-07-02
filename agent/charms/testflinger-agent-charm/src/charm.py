@@ -155,6 +155,16 @@ class TestflingerAgentCharm(CharmBase):
             "common",
             "device-connectors",
         )
+        # poetry needs a newer version of pip than what's in the focal repos
+        # we can drop this once we no longer have agent hosts on focal
+        self.run_with_logged_errors(
+            [
+                f"{self._stored.venv_path}/bin/pip3",
+                "install",
+                "-U",
+                "pip",
+            ]
+        )
         # Install the agent and device-connectors
         for dir in ("agent", "device-connectors"):
             self.run_with_logged_errors(

@@ -1,0 +1,27 @@
+name: Release testflinger-agent charm to latest/edge
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - agent/testflinger-agent-charm/**
+  workflow_dispatch:
+
+jobs:
+  agent-build-and-push-charm:
+    runs-on: [self-hosted, linux, jammy, X64]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Upload charm to charmhub
+        uses: canonical/charming-actions/upload-charm@2.6.0
+        with:
+          charm-path: server/charm
+          credentials: "${{ secrets.CHARMHUB_TOKEN }}"
+          channel: "latest/edge"
