@@ -117,6 +117,7 @@ class RealSerialLogger:
         with open(self.filename, "a+") as f:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((self.host, self.port))
+                logger.info("Successfully connected to serial logging server")
                 while True:
                     read_sockets, _, _ = select.select([s], [], [])
                     for sock in read_sockets:
@@ -127,7 +128,10 @@ class RealSerialLogger:
                             )
                             f.flush()
                         else:
-                            logger.error("Serial Log connection closed")
+                            logger.error(
+                                "Serial log connection closed - attempts to "
+                                "reconnect will be made in the background"
+                            )
                             return
 
     def stop(self):

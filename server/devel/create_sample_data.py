@@ -22,6 +22,7 @@ import logging
 import random
 import sys
 from argparse import ArgumentParser, Namespace
+from datetime import datetime, timezone
 from typing import Iterator, Optional, Tuple
 
 import requests
@@ -195,6 +196,17 @@ class TestflingerClient:
             self.session.post(
                 f"{self.server_url}/v1/agents/data/{agent_name}",
                 json=agent_data,
+            )
+
+            # Add failed provision logs with obviously fake job_id for testing
+            provision_log = {
+                "job_id": "00000000-0000-0000-0000-00000000000",
+                "exit_code": 1,
+                "detail": "provision_fail",
+            }
+            self.session.post(
+                f"{self.server_url}/v1/agents/provision_logs/{agent_name}",
+                json=provision_log,
             )
 
     def post_job_data(self, jobs: Iterator):

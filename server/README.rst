@@ -341,3 +341,18 @@ This will find jobs tagged with both "foo" and "bar".
   .. code-block:: console
 
     $ curl -X GET http://localhost:8000/v1/agents/data
+
+**[POST] /v1/agents/provision_logs/<agent_name>** - post provision log data for the specified agent
+
+- Status Codes:
+  
+    - HTTP 200 (OK)
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl http://localhost:8000/v1/agents/provision_logs/myagent \
+         -X POST --header "Content-Type: application/json" \
+         --data '{ "job_id": "00000000-0000-0000-0000-000000000000", \
+                   "exit_code": 1, "detail":"foo" }'

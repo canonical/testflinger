@@ -25,6 +25,7 @@ class TestClient:
     @pytest.fixture
     def client(self):
         config = {
+            "agent_id": "test_agent",
             "server_address": "127.0.0.1:8000",
             "advertised_queues": {"test_queue": "test_queue"},
             "advertised_images": {
@@ -68,6 +69,22 @@ class TestClient:
         assert requests_mock.last_request.json() == {
             "test_queue": {"test_image": "url: http://foo"}
         }
+
+    def test_post_provision_logs(self, client, requests_mock):
+        """Test that /v1/agents/provision_logs is called with the right data"""
+        job_id = "00000000-0000-0000-0000-00000000000"
+        exit_code = 1
+        detail = "provision_failed"
+        requests_mock.post(
+            "http://127.0.0.1:8000/v1/agents/provision_logs/"
+            f"{client.config['agent_id']}",
+            status_code=200,
+        )
+        client.post_provision_log(job_id, exit_code, detail)
+        last_request = requests_mock.last_request.json()
+        assert last_request["job_id"] == job_id
+        assert last_request["exit_code"] == exit_code
+        assert last_request["detail"] == detail
 
     def test_transmit_job_outcome(self, client, requests_mock, tmp_path):
         """
