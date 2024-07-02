@@ -9,9 +9,9 @@ import logging
 import subprocess
 import shutil
 import os
-from pathlib import Path, PosixPath
+from pathlib import PosixPath
 
-from charms.operator_libs_linux.v0 import apt, systemd
+from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
