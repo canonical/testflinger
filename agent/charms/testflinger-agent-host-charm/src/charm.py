@@ -90,9 +90,8 @@ class TestflingerAgentHostCharm(CharmBase):
             if "tf" in file:
                 os.remove(os.path.join(usr_local_bin, file))
         for tf_cmd_file in os.listdir(tf_cmd_dir):
-            shutil.copy(
-                os.path.join(tf_cmd_dir, tf_cmd_file), "/usr/local/bin/"
-            )
+            shutil.copy(os.path.join(tf_cmd_dir, tf_cmd_file), usr_local_bin)
+            os.chmod(os.path.join(usr_local_bin, tf_cmd_file), 0o775)
 
     def on_upgrade_charm(self, _):
         """Upgrade hook"""
