@@ -35,6 +35,7 @@ class TestflingerAgentHostCharm(CharmBase):
         self.framework.observe(self.on.install, self.on_install)
         self.framework.observe(self.on.start, self.on_start)
         self.framework.observe(self.on.config_changed, self.on_config_changed)
+        self.framework.observe(self.on.upgrade_charm, self.on_upgrade_charm)
         self._stored.set_default(
             ssh_priv="",
             ssh_pub="",
@@ -49,7 +50,7 @@ class TestflingerAgentHostCharm(CharmBase):
         # maas cli comes from maas snap now
         self.run_with_logged_errors(["snap", "install", "maas"])
         self.setup_docker()
-        self.copy_tf_cmd_scripts()
+        self.update_tf_cmd_scripts()
 
     def setup_docker(self):
         self.run_with_logged_errors(["groupadd", "docker"])
@@ -81,12 +82,23 @@ class TestflingerAgentHostCharm(CharmBase):
             self._stored.ssh_pub = pub_key
             self.write_file("/home/ubuntu/.ssh/id_rsa.pub", pub_key)
 
-    def copy_tf_cmd_scripts(self):
+    def update_tf_cmd_scripts(self):
+        """Update tf_cmd_scfipts"""
         tf_cmd_dir = "src/tf-cmd-scripts/"
+        usr_local_bin = "/usr/local/bin/"
+        for file in os.listdir(usr_local_bin):
+            if "tf" in file:
+                os.remove(os.path.join(usr_local_bin, file))
         for tf_cmd_file in os.listdir(tf_cmd_dir):
             shutil.copy(
                 os.path.join(tf_cmd_dir, tf_cmd_file), "/usr/local/bin/"
             )
+
+    def on_upgrade_charm(self, _):
+        """Upgrade hook"""
+        self.unit.status = MaintenanceStatus("Handling upgrade_charm hook")
+        self.update_tf_cmd_scripts()
+        self.unit.status = ActiveStatus()
 
     def on_start(self, _):
         """Start the service"""
