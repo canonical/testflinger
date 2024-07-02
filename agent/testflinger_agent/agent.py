@@ -259,10 +259,11 @@ class TestflingerAgent:
                         if phase == "provision":
                             detail = ""
                             # Replace with TestEvent enum values once it lands
-                            if exit_code == 46:
-                                detail = "recovery_fail"
-                            if exit_code != 0:
-                                detail = "provision_fail"
+                            detail = (
+                                "recovery_fail"
+                                if exit_code == 46
+                                else "provision_fail"
+                            )
                             self.client.post_provision_log(
                                 job.job_id, exit_code, detail
                             )
