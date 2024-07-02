@@ -1,0 +1,7 @@
+#!/bin/bash
+
+AGENT=$(echo $agent_id | sed 's/-\([0-9]*\)$/\1/g')
+PROVISION_TYPE="$provision_type"
+
+echo Cleaning up container if it exists... && docker rm -f $AGENT || /bin/true
+

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+AGENT=$(echo $agent_id | sed 's/-\([0-9]*\)$/\1/g')
+PROVISION_TYPE="$provision_type"
+
+. /srv/testflinger-agent/$AGENT/env/bin/activate && PYTHONUNBUFFERED=1 testflinger-device-connector $PROVISION_TYPE allocate -c /srv/testflinger-agent/$AGENT/default.yaml testflinger.json

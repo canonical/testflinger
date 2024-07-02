@@ -16,10 +16,6 @@ charmcraft), then run: charmcraft pack
 # Configuration
 Supported options for this charm are:
 
-  - ssh-priv-key:
-      base64 encoded ssh private keyfile
-  - ssh-pub-key:
-      base64 encoded ssh public keyfile
   - testflinger-agent-configfile:
       base64 encoded string with the config file for spi-agent
   - device-configfile:
