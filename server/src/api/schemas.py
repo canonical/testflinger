@@ -36,6 +36,14 @@ ValidJobStates = (
 )
 
 
+class ProvisionLogsIn(Schema):
+    """Provision logs input schema"""
+
+    job_id = fields.String(required=True)
+    exit_code = fields.Integer(required=True)
+    detail = fields.String(required=False)
+
+
 class AgentIn(Schema):
     """Agent data input schema"""
 

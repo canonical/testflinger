@@ -53,6 +53,13 @@ def agent_detail(agent_id):
         )
         response.status_code = 404
         return response
+    provision_log_entry = mongo.db.provision_logs.find_one(
+        {"name": agent_id}, {"provision_log": 1}
+    )
+    agent_info["provision_log"] = (
+        provision_log_entry["provision_log"] if provision_log_entry else []
+    )
+
     return render_template("agent_detail.html", agent=agent_info)
 
 
