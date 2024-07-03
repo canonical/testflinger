@@ -118,8 +118,10 @@ class TestflingerJob:
             runner.run(f"echo '{line}'")
         try:
             exitcode, exit_reason = runner.run(cmd)
-        except Exception as e:
-            logger.exception(e)
+        except Exception as exc:
+            logger.exception(exc)
+            exitcode = 100
+            exit_reason = str(exc)  # noqa: F841 - ignore this until it's used
         finally:
             self._update_phase_results(
                 results_file, phase, exitcode, output_log, serial_log

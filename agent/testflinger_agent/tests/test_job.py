@@ -4,6 +4,7 @@ import shutil
 import tempfile
 
 import requests_mock as rmock
+from unittest.mock import patch, Mock
 
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
@@ -136,6 +137,28 @@ class TestJob:
         with open(logfile) as log:
             log_data = log.read()
         assert timeout_str in log_data
+
+    def test_run_test_phase_with_run_exception(
+        self, client, tmp_path, requests_mock
+    ):
+        """
+        Test that job.run_test_phase() exits with 100 so that it has some
+        non-zero value if CommandRunner.run() raises an exception
+        """
+
+        # create the outcome file since we bypassed that
+        with open(tmp_path / "testflinger-outcome.json", "w") as outcome_file:
+            outcome_file.write("{}")
+
+        self.config["setup_command"] = "fake_setup_command"
+        requests_mock.post(rmock.ANY, status_code=200)
+        job = _TestflingerJob({}, client)
+        job.phase = "setup"
+        mock_runner = Mock()
+        mock_runner.run.side_effect = Exception("failed")
+        with patch("testflinger_agent.job.CommandRunner", mock_runner):
+            exit_code = job.run_test_phase("setup", tmp_path)
+        assert exit_code == 100
 
     def test_set_truncate(self, client):
         """Test the _set_truncate method of TestflingerJob"""
