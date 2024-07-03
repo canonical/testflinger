@@ -320,7 +320,7 @@ class MuxPi:
         try:
             self._run_control(
                 "sudo hdparm -z {}".format(self.test_device),
-                timeout=30,
+                timeout=40,
             )
         except Exception as error:
             raise ProvisioningError(
