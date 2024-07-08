@@ -81,18 +81,28 @@ class DeviceConnector(ZapperConnector):
             "url": url,
             "username": username,
             "password": password,
+            "robot_retries": retries,
             "autoinstall_conf": self._get_autoinstall_conf(),
             "reboot_script": self.config["reboot_script"],
             "device_ip": self.config["device_ip"],
             "robot_tasks": self.job_data["provision_data"]["robot_tasks"],
-            "robot_retries": retries,
-            "cmdline_append": self.job_data["provision_data"].get(
-                "cmdline_append", ""
-            ),
-            "skip_download": self.job_data["provision_data"].get(
-                "skip_download", False
-            ),
         }
+
+        # Let's handle defaults on the Zapper side adding only the explicitely
+        # specified keys to the `provision_data` dict.
+        optionals = [
+            "cmdline_append",
+            "skip_download",
+            "wait_until_ssh",
+            "boot_from_ext_media",
+        ]
+        provisioning_data.update(
+            {
+                opt: self.job_data["provision_data"][opt]
+                for opt in optionals
+                if opt in self.job_data["provision_data"]
+            }
+        )
 
         return ((), provisioning_data)
 

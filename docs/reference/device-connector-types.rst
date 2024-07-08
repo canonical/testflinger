@@ -314,3 +314,20 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
     * - ``oem``
       - Optional value to select the ``oemscript`` to run when specifying a ``url``, possible values
         are ``dell``, ``hp`` and ``lenovo``.
+
+.. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target any generic live ISOs
+    :header-rows: 1
+
+    * - Key
+      - Description
+    * - ``url``
+      - URL to a disk image that is downloaded and flashed to a USB storage device,
+        which will be used to boot up the DUT.
+    * - ``robot_tasks``
+      - List of Zapper/Robot snippets to run in sequence after the USB storage device
+        is plugged into the DUT and the system restarted. The snippet ID is the relative
+        path from the ``robot/snippets`` path in the Zapper repository.
+    * - ``boot_from_ext_media``
+      - keeps the external storage device connected, booting from there. It should be flagged as `true` for live ISOs.
+    * - ``wait_until_ssh``
+      - if `true`, skip the attempt to connect via SSH at the end of provisionig, useful in case the live ISO does not include a SSH server

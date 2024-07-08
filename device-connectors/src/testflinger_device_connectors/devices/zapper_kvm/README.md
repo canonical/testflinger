@@ -48,3 +48,13 @@ The tool will select the storage device with the following priority:
 ### Noble
 
 Ubuntu OEM 24.04 uses `autoinstall`. The procedure and the arguments are the same as _vanilla_ Ubuntu.
+
+## Live ISO
+
+Support for live ISOs is simply performed booting from an external storage device and returning.
+
+### Job parameters
+
+- __boot_from_ext_media__: should be set to "true"
+- __wait_until_ssh__: SSH assertion at the end of provisioning can be skipped, in case the live ISO does not include an SSH server
+

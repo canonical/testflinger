@@ -59,8 +59,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "device_ip": "1.1.1.1",
             "robot_tasks": ["job.robot", "another.robot"],
             "robot_retries": 1,
-            "cmdline_append": "",
-            "skip_download": False,
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -90,6 +88,8 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                 "robot_retries": 3,
                 "cmdline_append": "more arguments",
                 "skip_download": True,
+                "wait_until_ssh": True,
+                "boot_from_ext_media": False,
             },
             "test_data": {
                 "test_username": "username",
@@ -111,6 +111,8 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "robot_retries": 3,
             "cmdline_append": "more arguments",
             "skip_download": True,
+            "wait_until_ssh": True,
+            "boot_from_ext_media": False,
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -159,8 +161,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "device_ip": "1.1.1.1",
             "robot_tasks": ["job.robot", "another.robot"],
             "robot_retries": 2,
-            "cmdline_append": "",
-            "skip_download": False,
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
