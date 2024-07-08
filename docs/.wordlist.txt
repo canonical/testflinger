@@ -26,6 +26,7 @@ Git
 GitHub
 Grafana
 IAM
+ISOs
 init
 installable
 Instantiation

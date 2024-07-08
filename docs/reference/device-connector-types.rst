@@ -330,4 +330,4 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
     * - ``boot_from_ext_media``
       - keeps the external storage device connected, booting from there. It should be flagged as `true` for live ISOs.
     * - ``wait_until_ssh``
-      - if `true`, skip the attempt to connect via SSH at the end of provisionig, useful in case the live ISO does not include a SSH server
+      - if `true`, skip the attempt to connect via SSH at the end of provisioning, useful in case the live ISO does not include a SSH server
