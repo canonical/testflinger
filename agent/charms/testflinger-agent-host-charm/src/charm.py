@@ -7,9 +7,11 @@
 
 import logging
 import subprocess
-from pathlib import Path, PosixPath
+import shutil
+import os
+from pathlib import PosixPath
 
-from charms.operator_libs_linux.v0 import apt, systemd
+from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
@@ -33,6 +35,7 @@ class TestflingerAgentHostCharm(CharmBase):
         self.framework.observe(self.on.install, self.on_install)
         self.framework.observe(self.on.start, self.on_start)
         self.framework.observe(self.on.config_changed, self.on_config_changed)
+        self.framework.observe(self.on.upgrade_charm, self.on_upgrade_charm)
         self._stored.set_default(
             ssh_priv="",
             ssh_pub="",
@@ -47,6 +50,7 @@ class TestflingerAgentHostCharm(CharmBase):
         # maas cli comes from maas snap now
         self.run_with_logged_errors(["snap", "install", "maas"])
         self.setup_docker()
+        self.update_tf_cmd_scripts()
 
     def setup_docker(self):
         self.run_with_logged_errors(["groupadd", "docker"])
@@ -77,6 +81,20 @@ class TestflingerAgentHostCharm(CharmBase):
         if self._stored.ssh_pub != pub_key:
             self._stored.ssh_pub = pub_key
             self.write_file("/home/ubuntu/.ssh/id_rsa.pub", pub_key)
+
+    def update_tf_cmd_scripts(self):
+        """Update tf-cmd-scripts"""
+        tf_cmd_dir = "src/tf-cmd-scripts/"
+        usr_local_bin = "/usr/local/bin/"
+        for tf_cmd_file in os.listdir(tf_cmd_dir):
+            shutil.copy(os.path.join(tf_cmd_dir, tf_cmd_file), usr_local_bin)
+            os.chmod(os.path.join(usr_local_bin, tf_cmd_file), 0o775)
+
+    def on_upgrade_charm(self, _):
+        """Upgrade hook"""
+        self.unit.status = MaintenanceStatus("Handling upgrade_charm hook")
+        self.update_tf_cmd_scripts()
+        self.unit.status = ActiveStatus()
 
     def on_start(self, _):
         """Start the service"""
