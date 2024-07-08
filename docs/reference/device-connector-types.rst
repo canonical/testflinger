@@ -284,7 +284,7 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
         path from the ``robot/snippets`` path in the Zapper repository.
     * - ``storage_layout``
       - When provisioning an image supporting *autoinstall*, the storage_layout can
-        be either ``lvm`` (default), ``direct``, ``zfs`` or ``hybrid`` (Desktop 23.10+)
+        be either ``lvm`` (default), ``direct``, ``zfs`` or ``hybrid`` (Core, Desktop 23.10+)
     * - ``cmdline_append``
       - When provisioning an image supporting *autoinstall*, the cmdline_append can
         be used to append Kernel parameters to the standard GRUB entry.

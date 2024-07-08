@@ -165,6 +165,33 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
+    def test_get_autoinstall_none(self):
+        """
+        Test whether the get_autoinstall_conf function returns
+        None in case the storage_layout is not specified.
+        """
+
+        connector = DeviceConnector()
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://example.com/image.iso",
+                "robot_tasks": [
+                    "job.robot",
+                    "another.robot",
+                ],
+            },
+            "test_data": {
+                "test_username": "username",
+                "test_password": "password",
+            },
+        }
+
+        with patch("builtins.open", mock_open(read_data="mykey")):
+            conf = connector._get_autoinstall_conf()
+
+        self.assertIsNone(conf)
+
     def test_get_autoinstall_conf(self):
         """
         Test whether the get_autoinstall_conf function returns

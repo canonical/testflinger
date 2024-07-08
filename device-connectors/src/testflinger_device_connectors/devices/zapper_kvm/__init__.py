@@ -17,7 +17,7 @@
 import logging
 import os
 import subprocess
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import ZapperConnector
@@ -36,14 +36,14 @@ class DeviceConnector(ZapperConnector):
 
     PROVISION_METHOD = "ProvisioningKVM"
 
-    def _get_autoinstall_conf(self) -> Dict[str, Any]:
+    def _get_autoinstall_conf(self) -> Optional[Dict[str, Any]]:
         """Prepare autoinstall-related configuration."""
         provision = self.job_data["provision_data"]
 
-        autoinstall_conf = {
-            "storage_layout": provision.get("storage_layout", "lvm"),
-        }
+        if "storage_layout" not in provision:
+            return None
 
+        autoinstall_conf = {"storage_layout": provision["storage_layout"]}
         if "base_user_data" in provision:
             autoinstall_conf["base_user_data"] = provision["base_user_data"]
 
