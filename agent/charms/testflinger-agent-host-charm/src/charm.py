@@ -83,7 +83,7 @@ class TestflingerAgentHostCharm(CharmBase):
             self.write_file("/home/ubuntu/.ssh/id_rsa.pub", pub_key)
 
     def update_tf_cmd_scripts(self):
-        """Update tf_cmd_scfipts"""
+        """Update tf-cmd-scripts"""
         tf_cmd_dir = "src/tf-cmd-scripts/"
         usr_local_bin = "/usr/local/bin/"
         for tf_cmd_file in os.listdir(tf_cmd_dir):
