@@ -22,6 +22,6 @@ jobs:
       - name: Upload charm to charmhub
         uses: canonical/charming-actions/upload-charm@2.6.0
         with:
-          charm-path: server/charm
+          charm-path: agent/charms/testflinger-agent-charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           channel: "latest/edge"
