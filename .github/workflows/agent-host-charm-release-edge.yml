@@ -1,4 +1,4 @@
-name: Release testflinger-agent charm to latest/edge
+name: Release testflinger-agent-host charm to latest/edge
 
 on:
   push:
