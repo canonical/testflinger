@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - agent/testflinger-agent-charm/**
+      - agent/charms/testflinger-agent-host-charm/**
   workflow_dispatch:
 
 jobs:
