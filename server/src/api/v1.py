@@ -24,6 +24,7 @@ import pkg_resources
 from apiflask import APIBlueprint, abort
 from flask import jsonify, request, send_file
 from prometheus_client import Counter
+
 from werkzeug.exceptions import BadRequest
 
 from src import database
@@ -510,6 +511,19 @@ def agents_provision_logs_post(agent_name, json_data):
         update_operation,
         upsert=True,
     )
+    # Set the number of consecutive failed provisions for this agent
+    if json_data["exit_code"] != 0:
+        database.mongo.db.agents.update_one(
+            {"name": agent_name},
+            {"$inc": {"recent_failed_provisions": 1}},
+            upsert=True,
+        )
+    else:
+        database.mongo.db.agents.update_one(
+            {"name": agent_name},
+            {"$set": {"recent_failed_provisions": 0}},
+            upsert=True,
+        )
     return "OK"
 
 

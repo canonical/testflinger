@@ -522,10 +522,19 @@ def test_agents_provision_logs_post(mongo_app):
         <= provision_log_records["provision_log"][0].items()
     )
 
+    # Test recent_failed_provisions is 1 on the agent
+    agent_data = mongo.agents.find_one({"name": agent_name})
+    assert agent_data["recent_failed_provisions"] == 1
+
     # Now we should have two provision log entries
+    provision_log["exit_code"] = 0
     app.post(f"/v1/agents/provision_logs/{agent_name}", json=provision_log)
     provision_log_records = mongo.provision_logs.find_one({"name": agent_name})
     assert len(provision_log_records["provision_log"]) == 2
+
+    # Test that recent_failed_provisions is cleared on the agent
+    agent_data = mongo.agents.find_one({"name": agent_name})
+    assert agent_data["recent_failed_provisions"] == 0
 
 
 def test_get_agents_data(mongo_app):
