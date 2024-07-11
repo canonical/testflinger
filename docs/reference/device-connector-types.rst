@@ -202,12 +202,16 @@ ensure that the system is reachable with ssh before proceeding to the next step.
 oemrecovery
 -----------
 
-The ``oemrecovery`` device connector does not support any ``provision_data`` keys.
-Instead, this device connector uses a preconfigured command to reset the device back
-to its original state. In order to ensure that the provision step is run, and the
-system is reset back to the original state, you can specify any key in this dictionary
-(example: ``skip: false``). If you do not want the provision step to run, you can
-simply leave out the ``provision_data`` section.
+The ``oemrecovery`` device connector supports the following ``provision_data`` keys:
+
+.. list-table:: Supported ``provision_data`` keys for ``oemrecovery``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``boot_timeout``
+     - A timeout value that waiting for device recovered from reset. The default timeout is
+       3600(s) and the minimum value should be greater than 600(s).
 
 .. _dell_oemscript:
 
