@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - agent/charms/testflinger-agent-host-charm/**
+      - .github/workflows/agent-host-charm-release-edge.yml
   workflow_dispatch:
 
 jobs:
