@@ -72,7 +72,8 @@ class TestEvent(StrEnum):
     CANCELLED = "cancelled"
     GLOBAL_TIMEOUT = "global_timeout"
     OUTPUT_TIMEOUT = "output_timeout"
-    RECOVERY_FAILED = "recovery_failed"
+    RECOVERY_FAIL = "recovery_fail"
 
     NORMAL_EXIT = "normal_exit"
+    JOB_START = "job_start"
     JOB_END = "job_end"

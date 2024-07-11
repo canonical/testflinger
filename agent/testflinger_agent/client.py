@@ -390,7 +390,11 @@ class TestflingerClient:
             logger.warning("Unable to post provision log to server: %s", exc)
 
     def post_status_update(
-        self, job_queue: str, webhook: str, events: List[Dict[str, str]]
+        self,
+        job_queue: str,
+        webhook: str,
+        events: List[Dict[str, str]],
+        job_id: str,
     ):
         """
         Posts status updates about the running job as long as there is a
@@ -402,6 +406,8 @@ class TestflingerClient:
             String URL to post status update to
         :param events:
             List of accumulated test events
+        :param job_id:
+            id for the job on which we want to post results
 
         """
         if webhook is None:
@@ -413,7 +419,7 @@ class TestflingerClient:
             "job_status_webhook": webhook,
             "events": events,
         }
-        status_update_uri = urljoin(self.server, "/v1/agents/status")
+        status_update_uri = urljoin(self.server, f"/v1/job/{job_id}/events")
         try:
             job_request = self.session.post(
                 status_update_uri, json=status_update_request, timeout=30

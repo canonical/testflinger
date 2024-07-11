@@ -133,8 +133,9 @@ class TestClient:
         if there is a valid webhook
         """
         webhook = "http://foo"
+        job_id = job_id = str(uuid.uuid1())
         requests_mock.post(
-            "http://127.0.0.1:8000/v1/agents/status", status_code=200
+            f"http://127.0.0.1:8000/v1/job/{job_id}/events", status_code=200
         )
         events = [
             {
@@ -148,7 +149,7 @@ class TestClient:
                 "detail": "",
             },
         ]
-        client.post_status_update("myjobqueue", webhook, events)
+        client.post_status_update("myjobqueue", webhook, events, job_id)
         expected_json = {
             "agent_id": client.config.get("agent_id"),
             "job_queue": "myjobqueue",

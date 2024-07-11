@@ -21,7 +21,11 @@ from testflinger_common.enums import TestEvent
 
 class EventEmitter:
     def __init__(
-        self, job_queue: str, webhook: str, client: TestflingerClient
+        self,
+        job_queue: str,
+        webhook: str,
+        client: TestflingerClient,
+        job_id: str,
     ):
         """
         :param job_queue:
@@ -30,12 +34,15 @@ class EventEmitter:
             String url to send status updates to
         :param client:
             TestflingerClient used to post status updates to the server
+        :param job_id:
+            id for the job on which we want to post updates
 
         """
         self.job_queue = job_queue
         self.webhook = webhook
         self.events = []
         self.client = client
+        self.job_id = job_id
 
     def emit_event(self, test_event: TestEvent, detail: str = ""):
         if test_event is not None:
@@ -46,5 +53,5 @@ class EventEmitter:
             }
             self.events.append(new_event_json)
             self.client.post_status_update(
-                self.job_queue, self.webhook, self.events
+                self.job_queue, self.webhook, self.events, self.job_id
             )

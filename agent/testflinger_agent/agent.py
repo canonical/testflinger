@@ -213,10 +213,15 @@ class TestflingerAgent:
                     job_data.get("job_queue"),
                     job_data.get("job_status_webhook"),
                     self.client,
+                    job.job_id,
                 )
                 job_end_reason = TestEvent.NORMAL_EXIT
 
                 logger.info("Starting job %s", job.job_id)
+                event_emitter.emit_event(
+                    TestEvent.JOB_START,
+                    f"{self.client.server}/job/{job.job_id}/events",
+                )
                 rundir = os.path.join(
                     self.client.config.get("execution_basedir"), job.job_id
                 )

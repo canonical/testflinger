@@ -531,6 +531,10 @@ def test_agents_provision_logs_post(mongo_app):
 def test_agents_status_put(mongo_app, requests_mock):
     """Test api to receive agent status requests"""
     app, _ = mongo_app
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
     webhook = "http://mywebhook.com"
     requests_mock.put(webhook, status_code=200, text="webhook requested")
     status_update_data = {
@@ -545,7 +549,7 @@ def test_agents_status_put(mongo_app, requests_mock):
             }
         ],
     }
-    output = app.post("/v1/agents/status", json=status_update_data)
+    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
     assert 200 == output.status_code
     assert "webhook requested" == output.text
 

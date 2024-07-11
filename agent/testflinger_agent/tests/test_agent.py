@@ -403,8 +403,9 @@ class TestClient:
 
     def test_post_agent_status_update(self, agent, requests_mock):
         self.config["test_command"] = "echo test1"
+        job_id = str(uuid.uuid1())
         fake_job_data = {
-            "job_id": str(uuid.uuid1()),
+            "job_id": job_id,
             "job_queue": "test",
             "test_data": {"test_cmds": "foo"},
             "job_status_webhook": "https://mywebhook",
@@ -413,7 +414,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
-        status_url = "http://127.0.0.1:8000/v1/agents/status"
+        status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
         with patch("shutil.rmtree"):
             agent.process_jobs()
@@ -431,6 +432,7 @@ class TestClient:
             for phase in TestPhase
             for postfix in ["_start", "_success"]
         ]
+        expected_event_name_list.insert(0, "job_start")
         expected_event_name_list.append("job_end")
 
         assert event_list[-1]["detail"] == "normal_exit"
@@ -449,7 +451,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
-        status_url = "http://127.0.0.1:8000/v1/agents/status"
+        status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
 
         requests_mock.get(
@@ -486,7 +488,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
-        status_url = "http://127.0.0.1:8000/v1/agents/status"
+        status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
 
         with patch("shutil.rmtree"):
@@ -519,7 +521,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
-        status_url = "http://127.0.0.1:8000/v1/agents/status"
+        status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
 
         with patch("shutil.rmtree"):
