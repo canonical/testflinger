@@ -184,9 +184,19 @@ class OemRecovery:
     def check_device_booted(self):
         """Check to see if the device is booted and reachable with ssh"""
         logger.info("Checking to see if the device is available.")
+        try:
+            boot_timeout = self.job_data.get("provision_data", {}).get(
+                "boot_timeout", 3600
+            )
+        except AttributeError:
+            boot_timeout = 3600
+        finally:
+            if boot_timeout < 600:
+                boot_timeout = 600
+
         started = time.time()
         # Wait for provisioning to complete - can take a very long time
-        while time.time() - started < 3600:
+        while time.time() - started < boot_timeout:
             try:
                 time.sleep(90)
                 if (
