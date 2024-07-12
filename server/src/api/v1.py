@@ -405,10 +405,11 @@ def queues_post():
     the user can check which queues are valid to use.
     """
     queue_dict = request.get_json()
+    timestamp = datetime.now(timezone.utc)
     for queue, description in queue_dict.items():
         database.mongo.db.queues.update_one(
             {"name": queue},
-            {"$set": {"description": description}},
+            {"$set": {"description": description, "updated_at": timestamp}},
             upsert=True,
         )
     return "OK"

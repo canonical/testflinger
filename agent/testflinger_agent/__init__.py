@@ -133,6 +133,8 @@ def start_agent():
             )
             while agent.check_offline():
                 time.sleep(check_interval)
+        # Refresh the updated_at timestamp on advertised queues
+        client.post_advertised_queues()
         logger.info("Checking jobs")
         agent.process_jobs()
         logger.info("Sleeping for {}".format(check_interval))
