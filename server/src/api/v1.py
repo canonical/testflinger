@@ -18,7 +18,7 @@ Testflinger v1 API
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pkg_resources
 from apiflask import APIBlueprint, abort
@@ -488,6 +488,30 @@ def agents_post(agent_name, json_data):
     database.mongo.db.agents.update_one(
         {"name": agent_name},
         {"$set": json_data, "$push": {"log": {"$each": log, "$slice": -100}}},
+        upsert=True,
+    )
+    return "OK"
+
+
+@v1.post("/agents/provision_logs/<agent_name>")
+@v1.input(schemas.ProvisionLogsIn, location="json")
+def agents_provision_logs_post(agent_name, json_data):
+    """Post provision logs for the agent to the server"""
+    agent_record = {}
+
+    # timestamp this agent record and provision log entry
+    timestamp = datetime.now(timezone.utc)
+    agent_record["updated_at"] = json_data["timestamp"] = timestamp
+
+    update_operation = {
+        "$set": json_data,
+        "$push": {
+            "provision_log": {"$each": [json_data], "$slice": -100},
+        },
+    }
+    database.mongo.db.provision_logs.update_one(
+        {"name": agent_name},
+        update_operation,
         upsert=True,
     )
     return "OK"

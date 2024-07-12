@@ -4,7 +4,7 @@ import shutil
 import tempfile
 
 import requests_mock as rmock
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
@@ -161,11 +161,17 @@ class TestJob:
         requests_mock.post(rmock.ANY, status_code=200)
         job = _TestflingerJob({}, client)
         job.phase = "setup"
-        mock_runner = Mock()
-        mock_runner.run.side_effect = Exception("failed")
-        with patch("testflinger_agent.job.CommandRunner", mock_runner):
-            exit_code = job.run_test_phase("setup", tmp_path)
+        # Don't raise the exception on the 3 banner lines
+        with patch(
+            "testflinger_agent.job.CommandRunner.run",
+            side_effect=[None, None, None, Exception("failed")],
+        ):
+            exit_code, exit_event, exit_reason = job.run_test_phase(
+                "setup", tmp_path
+            )
         assert exit_code == 100
+        assert exit_event == "setup_fail"
+        assert exit_reason == "failed"
 
     def test_set_truncate(self, client):
         """Test the _set_truncate method of TestflingerJob"""

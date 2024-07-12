@@ -264,16 +264,16 @@ class TestflingerAgent:
                     self.set_agent_state(phase)
 
                     event_emitter.emit_event(TestEvent(phase + "_start"))
-                    exitcode, exit_event, exit_reason = job.run_test_phase(
+                    exit_code, exit_event, exit_reason = job.run_test_phase(
                         phase, rundir
                     )
-                    self.client.post_influx(phase, exitcode)
+                    self.client.post_influx(phase, exit_code)
                     event_emitter.emit_event(exit_event, exit_reason)
 
-                    if exitcode:
+                    if exit_code:
                         # exit code 46 is our indication that recovery failed!
                         # In this case, we need to mark the device offline
-                        if exitcode == 46:
+                        if exit_code == 46:
                             self.mark_device_offline()
                             exit_event = TestEvent.RECOVERY_FAIL
                         else:

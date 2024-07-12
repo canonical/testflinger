@@ -117,8 +117,10 @@ class TestflingerJob:
         ):
             runner.run(f"echo '{line}'")
         try:
+            # Set exit_event to fail for this phase in case of an exception
+            exit_event = f"{phase}_fail"
             exitcode, exit_event, exit_reason = runner.run(cmd)
-        except Exception as e:
+        except Exception as exc:
             logger.exception(exc)
             exitcode = 100
             exit_reason = str(exc)  # noqa: F841 - ignore this until it's used
