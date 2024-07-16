@@ -19,6 +19,10 @@ inputs:
     description: The Testflinger server to use
     required: false
     default: testflinger.canonical.com
+outputs:
+  id:
+    description: 'The ID of the submitted job'
+    value: ${{ steps.submit.outputs.id }}
 runs:
   using: composite
   steps:
@@ -80,6 +84,7 @@ runs:
         JOB_ID=$(testflinger --server $SERVER submit --quiet "$JOB")
         echo "job id: $JOB_ID"
         echo "JOB_ID=$JOB_ID" >> $GITHUB_ENV
+        echo "id=$JOB_ID" >> $GITHUB_OUTPUT
 
     - name: Track the status of the job and mirror its exit status
       if: inputs.poll == 'true' && inputs.dry-run != 'true'
