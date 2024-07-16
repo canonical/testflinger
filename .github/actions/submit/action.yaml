@@ -83,7 +83,6 @@ runs:
       run: |
         JOB_ID=$(testflinger --server $SERVER submit --quiet "$JOB")
         echo "job id: $JOB_ID"
-        echo "JOB_ID=$JOB_ID" >> $GITHUB_ENV
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
 
     - name: Track the status of the job and mirror its exit status
@@ -91,6 +90,7 @@ runs:
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
+        JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
         # poll
         PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
