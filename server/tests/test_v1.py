@@ -499,7 +499,7 @@ def test_agents_post_bad(mongo_app):
 
 
 def test_agents_provision_logs_post(mongo_app):
-    """Test posting provision logs"""
+    """Test posting provision logs for an agent"""
     app, mongo = mongo_app
     agent_name = "agent1"
     provision_log = {
@@ -508,12 +508,17 @@ def test_agents_provision_logs_post(mongo_app):
         "detail": "provision_failed",
     }
 
+    # Ensure that agent data for this agent exists
+    agent_data = {"state": "waiting"}
+    result = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    assert 200 == result.status_code
+
     # Test that the post is successful
-    output = app.post(
+    result = app.post(
         f"/v1/agents/provision_logs/{agent_name}", json=provision_log
     )
-    assert 200 == output.status_code
-    assert "OK" == output.text
+    assert 200 == result.status_code
+    assert "OK" == result.text
 
     # Test that the expected data was stored
     provision_log_records = mongo.provision_logs.find_one({"name": agent_name})
@@ -522,9 +527,10 @@ def test_agents_provision_logs_post(mongo_app):
         <= provision_log_records["provision_log"][0].items()
     )
 
-    # Test recent_failed_provisions is 1 on the agent
+    # Test failed provision streak is reflected in the agent data
     agent_data = mongo.agents.find_one({"name": agent_name})
-    assert agent_data["recent_failed_provisions"] == 1
+    assert agent_data["provision_streak_type"] == "fail"
+    assert agent_data["provision_streak_count"] == 1
 
     # Now we should have two provision log entries
     provision_log["exit_code"] = 0
@@ -532,9 +538,10 @@ def test_agents_provision_logs_post(mongo_app):
     provision_log_records = mongo.provision_logs.find_one({"name": agent_name})
     assert len(provision_log_records["provision_log"]) == 2
 
-    # Test that recent_failed_provisions is cleared on the agent
+    # Test that provision streak is now changed to pass
     agent_data = mongo.agents.find_one({"name": agent_name})
-    assert agent_data["recent_failed_provisions"] == 0
+    assert agent_data["provision_streak_type"] == "pass"
+    assert agent_data["provision_streak_count"] == 1
 
 
 def test_get_agents_data(mongo_app):

@@ -32,13 +32,20 @@
         {% for agent in agents %}
         <tr class="searchable-row">
             <td class="has-overflow">
-                {% if agent.recent_failed_provisions and agent.recent_failed_provisions > 1 %}
+                {% if agent.provision_streak_type == "fail" and agent.provision_streak_count > 0 %}
                 <span class="p-tooltip--right" aria-describedby="tooltip">
                     <i class="p-icon--warning"></i>
                     <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has failed the last {{
-                        agent.recent_failed_provisions }} provision attempts</span>
+                        agent.provision_streak_count }} provision attempts</span>
                 </span>
-                {{ agent.recent_failed_provisions }}
+                {{ agent.provision_streak_count }}
+                {% elif agent.provision_streak_type == "pass" and agent.provision_streak_count > 0 %}
+                <span class="p-tooltip--right" aria-describedby="tooltip">
+                    <i class="p-icon--success"></i>
+                    <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has passed the last {{
+                        agent.provision_streak_count }} provision attempts</span>
+                </span>
+                {{ agent.provision_streak_count }}
                 {% endif %}
             </td>
             <td><a href="/agents/{{ agent.name }}">{{ agent.name }}</a></td>
