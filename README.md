@@ -44,6 +44,7 @@ If you need to submit a job to a testflinger server through a Github action (ins
 The corresponding step in the workflow would look like this:
 ```
     - name: Submit job
+      id: submit-job
       uses: canonical/testflinger/.github/actions/submit@v1
       with:
         poll: true
@@ -54,6 +55,7 @@ This assumes that there is a previous `create-job` step in the workflow that cre
 Alternatively, you can use the `job` argument (instead of `job-path`) to provide the contents of the job inline:
 ```
     - name: Submit job
+      id: submit-job
       uses: canonical/testflinger/.github/actions/submit@v1
       with:
         poll: true
@@ -61,3 +63,13 @@ Alternatively, you can use the `job` argument (instead of `job-path`) to provide
             ...  # inline YAML for Testflinger job
 ```
 In the latter case, do remember to use escapes for environment variables in the inline text, e.g. `\$DEVICE_IP`.
+
+The `id` of the submitted job is returned as an output of the `submit` action, so you can use it (if you need it)
+in any of the subsequent steps of the workflow:
+
+```
+    - name: Display results
+      run: |
+        testflinger results ${{ steps.submit-job.outputs.id }}"
+```
+In this example, `submit-job` is the step where the `submit` action is used.
