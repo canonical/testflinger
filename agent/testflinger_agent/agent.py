@@ -220,7 +220,7 @@ class TestflingerAgent:
                 logger.info("Starting job %s", job.job_id)
                 event_emitter.emit_event(
                     TestEvent.JOB_START,
-                    f"{self.client.server}/job/{job.job_id}/events",
+                    f"{self.client.server}/jobs/{job.job_id}",
                 )
                 rundir = os.path.join(
                     self.client.config.get("execution_basedir"), job.job_id
