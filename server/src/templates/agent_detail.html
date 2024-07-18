@@ -37,6 +37,24 @@
 </ul>
 
 <h2 class="p-muted-heading">Provision History</h2>
+<form action="" method="get" class="p-form--inline">
+    <div class="p-form__group">
+        <label for="start-date" class="p-form__label">Start Date</label>
+        <input type="date" id="start-date" name="start" class="p-form__control"
+            value="{{ request.args.get('start', agent.start) }}">
+    </div>
+    <div class="p-form__group">
+        <label for="stop-date" class="p-form__label">Stop Date</label>
+        <input type="date" id="stop-date" name="stop" class="p-form__control"
+            value="{{ request.args.get('stop', agent.stop) }}">
+    </div>
+    <button type="submit" class="p-button--positive">Refresh</button>
+</form>
+
+<div>
+    <strong>Provision success rate for this range:</strong> {{ agent.provision_success_rate }}%
+</div>
+
 <div>
     <table>
         <thead>
