@@ -58,10 +58,3 @@ def testapp():
     """pytest fixture for just the app"""
     app = application.create_flask_app(TestingConfig)
     yield app
-
-
-@pytest.fixture
-def testing_app():
-    """Create an app for testing without using test_client"""
-    app = application.create_flask_app(TestingConfig)
-    yield app
