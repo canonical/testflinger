@@ -7,7 +7,7 @@ Zapper-driven provisioning method that makes use of KVM assertions and actions.
 
 Support for vanilla Ubuntu is provided by [autoinstall](https://canonical-subiquity.readthedocs-hosted.com/en/latest/intro-to-autoinstall.html). Supported Ubuntu versions are:
 
-- Core24
+- Core24 (experimental)
 - Desktop >= 23.04
 - Server >= 20.04
 
