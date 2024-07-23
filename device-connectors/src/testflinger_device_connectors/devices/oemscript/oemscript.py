@@ -91,7 +91,7 @@ class OemScript:
 
         provision_data = self.job_data.get("provision_data", {})
         image_url = provision_data.get("url")
-        distro = self.distro
+        distro = getattr(self, "distro", None)
 
         # Download the .iso image from image_url
         if not image_url:

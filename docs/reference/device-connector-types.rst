@@ -265,7 +265,7 @@ The ``hp_oemscript`` device connector does not support any ``provision_data`` ke
        the ``zstd`` tool is supported) and
        flashed to the device, which will be used to boot up the DUT.
 
-nole_oemscript
+noble_oemscript
 ------------
 
 The ``noble_oemscript`` device connector supports the following ``provision_data`` keys.
@@ -276,9 +276,9 @@ The ``noble_oemscript`` device connector supports the following ``provision_data
    * - Key
      - Description
    * - ``url``
-     - URL to the .iso image file which will be used to provision the device.
+     - URL to the image file which will be used to provision the device.
    * - ``attachments``
-     - configuration files used for the system installation (user-data, meta-data, authorized_keys, etc.)
+     - configuration files used for the system installation (user-data, meta-data, etc.)
 
 .. _zapper_kvm:
 
