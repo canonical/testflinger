@@ -262,7 +262,12 @@ class TestflingerAgent:
 
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase)
-
+                    provision_error_log = os.path.join(
+                        rundir, "provision_error.log"
+                    )
+                    if phase == "provision":
+                        # Clear provision error log before starting
+                        open(provision_error_log, "w").close()
                     event_emitter.emit_event(TestEvent(phase + "_start"))
                     exit_code, exit_event, exit_reason = job.run_test_phase(
                         phase, rundir
@@ -279,10 +284,16 @@ class TestflingerAgent:
                         else:
                             exit_event = TestEvent(phase + "_fail")
                         event_emitter.emit_event(exit_event)
+                        detail = ""
                         if phase == "provision":
                             self.client.post_provision_log(
                                 job.job_id, exit_code, exit_event
                             )
+                            with open(
+                                provision_error_log, "a"
+                            ) as provision_error:
+                                detail = provision_error.read()
+                        event_emitter.emit_event(exit_event, detail)
                         if phase != "test":
                             logger.debug(
                                 "Phase %s failed, aborting job" % phase
