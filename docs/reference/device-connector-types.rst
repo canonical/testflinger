@@ -26,6 +26,8 @@ To specify the commands to run by the device in each test phase, set the ``testf
      - General device connector that does not support provisioning, but can run tests on a device where provisioning is not needed or not possible to do automatically.
    * - ``oemrecovery`` 
      - device connector where provisioning involves triggering a “recovery” mode to reset the image back to its original state.  This is useful for things like Ubuntu Core images with full disk encryption, which can be preloaded with cloud-init data to ensure user creation, then a command is configured for the device connector that will cause it to be reset back to its original state.
+   * - ``noble_oemscript``
+     - device connector to provision OEM Noble 24.04 image on HP/Dell/Lenovo. Uses image-deploy.sh script for provisioning.
    * - ``dell_oemscript``
      - This device connector is used for Dell OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
    * - ``lenovo_oemscript`` 
@@ -262,6 +264,21 @@ The ``hp_oemscript`` device connector does not support any ``provision_data`` ke
        ``unzstd`` (**xz** format is recommended, but any format supported by
        the ``zstd`` tool is supported) and
        flashed to the device, which will be used to boot up the DUT.
+
+nole_oemscript
+------------
+
+The ``noble_oemscript`` device connector supports the following ``provision_data`` keys.
+
+.. list-table:: Supported ``provision_data`` keys for ``noble_oemscript``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``url``
+     - URL to the .iso image file which will be used to provision the device.
+   * - ``attachments``
+     - configuration files used for the system installation (user-data, meta-data, authorized_keys, etc.)
 
 .. _zapper_kvm:
 
