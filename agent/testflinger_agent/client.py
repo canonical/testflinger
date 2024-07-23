@@ -444,6 +444,5 @@ class TestflingerClient:
             job_request = None
         if not job_request:
             logger.error(
-                "Unable to post status updates to: %s (error: %s)"
-                % (status_update_uri, job_request.status_code)
+                f"Unable to post status updates to: {status_update_uri}"
             )
