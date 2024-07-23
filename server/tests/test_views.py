@@ -17,6 +17,8 @@
 Unit tests for Testflinger views
 """
 
+from datetime import datetime
+import re
 import mongomock
 from mock import patch
 from src.views import job_detail, queues_data, agent_detail
@@ -82,6 +84,23 @@ def test_queues():
     assert len(advertised_queue2) == 1
     assert advertised_queue2[0]["description"] == "desc2"
     assert advertised_queue2[0]["numjobs"] == 2
+
+
+def test_agent_detail_no_provision_log(testapp):
+    """
+    Test that the agent detail page doesn't break when there's no provision log
+    """
+
+    mongo = mongomock.MongoClient()
+    mongo.db.agents.insert_one(
+        {"name": "agent1", "updated_at": datetime.now()}
+    )
+    with patch("src.views.mongo", mongo):
+        with testapp.test_request_context():
+            response = agent_detail("agent1")
+
+    pattern = r"Provision success rate for this range:</strong>\s*0%"
+    assert re.search(pattern, response)
 
 
 def test_agent_not_found(testapp):

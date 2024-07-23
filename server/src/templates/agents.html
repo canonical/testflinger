@@ -20,15 +20,34 @@
 <table aria-label="Agents table" class="p-table--mobile-card">
     <thead>
         <tr>
-            <th>Name</th>
-            <th>State</th>
-            <th>Updated At</th>
+            <th aria-sort="none" class="has-overflow" style="width: 40pt"></th>
+            <!-- Added an empty header for the warning icon column -->
+            <th aria-sort="none">Name</th>
+            <th aria-sort="none">State</th>
+            <th aria-sort="none">Updated At</th>
             <th>Job ID</th>
         </tr>
     </thead>
     <tbody>
         {% for agent in agents %}
         <tr class="searchable-row">
+            <td class="has-overflow">
+                {% if agent.provision_streak_type == "fail" and agent.provision_streak_count > 0 %}
+                <span class="p-tooltip--right" aria-describedby="tooltip">
+                    <i class="p-icon--warning"></i>
+                    <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has failed the last {{
+                        agent.provision_streak_count }} provision attempts</span>
+                </span>
+                {{ agent.provision_streak_count }}
+                {% elif agent.provision_streak_type == "pass" and agent.provision_streak_count > 0 %}
+                <span class="p-tooltip--right" aria-describedby="tooltip">
+                    <i class="p-icon--success"></i>
+                    <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has passed the last {{
+                        agent.provision_streak_count }} provision attempts</span>
+                </span>
+                {{ agent.provision_streak_count }}
+                {% endif %}
+            </td>
             <td><a href="/agents/{{ agent.name }}">{{ agent.name }}</a></td>
             <td>{{ agent.state }}</td>
             <td>{{ agent.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>

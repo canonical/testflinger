@@ -21,9 +21,9 @@ import pytest
 from src.application import create_flask_app
 
 
-def test_default_config(testing_app):
+def test_default_config(testapp):
     """Test default config settings"""
-    app = testing_app
+    app = testapp
     assert app.config.get("PROPAGATE_EXCEPTIONS") is True
 
 

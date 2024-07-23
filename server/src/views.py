@@ -17,8 +17,17 @@
 Additional views not associated with the API
 """
 
-from flask import Blueprint, make_response, render_template, redirect, url_for
+from datetime import datetime, timedelta
+from flask import (
+    Blueprint,
+    make_response,
+    render_template,
+    redirect,
+    request,
+    url_for,
+)
 from prometheus_client import generate_latest
+from src import database
 from src.database import mongo
 
 views = Blueprint("testflinger", __name__)
@@ -46,6 +55,20 @@ def agents():
 @views.route("/agents/<agent_id>")
 def agent_detail(agent_id):
     """Agent detail view"""
+    default_start_date = (datetime.now() - timedelta(days=2)).strftime(
+        "%Y-%m-%d"
+    )
+    default_stop_date = datetime.now().strftime("%Y-%m-%d")
+
+    start_date = request.args.get("start", default_start_date)
+    stop_date = request.args.get("stop", default_stop_date)
+
+    # Convert start and stop dates to datetime objects for the query
+    start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+    stop_datetime = datetime.strptime(stop_date, "%Y-%m-%d") + timedelta(
+        days=1
+    )
+
     agent_info = mongo.db.agents.find_one({"name": agent_id})
     if not agent_info:
         response = make_response(
@@ -53,12 +76,33 @@ def agent_detail(agent_id):
         )
         response.status_code = 404
         return response
-    provision_log_entry = mongo.db.provision_logs.find_one(
-        {"name": agent_id}, {"provision_log": 1}
+
+    # We want to include the start/stop dates so that default values
+    # can be filled in for the date pickers
+    agent_info["start"] = start_date
+    agent_info["stop"] = stop_date
+
+    agent_info["provision_log"] = database.get_provision_log(
+        agent_id,
+        start_datetime=start_datetime,
+        stop_datetime=stop_datetime,
     )
-    agent_info["provision_log"] = (
-        provision_log_entry["provision_log"] if provision_log_entry else []
-    )
+
+    if agent_info["provision_log"]:
+        agent_info["provision_success_rate"] = int(
+            100
+            * len(
+                [
+                    entry
+                    for entry in agent_info["provision_log"]
+                    if entry["exit_code"] == 0
+                ]
+            )
+            / len(agent_info["provision_log"])
+        )
+    else:
+        # Avoid division by zero
+        agent_info["provision_success_rate"] = 0
 
     return render_template("agent_detail.html", agent=agent_info)
 

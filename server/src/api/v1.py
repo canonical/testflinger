@@ -24,6 +24,7 @@ import pkg_resources
 from apiflask import APIBlueprint, abort
 from flask import jsonify, request, send_file
 from prometheus_client import Counter
+
 from werkzeug.exceptions import BadRequest
 
 from src import database
@@ -511,6 +512,23 @@ def agents_provision_logs_post(agent_name, json_data):
         update_operation,
         upsert=True,
     )
+    agent = database.mongo.db.agents.find_one(
+        {"name": agent_name},
+        {"provision_streak_type": 1, "provision_streak_count": 1},
+    )
+    if not agent:
+        return "Agent not found\n", 404
+    previous_provision_streak_type = agent.get("provision_streak_type", "")
+    previous_provision_streak_count = agent.get("provision_streak_count", 0)
+
+    agent["provision_streak_type"] = (
+        "fail" if json_data["exit_code"] != 0 else "pass"
+    )
+    if agent["provision_streak_type"] == previous_provision_streak_type:
+        agent["provision_streak_count"] = previous_provision_streak_count + 1
+    else:
+        agent["provision_streak_count"] = 1
+    database.mongo.db.agents.update_one({"name": agent_name}, {"$set": agent})
     return "OK"
 
 

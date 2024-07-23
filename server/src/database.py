@@ -19,6 +19,7 @@ This returns a db object for talking to MongoDB
 
 import os
 import urllib
+from datetime import datetime
 from typing import Any
 
 from flask_pymongo import PyMongo
@@ -196,3 +197,48 @@ def pop_job(queue_list):
     job_id = response["job_id"]
     job["job_id"] = job_id
     return job
+
+
+def get_provision_log(
+    agent_id: str, start_datetime: datetime, stop_datetime: datetime
+) -> list:
+    """Get the provision log for an agent between two dates"""
+    provision_log_entries = mongo.db.provision_logs.aggregate(
+        [
+            {"$match": {"name": agent_id}},
+            {
+                "$project": {
+                    "provision_log": {
+                        "$filter": {
+                            "input": "$provision_log",
+                            "as": "log",
+                            "cond": {
+                                "$and": [
+                                    {
+                                        "$gte": [
+                                            "$$log.timestamp",
+                                            start_datetime,
+                                        ]
+                                    },
+                                    {
+                                        "$lt": [
+                                            "$$log.timestamp",
+                                            stop_datetime,
+                                        ]
+                                    },
+                                ]
+                            },
+                        }
+                    }
+                }
+            },
+        ]
+    )
+    # Convert the aggregated result to a list of logs
+    provision_log_entries = list(provision_log_entries)
+
+    return (
+        provision_log_entries[0]["provision_log"]
+        if provision_log_entries
+        else []
+    )

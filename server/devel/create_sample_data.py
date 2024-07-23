@@ -199,10 +199,14 @@ class TestflingerClient:
             )
 
             # Add failed provision logs with obviously fake job_id for testing
+            exit_code = random.choice((0, 1))
+            exit_detail = (
+                "provision_fail" if exit_code != 0 else "provision_pass"
+            )
             provision_log = {
                 "job_id": "00000000-0000-0000-0000-00000000000",
-                "exit_code": 1,
-                "detail": "provision_fail",
+                "exit_code": exit_code,
+                "detail": exit_detail,
             }
             self.session.post(
                 f"{self.server_url}/v1/agents/provision_logs/{agent_name}",
