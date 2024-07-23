@@ -29,6 +29,7 @@ from testflinger_device_connectors.devices import (
 )
 
 logger = logging.getLogger(__name__)
+attachments_dir = os.path.join(Path.cwd(), "attachments/provision")
 
 
 class OemScript:
@@ -90,6 +91,7 @@ class OemScript:
 
         provision_data = self.job_data.get("provision_data", {})
         image_url = provision_data.get("url")
+        distro = self.distro
 
         # Download the .iso image from image_url
         if not image_url:
@@ -97,10 +99,10 @@ class OemScript:
                 "Please provide an image 'url' in the provision_data section"
             )
             raise ProvisioningError("No image url provided")
+
         try:
             image_file = download(image_url)
-
-            self.run_recovery_script(image_file)
+            self.run_recovery_script(image_file, distro)
 
             self.check_device_booted()
         finally:
@@ -108,25 +110,38 @@ class OemScript:
             if image_file:
                 os.unlink(image_file)
 
-    def run_recovery_script(self, image_file):
+    def run_recovery_script(self, image_file, distro):
         """Download and run the OEM recovery script"""
         device_ip = self.config["device_ip"]
 
         data_path = Path(__file__).parent / "../../data/muxpi/oemscript"
-        recovery_script = data_path / "recovery-from-iso.sh"
-
         # Run the recovery script
         logger.info("Running recovery script")
-        cmd = [
-            recovery_script,
-            *self.extra_script_args,
-            "--local-iso",
-            image_file,
-            "--inject-ssh-key",
-            os.path.expanduser("~/.ssh/id_rsa.pub"),
-            "-t",
-            device_ip,
-        ]
+
+        if distro == "noble":
+            recovery_script = data_path / "image-deploy.sh"
+            cmd = [
+                recovery_script,
+                *self.extra_script_args,
+                "--iso",
+                image_file,
+                "--local-config",
+                attachments_dir,
+                device_ip,
+            ]
+        else:
+            recovery_script = data_path / "recovery-from-iso.sh"
+            cmd = [
+                recovery_script,
+                *self.extra_script_args,
+                "--local-iso",
+                image_file,
+                "--inject-ssh-key",
+                os.path.expanduser("~/.ssh/id_rsa.pub"),
+                "-t",
+                device_ip,
+            ]
+
         proc = subprocess.run(
             cmd,
             timeout=60 * 60,  # 1 hour - just in case
