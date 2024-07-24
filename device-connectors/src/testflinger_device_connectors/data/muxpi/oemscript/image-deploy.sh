@@ -57,7 +57,6 @@ while :; do
             shift 2;;
         ('-l'|'--local-config')
             CONFIG_REPO_PATH="$2"
-            SKIP_GIT="TRUE"
             shift 2;;
 	('--') shift; break ;;
 	(*) break ;;
