@@ -338,3 +338,25 @@ def test_results(capsys, requests_mock):
     tfcli.results()
     std = capsys.readouterr()
     assert "completed" in std.out
+
+
+def test_list_queues(capsys, requests_mock):
+    """list_queues should report queues"""
+    fake_return = {"queue1": "description1", "queue2": "description2"}
+    requests_mock.get(URL + "/v1/agents/queues", json=fake_return)
+    sys.argv = ["", "list-queues"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_queues()
+    std = capsys.readouterr()
+    assert "queue1 - description1" in std.out
+    assert "queue2 - description2" in std.out
+
+
+def test_list_queues_connection_error(caplog, requests_mock):
+    """list_queues should report queues"""
+    requests_mock.get(URL + "/v1/agents/queues", status_code=400)
+    sys.argv = ["", "list-queues"]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit):
+        tfcli.list_queues()
+    assert "Unable to get a list of queues from the server." in caplog.text
