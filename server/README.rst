@@ -356,3 +356,29 @@ This will find jobs tagged with both "foo" and "bar".
          -X POST --header "Content-Type: application/json" \
          --data '{ "job_id": "00000000-0000-0000-0000-000000000000", \
                    "exit_code": 1, "detail":"foo" }'
+
+**[POST] /v1/job/<job_id>/events - Receive job status updates from an agent and posts them to the specified webhook.
+
+The job_status_webhook parameter is required for this endpoint. Other parameters included here will be forwarded to the webhook. 
+
+- Parameters:
+  - job_id: test job identifier as a UUID
+  - job_status_webhook: webhook URL to post status updates to
+
+- Returns:
+
+  Text response from the webhook if the server was successfully able to post.
+
+- Status Codes:
+
+  - HTTP 200 (OK)
+  - HTTP 400 (Bad request) - The arguments could not be processed by the server
+  - HTTP 504 (Gateway Timeout) - The webhook URL timed out
+
+- Example:
+
+  .. code-block:: console 
+
+    $ curl -X POST \
+    -H "Content-Type: application/json" \
+    -d '{"agent_id": "agent-00", "job_queue": "myqueue", "job_status_webhook": "http://mywebhook", "events": [{"event_name": "started_provisioning", "timestamp": "2024-05-03T19:11:33.541130+00:00", "detail": "my_detailed_message"}]}' http://localhost:8000/v1/job/00000000-0000-0000-0000-000000000000/events

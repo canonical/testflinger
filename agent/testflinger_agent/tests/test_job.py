@@ -4,7 +4,7 @@ import shutil
 import tempfile
 
 import requests_mock as rmock
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
@@ -15,6 +15,7 @@ from testflinger_agent.stop_condition_checkers import (
     GlobalTimeoutChecker,
     OutputTimeoutChecker,
 )
+from testflinger_common.enums import TestEvent
 
 
 class TestJob:
@@ -46,8 +47,10 @@ class TestJob:
         job = _TestflingerJob(fake_job_data, client)
 
         self.config[f"{phase}_command"] = "/bin/true"
-        return_value = job.run_test_phase(phase, None)
+        return_value, exit_event, exit_reason = job.run_test_phase(phase, None)
         assert return_value == 0
+        assert exit_event is None
+        assert exit_reason is None
 
     @pytest.mark.parametrize(
         "phase", ["setup", "provision", "test", "allocate", "reserve"]
@@ -59,8 +62,10 @@ class TestJob:
         self.config[f"{phase}_command"] = ""
         fake_job_data = {"global_timeout": 1, f"{phase}_data": "foo"}
         job = _TestflingerJob(fake_job_data, client)
-        return_value = job.run_test_phase(phase, None)
+        return_value, exit_event, exit_reason = job.run_test_phase(phase, None)
         assert return_value == 0
+        assert exit_event is None
+        assert exit_reason is None
 
     def test_job_global_timeout(self, tmp_path):
         """Test that timeout from job_data is respected"""
@@ -71,12 +76,13 @@ class TestJob:
         runner.register_output_handler(log_handler)
         global_timeout_checker = GlobalTimeoutChecker(1)
         runner.register_stop_condition_checker(global_timeout_checker)
-        exit_code, exit_reason = runner.run("sleep 12")
+        exit_code, exit_event, exit_reason = runner.run("sleep 12")
         with open(logfile) as log:
             log_data = log.read()
         assert timeout_str in log_data
         assert exit_reason == timeout_str
         assert exit_code == -9
+        assert exit_event == TestEvent.GLOBAL_TIMEOUT
 
     def test_config_global_timeout(self, client):
         """Test that timeout from device config is preferred"""
@@ -97,12 +103,13 @@ class TestJob:
         runner.register_stop_condition_checker(output_timeout_checker)
         # unfortunately, we need to sleep for longer that 10 seconds here
         # or else we fall under the polling time
-        exit_code, exit_reason = runner.run("sleep 12")
+        exit_code, exit_event, exit_reason = runner.run("sleep 12")
         with open(logfile) as log:
             log_data = log.read()
         assert timeout_str in log_data
         assert exit_reason == timeout_str
         assert exit_code == -9
+        assert exit_event == TestEvent.OUTPUT_TIMEOUT
 
     def test_config_output_timeout(self, client):
         """Test that output timeout from device config is preferred"""
@@ -154,11 +161,17 @@ class TestJob:
         requests_mock.post(rmock.ANY, status_code=200)
         job = _TestflingerJob({}, client)
         job.phase = "setup"
-        mock_runner = Mock()
-        mock_runner.run.side_effect = Exception("failed")
-        with patch("testflinger_agent.job.CommandRunner", mock_runner):
-            exit_code = job.run_test_phase("setup", tmp_path)
+        # Don't raise the exception on the 3 banner lines
+        with patch(
+            "testflinger_agent.job.CommandRunner.run",
+            side_effect=[None, None, None, Exception("failed")],
+        ):
+            exit_code, exit_event, exit_reason = job.run_test_phase(
+                "setup", tmp_path
+            )
         assert exit_code == 100
+        assert exit_event == "setup_fail"
+        assert exit_reason == "failed"
 
     def test_set_truncate(self, client):
         """Test the _set_truncate method of TestflingerJob"""

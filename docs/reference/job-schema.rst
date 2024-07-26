@@ -47,7 +47,11 @@ The following table lists the key elements that a job definition file should con
       |   - test
       |   - allocate
       |   - reserve 
-      | For detailed information about how to define the data to include in each test phase, see :doc:`test-phases`. 
+      | For detailed information about how to define the data to include in each test phase, see :doc:`test-phases`.
+      * - ``job_status_webhook``
+    - string
+    - /
+    - | (Optional) URL to send job status updates to. These updates originate from the agent and get posted to the server which then posts the update to the webhook. If no webhook is specified, these updates will not be generated.
 
 Example jobs in YAML
 ----------------------------

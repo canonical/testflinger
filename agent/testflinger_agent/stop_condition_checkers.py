@@ -13,8 +13,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 import time
-from typing import Optional
-
+from typing import Optional, Tuple
+from testflinger_common.enums import JobState, TestEvent
 from .client import TestflingerClient
 
 
@@ -23,10 +23,13 @@ class JobCancelledChecker:
         self.client = client
         self.job_id = job_id
 
-    def __call__(self) -> Optional[str]:
-        if self.client.check_job_state(self.job_id) == "cancelled":
-            return "Job cancellation was requested, exiting."
-        return None
+    def __call__(self) -> Tuple[Optional[TestEvent], str]:
+        if self.client.check_job_state(self.job_id) == JobState.CANCELLED:
+            return (
+                TestEvent.CANCELLED,
+                "Job cancellation was requested, exiting.",
+            )
+        return None, ""
 
 
 class GlobalTimeoutChecker:
@@ -34,10 +37,13 @@ class GlobalTimeoutChecker:
         self.timeout = timeout
         self.start_time = time.time()
 
-    def __call__(self) -> Optional[str]:
+    def __call__(self) -> Tuple[Optional[TestEvent], str]:
         if time.time() - self.start_time > self.timeout:
-            return f"ERROR: Global timeout reached! ({self.timeout}s)"
-        return None
+            return (
+                TestEvent.GLOBAL_TIMEOUT,
+                f"ERROR: Global timeout reached! ({self.timeout}s)",
+            )
+        return None, ""
 
 
 class OutputTimeoutChecker:
@@ -45,10 +51,13 @@ class OutputTimeoutChecker:
         self.timeout = timeout
         self.last_output_time = time.time()
 
-    def __call__(self) -> Optional[str]:
+    def __call__(self) -> Tuple[Optional[TestEvent], str]:
         if time.time() - self.last_output_time > self.timeout:
-            return f"ERROR: Output timeout reached! ({self.timeout}s)"
-        return None
+            return (
+                TestEvent.OUTPUT_TIMEOUT,
+                f"ERROR: Output timeout reached! ({self.timeout}s)",
+            )
+        return None, ""
 
     def update(self):
         """Update the last output time to the current time."""

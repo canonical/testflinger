@@ -114,6 +114,7 @@ class Job(Schema):
     test_data = fields.Nested(TestData, required=False)
     allocate_data = fields.Dict(required=False)
     reserve_data = fields.Dict(required=False)
+    job_status_webhook = fields.String(required=False)
 
 
 class JobId(Schema):
@@ -168,6 +169,23 @@ class Result(Schema):
     cleanup_serial = fields.String(required=False)
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
+
+
+class JobEvent(Schema):
+    """Job Event schema"""
+
+    event_name = fields.String(required=True)
+    timestamp = fields.String(required=True)
+    detail = fields.String(required=False)
+
+
+class StatusUpdate(Schema):
+    """Status Update schema"""
+
+    agent_id = fields.String(required=False)
+    job_queue = fields.String(required=False)
+    job_status_webhook = fields.URL(required=True)
+    events = fields.List(fields.Nested(JobEvent), required=False)
 
 
 job_empty = {
