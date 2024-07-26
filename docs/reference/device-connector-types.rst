@@ -328,6 +328,6 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
         is plugged into the DUT and the system restarted. The snippet ID is the relative
         path from the ``robot/snippets`` path in the Zapper repository.
     * - ``boot_from_ext_media``
-      - keeps the external storage device connected, booting from there. It should be flagged as `true` for live ISOs.
+      - Set to "true" to ensure that the Zapper considers the provision process complete at the end of KVM interactions, without needing to unplug the external media.
     * - ``wait_until_ssh``
-      - if `true`, skip the attempt to connect via SSH at the end of provisioning, useful in case the live ISO does not include a SSH server
+      - If set to "true", the Zapper will skip the SSH connection attempt, which is normally performed at the end of provisioning as a form of boot assertion. This is primarily useful in cases where the live ISO does not include an SSH server.

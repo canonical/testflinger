@@ -51,10 +51,10 @@ Ubuntu OEM 24.04 uses `autoinstall`. The procedure and the arguments are the sam
 
 ## Live ISO
 
-Support for live ISOs is simply performed booting from an external storage device and returning.
+Support for live ISOs is simply performed booting from an external storage device and returning right after KVM interactions.
 
 ### Job parameters
 
-- __boot_from_ext_media__: should be set to "true"
-- __wait_until_ssh__: SSH assertion at the end of provisioning can be skipped, in case the live ISO does not include an SSH server
+- __boot_from_ext_media__: Set to "true" to ensure that the Zapper considers the provision process complete at the end of KVM interactions, without needing to unplug the external media.
+- __wait_until_ssh__: If set to "true", the Zapper will skip the SSH connection attempt, which is normally performed at the end of provisioning as a form of boot assertion. This is primarily useful in cases where the live ISO does not include an SSH server.
 
