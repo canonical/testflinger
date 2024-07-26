@@ -659,6 +659,8 @@ class TestflingerCli:
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
                 ) from exc
+            logger.error("Unable to get a list of queues from the server.")
+            sys.exit(1)
         print("Advertised queues on this server:")
         for name, description in sorted(queues.items()):
             print(" {} - {}".format(name, description))
