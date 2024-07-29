@@ -51,8 +51,8 @@ def cli():
         tfcli = TestflingerCli()
         configure_logging()
         tfcli.run()
-    except KeyboardInterrupt as exc:
-        raise SystemExit from exc
+    except KeyboardInterrupt:
+        sys.exit("Received KeyboardInterrupt")
 
 
 def configure_logging():
@@ -157,7 +157,7 @@ class TestflingerCli:
         ):
             return
         if not server.startswith(("http://", "https://")):
-            raise SystemExit(
+            sys.exit(
                 'Server must start with "http://" or "https://" '
                 '- currently set to: "{}"'.format(server)
             )
@@ -167,7 +167,7 @@ class TestflingerCli:
     def run(self):
         """Run the subcommand specified in command line arguments"""
         if hasattr(self.args, "func"):
-            raise SystemExit(self.args.func())
+            sys.exit(self.args.func())
         print(self.help)
 
     def get_args(self):
@@ -286,22 +286,22 @@ class TestflingerCli:
         if not job_id:
             try:
                 job_id = self.args.job_id
-            except AttributeError as exc:
-                raise SystemExit("No job id specified to cancel.") from exc
+            except AttributeError:
+                sys.exit("No job id specified to cancel.")
         try:
             self.client.put(f"/v1/job/{job_id}/action", {"action": "cancel"})
             self.history.update(job_id, "cancelled")
         except client.HTTPError as exc:
             if exc.status == 400:
-                raise SystemExit(
+                sys.exit(
                     "Invalid job ID specified or the job is already "
                     "completed/cancelled."
-                ) from exc
+                )
             if exc.status == 404:
-                raise SystemExit(
+                sys.exit(
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
-                ) from exc
+                )
             raise
 
     def configure(self):
@@ -488,22 +488,23 @@ class TestflingerCli:
             results = self.client.show_job(self.args.job_id)
         except client.HTTPError as exc:
             if exc.status == 204:
-                raise SystemExit("No data found for that job id.") from exc
+                sys.exit("No data found for that job id.")
             if exc.status == 400:
-                raise SystemExit(
+                sys.exit(
                     "Invalid job id specified. Check the job id "
                     "to be sure it is correct"
-                ) from exc
+                )
             if exc.status == 404:
-                raise SystemExit(
+                sys.exit(
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
-                ) from exc
+                )
             # This shouldn't happen, so let's get more information
-            raise SystemExit(
-                "Unexpected error status from testflinger "
-                "server: {}".format(exc.status)
-            ) from exc
+            logger.error(
+                "Unexpected error status from testflinger server: %s",
+                exc.status,
+            )
+            sys.exit(1)
         print(json.dumps(results, sort_keys=True, indent=4))
 
     def results(self):
@@ -512,22 +513,23 @@ class TestflingerCli:
             results = self.client.get_results(self.args.job_id)
         except client.HTTPError as exc:
             if exc.status == 204:
-                raise SystemExit("No results found for that job id.") from exc
+                sys.exit("No results found for that job id.")
             if exc.status == 400:
-                raise SystemExit(
+                sys.exit(
                     "Invalid job id specified. Check the job id "
                     "to be sure it is correct"
-                ) from exc
+                )
             if exc.status == 404:
-                raise SystemExit(
+                sys.exit(
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
-                ) from exc
+                )
             # This shouldn't happen, so let's get more information
-            raise SystemExit(
-                "Unexpected error status from testflinger "
-                "server: {}".format(exc.status)
-            ) from exc
+            logger.error(
+                "Unexpected error status from testflinger server: %s",
+                exc.status,
+            )
+            sys.exit(1)
 
         print(json.dumps(results, sort_keys=True, indent=4))
 
@@ -538,24 +540,23 @@ class TestflingerCli:
             self.client.get_artifact(self.args.job_id, self.args.filename)
         except client.HTTPError as exc:
             if exc.status == 204:
-                raise SystemExit(
-                    "No artifacts tarball found for that job id."
-                ) from exc
+                sys.exit("No artifacts tarball found for that job id.")
             if exc.status == 400:
-                raise SystemExit(
+                sys.exit(
                     "Invalid job id specified. Check the job id "
                     "to be sure it is correct"
-                ) from exc
+                )
             if exc.status == 404:
-                raise SystemExit(
+                sys.exit(
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
-                ) from exc
+                )
             # This shouldn't happen, so let's get more information
-            raise SystemExit(
-                "Unexpected error status from testflinger "
-                "server: {}".format(exc.status)
-            ) from exc
+            logger.error(
+                "Unexpected error status from testflinger server: %s",
+                exc.status,
+            )
+            sys.exit(1)
         print("Artifacts downloaded to {}".format(self.args.filename))
 
     def poll(self):
@@ -655,10 +656,12 @@ class TestflingerCli:
             queues = self.client.get_queues()
         except client.HTTPError as exc:
             if exc.status == 404:
-                raise SystemExit(
+                sys.exit(
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
-                ) from exc
+                )
+            logger.error("Unable to get a list of queues from the server.")
+            sys.exit(1)
         print("Advertised queues on this server:")
         for name, description in sorted(queues.items()):
             print(" {} - {}".format(name, description))
@@ -687,7 +690,7 @@ class TestflingerCli:
             not image.startswith(("http://", "https://"))
             and image not in images.keys()
         ):
-            raise SystemExit(
+            sys.exit(
                 "ERROR: '{}' is not in the list of known "
                 "images for that queue, please select "
                 "another.".format(image)
@@ -699,7 +702,7 @@ class TestflingerCli:
         ssh_keys = self.args.key or _get_ssh_keys()
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
-                raise SystemExit(
+                sys.exit(
                     "Please enter keys in the form lp:userid or gh:userid"
                 )
         template = inspect.cleandoc(
@@ -769,20 +772,20 @@ class TestflingerCli:
             return self.client.get_status(job_id)
         except client.HTTPError as exc:
             if exc.status == 204:
-                raise SystemExit(
+                sys.exit(
                     "No data found for that job id. Check the "
                     "job id to be sure it is correct"
-                ) from exc
+                )
             if exc.status == 400:
-                raise SystemExit(
+                sys.exit(
                     "Invalid job id specified. Check the job id "
                     "to be sure it is correct"
-                ) from exc
+                )
             if exc.status == 404:
-                raise SystemExit(
+                sys.exit(
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
-                ) from exc
+                )
         except (IOError, ValueError):
             # For other types of network errors, or JSONDecodeError if we got
             # a bad return from get_status()
