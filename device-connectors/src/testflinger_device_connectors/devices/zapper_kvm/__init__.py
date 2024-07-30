@@ -88,7 +88,7 @@ class DeviceConnector(ZapperConnector):
             "robot_tasks": self.job_data["provision_data"]["robot_tasks"],
         }
 
-        # Let's handle defaults on the Zapper side adding only the explicitely
+        # Let's handle defaults on the Zapper side adding only the explicitly
         # specified keys to the `provision_data` dict.
         optionals = [
             "cmdline_append",

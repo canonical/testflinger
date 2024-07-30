@@ -322,12 +322,12 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
       - Description
     * - ``url``
       - URL to a disk image that is downloaded and flashed to a USB storage device,
-        which will be used to boot up the DUT.
+        which the DUT will then boot from.
     * - ``robot_tasks``
-      - List of Zapper/Robot snippets to run in sequence after the USB storage device
+      - List of Robot snippets to run in sequence after the USB storage device
         is plugged into the DUT and the system restarted. The snippet ID is the relative
         path from the ``robot/snippets`` path in the Zapper repository.
     * - ``boot_from_ext_media``
-      - Set to "true" to ensure that the Zapper considers the provision process complete at the end of KVM interactions, without needing to unplug the external media.
+      - Set to "true" to ensure that the Zapper considers the provision process complete at the end of KVM interactions defined by the specified `robot_tasks`, without needing to unplug the external media.
     * - ``wait_until_ssh``
       - If set to "true", the Zapper will skip the SSH connection attempt, which is normally performed at the end of provisioning as a form of boot assertion. This is primarily useful in cases where the live ISO does not include an SSH server.
