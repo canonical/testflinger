@@ -56,5 +56,5 @@ Support for live ISOs is simply performed booting from an external storage devic
 ### Job parameters
 
 - __boot_from_ext_media__: Set to "true" to ensure that the Zapper considers the provision process complete at the end of KVM interactions defined by the specified `robot_tasks`, without needing to unplug the external media.
-- __wait_until_ssh__: If set to "true", the Zapper will skip the SSH connection attempt, which is normally performed at the end of provisioning as a form of boot assertion. This is primarily useful in cases where the live ISO does not include an SSH server.
+- __wait_until_ssh__: If set to "false", the Zapper will skip the SSH connection attempt, which is normally performed at the end of provisioning as a form of boot assertion. This is primarily useful in cases where the live ISO does not include an SSH server.
 
