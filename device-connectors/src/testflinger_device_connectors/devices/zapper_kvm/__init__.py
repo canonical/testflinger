@@ -17,7 +17,7 @@
 import logging
 import os
 import subprocess
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import ZapperConnector
@@ -36,14 +36,14 @@ class DeviceConnector(ZapperConnector):
 
     PROVISION_METHOD = "ProvisioningKVM"
 
-    def _get_autoinstall_conf(self) -> Dict[str, Any]:
+    def _get_autoinstall_conf(self) -> Optional[Dict[str, Any]]:
         """Prepare autoinstall-related configuration."""
         provision = self.job_data["provision_data"]
 
-        autoinstall_conf = {
-            "storage_layout": provision.get("storage_layout", "lvm"),
-        }
+        if "storage_layout" not in provision:
+            return None
 
+        autoinstall_conf = {"storage_layout": provision["storage_layout"]}
         if "base_user_data" in provision:
             autoinstall_conf["base_user_data"] = provision["base_user_data"]
 
@@ -81,18 +81,28 @@ class DeviceConnector(ZapperConnector):
             "url": url,
             "username": username,
             "password": password,
+            "robot_retries": retries,
             "autoinstall_conf": self._get_autoinstall_conf(),
             "reboot_script": self.config["reboot_script"],
             "device_ip": self.config["device_ip"],
             "robot_tasks": self.job_data["provision_data"]["robot_tasks"],
-            "robot_retries": retries,
-            "cmdline_append": self.job_data["provision_data"].get(
-                "cmdline_append", ""
-            ),
-            "skip_download": self.job_data["provision_data"].get(
-                "skip_download", False
-            ),
         }
+
+        # Let's handle defaults on the Zapper side adding only the explicitly
+        # specified keys to the `provision_data` dict.
+        optionals = [
+            "cmdline_append",
+            "skip_download",
+            "wait_until_ssh",
+            "live_image",
+        ]
+        provisioning_data.update(
+            {
+                opt: self.job_data["provision_data"][opt]
+                for opt in optionals
+                if opt in self.job_data["provision_data"]
+            }
+        )
 
         return ((), provisioning_data)
 

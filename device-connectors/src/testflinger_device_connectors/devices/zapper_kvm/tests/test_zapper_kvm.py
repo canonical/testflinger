@@ -59,8 +59,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "device_ip": "1.1.1.1",
             "robot_tasks": ["job.robot", "another.robot"],
             "robot_retries": 1,
-            "cmdline_append": "",
-            "skip_download": False,
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -90,6 +88,8 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                 "robot_retries": 3,
                 "cmdline_append": "more arguments",
                 "skip_download": True,
+                "wait_until_ssh": True,
+                "live_image": False,
             },
             "test_data": {
                 "test_username": "username",
@@ -111,6 +111,8 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "robot_retries": 3,
             "cmdline_append": "more arguments",
             "skip_download": True,
+            "wait_until_ssh": True,
+            "live_image": False,
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -159,11 +161,36 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "device_ip": "1.1.1.1",
             "robot_tasks": ["job.robot", "another.robot"],
             "robot_retries": 2,
-            "cmdline_append": "",
-            "skip_download": False,
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
+
+    def test_get_autoinstall_none(self):
+        """
+        Test whether the get_autoinstall_conf function returns
+        None in case the storage_layout is not specified.
+        """
+
+        connector = DeviceConnector()
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://example.com/image.iso",
+                "robot_tasks": [
+                    "job.robot",
+                    "another.robot",
+                ],
+            },
+            "test_data": {
+                "test_username": "username",
+                "test_password": "password",
+            },
+        }
+
+        with patch("builtins.open", mock_open(read_data="mykey")):
+            conf = connector._get_autoinstall_conf()
+
+        self.assertIsNone(conf)
 
     def test_get_autoinstall_conf(self):
         """

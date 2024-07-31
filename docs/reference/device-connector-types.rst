@@ -284,7 +284,7 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
         path from the ``robot/snippets`` path in the Zapper repository.
     * - ``storage_layout``
       - When provisioning an image supporting *autoinstall*, the storage_layout can
-        be either ``lvm`` (default), ``direct``, ``zfs`` or ``hybrid`` (Desktop 23.10+)
+        be either ``lvm`` (default), ``direct``, ``zfs`` or ``hybrid`` (Core, Desktop 23.10+)
     * - ``cmdline_append``
       - When provisioning an image supporting *autoinstall*, the cmdline_append can
         be used to append Kernel parameters to the standard GRUB entry.
@@ -314,3 +314,20 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
     * - ``oem``
       - Optional value to select the ``oemscript`` to run when specifying a ``url``, possible values
         are ``dell``, ``hp`` and ``lenovo``.
+
+.. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target any generic live ISOs
+    :header-rows: 1
+
+    * - Key
+      - Description
+    * - ``url``
+      - URL to a disk image that is downloaded and flashed to a USB storage device,
+        which the DUT will then boot from.
+    * - ``robot_tasks``
+      - List of Robot snippets to run in sequence after the USB storage device
+        is plugged into the DUT and the system restarted. The snippet ID is the relative
+        path from the ``robot/snippets`` path in the Zapper repository.
+    * - ``live_image``
+      - Set to "true" to ensure that the Zapper considers the provision process complete at the end of KVM interactions defined by the specified `robot_tasks`, without needing to unplug the external media.
+    * - ``wait_until_ssh``
+      - If set to "false", the Zapper will skip the SSH connection attempt, which is normally performed at the end of provisioning as a form of boot assertion. This is primarily useful in cases where the live ISO does not include an SSH server.

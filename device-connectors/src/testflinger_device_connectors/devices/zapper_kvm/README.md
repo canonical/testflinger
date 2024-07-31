@@ -2,10 +2,12 @@
 
 Zapper-driven provisioning method that makes use of KVM assertions and actions.
 
-## Ubuntu Desktop / Server
+
+## Autoinstall based
 
 Support for vanilla Ubuntu is provided by [autoinstall](https://canonical-subiquity.readthedocs-hosted.com/en/latest/intro-to-autoinstall.html). Supported Ubuntu versions are:
 
+- Core24 (experimental)
 - Desktop >= 23.04
 - Server >= 20.04
 
@@ -16,7 +18,7 @@ Unless specified via _autoinstall_ storage filter, the tool will select the larg
 - __url__: URL to the image to install
 - __username__: username to configure
 - __password__: password to configure
-- **storage_layout**: can be either `lvm`, `direct`, `zfs` or `hybrid` (Desktop 23.10+)
+- **storage_layout**: can be either `lvm`, `direct`, `zfs` or `hybrid` (Core, Desktop 23.10+)
 - **robot_tasks**: list of Zapper Robot tasks to run after a hard reset in order to follow the `autoinstall` installation
 - **cmdline_append** (optional): kernel parameters to append at the end of GRUB entry cmdline
 - **base_user_data** (optional): a custom base user-data file, it should be validated against [this schema](https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-schema.html)
@@ -46,3 +48,13 @@ The tool will select the storage device with the following priority:
 ### Noble
 
 Ubuntu OEM 24.04 uses `autoinstall`. The procedure and the arguments are the same as _vanilla_ Ubuntu.
+
+## Live ISO
+
+Support for live ISOs is simply performed booting from an external storage device and returning right after KVM interactions.
+
+### Job parameters
+
+- __live_image__: Set to "true" to ensure that the Zapper considers the provision process complete at the end of KVM interactions defined by the specified `robot_tasks`, without needing to unplug the external media.
+- __wait_until_ssh__: If set to "false", the Zapper will skip the SSH connection attempt, which is normally performed at the end of provisioning as a form of boot assertion. This is primarily useful in cases where the live ISO does not include an SSH server.
+
