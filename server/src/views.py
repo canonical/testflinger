@@ -216,7 +216,7 @@ def queue_detail(queue_id):
     )
 
 
-def seconds_to_hms(seconds: int) -> str:
+def seconds_to_hms(seconds: float) -> str:
     """Convert seconds to a human-readable string"""
     seconds = int(seconds)
     hours = seconds // 3600

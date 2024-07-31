@@ -246,21 +246,34 @@ def get_queue_wait_times(queues: list[str] | None = None) -> list[dict]:
 
 
 def calculate_percentiles(data: list) -> dict:
-    """Calculate the percentiles of the wait times for each queue"""
+    """
+    Calculate the percentiles of the wait times for each queue
+
+    This uses the nearest rank with interpolation method, which can help in
+    cases where the data is not evenly distributed, such as when we might
+    have big gaps between the best and worst case scenarios.
+    """
     if not data:
         return {}
     percentiles = [5, 10, 50, 90, 95]
     data.sort()
     percentile_results = {}
     for percentile in percentiles:
+        # Index is the position in our sorted data that goes with this
+        # percentile
         index = (len(data) - 1) * (percentile / 100.0)
+        # Lower and upper index are the indexes of two closest data points
+        # that are below and above the percentile
         lower_index = int(index)
         upper_index = lower_index + 1
         if upper_index < len(data):
+            # Interpolate the value based on how far the lower and upper
+            # data points are from the percentile
             lower_value = data[lower_index] * (upper_index - index)
             upper_value = data[upper_index] * (index - lower_index)
             percentile_results[percentile] = lower_value + upper_value
         else:
+            # If the upper index is out of bounds, just use the lower value
             percentile_results[percentile] = data[lower_index]
     return percentile_results
 
