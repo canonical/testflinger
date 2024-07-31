@@ -94,7 +94,7 @@ class DeviceConnector(ZapperConnector):
             "cmdline_append",
             "skip_download",
             "wait_until_ssh",
-            "boot_from_ext_media",
+            "live_image",
         ]
         provisioning_data.update(
             {

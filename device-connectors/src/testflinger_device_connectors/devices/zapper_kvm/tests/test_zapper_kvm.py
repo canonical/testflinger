@@ -89,7 +89,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                 "cmdline_append": "more arguments",
                 "skip_download": True,
                 "wait_until_ssh": True,
-                "boot_from_ext_media": False,
+                "live_image": False,
             },
             "test_data": {
                 "test_username": "username",
@@ -112,7 +112,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "cmdline_append": "more arguments",
             "skip_download": True,
             "wait_until_ssh": True,
-            "boot_from_ext_media": False,
+            "live_image": False,
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)

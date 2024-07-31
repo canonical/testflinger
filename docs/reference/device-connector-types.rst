@@ -327,7 +327,7 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
       - List of Robot snippets to run in sequence after the USB storage device
         is plugged into the DUT and the system restarted. The snippet ID is the relative
         path from the ``robot/snippets`` path in the Zapper repository.
-    * - ``boot_from_ext_media``
+    * - ``live_image``
       - Set to "true" to ensure that the Zapper considers the provision process complete at the end of KVM interactions defined by the specified `robot_tasks`, without needing to unplug the external media.
     * - ``wait_until_ssh``
       - If set to "false", the Zapper will skip the SSH connection attempt, which is normally performed at the end of provisioning as a form of boot assertion. This is primarily useful in cases where the live ISO does not include an SSH server.
