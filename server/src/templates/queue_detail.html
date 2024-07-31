@@ -16,6 +16,11 @@
         </tr>
     </tbody>
 </table>
+<div class="p-strip is-shallow" style="margin-top: 1rem;">
+    <div class="row">
+        <h2 class="p-heading--4">Jobs</h2>
+    </div>
+</div>
 <table aria-label="Agents table" class="p-table--mobile-card">
     <thead>
         <tr>
@@ -34,5 +39,25 @@
         {% endfor %}
     </tbody>
 </table>
-
+<div class="p-strip is-shallow">
+    <div class="row">
+        <h2 class="p-heading--4">Wait Time Percentiles</h2>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Percentile</th>
+                <th>Wait Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for percentile, wait_time in queue_percentile_data.items() %}
+            <tr>
+                <td>{{ percentile }}th</td>
+                <td>{{ wait_time }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

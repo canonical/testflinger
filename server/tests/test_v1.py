@@ -699,3 +699,29 @@ def test_search_jobs_datetime_iso8601(mongo_app):
     output = app.get("/v1/job/search?tags=foo")
     assert 200 == output.status_code
     assert output.json[0]["created_at"] == "2020-01-01T00:00:00Z"
+
+
+def test_get_queue_wait_times(mongo_app):
+    """Test that the wait times for a queue are returned"""
+    app, mongo = mongo_app
+
+    # Add some fake wait times to the queue_wait_times collection
+    mongo.queue_wait_times.insert_many(
+        [
+            {"name": "queue1", "wait_times": [1, 2, 3, 4, 5]},
+            {"name": "queue2", "wait_times": [10, 20, 30, 40, 50]},
+        ]
+    )
+
+    # Get the wait times for a specific queue
+    output = app.get("/v1/queues/wait_times?queue=queue1")
+    assert 200 == output.status_code
+    assert len(output.json) == 1
+    assert output.json["queue1"]["50"] == 3.0
+
+    # Get the wait times for all queues
+    output = app.get("/v1/queues/wait_times")
+    assert 200 == output.status_code
+    assert len(output.json) == 2
+    assert output.json["queue1"]["50"] == 3.0
+    assert output.json["queue2"]["50"] == 30.0

@@ -19,7 +19,7 @@ This returns a db object for talking to MongoDB
 
 import os
 import urllib
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from flask_pymongo import PyMongo
@@ -186,7 +186,12 @@ def pop_job(queue_list):
                 ],
             },
             {"$set": {"result_data.job_state": "running"}},
-            projection={"job_id": True, "job_data": True, "_id": False},
+            projection={
+                "job_id": True,
+                "created_at": True,
+                "job_data": True,
+                "_id": False,
+            },
         )
     except TypeError:
         return None
@@ -196,7 +201,68 @@ def pop_job(queue_list):
     job = response["job_data"]
     job_id = response["job_id"]
     job["job_id"] = job_id
+    # Mark the time the job was started
+    started_at = datetime.now(timezone.utc)
+    mongo.db.jobs.update_one(
+        {"job_id": job_id},
+        {"$set": {"started_at": started_at}},
+    )
+    # Save data about the wait time in the queue
+    created_at = response["created_at"]
+    queue = job["job_queue"]
+    save_queue_wait_time(queue, started_at, created_at)
+
     return job
+
+
+def save_queue_wait_time(
+    queue: str, started_at: datetime, created_at: datetime
+):
+    """Save data about the wait time in seconds for the specified queue"""
+    # Ensure that python knows both datestamps are in UTC
+    started_at = started_at.replace(tzinfo=timezone.utc)
+    created_at = created_at.replace(tzinfo=timezone.utc)
+    wait_seconds = (started_at - created_at).seconds
+    mongo.db.queue_wait_times.update_one(
+        {"name": queue},
+        {
+            "$push": {
+                "wait_times": wait_seconds,
+            }
+        },
+        upsert=True,
+    )
+
+
+def get_queue_wait_times(queues: list[str] | None = None) -> list[dict]:
+    """Get the percentiles of wait times for specified queues or all queues"""
+    if not queues:
+        wait_times = mongo.db.queue_wait_times.find({}, {"_id": False})
+    else:
+        wait_times = mongo.db.queue_wait_times.find(
+            {"name": {"$in": queues}}, {"_id": False}
+        )
+    return list(wait_times)
+
+
+def calculate_percentiles(data: list) -> dict:
+    """Calculate the percentiles of the wait times for each queue"""
+    if not data:
+        return {}
+    percentiles = [5, 10, 50, 90, 95]
+    data.sort()
+    percentile_results = {}
+    for percentile in percentiles:
+        index = (len(data) - 1) * (percentile / 100.0)
+        lower_index = int(index)
+        upper_index = lower_index + 1
+        if upper_index < len(data):
+            lower_value = data[lower_index] * (upper_index - index)
+            upper_value = data[upper_index] * (index - lower_index)
+            percentile_results[percentile] = lower_value + upper_value
+        else:
+            percentile_results[percentile] = data[lower_index]
+    return percentile_results
 
 
 def get_provision_log(
