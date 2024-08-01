@@ -22,10 +22,6 @@ from testflinger_device_connectors.cmd import STAGES
 from testflinger_device_connectors.devices import (
     DEVICE_CONNECTORS,
     get_device_stage_func,
-    ProvisioningError,
-)
-from testflinger_device_connectors.devices.maas2.maas_storage import (
-    MaasStorageError,
 )
 
 STAGES_CONNECTORS_PRODUCT = tuple(product(STAGES, DEVICE_CONNECTORS))
@@ -40,23 +36,3 @@ def test_get_device_stage_func(stage, device):
     orig_func = getattr(connector_instance, stage)
     func = get_device_stage_func(device, stage)
     assert func.__func__ is orig_func.__func__
-
-
-def test_provision_error_file_logging():
-    open("provision_error.log", "w").close()
-    error_message = "my error message"
-    try:
-        raise ProvisioningError(error_message)
-    except ProvisioningError:
-        with open("provision_error.log") as error_file:
-            assert error_file.read() == error_message
-
-
-def test_maas_storage_error_file_logging():
-    open("provision_error.log", "w").close()
-    error_message = "MAAS Storage Error"
-    try:
-        raise MaasStorageError()
-    except MaasStorageError:
-        with open("provision_error.log") as error_file:
-            assert error_file.read() == error_message

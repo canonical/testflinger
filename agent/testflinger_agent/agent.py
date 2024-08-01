@@ -65,6 +65,29 @@ def secure_filter(member, path):
     return tarfile.data_filter(member, path)
 
 
+def parse_provision_error_logs(provision_error_log_path):
+    with open(provision_error_log_path, "r") as provision_error_file:
+        provision_file_contents = provision_error_file.read()
+        try:
+            exception_info = json.loads(provision_file_contents)[
+                "exception_info"
+            ]
+            if exception_info["exception_cause"] is None:
+                detail = "%s: %s" % (
+                    exception_info["exception_name"],
+                    exception_info["exception_message"],
+                )
+            else:
+                detail = "%s: %s caused by %s" % (
+                    exception_info["exception_name"],
+                    exception_info["exception_message"],
+                    exception_info["exception_cause"],
+                )
+            return detail
+        except ValueError:
+            return ""
+
+
 class TestflingerAgent:
     def __init__(self, client):
         self.client = client
@@ -262,12 +285,12 @@ class TestflingerAgent:
 
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase)
-                    provision_error_log = os.path.join(
-                        rundir, "provision_error.log"
+                    provision_error_log_path = os.path.join(
+                        rundir, "provision-error.json"
                     )
                     if phase == "provision":
                         # Clear provision error log before starting
-                        open(provision_error_log, "w").close()
+                        open(provision_error_log_path, "w").close()
                     event_emitter.emit_event(TestEvent(phase + "_start"))
                     exit_code, exit_event, exit_reason = job.run_test_phase(
                         phase, rundir
@@ -283,16 +306,14 @@ class TestflingerAgent:
                             exit_event = TestEvent.RECOVERY_FAIL
                         else:
                             exit_event = TestEvent(phase + "_fail")
-                        event_emitter.emit_event(exit_event)
                         detail = ""
                         if phase == "provision":
                             self.client.post_provision_log(
                                 job.job_id, exit_code, exit_event
                             )
-                            with open(
-                                provision_error_log, "a"
-                            ) as provision_error:
-                                detail = provision_error.read()
+                            detail = parse_provision_error_logs(
+                                provision_error_log_path
+                            )
                         event_emitter.emit_event(exit_event, detail)
                         if phase != "test":
                             logger.debug(
