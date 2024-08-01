@@ -62,7 +62,11 @@ class DeviceConnector(ZapperConnector):
         if "storage_layout" not in provision:
             return None
 
-        autoinstall_conf = {"storage_layout": provision["storage_layout"]}
+        autoinstall_conf = {
+            "storage_layout": provision["storage_layout"],
+            "oem": provision.get("autoinstall_oem", False),
+        }
+
         if "base_user_data" in provision:
             self._validate_user_data(provision["base_user_data"])
             autoinstall_conf["base_user_data"] = provision["base_user_data"]

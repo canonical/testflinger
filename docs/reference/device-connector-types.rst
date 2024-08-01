@@ -286,13 +286,15 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
       - When provisioning an image supporting *autoinstall*, the storage_layout can
         be either ``lvm`` (default), ``direct``, ``zfs`` or ``hybrid`` (Core, Desktop 23.10+)
     * - ``cmdline_append``
-      - When provisioning an image supporting *autoinstall*, the cmdline_append can
+      - (Optional) When provisioning an image supporting *autoinstall*, the cmdline_append can
         be used to append Kernel parameters to the standard GRUB entry.
     * - ``base_user_data``
-      - An optional string containing base64 encoded user-data to use as base for autoinstall-driven provisioning.
+      - (Optional) A string containing base64 encoded user-data to use as base for autoinstall-driven provisioning.
         For more information, see
         `Autoinstall Reference <https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html>`_.
         on this topic
+    * - ``autoinstall_oem``:
+      - (Optional) Set to "true" to install OEM meta-packages and the reset partition (Desktop 24.04+).
 
 .. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target Ubuntu OEM 22.04
     :header-rows: 1

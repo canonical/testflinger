@@ -224,6 +224,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         expected = {
             "storage_layout": "lvm",
             "authorized_keys": ["mykey"],
+            "oem": False,
         }
         self.assertDictEqual(conf, expected)
 
@@ -245,6 +246,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                 ],
                 "storage_layout": "lvm",
                 "base_user_data": "content",
+                "autoinstall_oem": True,
             },
             "test_data": {
                 "test_username": "username",
@@ -261,6 +263,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "storage_layout": "lvm",
             "base_user_data": "content",
             "authorized_keys": ["mykey"],
+            "oem": True,
         }
         self.assertDictEqual(conf, expected)
 

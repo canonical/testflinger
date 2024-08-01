@@ -22,10 +22,9 @@ Unless specified via _autoinstall_ storage filter, the tool will select the larg
 - **robot_tasks**: list of Zapper Robot tasks to run after a hard reset in order to follow the `autoinstall` installation
 - **cmdline_append** (optional): kernel parameters to append at the end of GRUB entry cmdline
 - **base_user_data** (optional): a string containing base64 encoded autoinstall user-data to use as base for provisioning, it should be validated against [this schema](https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-schema.html)
+- __autoinstall_oem__: Set to "true" to install OEM meta-packages and the reset partition (Desktop 24.04+)
 
-## Ubuntu Desktop OEM
-
-### Jammy
+## Ubuntu Desktop 22.04 OEM
 
 Ubuntu OEM 22.04 is a two step process:
 
@@ -38,16 +37,12 @@ The tool will select the storage device with the following priority:
 2. NVME
 3. SATA
 
-#### Job parameters
+### Job parameters
 
 - __alloem_url__: URL to the `alloem` image
 - __url__ (optional): URL to the image to test, will be installed via the OEM script
 - __password__: password to configure
 - **robot_tasks**: list of Zapper Robot tasks to run after a hard reset in order to follow the `alloem` installation
-
-### Noble
-
-Ubuntu OEM 24.04 uses `autoinstall`. The procedure and the arguments are the same as _vanilla_ Ubuntu.
 
 ## Live ISO
 
