@@ -42,7 +42,7 @@ This monorepo is organized in a way that is consistant with the components descr
 If you need to submit a job to a testflinger server through a Github action (instead, for example, of using the command-line tool), you can use the [`submit` action](https://github.com/canonical/testflinger/blob/main/.github/actions/submit/action.yaml) in a CI workflow.
 
 The corresponding step in the workflow would look like this:
-```
+```yaml
     - name: Submit job
       id: submit-job
       uses: canonical/testflinger/.github/actions/submit@v1
@@ -53,7 +53,8 @@ The corresponding step in the workflow would look like this:
 
 This assumes that there is a previous `create-job` step in the workflow that creates the job file and outputs the path to it, so that it can be used as input to the `submit` action.
 Alternatively, you can use the `job` argument (instead of `job-path`) to provide the contents of the job inline:
-```
+
+```yaml
     - name: Submit job
       id: submit-job
       uses: canonical/testflinger/.github/actions/submit@v1
@@ -67,7 +68,7 @@ In the latter case, do remember to use escapes for environment variables in the 
 The `id` of the submitted job is returned as an output of the `submit` action, so you can use it (if you need it)
 in any of the subsequent steps of the workflow:
 
-```
+```yaml
     - name: Display results
       run: |
         testflinger results ${{ steps.submit-job.outputs.id }}"
