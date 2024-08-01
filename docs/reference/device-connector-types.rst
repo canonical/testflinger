@@ -284,7 +284,7 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
         path from the ``robot/snippets`` path in the Zapper repository.
     * - ``storage_layout``
       - When provisioning an image supporting *autoinstall*, the storage_layout can
-        be either ``lvm`` (default), ``direct``, ``zfs`` or ``hybrid`` (Core, Desktop 23.10+)
+        be either ``lvm`` (default), ``direct``, ``zfs`` or ``hybrid`` (Desktop 23.10+, UC24)
     * - ``cmdline_append``
       - (Optional) When provisioning an image supporting *autoinstall*, the cmdline_append can
         be used to append Kernel parameters to the standard GRUB entry.
@@ -295,6 +295,9 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
         on this topic
     * - ``autoinstall_oem``:
       - (Optional) Set to "true" to install OEM meta-packages and the reset partition (Desktop 24.04+).
+    * - ``ubuntu_sso_email``:
+      - (Optional) A valid Ubuntu SSO email to which the DUT provisioned with a non-dangerous grade UC image will be linked (UC24).
+.
 
 .. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target Ubuntu OEM 22.04
     :header-rows: 1

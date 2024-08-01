@@ -85,6 +85,7 @@ SecureBoot
 SKU
 SQA
 SSID
+SSO
 subdirectories
 subfolders
 subtree
@@ -97,6 +98,7 @@ txt
 Ubuntu
 ubuntu
 url
+UC
 UI
 URI
 USB

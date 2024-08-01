@@ -23,6 +23,7 @@ Unless specified via _autoinstall_ storage filter, the tool will select the larg
 - __cmdline_append__ (optional): kernel parameters to append at the end of GRUB entry cmdline
 - __base_user_data__ (optional): a string containing base64 encoded autoinstall user-data to use as base for provisioning, it should be validated against [this schema](https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-schema.html)
 - __autoinstall_oem__: (optional): set to "true" to install OEM meta-packages and the reset partition (Desktop 24.04+)
+- __ubuntu_sso_email__: (optional): a valid Ubuntu SSO email to which the DUT provisioned with a non-dangerous grade UC image will be linked
 
 ## Ubuntu Desktop 22.04 OEM
 
