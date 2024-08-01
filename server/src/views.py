@@ -196,6 +196,30 @@ def queue_detail(queue_id):
         }
     )
 
+    # Get the percentiles of wait times for this queue
+    wait_times = database.get_queue_wait_times([queue_id])
+    try:
+        wait_times = wait_times[0]["wait_times"]
+    except (IndexError, KeyError):
+        wait_times = []
+    queue_percentile_data = database.calculate_percentiles(wait_times)
+
+    # Convert the wait times to human-readable strings
+    for key, value in queue_percentile_data.items():
+        queue_percentile_data[key] = seconds_to_hms(value)
+
     return render_template(
-        "queue_detail.html", queue=queue_data, jobs=job_data
+        "queue_detail.html",
+        queue=queue_data,
+        jobs=job_data,
+        queue_percentile_data=queue_percentile_data,
     )
+
+
+def seconds_to_hms(seconds: float) -> str:
+    """Convert seconds to a human-readable string"""
+    seconds = int(seconds)
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    seconds = seconds % 60
+    return f"{hours:02d}h {minutes:02d}m {seconds:02d}s"

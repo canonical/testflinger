@@ -382,3 +382,19 @@ The job_status_webhook parameter is required for this endpoint. Other parameters
     $ curl -X POST \
     -H "Content-Type: application/json" \
     -d '{"agent_id": "agent-00", "job_queue": "myqueue", "job_status_webhook": "http://mywebhook", "events": [{"event_name": "started_provisioning", "timestamp": "2024-05-03T19:11:33.541130+00:00", "detail": "my_detailed_message"}]}' http://localhost:8000/v1/job/00000000-0000-0000-0000-000000000000/events
+
+**[GET] /v1/queues/wait_times** - get wait time metrics - optionally take a list of queues
+
+- Parameters:
+
+  - queue (array): list of queues to get wait time metrics for
+
+- Returns:
+
+  JSON mapping of queue names to wait time metrics
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl http://localhost:8000/v1/queues/wait_times?queue=foo\&queue=bar

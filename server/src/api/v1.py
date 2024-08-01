@@ -100,7 +100,7 @@ def has_attachments(data: dict) -> bool:
 def job_builder(data):
     """Build a job from a dictionary of data"""
     job = {
-        "created_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
         "result_data": {
             "job_state": "waiting",
         },
@@ -135,6 +135,7 @@ def job_get():
         return "No queue(s) specified in request", 400
     job = database.pop_job(queue_list=queue_list)
     if job:
+        job["started_at"] = datetime.now(timezone.utc)
         return jsonify(job)
     return {}, 204
 
@@ -638,3 +639,16 @@ def cancel_job(job_id):
     if response.modified_count == 0:
         return "The job is already completed or cancelled", 400
     return "OK"
+
+
+@v1.get("/queues/wait_times")
+def queue_wait_time_percentiles_get():
+    """Get wait time metrics - optionally take a list of queues"""
+    queues = request.args.getlist("queue")
+    wait_times = database.get_queue_wait_times(queues)
+    queue_percentile_data = {}
+    for queue in wait_times:
+        queue_percentile_data[queue["name"]] = database.calculate_percentiles(
+            queue["wait_times"]
+        )
+    return queue_percentile_data
