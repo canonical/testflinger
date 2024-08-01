@@ -289,8 +289,7 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
       - When provisioning an image supporting *autoinstall*, the cmdline_append can
         be used to append Kernel parameters to the standard GRUB entry.
     * - ``base_user_data``
-      - When provisioning an image supporting *autoinstall*, the base_user_data can
-        e used to provide a base user_data file instead of the basic one hosted by Zapper.
+      - An optional string containing base64 encoded user-data to use as base for autoinstall-driven provisioning.
         For more information, see
         `Autoinstall Reference <https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html>`_.
         on this topic

@@ -21,7 +21,7 @@ Unless specified via _autoinstall_ storage filter, the tool will select the larg
 - **storage_layout**: can be either `lvm`, `direct`, `zfs` or `hybrid` (Core, Desktop 23.10+)
 - **robot_tasks**: list of Zapper Robot tasks to run after a hard reset in order to follow the `autoinstall` installation
 - **cmdline_append** (optional): kernel parameters to append at the end of GRUB entry cmdline
-- **base_user_data** (optional): a custom base user-data file, it should be validated against [this schema](https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-schema.html)
+- **base_user_data** (optional): a string containing base64 encoded autoinstall user-data to use as base for provisioning, it should be validated against [this schema](https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-schema.html)
 
 ## Ubuntu Desktop OEM
 

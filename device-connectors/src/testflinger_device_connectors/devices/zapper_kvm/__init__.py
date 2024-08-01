@@ -14,11 +14,14 @@
 
 """Zapper Connector for KVM provisioning."""
 
+import base64
+import binascii
 import logging
 import os
 import subprocess
 from typing import Any, Dict, Optional, Tuple
 
+import yaml
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices.oemscript import OemScript
@@ -36,6 +39,22 @@ class DeviceConnector(ZapperConnector):
 
     PROVISION_METHOD = "ProvisioningKVM"
 
+    def _validate_user_data(self, encoded_user_data: str):
+        """
+        Assert `base_user_data` argument is a valid base64 encoded YAML.
+        """
+        try:
+            user_data = base64.b64decode(encoded_user_data.encode()).decode()
+            yaml.safe_load(user_data)
+        except (binascii.Error, ValueError) as exc:
+            raise ProvisioningError(
+                "Provided `base_user_data` is not base64 encoded."
+            ) from exc
+        except yaml.YAMLError as exc:
+            raise ProvisioningError(
+                "Provided `base_user_data` is not a valid YAML."
+            ) from exc
+
     def _get_autoinstall_conf(self) -> Optional[Dict[str, Any]]:
         """Prepare autoinstall-related configuration."""
         provision = self.job_data["provision_data"]
@@ -45,6 +64,7 @@ class DeviceConnector(ZapperConnector):
 
         autoinstall_conf = {"storage_layout": provision["storage_layout"]}
         if "base_user_data" in provision:
+            self._validate_user_data(provision["base_user_data"])
             autoinstall_conf["base_user_data"] = provision["base_user_data"]
 
         with open(os.path.expanduser("~/.ssh/id_rsa.pub")) as pub:
