@@ -55,27 +55,25 @@ DEVICE_CONNECTORS = (
 
 
 class ProvisioningError(Exception):
-    def __init__(self, message: str = None):
-        if message is not None:
-            with open(
-                "provision_error.log", "w", encoding="utf-8"
-            ) as provision_error_file:
-                provision_error_file.write(message)
-                super().__init__(message)
-        else:
-            super().__init__()
+    pass
 
 
 class RecoveryError(Exception):
-    def __init__(self, message: str = None):
-        if message is not None:
-            with open(
-                "provision_error.log", "w", encoding="utf-8"
-            ) as provision_error_file:
-                provision_error_file.write(message)
-                super().__init__(message)
-        else:
-            super().__init__()
+    pass
+
+
+def log_provision_error(exception: Exception):
+    exception_info = {
+        "exception_info": {
+            "exception_name": type(exception).__name__,
+            "exception_message": str(exception),
+            "exception_cause": repr(exception.__cause__),
+        }
+    }
+    with open(
+        "provision-error.json", "w", encoding="utf-8"
+    ) as provision_error_file:
+        provision_error_file.write(json.dumps(exception_info))
 
 
 def SerialLogger(host=None, port=None, filename=None):

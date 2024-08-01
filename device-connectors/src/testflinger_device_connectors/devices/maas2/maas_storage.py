@@ -26,11 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class MaasStorageError(ProvisioningError):
-    def __init__(self, message: str = None):
-        if message is None:
-            super().__init__("MAAS Storage Error")
-        else:
-            super().__init__(f"MAAS Storage Error: {message}")
+    pass
 
 
 class MaasStorage:
