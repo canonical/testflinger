@@ -16,6 +16,7 @@ import json
 import pytest
 import uuid
 
+from mock import patch
 import requests_mock as rmock
 
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
@@ -101,6 +102,30 @@ class TestClient:
         )
         client.transmit_job_outcome(tmp_path)
         assert requests_mock.last_request.json() == {"job_state": "complete"}
+
+    def test_transmit_job_outcome_with_error(
+        self, client, requests_mock, tmp_path, caplog
+    ):
+        """
+        Test that OSError during save_artifacts results in removing the job
+        directory and logging an error so that we don't crash and keep
+        filling up the disk
+        """
+        job_id = str(uuid.uuid1())
+        testflinger_data = {"job_id": job_id}
+        testflinger_json = tmp_path / "testflinger.json"
+        testflinger_json.write_text(json.dumps(testflinger_data))
+        testflinger_outcome_json = tmp_path / "testflinger-outcome.json"
+        testflinger_outcome_json.write_text("{}")
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/result/{job_id}", status_code=200
+        )
+
+        # Simulate an error during save_artifacts
+        with patch.object(client, "save_artifacts", side_effect=OSError):
+            client.transmit_job_outcome(tmp_path)
+        assert tmp_path.exists() is False
+        assert "Unable to save artifacts" in caplog.text
 
     def test_transmit_job_artifact(self, client, requests_mock, tmp_path):
         """

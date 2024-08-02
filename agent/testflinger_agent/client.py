@@ -233,37 +233,14 @@ class TestflingerClient:
             )
             return
         job_id = job_data.get("job_id")
-        # If we find an 'artifacts' dir under rundir, archive it, and transmit
-        # it to the Testflinger server
-        artifacts_dir = os.path.join(rundir, "artifacts")
-        if os.path.isdir(artifacts_dir):
-            with tempfile.TemporaryDirectory() as tmpdir:
-                artifact_file = os.path.join(tmpdir, "artifacts")
-                shutil.make_archive(
-                    artifact_file,
-                    format="gztar",
-                    root_dir=rundir,
-                    base_dir="artifacts",
-                )
-                # Create uri for API: /v1/result/<job_id>
-                artifact_uri = urljoin(
-                    self.server, "/v1/result/{}/artifact".format(job_id)
-                )
-                with open(artifact_file + ".tar.gz", "rb") as tarball:
-                    file_upload = {
-                        "file": ("file", tarball, "application/x-gzip")
-                    }
-                    artifact_request = self.session.post(
-                        artifact_uri, files=file_upload, timeout=600
-                    )
-                if not artifact_request:
-                    logger.error(
-                        "Unable to post results to: %s (error: %s)"
-                        % (artifact_uri, artifact_request.status_code)
-                    )
-                    raise TFServerError(artifact_request.status_code)
-                else:
-                    shutil.rmtree(artifacts_dir)
+
+        try:
+            self.save_artifacts(rundir, job_id)
+        except OSError:
+            # This is usually due to disk full, save what we can and report
+            # as much detail as we can for further investigation
+            logger.exception("Unable to save artifacts")
+
         # Do not retransmit outcome if it's already been done and removed
         outcome_file = os.path.join(rundir, "testflinger-outcome.json")
         if os.path.isfile(outcome_file):
@@ -275,6 +252,44 @@ class TestflingerClient:
             # Remove the outcome file so we don't retransmit
             os.unlink(outcome_file)
         shutil.rmtree(rundir)
+
+    def save_artifacts(self, rundir, job_id):
+        """Save artifacts to the testflinger server
+
+        :param rundir:
+            Execution dir where the results can be found
+        :param job_id:
+            id for the job
+        """
+        artifacts_dir = os.path.join(rundir, "artifacts")
+        if not os.path.isdir(artifacts_dir):
+            return
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifact_file = os.path.join(tmpdir, "artifacts")
+            shutil.make_archive(
+                artifact_file,
+                format="gztar",
+                root_dir=rundir,
+                base_dir="artifacts",
+            )
+            # Create uri for API: /v1/result/<job_id>
+            artifact_uri = urljoin(
+                self.server, "/v1/result/{}/artifact".format(job_id)
+            )
+            with open(artifact_file + ".tar.gz", "rb") as tarball:
+                file_upload = {"file": ("file", tarball, "application/x-gzip")}
+                artifact_request = self.session.post(
+                    artifact_uri, files=file_upload, timeout=600
+                )
+            if not artifact_request:
+                logger.error(
+                    "Unable to post results to: %s (error: %s)"
+                    % (artifact_uri, artifact_request.status_code)
+                )
+                raise TFServerError(artifact_request.status_code)
+            else:
+                shutil.rmtree(artifacts_dir)
 
     def post_live_output(self, job_id, data):
         """Post output data to the testflinger server for this job
