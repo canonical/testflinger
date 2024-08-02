@@ -12,12 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
-Ubuntu OEM Recovery Provisioning for OEM laptops with Ubuntu Noble series.
-Starting from 24.04 OEM uses the same image and script for all vendors.
-Use this for systems that can use the oem image-deploy.sh script
-for provisioning.
-"""
+"""Ubuntu OEM Recovery provisioner support code."""
 
 import logging
 
@@ -26,18 +21,18 @@ from testflinger_device_connectors.devices import (
     RecoveryError,
     catch,
 )
-from .noble_oemscript import NobleOemScript
+from testflinger_device_connectors.devices.oem_autoinstall.oem_autoinstall import OemAutoinstall
 
 logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(DefaultDevice):
-    """Tool for provisioning Noble OEM devices with an oem image."""
+    """Tool for provisioning baremetal with a given image."""
 
     @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
-        device = NobleOemScript(args.config, args.job_data)
+        device = OemAutoinstall(args.config, args.job_data)
         logger.info("BEGIN provision")
         logger.info("Provisioning device")
         device.provision()

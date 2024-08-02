@@ -1,4 +1,4 @@
-# Copyright (C) 2023 Canonical
+# Copyright (C) 2024 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,7 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Ubuntu OEM Script Provisioner support code."""
+"""
+Starting from Ubuntu 24.04, OEM uses autoinstall (instead of retired ubuntu-recovery)
+to provision laptops for all vendors.
+Use this device connector for systems that support autoinstall provisioning
+with image-deploy.sh script
+"""
 
 import json
 import logging
@@ -29,9 +34,10 @@ from testflinger_device_connectors.devices import (
 )
 
 logger = logging.getLogger(__name__)
+attachments_dir = os.path.join(Path.cwd(), "attachments/provision")
 
 
-class OemScript:
+class OemAutoinstall:
     """Device Connector for OEM Script."""
 
     # Extra arguments to pass to the OEM script
@@ -97,9 +103,12 @@ class OemScript:
                 "Please provide an image 'url' in the provision_data section"
             )
             raise ProvisioningError("No image url provided")
+
         try:
-            image_file = download(image_url)
+            #image_file = download(image_url)
+            image_file = "/tmp/somerville-noble-oem-24.04a-20240719-45.iso"
             self.run_recovery_script(image_file)
+
             self.check_device_booted()
         finally:
             # remove the .iso image
@@ -110,21 +119,21 @@ class OemScript:
         """Download and run the OEM recovery script"""
         device_ip = self.config["device_ip"]
 
-        data_path = Path(__file__).parent / "../../data/muxpi/oemscript"
-        recovery_script = data_path / "recovery-from-iso.sh"
-
+        data_path = Path(__file__).parent / "../../data/muxpi/oem_autoinstall"
         # Run the recovery script
         logger.info("Running recovery script")
+
+        recovery_script = data_path / "image-deploy.sh"
         cmd = [
             recovery_script,
             *self.extra_script_args,
-            "--local-iso",
+            "--iso",
             image_file,
-            "--inject-ssh-key",
-            os.path.expanduser("~/.ssh/id_rsa.pub"),
-            "-t",
+            "--local-config",
+            attachments_dir,
             device_ip,
         ]
+
         proc = subprocess.run(
             cmd,
             timeout=60 * 60,  # 1 hour - just in case

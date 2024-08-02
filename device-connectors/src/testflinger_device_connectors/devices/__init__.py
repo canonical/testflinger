@@ -41,7 +41,7 @@ DEVICE_CONNECTORS = (
     "fake_connector",
     "hp_oemscript",
     "lenovo_oemscript",
-    "noble_oemscript",
+    "oem_autoinstall",
     "maas2",
     "multi",
     "muxpi",
