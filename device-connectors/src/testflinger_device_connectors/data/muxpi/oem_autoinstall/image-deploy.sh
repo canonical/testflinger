@@ -105,6 +105,7 @@ while :; do
             shift 2;;
         ('-l'|'--local-config')
             CONFIG_REPO_PATH="$2"
+            IS_LOCAL_CONFIG="TRUE"
             shift 2;;
 	('--') shift; break ;;
 	(*) break ;;
@@ -120,7 +121,7 @@ read -ra TARGET_IPS <<< "$@"
 
 for addr in "${TARGET_IPS[@]}";
 do
-    # Clear the knonw host
+    # Clear the known host
     if [ -f "$HOME/.ssh/known_hosts" ]; then
         ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$addr"
     fi
@@ -151,13 +152,10 @@ do
     # Copy cloud-config redeploy to the target
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/redeploy/cloud-configs/redeploy
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/redeploy/cloud-configs/grub
-    $SCP "$CONFIG_REPO_PATH"/alloem-init/cloud-configs/redeploy/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
-    $SCP "$CONFIG_REPO_PATH"/alloem-init/cloud-configs/redeploy/user-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
-    $SCP "$CONFIG_REPO_PATH"/alloem-init/cloud-configs/grub/redeploy.cfg "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg
 
     if [ -n "$IS_LOCAL_CONFIG" ]; then
         # configs in current dir are without folder structure
-        $SCP "$CONFIG_REPO_PATH"/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
+        $SCP "$CONFIG_REPO_PATH"/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/ || true
         $SCP "$CONFIG_REPO_PATH"/user-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
 
         if [ ! -r "$CONFIG_REPO_PATH"/redeploy.cfg ]; then

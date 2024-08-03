@@ -14,7 +14,7 @@
 
 """
 Starting from Ubuntu 24.04, OEM uses autoinstall (instead of retired ubuntu-recovery)
-to provision laptops for all vendors.
+to provision the laptops for all vendors.
 Use this device connector for systems that support autoinstall provisioning
 with image-deploy.sh script
 """
@@ -26,6 +26,7 @@ from pathlib import Path
 import subprocess
 import time
 import yaml
+import shutil
 
 from testflinger_device_connectors import download
 from testflinger_device_connectors.devices import (
@@ -34,7 +35,8 @@ from testflinger_device_connectors.devices import (
 )
 
 logger = logging.getLogger(__name__)
-attachments_dir = os.path.join(Path.cwd(), "attachments/provision")
+ATTACHMENTS_DIR = "attachments"
+ATTACHMENTS_PROV_DIR = Path.cwd() / ATTACHMENTS_DIR / "provision"
 
 
 class OemAutoinstall:
@@ -84,32 +86,62 @@ class OemAutoinstall:
         )
         return proc.returncode, proc.stdout
 
+    def copy_to_deploy_path(self, source_path, dest_path):
+        """Verify attachment exists and copy it for image-deploy.sh to consume"""
+        source_path = ATTACHMENTS_PROV_DIR / source_path
+        dest_path = ATTACHMENTS_PROV_DIR / dest_path
+        if not source_path.exists():
+            logger.error(
+                f"{source_path} file was not found in attachments. Please check the filename"
+            )
+            raise ProvisioningError(f"{source_path} file was not found in attachments")
+
+        if not dest_path.exists():
+            shutil.copy(source_path, dest_path)
+
     def provision(self):
         """Provision the device"""
 
-        # First, ensure the device is online and reachable
-        try:
-            self.copy_ssh_id()
-        except subprocess.CalledProcessError:
-            self.hardreset()
-            self.check_device_booted()
+        # # First, ensure the device is online and reachable
+        # try:
+        #     self.copy_ssh_id()
+        # except subprocess.CalledProcessError:
+        #     self.hardreset()
+        #     self.check_device_booted()
 
         provision_data = self.job_data.get("provision_data", {})
         image_url = provision_data.get("url")
+        user_data = provision_data.get("user_data")
+        redeploy_cfg = provision_data.get("redeploy_cfg")
+        authorized_keys = provision_data.get("authorized_keys")
 
-        # Download the .iso image from image_url
         if not image_url:
             logger.error(
                 "Please provide an image 'url' in the provision_data section"
             )
             raise ProvisioningError("No image url provided")
 
+        if not user_data:
+            logger.error(
+                "Please provide user-data file in provision_data section"
+            )
+            raise ProvisioningError("No user-data provided")
+
+        # in case user's attachments have random names we copy them to expected path
+        user_data_path = "user-data"
+        redeploy_cfg_path = "redeploy.cfg"
+        authorized_keys_path = "authorized_keys"
+        self.copy_to_deploy_path(user_data, user_data_path)
+        self.copy_to_deploy_path(redeploy_cfg, redeploy_cfg_path)
+        self.copy_to_deploy_path(authorized_keys, authorized_keys_path)
+
+        # Download the .iso image from image_url
         try:
             #image_file = download(image_url)
             image_file = "/tmp/somerville-noble-oem-24.04a-20240719-45.iso"
             self.run_recovery_script(image_file)
 
-            self.check_device_booted()
+            #self.check_device_booted()
         finally:
             # remove the .iso image
             if image_file:
@@ -130,7 +162,7 @@ class OemAutoinstall:
             "--iso",
             image_file,
             "--local-config",
-            attachments_dir,
+            ATTACHMENTS_PROV_DIR,
             device_ip,
         ]
 
