@@ -99,7 +99,9 @@ class OemScript:
             raise ProvisioningError("No image url provided")
         try:
             image_file = download(image_url)
+
             self.run_recovery_script(image_file)
+
             self.check_device_booted()
         finally:
             # remove the .iso image

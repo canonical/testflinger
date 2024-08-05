@@ -13,8 +13,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Starting from Ubuntu 24.04, OEM uses autoinstall (instead of retired ubuntu-recovery)
-to provision the laptops for all vendors.
+Starting from Ubuntu 24.04, OEM uses autoinstall to provision
+the laptops for all vendors.
 Use this device connector for systems that support autoinstall provisioning
 with image-deploy.sh script
 """
@@ -24,11 +24,11 @@ import logging
 import os
 from pathlib import Path
 import subprocess
-import time
 import yaml
 import shutil
+import requests
+from requests.auth import HTTPBasicAuth
 
-from testflinger_device_connectors import download
 from testflinger_device_connectors.devices import (
     ProvisioningError,
     RecoveryError,
@@ -42,59 +42,27 @@ ATTACHMENTS_PROV_DIR = Path.cwd() / ATTACHMENTS_DIR / "provision"
 class OemAutoinstall:
     """Device Connector for OEM Script."""
 
-    # Extra arguments to pass to the OEM script
-    extra_script_args = []
-
     def __init__(self, config, job_data):
         with open(config, encoding="utf-8") as configfile:
             self.config = yaml.safe_load(configfile)
         with open(job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)
 
-    def run_on_control_host(self, cmd, timeout=60):
-        """
-        Run a command on the control host over ssh
-
-        :param cmd:
-            Command to run
-        :param timeout:
-            Timeout (default 60)
-        :returns:
-            returncode, stdout
-        """
-        try:
-            test_username = self.job_data.get("test_data", {}).get(
-                "test_username", "ubuntu"
-            )
-        except AttributeError:
-            test_username = "ubuntu"
-        ssh_cmd = [
-            "ssh",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
-            f"{test_username}@{self.config['device_ip']}",
-            cmd,
-        ]
-        proc = subprocess.run(
-            ssh_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=timeout,
-            check=False,
-        )
-        return proc.returncode, proc.stdout
-
     def copy_to_deploy_path(self, source_path, dest_path):
-        """Verify attachment exists and copy it for image-deploy.sh to consume"""
+        """
+        Verify if attachment exists, then copy when
+        it's missing in deployment dir
+        """
         source_path = ATTACHMENTS_PROV_DIR / source_path
         dest_path = ATTACHMENTS_PROV_DIR / dest_path
         if not source_path.exists():
             logger.error(
-                f"{source_path} file was not found in attachments. Please check the filename"
+                f"{source_path} file was not found in attachments. "
+                "Please check the filename."
             )
-            raise ProvisioningError(f"{source_path} file was not found in attachments")
+            raise ProvisioningError(
+                f"{source_path} file was not found in attachments"
+            )
 
         if not dest_path.exists():
             shutil.copy(source_path, dest_path)
@@ -102,15 +70,16 @@ class OemAutoinstall:
     def provision(self):
         """Provision the device"""
 
-        # # First, ensure the device is online and reachable
-        # try:
-        #     self.copy_ssh_id()
-        # except subprocess.CalledProcessError:
-        #     self.hardreset()
-        #     self.check_device_booted()
+        # First, ensure the device is online and reachable
+        try:
+            self.test_ssh_access()
+        except subprocess.CalledProcessError:
+            self.hardreset()
+            self.test_ssh_access()
 
         provision_data = self.job_data.get("provision_data", {})
         image_url = provision_data.get("url")
+        token_file = provision_data.get("token_file")
         user_data = provision_data.get("user_data")
         redeploy_cfg = provision_data.get("redeploy_cfg")
         authorized_keys = provision_data.get("authorized_keys")
@@ -127,23 +96,25 @@ class OemAutoinstall:
             )
             raise ProvisioningError("No user-data provided")
 
-        # in case user's attachments have random names we copy them to expected path
+        # image-deploy.sh expects specific filename,
+        # so need to rename if doesn't match
         user_data_path = "user-data"
-        redeploy_cfg_path = "redeploy.cfg"
-        authorized_keys_path = "authorized_keys"
         self.copy_to_deploy_path(user_data, user_data_path)
-        self.copy_to_deploy_path(redeploy_cfg, redeploy_cfg_path)
-        self.copy_to_deploy_path(authorized_keys, authorized_keys_path)
+
+        if redeploy_cfg is not None:
+            redeploy_cfg_path = "redeploy.cfg"
+            self.copy_to_deploy_path(redeploy_cfg, redeploy_cfg_path)
+        if authorized_keys is not None:
+            authorized_keys_path = "authorized_keys"
+            self.copy_to_deploy_path(authorized_keys, authorized_keys_path)
 
         # Download the .iso image from image_url
         try:
-            #image_file = download(image_url)
-            image_file = "/tmp/somerville-noble-oem-24.04a-20240719-45.iso"
+            image_file = self.download_with_credentials(
+                image_url, ATTACHMENTS_PROV_DIR / token_file
+            )
             self.run_recovery_script(image_file)
-
-            #self.check_device_booted()
         finally:
-            # remove the .iso image
             if image_file:
                 os.unlink(image_file)
 
@@ -158,7 +129,6 @@ class OemAutoinstall:
         recovery_script = data_path / "image-deploy.sh"
         cmd = [
             recovery_script,
-            *self.extra_script_args,
             "--iso",
             image_file,
             "--local-config",
@@ -177,72 +147,32 @@ class OemAutoinstall:
             )
             raise ProvisioningError("Recovery script failed")
 
-    def copy_ssh_id(self):
+    def test_ssh_access(self):
         """Copy the ssh id to the device"""
         try:
             test_username = self.job_data.get("test_data", {}).get(
                 "test_username", "ubuntu"
             )
-            test_password = self.job_data.get("test_data", {}).get(
-                "test_password", "ubuntu"
-            )
         except AttributeError:
             test_username = "ubuntu"
-            test_password = "ubuntu"
+
         cmd = [
-            "sshpass",
-            "-p",
-            test_password,
-            "ssh-copy-id",
+            "ssh",
             "-o",
             "StrictHostKeyChecking=no",
             "-o",
             "UserKnownHostsFile=/dev/null",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=10",
             f"{test_username}@{self.config['device_ip']}",
+            "true",
         ]
-        subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
-
-    def check_device_booted(self):
-        """Check to see if the device is booted and reachable with ssh"""
-        logger.info("Checking to see if the device is available.")
-        started = time.time()
-        # Wait for provisioning to complete - can take a very long time
-        while time.time() - started < 3600:
-            try:
-                time.sleep(90)
-                self.copy_ssh_id()
-                return True
-            except subprocess.SubprocessError:
-                pass
-        # If we get here, then we didn't boot in time
-        agent_name = self.config.get("agent_name")
-        logger.error(
-            "Device %s unreachable,  provisioning" "failed!", agent_name
-        )
-        raise ProvisioningError("Failed to boot test image!")
-
-    def _run_cmd_list(self, cmdlist):
-        """
-        Run a list of commands
-
-        :param cmdlist:
-            List of commands to run
-        """
-        if not cmdlist:
-            return
-        for cmd in cmdlist:
-            logger.info("Running %s", cmd)
-            try:
-                return_code, output = self.run_on_control_host(
-                    cmd, timeout=600
-                )
-            except subprocess.TimeoutExpired as exc:
-                raise ProvisioningError(
-                    "timeout reaching control host!"
-                ) from exc
-            if return_code:
-                raise ProvisioningError(output)
-            logger.info(output)
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.error("SSH connection failed: %s", result.stderr)
+            raise ProvisioningError("Failed SSH to DUT with keys")
 
     def hardreset(self):
         """
@@ -261,3 +191,56 @@ class OemAutoinstall:
                 subprocess.check_call(cmd.split(), timeout=120)
             except subprocess.SubprocessError as exc:
                 raise RecoveryError("Error running reboot script!") from exc
+
+    def download_with_credentials(
+        self, url, url_credentials=None, filename=None
+    ):
+        """
+        Download a file from a URL
+        If credentials file provided, then use token to auth.
+
+        :param url: URL of the file to download.
+        :param url_credentials: Optional path to the config file
+         containing 'username' and 'token'.
+        """
+        logger.info("Downloading file from %s", url)
+        if filename is None:
+            filename = os.path.basename(url)
+
+        # Use credentials if were provided
+        auth = None
+        if url_credentials:
+            credentials = {}
+            with open(url_credentials, "r") as file:
+                for line in file:
+                    key, value = line.strip().split(":", 1)
+                    credentials[key.strip()] = value.strip()
+            username = credentials.get("username")
+            token = credentials.get("token")
+
+            if username and token:
+                auth = HTTPBasicAuth(username, token)
+            else:
+                logger.error("Credentials are missing in the config file.")
+                return
+
+        # Download the file
+        try:
+            response = requests.get(url, auth=auth)
+
+            if response.status_code == 200:
+                with open(filename, "wb") as file:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            file.write(chunk)
+                return filename
+            else:
+                logger.error(
+                    "Failed to download file: %s", response.status_code
+                )
+                logger.error("Failed response content: %s", response.text)
+
+        except requests.RequestException as e:
+            raise ProvisioningError(
+                f"An error occurred in image download: {e}"
+            )

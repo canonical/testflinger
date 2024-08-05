@@ -1,2 +1,4 @@
 # OEM Software Engineering
 device-connectors/src/testflinger_device_connectors/devices/zapper_iot @canonical/oem-swe-iot
+device-connectors/src/testflinger_device_connectors/devices/oem_autoinstall @canonical/oem-swe-x86
+device-connectors/src/testflinger_device_connectors/data/muxpi/oem_autoinstall/image-deploy.sh @canonical/oem-swe-x86

@@ -1,4 +1,4 @@
-# Copyright (C) 2023 Canonical
+# Copyright (C) 2024 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Ubuntu OEM Recovery provisioner support code."""
+"""Ubuntu OEM autoinstall provisioner for x86 support code."""
 
 import logging
 
@@ -21,7 +21,9 @@ from testflinger_device_connectors.devices import (
     RecoveryError,
     catch,
 )
-from testflinger_device_connectors.devices.oem_autoinstall.oem_autoinstall import OemAutoinstall
+from testflinger_device_connectors.devices.oem_autoinstall.oem_autoinstall import (  # noqa: E501
+    OemAutoinstall,
+)
 
 logger = logging.getLogger(__name__)
 

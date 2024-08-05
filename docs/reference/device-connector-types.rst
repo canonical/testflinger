@@ -32,6 +32,8 @@ To specify the commands to run by the device in each test phase, set the ``testf
      - This device connector is used for Lenovo OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
    * - ``hp_oemscript`` 
      - This device connector is used for HP OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
+   * - ``oem_autoinstall``
+     - This device connector is used for OEM laptops starting from Ubuntu 24.04. It executes image-deploy.sh script and consumes autoinstall configuration files to complete the installation.
    * - ``zapper_iot``
      - This device connector is used for provisioning ubuntu-core to ARM IoT devices. It could be provision by set device to download mode or override seed partition and do recovery.
    * - ``zapper_kvm``
@@ -264,6 +266,41 @@ The ``hp_oemscript`` device connector does not support any ``provision_data`` ke
        flashed to the device, which will be used to boot up the DUT.
 
 .. _zapper_kvm:
+
+oem_autoinstall
+------------
+
+The ``oem_autoinstall`` device connector supports the following ``provision_data`` keys.
+
+.. list-table:: Supported ``provision_data`` keys for ``oem_autoinstall``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``url``
+     - URL to the image file which will be used to provision the device.
+   * - ``token_file``
+     - If ``url`` requires credentials this file in :ref:`file attachments <file_attachments>`
+     must contain ``username: $MY_USERNAME`` and ``token: $MY_TOKEN`` on separate line each.
+     These credentials will be used with HTTPBasicAuth to download the image from ``url``.
+   * - ``user-data``
+     - Required file provided with :ref:`file attachments <file_attachments>`.
+     This file will be consumed by the autoinstall and cloud-init.
+     It should start with "autoinstall:" and list the commands for autoinstall.
+     Later, should include the "user-data:" section with the commands for cloud-init.
+     For more information, see
+     `Autoinstall Reference <https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html>`_.
+     on this topic
+   * - ``redeploy.cfg``
+     - Optional file provided with :ref:`file attachments <file_attachments>`.
+     This file will override the grub.cfg in reset partition.
+     By default, boots the DUT from reset partition to start the provisioning.
+   * - ``authorized_keys``
+     - Optional file provided with :ref:`file attachments <file_attachments>`.
+     It will be copied to /etc/ssh/ on provisioned device and allows to import
+     keys in bulk when system does not have internet access for ssh-import-id.
+     The keys listed in this file are allowed to access the system in addition
+     to keys in ~/.ssh/authorized_keys.
 
 zapper_kvm
 ------------

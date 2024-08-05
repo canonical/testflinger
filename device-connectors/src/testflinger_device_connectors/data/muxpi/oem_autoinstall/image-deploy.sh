@@ -5,6 +5,7 @@ set -euox pipefail
 # This script was adapted to testflinger agent environment and used
 # to provision OEM devices with Ubuntu Noble images
 # Downloading ISO is not supported, because agent is in charge of ISO download
+#
 
 usage()
 {
@@ -51,25 +52,26 @@ set menu_color_normal=white/black
 set menu_color_highlight=black/light-gray
 
 if [ -s (\$root)/boot/grub/theme/theme.cfg ]; then
-    source (\$root)/boot/grub/theme/theme.cfg
+        source (\$root)/boot/grub/theme/theme.cfg
 fi
 
 menuentry "Start redeployment" {
-    set gfxpayload=keep
-    linux   /casper/vmlinuz layerfs-path=minimal.standard.live.hotfix.squashfs nopersistent ds=nocloud;s=/cdrom/cloud-configs/redeploy --- quiet splash nomodeset modprobe.blacklist=nouveau nouveau.modeset=0 autoinstall rp-partuuid=RP_PARTUUID
-    initrd  /casper/initrd
+        set gfxpayload=keep
+        linux   /casper/vmlinuz layerfs-path=minimal.standard.live.hotfix.squashfs nopersistent ds=nocloud\;s=/cdrom/cloud-configs/redeploy --- quiet splash nomodeset modprobe.blacklist=nouveau nouveau.modeset=0 autoinstall rp-partuuid=RP_PARTUUID
+        initrd  /casper/initrd
 }
 menuentry "Start normal reset installation" {
-    set gfxpayload=keep
-    linux   /casper/vmlinuz layerfs-path=minimal.standard.live.hotfix.squashfs nopersistent ds=nocloud;s=/cdrom/cloud-configs/reset-media --- quiet splash nomodeset modprobe.blacklist=nouveau nouveau.modeset=0
-    initrd  /casper/initrd
+        set gfxpayload=keep
+        linux   /casper/vmlinuz layerfs-path=minimal.standard.live.hotfix.squashfs nopersistent ds=nocloud\;s=/cdrom/cloud-configs/reset-media --- quiet splash nomodeset modprobe.blacklist=nouveau nouveau.modeset=0
+        initrd  /casper/initrd
 }
 grub_platform
 if [ "\$grub_platform" = "efi" ]; then
 menuentry 'UEFI firmware settings' {
-    fwsetup
+        fwsetup
 }
 fi
+
 EOL
 
     echo "'$filename' was generated with default content."
@@ -85,6 +87,12 @@ EOL
 
     echo "'$filename' was generated with default content."
 }
+
+ create_meta_data() {
+    local filename=$1
+    # currently meta-data is an empty file, but it's required by cloud-init
+    touch "$filename"
+ }
 
 OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config: -n 'image-deploy.sh' -- "$@")"
 eval set -- "${OPTS}"
@@ -155,8 +163,12 @@ do
 
     if [ -n "$IS_LOCAL_CONFIG" ]; then
         # configs in current dir are without folder structure
-        $SCP "$CONFIG_REPO_PATH"/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/ || true
         $SCP "$CONFIG_REPO_PATH"/user-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
+
+        if [ ! -r "$CONFIG_REPO_PATH"/meta-data ]; then
+            create_meta_data "$CONFIG_REPO_PATH"/meta-data
+        fi
+        $SCP "$CONFIG_REPO_PATH"/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
 
         if [ ! -r "$CONFIG_REPO_PATH"/redeploy.cfg ]; then
             create_redeploy_cfg "$CONFIG_REPO_PATH"/redeploy.cfg
@@ -167,8 +179,7 @@ do
         mkdir -p "$CONFIG_REPO_PATH"/ssh/sshd_config.d
 
         create_sshd_conf "$CONFIG_REPO_PATH"/ssh/sshd_config.d/pc_sanity.conf
-        #cp "$CONFIG_REPO_PATH"/sshd.conf "$CONFIG_REPO_PATH"/ssh/sshd_config.d/pc_sanity.conf
-        cp "$CONFIG_REPO_PATH"/authorized_keys "$CONFIG_REPO_PATH"/ssh
+        cp "$CONFIG_REPO_PATH"/authorized_keys "$CONFIG_REPO_PATH"/ssh || true  # optional file
         $SCP -r "$CONFIG_REPO_PATH"/ssh "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/ssh-config
 
         rm -rf "$CONFIG_REPO_PATH"/ssh
@@ -246,7 +257,7 @@ do
     done
 
     if [ $finished -eq ${#TARGET_IPS[@]} ]; then
-        echo "Deployment are done"
+        echo "Deployment is done"
         break
     fi
 done
