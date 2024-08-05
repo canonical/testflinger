@@ -371,7 +371,7 @@ class TestflingerCli:
                 ) as job_file:
                     data = job_file.read()
             except FileNotFoundError:
-                sys.exit("File not found: {self.args.filename}")
+                sys.exit(f"File not found: {self.args.filename}")
         job_dict = yaml.safe_load(data)
 
         attachments_data = self.extract_attachment_data(job_dict)
