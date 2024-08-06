@@ -25,7 +25,7 @@ To run it from the source code, please make sure that the ``python3-click`` and 
 .. code-block:: shell
 
   $ git clone https://github.com/canonical/testflinger
-  $ cd cli
+  $ cd testflinger/cli
   $ virtualenv -p python3 env
   $ . env/bin/activate
   $ pip install .
