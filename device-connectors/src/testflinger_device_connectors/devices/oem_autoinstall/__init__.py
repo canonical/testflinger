@@ -12,7 +12,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Ubuntu OEM autoinstall provisioner for x86 support code."""
+"""Device connector to provision Ubuntu OEM on systems
+that support autoinstall and image-deploy.sh script"""
 
 import logging
 

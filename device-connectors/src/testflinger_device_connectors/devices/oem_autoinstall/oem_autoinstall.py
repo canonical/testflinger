@@ -48,29 +48,10 @@ class OemAutoinstall:
         with open(job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)
 
-    def copy_to_deploy_path(self, source_path, dest_path):
-        """
-        Verify if attachment exists, then copy when
-        it's missing in deployment dir
-        """
-        source_path = ATTACHMENTS_PROV_DIR / source_path
-        dest_path = ATTACHMENTS_PROV_DIR / dest_path
-        if not source_path.exists():
-            logger.error(
-                f"{source_path} file was not found in attachments. "
-                "Please check the filename."
-            )
-            raise ProvisioningError(
-                f"{source_path} file was not found in attachments"
-            )
-
-        if not dest_path.exists():
-            shutil.copy(source_path, dest_path)
-
     def provision(self):
         """Provision the device"""
 
-        # First, ensure the device is online and reachable
+        # Ensure the device is online and reachable
         try:
             self.test_ssh_access()
         except subprocess.CalledProcessError:
@@ -108,27 +89,44 @@ class OemAutoinstall:
             authorized_keys_path = "authorized_keys"
             self.copy_to_deploy_path(authorized_keys, authorized_keys_path)
 
-        # Download the .iso image from image_url
         try:
             image_file = self.download_with_credentials(
                 image_url, ATTACHMENTS_PROV_DIR / token_file
             )
-            self.run_recovery_script(image_file)
+            self.run_deploy_script(image_file)
         finally:
             if image_file:
                 os.unlink(image_file)
 
-    def run_recovery_script(self, image_file):
-        """Download and run the OEM recovery script"""
+    def copy_to_deploy_path(self, source_path, dest_path):
+        """
+        Verify if attachment exists, then copy when
+        it's missing in deployment dir
+        """
+        source_path = ATTACHMENTS_PROV_DIR / source_path
+        dest_path = ATTACHMENTS_PROV_DIR / dest_path
+        if not source_path.exists():
+            logger.error(
+                f"{source_path} file was not found in attachments. "
+                "Please check the filename."
+            )
+            raise ProvisioningError(
+                f"{source_path} file was not found in attachments"
+            )
+
+        if not dest_path.exists():
+            shutil.copy(source_path, dest_path)
+
+    def run_deploy_script(self, image_file):
+        """Run the script to deploy ISO and config files"""
         device_ip = self.config["device_ip"]
 
         data_path = Path(__file__).parent / "../../data/muxpi/oem_autoinstall"
-        # Run the recovery script
-        logger.info("Running recovery script")
+        logger.info("Running deployment script")
 
-        recovery_script = data_path / "image-deploy.sh"
+        deploy_script = data_path / "image-deploy.sh"
         cmd = [
-            recovery_script,
+            deploy_script,
             "--iso",
             image_file,
             "--local-config",
@@ -143,12 +141,12 @@ class OemAutoinstall:
         )
         if proc.returncode:
             logger.error(
-                "Recovery script failed with return code %s", proc.returncode
+                "Deploy script failed with return code %s", proc.returncode
             )
-            raise ProvisioningError("Recovery script failed")
+            raise ProvisioningError("Deploy script failed")
 
     def test_ssh_access(self):
-        """Copy the ssh id to the device"""
+        """Verify SSH access available to DUT without any prompts"""
         try:
             test_username = self.job_data.get("test_data", {}).get(
                 "test_username", "ubuntu"
@@ -172,7 +170,7 @@ class OemAutoinstall:
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             logger.error("SSH connection failed: %s", result.stderr)
-            raise ProvisioningError("Failed SSH to DUT with keys")
+            raise ProvisioningError("Failed SSH to DUT")
 
     def hardreset(self):
         """
@@ -192,15 +190,13 @@ class OemAutoinstall:
             except subprocess.SubprocessError as exc:
                 raise RecoveryError("Error running reboot script!") from exc
 
-    def download_with_credentials(
-        self, url, url_credentials=None, filename=None
-    ):
+    def download_with_credentials(self, url, token_file=None, filename=None):
         """
         Download a file from a URL
         If credentials file provided, then use token to auth.
 
         :param url: URL of the file to download.
-        :param url_credentials: Optional path to the config file
+        :param token_file: Optional path to the config file
          containing 'username' and 'token'.
         """
         logger.info("Downloading file from %s", url)
@@ -209,9 +205,9 @@ class OemAutoinstall:
 
         # Use credentials if were provided
         auth = None
-        if url_credentials:
+        if token_file:
             credentials = {}
-            with open(url_credentials, "r") as file:
+            with open(token_file, "r") as file:
                 for line in file:
                     key, value = line.strip().split(":", 1)
                     credentials[key.strip()] = value.strip()
