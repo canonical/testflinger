@@ -1,11 +1,13 @@
 addons
 API
 APIs
+authorized
 artifact
 artifacts
 autoinstall
 balancer
 BG
+cfg
 CharmHub
 CLI
 CM3
@@ -25,6 +27,7 @@ favicon
 Git
 GitHub
 Grafana
+HTTPBasicAuth
 IAM
 init
 installable
