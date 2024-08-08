@@ -62,20 +62,6 @@ class RecoveryError(Exception):
     pass
 
 
-def log_provision_error(exception: Exception):
-    exception_info = {
-        "exception_info": {
-            "exception_name": type(exception).__name__,
-            "exception_message": str(exception),
-            "exception_cause": repr(exception.__cause__),
-        }
-    }
-    with open(
-        "provision-error.json", "w", encoding="utf-8"
-    ) as provision_error_file:
-        provision_error_file.write(json.dumps(exception_info))
-
-
 def SerialLogger(host=None, port=None, filename=None):
     """
     Factory to generate real or fake SerialLogger object based on params

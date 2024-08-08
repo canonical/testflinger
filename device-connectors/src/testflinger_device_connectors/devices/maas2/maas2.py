@@ -26,7 +26,6 @@ import yaml
 from testflinger_device_connectors.devices import (
     ProvisioningError,
     RecoveryError,
-    log_provision_error,
 )
 from testflinger_device_connectors.devices.maas2.maas_storage import (
     MaasStorage,
@@ -71,22 +70,18 @@ class Maas2:
         self.node_release()
 
     def provision(self):
-        try:
-            if self.config.get("reset_efi"):
-                self.reset_efi()
-            # Check if this is a device where we need to clear the tpm (dawson)
-            if self.config.get("clear_tpm"):
-                self.clear_tpm()
-            provision_data = self.job_data.get("provision_data")
-            # Default to a safe LTS if no distro is specified
-            distro = provision_data.get("distro", "xenial")
-            kernel = provision_data.get("kernel")
-            user_data = provision_data.get("user_data")
-            storage_data = provision_data.get("disks")
-            self.deploy_node(distro, kernel, user_data, storage_data)
-        except Exception as err:
-            log_provision_error(err)
-            raise
+        if self.config.get("reset_efi"):
+            self.reset_efi()
+        # Check if this is a device where we need to clear the tpm (dawson)
+        if self.config.get("clear_tpm"):
+            self.clear_tpm()
+        provision_data = self.job_data.get("provision_data")
+        # Default to a safe LTS if no distro is specified
+        distro = provision_data.get("distro", "xenial")
+        kernel = provision_data.get("kernel")
+        user_data = provision_data.get("user_data")
+        storage_data = provision_data.get("disks")
+        self.deploy_node(distro, kernel, user_data, storage_data)
 
     def _install_efitools_snap(self):
         cmd = [

@@ -586,6 +586,7 @@ class TestClient:
             mock_post_provision_log.assert_called_with(*expected_log_params)
 
     def test_provision_error_in_event_detail(self, agent, requests_mock):
+        """Tests provision log error messages in event log detail field"""
         self.config["test_command"] = "echo test1"
         job_id = str(uuid.uuid1())
         fake_job_data = {
@@ -602,7 +603,7 @@ class TestClient:
         requests_mock.post(status_url, status_code=200)
 
         provision_exception_info = {
-            "exception_info": {
+            "provision_exception_info": {
                 "exception_name": "MyExceptionName",
                 "exception_message": "MyExceptionMessage",
                 "exception_cause": "MyExceptionCause",
@@ -617,7 +618,7 @@ class TestClient:
                 def run_test_phase_side_effect(phase, rundir):
                     if phase == "provision":
                         provision_log_path = os.path.join(
-                            rundir, "provision-error.json"
+                            rundir, "device-connector-error.json"
                         )
                         with open(
                             provision_log_path, "w"
