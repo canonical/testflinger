@@ -101,17 +101,6 @@ class DeviceConnector(ZapperConnector):
             )
             retries = self.job_data["provision_data"].get("robot_retries", 1)
 
-        # If a SSO email is specified, e.g. UC, username must match
-        # the local-part because that would be the only user available
-        # on the DUT after provisioning.
-        if "ubuntu_sso_email" in self.job_data["provision_data"]:
-            email = self.job_data["provision_data"]["ubuntu_sso_email"]
-            if username != email.split("@")[0]:
-                raise ProvisioningError(
-                    "Test username doesn't match the provided "
-                    "ubuntu_sso_email."
-                )
-
         provisioning_data = {
             "url": url,
             "username": username,

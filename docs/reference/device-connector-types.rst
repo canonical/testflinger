@@ -296,7 +296,7 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
     * - ``autoinstall_oem``:
       - (Optional) Set to "true" to install OEM meta-packages and the reset partition (Desktop 24.04+).
     * - ``ubuntu_sso_email``:
-      - (Optional) A valid Ubuntu SSO email to which the DUT provisioned with a non-dangerous grade UC image will be linked (UC24).
+      - (Optional) A valid Ubuntu SSO email to which the DUT provisioned with a non-dangerous grade UC image will be linked (UC24). Please make sure to provide the corresponding *username* in the *test_data.test_username* field.
 .
 
 .. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target Ubuntu OEM 22.04

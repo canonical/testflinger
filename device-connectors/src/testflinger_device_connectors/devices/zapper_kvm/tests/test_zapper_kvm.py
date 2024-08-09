@@ -121,44 +121,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
-    def test_validate_configuration_raises_sso(self):
-        """
-        Test whether the validate_configuration raises an exception
-        if the provided test_username doesn't match with the SSO email.
-        """
-
-        connector = DeviceConnector()
-        connector.config = {
-            "device_ip": "1.1.1.1",
-            "control_host": "1.1.1.2",
-            "reboot_script": ["cmd1", "cmd2"],
-        }
-        connector.job_data = {
-            "job_queue": "queue",
-            "provision_data": {
-                "url": "http://example.com/image.iso",
-                "robot_tasks": [
-                    "job.robot",
-                    "another.robot",
-                ],
-                "storage_layout": "lvm",
-                "robot_retries": 3,
-                "cmdline_append": "more arguments",
-                "skip_download": True,
-                "wait_until_ssh": True,
-                "live_image": False,
-                "ubuntu_sso_email": "realuser@domain.com",
-            },
-            "test_data": {
-                "test_username": "username",
-                "test_password": "password",
-            },
-        }
-
-        connector._get_autoinstall_conf = Mock()
-        with self.assertRaises(ProvisioningError):
-            connector._validate_configuration()
-
     def test_validate_configuration_alloem(self):
         """
         Test whether the validate_configuration function returns
