@@ -13,8 +13,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for Zapper KVM device connector."""
 
+import base64
 import subprocess
 import unittest
+import yaml
 from unittest.mock import Mock, patch, mock_open
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
@@ -84,12 +86,13 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                     "job.robot",
                     "another.robot",
                 ],
-                "storage_layout": "lvm",
+                "autoinstall_storage_layout": "lvm",
                 "robot_retries": 3,
                 "cmdline_append": "more arguments",
                 "skip_download": True,
                 "wait_until_ssh": True,
                 "live_image": False,
+                "ubuntu_sso_email": "username@domain.com",
             },
             "test_data": {
                 "test_username": "username",
@@ -113,6 +116,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "skip_download": True,
             "wait_until_ssh": True,
             "live_image": False,
+            "ubuntu_sso_email": "username@domain.com",
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -141,7 +145,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                     "job.robot",
                     "another.robot",
                 ],
-                "storage_layout": "lvm",
+                "autoinstall_storage_layout": "lvm",
             },
             "test_data": {
                 "test_username": "username",
@@ -168,7 +172,8 @@ class ZapperKVMConnectorTests(unittest.TestCase):
     def test_get_autoinstall_none(self):
         """
         Test whether the get_autoinstall_conf function returns
-        None in case the storage_layout is not specified.
+        None in case none of the autoinstall-related keys are
+        provided.
         """
 
         connector = DeviceConnector()
@@ -208,7 +213,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                     "job.robot",
                     "another.robot",
                 ],
-                "storage_layout": "lvm",
+                "autoinstall_storage_layout": "lvm",
             },
             "test_data": {
                 "test_username": "username",
@@ -241,8 +246,9 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                     "job.robot",
                     "another.robot",
                 ],
-                "storage_layout": "lvm",
-                "base_user_data": "base data content",
+                "autoinstall_storage_layout": "lvm",
+                "autoinstall_base_user_data": "content",
+                "autoinstall_oem": True,
             },
             "test_data": {
                 "test_username": "username",
@@ -250,15 +256,48 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             },
         }
 
+        connector._validate_base_user_data = Mock()
         with patch("builtins.open", mock_open(read_data="mykey")):
             conf = connector._get_autoinstall_conf()
 
+        connector._validate_base_user_data.assert_called_once_with("content")
         expected = {
             "storage_layout": "lvm",
-            "base_user_data": "base data content",
+            "base_user_data": "content",
             "authorized_keys": ["mykey"],
+            "oem": True,
         }
         self.assertDictEqual(conf, expected)
+
+    def test_validate_base_user_data(self):
+        """
+        Test whether the function returns without errors in case of a
+        sane base64 encoded YAML.
+        """
+        connector = DeviceConnector()
+        user_data_base = yaml.safe_dump({"key1": 1, "key2": [1, 2, 3]})
+        encoded = base64.b64encode(user_data_base.encode()).decode()
+        connector._validate_base_user_data(encoded)
+
+    def test_validate_base_user_data_raises_decode(self):
+        """
+        Test whether the function raises an exception if the input
+        is not correctly encoded.
+        """
+        connector = DeviceConnector()
+        with self.assertRaises(ProvisioningError):
+            connector._validate_base_user_data("notbase64")
+
+    def test_validate_base_user_data_raises_load(self):
+        """
+        Test whether the function raises an exception if the input
+        is not a valid YAML.
+        """
+        connector = DeviceConnector()
+        user_data_base = "not: a: correctly: formatted: yaml"
+        encoded = base64.b64encode(user_data_base.encode()).decode()
+        with self.assertRaises(ProvisioningError):
+            connector._validate_base_user_data(encoded)
 
     def test_run_oem_no_url(self):
         """

@@ -14,11 +14,15 @@
 
 """Zapper Connector for KVM provisioning."""
 
+import base64
+import binascii
+import contextlib
 import logging
 import os
 import subprocess
 from typing import Any, Dict, Optional, Tuple
 
+import yaml
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices.oemscript import OemScript
@@ -36,16 +40,45 @@ class DeviceConnector(ZapperConnector):
 
     PROVISION_METHOD = "ProvisioningKVM"
 
+    def _validate_base_user_data(self, encoded_user_data: str):
+        """
+        Assert `base_user_data` argument is a valid base64 encoded YAML.
+        """
+        try:
+            user_data = base64.b64decode(encoded_user_data.encode()).decode()
+            yaml.safe_load(user_data)
+        except (binascii.Error, ValueError) as exc:
+            raise ProvisioningError(
+                "Provided `base_user_data` is not base64 encoded."
+            ) from exc
+        except yaml.YAMLError as exc:
+            raise ProvisioningError(
+                "Provided `base_user_data` is not a valid YAML."
+            ) from exc
+
     def _get_autoinstall_conf(self) -> Optional[Dict[str, Any]]:
-        """Prepare autoinstall-related configuration."""
-        provision = self.job_data["provision_data"]
+        """
+        Autoinstall-related keys are pre-fixed with `autoinstall_`.
 
-        if "storage_layout" not in provision:
+        If any of those arguments are provided and valid, the function
+        returns an autoinstall_conf dictionary, including the agent
+        SSH public key.
+        """
+
+        autoinstall_conf = {}
+        for key, value in self.job_data["provision_data"].items():
+            if "autoinstall_" not in key:
+                continue
+
+            key = key.replace("autoinstall_", "")
+            with contextlib.suppress(AttributeError):
+                getattr(self, f"_validate_{key}")(value)
+
+            autoinstall_conf[key] = value
+
+        if not autoinstall_conf:
+            logger.info("Autoinstall-related keys were not provided.")
             return None
-
-        autoinstall_conf = {"storage_layout": provision["storage_layout"]}
-        if "base_user_data" in provision:
-            autoinstall_conf["base_user_data"] = provision["base_user_data"]
 
         with open(os.path.expanduser("~/.ssh/id_rsa.pub")) as pub:
             autoinstall_conf["authorized_keys"] = [pub.read()]
@@ -95,6 +128,7 @@ class DeviceConnector(ZapperConnector):
             "skip_download",
             "wait_until_ssh",
             "live_image",
+            "ubuntu_sso_email",
         ]
         provisioning_data.update(
             {

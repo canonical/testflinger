@@ -282,18 +282,22 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
       - List of Zapper/Robot snippets to run in sequence after the USB storage device
         is plugged into the DUT and the system restarted. The snippet ID is the relative
         path from the ``robot/snippets`` path in the Zapper repository.
-    * - ``storage_layout``
+    * - ``autoinstall_storage_layout``
       - When provisioning an image supporting *autoinstall*, the storage_layout can
-        be either ``lvm`` (default), ``direct``, ``zfs`` or ``hybrid`` (Core, Desktop 23.10+)
+        be either ``lvm`` (default), ``direct``, ``zfs`` or ``hybrid`` (Desktop 23.10+, UC24)
     * - ``cmdline_append``
-      - When provisioning an image supporting *autoinstall*, the cmdline_append can
+      - (Optional) When provisioning an image supporting *autoinstall*, the cmdline_append can
         be used to append Kernel parameters to the standard GRUB entry.
-    * - ``base_user_data``
-      - When provisioning an image supporting *autoinstall*, the base_user_data can
-        e used to provide a base user_data file instead of the basic one hosted by Zapper.
+    * - ``autoinstall_base_user_data``
+      - (Optional) A string containing base64 encoded user-data to use as base for autoinstall-driven provisioning.
         For more information, see
         `Autoinstall Reference <https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html>`_.
         on this topic
+    * - ``autoinstall_oem``:
+      - (Optional) Set to "true" to install OEM meta-packages and the reset partition (Desktop 24.04+).
+    * - ``ubuntu_sso_email``:
+      - (Optional) A valid Ubuntu SSO email to which the DUT provisioned with a non-dangerous grade UC image will be linked (UC24). Please make sure to provide the corresponding *username* in the *test_data.test_username* field.
+.
 
 .. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target Ubuntu OEM 22.04
     :header-rows: 1
