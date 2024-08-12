@@ -14,9 +14,9 @@ charmcraft`) then run `charmcraft pack`
 # Configuration
 Supported options for this charm are:
 
-  - ssh-priv-key:
+  - ssh-private-key:
       base64 encoded ssh private keyfile
-  - ssh-pub-key:
+  - ssh-public-key:
       base64 encoded ssh public keyfile
 
 To keep the tf-cmd-scripts files up-to-date, run `juju upgrade-charm
