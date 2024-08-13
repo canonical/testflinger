@@ -25,4 +25,6 @@ jobs:
         with:
           charm-path: agent/charms/testflinger-agent-host-charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
           channel: "latest/edge"
+          tag-prefix: "agent-host-charm"
