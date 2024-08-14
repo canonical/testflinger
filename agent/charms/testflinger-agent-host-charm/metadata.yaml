@@ -10,12 +10,3 @@ description: |
   This charm provides support for device agents running in the hwcert lab
 summary: |
   Host system for device agents
-resources:
-  ssh_priv_key:
-    type: file
-    filename: id_rsa
-    description: SSH private key
-  ssh_pub_key:
-    type: file
-    filename: id_rsa.pub
-    description: SSH public key

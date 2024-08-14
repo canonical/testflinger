@@ -17,26 +17,19 @@ class TestCharm(unittest.TestCase):
         self.harness.begin()
 
     @patch("charm.TestflingerAgentHostCharm.write_file")
-    @patch("charm.TestflingerAgentHostCharm.read_resource")
-    def test_copy_ssh_keys(self, mock_read_resource, mock_write_file):
+    def test_copy_ssh_keys(self, mock_write_file):
         """Test the copy_ssh_keys method"""
-        charm = self.harness.charm
-        mock_read_resource.side_effect = [
-            "ssh_priv_key_content",
-            "ssh_pub_key_content",
-        ]
-
-        charm.copy_ssh_keys()
-
-        mock_read_resource.assert_any_call("ssh_priv_key")
-        mock_read_resource.assert_any_call("ssh_pub_key")
-        self.assertEqual(mock_read_resource.call_count, 2)
-
-        mock_write_file.assert_any_call(
-            "/home/ubuntu/.ssh/id_rsa", "ssh_priv_key_content"
+        self.harness.update_config(
+            {
+                "ssh_private_key": "ssh_private_key_content",
+                "ssh_public_key": "ssh_public_key_content"
+            }
         )
         mock_write_file.assert_any_call(
-            "/home/ubuntu/.ssh/id_rsa.pub", "ssh_pub_key_content"
+            "/home/ubuntu/.ssh/id_rsa", "ssh_private_key_content"
+        )
+        mock_write_file.assert_any_call(
+            "/home/ubuntu/.ssh/id_rsa.pub", "ssh_public_key_content"
         )
         self.assertEqual(mock_write_file.call_count, 2)
 
