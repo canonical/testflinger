@@ -1,0 +1,9 @@
+options:
+  ssh_private_key:
+    type: string
+    description: ssh private key for connecting to local test devices
+    default: ""
+  ssh_public_key:
+    type: string
+    description: ssh public key for connecting to local test devices
+    default: ""

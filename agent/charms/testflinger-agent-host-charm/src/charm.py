@@ -73,11 +73,11 @@ class TestflingerAgentHostCharm(CharmBase):
             out.write(contents)
 
     def copy_ssh_keys(self):
-        priv_key = self.read_resource("ssh_priv_key")
+        priv_key = self.config.get("ssh_private_key")
         if self._stored.ssh_priv != priv_key:
             self._stored.ssh_priv = priv_key
             self.write_file("/home/ubuntu/.ssh/id_rsa", priv_key)
-        pub_key = self.read_resource("ssh_pub_key")
+        pub_key = self.config.get("ssh_public_key")
         if self._stored.ssh_pub != pub_key:
             self._stored.ssh_pub = pub_key
             self.write_file("/home/ubuntu/.ssh/id_rsa.pub", pub_key)
@@ -118,23 +118,6 @@ class TestflingerAgentHostCharm(CharmBase):
         except apt.PackageError:
             logger.error("could not install package")
             self.unit.status = BlockedStatus("Failed to install packages")
-
-    def read_resource(self, resource):
-        """Read the specified resource and return the contents"""
-        try:
-            resource_file = self.model.resources.fetch(resource)
-        except ModelError:
-            # resource doesn't exist yet, return empty string
-            return ""
-        if (
-            not isinstance(resource_file, PosixPath)
-            or not resource_file.exists()
-        ):
-            # Return empty string if it's invalid
-            return ""
-        with open(resource_file, encoding="utf-8", errors="ignore") as res:
-            contents = res.read()
-        return contents
 
 
 if __name__ == "__main__":
