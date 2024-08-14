@@ -6,10 +6,10 @@
 
 
 import logging
-import subprocess
 import shutil
 import os
 from pathlib import PosixPath
+from common import run_with_logged_errors
 
 from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
@@ -48,22 +48,13 @@ class TestflingerAgentHostCharm(CharmBase):
             ["python3-pip", "python3-virtualenv", "docker.io"]
         )
         # maas cli comes from maas snap now
-        self.run_with_logged_errors(["snap", "install", "maas"])
+        run_with_logged_errors(["snap", "install", "maas"])
         self.setup_docker()
         self.update_tf_cmd_scripts()
 
     def setup_docker(self):
-        self.run_with_logged_errors(["groupadd", "docker"])
-        self.run_with_logged_errors(["gpasswd", "-a", "ubuntu", "docker"])
-
-    def run_with_logged_errors(self, cmd):
-        """Run a command, log output if errors, return proc just in case"""
-        proc = subprocess.run(
-            cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, text=True
-        )
-        if proc.returncode:
-            logger.error(proc.stdout)
-        return proc
+        run_with_logged_errors(["groupadd", "docker"])
+        run_with_logged_errors(["gpasswd", "-a", "ubuntu", "docker"])
 
     def write_file(self, location, contents):
         # Sanity check to make sure we're actually about to write something
