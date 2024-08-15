@@ -33,7 +33,7 @@ To specify the commands to run by the device in each test phase, set the ``testf
    * - ``hp_oemscript`` 
      - This device connector is used for HP OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
    * - ``oem_autoinstall``
-     - This device connector is used for OEM laptops starting from Ubuntu 24.04. It executes image-deploy.sh script and consumes autoinstall configuration files to complete the installation.
+     - This device connector is used for OEM PC platforms starting from Ubuntu 24.04. It executes image-deploy.sh script and consumes autoinstall configuration files to complete the installation.
    * - ``zapper_iot``
      - This device connector is used for provisioning ubuntu-core to ARM IoT devices. It could be provision by set device to download mode or override seed partition and do recovery.
    * - ``zapper_kvm``
@@ -291,8 +291,7 @@ The ``oem_autoinstall`` device connector supports the following ``provision_data
     * - ``user_data``
       - Required file provided with :ref:`file attachments <file_attachments>`.
         This file will be consumed by the autoinstall and cloud-init.
-        Sample user-data file with is provided below.
-
+        Sample user-data is provided in the section below.
     * - ``redeploy_cfg``
       - Optional file provided with :ref:`file attachments <file_attachments>`.
         This file will override the grub.cfg in reset partition.
@@ -304,9 +303,9 @@ The ``oem_autoinstall`` device connector supports the following ``provision_data
         The keys listed in this file are allowed to access the system in addition
         to keys in ~/.ssh/authorized_keys.
 
-Below is a sample cloud-config file for ``user_data`` key. This config was tested
-to provision Ubuntu OEM 24.04 images. User may keep the basic structure and
-add specific directives to customise the installation.
+Sample cloud-config file for ``user_data`` key. It should contain directives for
+autoinstall and cloud-init. Following is the basic structure example with explanations.
+Optional packages, keys, users, or commands can be added to customise the installation.
 
 For more details, please refer to
 `Autoinstall Reference <https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html>`_

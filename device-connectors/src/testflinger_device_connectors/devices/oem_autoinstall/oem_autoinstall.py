@@ -14,7 +14,7 @@
 
 """
 Starting from Ubuntu 24.04, OEM uses autoinstall to provision
-the laptops for all vendors.
+the PC platforms for all vendors.
 Use this device connector for systems that support autoinstall provisioning
 with image-deploy.sh script
 """
