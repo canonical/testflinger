@@ -49,7 +49,6 @@ class TestflingerAgentHostCharm(CharmBase):
 
     def on_install(self, _):
         """Install hook"""
-        self.unit.status = MaintenanceStatus("Installing dependencies")
         self.install_dependencies()
         self.setup_docker()
         self.update_tf_cmd_scripts()
@@ -75,7 +74,9 @@ class TestflingerAgentHostCharm(CharmBase):
 
     def update_testflinger_repo(self):
         """Update the testflinger repo"""
+        self.unit.status = MaintenanceStatus("Creating virtualenv")
         testflinger_source.create_virtualenv()
+        self.unit.status = MaintenanceStatus("Cloning testflinger repo")
         testflinger_source.clone_repo(LOCAL_TESTFLINGER_PATH)
 
     def setup_docker(self):
@@ -101,6 +102,7 @@ class TestflingerAgentHostCharm(CharmBase):
 
     def update_tf_cmd_scripts(self):
         """Update tf-cmd-scripts"""
+        self.unit.status = MaintenanceStatus("Installing tf-cmd-scripts")
         tf_cmd_dir = "src/tf-cmd-scripts/"
         usr_local_bin = "/usr/local/bin/"
         for tf_cmd_file in os.listdir(tf_cmd_dir):

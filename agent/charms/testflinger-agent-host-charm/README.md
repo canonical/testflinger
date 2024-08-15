@@ -21,3 +21,10 @@ Supported options for this charm are:
 
 To keep the tf-cmd-scripts files up-to-date, run `juju upgrade-charm
 {testflinger-agent-host-application}`.
+
+# Actions
+The following actions are supported for this charm:
+
+  - update-testflinger:
+      This action is used to update the testflinger-agent and install it to a
+      location shared by all the agents running on this host.
