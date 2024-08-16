@@ -6,10 +6,10 @@
 
 
 import logging
-import subprocess
 import shutil
 import os
 from pathlib import PosixPath
+from common import run_with_logged_errors
 
 from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
@@ -21,6 +21,8 @@ from ops.model import (
     MaintenanceStatus,
     ModelError,
 )
+import testflinger_source
+from defaults import LOCAL_TESTFLINGER_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,10 @@ class TestflingerAgentHostCharm(CharmBase):
         self.framework.observe(self.on.start, self.on_start)
         self.framework.observe(self.on.config_changed, self.on_config_changed)
         self.framework.observe(self.on.upgrade_charm, self.on_upgrade_charm)
+        self.framework.observe(
+            self.on.update_testflinger_action,
+            self.on_update_testflinger_action,
+        )
         self._stored.set_default(
             ssh_priv="",
             ssh_pub="",
@@ -43,27 +49,39 @@ class TestflingerAgentHostCharm(CharmBase):
 
     def on_install(self, _):
         """Install hook"""
-        self.unit.status = MaintenanceStatus("Installing dependencies")
-        self.install_apt_packages(
-            ["python3-pip", "python3-virtualenv", "docker.io"]
-        )
-        # maas cli comes from maas snap now
-        self.run_with_logged_errors(["snap", "install", "maas"])
+        self.install_dependencies()
         self.setup_docker()
         self.update_tf_cmd_scripts()
+        self.update_testflinger_repo()
+
+    def install_dependencies(self):
+        """Install the packages needed for the agent"""
+        self.unit.status = MaintenanceStatus("Installing dependencies")
+        # maas cli comes from maas snap now
+        run_with_logged_errors(["snap", "install", "maas"])
+
+        self.install_apt_packages(
+            [
+                "python3-pip",
+                "python3-virtualenv",
+                "docker.io",
+                "git",
+                "openssh-client",
+                "sshpass",
+                "snmp",
+            ]
+        )
+
+    def update_testflinger_repo(self):
+        """Update the testflinger repo"""
+        self.unit.status = MaintenanceStatus("Creating virtualenv")
+        testflinger_source.create_virtualenv()
+        self.unit.status = MaintenanceStatus("Cloning testflinger repo")
+        testflinger_source.clone_repo(LOCAL_TESTFLINGER_PATH)
 
     def setup_docker(self):
-        self.run_with_logged_errors(["groupadd", "docker"])
-        self.run_with_logged_errors(["gpasswd", "-a", "ubuntu", "docker"])
-
-    def run_with_logged_errors(self, cmd):
-        """Run a command, log output if errors, return proc just in case"""
-        proc = subprocess.run(
-            cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, text=True
-        )
-        if proc.returncode:
-            logger.error(proc.stdout)
-        return proc
+        run_with_logged_errors(["groupadd", "docker"])
+        run_with_logged_errors(["gpasswd", "-a", "ubuntu", "docker"])
 
     def write_file(self, location, contents):
         # Sanity check to make sure we're actually about to write something
@@ -84,6 +102,7 @@ class TestflingerAgentHostCharm(CharmBase):
 
     def update_tf_cmd_scripts(self):
         """Update tf-cmd-scripts"""
+        self.unit.status = MaintenanceStatus("Installing tf-cmd-scripts")
         tf_cmd_dir = "src/tf-cmd-scripts/"
         usr_local_bin = "/usr/local/bin/"
         for tf_cmd_file in os.listdir(tf_cmd_dir):
@@ -118,6 +137,12 @@ class TestflingerAgentHostCharm(CharmBase):
         except apt.PackageError:
             logger.error("could not install package")
             self.unit.status = BlockedStatus("Failed to install packages")
+
+    def on_update_testflinger_action(self, event):
+        """Update Testflinger agent code"""
+        self.unit.status = MaintenanceStatus("Handling update action")
+        self.update_testflinger_repo()
+        self.unit.status = ActiveStatus()
 
 
 if __name__ == "__main__":
