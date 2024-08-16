@@ -16,7 +16,7 @@ from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
-from testflinger_common.enums import TestPhase
+from testflinger_common.enums import TestPhase, TestEvent
 
 
 class TestClient:
@@ -536,3 +536,51 @@ class TestClient:
         event_list = status_update_requests[-1].json()["events"]
         event_name_list = [event["event_name"] for event in event_list]
         assert "output_timeout" in event_name_list
+
+    def test_post_provision_log_success(self, agent, requests_mock):
+        # Ensure provision log is posted when the provision phase succeeds
+        self.config["provision_command"] = "echo provision1"
+        job_id = str(uuid.uuid1())
+        fake_job_data = {
+            "job_id": job_id,
+            "job_queue": "test",
+            "provision_data": {"url": "foo"},
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+        )
+        expected_log_params = (
+            job_id,
+            0,
+            TestEvent.PROVISION_SUCCESS,
+        )
+        with patch.object(
+            agent.client, "post_provision_log"
+        ) as mock_post_provision_log:
+            agent.process_jobs()
+            mock_post_provision_log.assert_called_with(*expected_log_params)
+
+    def test_post_provision_log_fail(self, agent, requests_mock):
+        # Ensure provision log is posted when the provision phase fails
+        self.config["provision_command"] = "exit 1"
+        job_id = str(uuid.uuid1())
+        fake_job_data = {
+            "job_id": job_id,
+            "job_queue": "test",
+            "provision_data": {"url": "foo"},
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+        )
+        expected_log_params = (
+            job_id,
+            1,
+            TestEvent.PROVISION_FAIL,
+        )
+        with patch.object(
+            agent.client, "post_provision_log"
+        ) as mock_post_provision_log:
+            agent.process_jobs()
+            mock_post_provision_log.assert_called_with(*expected_log_params)

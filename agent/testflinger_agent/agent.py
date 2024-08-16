@@ -278,19 +278,17 @@ class TestflingerAgent:
                             exit_event = TestEvent.RECOVERY_FAIL
                         else:
                             exit_event = TestEvent(phase + "_fail")
-                        event_emitter.emit_event(exit_event)
-                        if phase == "provision":
-                            self.client.post_provision_log(
-                                job.job_id, exit_code, exit_event
-                            )
-                        if phase != "test":
-                            logger.debug(
-                                "Phase %s failed, aborting job" % phase
-                            )
-                            job_end_reason = exit_event
-                            break
                     else:
-                        event_emitter.emit_event(TestEvent(phase + "_success"))
+                        exit_event = TestEvent(phase + "_success")
+                    event_emitter.emit_event(exit_event)
+                    if phase == TestPhase.PROVISION:
+                        self.client.post_provision_log(
+                            job.job_id, exit_code, exit_event
+                        )
+                    if exit_code and phase != TestPhase.TEST:
+                        logger.debug("Phase %s failed, aborting job" % phase)
+                        job_end_reason = exit_event
+                        break
             except Exception as e:
                 logger.exception(e)
             finally:
