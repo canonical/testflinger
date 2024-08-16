@@ -32,6 +32,8 @@ To specify the commands to run by the device in each test phase, set the ``testf
      - This device connector is used for Lenovo OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
    * - ``hp_oemscript`` 
      - This device connector is used for HP OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
+   * - ``oem_autoinstall``
+     - This device connector is used for OEM PC platforms starting from Ubuntu 24.04. It executes image-deploy.sh script and consumes autoinstall configuration files to complete the installation.
    * - ``zapper_iot``
      - This device connector is used for provisioning ubuntu-core to ARM IoT devices. It could be provision by set device to download mode or override seed partition and do recovery.
    * - ``zapper_kvm``
@@ -262,6 +264,106 @@ The ``hp_oemscript`` device connector does not support any ``provision_data`` ke
        ``unzstd`` (**xz** format is recommended, but any format supported by
        the ``zstd`` tool is supported) and
        flashed to the device, which will be used to boot up the DUT.
+
+.. _oem_autoinstall:
+
+oem_autoinstall
+------------
+
+The ``oem_autoinstall`` device connector supports the following ``provision_data`` keys.
+
+.. list-table:: Supported ``autoinstall`` keys for ``user_data`` config file
+    :header-rows: 1
+
+    * - Key
+      - Description
+    * - ``url``
+      - URL to the image file which will be used to provision the device.
+    * - ``token_file``
+      - Optional credentials file in :ref:`file attachments <file_attachments>` when ``url``
+        requires authentication. These credentials will be used with HTTPBasicAuth
+        to download the image from ``url``. It must contain:
+
+          username: $MY_USERNAME
+
+          token: $MY_TOKEN
+
+    * - ``user_data``
+      - Required file provided with :ref:`file attachments <file_attachments>`.
+        This file will be consumed by the autoinstall and cloud-init.
+        Sample user-data is provided in the section below.
+    * - ``redeploy_cfg``
+      - Optional file provided with :ref:`file attachments <file_attachments>`.
+        This file will override the grub.cfg in reset partition.
+        By default, boots the DUT from reset partition to start the provisioning.
+    * - ``authorized_keys``
+      - Optional file provided with :ref:`file attachments <file_attachments>`.
+        It will be copied to /etc/ssh/ on provisioned device and allows to import
+        keys in bulk when system does not have internet access for ssh-import-id.
+        The keys listed in this file are allowed to access the system in addition
+        to keys in ~/.ssh/authorized_keys.
+
+Sample cloud-config file for ``user_data`` key. It should contain directives for
+autoinstall and cloud-init. Following is the basic structure example with explanations.
+Optional packages, keys, users, or commands can be added to customise the installation.
+
+For more details, please refer to
+`Autoinstall Reference <https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html>`_
+on this topic
+
+  .. code-block:: bash
+
+    #cloud-config
+    # vim: syntax=yaml
+
+    autoinstall:  # autoinstall configuration for the installer (subiquity)
+      version: 1
+
+      storage:
+        layout:
+          name: direct
+          match:
+            install-media: true
+
+      early-commands:
+        - "nmcli networking off"  # prevents online updating packages in subiquity installer
+
+      late-commands:
+        # hook.sh is a part of OEM image scripts
+        - "bash /cdrom/sideloads/hook.sh late-commands"
+        - "mount -o rw,remount /cdrom"
+
+      # Copy /cdrom/ssh-config to /target/etc/ssh, if it exists.
+      # File provided in authorized_keys key is copied here.
+      - "! [ -d /cdrom/ssh-config ] || ( mkdir -p /target/etc/ssh && \
+          cp -r /cdrom/ssh-config/* /target/etc/ssh)"
+      shutdown: reboot  # tell the installer to reboot after installation
+
+      # cloud-init config for the provisioned system
+      user-data:
+        bootcmd:
+          - "bash /sp-bootstrap/hook.sh early-welcome"
+        users:
+          - default
+        packages:  # list of packages to be installed
+          - openssh-server
+        runcmd:
+          # set default ubuntu user and unlock password login
+          - ["usermod", "-p", "MY_PASSWORD", "ubuntu"]
+          - ["passwd", "-u", "ubuntu"]
+
+        # key to be added in ~/.ssh/authorized_keys
+        ssh_authorized_keys:
+          - 'ssh-rsa MY_PUBLIC_KEY user@host'
+
+        # Reboot after early-welcome is done
+        power_state:
+          mode: "reboot"
+          message: "early-welcome setup complete, rebooting..."
+          timeout: 30
+
+    bootcmd:  # bootcmd of autoinstall
+      - ['plymouth', 'display-message', '--text', 'Starting installer...']
 
 .. _zapper_kvm:
 
