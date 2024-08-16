@@ -222,7 +222,7 @@ class OemAutoinstall:
 
         # Download the file
         try:
-            response = requests.get(url, auth=auth)
+            response = requests.get(url, auth=auth, stream=True)
 
             if response.status_code == 200:
                 with open(filename, "wb") as file:
