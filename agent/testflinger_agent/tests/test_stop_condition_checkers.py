@@ -22,6 +22,7 @@ from ..stop_condition_checkers import (
 )
 
 from testflinger_common.enums import TestEvent
+from testflinger_agent.runner import OutputEvent
 
 
 class TestStopConditionCheckers:
@@ -68,5 +69,5 @@ class TestStopConditionCheckers:
         checker = OutputTimeoutChecker(0.3)
         for _ in range(5):
             time.sleep(0.1)
-            checker.update()
+            checker.update(OutputEvent(""))
             assert checker() == (None, "")

@@ -13,6 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 from .client import TestflingerClient
+from .runner import OutputEvent
 
 
 class LiveOutputHandler:
@@ -20,14 +21,14 @@ class LiveOutputHandler:
         self.client = client
         self.job_id = job_id
 
-    def __call__(self, data: str):
-        self.client.post_live_output(self.job_id, data)
+    def __call__(self, event: OutputEvent):
+        self.client.post_live_output(self.job_id, event.output)
 
 
 class LogUpdateHandler:
     def __init__(self, log_file: str):
         self.log_file = log_file
 
-    def __call__(self, data: str):
+    def __call__(self, event: OutputEvent):
         with open(self.log_file, "a") as log:
-            log.write(data)
+            log.write(event.output)

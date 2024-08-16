@@ -16,6 +16,7 @@ import time
 from typing import Optional, Tuple
 from testflinger_common.enums import JobState, TestEvent
 from .client import TestflingerClient
+from .runner import RunnerEvent
 
 
 class JobCancelledChecker:
@@ -59,6 +60,6 @@ class OutputTimeoutChecker:
             )
         return None, ""
 
-    def update(self):
+    def update(self, _: RunnerEvent):
         """Update the last output time to the current time."""
         self.last_output_time = time.time()
