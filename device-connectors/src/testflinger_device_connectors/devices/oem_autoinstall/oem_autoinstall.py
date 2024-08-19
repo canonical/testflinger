@@ -88,15 +88,19 @@ class OemAutoinstall:
         if authorized_keys is not None:
             authorized_keys_path = "authorized_keys"
             self.copy_to_deploy_path(authorized_keys, authorized_keys_path)
+        if token_file is not None:
+            token_file_path = "url_token"
+            self.copy_to_deploy_path(token_file, token_file_path)
+        self.run_deploy_script(image_url)
 
-        try:
-            image_file = self.download_with_credentials(
-                image_url, ATTACHMENTS_PROV_DIR / token_file
-            )
-            self.run_deploy_script(image_file)
-        finally:
-            if image_file:
-                os.unlink(image_file)
+        # try:
+        #     image_file = self.download_with_credentials(
+        #         image_url, ATTACHMENTS_PROV_DIR / token_file
+        #     )
+        #     self.run_deploy_script(image_file)
+        # finally:
+        #     if image_file:
+        #         os.unlink(image_file)
 
     def copy_to_deploy_path(self, source_path, dest_path):
         """
@@ -117,7 +121,7 @@ class OemAutoinstall:
         if not dest_path.exists():
             shutil.copy(source_path, dest_path)
 
-    def run_deploy_script(self, image_file):
+    def run_deploy_script(self, image_url):
         """Run the script to deploy ISO and config files"""
         device_ip = self.config["device_ip"]
 
@@ -127,8 +131,8 @@ class OemAutoinstall:
         deploy_script = data_path / "image-deploy.sh"
         cmd = [
             deploy_script,
-            "--iso",
-            image_file,
+            "--url-dut",
+            image_url,
             "--local-config",
             ATTACHMENTS_PROV_DIR,
             device_ip,

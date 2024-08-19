@@ -2,9 +2,8 @@
 
 exec 2>&1
 set -euox pipefail
-# This script was adapted to testflinger agent environment and used
-# to provision OEM devices with Ubuntu Noble images
-# Downloading ISO is not supported, because agent is in charge of ISO download
+#
+# This script is used by TF agent to provision OEM PCs with Ubuntu Noble images
 #
 
 usage()
@@ -14,9 +13,10 @@ Usage:
     $0 [OPTIONS] <TARGET_IP 1> <TARGET_IP 2> ...
 Options:
     -h|--help        The manual of the script
-    --iso            ISO file path to be deployed on the target
+    --url-dut        URL to wget ISO on target DUT and deploy
     -u|--user        The user of the target, default ubuntu
     -o|--timeout     The timeout for doing the deployment, default 3600 seconds
+    --iso            Local ISO file path to scp on target DUT and deploy
 EOF
 }
 
@@ -27,17 +27,18 @@ fi
 
 TARGET_USER="ubuntu"
 TARGET_IPS=()
-ISO_PATH=
-ISO=
+ISO_PATH=""
+ISO=""
+URL_DUT=""
 STORE_PART=""
 TIMEOUT=3600
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 SSH="ssh $SSH_OPTS"
 SCP="scp $SSH_OPTS"
 
-if [ ! -d "$HOME/.cache/oem-scripts" ]; then
-    mkdir -p "$HOME/.cache/oem-scripts"
-fi
+# if [ ! -d "$HOME/.cache/oem-scripts" ]; then
+#     mkdir -p "$HOME/.cache/oem-scripts"
+# fi
 
 create_redeploy_cfg() {
     # generates grub.cfg file to start the redeployment
@@ -94,36 +95,70 @@ EOL
     touch "$filename"
  }
 
-OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config: -n 'image-deploy.sh' -- "$@")"
+ wget_iso_on_dut() {
+    # Download ISO on DUT
+    URL_TOKEN="$CONFIG_REPO_PATH"/url_token
+    WGET_OPTS="--quiet "
+    WGET_LOG="/tmp/wget.log"
+    # Optional URL credentials
+    if [ -r "$URL_TOKEN" ]; then
+        username=$(awk -F':' '/^username:/ {print $2}' "$URL_TOKEN" | xargs)
+        token=$(awk -F':' '/^token:/ {print $2}' "$URL_TOKEN" | xargs)
+        if [ -z "$username" ] || [ -z "$token" ]; then
+            echo "Error: check username or token format in $URL_TOKEN file"
+            exit 3
+        fi
+        WGET_OPTS="--auth-no-challenge --user=$username --password=$token"
+    fi
+
+    #$SSH "$TARGET_USER"@"$addr" -- sudo curl -v "$CURL_USER" -o /home/"$TARGET_USER"/"$ISO" "$URL_DUT"
+    #$SSH "$TARGET_USER"@"$addr" -- sudo wget --quiet "$WGET_OPTS" -O /home/"$TARGET_USER"/"$ISO" "$URL_DUT" > "$WGET_LOG" 2>&1 || exit 1
+
+    echo "Downloading ISO on DUT..."
+    if ! $SSH "$TARGET_USER"@"$addr" -- sudo wget --quiet "$WGET_OPTS" -O /home/"$TARGET_USER"/"$ISO" "$URL_DUT" > "$WGET_LOG" 2>&1; then
+        echo "Downloading ISO on DUT failed. Check wget logs:"
+        $SSH "$TARGET_USER"@"$addr" -- cat "$WGET_LOG" || echo "$WGET_LOG not found"
+        exit 4
+    fi
+
+    if ! $SSH "$TARGET_USER"@"$addr" -- sudo test -e /home/"$TARGET_USER"/"$ISO"; then
+        echo "ISO file doesn't exist after downloading. Check wget logs:"
+        $SSH "$TARGET_USER"@"$addr" -- cat "$WGET_LOG" || echo "$WGET_LOG not found"
+        exit 4
+    fi
+ }
+
+OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config:,url-dut: -n 'image-deploy.sh' -- "$@")"
 eval set -- "${OPTS}"
 while :; do
     case "$1" in
         ('-h'|'--help')
             usage
-	    exit;;
+            exit;;
         ('--iso')
             ISO_PATH="$2"
-	    ISO=$(basename "$ISO_PATH")
+            ISO=$(basename "$ISO_PATH")
             shift 2;;
         ('-u'|'--user')
             TARGET_USER="$2"
-	    shift 2;;
+            shift 2;;
         ('-o'|'--timeout')
             TIMEOUT="$2"
             shift 2;;
         ('-l'|'--local-config')
             CONFIG_REPO_PATH="$2"
-            IS_LOCAL_CONFIG="TRUE"
+            #IS_LOCAL_CONFIG="TRUE"
+            shift 2;;
+        ('--url-dut')
+            URL_DUT="$2"
+            ISO=$(basename "$URL_DUT")
             shift 2;;
 	('--') shift; break ;;
 	(*) break ;;
     esac
 done
 
-if [ ! -f "$ISO_PATH" ]; then
-    echo "No designated ISO file"
-    exit
-fi
+
 
 read -ra TARGET_IPS <<< "$@"
 
@@ -154,44 +189,30 @@ do
     RESET_PARTUUID=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o PARTUUID "$RESET_PART")
     EFI_PART="${STORE_PART:0:-1}1"
 
-    # Copy ISO to the target
-    $SCP "$ISO_PATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
-
     # Copy cloud-config redeploy to the target
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/redeploy/cloud-configs/redeploy
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/redeploy/cloud-configs/grub
 
-    if [ -n "$IS_LOCAL_CONFIG" ]; then
-        # configs in current dir are without folder structure
-        $SCP "$CONFIG_REPO_PATH"/user-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
+    $SCP "$CONFIG_REPO_PATH"/user-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
 
-        if [ ! -r "$CONFIG_REPO_PATH"/meta-data ]; then
-            create_meta_data "$CONFIG_REPO_PATH"/meta-data
-        fi
-        $SCP "$CONFIG_REPO_PATH"/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
-
-        if [ ! -r "$CONFIG_REPO_PATH"/redeploy.cfg ]; then
-            create_redeploy_cfg "$CONFIG_REPO_PATH"/redeploy.cfg
-        fi
-        $SCP "$CONFIG_REPO_PATH"/redeploy.cfg "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg
-
-        # ssh configs are expected to be deployed as a directory
-        mkdir -p "$CONFIG_REPO_PATH"/ssh/sshd_config.d
-
-        create_sshd_conf "$CONFIG_REPO_PATH"/ssh/sshd_config.d/pc_sanity.conf
-        cp "$CONFIG_REPO_PATH"/authorized_keys "$CONFIG_REPO_PATH"/ssh || true  # optional file
-        $SCP -r "$CONFIG_REPO_PATH"/ssh "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/ssh-config
-
-        rm -rf "$CONFIG_REPO_PATH"/ssh
-    else
-        # configs follow launchapd repo folder structure
-        $SCP "$CONFIG_REPO_PATH"/alloem-init/cloud-configs/redeploy/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
-        $SCP "$CONFIG_REPO_PATH"/alloem-init/cloud-configs/redeploy/user-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
-        $SCP "$CONFIG_REPO_PATH"/alloem-init/cloud-configs/grub/redeploy.cfg "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg
-
-        # Copy ssh key from alloem-init injections to the target
-        $SCP -r "$CONFIG_REPO_PATH"/injections/alloem-init/chroot/minimal.standard.live.hotfix.squashfs/etc/ssh "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/ssh-config
+    if [ ! -r "$CONFIG_REPO_PATH"/meta-data ]; then
+        create_meta_data "$CONFIG_REPO_PATH"/meta-data
     fi
+    $SCP "$CONFIG_REPO_PATH"/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
+
+    if [ ! -r "$CONFIG_REPO_PATH"/redeploy.cfg ]; then
+        create_redeploy_cfg "$CONFIG_REPO_PATH"/redeploy.cfg
+    fi
+    $SCP "$CONFIG_REPO_PATH"/redeploy.cfg "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg
+
+    # ssh configs are expected to be deployed as a directory
+    mkdir -p "$CONFIG_REPO_PATH"/ssh/sshd_config.d
+
+    create_sshd_conf "$CONFIG_REPO_PATH"/ssh/sshd_config.d/pc_sanity.conf
+    cp "$CONFIG_REPO_PATH"/authorized_keys "$CONFIG_REPO_PATH"/ssh || true  # optional file
+    $SCP -r "$CONFIG_REPO_PATH"/ssh "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/ssh-config
+
+    rm -rf "$CONFIG_REPO_PATH"/ssh
 
     # Umount the partitions
     MOUNT=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o MOUNTPOINT "$RESET_PART")
@@ -210,6 +231,20 @@ do
     # Mount ISO and reset partition
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/iso || true
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/reset || true
+
+    # Handle ISO
+    if [ -n "$URL_DUT" ]; then
+        # store ISO directly on DUT
+        wget_iso_on_dut
+    elif [ -n "$ISO_PATH" ]; then
+        # ISO file was stored on agent; scp to DUT
+        if [ ! -f "$ISO_PATH" ]; then
+            echo "No designated ISO file"
+            exit 2
+        fi
+        $SCP "$ISO_PATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
+    fi
+
     $SSH "$TARGET_USER"@"$addr" -- sudo mount -o loop /home/"$TARGET_USER"/"$ISO" /home/"$TARGET_USER"/iso || true
     $SSH "$TARGET_USER"@"$addr" -- sudo mount "$RESET_PART" /home/"$TARGET_USER"/reset || true
 
