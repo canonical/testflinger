@@ -18,7 +18,8 @@ Testflinger v1 API
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import secrets
 
 import pkg_resources
 from apiflask import APIBlueprint, abort
@@ -30,6 +31,9 @@ from werkzeug.exceptions import BadRequest
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+import jwt
+
 
 from src import database
 from . import schemas
@@ -652,3 +656,45 @@ def queue_wait_time_percentiles_get():
             queue["wait_times"]
         )
     return queue_percentile_data
+
+
+def generate_token(permissions, secret_key):
+    """Generates JWT token with queue permission given a secret key"""
+    expiration_time = datetime.utcnow() + timedelta(seconds=2)
+    token_payload = {
+        "exp": expiration_time,
+        "iat": datetime.now(timezone.utc),  # Issued at time
+        "sub": "access_token",
+        "permissions": permissions,
+    }
+    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
+    return token
+
+
+def validate_client_key_pair(client_id: str, client_key: str):
+    """
+    Checks client_id and key pair for validity and returns their permissions
+    """
+    client_permissions_entry = database.mongo.db.client_permissions.find_one(
+        {
+            "client_id": client_id,
+            "client_secret_hash": client_key,
+        }
+    )
+    if client_permissions_entry is None:
+        return {}
+
+    permissions = client_permissions_entry["permissions"]
+    return permissions
+
+
+SECRET_KEY = secrets.token_hex(20)
+
+
+@v1.get("/authenticate/token/<client_id>")
+def authenticate_client_get(client_id: str):
+    """Get JWT with priority and queue permissions"""
+    client_key = request.headers.get("client-key")
+    allowed_resources = validate_client_key_pair(client_id, client_key)
+    token = generate_token(allowed_resources, SECRET_KEY)
+    return token
