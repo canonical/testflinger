@@ -781,9 +781,46 @@ def test_retrieve_token_invalid_client_key(mongo_app_with_permissions):
     """
     app, _, client_id, _, _ = mongo_app_with_permissions
     client_key = "my_wrong_key"
-
     output = app.post(
         "/v1/oauth2/token",
         headers=create_auth_header(client_id, client_key),
     )
     assert output.status_code == 401
+
+
+def test_job_with_priority(mongo_app_with_permissions):
+    """Tests submission of priority job with valid token"""
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    job = {"job_queue": "myqueue2", "job_priority": 200}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 200 == job_response.status_code
+
+
+def test_priority_no_token(mongo_app_with_permissions):
+    """Tests rejection of priority job with no token"""
+    app, _, _, _, _ = mongo_app_with_permissions
+    job = {"job_queue": "myqueue2", "job_priority": 200}
+    job_response = app.post("/v1/job", json=job)
+    assert 401 == job_response.status_code
+
+
+def test_priority_invalid_queue(mongo_app_with_permissions):
+    """Tests rejection of priority job with invalid queue"""
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    job = {"job_queue": "myinvalidqueue", "job_priority": 200}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 403 == job_response.status_code
