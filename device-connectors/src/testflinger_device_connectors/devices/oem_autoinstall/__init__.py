@@ -13,7 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Device connector to provision Ubuntu OEM on systems
-that support autoinstall and image-deploy.sh script"""
+that support autoinstall and provision-image.sh script"""
 
 import logging
 

@@ -33,7 +33,7 @@ To specify the commands to run by the device in each test phase, set the ``testf
    * - ``hp_oemscript`` 
      - This device connector is used for HP OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
    * - ``oem_autoinstall``
-     - This device connector is used for OEM PC platforms starting from Ubuntu 24.04. It executes image-deploy.sh script and consumes autoinstall configuration files to complete the installation.
+     - This device connector is used for OEM PC platforms starting from Ubuntu 24.04. It executes provision-image.sh script and consumes autoinstall configuration files to complete the installation.
    * - ``zapper_iot``
      - This device connector is used for provisioning ubuntu-core to ARM IoT devices. It could be provision by set device to download mode or override seed partition and do recovery.
    * - ``zapper_kvm``
