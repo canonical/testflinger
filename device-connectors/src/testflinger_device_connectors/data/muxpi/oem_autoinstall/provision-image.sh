@@ -13,7 +13,7 @@ Usage:
     $0 [OPTIONS] <TARGET_IP 1> <TARGET_IP 2> ...
 Options:
     -h|--help        The manual of the script
-    --url-dut        URL to wget ISO on target DUT and deploy
+    --iso-dut        URL to wget ISO on target DUT and deploy
     -u|--user        The user of the target, default ubuntu
     -o|--timeout     The timeout for doing the deployment, default 3600 seconds
     --iso            Local ISO file path to scp on target DUT and deploy
@@ -35,10 +35,6 @@ TIMEOUT=3600
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 SSH="ssh $SSH_OPTS"
 SCP="scp $SSH_OPTS"
-
-# if [ ! -d "$HOME/.cache/oem-scripts" ]; then
-#     mkdir -p "$HOME/.cache/oem-scripts"
-# fi
 
 create_redeploy_cfg() {
     # generates grub.cfg file to start the redeployment
@@ -89,17 +85,16 @@ EOL
     echo "'$filename' was generated with default content."
 }
 
- create_meta_data() {
+create_meta_data() {
     local filename=$1
     # currently meta-data is an empty file, but it's required by cloud-init
     touch "$filename"
- }
+}
 
- wget_iso_on_dut() {
+wget_iso_on_dut() {
     # Download ISO on DUT
     URL_TOKEN="$CONFIG_REPO_PATH"/url_token
-    WGET_OPTS="--quiet "
-    WGET_LOG="/tmp/wget.log"
+    WGET_OPTS="--no-verbose --tries=3"
     # Optional URL credentials
     if [ -r "$URL_TOKEN" ]; then
         username=$(awk -F':' '/^username:/ {print $2}' "$URL_TOKEN" | xargs)
@@ -108,27 +103,22 @@ EOL
             echo "Error: check username or token format in $URL_TOKEN file"
             exit 3
         fi
-        WGET_OPTS="--auth-no-challenge --user=$username --password=$token"
+        WGET_OPTS+=" --auth-no-challenge --user=$username --password=$token"
     fi
 
-    #$SSH "$TARGET_USER"@"$addr" -- sudo curl -v "$CURL_USER" -o /home/"$TARGET_USER"/"$ISO" "$URL_DUT"
-    #$SSH "$TARGET_USER"@"$addr" -- sudo wget --quiet "$WGET_OPTS" -O /home/"$TARGET_USER"/"$ISO" "$URL_DUT" > "$WGET_LOG" 2>&1 || exit 1
-
     echo "Downloading ISO on DUT..."
-    if ! $SSH "$TARGET_USER"@"$addr" -- sudo wget --quiet "$WGET_OPTS" -O /home/"$TARGET_USER"/"$ISO" "$URL_DUT" > "$WGET_LOG" 2>&1; then
-        echo "Downloading ISO on DUT failed. Check wget logs:"
-        $SSH "$TARGET_USER"@"$addr" -- cat "$WGET_LOG" || echo "$WGET_LOG not found"
+    if ! $SSH "$TARGET_USER"@"$addr" -- sudo wget "$WGET_OPTS" -O /home/"$TARGET_USER"/"$ISO" "$URL_DUT"; then
+        echo "Downloading ISO on DUT failed."
         exit 4
     fi
 
     if ! $SSH "$TARGET_USER"@"$addr" -- sudo test -e /home/"$TARGET_USER"/"$ISO"; then
-        echo "ISO file doesn't exist after downloading. Check wget logs:"
-        $SSH "$TARGET_USER"@"$addr" -- cat "$WGET_LOG" || echo "$WGET_LOG not found"
+        echo "ISO file doesn't exist after downloading."
         exit 4
     fi
- }
+}
 
-OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config:,url-dut: -n 'image-deploy.sh' -- "$@")"
+OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config:,iso-dut: -n 'provision-image.sh' -- "$@")"
 eval set -- "${OPTS}"
 while :; do
     case "$1" in
@@ -147,9 +137,8 @@ while :; do
             shift 2;;
         ('-l'|'--local-config')
             CONFIG_REPO_PATH="$2"
-            #IS_LOCAL_CONFIG="TRUE"
             shift 2;;
-        ('--url-dut')
+        ('--iso-dut')
             URL_DUT="$2"
             ISO=$(basename "$URL_DUT")
             shift 2;;
