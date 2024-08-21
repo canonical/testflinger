@@ -28,3 +28,6 @@ The following actions are supported for this charm:
   - update-testflinger:
       This action is used to update the testflinger-agent and install it to a
       location shared by all the agents running on this host.
+  - update-configs:
+      This action pulls the git repo set in the charm config to update the
+      agent configs on the agent host.
