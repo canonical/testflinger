@@ -22,7 +22,6 @@ import subprocess
 import time
 import yaml
 
-from testflinger_device_connectors import download
 from testflinger_device_connectors.devices import (
     ProvisioningError,
     RecoveryError,
@@ -97,18 +96,11 @@ class OemScript:
                 "Please provide an image 'url' in the provision_data section"
             )
             raise ProvisioningError("No image url provided")
-        try:
-            image_file = download(image_url)
 
-            self.run_recovery_script(image_file)
+        self.run_recovery_script(image_url)
+        self.check_device_booted()
 
-            self.check_device_booted()
-        finally:
-            # remove the .iso image
-            if image_file:
-                os.unlink(image_file)
-
-    def run_recovery_script(self, image_file):
+    def run_recovery_script(self, image_url):
         """Download and run the OEM recovery script"""
         device_ip = self.config["device_ip"]
 
@@ -120,8 +112,8 @@ class OemScript:
         cmd = [
             recovery_script,
             *self.extra_script_args,
-            "--local-iso",
-            image_file,
+            "--dut-iso-url",
+            image_url,
             "--inject-ssh-key",
             os.path.expanduser("~/.ssh/id_rsa.pub"),
             "-t",
