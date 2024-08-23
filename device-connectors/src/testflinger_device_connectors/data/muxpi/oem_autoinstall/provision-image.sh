@@ -268,7 +268,7 @@ do
     sleep 180
     currentTime=$(date +%s)
     if [[ $((currentTime - startTime)) -gt $TIMEOUT ]]; then
-        echo "Timeout is reached, deployment are not finished"
+        echo "Timeout is reached, deployment was not finished"
         break
     fi
 

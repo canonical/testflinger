@@ -95,8 +95,12 @@ class OemAutoinstall:
         Verify if attachment exists, then copy when
         it's missing in deployment dir
         """
+        source_path = Path(source_path)
+        if source_path.is_absolute():
+            source_path = source_path.relative_to("/")
         source_path = ATTACHMENTS_PROV_DIR / source_path
         dest_path = ATTACHMENTS_PROV_DIR / dest_path
+
         if not source_path.exists():
             logger.error(
                 f"{source_path} file was not found in attachments. "
