@@ -89,9 +89,6 @@ class RealSerialLogger:
 
     def __init__(self, host, port, filename):
         """Set up a subprocess to connect to an ip and collect serial logs"""
-        if not (host and port and filename):
-            self.stub = True
-        self.stub = False
         self.host = host
         self.port = int(port)
         self.filename = filename
