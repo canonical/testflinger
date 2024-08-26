@@ -1,4 +1,16 @@
 options:
+  config-repo:
+    type: string
+    description: Git repo containing device agent config data
+    default: ""
+  config-branch:
+    type: string
+    description: Git branch to pull for the config data
+    default: "main"
+  config-dir:
+    type: string
+    description: Path from the root of the config repo where the directories and configs are located for this agent host
+    default: ""
   ssh_private_key:
     type: string
     description: ssh private key for connecting to local test devices
