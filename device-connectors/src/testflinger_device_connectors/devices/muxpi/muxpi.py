@@ -19,6 +19,7 @@ import json
 import logging
 from pathlib import Path
 import requests
+import shlex
 import subprocess
 import tempfile
 import time
@@ -349,8 +350,12 @@ class MuxPi:
             mount_list = self._get_part_labels()
         for dev, mount in mount_list:
             try:
-                self._run_control("sudo mkdir -p {}".format(mount))
-                self._run_control("sudo mount /dev/{} {}".format(dev, mount))
+                self._run_control(
+                    "sudo mkdir -p {}".format(shlex.quote(mount))
+                )
+                self._run_control(
+                    "sudo mount /dev/{} {}".format(dev, shlex.quote(mount))
+                )
             except Exception:
                 # If unmountable or any other error, go on to the next one
                 mount_list.remove((dev, mount))
@@ -359,7 +364,7 @@ class MuxPi:
             yield self.mount_point
         finally:
             for _, mount in mount_list:
-                self._run_control("sudo umount {}".format(mount))
+                self._run_control("sudo umount {}".format(shlex.quote(mount)))
 
     def hardreset(self):
         """
