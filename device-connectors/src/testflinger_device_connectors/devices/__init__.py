@@ -112,7 +112,7 @@ class RealSerialLogger:
 
     def _log_serial(self):
         """Log data to the serial data to the output file"""
-        with open(self.filename, "a+") as f:
+        with open(self.filename, "ab+") as f:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((self.host, self.port))
                 logger.info("Successfully connected to serial logging server")
@@ -121,9 +121,7 @@ class RealSerialLogger:
                     for sock in read_sockets:
                         data = sock.recv(4096)
                         if data:
-                            f.write(
-                                data.decode(encoding="utf-8", errors="ignore")
-                            )
+                            f.write(data)
                             f.flush()
                         else:
                             logger.error(

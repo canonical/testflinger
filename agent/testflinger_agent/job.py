@@ -155,7 +155,9 @@ class TestflingerJob:
                     self._set_truncate(logfile)
                     outcome_data[phase + "_output"] = logfile.read()
             if os.path.exists(serial_log):
-                with open(serial_log, "r+", encoding="utf-8") as logfile:
+                with open(
+                    serial_log, "r+", encoding="utf-8", errors="ignore"
+                ) as logfile:
                     self._set_truncate(logfile)
                     outcome_data[phase + "_serial"] = logfile.read()
             outcome_data[phase + "_status"] = exitcode
