@@ -161,6 +161,58 @@ class MuxPi:
         # One final check to ensure the control host is alive, or fail
         self._run_control("true")
 
+    @contextmanager
+    def _storage_plug_to_self(self):
+        """Temporarily connect storage to provision an image.
+
+        This context manager yields the block device path for the
+        connected storage. After the context manager exits, the
+        storage device will be re-connected to the DUT.
+        """
+        media = self.job_data["provision_data"].get("media")
+
+        if media is None:
+            cmd = self.config.get("control_switch_local_cmd", "stm -ts")
+            self._run_control(cmd)
+            try:
+                yield self.config["test_device"]
+            finally:
+                return_cmd = self.config.get(
+                    "control_switch_device_cmd", "stm -dut"
+                )
+                self._run_control(return_cmd)
+        else:
+            # If media option is provided, then DUT is probably capable of
+            # booting from different media, we should switch both of them
+            # to TS side regardless of which one was previously used
+            try:
+                cmd = "zapper sdwire plug_to_self"
+                sd_node = self._run_control(cmd)
+            except Exception:
+                pass
+            try:
+                cmd = "zapper typecmux plug_to_self"
+                usb_node = self._run_control(cmd)
+            except Exception:
+                pass
+
+            if media == "sd":
+                try:
+                    yield sd_node.decode()
+                finally:
+                    self._run_control("zapper sdwire set DUT")
+            elif media == "usb":
+                try:
+                    yield usb_node.decode()
+                finally:
+                    self._run_control("zapper typecmux set DUT")
+            else:
+                raise ProvisioningError(
+                    'The "media" value in the "provision_data" section of '
+                    'your job_data must be either "sd" or "usb", '
+                    f"but got {media!r}"
+                )
+
     def provision(self):
         # If this is not a zapper, reboot before provisioning
         if "zapper" not in self.config.get("control_switch_local_cmd", ""):
@@ -187,58 +239,22 @@ class MuxPi:
                     f"that attachment doesn't exist: {image_name}"
                 )
 
-        # determine where to write the provisioning image
-        if "media" not in self.job_data["provision_data"]:
-            media = None
-            self.test_device = self.config["test_device"]
-            cmd = self.config.get("control_switch_local_cmd", "stm -ts")
-            self._run_control(cmd)
-        else:
-            media = self.job_data["provision_data"]["media"]
-            # If media option is provided, then DUT is probably capable of
-            # booting from different media, we should switch both of them
-            # to TS side regardless of which one was previously used
-            try:
-                cmd = "zapper sdwire plug_to_self"
-                sd_node = self._run_control(cmd)
-            except Exception:
-                pass
-            try:
-                cmd = "zapper typecmux plug_to_self"
-                usb_node = self._run_control(cmd)
-            except Exception:
-                pass
-            if media == "sd":
-                self.test_device = sd_node.decode()
-            elif media == "usb":
-                self.test_device = usb_node.decode()
+        with self._storage_plug_to_self() as block_device:
+            self.test_device = block_device
+            self.flash_test_image(source)
+
+            if self.job_data["provision_data"].get("create_user", True):
+                with self.remote_mount():
+                    image_type = self.get_image_type()
+                    logger.info("Image type detected: {}".format(image_type))
+                    logger.info("Creating Test User")
+                    self.create_user(image_type)
             else:
-                raise ProvisioningError(
-                    'The "media" value in '
-                    'the "provision_data" section of '
-                    "your job_data must be either "
-                    "'sd' or 'usb'"
-                )
+                logger.info("Skipping test user creation (create_user=False)")
 
-        self.flash_test_image(source)
+            self.run_post_provision_script()
 
-        if self.job_data["provision_data"].get("create_user", True):
-            with self.remote_mount():
-                image_type = self.get_image_type()
-                logger.info("Image type detected: {}".format(image_type))
-                logger.info("Creating Test User")
-                self.create_user(image_type)
-        else:
-            logger.info("Skipping test user creation (create_user=False)")
-        self.run_post_provision_script()
         logger.info("Booting Test Image")
-        if media == "sd":
-            cmd = "zapper sdwire set DUT"
-        elif media == "usb":
-            cmd = "zapper typecmux set DUT"
-        else:
-            cmd = self.config.get("control_switch_device_cmd", "stm -dut")
-        self._run_control(cmd)
         self.hardreset()
         self.check_test_image_booted()
 
