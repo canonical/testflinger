@@ -1,2 +1,4 @@
+update-configs:
+  description: Update Testflinger agent configs
 update-testflinger:
   description: Update Testflinger agent code

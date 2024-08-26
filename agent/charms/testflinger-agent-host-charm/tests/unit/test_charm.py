@@ -5,6 +5,7 @@
 
 import unittest
 import os
+import pytest
 from unittest.mock import patch
 from charm import TestflingerAgentHostCharm
 from ops.testing import Harness
@@ -16,13 +17,19 @@ class TestCharm(unittest.TestCase):
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
+    @patch("shutil.move")
+    @patch("git.Repo.clone_from")
     @patch("charm.TestflingerAgentHostCharm.write_file")
-    def test_copy_ssh_keys(self, mock_write_file):
+    def test_copy_ssh_keys(self, mock_write_file, mock_clone_from, mock_move):
         """Test the copy_ssh_keys method"""
+        mock_clone_from.return_value = None
+        mock_move.return_value = None
         self.harness.update_config(
             {
                 "ssh_private_key": "ssh_private_key_content",
-                "ssh_public_key": "ssh_public_key_content"
+                "ssh_public_key": "ssh_public_key_content",
+                "config-repo": "foo",
+                "config-dir": "bar",
             }
         )
         mock_write_file.assert_any_call(
@@ -36,9 +43,7 @@ class TestCharm(unittest.TestCase):
     @patch("os.listdir")
     @patch("shutil.copy")
     @patch("os.chmod")
-    def test_update_tf_cmd_scripts(
-        self, mock_chmod, mock_copy, mock_listdir
-    ):
+    def test_update_tf_cmd_scripts(self, mock_chmod, mock_copy, mock_listdir):
         """Test the update_tf_cmd_scripts method"""
         charm = self.harness.charm
         tf_cmd_scripts_files = ["tf-script3", "tf-script4"]
@@ -64,3 +69,20 @@ class TestCharm(unittest.TestCase):
             os.path.join(usr_local_bin, "tf-script4"), 0o775
         )
         self.assertEqual(mock_chmod.call_count, 2)
+
+    def test_blocked_on_no_config_repo(self):
+        """Test the on_config_changed method with no config-repo"""
+        self.harness.update_config(
+            {"config-repo": "", "config-dir": "agent-configs"}
+        )
+        self.assertEqual(self.harness.charm.unit.status.name, "blocked")
+
+    def test_blocked_on_no_config_dir(self):
+        """Test the on_config_changed method with no config-dir"""
+        self.harness.update_config(
+            {
+                "config-repo": "https://github.com/canonical/testflinger.git",
+                "config-dir": "",
+            }
+        )
+        self.assertEqual(self.harness.charm.unit.status.name, "blocked")
