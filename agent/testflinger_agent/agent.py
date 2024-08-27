@@ -1,4 +1,4 @@
-# Copyright (C) 2017-2020 Canonical
+# Copyright (C) 2017 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,6 +17,8 @@ import logging
 import os
 from pathlib import Path
 import shutil
+import signal
+import sys
 import tempfile
 
 from testflinger_agent.job import TestflingerJob
@@ -68,6 +70,7 @@ def secure_filter(member, path):
 class TestflingerAgent:
     def __init__(self, client):
         self.client = client
+        signal.signal(signal.SIGUSR1, self.restart_signal_handler)
         self.set_agent_state("waiting")
         self._post_initial_agent_data()
 
@@ -142,7 +145,7 @@ class TestflingerAgent:
                     os.unlink(restart_file)
                     logger.info("Restarting agent")
                     self.set_agent_state("offline")
-                    raise SystemExit("Restart Requested")
+                    sys.exit("Restart Requested")
                 except OSError:
                     logger.error(
                         "Restart requested, but unable to remove marker file!"
@@ -335,3 +338,12 @@ class TestflingerAgent:
             except TFServerError:
                 # Problems still, better luck next time?
                 pass
+
+    def restart_signal_handler(self, _, __):
+        """
+        If we receive the restart signal, tell the agent to restart safely when
+        it is not running a job
+        """
+        logger.info("Marked agent for restart")
+        restart_file = self.get_restart_files()[0]
+        open(restart_file, "w").close()

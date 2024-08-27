@@ -86,6 +86,7 @@ RTD
 runtime
 SDWire
 SecureBoot
+SIGUSR
 SKU
 SQA
 SSID
@@ -93,7 +94,9 @@ SSO
 subdirectories
 subfolders
 subtree
+supervisord
 SUT
+systemd
 Tegra
 templating
 Testflinger
