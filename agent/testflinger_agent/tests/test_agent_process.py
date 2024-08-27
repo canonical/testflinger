@@ -46,7 +46,7 @@ def test_restart_signal_handler(tmp_path):
 
         assert os.path.exists("/tmp/TESTFLINGER-DEVICE-RESTART-test-agent-1")
         assert (
-            "Triggering agent restart" in agent_process.stderr.read().decode()
+            "Marked agent for restart" in agent_process.stderr.read().decode()
         )
 
         # Ensure the agent process is terminated

@@ -344,6 +344,6 @@ class TestflingerAgent:
         If we receive the restart signal, tell the agent to restart safely when
         it is not running a job
         """
-        logger.info("Triggering agent restart")
+        logger.info("Marked agent for restart")
         restart_file = self.get_restart_files()[0]
         open(restart_file, "w").close()
