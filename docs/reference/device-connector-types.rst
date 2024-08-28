@@ -288,6 +288,21 @@ The ``oem_autoinstall`` device connector supports the following ``provision_data
 
           token: $MY_TOKEN
 
+        If ``url`` requries Webdav authentication, then device will use rclone to copy the file.
+        The rclone configurations must be provided in the following format:
+
+          [$PROJECT]
+
+          type = webdav
+
+          url = $URL
+
+          vendor = other
+
+          user = $USER
+
+          pass = $PASSWORD
+
     * - ``user_data``
       - Required file provided with :ref:`file attachments <file_attachments>`.
         This file will be consumed by the autoinstall and cloud-init.
