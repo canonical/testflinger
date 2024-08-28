@@ -367,10 +367,12 @@ class MuxPi:
         for dev, mount in mount_list:
             try:
                 self._run_control(
-                    "sudo mkdir -p {}".format(shlex.quote(mount))
+                    "sudo mkdir -p {}".format(shlex.quote(str(mount)))
                 )
                 self._run_control(
-                    "sudo mount /dev/{} {}".format(dev, shlex.quote(mount))
+                    "sudo mount /dev/{} {}".format(
+                        dev, shlex.quote(str(mount))
+                    )
                 )
             except Exception:
                 # If unmountable or any other error, go on to the next one
@@ -380,7 +382,9 @@ class MuxPi:
             yield self.mount_point
         finally:
             for _, mount in mount_list:
-                self._run_control("sudo umount {}".format(shlex.quote(mount)))
+                self._run_control(
+                    "sudo umount {}".format(shlex.quote(str(mount)))
+                )
 
     def hardreset(self):
         """
