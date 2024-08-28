@@ -288,7 +288,7 @@ The ``oem_autoinstall`` device connector supports the following ``provision_data
 
           token: $MY_TOKEN
 
-        If ``url`` requries Webdav authentication, then device will use rclone to copy the file.
+        If ``url`` requires webdav authentication, then device will use rclone to copy the file.
         The rclone configurations must be provided in the following format:
 
           [$PROJECT]
