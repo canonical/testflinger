@@ -11,6 +11,28 @@ testflinger-agent to trigger the testflinger-device-connector at each phase.
 To build this charm, first install charmcraft (`sudo snap install --classic
 charmcraft`) then run `charmcraft pack`
 
+# Testing
+This charm includes both unit and integration tests. The integration tests
+take some time to run and require setting up juju in your test environment
+as described [here](https://juju.is/docs/sdk/dev-setup#heading--manual-set-up-juju).
+
+Once you've done that, you can run all the unit and integration tests by
+going up 2 directories from here to the `agent` directory, and running:
+
+```
+$ tox -e charm
+```
+
+For debugging, it can be useful to keep the model that was deployed so that
+it can be reused. To do this, you can add a few additional arguments to tox:
+```
+$ tox -e charm -v -- --model=testmodel --keep-models
+```
+
+This will create a model called `testmodel` and keep it after the run is
+complete. If you want to reuse it without deploying again, you can
+run the same command again with `--no-deploy` at the end.
+
 # Configuration
 Supported options for this charm are:
 
