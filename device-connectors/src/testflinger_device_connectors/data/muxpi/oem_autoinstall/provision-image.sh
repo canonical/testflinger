@@ -96,10 +96,10 @@ wget_iso_on_dut() {
     URL_TOKEN="$CONFIG_REPO_PATH"/url_token
 
     echo "Downloading ISO on DUT..."
-    if [[ "$URL_DUT" =~ "oem-share" ]]; then
-        # use rclone for oem-share webdav storage, coz wget fails OpenID
+    if [[ "$URL_DUT" =~ "oem-share.canonical.com" ]]; then
+        # use rclone for webdav storage
         if [ ! -f "$URL_TOKEN" ]; then
-            echo "oem-share URL requires webdav authentication. Please provide url_token file"
+            echo "oem-share URL requires webdav authentication. Please attach token_file"
             exit 3
         fi
         $SCP "$URL_TOKEN" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/
@@ -122,7 +122,7 @@ wget_iso_on_dut() {
             exit 4
         fi
     else
-        WGET_OPTS="--no-verbose --tries=3"
+        WGET_OPTS="--tries=3"
         # Optional URL credentials
         if [ -r "$URL_TOKEN" ]; then
             username=$(awk -F':' '/^username:/ {print $2}' "$URL_TOKEN" | xargs)
@@ -132,6 +132,18 @@ wget_iso_on_dut() {
                 exit 3
             fi
             WGET_OPTS+=" --auth-no-challenge --user=$username --password=$token"
+        fi
+
+        if [[ "$URL_DUT" =~ "tel-image-cache.canonical.com" ]]; then
+            CERT_NAME="tel-image-cache-ca.crt"
+            CERT_FILEPATH=/usr/local/share/ca-certificates/"$CERT_NAME"
+            if [ -f "$CERT_FILEPATH" ]; then
+                $SCP "$CERT_FILEPATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
+                $SSH "$TARGET_USER"@"$addr" -- sudo cp "$CERT_NAME" "$CERT_FILEPATH"
+                $SSH "$TARGET_USER"@"$addr" -- sudo update-ca-certificates
+            else
+                echo "Warning: TLS certificate was not found on agent. Downloading ISO might fail.."
+            fi
         fi
 
         if ! $SSH "$TARGET_USER"@"$addr" -- sudo wget "$WGET_OPTS" -O /home/"$TARGET_USER"/"$ISO" "$URL_DUT"; then
