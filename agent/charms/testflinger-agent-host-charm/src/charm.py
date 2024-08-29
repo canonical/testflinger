@@ -179,6 +179,24 @@ class TestflingerAgentHostCharm(CharmBase):
             ) as agent_file:
                 agent_file.write(rendered)
 
+    def supervisor_update(self):
+        """
+        Once supervisord service files have been written, new agents will be
+        automatically started, and missing agents will be removed by running
+        `supervisorctl update`. This only applies to supervisor conf files
+        that have changed. So any agents for which the conf file has not
+        changed will be unaffected.
+        """
+        run_with_logged_errors(["supervisorctl", "update"])
+
+    def restart_agents(self):
+        """
+        Mark all agents as needing a restart when they are not running a job
+        so that they read any updated config files and run the latest
+        version of the agent code.
+        """
+        run_with_logged_errors(["supervisorctl", "signal", "USR1", "all"])
+
     def setup_docker(self):
         run_with_logged_errors(["groupadd", "docker"])
         run_with_logged_errors(["gpasswd", "-a", "ubuntu", "docker"])
@@ -230,6 +248,8 @@ class TestflingerAgentHostCharm(CharmBase):
             )
             return
         self.write_supervisor_service_files()
+        self.supervisor_update()
+        self.restart_agents()
         self.unit.status = ActiveStatus()
 
     def install_apt_packages(self, packages: list):
@@ -250,6 +270,7 @@ class TestflingerAgentHostCharm(CharmBase):
         """Update Testflinger agent code"""
         self.unit.status = MaintenanceStatus("Updating Testflinger Agent Code")
         self.update_testflinger_repo()
+        self.restart_agents()
         self.unit.status = ActiveStatus()
 
     def on_update_configs_action(self, event):
@@ -265,6 +286,8 @@ class TestflingerAgentHostCharm(CharmBase):
             )
             return
         self.write_supervisor_service_files()
+        self.supervisor_update()
+        self.restart_agents()
         self.unit.status = ActiveStatus()
 
 

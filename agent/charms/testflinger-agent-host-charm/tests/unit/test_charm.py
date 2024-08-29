@@ -20,11 +20,20 @@ class TestCharm(unittest.TestCase):
     @patch("shutil.move")
     @patch("git.Repo.clone_from")
     @patch("charm.TestflingerAgentHostCharm.write_file")
+    @patch("charm.TestflingerAgentHostCharm.restart_agents")
+    @patch("charm.TestflingerAgentHostCharm.supervisor_update")
     @patch("charm.TestflingerAgentHostCharm.write_supervisor_service_files")
     def test_copy_ssh_keys(
-        self, _, mock_write_file, mock_clone_from, mock_move
+        self, _, __, ___, mock_write_file, mock_clone_from, mock_move
     ):
-        """Test the copy_ssh_keys method"""
+        """
+        Test the copy_ssh_keys method
+
+        The commands like supervisorctl in write_supervisor_files,
+        restart_agents, and supervisor_update won't work here and
+        are mocked out, but are tested in the integration tests.
+        """
+
         mock_clone_from.return_value = None
         mock_move.return_value = None
         self.harness.update_config(
