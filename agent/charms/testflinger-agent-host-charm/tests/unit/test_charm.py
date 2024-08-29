@@ -20,7 +20,10 @@ class TestCharm(unittest.TestCase):
     @patch("shutil.move")
     @patch("git.Repo.clone_from")
     @patch("charm.TestflingerAgentHostCharm.write_file")
-    def test_copy_ssh_keys(self, mock_write_file, mock_clone_from, mock_move):
+    @patch("charm.TestflingerAgentHostCharm.write_supervisor_service_files")
+    def test_copy_ssh_keys(
+        self, _, mock_write_file, mock_clone_from, mock_move
+    ):
         """Test the copy_ssh_keys method"""
         mock_clone_from.return_value = None
         mock_move.return_value = None

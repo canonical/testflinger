@@ -25,7 +25,11 @@ from ops.model import (
     ModelError,
 )
 import testflinger_source
-from defaults import AGENT_CONFIGS_PATH, LOCAL_TESTFLINGER_PATH
+from defaults import (
+    AGENT_CONFIGS_PATH,
+    LOCAL_TESTFLINGER_PATH,
+    VIRTUAL_ENV_PATH,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +87,7 @@ class TestflingerAgentHostCharm(CharmBase):
                 "openssh-client",
                 "sshpass",
                 "snmp",
+                "supervisor",
             ]
         )
 
@@ -125,6 +130,54 @@ class TestflingerAgentHostCharm(CharmBase):
         if repo_path.exists():
             shutil.rmtree(repo_path, ignore_errors=True)
         shutil.move(tmp_repo_path, repo_path)
+
+    def write_supervisor_service_files(self):
+        """
+        Generate supervisord service files for all agents
+
+        We assume that the path pointed to by the config-dir config option
+        contains a directory for each agent that needs to run from this host.
+        The agent directory name will be used as the service name.
+        """
+
+        config_dirs = Path(AGENT_CONFIGS_PATH) / self.config.get("config-dir")
+
+        if not config_dirs.is_dir():
+            logger.error("config-dir must point to a directory")
+            self.unit.status = BlockedStatus(
+                "config-dir must point to a directory"
+            )
+            sys.exit(1)
+
+        agent_dirs = [dir for dir in config_dirs.iterdir() if dir.is_dir()]
+        if not agent_dirs:
+            logger.error("No agent directories found in config-dirs")
+            self.unit.status = BlockedStatus(
+                "No agent directories found in config-dirs"
+            )
+            sys.exit(1)
+
+        # Remove all the old service files in case agents have been removed
+        for conf_file in os.listdir("/etc/supervisor/conf.d"):
+            if conf_file.endswith(".conf"):
+                os.unlink(f"/etc/supervisor/conf.d/{conf_file}")
+
+        # now write the supervisord service files
+        with open(
+            "templates/testflinger-agent.supervisord.conf.j2", "r"
+        ) as service_template:
+            template = Template(service_template.read())
+        for agent_dir in agent_dirs:
+            agent_config_path = agent_dir
+            rendered = template.render(
+                agent_name=agent_dir.name,
+                agent_config_path=agent_config_path,
+                virtual_env_path=VIRTUAL_ENV_PATH,
+            )
+            with open(
+                f"/etc/supervisor/conf.d/{agent_dir.name}.conf", "w"
+            ) as agent_file:
+                agent_file.write(rendered)
 
     def setup_docker(self):
         run_with_logged_errors(["groupadd", "docker"])
@@ -176,6 +229,7 @@ class TestflingerAgentHostCharm(CharmBase):
                 "config-repo and config-dir must be set"
             )
             return
+        self.write_supervisor_service_files()
         self.unit.status = ActiveStatus()
 
     def install_apt_packages(self, packages: list):
@@ -210,6 +264,7 @@ class TestflingerAgentHostCharm(CharmBase):
                 "config-repo and config-dir must be set"
             )
             return
+        self.write_supervisor_service_files()
         self.unit.status = ActiveStatus()
 
 

@@ -9,10 +9,11 @@ APP_NAME = "testflinger-agent-host"
 TEST_CONFIG = {
     "config-repo": "https://github.com/canonical/testflinger.git",
     "config-dir": "agent/charms/testflinger-agent-host-charm/tests/integration/data",
-    "config-branch": "update-configs-action",
+    "config-branch": "unified-agent-host-charm",
 }
 
 
+@pytest.mark.skip_if_deployed
 @pytest.mark.abort_on_fail
 async def test_build_and_deploy(ops_test: OpsTest):
     charm = await ops_test.build_charm(CHARM_PATH)
@@ -60,3 +61,32 @@ async def test_action_update_configs(ops_test: OpsTest):
         ops_test.model.applications[APP_NAME].units[0].workload_status
         == "active"
     )
+
+
+async def test_supervisord_files_written(ops_test: OpsTest):
+    await ops_test.model.applications[APP_NAME].set_config(TEST_CONFIG)
+    action = await ops_test.model.units.get(f"{APP_NAME}/0").run_action(
+        "update-configs"
+    )
+    await action.wait()
+    assert action.status == "completed"
+    assert (
+        ops_test.model.applications[APP_NAME].units[0].workload_status
+        == "active"
+    )
+    # check that agent001.conf was written in /etc/supervisor/conf.d/
+    expected_contents = (
+        "[program:agent001]\n"
+        "environment=PYTHONIOENCODING=utf-8\n"
+        "user=ubuntu\n"
+        "command=/srv/testflinger-venv/bin/testflinger-agent -c /srv/agent-configs/agent/charms/"
+        "testflinger-agent-host-charm/tests/integration/data/agent001/"
+        "testflinger-agent.conf\n"
+    )
+
+    conf_file = "/etc/supervisor/conf.d/agent001.conf"
+    unit_name = f"{APP_NAME}/0"
+    command = ["exec", "--unit", unit_name, "--", "cat", conf_file]
+    returncode, stdout, _ = await ops_test.juju(*command)
+    assert returncode == 0
+    assert stdout == expected_contents

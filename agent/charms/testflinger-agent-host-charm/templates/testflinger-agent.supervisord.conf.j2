@@ -1,0 +1,4 @@
+[program:{{ agent_name }}]
+environment=PYTHONIOENCODING=utf-8
+user=ubuntu
+command={{ virtual_env_path }}/bin/testflinger-agent -c {{ agent_config_path }}/testflinger-agent.conf
