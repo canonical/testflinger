@@ -18,8 +18,6 @@ import logging
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
-    RecoveryError,
-    catch,
 )
 
 import testflinger_device_connectors
@@ -31,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(DefaultDevice):
-    @catch(RecoveryError, 46)
     def provision(self, args):
         device = Noprovision(args.config)
         test_username = testflinger_device_connectors.get_test_username(

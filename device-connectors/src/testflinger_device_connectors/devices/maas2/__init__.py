@@ -21,9 +21,7 @@ import yaml
 from testflinger_device_connectors.devices import (
     DefaultDevice,
     ProvisioningError,
-    RecoveryError,
     SerialLogger,
-    catch,
 )
 from testflinger_device_connectors.devices.maas2.maas2 import Maas2
 
@@ -33,7 +31,6 @@ logger = logging.getLogger(__name__)
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""
 
-    @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
         with open(args.config) as configfile:
@@ -51,7 +48,7 @@ class DeviceConnector(DefaultDevice):
             device.provision()
         except ProvisioningError as err:
             logger.error("Provisioning failed: %s", str(err))
-            return 1
+            raise
         except Exception as e:
             raise e
         finally:

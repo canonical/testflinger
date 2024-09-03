@@ -23,8 +23,6 @@ import logging
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
-    RecoveryError,
-    catch,
 )
 from .dell_oemscript import DellOemScript
 
@@ -34,7 +32,6 @@ logger = logging.getLogger(__name__)
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning Dell OEM devices with an oem image."""
 
-    @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
         device = DellOemScript(args.config, args.job_data)

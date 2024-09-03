@@ -16,6 +16,7 @@
 import pytest
 import json
 
+from testflinger_device_connectors.devices import RecoveryError
 from testflinger_device_connectors.cmd import (
     get_args,
     add_exception_logging_to_file,
@@ -68,8 +69,21 @@ def test_exception_logging(tmp_path):
         raise Exception(arg1) from Exception(arg2)
 
     func = add_exception_logging_to_file(test_func, "provision")
-    try:
-        func("my message", "my cause")
-    except Exception:
-        with open("device-connector-error.json") as error_file:
-            assert json.loads(error_file.read()) == exception_info
+    ret_val = func("my message", "my cause")
+    assert ret_val == 1
+    with open("device-connector-error.json") as error_file:
+        assert json.loads(error_file.read()) == exception_info
+
+
+def test_recovery_error_return_value():
+    """
+    Tests that exception logging function return exit code 46
+    on RecoveryError
+    """
+
+    def test_func():
+        raise RecoveryError
+
+    func = add_exception_logging_to_file(test_func, "provision")
+    ret_val = func()
+    assert ret_val == 46

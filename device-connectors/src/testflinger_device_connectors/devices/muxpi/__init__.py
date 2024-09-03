@@ -20,9 +20,7 @@ import yaml
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
-    RecoveryError,
     SerialLogger,
-    catch,
 )
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
 
@@ -32,7 +30,6 @@ logger = logging.getLogger(__name__)
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""
 
-    @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
         with open(args.config) as configfile:

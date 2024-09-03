@@ -27,6 +27,7 @@ import json
 from testflinger_device_connectors import configure_logging
 from testflinger_device_connectors.devices import (
     DEVICE_CONNECTORS,
+    RecoveryError,
     get_device_stage_func,
 )
 
@@ -75,9 +76,9 @@ def get_args(argv=None):
 def add_exception_logging_to_file(func: Callable, stage: str):
     """Decorator function to add logging of exceptions to a json file"""
 
-    def wrapper(*args, **kwargs):
+    def _wrapper(*args, **kwargs):
         try:
-            func(*args, **kwargs)
+            return func(*args, **kwargs)
         except Exception as exception:
             exception_info = {
                 f"{stage}_exception_info": {
@@ -90,9 +91,12 @@ def add_exception_logging_to_file(func: Callable, stage: str):
                 "device-connector-error.json", "a", encoding="utf-8"
             ) as error_file:
                 error_file.write(json.dumps(exception_info))
-            raise
+            if isinstance(exception, RecoveryError):
+                return 46
+            else:
+                return 1
 
-    return wrapper
+    return _wrapper
 
 
 def main():
