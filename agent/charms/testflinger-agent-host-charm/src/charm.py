@@ -9,6 +9,7 @@ import logging
 import os
 import shutil
 import sys
+from base64 import b64decode
 from pathlib import Path
 from common import run_with_logged_errors
 from git import Repo, GitCommandError
@@ -16,7 +17,6 @@ from jinja2 import Template
 
 from charms.operator_libs_linux.v0 import apt
 from ops.charm import CharmBase
-from ops.framework import StoredState
 from ops.main import main
 from ops.model import (
     ActiveStatus,
@@ -37,8 +37,6 @@ logger = logging.getLogger(__name__)
 class TestflingerAgentHostCharm(CharmBase):
     """Base charm for testflinger agent host systems"""
 
-    _stored = StoredState()
-
     def __init__(self, *args):
         super().__init__(*args)
         self.framework.observe(self.on.install, self.on_install)
@@ -52,10 +50,6 @@ class TestflingerAgentHostCharm(CharmBase):
         self.framework.observe(
             self.on.update_testflinger_action,
             self.on_update_testflinger_action,
-        )
-        self._stored.set_default(
-            ssh_priv="",
-            ssh_pub="",
         )
 
     def on_install(self, _):
@@ -202,21 +196,27 @@ class TestflingerAgentHostCharm(CharmBase):
         run_with_logged_errors(["gpasswd", "-a", "ubuntu", "docker"])
 
     def write_file(self, location, contents):
-        # Sanity check to make sure we're actually about to write something
-        if not contents:
-            return
         with open(location, "w", encoding="utf-8", errors="ignore") as out:
             out.write(contents)
 
     def copy_ssh_keys(self):
-        priv_key = self.config.get("ssh_private_key")
-        if self._stored.ssh_priv != priv_key:
-            self._stored.ssh_priv = priv_key
-            self.write_file("/home/ubuntu/.ssh/id_rsa", priv_key)
-        pub_key = self.config.get("ssh_public_key")
-        if self._stored.ssh_pub != pub_key:
-            self._stored.ssh_pub = pub_key
-            self.write_file("/home/ubuntu/.ssh/id_rsa.pub", pub_key)
+        try:
+            priv_key = self.config.get("ssh_private_key", "")
+            self.write_file(
+                "/home/ubuntu/.ssh/id_rsa", b64decode(priv_key).decode()
+            )
+            os.chown("/home/ubuntu/.ssh/id_rsa", 1000, 1000)
+            os.chmod("/home/ubuntu/.ssh/id_rsa", 0o600)
+            pub_key = self.config.get("ssh_public_key", "")
+            self.write_file(
+                "/home/ubuntu/.ssh/id_rsa.pub", b64decode(pub_key).decode()
+            )
+            os.chown("/home/ubuntu/.ssh/id_rsa.pub", 1000, 1000)
+        except (TypeError, UnicodeDecodeError):
+            logger.error(
+                "Failed to decode ssh keys - ensure they are base64 encoded"
+            )
+            raise
 
     def update_tf_cmd_scripts(self):
         """Update tf-cmd-scripts"""
