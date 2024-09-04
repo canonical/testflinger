@@ -80,11 +80,15 @@ def add_exception_logging_to_file(func: Callable, stage: str):
         try:
             return func(*args, **kwargs)
         except Exception as exception:
+            if exception.__cause__ is None:
+                exception_cause = None
+            else:
+                exception_cause = repr(exception.__cause__)
             exception_info = {
                 f"{stage}_exception_info": {
                     "exception_name": type(exception).__name__,
                     "exception_message": str(exception),
-                    "exception_cause": repr(exception.__cause__),
+                    "exception_cause": exception_cause,
                 }
             }
             with open(

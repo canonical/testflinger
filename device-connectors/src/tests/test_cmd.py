@@ -75,6 +75,28 @@ def test_exception_logging(tmp_path):
         assert json.loads(error_file.read()) == exception_info
 
 
+def test_exception_logging_no_cause(tmp_path):
+    """Tests exception logging for causeless exceptions"""
+    open("device-connector-error.json", "w").close()
+
+    exception_info = {
+        "provision_exception_info": {
+            "exception_name": "Exception",
+            "exception_message": "my message",
+            "exception_cause": None,
+        }
+    }
+
+    def test_func(arg1: str, arg2: str):
+        raise Exception(arg1)
+
+    func = add_exception_logging_to_file(test_func, "provision")
+    ret_val = func("my message", "my cause")
+    assert ret_val == 1
+    with open("device-connector-error.json") as error_file:
+        assert json.loads(error_file.read()) == exception_info
+
+
 def test_recovery_error_return_value():
     """
     Tests that exception logging function return exit code 46
