@@ -38,8 +38,8 @@ class TestCharm(unittest.TestCase):
         mock_move.return_value = None
         self.harness.update_config(
             {
-                "ssh_private_key": "ssh_private_key_content",
-                "ssh_public_key": "ssh_public_key_content",
+                "ssh-private-key": "ssh_private_key_content",
+                "ssh-public-key": "ssh_public_key_content",
                 "config-repo": "foo",
                 "config-dir": "bar",
             }
