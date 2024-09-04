@@ -348,7 +348,12 @@ class MuxPi:
         lsblk_data = self._run_control(
             "lsblk -o NAME,LABEL -J {}".format(self.test_device)
         )
-        lsblk_json = json.loads(lsblk_data.decode())
+        filtered_lsblk_data = "\n".join(
+            line
+            for line in lsblk_data.splitlines()
+            if "Warning: Permanently added" not in line
+        )
+        lsblk_json = json.loads(filtered_lsblk_data.decode())
         # List of (name, label) pairs
         return [
             (x.get("name"), self.mount_point / x.get("label"))
