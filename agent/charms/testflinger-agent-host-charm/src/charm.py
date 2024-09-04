@@ -151,10 +151,20 @@ class TestflingerAgentHostCharm(CharmBase):
         """Update tf-cmd-scripts"""
         self.unit.status = MaintenanceStatus("Installing tf-cmd-scripts")
         tf_cmd_dir = "src/tf-cmd-scripts/"
-        usr_local_bin = "/usr/local/bin/"
+        usr_local_bin = Path("/usr/local/bin")
+
         for tf_cmd_file in os.listdir(tf_cmd_dir):
-            shutil.copy(os.path.join(tf_cmd_dir, tf_cmd_file), usr_local_bin)
-            os.chmod(os.path.join(usr_local_bin, tf_cmd_file), 0o775)
+            template = Template(
+                open(os.path.join(tf_cmd_dir, tf_cmd_file)).read()
+            )
+            rendered = template.render(
+                agent_configs_path=AGENT_CONFIGS_PATH,
+                config_dir=self.config.get("config-dir"),
+                virtual_env_path=VIRTUAL_ENV_PATH,
+            )
+            agent_file = usr_local_bin / tf_cmd_file
+            agent_file.write_text(rendered)
+            agent_file.chmod(0o775)
 
     def on_upgrade_charm(self, _):
         """Upgrade hook"""
