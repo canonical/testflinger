@@ -197,10 +197,10 @@ class DefaultDevice:
         serial_proc.start()
 
         extra_env = {}
-        extra_env["AGENT_NAME"] = self.config.get("agent_name", "")
-        if "env" not in self.config:
-            self.config["env"] = {}
-        self.config["env"].update(extra_env)
+        extra_env["AGENT_NAME"] = config.get("agent_name", "")
+        if "env" not in config:
+            config["env"] = {}
+        config["env"].update(extra_env)
         try:
             exitcode = testflinger_device_connectors.run_test_cmds(
                 test_cmds, config
