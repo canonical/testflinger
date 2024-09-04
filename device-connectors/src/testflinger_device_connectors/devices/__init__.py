@@ -197,7 +197,7 @@ class DefaultDevice:
         serial_proc.start()
 
         extra_env = {}
-        extra_env["agent_name"] = self.config.get("agent_name")
+        extra_env["AGENT_NAME"] = self.config.get("agent_name", "")
         if "env" not in self.config:
             self.config["env"] = {}
         self.config["env"].update(extra_env)
