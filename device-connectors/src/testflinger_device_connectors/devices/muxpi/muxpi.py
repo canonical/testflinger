@@ -71,7 +71,6 @@ class MuxPi:
             "StrictHostKeyChecking=no",
             "-o",
             "UserKnownHostsFile=/dev/null",
-            "-q",
         )
 
     def get_credentials(self):
