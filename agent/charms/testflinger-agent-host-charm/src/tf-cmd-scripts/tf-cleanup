@@ -2,6 +2,7 @@
 
 AGENT=$(echo $agent_id | sed 's/-\([0-9]*\)$/\1/g')
 PROVISION_TYPE="$provision_type"
+VIRTUAL_ENV_PATH="{{ virtual_env_path }}"
 
 echo Cleaning up container if it exists... && docker rm -f $AGENT || /bin/true
 . /srv/testflinger-agent/$AGENT/env/bin/activate && PYTHONUNBUFFERED=1 testflinger-device-connector $PROVISION_TYPE cleanup -c /srv/testflinger-agent/$AGENT/default.yaml testflinger.json

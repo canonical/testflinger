@@ -11,11 +11,11 @@ options:
     type: string
     description: Path from the root of the config repo where the directories and configs are located for this agent host
     default: ""
-  ssh_private_key:
+  ssh-private-key:
     type: string
     description: ssh private key for connecting to local test devices
     default: ""
-  ssh_public_key:
+  ssh-public-key:
     type: string
     description: ssh public key for connecting to local test devices
     default: ""
