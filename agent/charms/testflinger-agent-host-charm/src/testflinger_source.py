@@ -37,8 +37,10 @@ def clone_repo(
         "--",
         *CHECKOUT_DIRS,
     )
-    # Install just the agent for now
-    for dir in ("agent",):
+    for dir in (
+        "agent",
+        "device-connectors",
+    ):
         run_with_logged_errors(
             [
                 f"{VIRTUAL_ENV_PATH}/bin/pip3",
