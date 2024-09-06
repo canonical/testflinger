@@ -415,9 +415,10 @@ class MuxPi:
         def check_path(dir):
             self._run_control("test -e {}".format(dir))
 
-        # First check if this is a ce-oem-iot image
-        if self.check_ce_oem_iot_image():
-            return "ce-oem-iot"
+        # First check if this is a ce-oem-iot image and type
+        res = self.check_ce_oem_iot_image()
+        if res:
+            return res
 
         try:
             disk_info_path = (
@@ -450,10 +451,24 @@ class MuxPi:
         """
         try:
             disk_info_path = self.mount_point / "writable/.disk/info"
-            buildstamp = '"iot-[a-z]+-[a-z-]*(classic-(server|desktop)-[0-9]+'
-            buildstamp += '|core-[0-9]+)"'
-            self._run_control(f"grep -E {buildstamp} {disk_info_path}")
-            return True
+            buildstamp = (
+                r'"iot-[a-z]+-[a-z-]*(classic-(server|desktop)-\K[0-9]+'
+            )
+            buildstamp += r'|core-\K[0-9]+)"'
+            release = self._run_control(
+                f"grep -oP {buildstamp} {disk_info_path}"
+            ).decode()
+            release = int(release)
+            if release > 2000:
+                if release >= 2404:
+                    return "ce-oem-iot-24-and-beyond"
+                else:
+                    return "ce-oem-iot-before-24"
+            else:
+                if release >= 24:
+                    return "ce-oem-iot-24-and-beyond"
+                else:
+                    return "ce-oem-iot-before-24"
         except ProvisioningError:
             return False
 
@@ -475,12 +490,21 @@ class MuxPi:
         remote_tmp = Path("/tmp") / self.agent_name
         try:
             data_path = Path(__file__).parent / "../../data/muxpi"
-            if image_type == "ce-oem-iot":
+            if image_type == "ce-oem-iot-before-24":
                 self._run_control("mkdir -p {}".format(remote_tmp))
                 self._copy_to_control(
                     data_path / "ce-oem-iot/user-data", remote_tmp
                 )
                 cmd = f"sudo cp {remote_tmp}/user-data {base}/system-boot/"
+                self._run_control(cmd)
+                self._configure_sudo()
+            if image_type == "ce-oem-iot-24-and-beyond":
+                self._run_control("mkdir -p {}".format(remote_tmp))
+                self._copy_to_control(
+                    data_path / "ce-oem-iot/user-data", remote_tmp
+                )
+                cmd = f"sudo cp {remote_tmp}/user-data {base}/writable"
+                cmd += "/var/lib/cloud/seed/nocloud"
                 self._run_control(cmd)
                 self._configure_sudo()
             if image_type == "tegra":

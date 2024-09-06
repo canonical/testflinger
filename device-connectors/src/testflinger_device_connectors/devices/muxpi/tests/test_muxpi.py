@@ -19,29 +19,37 @@ from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
 
 def test_check_ce_oem_iot_image(mocker):
     """Test check_ce_oem_iot_image."""
-    buildstamp = "iot-limerick-kria-classic-desktop-2204-x07-20230302-63"
+    series = "2404"
     mocker.patch(
         "subprocess.check_output",
-        return_value=buildstamp.encode(),
+        return_value=series.encode(),
     )
     muxpi = MuxPi()
-    assert muxpi.check_ce_oem_iot_image() is True
+    assert muxpi.check_ce_oem_iot_image() == "ce-oem-iot-24-and-beyond"
 
-    buildstamp = "iot-baoshan-classic-server-2204-x04-20230807-149"
+    series = "2204"
     mocker.patch(
         "subprocess.check_output",
-        return_value=buildstamp.encode(),
+        return_value=series.encode(),
     )
     muxpi = MuxPi()
-    assert muxpi.check_ce_oem_iot_image() is True
+    assert muxpi.check_ce_oem_iot_image() == "ce-oem-iot-before-24"
 
-    buildstamp = "iot-havana-core-20-ptz-gm3-uc20-20230911-2"
+    series = "24"
     mocker.patch(
         "subprocess.check_output",
-        return_value=buildstamp.encode(),
+        return_value=series.encode(),
     )
     muxpi = MuxPi()
-    assert muxpi.check_ce_oem_iot_image() is True
+    assert muxpi.check_ce_oem_iot_image() == "ce-oem-iot-24-and-beyond"
+
+    series = "20"
+    mocker.patch(
+        "subprocess.check_output",
+        return_value=series.encode(),
+    )
+    muxpi = MuxPi()
+    assert muxpi.check_ce_oem_iot_image() == "ce-oem-iot-before-24"
 
     mocker.patch(
         "subprocess.check_output",
