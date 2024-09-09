@@ -21,7 +21,9 @@ from datetime import datetime
 from io import BytesIO
 import json
 import os
+
 import jwt
+import bcrypt
 
 from src.api import v1
 
@@ -751,6 +753,8 @@ def test_authenticate_client_get(mongo_app):
     app, mongo = mongo_app
     client_id = "my_client_id"
     client_key = "my_client_key"
+    client_salt = bcrypt.gensalt()
+    client_key_hash = bcrypt.hashpw(client_key.encode("utf-8"), client_salt)
     permissions = [
         {
             "max_priority": 100,
@@ -764,7 +768,7 @@ def test_authenticate_client_get(mongo_app):
     mongo.client_permissions.insert_one(
         {
             "client_id": client_id,
-            "client_secret_hash": client_key,
+            "client_secret_hash": client_key_hash,
             "permissions": permissions,
         }
     )

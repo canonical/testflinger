@@ -33,7 +33,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import jwt
-
+import bcrypt
 
 from src import database
 from . import schemas
@@ -675,15 +675,19 @@ def validate_client_key_pair(client_id: str, client_key: str):
     """
     Checks client_id and key pair for validity and returns their permissions
     """
+    if client_key is None:
+        return None
+    client_key_bytes = client_key.encode("utf-8")
     client_permissions_entry = database.mongo.db.client_permissions.find_one(
         {
             "client_id": client_id,
-            "client_secret_hash": client_key,
         }
     )
-    if client_permissions_entry is None:
-        return {}
 
+    if client_permissions_entry is None or not bcrypt.checkpw(
+        client_key_bytes, client_permissions_entry["client_secret_hash"]
+    ):
+        return None
     permissions = client_permissions_entry["permissions"]
     return permissions
 
@@ -696,5 +700,7 @@ def authenticate_client_get(client_id: str):
     """Get JWT with priority and queue permissions"""
     client_key = request.headers.get("client-key")
     allowed_resources = validate_client_key_pair(client_id, client_key)
+    if allowed_resources is None:
+        return "Invalid client id or client key", 401
     token = generate_token(allowed_resources, SECRET_KEY)
     return token
