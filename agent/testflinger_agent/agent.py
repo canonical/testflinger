@@ -86,7 +86,7 @@ def parse_error_logs(error_log_path: str, phase: str):
                     exception_info["exception_cause"],
                 )
             return detail
-        except ValueError:
+        except (json.JSONDecodeError, KeyError):
             return ""
 
 
