@@ -414,6 +414,8 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
       - (Optional) Set to "true" to install OEM meta-packages and the reset partition (Desktop 24.04+).
     * - ``ubuntu_sso_email``:
       - (Optional) A valid Ubuntu SSO email to which the DUT provisioned with a non-dangerous grade UC image will be linked (UC24). Please make sure to provide the corresponding *username* in the *test_data.test_username* field.
+    * - ``zapper_provisioning_timeout``:
+      - (Optional) The overall timeout for the provisioning stage (in seconds). Default is 5400 (90 minutes).
 
 
 .. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target Ubuntu OEM 22.04
