@@ -58,6 +58,10 @@ class ZapperConnector(ABC, DefaultDevice):
 
         logger.info("BEGIN provision")
         logger.info("Provisioning device")
+        self.ZAPPER_REQUEST_TIMEOUT = self.job_data["provision_data"].get(
+            "zapper_provisioning_timeout",
+            self.ZAPPER_REQUEST_TIMEOUT,
+        )
 
         (api_args, api_kwargs) = self._validate_configuration()
         self._run(self.config["control_host"], *api_args, **api_kwargs)
