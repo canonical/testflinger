@@ -779,3 +779,19 @@ def test_authenticate_client_get(mongo_app):
     token = output.data
     decoded_token = jwt.decode(token, v1.SECRET_KEY, algorithms="HS256")
     assert decoded_token["permissions"] == permissions
+
+
+def test_authenticate_invalid_credentials(mongo_app):
+    """
+    Tests that authentication endpoint returns 401 error code
+    when receiving invalid credentials
+    """
+    app, _ = mongo_app
+    client_id = "my_client_id"
+    client_key = "my_client_key"
+
+    output = app.get(
+        f"/v1/authenticate/token/{client_id}",
+        headers={"client-key": client_key},
+    )
+    assert output.status_code == 401
