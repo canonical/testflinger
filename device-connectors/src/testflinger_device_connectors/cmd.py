@@ -21,10 +21,13 @@ import argparse
 import logging
 import yaml
 import sys
+from typing import Callable
+import json
 
 from testflinger_device_connectors import configure_logging
 from testflinger_device_connectors.devices import (
     DEVICE_CONNECTORS,
+    RecoveryError,
     get_device_stage_func,
 )
 
@@ -70,6 +73,36 @@ def get_args(argv=None):
     return parser.parse_args(argv)
 
 
+def add_exception_logging_to_file(func: Callable, stage: str):
+    """Decorator function to add logging of exceptions to a json file"""
+
+    def _wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as exception:
+            if exception.__cause__ is None:
+                exception_cause = None
+            else:
+                exception_cause = repr(exception.__cause__)
+            exception_info = {
+                f"{stage}_exception_info": {
+                    "exception_name": type(exception).__name__,
+                    "exception_message": str(exception),
+                    "exception_cause": exception_cause,
+                }
+            }
+            with open(
+                "device-connector-error.json", "a", encoding="utf-8"
+            ) as error_file:
+                error_file.write(json.dumps(exception_info))
+            if isinstance(exception, RecoveryError):
+                return 46
+            else:
+                return 1
+
+    return _wrapper
+
+
 def main():
     """
     Dynamically load the selected module and call the selected method
@@ -79,5 +112,7 @@ def main():
         config = yaml.safe_load(configfile)
     configure_logging(config)
 
-    func = get_device_stage_func(args.device, args.stage)
+    func = add_exception_logging_to_file(
+        get_device_stage_func(args.device, args.stage), args.stage
+    )
     sys.exit(func(args))

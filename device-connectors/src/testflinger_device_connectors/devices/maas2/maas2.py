@@ -81,7 +81,6 @@ class Maas2:
         kernel = provision_data.get("kernel")
         user_data = provision_data.get("user_data")
         storage_data = provision_data.get("disks")
-
         self.deploy_node(distro, kernel, user_data, storage_data)
 
     def _install_efitools_snap(self):

@@ -23,8 +23,6 @@ import logging
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
-    RecoveryError,
-    catch,
 )
 from .lenovo_oemscript import LenovoOemScript
 
@@ -34,7 +32,6 @@ logger = logging.getLogger(__name__)
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning Lenovo OEM devices with an oem image."""
 
-    @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
         device = LenovoOemScript(args.config, args.job_data)

@@ -18,8 +18,6 @@ import logging
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
-    RecoveryError,
-    catch,
 )
 from testflinger_device_connectors.devices.oemrecovery.oemrecovery import (
     OemRecovery,
@@ -31,7 +29,6 @@ logger = logging.getLogger(__name__)
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""
 
-    @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
         device = OemRecovery(args.config, args.job_data)

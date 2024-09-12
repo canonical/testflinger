@@ -313,26 +313,6 @@ class DefaultDevice:
         pass
 
 
-def catch(exception, returnval=0):
-    """Decorator for catching Exceptions and returning values instead
-
-    This is useful because for certain things, like RecoveryError, we
-    need to give the calling process a hint that we failed for that
-    reason, so it can act accordingly, by disabling the device for example
-    """
-
-    def _wrapper(func):
-        def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except exception:
-                return returnval
-
-        return wrapper
-
-    return _wrapper
-
-
 def get_device_stage_func(device: str, stage: str) -> Callable:
     """
     Load the selected device connector and return the selected stage method
