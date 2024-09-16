@@ -751,6 +751,7 @@ def test_generate_token():
 def test_authenticate_client_get(mongo_app):
     """Tests authentication endpoint which returns JWT with permissions"""
     app, mongo = mongo_app
+    v1.SECRET_KEY = "my_secret_key"
     client_id = "my_client_id"
     client_key = "my_client_key"
     client_salt = bcrypt.gensalt()
@@ -776,6 +777,7 @@ def test_authenticate_client_get(mongo_app):
         f"/v1/authenticate/token/{client_id}",
         headers={"client-key": client_key},
     )
+    assert output.status_code == 200
     token = output.data
     decoded_token = jwt.decode(token, v1.SECRET_KEY, algorithms="HS256")
     assert decoded_token["permissions"] == permissions

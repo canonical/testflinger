@@ -17,9 +17,9 @@
 Testflinger v1 API
 """
 
+import os
 import uuid
 from datetime import datetime, timezone, timedelta
-import secrets
 
 import pkg_resources
 from apiflask import APIBlueprint, abort
@@ -692,7 +692,7 @@ def validate_client_key_pair(client_id: str, client_key: str):
     return permissions
 
 
-SECRET_KEY = secrets.token_hex(20)
+SECRET_KEY = os.environ.get("JWT_SIGNING_KEY")
 
 
 @v1.get("/authenticate/token/<client_id>")
