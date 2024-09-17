@@ -398,3 +398,29 @@ The job_status_webhook parameter is required for this endpoint. Other parameters
   .. code-block:: console
 
     $ curl http://localhost:8000/v1/queues/wait_times?queue=foo\&queue=bar
+
+**[GET] /v1/authenticate/token/<client_id>** - Authenticate client key and return JWT with permissions
+
+- Parameters:
+
+  - client_id (string): Client identifier
+
+- Headers:
+
+  - client-key (string): unique secret key for client
+
+- Status Codes:
+
+  - HTTP 200 (OK)
+  - HTTP 401 (Unauthorized) - Invalid client_id or client-key
+
+- Returns:
+
+  Signed JWT with permissions for client
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl http://localhost:8000/v1/authenticate/token/101 \
+           -X GET --header "client-key: ABCDEF12345"
