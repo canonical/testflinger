@@ -21,6 +21,7 @@ from dataclasses import dataclass
 import pytest
 import mongomock
 from mongomock.gridfs import enable_gridfs_integration
+import bcrypt
 
 from src import database, application
 
@@ -44,8 +45,8 @@ class MongoClientMock(mongomock.MongoClient):
         return super().start_session(*args, **kwargs)
 
 
-@pytest.fixture
-def mongo_app():
+@pytest.fixture(name="mongo_app")
+def mongo_app_fixture():
     """Create a pytest fixture for database and app"""
     mock_mongo = MongoClientMock()
     database.mongo = mock_mongo
@@ -58,3 +59,34 @@ def testapp():
     """pytest fixture for just the app"""
     app = application.create_flask_app(TestingConfig)
     yield app
+
+
+@pytest.fixture
+def mongo_app_with_permissions(mongo_app):
+    """
+    Pytest fixture that adds permissions
+    to the mock db for priority
+    """
+    app, mongo = mongo_app
+    client_id = "my_client_id"
+    client_key = "my_client_key"
+    client_salt = bcrypt.gensalt()
+    client_key_hash = bcrypt.hashpw(client_key.encode("utf-8"), client_salt)
+    permissions = [
+        {
+            "max_priority": 100,
+            "queue_name": "myqueue",
+        },
+        {
+            "max_priority": 200,
+            "queue_name": "myqueue2",
+        },
+    ]
+    mongo.client_permissions.insert_one(
+        {
+            "client_id": client_id,
+            "client_secret_hash": client_key_hash,
+            "permissions": permissions,
+        }
+    )
+    yield app, mongo, client_id, client_key, permissions

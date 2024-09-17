@@ -23,7 +23,6 @@ import json
 import os
 
 import jwt
-import bcrypt
 
 from src.api import v1
 
@@ -730,67 +729,48 @@ def test_get_queue_wait_times(mongo_app):
     assert output.json["queue2"]["50"] == 30.0
 
 
-def test_generate_token():
-    """Tests JWT generation with client permissions"""
-    permissions = [
-        {
-            "max_priority": 100,
-            "queue_name": "myqueue",
-        },
-        {
-            "max_priority": 200,
-            "queue_name": "myqueue2",
-        },
-    ]
-    secret_key = "my_secret_key"
-    token = v1.generate_token(permissions, secret_key)
-    decoded_token = jwt.decode(token, secret_key, algorithms="HS256")
-    assert decoded_token["permissions"] == permissions
-
-
-def test_authenticate_client_get(mongo_app):
+def test_authenticate_client_get(mongo_app_with_permissions):
     """Tests authentication endpoint which returns JWT with permissions"""
-    app, mongo = mongo_app
+    app, _, client_id, client_key, permissions = mongo_app_with_permissions
     v1.SECRET_KEY = "my_secret_key"
-    client_id = "my_client_id"
-    client_key = "my_client_key"
-    client_salt = bcrypt.gensalt()
-    client_key_hash = bcrypt.hashpw(client_key.encode("utf-8"), client_salt)
-    permissions = [
-        {
-            "max_priority": 100,
-            "queue_name": "myqueue",
-        },
-        {
-            "max_priority": 200,
-            "queue_name": "myqueue2",
-        },
-    ]
-    mongo.client_permissions.insert_one(
-        {
-            "client_id": client_id,
-            "client_secret_hash": client_key_hash,
-            "permissions": permissions,
-        }
-    )
     output = app.get(
         f"/v1/authenticate/token/{client_id}",
         headers={"client-key": client_key},
     )
     assert output.status_code == 200
     token = output.data
-    decoded_token = jwt.decode(token, v1.SECRET_KEY, algorithms="HS256")
+    decoded_token = jwt.decode(
+        token,
+        v1.SECRET_KEY,
+        algorithms="HS256",
+        options={"require": ["exp", "iat", "sub", "permissions"]},
+    )
     assert decoded_token["permissions"] == permissions
 
 
-def test_authenticate_invalid_credentials(mongo_app):
+def test_authenticate_invalid_client_id(mongo_app_with_permissions):
     """
     Tests that authentication endpoint returns 401 error code
-    when receiving invalid credentials
+    when receiving invalid client key
     """
-    app, _ = mongo_app
-    client_id = "my_client_id"
-    client_key = "my_client_key"
+    app, _, _, client_key, _ = mongo_app_with_permissions
+    v1.SECRET_KEY = "my_secret_key"
+    client_id = "my_wrong_id"
+    output = app.get(
+        f"/v1/authenticate/token/{client_id}",
+        headers={"client-key": client_key},
+    )
+    assert output.status_code == 401
+
+
+def test_authenticate_invalid_client_key(mongo_app_with_permissions):
+    """
+    Tests that authentication endpoint returns 401 error code
+    when receiving invalid client key
+    """
+    app, _, client_id, _, _ = mongo_app_with_permissions
+    v1.SECRET_KEY = "my_secret_key"
+    client_key = "my_wrong_key"
 
     output = app.get(
         f"/v1/authenticate/token/{client_id}",
