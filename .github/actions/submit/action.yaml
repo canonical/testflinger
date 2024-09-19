@@ -95,6 +95,6 @@ runs:
         # poll
         PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
         # retrieve results
-        STATUS=$(testflinger --server $SERVER results $JOB_ID | jq -er .test_status)
+        STATUS=$(testflinger --server $SERVER results $JOB_ID | jq 'to_entries | map(select(.key | endswith("_status"))) | map(.value) | max')
         echo "Test exit status: $STATUS"
         exit $STATUS
