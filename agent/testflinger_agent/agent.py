@@ -234,26 +234,27 @@ class TestflingerAgent:
         job_data = self.client.check_jobs()
         while job_data:
             try:
-                job = TestflingerJob(job_data, self.client)
+                job_id = job_data.get("job_id")
+                rundir = os.path.join(
+                    self.client.config.get("execution_basedir"), job_id
+                )
+                os.makedirs(rundir)
+
                 event_emitter = EventEmitter(
                     job_data.get("job_queue"),
                     job_data.get("job_status_webhook"),
                     self.client,
-                    job.job_id,
+                    job_id,
                 )
                 job_end_reason = TestEvent.NORMAL_EXIT
 
-                logger.info("Starting job %s", job.job_id)
+                logger.info("Starting job %s", job_id)
                 event_emitter.emit_event(
                     TestEvent.JOB_START,
-                    f"{self.client.server}/jobs/{job.job_id}",
+                    f"{self.client.server}/jobs/{job_id}",
                 )
-                rundir = os.path.join(
-                    self.client.config.get("execution_basedir"), job.job_id
-                )
-                os.makedirs(rundir)
 
-                self.client.post_agent_data({"job_id": job.job_id})
+                self.client.post_agent_data({"job_id": job_id})
 
                 # Dump the job data to testflinger.json in our execution dir
                 with open(os.path.join(rundir, "testflinger.json"), "w") as f:
@@ -279,24 +280,25 @@ class TestflingerAgent:
                 error_log_path = os.path.join(
                     rundir, "device-connector-error.json"
                 )
-                # Clear  error log before starting
+                # Clear error log before starting
                 open(error_log_path, "w").close()
 
+                job = TestflingerJob(job_data, self.client, rundir)
                 for phase in TEST_PHASES:
                     # First make sure the job hasn't been cancelled
                     if (
-                        self.client.check_job_state(job.job_id)
+                        self.client.check_job_state(job_id)
                         == JobState.CANCELLED
                     ):
                         logger.info("Job cancellation was requested, exiting.")
                         event_emitter.emit_event(TestEvent.CANCELLED)
                         break
 
-                    self.client.post_job_state(job.job_id, phase)
+                    self.client.post_job_state(job_id, phase)
                     self.set_agent_state(phase)
                     event_emitter.emit_event(TestEvent(phase + "_start"))
                     exit_code, exit_event, exit_reason = job.run_test_phase(
-                        phase, rundir
+                        phase
                     )
                     self.client.post_influx(phase, exit_code)
                     event_emitter.emit_event(exit_event, exit_reason)
@@ -315,7 +317,7 @@ class TestflingerAgent:
                     event_emitter.emit_event(exit_event, detail)
                     if phase == TestPhase.PROVISION:
                         self.client.post_provision_log(
-                            job.job_id, exit_code, exit_event
+                            job_id, exit_code, exit_event
                         )
                     if exit_code and phase != TestPhase.TEST:
                         logger.debug("Phase %s failed, aborting job" % phase)
@@ -326,7 +328,7 @@ class TestflingerAgent:
             finally:
                 # Always run the cleanup, even if the job was cancelled
                 event_emitter.emit_event(TestEvent.CLEANUP_START)
-                job.run_test_phase(TestPhase.CLEANUP, rundir)
+                job.run_test_phase(TestPhase.CLEANUP)
                 event_emitter.emit_event(TestEvent.CLEANUP_SUCCESS)
                 event_emitter.emit_event(TestEvent.JOB_END, job_end_reason)
                 # clear job id
