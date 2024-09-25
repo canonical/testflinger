@@ -100,6 +100,7 @@ runs:
         exit $STATUS
     - name: Cleanup the job if the action is cancelled
       if: ${{ cancelled() }}
+      shell: bash
       env:
         SERVER: https://${{ inputs.server }}
         JOB_ID: ${{ steps.submit.outputs.id }}
