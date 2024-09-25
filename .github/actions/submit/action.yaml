@@ -44,6 +44,7 @@ runs:
         else
           echo "Successful server ping at $SERVER, status: $STATUS"
         fi
+
     - name: Create job file, if required
       id: create-job-file
       shell: bash
@@ -98,3 +99,12 @@ runs:
         STATUS=$(testflinger --server $SERVER results $JOB_ID | jq -er .test_status)
         echo "Test exit status: $STATUS"
         exit $STATUS
+
+    - name: Cancel the job if the action is cancelled
+      if: ${{ cancelled() }}
+      shell: bash
+      env:
+        SERVER: https://${{ inputs.server }}
+        JOB_ID: ${{ steps.submit.outputs.id }}
+      run: |
+        testflinger --server $SERVER cancel $JOB_ID
