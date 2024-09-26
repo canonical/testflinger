@@ -21,6 +21,7 @@ from datetime import datetime
 from io import BytesIO
 import json
 import os
+import base64
 
 import jwt
 
@@ -729,13 +730,25 @@ def test_get_queue_wait_times(mongo_app):
     assert output.json["queue2"]["50"] == 30.0
 
 
-def test_authenticate_client_get(mongo_app_with_permissions):
+def create_auth_header(client_id: str, client_key: str) -> dict:
+    """
+    Creates authorization header with base64 encoded client_id
+    and client key using the Basic scheme
+    """
+    id_key_pair = f"{client_id}:{client_key}"
+    base64_encoded_pair = base64.b64encode(id_key_pair.encode("utf-8")).decode(
+        "utf-8"
+    )
+    return {"Authorization": f"Basic {base64_encoded_pair}"}
+
+
+def test_authenticate_client_post(mongo_app_with_permissions):
     """Tests authentication endpoint which returns JWT with permissions"""
     app, _, client_id, client_key, permissions = mongo_app_with_permissions
     v1.SECRET_KEY = "my_secret_key"
-    output = app.get(
-        f"/v1/authenticate/token/{client_id}",
-        headers={"client-key": client_key},
+    output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
     )
     assert output.status_code == 200
     token = output.data
@@ -756,9 +769,9 @@ def test_authenticate_invalid_client_id(mongo_app_with_permissions):
     app, _, _, client_key, _ = mongo_app_with_permissions
     v1.SECRET_KEY = "my_secret_key"
     client_id = "my_wrong_id"
-    output = app.get(
-        f"/v1/authenticate/token/{client_id}",
-        headers={"client-key": client_key},
+    output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
     )
     assert output.status_code == 401
 
@@ -772,8 +785,8 @@ def test_authenticate_invalid_client_key(mongo_app_with_permissions):
     v1.SECRET_KEY = "my_secret_key"
     client_key = "my_wrong_key"
 
-    output = app.get(
-        f"/v1/authenticate/token/{client_id}",
-        headers={"client-key": client_key},
+    output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
     )
     assert output.status_code == 401

@@ -675,8 +675,6 @@ def validate_client_key_pair(client_id: str, client_key: str):
     """
     Checks client_id and key pair for validity and returns their permissions
     """
-    if client_key is None:
-        return None
     client_key_bytes = client_key.encode("utf-8")
     client_permissions_entry = database.mongo.db.client_permissions.find_one(
         {
@@ -685,7 +683,8 @@ def validate_client_key_pair(client_id: str, client_key: str):
     )
 
     if client_permissions_entry is None or not bcrypt.checkpw(
-        client_key_bytes, client_permissions_entry["client_secret_hash"]
+        client_key_bytes,
+        client_permissions_entry["client_secret_hash"].encode("utf8"),
     ):
         return None
     permissions = client_permissions_entry["permissions"]
@@ -695,10 +694,20 @@ def validate_client_key_pair(client_id: str, client_key: str):
 SECRET_KEY = os.environ.get("JWT_SIGNING_KEY")
 
 
-@v1.get("/authenticate/token/<client_id>")
-def authenticate_client_get(client_id: str):
+@v1.post("/oauth2/token")
+def authenticate_client_post():
     """Get JWT with priority and queue permissions"""
-    client_key = request.headers.get("client-key")
+    auth_header = request.authorization
+    if auth_header is None:
+        return "No authorization header specified", 401
+    client_id = auth_header["username"]
+    client_key = auth_header["password"]
+    if client_id is None or client_key is None:
+        return (
+            "Client id and key must be specified in authorization header",
+            401,
+        )
+
     allowed_resources = validate_client_key_pair(client_id, client_key)
     if allowed_resources is None:
         return "Invalid client id or client key", 401

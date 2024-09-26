@@ -16,7 +16,6 @@
 """
 Fixtures for testing
 """
-
 from dataclasses import dataclass
 import pytest
 import mongomock
@@ -71,17 +70,16 @@ def mongo_app_with_permissions(mongo_app):
     client_id = "my_client_id"
     client_key = "my_client_key"
     client_salt = bcrypt.gensalt()
-    client_key_hash = bcrypt.hashpw(client_key.encode("utf-8"), client_salt)
-    permissions = [
-        {
-            "max_priority": 100,
-            "queue_name": "myqueue",
-        },
-        {
-            "max_priority": 200,
-            "queue_name": "myqueue2",
-        },
-    ]
+    client_key_hash = bcrypt.hashpw(
+        client_key.encode("utf-8"), client_salt
+    ).decode("utf-8")
+
+    permissions = {
+        "max_priority": {
+            "myqueue": 100,
+            "myqueue2": 200,
+        }
+    }
     mongo.client_permissions.insert_one(
         {
             "client_id": client_id,
