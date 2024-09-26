@@ -22,6 +22,7 @@ from strenum import StrEnum
 
 class JobState(StrEnum):
     WAITING = "waiting"
+    UNPACK = "unpack"
     SETUP = "setup"
     PROVISION = "provision"
     FIRMWARE_UPDATE = "firmware_update"
@@ -35,6 +36,7 @@ class JobState(StrEnum):
 
 
 class TestPhase(StrEnum):
+    UNPACK = "unpack"
     SETUP = "setup"
     PROVISION = "provision"
     FIRMWARE_UPDATE = "firmware_update"
@@ -45,6 +47,7 @@ class TestPhase(StrEnum):
 
 
 class TestEvent(StrEnum):
+    UNPACK_START = "unpack_start"
     SETUP_START = "setup_start"
     PROVISION_START = "provision_start"
     FIRMWARE_UPDATE_START = "firmware_update_start"
@@ -53,6 +56,7 @@ class TestEvent(StrEnum):
     RESERVE_START = "reserve_start"
     CLEANUP_START = "cleanup_start"
 
+    UNPACK_SUCCESS = "unpack_success"
     SETUP_SUCCESS = "setup_success"
     PROVISION_SUCCESS = "provision_success"
     FIRMWARE_UPDATE_SUCCESS = "firmware_update_success"
@@ -61,6 +65,7 @@ class TestEvent(StrEnum):
     RESERVE_SUCCESS = "reserve_success"
     CLEANUP_SUCCESS = "cleanup_success"
 
+    UNPACK_FAIL = "unpack_fail"
     SETUP_FAIL = "setup_fail"
     PROVISION_FAIL = "provision_fail"
     FIRMWARE_UPDATE_FAIL = "firmware_update_fail"

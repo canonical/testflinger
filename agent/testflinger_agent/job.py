@@ -17,10 +17,14 @@ import fcntl
 import json
 import logging
 import os
+from pathlib import Path
+import tempfile
 import time
+from typing import Optional, Tuple
 
+from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
-from testflinger_common.enums import TestPhase
+from testflinger_common.enums import TestEvent, TestPhase
 from .runner import CommandRunner, RunnerEvents
 from .handlers import LiveOutputHandler, LogUpdateHandler
 from .stop_condition_checkers import (
@@ -28,6 +32,21 @@ from .stop_condition_checkers import (
     GlobalTimeoutChecker,
     OutputTimeoutChecker,
 )
+
+try:
+    # attempt importing a tarfile filter, to check if filtering is supported
+    from tarfile import data_filter
+
+    del data_filter
+except ImportError:
+    # import a patched version of `tarfile` that supports filtering;
+    # this conditional import can be removed when all agents run
+    # versions of Python that support filtering, i.e. at least:
+    # 3.8.17, 3.9.17, 3.10.12, 3.11.4, 3.12
+    from . import tarfile_patch as tarfile
+else:
+    import tarfile
+
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +82,11 @@ class TestflingerJobPhase(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def core(self):
+    def core(self) -> Tuple[int, Optional[TestEvent], str]:
         """
         Execute the "core" of the phase.
+
+        Return [TODO]
         """
         raise NotImplementedError
 
@@ -75,7 +96,7 @@ class TestflingerJobPhase(ABC):
         """
         pass
 
-    def run(self):
+    def run(self) -> Tuple[int, Optional[TestEvent], str]:
         """
         This is the generic structure of every phase
         """
@@ -103,10 +124,10 @@ class TestflingerJobPhase(ABC):
         try:
             exitcode, exit_event, exit_reason = self.core()
         except Exception as exc:
-            logger.exception(exc)
             exit_event = f"{self.phase}_fail"
             exitcode = 100
-            exit_reason = str(exc)  # noqa: F841 - ignore this until it's used
+            exit_reason = f"{type(exc).__name__}: {exc}"
+            logger.exception(exit_reason)
         finally:
             self._update_results(exitcode)
 
@@ -208,10 +229,101 @@ class ExternalCommandPhase(TestflingerJobPhase):
             return False
         return True
 
-    def core(self):
+    def core(self) -> Tuple[int, Optional[TestEvent], str]:
         # execute the external command
         logger.info("Running %s_command: %s", self.phase, self.cmd)
         return self.runner.run(self.cmd)
+
+
+class UnpackPhase(TestflingerJobPhase):
+
+    phase = TestPhase.UNPACK
+
+    # phases for which attachments are allowed
+    supported_phases = (
+        TestPhase.PROVISION, TestPhase.FIRMWARE_UPDATE, TestPhase.TEST
+    )
+
+    def register(self):
+        self.runner.register_stop_condition_checker(
+            GlobalTimeoutChecker(self.get_global_timeout())
+        )
+
+    def go(self) -> bool:
+        if self.job_data.get("attachments_status") != "complete":
+            # the phase is "go" if attachments have been provided
+            logger.info(
+                "No attachments provided in job data, skipping..."
+            )
+            return False
+        return True
+
+    def core(self) -> Tuple[int, Optional[TestEvent], str]:
+        try:
+            self.unpack_attachments(self.job_data)
+        except Exception as error:
+            # use the runner to display the error
+            # (so that the output is also included in the phase results)
+            for line in f"{type(error).__name__}: {error}".split('\n'):
+                self.runner.run(f"echo '{line}'")
+            # propagate the error (`run` uniformly handles fail cases)
+            raise
+        return 0, TestEvent.UNPACK_SUCCESS, None
+
+    def secure_filter(self, member, path):
+        """Combine the `data` filter with custom attachment filtering
+
+        Makes sure that the starting folder for all attachments coincides
+        with one of the supported phases, i.e. that the attachment archive
+        has been created properly and no attachment will be extracted to an
+        unexpected location.
+        """
+        try:
+            resolved = Path(member.name).resolve().relative_to(Path.cwd())
+        except ValueError as error:
+            # essentially trying to extract higher than the attachments folder
+            raise tarfile.OutsideDestinationError(member, path) from error
+        if not str(resolved).startswith(
+            tuple(f"{phase}/" for phase in self.supported_phases)
+        ):
+            # trying to extract in an invalid folder, under the attachments folder
+            raise tarfile.OutsideDestinationError(member, path)
+        return tarfile.data_filter(member, path)
+
+    def unpack_attachments(self, job_data: dict):
+        """Download and unpack the attachments associated with a job"""
+        job_id = job_data["job_id"]
+
+        with tempfile.NamedTemporaryFile(suffix=".tar.gz") as archive_tmp:
+            archive_path = Path(archive_tmp.name)
+            # download attachment archive
+            logger.info(f"Downloading attachments for {job_id}")
+            self.client.get_attachments(job_id, path=archive_path)
+            # extract archive into the attachments folder
+            logger.info(f"Unpacking attachments for {job_id}")
+            with tarfile.open(archive_path, "r:gz") as tar:
+                tar.extractall(
+                    Path(self.rundir) / ATTACHMENTS_DIR,
+                    filter=self.secure_filter
+                )
+
+        # side effect: remove all attachment data from `job_data`
+        # (so there is no interference with existing processes, especially
+        # provisioning or firmware update, which are triggered when these
+        # sections are not empty)
+        for phase in self.supported_phases:
+            phase_str = f"{phase}_data"
+            try:
+                phase_data = job_data[phase_str]
+            except KeyError:
+                pass
+            else:
+                # delete attachments, if they exist
+                phase_data.pop("attachments", None)
+                # it may be the case that attachments were the only data
+                # included for this phase, so the phase can now be removed
+                if not phase_data:
+                    del job_data[phase_str]
 
 
 class SetupPhase(ExternalCommandPhase):
@@ -398,6 +510,7 @@ class CleanupPhase(ExternalCommandPhase):
 class TestflingerJob:
 
     phase_dict = {
+        TestPhase.UNPACK: UnpackPhase,
         TestPhase.SETUP: SetupPhase,
         TestPhase.PROVISION: ProvisionPhase,
         TestPhase.FIRMWARE_UPDATE: FirmwarePhase,
