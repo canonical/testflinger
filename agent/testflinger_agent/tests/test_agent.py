@@ -145,8 +145,36 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+
+            # client.check_jobs()
+            assert (
+                history[0].path == "/v1/job"
+                and history[0].query == "queue=test"
+                and history[0].method == "GET"
+            )
+            # client.post_agent_data({"job_id": job_id})
+            assert (
+                history[1].path.startswith("/v1/agents/data")
+                and history[1].method == "POST"
+            )
+            # client.check_job_state(job_id)
+            assert (
+                history[2].path == f"/v1/result/{job_id}"
+                and history[2].method == "GET"
+            )
+            # self.client.post_job_state(job_id, phase)
+            assert (
+                history[3].path == f"/v1/result/{job_id}"
+                and history[3].method == "POST"
+            )
+            # self.set_agent_state(phase)
+            assert (
+                history[4].path.startswith("/v1/agents/data")
+                and history[4].method == "POST"
+            )
+            # after 3 lines of output
+            # client.get_attachments(job_id, path=archive_path)
+            assert history[8].path == f"/v1/job/{job_id}/attachments"
 
             # check that the attachment is where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -202,8 +230,36 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+
+            # client.check_jobs()
+            assert (
+                history[0].path == "/v1/job"
+                and history[0].query == "queue=test"
+                and history[0].method == "GET"
+            )
+            # client.post_agent_data({"job_id": job_id})
+            assert (
+                history[1].path.startswith("/v1/agents/data")
+                and history[1].method == "POST"
+            )
+            # client.check_job_state(job_id)
+            assert (
+                history[2].path == f"/v1/result/{job_id}"
+                and history[2].method == "GET"
+            )
+            # self.client.post_job_state(job_id, phase)
+            assert (
+                history[3].path == f"/v1/result/{job_id}"
+                and history[3].method == "POST"
+            )
+            # self.set_agent_state(phase)
+            assert (
+                history[4].path.startswith("/v1/agents/data")
+                and history[4].method == "POST"
+            )
+            # after 3 lines of output
+            # client.get_attachments(job_id, path=archive_path)
+            assert history[8].path == f"/v1/job/{job_id}/attachments"
 
             # check that the attachment is *not* where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -259,8 +315,38 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+            for request in history:
+                print(request, request.query)
+
+            # client.check_jobs()
+            assert (
+                history[0].path == "/v1/job"
+                and history[0].query == "queue=test"
+                and history[0].method == "GET"
+            )
+            # client.post_agent_data({"job_id": job_id})
+            assert (
+                history[1].path.startswith("/v1/agents/data")
+                and history[1].method == "POST"
+            )
+            # client.check_job_state(job_id)
+            assert (
+                history[2].path == f"/v1/result/{job_id}"
+                and history[2].method == "GET"
+            )
+            # self.client.post_job_state(job_id, phase)
+            assert (
+                history[3].path == f"/v1/result/{job_id}"
+                and history[3].method == "POST"
+            )
+            # self.set_agent_state(phase)
+            assert (
+                history[4].path.startswith("/v1/agents/data")
+                and history[4].method == "POST"
+            )
+            # after 3 lines of output
+            # client.get_attachments(job_id, path=archive_path)
+            assert history[8].path == f"/v1/job/{job_id}/attachments"
 
             # check that the attachment is *not* where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -615,7 +701,10 @@ class TestClient:
                 "testflinger_agent.agent.TestflingerJob.run_test_phase"
             ) as mock_run_test_phase:
 
-                def run_test_phase_side_effect(phase, rundir):
+                def run_test_phase_side_effect(phase):
+                    rundir = os.path.join(
+                        agent.client.config["execution_basedir"], job_id
+                    )
                     if phase == "provision":
                         provision_log_path = os.path.join(
                             rundir, "device-connector-error.json"
@@ -684,8 +773,11 @@ class TestClient:
                 "testflinger_agent.agent.TestflingerJob.run_test_phase"
             ) as mock_run_test_phase:
 
-                def run_test_phase_side_effect(phase, rundir):
-                    if phase == "provision":
+                def run_test_phase_side_effect(phase):
+                    rundir = os.path.join(
+                        agent.client.config["execution_basedir"], job_id
+                    )
+                    if phase == TestPhase.PROVISION:
                         provision_log_path = os.path.join(
                             rundir, "device-connector-error.json"
                         )

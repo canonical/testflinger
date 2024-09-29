@@ -55,7 +55,7 @@ class TestflingerAgent:
     def __init__(self, client):
         self.client = client
         signal.signal(signal.SIGUSR1, self.restart_signal_handler)
-        # [TODO] What is the relation between the agent state and the job state?
+        # [TODO] Investigate relation between the agent state and the job state
         self.set_agent_state("waiting")
         self._post_initial_agent_data()
 
