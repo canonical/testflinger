@@ -658,15 +658,16 @@ def queue_wait_time_percentiles_get():
     return queue_percentile_data
 
 
-def generate_token(permissions, secret_key):
+def generate_token(max_priority, secret_key):
     """Generates JWT token with queue permission given a secret key"""
     expiration_time = datetime.utcnow() + timedelta(seconds=2)
     token_payload = {
         "exp": expiration_time,
         "iat": datetime.now(timezone.utc),  # Issued at time
         "sub": "access_token",
-        "permissions": permissions,
+        "max_priority": max_priority,
     }
+
     token = jwt.encode(token_payload, secret_key, algorithm="HS256")
     return token
 
@@ -687,8 +688,8 @@ def validate_client_key_pair(client_id: str, client_key: str):
         client_permissions_entry["client_secret_hash"].encode("utf8"),
     ):
         return None
-    permissions = client_permissions_entry["permissions"]
-    return permissions
+    max_priority = client_permissions_entry["max_priority"]
+    return max_priority
 
 
 SECRET_KEY = os.environ.get("JWT_SIGNING_KEY")

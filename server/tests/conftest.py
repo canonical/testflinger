@@ -74,17 +74,15 @@ def mongo_app_with_permissions(mongo_app):
         client_key.encode("utf-8"), client_salt
     ).decode("utf-8")
 
-    permissions = {
-        "max_priority": {
-            "myqueue": 100,
-            "myqueue2": 200,
-        }
+    max_priority = {
+        "myqueue": 100,
+        "myqueue2": 200,
     }
     mongo.client_permissions.insert_one(
         {
             "client_id": client_id,
             "client_secret_hash": client_key_hash,
-            "permissions": permissions,
+            "max_priority": max_priority,
         }
     )
-    yield app, mongo, client_id, client_key, permissions
+    yield app, mongo, client_id, client_key, max_priority
