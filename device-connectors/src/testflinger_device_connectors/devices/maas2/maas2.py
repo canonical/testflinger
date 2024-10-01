@@ -253,8 +253,9 @@ class Maas2:
             if not def_storage_data:
                 self._logger_warning(
                     "'default_disks' and/or 'disks' unspecified; "
-                    "skipping storage layout configuration"
+                    "setting default storage layout to flat"
                 )
+                self.set_flat_storage_layout()
             else:
                 # reset to the default layout
                 try:
@@ -400,3 +401,19 @@ class Maas2:
             "recover!".format(self.agent_name, status)
         )
         raise RecoveryError("Device recovery failed!")
+
+    def set_flat_storage_layout(self):
+        """Reset to default flat storage layout"""
+        cmd = [
+            "maas",
+            self.maas_user,
+            "machine",
+            "set-storage-layout",
+            self.node_id,
+            "storage_layout=flat",
+        ]
+        proc = subprocess.run(cmd, check=False)
+        if proc.returncode:
+            self._logger_error(
+                "Unable to set flat disk layout, attempting to continue anyway"
+            )
