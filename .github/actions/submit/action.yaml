@@ -44,6 +44,7 @@ runs:
         else
           echo "Successful server ping at $SERVER, status: $STATUS"
         fi
+
     - name: Create job file, if required
       id: create-job-file
       shell: bash
@@ -94,7 +95,29 @@ runs:
       run: |
         # poll
         PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
-        # retrieve results
-        STATUS=$(testflinger --server $SERVER results $JOB_ID | jq -er .test_status)
+        # retrieve results:
+        # the exit status is the maximum status of the individual test phases
+        # (excluding the setup and cleanup phases)
+        STATUS=$(\
+          testflinger --server $SERVER results $JOB_ID  \
+          | jq 'to_entries
+              | map(
+                  select(
+                    (.key | endswith("_status"))
+                    and .key != "setup_status"
+                    and .key != "cleanup_status"
+                  ).value
+                )
+              | max'
+        )
         echo "Test exit status: $STATUS"
         exit $STATUS
+
+    - name: Cancel the job if the action is cancelled
+      if: ${{ cancelled() }}
+      shell: bash
+      env:
+        SERVER: https://${{ inputs.server }}
+        JOB_ID: ${{ steps.submit.outputs.id }}
+      run: |
+        testflinger --server $SERVER cancel $JOB_ID
