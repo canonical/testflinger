@@ -692,11 +692,8 @@ def validate_client_key_pair(client_id: str, client_key: str):
     return max_priority
 
 
-SECRET_KEY = os.environ.get("JWT_SIGNING_KEY")
-
-
 @v1.post("/oauth2/token")
-def authenticate_client_post():
+def retrieve_token():
     """Get JWT with priority and queue permissions"""
     auth_header = request.authorization
     if auth_header is None:
@@ -712,5 +709,6 @@ def authenticate_client_post():
     allowed_resources = validate_client_key_pair(client_id, client_key)
     if allowed_resources is None:
         return "Invalid client id or client key", 401
-    token = generate_token(allowed_resources, SECRET_KEY)
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    token = generate_token(allowed_resources, secret_key)
     return token

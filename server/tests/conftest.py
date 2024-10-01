@@ -16,6 +16,9 @@
 """
 Fixtures for testing
 """
+
+import os
+
 from dataclasses import dataclass
 import pytest
 import mongomock
@@ -66,6 +69,7 @@ def mongo_app_with_permissions(mongo_app):
     Pytest fixture that adds permissions
     to the mock db for priority
     """
+    os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
     app, mongo = mongo_app
     client_id = "my_client_id"
     client_key = "my_client_key"

@@ -742,10 +742,9 @@ def create_auth_header(client_id: str, client_key: str) -> dict:
     return {"Authorization": f"Basic {base64_encoded_pair}"}
 
 
-def test_authenticate_client_post(mongo_app_with_permissions):
+def test_retrieve_token(mongo_app_with_permissions):
     """Tests authentication endpoint which returns JWT with permissions"""
     app, _, client_id, client_key, max_priority = mongo_app_with_permissions
-    v1.SECRET_KEY = "my_secret_key"
     output = app.post(
         "/v1/oauth2/token",
         headers=create_auth_header(client_id, client_key),
@@ -754,20 +753,19 @@ def test_authenticate_client_post(mongo_app_with_permissions):
     token = output.data
     decoded_token = jwt.decode(
         token,
-        v1.SECRET_KEY,
+        os.environ.get("JWT_SIGNING_KEY"),
         algorithms="HS256",
         options={"require": ["exp", "iat", "sub", "max_priority"]},
     )
     assert decoded_token["max_priority"] == max_priority
 
 
-def test_authenticate_invalid_client_id(mongo_app_with_permissions):
+def test_retrieve_token_invalid_client_id(mongo_app_with_permissions):
     """
     Tests that authentication endpoint returns 401 error code
     when receiving invalid client key
     """
     app, _, _, client_key, _ = mongo_app_with_permissions
-    v1.SECRET_KEY = "my_secret_key"
     client_id = "my_wrong_id"
     output = app.post(
         "/v1/oauth2/token",
@@ -776,13 +774,12 @@ def test_authenticate_invalid_client_id(mongo_app_with_permissions):
     assert output.status_code == 401
 
 
-def test_authenticate_invalid_client_key(mongo_app_with_permissions):
+def test_retrieve_token_invalid_client_key(mongo_app_with_permissions):
     """
     Tests that authentication endpoint returns 401 error code
     when receiving invalid client key
     """
     app, _, client_id, _, _ = mongo_app_with_permissions
-    v1.SECRET_KEY = "my_secret_key"
     client_key = "my_wrong_key"
 
     output = app.post(
