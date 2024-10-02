@@ -191,7 +191,10 @@ class TestflingerCharm(ops.CharmBase):
 
     @property
     def app_environment(self) -> dict:
-        """Get dict of env data for the mongodb credentials"""
+        """
+        Get dict of env data for the mongodb credentials
+        and other config variables
+        """
         db_data = self.fetch_mongodb_relation_data()
         env = {
             "MONGODB_HOST": db_data.get("db_host"),
@@ -200,6 +203,7 @@ class TestflingerCharm(ops.CharmBase):
             "MONGODB_PASSWORD": db_data.get("db_password"),
             "MONGODB_DATABASE": db_data.get("db_database"),
             "MONGODB_MAX_POOL_SIZE": str(self.config["max_pool_size"]),
+            "JWT_SIGNING_KEY": self.config["jwt_signing_key"],
         }
         return env
 

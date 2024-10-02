@@ -12,6 +12,7 @@ services:
       - MONGODB_DATABASE=testflinger_db
       - MONGODB_HOST=mongo
       - MONGODB_AUTH_SOURCE=admin
+      - JWT_SIGNING_KEY=my_secret_key
     volumes:
       - .:/srv/testflinger
 

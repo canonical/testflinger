@@ -18,6 +18,8 @@ sentry-sdk = { extras = ["flask"], version = "^2.0.1" }
 requests = "^2.31.0"
 urllib3 = "^2.2.1"
 pymongo = "<4.9.0"
+pyjwt = "^2.8.0"
+bcrypt = "^4.2.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.1.2"
