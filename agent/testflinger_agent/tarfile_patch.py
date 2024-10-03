@@ -259,14 +259,14 @@ class TarFilePatched(TarFile):
                 self._handle_nonfatal_error(e)
 
     def chmod(self, tarinfo, targetpath):
-        """Set file permissions of targetpath according to tarinfo.
-        """
+        """Set file permissions of targetpath according to tarinfo."""
         if tarinfo.mode is None:
             return
         try:
             os.chmod(targetpath, tarinfo.mode)
         except OSError:
             raise ExtractError("could not change mode")
+
 
 # make sure `open` is available when this module is imported and it
 # returns a `TarFilePatched` object instead of a `TarFile` one
