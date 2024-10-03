@@ -42,6 +42,8 @@ Supported options for this charm are:
       base64 encoded ssh private keyfile
   - ssh-public-key:
       base64 encoded ssh public keyfile
+  - ssh-config:
+      config data to write as ~/.ssh/config
   - config-repo:
       Git repo containing device agent config data
   - config-branch:

@@ -201,12 +201,18 @@ class TestflingerAgentHostCharm(CharmBase):
 
     def copy_ssh_keys(self):
         try:
+            ssh_config = self.config.get("ssh-config")
+            self.write_file("/home/ubuntu/.ssh/config", ssh_config)
+            os.chown("/home/ubuntu/.ssh/config", 1000, 1000)
+            os.chmod("/home/ubuntu/.ssh/config", 0o640)
+
             priv_key = self.config.get("ssh-private-key", "")
             self.write_file(
                 "/home/ubuntu/.ssh/id_rsa", b64decode(priv_key).decode()
             )
             os.chown("/home/ubuntu/.ssh/id_rsa", 1000, 1000)
             os.chmod("/home/ubuntu/.ssh/id_rsa", 0o600)
+
             pub_key = self.config.get("ssh-public-key", "")
             self.write_file(
                 "/home/ubuntu/.ssh/id_rsa.pub", b64decode(pub_key).decode()
