@@ -19,3 +19,11 @@ options:
     type: string
     description: ssh public key for connecting to local test devices
     default: ""
+  ssh-config:
+    type: string
+    description: ssh config for connecting to local test devices
+    default: |
+      StrictHostKeyChecking no
+      UserKnownHostsFile /dev/null
+      LogLevel QUIET
+      ConnectTimeout 30
