@@ -14,6 +14,8 @@ temp_folder="$(mktemp -d -p "$PWD")"
 GIT="git -C $temp_folder"
 ubuntu_release=""
 enable_sb="no"
+dut_iso_url=""
+dut_iso=""
 
 enable_secureboot() {
     if [ "${ubr}" != "yes" ] && [ "$enable_sb" = "yes" ]; then
@@ -30,7 +32,7 @@ clear_all() {
 }
 trap clear_all EXIT
 # shellcheck disable=SC2046
-eval set -- $(getopt -o "su:c:j:b:t:h" -l "local-iso:,sync,url:,jenkins-credential:,jenkins-job:,jenkins-job-build-no:,oem-share-url:,oem-share-credential:,target-ip:,ubr,enable-secureboot,inject-ssh-key:,help" -- "$@")
+eval set -- $(getopt -o "su:c:j:b:t:h" -l "local-iso:,dut-iso-url:,sync,url:,jenkins-credential:,jenkins-job:,jenkins-job-build-no:,oem-share-url:,oem-share-credential:,target-ip:,ubr,enable-secureboot,inject-ssh-key:,help" -- "$@")
 
 usage() {
     set +x
@@ -407,12 +409,33 @@ sync_to_swift() {
     download_image "$oem_share_path" "$img_name" "$oem_share_credential"
 }
 
+wget_iso_on_dut() {
+    # Download ISO on DUT
+    WGET_OPTS="--no-verbose --tries=3 --no-check-certificate"
+    dut_iso="$(basename "$dut_iso_url")"
+    echo "Downloading ISO on DUT..."
+    if ! $SSH "$user_on_target"@"$target_ip" -- sudo wget "$WGET_OPTS" -O /home/"$user_on_target"/"$dut_iso" "$dut_iso_url"; then
+        echo "Downloading ISO on DUT failed."
+        exit 4
+    fi
+
+    if ! $SSH "$user_on_target"@"$target_ip" -- sudo test -e /home/"$user_on_target"/"$dut_iso"; then
+        echo "ISO file doesn't exist after downloading."
+        exit 4
+    fi
+    # successfully downloaded the file
+}
+
+
 download_iso() {
     if [ "$enable_sync_to_swift" = true ]; then
         sync_to_swift
+    elif [ -n "$dut_iso_url" ]; then
+        wget_iso_on_dut
     else
         download_from_jenkins
     fi
+
 }
 
 inject_recovery_iso() {
@@ -420,7 +443,12 @@ inject_recovery_iso() {
         download_iso
     fi
 
-    img_name="$(basename "$local_iso")"
+    if [ -n "$dut_iso" ]; then
+        img_name="$dut_iso"
+    else
+        img_name="$(basename "$local_iso")"
+    fi
+
     if [ -z "${img_name##*stella*}" ] ||
        [ -z "${img_name##*sutton*}" ]; then
         ubr="yes"
@@ -431,7 +459,11 @@ inject_recovery_iso() {
         ubuntu_release="focal"
     fi
     rsync_opts="--exclude=efi --delete --temp-dir=/var/tmp/rsync"
-    $SCP "$local_iso" "$user_on_target"@"$target_ip":~/
+
+    if [ -n "$local_iso" ]; then
+        $SCP "$local_iso" "$user_on_target"@"$target_ip":~/
+    fi
+    # by now, $dut_iso already present on the DUT
 cat <<EOF > "$temp_folder/$script_on_target_machine"
 #!/bin/bash
 set -ex
@@ -499,6 +531,10 @@ main() {
             --local-iso)
                 shift
                 local_iso="$1"
+                ;;
+            --dut-iso-url)
+                shift
+                dut_iso_url="$1"
                 ;;
             -s | --sync)
                 enable_sync_to_swift=true

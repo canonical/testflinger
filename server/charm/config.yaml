@@ -11,3 +11,7 @@ options:
     default: 100
     description: Maximum number of concurrent connections to the database
     type: int
+  jwt_signing_key:
+    default: ""
+    description: Secret key used for signing authorization tokens
+    type: string

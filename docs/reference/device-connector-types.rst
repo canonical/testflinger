@@ -33,7 +33,7 @@ To specify the commands to run by the device in each test phase, set the ``testf
    * - ``hp_oemscript`` 
      - This device connector is used for HP OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
    * - ``oem_autoinstall``
-     - This device connector is used for OEM PC platforms starting from Ubuntu 24.04. It executes image-deploy.sh script and consumes autoinstall configuration files to complete the installation.
+     - This device connector is used for OEM PC platforms starting from Ubuntu 24.04. It executes provision-image.sh script and consumes autoinstall configuration files to complete the installation.
    * - ``zapper_iot``
      - This device connector is used for provisioning ubuntu-core to ARM IoT devices. It could be provision by set device to download mode or override seed partition and do recovery.
    * - ``zapper_kvm``
@@ -268,7 +268,7 @@ The ``hp_oemscript`` device connector does not support any ``provision_data`` ke
 .. _oem_autoinstall:
 
 oem_autoinstall
-------------
+---------------
 
 The ``oem_autoinstall`` device connector supports the following ``provision_data`` keys.
 
@@ -287,6 +287,21 @@ The ``oem_autoinstall`` device connector supports the following ``provision_data
           username: $MY_USERNAME
 
           token: $MY_TOKEN
+
+        If ``url`` requires webdav authentication, then device will use rclone to copy the file.
+        The rclone configurations must be provided in the following format:
+
+          [$PROJECT]
+
+          type = webdav
+
+          url = $URL
+
+          vendor = other
+
+          user = $USER
+
+          pass = $PASSWORD
 
     * - ``user_data``
       - Required file provided with :ref:`file attachments <file_attachments>`.
@@ -399,7 +414,9 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
       - (Optional) Set to "true" to install OEM meta-packages and the reset partition (Desktop 24.04+).
     * - ``ubuntu_sso_email``:
       - (Optional) A valid Ubuntu SSO email to which the DUT provisioned with a non-dangerous grade UC image will be linked (UC24). Please make sure to provide the corresponding *username* in the *test_data.test_username* field.
-.
+    * - ``zapper_provisioning_timeout``:
+      - (Optional) The overall timeout for the provisioning stage (in seconds). Default is 5400 (90 minutes).
+
 
 .. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target Ubuntu OEM 22.04
     :header-rows: 1

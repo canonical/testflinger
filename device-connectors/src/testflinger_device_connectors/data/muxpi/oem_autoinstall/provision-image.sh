@@ -2,9 +2,8 @@
 
 exec 2>&1
 set -euox pipefail
-# This script was adapted to testflinger agent environment and used
-# to provision OEM devices with Ubuntu Noble images
-# Downloading ISO is not supported, because agent is in charge of ISO download
+#
+# This script is used by TF agent to provision OEM PCs with Ubuntu Noble images
 #
 
 usage()
@@ -14,9 +13,10 @@ Usage:
     $0 [OPTIONS] <TARGET_IP 1> <TARGET_IP 2> ...
 Options:
     -h|--help        The manual of the script
-    --iso            ISO file path to be deployed on the target
+    --iso-dut        URL to wget ISO on target DUT and deploy
     -u|--user        The user of the target, default ubuntu
     -o|--timeout     The timeout for doing the deployment, default 3600 seconds
+    --iso            Local ISO file path to scp on target DUT and deploy
 EOF
 }
 
@@ -27,17 +27,14 @@ fi
 
 TARGET_USER="ubuntu"
 TARGET_IPS=()
-ISO_PATH=
-ISO=
+ISO_PATH=""
+ISO=""
+URL_DUT=""
 STORE_PART=""
 TIMEOUT=3600
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 SSH="ssh $SSH_OPTS"
 SCP="scp $SSH_OPTS"
-
-if [ ! -d "$HOME/.cache/oem-scripts" ]; then
-    mkdir -p "$HOME/.cache/oem-scripts"
-fi
 
 create_redeploy_cfg() {
     # generates grub.cfg file to start the redeployment
@@ -88,42 +85,109 @@ EOL
     echo "'$filename' was generated with default content."
 }
 
- create_meta_data() {
+create_meta_data() {
     local filename=$1
     # currently meta-data is an empty file, but it's required by cloud-init
     touch "$filename"
- }
+}
 
-OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config: -n 'image-deploy.sh' -- "$@")"
+wget_iso_on_dut() {
+    # Download ISO on DUT
+    URL_TOKEN="$CONFIG_REPO_PATH"/url_token
+
+    echo "Downloading ISO on DUT..."
+    if [[ "$URL_DUT" =~ "oem-share.canonical.com" ]]; then
+        # use rclone for webdav storage
+        if [ ! -f "$URL_TOKEN" ]; then
+            echo "oem-share URL requires webdav authentication. Please attach token_file"
+            exit 3
+        fi
+        $SCP "$URL_TOKEN" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/
+
+        if ! $SSH "$TARGET_USER"@"$addr" -- sudo command -v rclone  >/dev/null 2>&1; then
+            $SSH "$TARGET_USER"@"$addr" -- sudo sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq
+            $SSH "$TARGET_USER"@"$addr" -- sudo sudo DEBIAN_FRONTEND=noninteractive apt-get install -yqq rclone
+        fi
+
+        if [[ "$URL_DUT" =~ "partners" ]]; then
+            PROJECT=$(echo "$URL_DUT" | cut -d "/" -f 5)
+            FILEPATH=$(echo "$URL_DUT" | sed "s/.*share\///g")
+        else
+            PROJECT=$(echo "$URL_DUT" | cut -d "/" -f 5)
+            FILEPATH=$(echo "$URL_DUT" | sed "s/.*$PROJECT\///g")
+        fi
+
+        if ! $SSH "$TARGET_USER"@"$addr" -- sudo rclone --config /home/"$TARGET_USER"/url_token copy "$PROJECT":"$FILEPATH" /home/"$TARGET_USER"/; then
+            echo "Downloading ISO on DUT from oem-share failed."
+            exit 4
+        fi
+    else
+        WGET_OPTS="--tries=3"
+        # Optional URL credentials
+        if [ -r "$URL_TOKEN" ]; then
+            username=$(awk -F':' '/^username:/ {print $2}' "$URL_TOKEN" | xargs)
+            token=$(awk -F':' '/^token:/ {print $2}' "$URL_TOKEN" | xargs)
+            if [ -z "$username" ] || [ -z "$token" ]; then
+                echo "Error: check username or token format in $URL_TOKEN file"
+                exit 3
+            fi
+            WGET_OPTS+=" --auth-no-challenge --user=$username --password=$token"
+        fi
+
+        if [[ "$URL_DUT" =~ "tel-image-cache.canonical.com" ]]; then
+            CERT_NAME="tel-image-cache-ca.crt"
+            CERT_FILEPATH=/usr/local/share/ca-certificates/"$CERT_NAME"
+            if [ -f "$CERT_FILEPATH" ]; then
+                $SCP "$CERT_FILEPATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
+                $SSH "$TARGET_USER"@"$addr" -- sudo cp "$CERT_NAME" "$CERT_FILEPATH"
+                $SSH "$TARGET_USER"@"$addr" -- sudo update-ca-certificates
+            else
+                echo "Warning: TLS certificate was not found on agent. Downloading ISO might fail.."
+            fi
+        fi
+
+        if ! $SSH "$TARGET_USER"@"$addr" -- sudo wget "$WGET_OPTS" -O /home/"$TARGET_USER"/"$ISO" "$URL_DUT"; then
+            echo "Downloading ISO on DUT failed."
+            exit 4
+        fi
+    fi
+
+    if ! $SSH "$TARGET_USER"@"$addr" -- sudo test -e /home/"$TARGET_USER"/"$ISO"; then
+        echo "ISO file doesn't exist after downloading."
+        exit 4
+    fi
+}
+
+OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config:,iso-dut: -n 'provision-image.sh' -- "$@")"
 eval set -- "${OPTS}"
 while :; do
     case "$1" in
         ('-h'|'--help')
             usage
-	    exit;;
+            exit;;
         ('--iso')
             ISO_PATH="$2"
-	    ISO=$(basename "$ISO_PATH")
+            ISO=$(basename "$ISO_PATH")
             shift 2;;
         ('-u'|'--user')
             TARGET_USER="$2"
-	    shift 2;;
+            shift 2;;
         ('-o'|'--timeout')
             TIMEOUT="$2"
             shift 2;;
         ('-l'|'--local-config')
             CONFIG_REPO_PATH="$2"
-            IS_LOCAL_CONFIG="TRUE"
+            shift 2;;
+        ('--iso-dut')
+            URL_DUT="$2"
+            ISO=$(basename "$URL_DUT")
             shift 2;;
 	('--') shift; break ;;
 	(*) break ;;
     esac
 done
 
-if [ ! -f "$ISO_PATH" ]; then
-    echo "No designated ISO file"
-    exit
-fi
+
 
 read -ra TARGET_IPS <<< "$@"
 
@@ -154,44 +218,30 @@ do
     RESET_PARTUUID=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o PARTUUID "$RESET_PART")
     EFI_PART="${STORE_PART:0:-1}1"
 
-    # Copy ISO to the target
-    $SCP "$ISO_PATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
-
     # Copy cloud-config redeploy to the target
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/redeploy/cloud-configs/redeploy
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/redeploy/cloud-configs/grub
 
-    if [ -n "$IS_LOCAL_CONFIG" ]; then
-        # configs in current dir are without folder structure
-        $SCP "$CONFIG_REPO_PATH"/user-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
+    $SCP "$CONFIG_REPO_PATH"/user-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
 
-        if [ ! -r "$CONFIG_REPO_PATH"/meta-data ]; then
-            create_meta_data "$CONFIG_REPO_PATH"/meta-data
-        fi
-        $SCP "$CONFIG_REPO_PATH"/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
-
-        if [ ! -r "$CONFIG_REPO_PATH"/redeploy.cfg ]; then
-            create_redeploy_cfg "$CONFIG_REPO_PATH"/redeploy.cfg
-        fi
-        $SCP "$CONFIG_REPO_PATH"/redeploy.cfg "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg
-
-        # ssh configs are expected to be deployed as a directory
-        mkdir -p "$CONFIG_REPO_PATH"/ssh/sshd_config.d
-
-        create_sshd_conf "$CONFIG_REPO_PATH"/ssh/sshd_config.d/pc_sanity.conf
-        cp "$CONFIG_REPO_PATH"/authorized_keys "$CONFIG_REPO_PATH"/ssh || true  # optional file
-        $SCP -r "$CONFIG_REPO_PATH"/ssh "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/ssh-config
-
-        rm -rf "$CONFIG_REPO_PATH"/ssh
-    else
-        # configs follow launchapd repo folder structure
-        $SCP "$CONFIG_REPO_PATH"/alloem-init/cloud-configs/redeploy/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
-        $SCP "$CONFIG_REPO_PATH"/alloem-init/cloud-configs/redeploy/user-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
-        $SCP "$CONFIG_REPO_PATH"/alloem-init/cloud-configs/grub/redeploy.cfg "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg
-
-        # Copy ssh key from alloem-init injections to the target
-        $SCP -r "$CONFIG_REPO_PATH"/injections/alloem-init/chroot/minimal.standard.live.hotfix.squashfs/etc/ssh "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/ssh-config
+    if [ ! -r "$CONFIG_REPO_PATH"/meta-data ]; then
+        create_meta_data "$CONFIG_REPO_PATH"/meta-data
     fi
+    $SCP "$CONFIG_REPO_PATH"/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
+
+    if [ ! -r "$CONFIG_REPO_PATH"/redeploy.cfg ]; then
+        create_redeploy_cfg "$CONFIG_REPO_PATH"/redeploy.cfg
+    fi
+    $SCP "$CONFIG_REPO_PATH"/redeploy.cfg "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg
+
+    # ssh configs are expected to be deployed as a directory
+    mkdir -p "$CONFIG_REPO_PATH"/ssh/sshd_config.d
+
+    create_sshd_conf "$CONFIG_REPO_PATH"/ssh/sshd_config.d/pc_sanity.conf
+    cp "$CONFIG_REPO_PATH"/authorized_keys "$CONFIG_REPO_PATH"/ssh || true  # optional file
+    $SCP -r "$CONFIG_REPO_PATH"/ssh "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/ssh-config
+
+    rm -rf "$CONFIG_REPO_PATH"/ssh
 
     # Umount the partitions
     MOUNT=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o MOUNTPOINT "$RESET_PART")
@@ -210,6 +260,20 @@ do
     # Mount ISO and reset partition
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/iso || true
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/reset || true
+
+    # Handle ISO
+    if [ -n "$URL_DUT" ]; then
+        # store ISO directly on DUT
+        wget_iso_on_dut
+    elif [ -n "$ISO_PATH" ]; then
+        # ISO file was stored on agent; scp to DUT
+        if [ ! -f "$ISO_PATH" ]; then
+            echo "No designated ISO file"
+            exit 2
+        fi
+        $SCP "$ISO_PATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
+    fi
+
     $SSH "$TARGET_USER"@"$addr" -- sudo mount -o loop /home/"$TARGET_USER"/"$ISO" /home/"$TARGET_USER"/iso || true
     $SSH "$TARGET_USER"@"$addr" -- sudo mount "$RESET_PART" /home/"$TARGET_USER"/reset || true
 
@@ -244,7 +308,7 @@ do
     sleep 180
     currentTime=$(date +%s)
     if [[ $((currentTime - startTime)) -gt $TIMEOUT ]]; then
-        echo "Timeout is reached, deployment are not finished"
+        echo "Timeout is reached, deployment was not finished"
         break
     fi
 

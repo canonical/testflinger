@@ -82,7 +82,7 @@ Job Definition Reference
       volume: disk0-part1
       fstype: ext4
       label: nova-ephemeral
-    - id: disk1-part1-mount
+    - id: disk0-part1-mount
       device: disk1-part1-format
       path: /
       type: mount

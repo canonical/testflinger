@@ -23,7 +23,6 @@ from testflinger_device_connectors.devices import (
     ProvisioningError,
     RecoveryError,
     SerialLogger,
-    catch,
 )
 
 import testflinger_device_connectors
@@ -35,7 +34,6 @@ logger = logging.getLogger(__name__)
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""
 
-    @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
         with open(args.config) as configfile:

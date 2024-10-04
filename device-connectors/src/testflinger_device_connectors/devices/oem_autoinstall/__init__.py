@@ -13,14 +13,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Device connector to provision Ubuntu OEM on systems
-that support autoinstall and image-deploy.sh script"""
+that support autoinstall and provision-image.sh script"""
 
 import logging
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
-    RecoveryError,
-    catch,
 )
 from testflinger_device_connectors.devices.oem_autoinstall.oem_autoinstall import (  # noqa: E501
     OemAutoinstall,
@@ -32,7 +30,6 @@ logger = logging.getLogger(__name__)
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""
 
-    @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
         device = OemAutoinstall(args.config, args.job_data)

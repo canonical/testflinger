@@ -31,8 +31,6 @@ import yaml
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
-    RecoveryError,
-    catch,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,7 +46,6 @@ class ZapperConnector(ABC, DefaultDevice):
     ZAPPER_REQUEST_TIMEOUT = 60 * 90
     ZAPPER_SERVICE_PORT = 60000
 
-    @catch(RecoveryError, 46)
     def provision(self, args):
         """Method called when the command is invoked."""
         with open(args.config, encoding="utf-8") as configfile:
@@ -58,6 +55,10 @@ class ZapperConnector(ABC, DefaultDevice):
 
         logger.info("BEGIN provision")
         logger.info("Provisioning device")
+        self.ZAPPER_REQUEST_TIMEOUT = self.job_data["provision_data"].get(
+            "zapper_provisioning_timeout",
+            self.ZAPPER_REQUEST_TIMEOUT,
+        )
 
         (api_args, api_kwargs) = self._validate_configuration()
         self._run(self.config["control_host"], *api_args, **api_kwargs)

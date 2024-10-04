@@ -23,8 +23,6 @@ import logging
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
-    RecoveryError,
-    catch,
 )
 
 
@@ -34,7 +32,6 @@ logger = logging.getLogger(__name__)
 class DeviceConnector(DefaultDevice):
     """Fake device connector."""
 
-    @catch(RecoveryError, 46)
     def provision(self, args):
         """dummy provision"""
         with open(args.job_data) as json_file:

@@ -76,6 +76,7 @@ preconfigured
 preloaded
 provisionable
 provisioner
+rclone
 ReadMe
 readthedocs
 reST
@@ -86,6 +87,7 @@ RTD
 runtime
 SDWire
 SecureBoot
+SIGUSR
 SKU
 SQA
 SSID
@@ -93,7 +95,9 @@ SSO
 subdirectories
 subfolders
 subtree
+supervisord
 SUT
+systemd
 Tegra
 templating
 Testflinger
@@ -109,6 +113,7 @@ USB
 UUID
 virtualenv
 VM
+webdav
 webhook
 WPA
 xenial

@@ -17,8 +17,9 @@
 Testflinger v1 API
 """
 
+import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import pkg_resources
 from apiflask import APIBlueprint, abort
@@ -30,6 +31,9 @@ from werkzeug.exceptions import BadRequest
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+import jwt
+import bcrypt
 
 from src import database
 from . import schemas
@@ -652,3 +656,59 @@ def queue_wait_time_percentiles_get():
             queue["wait_times"]
         )
     return queue_percentile_data
+
+
+def generate_token(max_priority, secret_key):
+    """Generates JWT token with queue permission given a secret key"""
+    expiration_time = datetime.utcnow() + timedelta(seconds=2)
+    token_payload = {
+        "exp": expiration_time,
+        "iat": datetime.now(timezone.utc),  # Issued at time
+        "sub": "access_token",
+        "max_priority": max_priority,
+    }
+
+    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
+    return token
+
+
+def validate_client_key_pair(client_id: str, client_key: str):
+    """
+    Checks client_id and key pair for validity and returns their permissions
+    """
+    client_key_bytes = client_key.encode("utf-8")
+    client_permissions_entry = database.mongo.db.client_permissions.find_one(
+        {
+            "client_id": client_id,
+        }
+    )
+
+    if client_permissions_entry is None or not bcrypt.checkpw(
+        client_key_bytes,
+        client_permissions_entry["client_secret_hash"].encode("utf8"),
+    ):
+        return None
+    max_priority = client_permissions_entry["max_priority"]
+    return max_priority
+
+
+@v1.post("/oauth2/token")
+def retrieve_token():
+    """Get JWT with priority and queue permissions"""
+    auth_header = request.authorization
+    if auth_header is None:
+        return "No authorization header specified", 401
+    client_id = auth_header["username"]
+    client_key = auth_header["password"]
+    if client_id is None or client_key is None:
+        return (
+            "Client id and key must be specified in authorization header",
+            401,
+        )
+
+    allowed_resources = validate_client_key_pair(client_id, client_key)
+    if allowed_resources is None:
+        return "Invalid client id or client key", 401
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    token = generate_token(allowed_resources, secret_key)
+    return token

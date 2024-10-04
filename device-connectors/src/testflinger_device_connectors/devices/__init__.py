@@ -89,9 +89,6 @@ class RealSerialLogger:
 
     def __init__(self, host, port, filename):
         """Set up a subprocess to connect to an ip and collect serial logs"""
-        if not (host and port and filename):
-            self.stub = True
-        self.stub = False
         self.host = host
         self.port = int(port)
         self.filename = filename
@@ -115,7 +112,7 @@ class RealSerialLogger:
 
     def _log_serial(self):
         """Log data to the serial data to the output file"""
-        with open(self.filename, "a+") as f:
+        with open(self.filename, "ab+") as f:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((self.host, self.port))
                 logger.info("Successfully connected to serial logging server")
@@ -124,9 +121,7 @@ class RealSerialLogger:
                     for sock in read_sockets:
                         data = sock.recv(4096)
                         if data:
-                            f.write(
-                                data.decode(encoding="utf-8", errors="ignore")
-                            )
+                            f.write(data)
                             f.flush()
                         else:
                             logger.error(
@@ -200,6 +195,12 @@ class DefaultDevice:
         serial_port = config.get("serial_port")
         serial_proc = SerialLogger(serial_host, serial_port, "test-serial.log")
         serial_proc.start()
+
+        extra_env = {}
+        extra_env["AGENT_NAME"] = config.get("agent_name", "")
+        if "env" not in config:
+            config["env"] = {}
+        config["env"].update(extra_env)
         try:
             exitcode = testflinger_device_connectors.run_test_cmds(
                 test_cmds, config
@@ -310,26 +311,6 @@ class DefaultDevice:
     def cleanup(self, _):
         """Default method for cleaning up devices"""
         pass
-
-
-def catch(exception, returnval=0):
-    """Decorator for catching Exceptions and returning values instead
-
-    This is useful because for certain things, like RecoveryError, we
-    need to give the calling process a hint that we failed for that
-    reason, so it can act accordingly, by disabling the device for example
-    """
-
-    def _wrapper(func):
-        def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except exception:
-                return returnval
-
-        return wrapper
-
-    return _wrapper
 
 
 def get_device_stage_func(device: str, stage: str) -> Callable:

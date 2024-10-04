@@ -32,3 +32,19 @@ be updated even if the agent is offline as long as the agent is still running an
 able to communicate with the server. If an agent has not checked in after 7 days,
 it will automatically be removed from the database and will no longer appear in
 the "Agents" list.
+
+Safely Restarting or Shutting Down an Agent
+-------------------------------------------
+
+When an agent needs to be re-executed due to something like a code update or a
+configuration change, it is important to shut it down safely so that it does not
+interfere with a job currently running. To do this, you can use one of the
+following methods:
+
+1.  create a file called ``/tmp/TESTFLINGER-DEVICE-RESTART-(agent_name)`` (where ``(agent_name)`` is the name of the agent). 
+2. Send a SIGUSR1 signal to the agent's process
+
+Both of these methods will cause the agent to exit when it is no longer running
+a job. You will need to ensure something like systemd or supervisord is watching
+the agent process and restarting it if it exits in order to actually restart the
+agent.

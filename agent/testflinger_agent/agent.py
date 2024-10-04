@@ -1,4 +1,4 @@
-# Copyright (C) 2017-2020 Canonical
+# Copyright (C) 2017 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -105,7 +105,7 @@ class TestflingerAgent:
                     os.unlink(restart_file)
                     logger.info("Restarting agent")
                     self.set_agent_state("offline")
-                    raise SystemExit("Restart Requested")
+                    sys.exit("Restart Requested")
                 except OSError:
                     logger.error(
                         "Restart requested, but unable to remove marker file!"

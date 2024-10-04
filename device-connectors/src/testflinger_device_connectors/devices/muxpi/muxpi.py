@@ -19,6 +19,7 @@ import json
 import logging
 from pathlib import Path
 import requests
+import shlex
 import subprocess
 import tempfile
 import time
@@ -161,6 +162,58 @@ class MuxPi:
         # One final check to ensure the control host is alive, or fail
         self._run_control("true")
 
+    @contextmanager
+    def _storage_plug_to_self(self):
+        """Temporarily connect storage to provision an image.
+
+        This context manager yields the block device path for the
+        connected storage. After the context manager exits, the
+        storage device will be re-connected to the DUT.
+        """
+        media = self.job_data["provision_data"].get("media")
+
+        if media is None:
+            cmd = self.config.get("control_switch_local_cmd", "stm -ts")
+            self._run_control(cmd)
+            try:
+                yield self.config["test_device"]
+            finally:
+                return_cmd = self.config.get(
+                    "control_switch_device_cmd", "stm -dut"
+                )
+                self._run_control(return_cmd)
+        else:
+            # If media option is provided, then DUT is probably capable of
+            # booting from different media, we should switch both of them
+            # to TS side regardless of which one was previously used
+            try:
+                cmd = "zapper sdwire plug_to_self"
+                sd_node = self._run_control(cmd)
+            except Exception:
+                pass
+            try:
+                cmd = "zapper typecmux plug_to_self"
+                usb_node = self._run_control(cmd)
+            except Exception:
+                pass
+
+            if media == "sd":
+                try:
+                    yield sd_node.decode()
+                finally:
+                    self._run_control("zapper sdwire set DUT")
+            elif media == "usb":
+                try:
+                    yield usb_node.decode()
+                finally:
+                    self._run_control("zapper typecmux set DUT")
+            else:
+                raise ProvisioningError(
+                    'The "media" value in the "provision_data" section of '
+                    'your job_data must be either "sd" or "usb", '
+                    f"but got {media!r}"
+                )
+
     def provision(self):
         # If this is not a zapper, reboot before provisioning
         if "zapper" not in self.config.get("control_switch_local_cmd", ""):
@@ -187,58 +240,22 @@ class MuxPi:
                     f"that attachment doesn't exist: {image_name}"
                 )
 
-        # determine where to write the provisioning image
-        if "media" not in self.job_data["provision_data"]:
-            media = None
-            self.test_device = self.config["test_device"]
-            cmd = self.config.get("control_switch_local_cmd", "stm -ts")
-            self._run_control(cmd)
-        else:
-            media = self.job_data["provision_data"]["media"]
-            # If media option is provided, then DUT is probably capable of
-            # booting from different media, we should switch both of them
-            # to TS side regardless of which one was previously used
-            try:
-                cmd = "zapper sdwire plug_to_self"
-                sd_node = self._run_control(cmd)
-            except Exception:
-                pass
-            try:
-                cmd = "zapper typecmux plug_to_self"
-                usb_node = self._run_control(cmd)
-            except Exception:
-                pass
-            if media == "sd":
-                self.test_device = sd_node.decode()
-            elif media == "usb":
-                self.test_device = usb_node.decode()
+        with self._storage_plug_to_self() as block_device:
+            self.test_device = block_device
+            self.flash_test_image(source)
+
+            if self.job_data["provision_data"].get("create_user", True):
+                with self.remote_mount():
+                    image_type = self.get_image_type()
+                    logger.info("Image type detected: {}".format(image_type))
+                    logger.info("Creating Test User")
+                    self.create_user(image_type)
             else:
-                raise ProvisioningError(
-                    'The "media" value in '
-                    'the "provision_data" section of '
-                    "your job_data must be either "
-                    "'sd' or 'usb'"
-                )
+                logger.info("Skipping test user creation (create_user=False)")
 
-        self.flash_test_image(source)
+            self.run_post_provision_script()
 
-        if self.job_data["provision_data"].get("create_user", True):
-            with self.remote_mount():
-                image_type = self.get_image_type()
-                logger.info("Image type detected: {}".format(image_type))
-                logger.info("Creating Test User")
-                self.create_user(image_type)
-        else:
-            logger.info("Skipping test user creation (create_user=False)")
-        self.run_post_provision_script()
         logger.info("Booting Test Image")
-        if media == "sd":
-            cmd = "zapper sdwire set DUT"
-        elif media == "usb":
-            cmd = "zapper typecmux set DUT"
-        else:
-            cmd = self.config.get("control_switch_device_cmd", "stm -dut")
-        self._run_control(cmd)
         self.hardreset()
         self.check_test_image_booted()
 
@@ -349,8 +366,14 @@ class MuxPi:
             mount_list = self._get_part_labels()
         for dev, mount in mount_list:
             try:
-                self._run_control("sudo mkdir -p {}".format(mount))
-                self._run_control("sudo mount /dev/{} {}".format(dev, mount))
+                self._run_control(
+                    "sudo mkdir -p {}".format(shlex.quote(str(mount)))
+                )
+                self._run_control(
+                    "sudo mount /dev/{} {}".format(
+                        dev, shlex.quote(str(mount))
+                    )
+                )
             except Exception:
                 # If unmountable or any other error, go on to the next one
                 mount_list.remove((dev, mount))
@@ -359,7 +382,9 @@ class MuxPi:
             yield self.mount_point
         finally:
             for _, mount in mount_list:
-                self._run_control("sudo umount {}".format(mount))
+                self._run_control(
+                    "sudo umount {}".format(shlex.quote(str(mount)))
+                )
 
     def hardreset(self):
         """
@@ -390,9 +415,10 @@ class MuxPi:
         def check_path(dir):
             self._run_control("test -e {}".format(dir))
 
-        # First check if this is a ce-oem-iot image
-        if self.check_ce_oem_iot_image():
-            return "ce-oem-iot"
+        # First check if this is a ce-oem-iot image and type
+        res = self.check_ce_oem_iot_image()
+        if res:
+            return res
 
         try:
             disk_info_path = (
@@ -425,10 +451,24 @@ class MuxPi:
         """
         try:
             disk_info_path = self.mount_point / "writable/.disk/info"
-            buildstamp = '"iot-[a-z]+-[a-z-]*(classic-(server|desktop)-[0-9]+'
-            buildstamp += '|core-[0-9]+)"'
-            self._run_control(f"grep -E {buildstamp} {disk_info_path}")
-            return True
+            buildstamp = (
+                r'"iot-[a-z]+-[a-z-]*(classic-(server|desktop)-\K[0-9]+'
+            )
+            buildstamp += r'|core-\K[0-9]+)"'
+            release = self._run_control(
+                f"grep -oP {buildstamp} {disk_info_path}"
+            ).decode()
+            release = int(release)
+            if release > 2000:
+                if release >= 2404:
+                    return "ce-oem-iot-24-and-beyond"
+                else:
+                    return "ce-oem-iot-before-24"
+            else:
+                if release >= 24:
+                    return "ce-oem-iot-24-and-beyond"
+                else:
+                    return "ce-oem-iot-before-24"
         except ProvisioningError:
             return False
 
@@ -450,12 +490,21 @@ class MuxPi:
         remote_tmp = Path("/tmp") / self.agent_name
         try:
             data_path = Path(__file__).parent / "../../data/muxpi"
-            if image_type == "ce-oem-iot":
+            if image_type == "ce-oem-iot-before-24":
                 self._run_control("mkdir -p {}".format(remote_tmp))
                 self._copy_to_control(
                     data_path / "ce-oem-iot/user-data", remote_tmp
                 )
                 cmd = f"sudo cp {remote_tmp}/user-data {base}/system-boot/"
+                self._run_control(cmd)
+                self._configure_sudo()
+            if image_type == "ce-oem-iot-24-and-beyond":
+                self._run_control("mkdir -p {}".format(remote_tmp))
+                self._copy_to_control(
+                    data_path / "ce-oem-iot/user-data", remote_tmp
+                )
+                cmd = f"sudo cp {remote_tmp}/user-data {base}/writable"
+                cmd += "/var/lib/cloud/seed/nocloud"
                 self._run_control(cmd)
                 self._configure_sudo()
             if image_type == "tegra":

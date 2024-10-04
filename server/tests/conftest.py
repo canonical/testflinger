@@ -17,10 +17,13 @@
 Fixtures for testing
 """
 
+import os
+
 from dataclasses import dataclass
 import pytest
 import mongomock
 from mongomock.gridfs import enable_gridfs_integration
+import bcrypt
 
 from src import database, application
 
@@ -44,8 +47,8 @@ class MongoClientMock(mongomock.MongoClient):
         return super().start_session(*args, **kwargs)
 
 
-@pytest.fixture
-def mongo_app():
+@pytest.fixture(name="mongo_app")
+def mongo_app_fixture():
     """Create a pytest fixture for database and app"""
     mock_mongo = MongoClientMock()
     database.mongo = mock_mongo
@@ -58,3 +61,32 @@ def testapp():
     """pytest fixture for just the app"""
     app = application.create_flask_app(TestingConfig)
     yield app
+
+
+@pytest.fixture
+def mongo_app_with_permissions(mongo_app):
+    """
+    Pytest fixture that adds permissions
+    to the mock db for priority
+    """
+    os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+    app, mongo = mongo_app
+    client_id = "my_client_id"
+    client_key = "my_client_key"
+    client_salt = bcrypt.gensalt()
+    client_key_hash = bcrypt.hashpw(
+        client_key.encode("utf-8"), client_salt
+    ).decode("utf-8")
+
+    max_priority = {
+        "myqueue": 100,
+        "myqueue2": 200,
+    }
+    mongo.client_permissions.insert_one(
+        {
+            "client_id": client_id,
+            "client_secret_hash": client_key_hash,
+            "max_priority": max_priority,
+        }
+    )
+    yield app, mongo, client_id, client_key, max_priority

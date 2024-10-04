@@ -23,6 +23,8 @@ The configuration values of Testflinger servers are read from environment variab
      - MongoDB port to connect to (Default: 27017)
    * - ``MONGODB_URI``
      - URI for connecting to MongoDB (used instead of the above config options). For example: ``mongodb://user:pass@host:27017/dbname``
+   * - ``JWT_SIGNING_KEY``
+     - Secret key used for signing tokens with permissions for authenticated clients
 
 
 Example configuration
@@ -38,3 +40,4 @@ Example configuration
   MONGODB_DATABASE="testflinger_db"
   MONGODB_HOST="mongo"
   MONGODB_URI="mongodb://mongo:27017/testflinger_db"
+  JWT_SIGNING_KEY="my_secret_key"

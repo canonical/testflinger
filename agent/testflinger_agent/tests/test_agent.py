@@ -16,7 +16,7 @@ from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
-from testflinger_common.enums import TestPhase
+from testflinger_common.enums import TestPhase, TestEvent
 
 
 class TestClient:
@@ -536,3 +536,189 @@ class TestClient:
         event_list = status_update_requests[-1].json()["events"]
         event_name_list = [event["event_name"] for event in event_list]
         assert "output_timeout" in event_name_list
+
+    def test_post_provision_log_success(self, agent, requests_mock):
+        # Ensure provision log is posted when the provision phase succeeds
+        self.config["provision_command"] = "echo provision1"
+        job_id = str(uuid.uuid1())
+        fake_job_data = {
+            "job_id": job_id,
+            "job_queue": "test",
+            "provision_data": {"url": "foo"},
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+        )
+        expected_log_params = (
+            job_id,
+            0,
+            TestEvent.PROVISION_SUCCESS,
+        )
+        with patch.object(
+            agent.client, "post_provision_log"
+        ) as mock_post_provision_log:
+            agent.process_jobs()
+            mock_post_provision_log.assert_called_with(*expected_log_params)
+
+    def test_post_provision_log_fail(self, agent, requests_mock):
+        # Ensure provision log is posted when the provision phase fails
+        self.config["provision_command"] = "exit 1"
+        job_id = str(uuid.uuid1())
+        fake_job_data = {
+            "job_id": job_id,
+            "job_queue": "test",
+            "provision_data": {"url": "foo"},
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+        )
+        expected_log_params = (
+            job_id,
+            1,
+            TestEvent.PROVISION_FAIL,
+        )
+        with patch.object(
+            agent.client, "post_provision_log"
+        ) as mock_post_provision_log:
+            agent.process_jobs()
+            mock_post_provision_log.assert_called_with(*expected_log_params)
+
+    def test_provision_error_in_event_detail(self, agent, requests_mock):
+        """Tests provision log error messages in event log detail field"""
+        self.config["test_command"] = "echo test1"
+        job_id = str(uuid.uuid1())
+        fake_job_data = {
+            "job_id": job_id,
+            "job_queue": "test",
+            "test_data": {"test_cmds": "foo"},
+            "job_status_webhook": "https://mywebhook",
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+        )
+        status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
+        requests_mock.post(status_url, status_code=200)
+
+        provision_exception_info = {
+            "provision_exception_info": {
+                "exception_name": "MyExceptionName",
+                "exception_message": "MyExceptionMessage",
+                "exception_cause": "MyExceptionCause",
+            }
+        }
+
+        with patch("shutil.rmtree"):
+            with patch(
+                "testflinger_agent.agent.TestflingerJob.run_test_phase"
+            ) as mock_run_test_phase:
+
+                def run_test_phase_side_effect(phase, rundir):
+                    if phase == "provision":
+                        provision_log_path = os.path.join(
+                            rundir, "device-connector-error.json"
+                        )
+                        with open(
+                            provision_log_path, "w"
+                        ) as provision_log_file:
+                            provision_log_file.write(
+                                json.dumps(provision_exception_info)
+                            )
+                            provision_log_file.close()
+                        return 99, None, ""
+                    else:
+                        return 0, None, ""
+
+                mock_run_test_phase.side_effect = run_test_phase_side_effect
+                agent.process_jobs()
+
+        status_update_requests = list(
+            filter(
+                lambda req: req.url == status_url,
+                requests_mock.request_history,
+            )
+        )
+        event_list = status_update_requests[-1].json()["events"]
+        provision_fail_events = list(
+            filter(
+                lambda event: event["event_name"] == "provision_fail",
+                event_list,
+            )
+        )
+        assert len(provision_fail_events) == 1
+        provision_fail_event_detail = provision_fail_events[0]["detail"]
+        assert (
+            provision_fail_event_detail
+            == "MyExceptionName: MyExceptionMessage caused by MyExceptionCause"
+        )
+
+    def test_provision_error_no_cause(self, agent, requests_mock):
+        """Tests provision log error messages for exceptions with no cause"""
+        self.config["test_command"] = "echo test1"
+        job_id = str(uuid.uuid1())
+        fake_job_data = {
+            "job_id": job_id,
+            "job_queue": "test",
+            "test_data": {"test_cmds": "foo"},
+            "job_status_webhook": "https://mywebhook",
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+        )
+        status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
+        requests_mock.post(status_url, status_code=200)
+
+        provision_exception_info = {
+            "provision_exception_info": {
+                "exception_name": "MyExceptionName",
+                "exception_message": "MyExceptionMessage",
+                "exception_cause": None,
+            }
+        }
+
+        with patch("shutil.rmtree"):
+            with patch(
+                "testflinger_agent.agent.TestflingerJob.run_test_phase"
+            ) as mock_run_test_phase:
+
+                def run_test_phase_side_effect(phase, rundir):
+                    if phase == "provision":
+                        provision_log_path = os.path.join(
+                            rundir, "device-connector-error.json"
+                        )
+                        with open(
+                            provision_log_path, "w"
+                        ) as provision_log_file:
+                            provision_log_file.write(
+                                json.dumps(provision_exception_info)
+                            )
+                            provision_log_file.close()
+                        return 99, None, ""
+                    else:
+                        return 0, None, ""
+
+                mock_run_test_phase.side_effect = run_test_phase_side_effect
+                agent.process_jobs()
+
+        status_update_requests = list(
+            filter(
+                lambda req: req.url == status_url,
+                requests_mock.request_history,
+            )
+        )
+        event_list = status_update_requests[-1].json()["events"]
+        provision_fail_events = list(
+            filter(
+                lambda event: event["event_name"] == "provision_fail",
+                event_list,
+            )
+        )
+        assert len(provision_fail_events) == 1
+        provision_fail_event_detail = provision_fail_events[0]["detail"]
+        assert (
+            provision_fail_event_detail
+            == "MyExceptionName: MyExceptionMessage"
+        )
