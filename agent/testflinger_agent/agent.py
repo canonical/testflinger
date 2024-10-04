@@ -20,7 +20,7 @@ import sys
 
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
-from testflinger_common.enums import JobState, TestPhase
+from testflinger_common.enums import JobState, TestPhase, TestEvent
 
 
 logger = logging.getLogger(__name__)
@@ -168,7 +168,7 @@ class TestflingerAgent:
             provision_result = job.phases[TestPhase.PROVISION].result
             if (
                 provision_result is not None
-                and provision_result.exit_code == 46
+                and provision_result.event == TestEvent.RECOVERY_FAIL
             ):
                 self.mark_device_offline()
 

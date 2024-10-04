@@ -153,6 +153,7 @@ class CommandRunner:
         self.cleanup()
         if stop_reason == "":
             stop_reason = get_stop_reason(self.process.returncode, "")
+
         return self.process.returncode, stop_event, stop_reason
 
 

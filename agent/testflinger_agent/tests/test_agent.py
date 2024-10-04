@@ -17,7 +17,7 @@ from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.job import TestflingerJob, JobPhaseResult
-from testflinger_common.enums import TestPhase, TestEvent
+from testflinger_common.enums import TestEvent
 
 
 class TestClient:
@@ -615,7 +615,9 @@ class TestClient:
 
         # patch
         def run_core_provision_patch(self):
-            provision_log_path = self.params.rundir / "device-connector-error.json"
+            provision_log_path = (
+                self.params.rundir / "device-connector-error.json"
+            )
             with open(provision_log_path, "w") as provision_log_file:
                 provision_log_file.write(json.dumps(provision_exception_info))
             self.result = JobPhaseResult(
@@ -629,7 +631,7 @@ class TestClient:
             patch(
                 "testflinger_agent.job.ProvisionPhase.run",
                 run_core_provision_patch,
-            )
+            ),
         ):
             agent.process_jobs()
 
@@ -680,7 +682,9 @@ class TestClient:
 
         # patch
         def run_core_provision_patch(self):
-            provision_log_path = self.params.rundir / "device-connector-error.json"
+            provision_log_path = (
+                self.params.rundir / "device-connector-error.json"
+            )
             with open(provision_log_path, "w") as provision_log_file:
                 provision_log_file.write(json.dumps(provision_exception_info))
             self.result = JobPhaseResult(
@@ -694,7 +698,7 @@ class TestClient:
             patch(
                 "testflinger_agent.job.ProvisionPhase.run",
                 run_core_provision_patch,
-            )
+            ),
         ):
             agent.process_jobs()
 
