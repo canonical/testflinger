@@ -16,6 +16,7 @@ import logging
 import os
 import shutil
 import signal
+import sys
 
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
@@ -125,9 +126,8 @@ class TestflingerAgent:
         self.check_restart()
         job_data = self.client.check_jobs()
         while job_data:
+            job_id = job_data["job_id"]
             try:
-                job_id = job_data["job_id"]
-
                 # Create the job
                 job = TestflingerJob(job_data, self.client)
 
@@ -152,22 +152,28 @@ class TestflingerAgent:
                         job.run(phase)
                         if job.check_end():
                             break
-
-            except Exception as e:
-                logger.exception(e)
+            except Exception as error:
+                logger.exception(f"{type(error).__name__}: {error}")
             finally:
+                phase = TestPhase.CLEANUP
                 # Always run the cleanup, even if the job was cancelled
-                job.run(TestPhase.CLEANUP)
+                if job.go(phase):
+                    self.set_agent_state(phase)
+                    job.run(phase)
 
             # let the server know the agent is available (clear job id)
             job.end()
             self.client.post_agent_data({"job_id": ""})
 
-            if job.phases[TestPhase.PROVISIONING].result.exit_status == 46:
+            provision_result = job.phases[TestPhase.PROVISION].result
+            if (
+                provision_result is not None
+                and provision_result.exit_code == 46
+            ):
                 self.mark_device_offline()
 
             try:
-                self.client.transmit_job_outcome(job.params.rundir)
+                self.client.transmit_job_outcome(str(job.params.rundir))
             except Exception as e:
                 # TFServerError will happen if we get other-than-good status
                 # Other errors can happen too for things like connection

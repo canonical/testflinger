@@ -11,7 +11,10 @@ from unittest.mock import patch
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_common.enums import TestPhase
-from testflinger_agent.job import TestflingerJob as _TestflingerJob, set_truncate
+from testflinger_agent.job import (
+    TestflingerJob as _TestflingerJob,
+    set_truncate,
+)
 from testflinger_agent.runner import CommandRunner
 from testflinger_agent.handlers import LogUpdateHandler
 from testflinger_agent.stop_condition_checkers import (
@@ -56,14 +59,6 @@ class TestJob:
         job = _TestflingerJob(fake_job_data, client)
         self.config[f"{phase}_command"] = "/bin/true"
         assert not job.go(phase)
-
-        '''
-        with rmock.Mocker() as mocker:
-            # mock response to result submissions
-            #mocker.post(re.compile(r"/v1/result/"), status_code=200)
-            #mocker.post(re.compile(r"/v1/result/[-a-z0-9]+/output"), status_code=200)
-            #mocker.get(re.compile(r"/v1/result/[-a-z0-9]+"), status_code=200)
-        '''
 
     @pytest.mark.parametrize(
         "phase", ["setup", "provision", "test", "allocate", "reserve"]
@@ -164,7 +159,9 @@ class TestJob:
             # mock response to result requests
             mocker.get(re.compile(r"/v1/result/"), status_code=200)
             mocker.post(re.compile(r"/v1/result/"), status_code=200)
-            mocker.post(re.compile(r"/v1/agents/provision_logs/"), status_code=200)
+            mocker.post(
+                re.compile(r"/v1/agents/provision_logs/"), status_code=200
+            )
             job.run(TestPhase.PROVISION)
 
         with open(job.phases[TestPhase.PROVISION].output_log) as log:
@@ -196,12 +193,10 @@ class TestJob:
         exit_code, exit_event, exit_reason = job.phases[TestPhase.SETUP].result
         assert exit_code == 100
         assert exit_event == TestEvent.SETUP_FAIL
-        assert exit_reason == "failed"
+        assert exit_reason == "Exception: failed"
 
     def test_set_truncate(self, client):
         """Test the _set_truncate method of TestflingerJob"""
-        job_id = str(uuid.uuid1())
-        job = _TestflingerJob({"job_id": job_id, "job_queue": ""}, client)
         with tempfile.TemporaryFile(mode="r+") as f:
             # First check that a small file doesn't get truncated
             f.write("x" * 100)
@@ -227,7 +222,12 @@ class TestJob:
         job_id = str(uuid.uuid1())
         parent_job_id = str(uuid.uuid1())
         job = _TestflingerJob(
-            {"job_id": job_id, "parent_job_id": parent_job_id, "job_queue": ""}, client
+            {
+                "job_id": job_id,
+                "parent_job_id": parent_job_id,
+                "job_queue": "",
+            },
+            client,
         )
         job.phases[TestPhase.ALLOCATE].wait_for_completion()
         # No assertions needed, just make sure we don't timeout

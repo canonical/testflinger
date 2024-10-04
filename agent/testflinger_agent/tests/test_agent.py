@@ -12,10 +12,11 @@ import pytest
 from mock import patch
 
 import testflinger_agent
+from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
+from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
-from testflinger_agent.client import TestflingerClient as _TestflingerClient
-from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
+from testflinger_agent.job import TestflingerJob, JobPhaseResult
 from testflinger_common.enums import TestPhase, TestEvent
 
 
@@ -429,8 +430,10 @@ class TestClient:
         event_name_list = [event["event_name"] for event in event_list]
         expected_event_name_list = [
             phase.value + postfix
-            for phase in TestPhase
+            for phase in TestflingerJob.phase_sequence
             for postfix in ["_start", "_success"]
+            if f"{phase}_data" in fake_job_data
+            and f"{phase}_command" in self.config
         ]
         expected_event_name_list.insert(0, "job_start")
         expected_event_name_list.append("job_end")
@@ -587,12 +590,12 @@ class TestClient:
 
     def test_provision_error_in_event_detail(self, agent, requests_mock):
         """Tests provision log error messages in event log detail field"""
-        self.config["test_command"] = "echo test1"
+        self.config["provision_command"] = "echo provision1"
         job_id = str(uuid.uuid1())
         fake_job_data = {
             "job_id": job_id,
             "job_queue": "test",
-            "test_data": {"test_cmds": "foo"},
+            "provision_data": {"url": "foo"},
             "job_status_webhook": "https://mywebhook",
         }
         requests_mock.get(
@@ -610,29 +613,25 @@ class TestClient:
             }
         }
 
-        with patch("shutil.rmtree"):
-            with patch(
-                "testflinger_agent.agent.TestflingerJob.run_test_phase"
-            ) as mock_run_test_phase:
+        # patch
+        def run_core_provision_patch(self):
+            provision_log_path = self.params.rundir / "device-connector-error.json"
+            with open(provision_log_path, "w") as provision_log_file:
+                provision_log_file.write(json.dumps(provision_exception_info))
+            self.result = JobPhaseResult(
+                exit_code=99,
+                event=f"{self.phase_id}_fail",
+                detail=self.parse_error_logs(),
+            )
 
-                def run_test_phase_side_effect(phase, rundir):
-                    if phase == "provision":
-                        provision_log_path = os.path.join(
-                            rundir, "device-connector-error.json"
-                        )
-                        with open(
-                            provision_log_path, "w"
-                        ) as provision_log_file:
-                            provision_log_file.write(
-                                json.dumps(provision_exception_info)
-                            )
-                            provision_log_file.close()
-                        return 99, None, ""
-                    else:
-                        return 0, None, ""
-
-                mock_run_test_phase.side_effect = run_test_phase_side_effect
-                agent.process_jobs()
+        with (
+            patch("shutil.rmtree"),
+            patch(
+                "testflinger_agent.job.ProvisionPhase.run",
+                run_core_provision_patch,
+            )
+        ):
+            agent.process_jobs()
 
         status_update_requests = list(
             filter(
@@ -656,12 +655,12 @@ class TestClient:
 
     def test_provision_error_no_cause(self, agent, requests_mock):
         """Tests provision log error messages for exceptions with no cause"""
-        self.config["test_command"] = "echo test1"
+        self.config["provision_command"] = "echo provision1"
         job_id = str(uuid.uuid1())
         fake_job_data = {
             "job_id": job_id,
             "job_queue": "test",
-            "test_data": {"test_cmds": "foo"},
+            "provision_data": {"url": "foo"},
             "job_status_webhook": "https://mywebhook",
         }
         requests_mock.get(
@@ -679,29 +678,25 @@ class TestClient:
             }
         }
 
-        with patch("shutil.rmtree"):
-            with patch(
-                "testflinger_agent.agent.TestflingerJob.run_test_phase"
-            ) as mock_run_test_phase:
+        # patch
+        def run_core_provision_patch(self):
+            provision_log_path = self.params.rundir / "device-connector-error.json"
+            with open(provision_log_path, "w") as provision_log_file:
+                provision_log_file.write(json.dumps(provision_exception_info))
+            self.result = JobPhaseResult(
+                exit_code=99,
+                event=f"{self.phase_id}_fail",
+                detail=self.parse_error_logs(),
+            )
 
-                def run_test_phase_side_effect(phase, rundir):
-                    if phase == "provision":
-                        provision_log_path = os.path.join(
-                            rundir, "device-connector-error.json"
-                        )
-                        with open(
-                            provision_log_path, "w"
-                        ) as provision_log_file:
-                            provision_log_file.write(
-                                json.dumps(provision_exception_info)
-                            )
-                            provision_log_file.close()
-                        return 99, None, ""
-                    else:
-                        return 0, None, ""
-
-                mock_run_test_phase.side_effect = run_test_phase_side_effect
-                agent.process_jobs()
+        with (
+            patch("shutil.rmtree"),
+            patch(
+                "testflinger_agent.job.ProvisionPhase.run",
+                run_core_provision_patch,
+            )
+        ):
+            agent.process_jobs()
 
         status_update_requests = list(
             filter(

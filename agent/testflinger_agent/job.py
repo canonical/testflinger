@@ -141,6 +141,8 @@ class JobPhase(ABC):
     def run(self) -> Tuple[int, Optional[TestEvent], str]:
         """This is the generic structure of every phase"""
 
+        assert self.go()
+
         # register the output handlers with the runner
         self.runner.register_output_handler(LogUpdateHandler(self.output_log))
         self.runner.register_output_handler(
@@ -215,44 +217,50 @@ class ExternalCommandPhase(JobPhase):
             return False
         return True
 
-    def run_core(self) -> Tuple[int, Optional[TestEvent], str]:
+    def run_core(self):
         # execute the external command
         logger.info("Running %s_command: %s", self.phase_id, self.cmd)
         try:
-            # events returned by the runner can only be stop events
             exit_code, event, detail = self.runner.run(self.cmd)
-            if not event:
-                if exit_code == 0:
-                    # complete, successful run
+            if exit_code == 0:
+                # complete, successful run
+                self.result = JobPhaseResult(
+                    exit_code=exit_code,
+                    event=f"{self.phase_id}_success",
+                )
+            else:
+                # [NOTE] This is a deviation from the current approach
+                # where a separate event is emitted when stop events are
+                # returned from the runner and then a fail event on top
+                # Here we *only* emit the stop event
+                # self.emitter.emit_event(event, detail)
+                if event:
                     self.result = JobPhaseResult(
                         exit_code=exit_code,
-                        event=f"{self.phase_id}_success",
+                        event=event,
+                        detail=detail,
                     )
                 else:
-                    # complete but failed run
                     self.result = JobPhaseResult(
                         exit_code=exit_code,
                         event=f"{self.phase_id}_fail",
+                        detail=self.parse_error_logs(),
                     )
-            else:
-                # stopped run
-                self.result = JobPhaseResult(
-                    exit_code=exit_code, event=event, detail=detail
-                )
         except Exception as error:
             # failed phase run due to an exception
-            logger.exception("%s: %s", type(error).__name__, str(error))
+            detail = f"{type(error).__name__}: {error}"
+            logger.exception(detail)
             self.result = JobPhaseResult(
                 exit_code=100,
                 event=f"{self.phase_id}_fail",
-                detail=self.parse_error_logs()
+                detail=detail,
             )
 
     def parse_error_logs(self):
-        # [TODO] Move filenames used to pass information across entities to the common module
-        print("PARSING", str(self.params.rundir / "device-connector-error.json"))
-        with open(self.params.rundir / "device-connector-error.json", "r") as error_file:
-            print("OPENED")
+        # [TODO] Move filenames used to pass information to the common module
+        with open(
+            self.params.rundir / "device-connector-error.json", "r"
+        ) as error_file:
             error_file_contents = error_file.read()
             try:
                 exception_info = json.loads(error_file_contents)[
@@ -297,7 +305,7 @@ class UnpackPhase(JobPhase, phase_id=TestPhase.UNPACK):
             return False
         return True
 
-    def run_core(self) -> Tuple[int, Optional[TestEvent], str]:
+    def run_core(self):
         try:
             self.unpack_attachments()
         except Exception as error:
@@ -381,7 +389,9 @@ class FirmwarePhase(ExternalCommandPhase, phase_id=TestPhase.FIRMWARE_UPDATE):
             return False
         # the phase is "go" if the phase data has been provided
         if not self.params.job_data.get(f"{self.phase_id}_data"):
-            logger.info("No %s_data defined in job data, skipping...", self.phase_id)
+            logger.info(
+                "No %s_data defined in job data, skipping...", self.phase_id
+            )
             return False
         return True
 
@@ -398,7 +408,9 @@ class ProvisionPhase(ExternalCommandPhase, phase_id=TestPhase.PROVISION):
             return False
         # the phase is "go" if the phase data has been provided
         if not self.params.job_data.get(f"{self.phase_id}_data"):
-            logger.info("No %s_data defined in job data, skipping...", self.phase_id)
+            logger.info(
+                "No %s_data defined in job data, skipping...", self.phase_id
+            )
             return False
         return True
 
@@ -417,11 +429,12 @@ class ProvisionPhase(ExternalCommandPhase, phase_id=TestPhase.PROVISION):
         if self.result.exit_code == 46:
             # exit code 46 is our indication that recovery failed!
             # In this case, we need to mark the device offline
-            self.mark_device_offline()
-            self.result = self.result.replace(event=TestEvent.RECOVERY_FAIL)
+            self.result = self.result._replace(event=TestEvent.RECOVERY_FAIL)
 
         self.params.client.post_provision_log(
-            self.params.job_data["job_id"], self.result.exit_code, self.result.event
+            self.params.job_data["job_id"],
+            self.result.exit_code,
+            self.result.event,
         )
 
 
@@ -432,7 +445,9 @@ class TestCommandsPhase(ExternalCommandPhase, phase_id=TestPhase.TEST):
             return False
         # the phase is "go" if the phase data has been provided
         if not self.params.job_data.get(f"{self.phase_id}_data"):
-            logger.info("No %s_data defined in job data, skipping...", self.phase_id)
+            logger.info(
+                "No %s_data defined in job data, skipping...", self.phase_id
+            )
             return False
         return True
 
@@ -621,17 +636,19 @@ class TestflingerJob:
             f"{self.params.client.server}/jobs/{self.job_id}",
         )
 
-    def check_end(self):
+    def check_end(self) -> bool:
         phase = self.phases[self.current_phase]
-        if phase.result.exitcode and self.current_phase != TestPhase.TEST:
+        if phase.result.exit_code and self.current_phase != TestPhase.TEST:
             logger.debug("Phase %s failed, aborting job" % phase)
             self.end_reason = phase.result.event
+            return True
+        return False
 
     def end(self):
         logger.info("Ending job %s", self.job_id)
-        self.event_emitter.emit_event(TestEvent.JOB_END, self.end_reason)
+        self.emitter.emit_event(TestEvent.JOB_END, self.end_reason)
 
-    def check_cancel(self):
+    def check_cancel(self) -> bool:
         return (
             self.params.client.check_job_state(self.job_id)
             == JobState.CANCELLED
@@ -688,7 +705,7 @@ class TestflingerJob:
             raise tarfile.OutsideDestinationError(member, path)
         return tarfile.data_filter(member, path)
 
-    def check_attachments(self):
+    def check_attachments(self) -> bool:
         return self.params.job_data.get("attachments_status") == "complete"
 
     def unpack_attachments(self):
