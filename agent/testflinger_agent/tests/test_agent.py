@@ -626,14 +626,12 @@ class TestClient:
                 detail=self.parse_error_logs(),
             )
 
-        with (
-            patch("shutil.rmtree"),
-            patch(
+        with patch("shutil.rmtree"):
+            with patch(
                 "testflinger_agent.job.ProvisionPhase.run",
                 run_core_provision_patch,
-            ),
-        ):
-            agent.process_jobs()
+            ):
+                agent.process_jobs()
 
         status_update_requests = list(
             filter(
@@ -693,14 +691,12 @@ class TestClient:
                 detail=self.parse_error_logs(),
             )
 
-        with (
-            patch("shutil.rmtree"),
-            patch(
+        with patch("shutil.rmtree"):
+            with patch(
                 "testflinger_agent.job.ProvisionPhase.run",
                 run_core_provision_patch,
-            ),
-        ):
-            agent.process_jobs()
+            ):
+                agent.process_jobs()
 
         status_update_requests = list(
             filter(

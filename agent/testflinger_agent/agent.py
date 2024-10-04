@@ -180,7 +180,8 @@ class TestflingerAgent:
                 # problems
                 logger.exception(e)
                 results_basedir = self.client.config.get("results_basedir")
-                shutil.move(job.params.rundir, results_basedir)
+                # [NOTE] In Python 3.8 `shutil.move`` still expects strings
+                shutil.move(str(job.params.rundir), results_basedir)
             self.set_agent_state(JobState.WAITING)
 
             self.check_restart()
