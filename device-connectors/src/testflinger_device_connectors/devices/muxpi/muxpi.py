@@ -256,6 +256,7 @@ class MuxPi:
             self.run_post_provision_script()
 
         logger.info("Booting Test Image")
+        Path("provision-boot-time.stamp").touch()
         self.hardreset()
         self.check_test_image_booted()
 
