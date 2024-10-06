@@ -20,7 +20,7 @@ import os
 from pathlib import Path
 import tempfile
 import time
-from typing import Optional, Tuple, NamedTuple
+from typing import Optional, NamedTuple
 
 from testflinger_agent.client import TestflingerClient
 from testflinger_agent.config import ATTACHMENTS_DIR
@@ -130,15 +130,15 @@ class JobPhase(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def run_core(self):
-        """Execute the "core" of the phase and set self.result"""
+    def run_core(self) -> JobPhaseResult:
+        """Execute the "core" of the phase"""
         raise NotImplementedError
 
     def process_results(self):
         """Execute any possible actions after the "core" of the phase"""
         pass
 
-    def run(self) -> Tuple[int, Optional[TestEvent], str]:
+    def run(self):
         """This is the generic structure of every phase"""
 
         assert self.go()
@@ -160,14 +160,14 @@ class JobPhase(ABC):
         ):
             self.runner.run(f"echo '{line}'")
 
-        # run the "core" of the phase
-        self.run_core()
-        self.update_results()
+        # run the "core" of the phase and store the result
+        self.result = self.run_core()
 
         # perform any post-core actions
         self.process_results()
+        self.update_results_file()
 
-    def update_results(self):
+    def update_results_file(self):
         """Update the results file with the results of this phase"""
         with open(self.results_file, "r+") as results:
             outcome_data = json.load(results)
@@ -217,14 +217,14 @@ class ExternalCommandPhase(JobPhase):
             return False
         return True
 
-    def run_core(self):
+    def run_core(self) -> JobPhaseResult:
         # execute the external command
         logger.info("Running %s_command: %s", self.phase_id, self.cmd)
         try:
             exit_code, event, detail = self.runner.run(self.cmd)
             if exit_code == 0:
                 # complete, successful run
-                self.result = JobPhaseResult(
+                return JobPhaseResult(
                     exit_code=exit_code,
                     event=f"{self.phase_id}_success",
                 )
@@ -235,13 +235,13 @@ class ExternalCommandPhase(JobPhase):
                 # Here we *only* emit the stop event
                 # self.emitter.emit_event(event, detail)
                 if event:
-                    self.result = JobPhaseResult(
+                    return JobPhaseResult(
                         exit_code=exit_code,
                         event=event,
                         detail=detail,
                     )
                 else:
-                    self.result = JobPhaseResult(
+                    return JobPhaseResult(
                         exit_code=exit_code,
                         event=f"{self.phase_id}_fail",
                         detail=self.parse_error_logs(),
@@ -250,7 +250,7 @@ class ExternalCommandPhase(JobPhase):
             # failed phase run due to an exception
             detail = f"{type(error).__name__}: {error}"
             logger.exception(detail)
-            self.result = JobPhaseResult(
+            return JobPhaseResult(
                 exit_code=100,
                 event=f"{self.phase_id}_fail",
                 detail=detail,
@@ -640,6 +640,8 @@ class TestflingerJob:
         phase = self.phases[self.current_phase]
         if phase.result.exit_code and self.current_phase != TestPhase.TEST:
             logger.debug("Phase %s failed, aborting job" % phase)
+            # set these here because self.end() is called after cleanup
+            self.end_phase = phase.phase_id
             self.end_reason = phase.result.event
             return True
         return False
@@ -661,14 +663,11 @@ class TestflingerJob:
     def go(self, phase_id: TestPhase) -> bool:
         return self.phases[phase_id].go()
 
-    def run(self, phase_id: TestPhase):
-        """Run the specified test phase in rundir
+    def run(self, phase_id: TestPhase) -> JobPhaseResult:
+        """Run the specified test phase
 
         :param phase:
             Name of the test phase (setup, provision, test, ...)
-        :return:
-            Returncode from the command that was executed, 0 will be returned
-            if there was no command to run
         """
         self.current_phase = phase_id
         self.params.client.post_job_state(self.job_id, phase_id)
@@ -677,6 +676,7 @@ class TestflingerJob:
         phase.run()
         # self.params.client.post_influx(phase.id, phase.result.exit_code)
         self.emitter.emit_event(phase.result.event, phase.result.detail)
+        return phase.result
 
     def secure_filter(self, member, path):
         """Combine the `data` filter with custom attachment filtering

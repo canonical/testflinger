@@ -188,9 +188,8 @@ class TestJob:
                 # mock response to result requests
                 mocker.get(re.compile(r"/v1/result/"), status_code=200)
                 mocker.post(re.compile(r"/v1/result/"), status_code=200)
-                job.run(TestPhase.SETUP)
+                exit_code, exit_event, exit_reason = job.run(TestPhase.SETUP)
 
-        exit_code, exit_event, exit_reason = job.phases[TestPhase.SETUP].result
         assert exit_code == 100
         assert exit_event == TestEvent.SETUP_FAIL
         assert exit_reason == "Exception: failed"
