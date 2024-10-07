@@ -803,6 +803,24 @@ def test_job_with_priority(mongo_app_with_permissions):
     assert 200 == job_response.status_code
 
 
+def test_star_priority(mongo_app_with_permissions):
+    """
+    Tests submission of priority job for a generic queue
+    with star priority permissions
+    """
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    job = {"job_queue": "mygenericqueue", "job_priority": 1}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 200 == job_response.status_code
+
+
 def test_priority_no_token(mongo_app_with_permissions):
     """Tests rejection of priority job with no token"""
     app, _, _, _, _ = mongo_app_with_permissions
