@@ -100,7 +100,7 @@ def has_attachments(data: dict) -> bool:
     )
 
 
-def check_token_permission(
+def check_token_priority_permission(
     auth_token: str, secret_key: str, priority: int, queue: str
 ) -> bool:
     """
@@ -108,22 +108,24 @@ def check_token_permission(
     push a job to the queue with the requested priority
     """
     if auth_token is None:
-        abort(401, "No authentication token specified")
-    else:
-        try:
-            decoded_jwt = jwt.decode(
-                auth_token,
-                secret_key,
-                algorithms="HS256",
-                options={"require": ["exp", "iat", "sub", "max_priority"]},
-            )
-        except jwt.exceptions.ExpiredSignatureError:
-            abort(403, "Token has expired")
-        except jwt.exceptions.InvalidTokenError:
-            abort(403, "Invalid Token")
+        abort(401, "Unauthorized")
+    try:
+        decoded_jwt = jwt.decode(
+            auth_token,
+            secret_key,
+            algorithms="HS256",
+            options={"require": ["exp", "iat", "sub"]},
+        )
+    except jwt.exceptions.ExpiredSignatureError:
+        abort(403, "Token has expired")
+    except jwt.exceptions.InvalidTokenError:
+        abort(403, "Invalid Token")
 
-        max_priority = decoded_jwt["max_priority"].get(queue, 0)
-        return max_priority >= priority
+    max_priority_dict = decoded_jwt.get("max_priority", {})
+    star_priority = max_priority_dict.get("*", 0)
+    queue_priority = max_priority_dict.get(queue, 0)
+    max_priority = max(star_priority, queue_priority)
+    return max_priority >= priority
 
 
 def job_builder(data: dict, auth_token: str):
@@ -152,7 +154,7 @@ def job_builder(data: dict, auth_token: str):
     if "job_priority" in data:
         priority_level = data["job_priority"]
         job_queue = data["job_queue"]
-        allowed = check_token_permission(
+        allowed = check_token_priority_permission(
             auth_token,
             os.environ.get("JWT_SIGNING_KEY"),
             priority_level,

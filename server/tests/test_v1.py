@@ -17,7 +17,7 @@
 Unit tests for Testflinger v1 API
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 import json
 import os
@@ -824,3 +824,38 @@ def test_priority_invalid_queue(mongo_app_with_permissions):
         "/v1/job", json=job, headers={"Authorization": token}
     )
     assert 403 == job_response.status_code
+
+
+def test_priority_expired_token(mongo_app_with_permissions):
+    """Tests rejection of priority job with expired token"""
+    app, _, _, _, _ = mongo_app_with_permissions
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    expired_token_payload = {
+        "exp": datetime.utcnow() - timedelta(seconds=2),
+        "iat": datetime.utcnow() - timedelta(seconds=4),
+        "sub": "access_token",
+        "max_priority": {},
+    }
+    token = jwt.encode(expired_token_payload, secret_key, algorithm="HS256")
+    job = {"job_queue": "myqueue", "job_priority": 100}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 403 == job_response.status_code
+    assert "Token has expired" in job_response.text
+
+
+def test_missing_fields_in_token(mongo_app_with_permissions):
+    """Tests rejection of priority job with token with missing fields"""
+    app, _, _, _, _ = mongo_app_with_permissions
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    incomplete_token_payload = {
+        "max_priority": {},
+    }
+    token = jwt.encode(incomplete_token_payload, secret_key, algorithm="HS256")
+    job = {"job_queue": "myqueue", "job_priority": 100}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 403 == job_response.status_code
+    assert "Invalid Token" in job_response.text
