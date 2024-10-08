@@ -17,7 +17,7 @@
 Unit tests for Testflinger v1 API
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 import json
 import os
@@ -781,9 +781,99 @@ def test_retrieve_token_invalid_client_key(mongo_app_with_permissions):
     """
     app, _, client_id, _, _ = mongo_app_with_permissions
     client_key = "my_wrong_key"
-
     output = app.post(
         "/v1/oauth2/token",
         headers=create_auth_header(client_id, client_key),
     )
     assert output.status_code == 401
+
+
+def test_job_with_priority(mongo_app_with_permissions):
+    """Tests submission of priority job with valid token"""
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    job = {"job_queue": "myqueue2", "job_priority": 200}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 200 == job_response.status_code
+
+
+def test_star_priority(mongo_app_with_permissions):
+    """
+    Tests submission of priority job for a generic queue
+    with star priority permissions
+    """
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    job = {"job_queue": "mygenericqueue", "job_priority": 1}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 200 == job_response.status_code
+
+
+def test_priority_no_token(mongo_app_with_permissions):
+    """Tests rejection of priority job with no token"""
+    app, _, _, _, _ = mongo_app_with_permissions
+    job = {"job_queue": "myqueue2", "job_priority": 200}
+    job_response = app.post("/v1/job", json=job)
+    assert 401 == job_response.status_code
+
+
+def test_priority_invalid_queue(mongo_app_with_permissions):
+    """Tests rejection of priority job with invalid queue"""
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    job = {"job_queue": "myinvalidqueue", "job_priority": 200}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 403 == job_response.status_code
+
+
+def test_priority_expired_token(mongo_app_with_permissions):
+    """Tests rejection of priority job with expired token"""
+    app, _, _, _, _ = mongo_app_with_permissions
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    expired_token_payload = {
+        "exp": datetime.utcnow() - timedelta(seconds=2),
+        "iat": datetime.utcnow() - timedelta(seconds=4),
+        "sub": "access_token",
+        "max_priority": {},
+    }
+    token = jwt.encode(expired_token_payload, secret_key, algorithm="HS256")
+    job = {"job_queue": "myqueue", "job_priority": 100}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 403 == job_response.status_code
+    assert "Token has expired" in job_response.text
+
+
+def test_missing_fields_in_token(mongo_app_with_permissions):
+    """Tests rejection of priority job with token with missing fields"""
+    app, _, _, _, _ = mongo_app_with_permissions
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    incomplete_token_payload = {
+        "max_priority": {},
+    }
+    token = jwt.encode(incomplete_token_payload, secret_key, algorithm="HS256")
+    job = {"job_queue": "myqueue", "job_priority": 100}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 403 == job_response.status_code
+    assert "Invalid Token" in job_response.text
