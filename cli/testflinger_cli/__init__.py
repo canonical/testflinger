@@ -138,6 +138,7 @@ class AttachmentError(Exception):
     """Exception thrown when attachments fail to be submitted"""
 
 
+# pylint: disable=R0904
 class TestflingerCli:
     """Class for handling the Testflinger CLI"""
 
