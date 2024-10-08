@@ -138,6 +138,7 @@ class AttachmentError(Exception):
     """Exception thrown when attachments fail to be submitted"""
 
 
+# pylint: disable=R0904
 class TestflingerCli:
     """Class for handling the Testflinger CLI"""
 
@@ -150,6 +151,17 @@ class TestflingerCli:
             or os.environ.get("TESTFLINGER_SERVER")
             or "https://testflinger.canonical.com"
         )
+        self.client_id = (
+            self.args.client_id
+            or self.config.get("client_id")
+            or os.environ.get("TESTFLINGER_CLIENT_ID")
+        )
+        self.secret_key = (
+            self.args.secret_key
+            or self.config.get("secret_key")
+            or os.environ.get("TESTFLINGER_SECRET_KEY")
+        )
+
         # Allow config subcommand without worrying about server or client
         if (
             hasattr(self.args, "func")
@@ -184,6 +196,16 @@ class TestflingerCli:
         )
         parser.add_argument(
             "--server", default=None, help="Testflinger server to use"
+        )
+        parser.add_argument(
+            "--client_id",
+            default=None,
+            help="Client ID to authenticate with Testflinger server",
+        )
+        parser.add_argument(
+            "--secret_key",
+            default=None,
+            help="Secret key to be used with client id for authentication",
         )
         sub = parser.add_subparsers()
         arg_artifacts = sub.add_parser(
@@ -373,11 +395,16 @@ class TestflingerCli:
             except FileNotFoundError:
                 sys.exit(f"File not found: {self.args.filename}")
         job_dict = yaml.safe_load(data)
+        if "job_priority" in job_dict:
+            jwt = self.authenticate_with_server()
+            auth_headers = {"Authorization": jwt}
+        else:
+            auth_headers = None
 
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
             # submit job, no attachments
-            job_id = self.submit_job_data(job_dict)
+            job_id = self.submit_job_data(job_dict, headers=auth_headers)
         else:
             with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive:
                 archive_path = Path(archive.name)
@@ -385,7 +412,7 @@ class TestflingerCli:
                 logger.info("Packing attachments into %s", archive_path)
                 self.pack_attachments(archive_path, attachments_data)
                 # submit job, followed by the submission of the archive
-                job_id = self.submit_job_data(job_dict)
+                job_id = self.submit_job_data(job_dict, headers=auth_headers)
                 try:
                     logger.info("Submitting attachments for %s", job_id)
                     self.submit_job_attachments(job_id, path=archive_path)
@@ -406,10 +433,10 @@ class TestflingerCli:
         if self.args.poll:
             self.do_poll(job_id)
 
-    def submit_job_data(self, data: dict):
+    def submit_job_data(self, data: dict, headers: dict = None):
         """Submit data that was generated or read from a file as a test job"""
         try:
-            job_id = self.client.submit_job(data)
+            job_id = self.client.submit_job(data, headers=headers)
         except client.HTTPError as exc:
             if exc.status == 400:
                 sys.exit(
@@ -481,6 +508,35 @@ class TestflingerCli:
             f"Unable to submit attachment archive for {job_id}: "
             f"failed after {tries} tries"
         )
+
+    def authenticate_with_server(self):
+        """
+        Authenticate client id and secret key with server
+        and return JWT with permissions
+        """
+        if self.client_id is None or self.secret_key is None:
+            sys.exit("Must provide client id and secret key for priority jobs")
+
+        try:
+            jwt = self.client.authenticate(self.client_id, self.secret_key)
+        except client.HTTPError as exc:
+            if exc.status == 401:
+                sys.exit(
+                    "Authentication with Testflinger server failed. "
+                    "Check your client id and secret key"
+                )
+            if exc.status == 404:
+                sys.exit(
+                    "Received 404 error from server. Are you "
+                    "sure this is a testflinger server?"
+                )
+            # This shouldn't happen, so let's get more information
+            logger.error(
+                "Unexpected error status from testflinger server: %s",
+                exc.status,
+            )
+            sys.exit(1)
+        return jwt
 
     def show(self):
         """Show the requested job JSON for a specified JOB_ID"""
