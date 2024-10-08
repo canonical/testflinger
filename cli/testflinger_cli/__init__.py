@@ -154,18 +154,6 @@ class TestflingerCli:
             )
         self.client = client.Client(server)
         self.history = history.TestflingerCliHistory()
-        # determine the reference directory for relative attachment paths
-        if self.args.relative:
-            # provided as a command-line argument
-            self.relative = Path(self.args.relative).resolve(strict=True)
-        elif self.args.relative_to_job_file:
-            # retrieved from the directory where the job file is contained
-            self.relative = Path(self.args.filename).parent.resolve(
-                strict=True
-            )
-        else:
-            # default to the current working directory
-            self.relative = Path.cwd().resolve()
 
     def run(self):
         """Run the subcommand specified in command line arguments"""
@@ -362,6 +350,17 @@ class TestflingerCli:
         > owner.
         Ref: https://docs.python.org/3/library/tarfile.html
         """
+        # determine the reference directory for relative attachment paths
+        if self.args.relative:
+            # provided as a command-line argument
+            reference = Path(self.args.relative).resolve(strict=True)
+        elif self.args.relative_to_job_file:
+            # retrieved from the directory where the job file is contained
+            reference = Path(self.args.filename).parent.resolve(strict=True)
+        else:
+            # default to the current working directory
+            reference = Path.cwd().resolve()
+
         with tarfile.open(archive, "w:gz") as tar:
             for phase, attachments in attachment_data.items():
                 phase_path = Path(phase)
@@ -369,7 +368,7 @@ class TestflingerCli:
                     local_path = Path(attachment["local"])
                     if not local_path.is_absolute():
                         # make relative attachment path absolute
-                        local_path = self.relative / local_path
+                        local_path = reference / local_path
                     local_path = local_path.resolve()
                     # determine the archive path for the attachment
                     # (essentially: the destination path on the agent host)
@@ -384,7 +383,7 @@ class TestflingerCli:
                         # no agent path provided: determine it from local path
                         try:
                             # make agent path relative to the reference path
-                            agent_path = local_path.relative_to(self.relative)
+                            agent_path = local_path.relative_to(reference)
                         except ValueError:
                             # unable to determine the agent path (cannot make
                             # the local path relative to the reference path):
