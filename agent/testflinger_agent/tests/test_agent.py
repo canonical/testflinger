@@ -613,7 +613,6 @@ class TestClient:
             }
         }
 
-        # patch
         def run_core_provision_patch(self):
             provision_log_path = (
                 self.params.rundir / "device-connector-error.json"
@@ -678,7 +677,6 @@ class TestClient:
             }
         }
 
-        # patch
         def run_core_provision_patch(self):
             provision_log_path = (
                 self.params.rundir / "device-connector-error.json"
