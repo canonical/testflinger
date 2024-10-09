@@ -239,7 +239,9 @@ In the `provisioning`, `firmware_update` and `test` phases, it is also possible 
         chmod u+x attachments/test/script.sh
         attachments/test/script.sh
 
-  The `local` fields specify where the attachments are to be found locally, e.g. on the machine where the CLI is executed. For this particular example, this sort of file tree is expected:
+  The `local` fields specify where the attachments are to be found locally, e.g. on the machine where the CLI is executed.
+  Unless otherwise specified, relative paths are interpreted in relation to the current working directory.
+  So for this particular example, this sort of file tree is expected:
 
   .. code-block:: bash
 
@@ -267,7 +269,15 @@ In the `provisioning`, `firmware_update` and `test` phases, it is also possible 
             │   └── ubuntu-logo.png
             └── script.sh
 
-In this example, there is no `url` field under the `provision_data` to specify where to download the provisioning image from.
+  The Testflinger CLI also accepts an optional `--attachments-relative-to` argument. When provided,
+  relative paths are interpreted in relation to this reference path, instead of the current working directory.
+
+  It is often convenient for that reference path to be the directory where the Testflinger job file itself is located
+  (e.g. when the job file and the attachments are stored together). In other words, attachments specified with relative paths
+  are resolved in relation to the location of the job file. For these cases, the command-line flag
+  `--attachments-relative-to-job-file` can be used, without the need to provide the reference path explicitly.
+
+In the example above, there is no `url` field under the `provision_data` to specify where to download the provisioning image from.
 Instead, there is a `use_attachment` field that indicates which attachment should be used as a provisioning image.
 The presence of *either* `url` or `use_attachment` is required.
 
