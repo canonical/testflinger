@@ -44,6 +44,7 @@ class OemAutoinstall:
             self.config = yaml.safe_load(configfile)
         with open(job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)
+        self.data_path = Path(__file__).parent / "../../data/muxpi/oem_autoinstall"
 
     def provision(self):
         """Provision the device"""
@@ -69,10 +70,13 @@ class OemAutoinstall:
             raise ProvisioningError("No image url provided")
 
         if not user_data:
-            logger.error(
-                "Please provide user-data file in provision_data section"
-            )
-            raise ProvisioningError("No user-data provided")
+            logger.info("No user-data provided, using default user-data file")
+            default_user_data = self.data_path / "default-user-data"
+
+            if not default_user_data.exists():
+                raise ProvisioningError("Default user-data file not found")
+            shutil.copy(default_user_data, ATTACHMENTS_PROV_DIR)
+            user_data = "default-user-data"
 
         # provision-image.sh expects specific filename,
         # so need to rename if doesn't match
@@ -117,10 +121,9 @@ class OemAutoinstall:
         """Run the script to deploy ISO and config files"""
         device_ip = self.config["device_ip"]
 
-        data_path = Path(__file__).parent / "../../data/muxpi/oem_autoinstall"
         logger.info("Running deployment script")
 
-        deploy_script = data_path / "provision-image.sh"
+        deploy_script = self.data_path / "provision-image.sh"
         cmd = [
             deploy_script,
             "--iso-dut",
