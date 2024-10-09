@@ -44,7 +44,9 @@ class OemAutoinstall:
             self.config = yaml.safe_load(configfile)
         with open(job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)
-        self.data_path = Path(__file__).parent / "../../data/muxpi/oem_autoinstall"
+        self.data_path = (
+            Path(__file__).parent / "../../data/muxpi/oem_autoinstall"
+        )
 
     def provision(self):
         """Provision the device"""
