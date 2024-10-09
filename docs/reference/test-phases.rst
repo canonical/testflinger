@@ -269,13 +269,13 @@ In the `provisioning`, `firmware_update` and `test` phases, it is also possible 
             │   └── ubuntu-logo.png
             └── script.sh
 
-  The Testflinger CLI also accepts an optional `--attachments-relative-to` argument. When provided,
-  relative paths are interpreted in relation to this reference path, instead of the current working directory.
+The Testflinger CLI also accepts an optional `--attachments-relative-to` argument. When provided,
+relative paths are interpreted in relation to this reference path, instead of the current working directory.
 
-  It is often convenient for that reference path to be the directory where the Testflinger job file itself is located
-  (e.g. when the job file and the attachments are stored together). In other words, attachments specified with relative paths
-  are resolved in relation to the location of the job file. For these cases, the command-line flag
-  `--attachments-relative-to-job-file` can be used, without the need to provide the reference path explicitly.
+It is often convenient for that reference path to be the directory where the Testflinger job file itself is located
+(e.g. when the job file and the attachments are stored together). In other words, attachments specified with relative paths
+are resolved in relation to the location of the job file. For these cases, the command-line flag
+`--attachments-relative-to-job-file` can be used, without the need to provide the reference path explicitly.
 
 In the example above, there is no `url` field under the `provision_data` to specify where to download the provisioning image from.
 Instead, there is a `use_attachment` field that indicates which attachment should be used as a provisioning image.
