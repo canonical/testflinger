@@ -331,14 +331,17 @@ class TestflingerCli:
     @staticmethod
     def extract_attachment_data(job_data: dict) -> Optional[dict]:
         """Pull together the attachment data per phase from the `job_data`"""
-        attachment_data = {}
+        attachments = {}
         for phase in ("provision", "firmware_update", "test"):
-            phase_str = f"{phase}_data"
             try:
-                attachment_data[phase] = job_data[phase_str]["attachments"]
+                attachments[phase] = [
+                    attachment
+                    for attachment in job_data[f"{phase}_data"]["attachments"]
+                    if attachment.get("local")
+                ]
             except KeyError:
                 pass
-        return attachment_data or None
+        return attachments or None
 
     def pack_attachments(self, archive: str, attachment_data: dict):
         """Pack the attachments specifed by `attachment_data` into `archive`
