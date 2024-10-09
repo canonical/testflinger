@@ -154,11 +154,7 @@ class JobPhase(ABC):
         self.register()
 
         # display phase banner in the Testflinger output
-        for line in self.banner(
-            f"Starting testflinger {self.phase_id} phase "
-            f"on {self.params.client.config.get('agent_id')}"
-        ):
-            self.runner.run(f"echo '{line}'")
+        self.output_banner()
 
         # run the "core" of the phase and store the result
         self.result = self.run_core()
@@ -189,15 +185,12 @@ class JobPhase(ABC):
             results.seek(0)
             json.dump(outcome_data, results)
 
-    def banner(self, line):
-        """Yield text lines to print a banner around a string
-
-        :param line:
-            Line of text to print a banner around
-        """
-        yield "*" * (len(line) + 4)
-        yield "* {} *".format(line)
-        yield "*" * (len(line) + 4)
+    def output_banner(self):
+        for line in banner(
+            f"Starting testflinger {self.phase_id} phase "
+            f"on {self.params.client.config.get('agent_id')}"
+        ):
+            self.runner.run(f"echo '{line}'")
 
 
 class ExternalCommandPhase(JobPhase):
@@ -650,6 +643,17 @@ class TestflingerJob:
                 # included for this phase, so the phase can now be removed
                 if not phase_data:
                     del self.params.job_data[phase_str]
+
+
+def banner(line: str):
+    """Yield text lines to print a banner around a string
+
+    :param line:
+        Line of text to print a banner around
+    """
+    yield "*" * (len(line) + 4)
+    yield f"* {line} *"
+    yield "*" * (len(line) + 4)
 
 
 def set_nonblock(fd):
