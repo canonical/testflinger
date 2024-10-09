@@ -561,6 +561,7 @@ class TestflingerJob:
     def cancel(self):
         logger.info("Job cancellation was requested, exiting.")
         self.emitter.emit_event(TestEvent.CANCELLED)
+        self.end_reason = TestEvent.CANCELLED
 
     def go(self, phase_id: TestPhase) -> bool:
         return self.phases[phase_id].go()
