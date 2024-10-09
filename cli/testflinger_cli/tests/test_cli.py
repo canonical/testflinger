@@ -19,6 +19,8 @@ Unit tests for testflinger-cli
 """
 
 import json
+import os
+from pathlib import Path
 import re
 import sys
 import tarfile
@@ -107,6 +109,128 @@ def test_submit_bad_data(tmp_path, requests_mock):
     )
 
 
+def test_pack_attachments(tmp_path):
+    """Make sure attachments are packed correctly"""
+
+    attachments = [
+        Path() / "file_0.bin",
+        Path() / "folder" / "file_1.bin",
+    ]
+
+    attachments[1].parent.mkdir()
+    for attachment in attachments:
+        attachment.write_bytes(os.urandom(128))
+
+    attachment_path = tmp_path / "attachments.tar.gz"
+    attachment_data = {
+        "test": [
+            {
+                # relative local file path
+                "local": str(attachments[0])
+            },
+            {
+                # relative local file path in folder
+                "local": str(attachments[1])
+            },
+            {
+                # absolute local file path, agent path in folder
+                "local": str(attachments[0].resolve()),
+                "agent": "folder/file_2.bin",
+            },
+            {
+                # relative local path is a directory
+                "local": str(attachments[1].parent),
+                "agent": "folder/deeper/",
+            },
+            {
+                # agent path is absolute (stripped, becomes relative)
+                "local": str(attachments[0]),
+                "agent": "/file_3.bin",
+            },
+        ]
+    }
+
+    sys.argv = ["", "submit", "inconsequential"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.pack_attachments(attachment_path, attachment_data)
+
+    with tarfile.open(attachment_path) as archive:
+        filenames = archive.getnames()
+        print(filenames)
+        assert "test/file_0.bin" in filenames
+        assert "test/folder/file_1.bin" in filenames
+        assert "test/folder/file_2.bin" in filenames
+        assert "test/folder/deeper/file_1.bin" in filenames
+        assert "test/file_3.bin" in filenames
+
+    # cleanup
+    for attachment in attachments:
+        attachment.unlink()
+    attachments[1].parent.rmdir()
+    assert not attachments[1].parent.exists()
+
+
+def test_pack_attachments_with_reference(tmp_path):
+    """Make sure attachments are packed correctly when using a reference"""
+
+    attachments = [
+        tmp_path / "file_0.bin",
+        tmp_path / "folder" / "file_1.bin",
+    ]
+
+    attachments[1].parent.mkdir()
+    for attachment in attachments:
+        attachment.write_bytes(os.urandom(128))
+
+    attachment_path = tmp_path / "attachments.tar.gz"
+    attachment_data = {
+        "test": [
+            {
+                # relative local file path
+                "local": str(attachments[0].relative_to(tmp_path))
+            },
+            {
+                # relative local file path in folder
+                "local": str(attachments[1].relative_to(tmp_path))
+            },
+            {
+                # absolute local file path, agent path in folder
+                "local": str(attachments[0]),
+                "agent": "folder/file_2.bin",
+            },
+            {
+                # relative local path is a directory
+                "local": str(attachments[1].parent.relative_to(tmp_path)),
+                "agent": "folder/deeper/",
+            },
+            {
+                # agent path is absolute (stripped, becomes relative)
+                "local": str(attachments[0].relative_to(tmp_path)),
+                "agent": "/file_3.bin",
+            },
+        ]
+    }
+
+    sys.argv = [
+        "",
+        "submit",
+        "--attachments-relative-to",
+        str(tmp_path),
+        "inconsequential",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.pack_attachments(attachment_path, attachment_data)
+
+    with tarfile.open(attachment_path) as attachments:
+        filenames = attachments.getnames()
+        print(filenames)
+        assert "test/file_0.bin" in filenames
+        assert "test/folder/file_1.bin" in filenames
+        assert "test/folder/file_2.bin" in filenames
+        assert "test/folder/deeper/file_1.bin" in filenames
+        assert "test/file_3.bin" in filenames
+
+
 def test_submit_with_attachments(tmp_path):
     """Make sure jobs with attachments are submitted correctly"""
 
@@ -157,7 +281,7 @@ def test_submit_with_attachments(tmp_path):
         with tarfile.open("attachments.tar.gz") as attachments:
             filenames = attachments.getnames()
             assert len(filenames) == 1
-            attachments.extract(filenames[0], filter="data")
+            attachments.extract(filenames[0])
         with open(filenames[0], "r", encoding="utf-8") as attachment:
             assert json.load(attachment) == job_data
 
