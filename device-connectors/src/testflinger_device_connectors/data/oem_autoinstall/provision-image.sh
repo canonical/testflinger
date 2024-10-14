@@ -259,29 +259,5 @@ do
     fi
 done
 
-# Polling the targets
-STARTED=("${TARGET_IPS[@]}")
-finished=0
-startTime=$(date +%s)
-while :;
-do
-    sleep 180
-    currentTime=$(date +%s)
-    if [[ $((currentTime - startTime)) -gt $TIMEOUT ]]; then
-        echo "Timeout is reached, deployment was not finished"
-        break
-    fi
-
-    for addr in "${STARTED[@]}";
-    do
-        if $SSH "$TARGET_USER"@"$addr" -- exit; then
-            STARTED=("${STARTED[@]/$addr}")
-            finished=$((finished + 1))
-        fi
-    done
-
-    if [ $finished -eq ${#TARGET_IPS[@]} ]; then
-        echo "Deployment is done"
-        break
-    fi
-done
+echo "Deployment will start after reboot"
+# Let device connector to poll the status
