@@ -221,7 +221,7 @@ class OemAutoinstall:
         logger.info("Checking to see if the device is available.")
         started = time.time()
         # Wait for provisioning to complete - can take a very long time
-        while time.time() - started < 3600:
+        while time.time() - started < 5400:
             try:
                 time.sleep(90)
                 self.copy_ssh_id()
