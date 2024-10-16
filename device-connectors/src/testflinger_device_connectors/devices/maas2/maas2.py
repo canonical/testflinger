@@ -391,8 +391,8 @@ class Maas2:
         cmd = ["maas", self.maas_user, "machine", "release", self.node_id]
         subprocess.run(cmd, check=False)
         # Make sure the device is available before returning
-        for _ in range(0, 10):
-            time.sleep(5)
+        for _ in range(0, 30):
+            time.sleep(10)
             status = self.node_status()
             if status == "Ready":
                 return
