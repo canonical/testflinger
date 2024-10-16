@@ -49,8 +49,14 @@ class DeviceConnector(DefaultDevice):
         except ProvisioningError as err:
             logger.error("Provisioning failed: %s", str(err))
             raise
-        except Exception as e:
-            raise e
         finally:
             serial_proc.stop()
-        logger.info("END provision")
+            logger.info("END provision")
+
+    def cleanup(self, args):
+        device = Maas2(args.config, args.job_data)
+        try:
+            device.cleanup()
+        except ProvisioningError as err:
+            logger.error("Provisioning failed: %s", str(err))
+            raise
