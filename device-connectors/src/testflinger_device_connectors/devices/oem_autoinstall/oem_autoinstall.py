@@ -122,6 +122,9 @@ class OemAutoinstall:
     def run_deploy_script(self, image_url):
         """Run the script to deploy ISO and config files"""
         device_ip = self.config["device_ip"]
+        test_username = self.get_test_data_or_default(
+            "test_username", "ubuntu"
+        )
 
         logger.info("Running deployment script")
 
@@ -130,6 +133,8 @@ class OemAutoinstall:
             deploy_script,
             "--iso-dut",
             image_url,
+            "-u",
+            test_username,
             "--local-config",
             ATTACHMENTS_PROV_DIR,
             device_ip,
@@ -173,18 +178,25 @@ class OemAutoinstall:
             logger.error("SSH connection failed: %s", result.stderr)
             raise ProvisioningError("Failed SSH to DUT")
 
-    def copy_ssh_id(self):
-        """Copy the ssh id to the device"""
+    def get_test_data_or_default(self, attribute, default_value):
+        """Helper function to safely get test attributes"""
         try:
-            test_username = self.job_data.get("test_data", {}).get(
-                "test_username", "ubuntu"
-            )
-            test_password = self.job_data.get("test_data", {}).get(
-                "test_password", "ubuntu"
+            return self.job_data.get("test_data", {}).get(
+                attribute, default_value
             )
         except AttributeError:
-            test_username = "ubuntu"
-            test_password = "ubuntu"
+            return default_value
+
+    def copy_ssh_id(self):
+        """Copy the ssh id to the device"""
+
+        test_username = self.get_test_data_or_default(
+            "test_username", "ubuntu"
+        )
+        test_password = self.get_test_data_or_default(
+            "test_password", "ubuntu"
+        )
+
         cmd = [
             "sshpass",
             "-p",
