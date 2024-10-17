@@ -25,6 +25,7 @@ from pathlib import Path
 import subprocess
 import yaml
 import shutil
+import time
 
 from testflinger_device_connectors.devices import (
     ProvisioningError,
@@ -44,16 +45,17 @@ class OemAutoinstall:
             self.config = yaml.safe_load(configfile)
         with open(job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)
+        self.data_path = Path(__file__).parent / "../../data/oem_autoinstall"
 
     def provision(self):
         """Provision the device"""
 
         # Ensure the device is online and reachable
         try:
-            self.test_ssh_access()
+            self.copy_ssh_id()
         except subprocess.CalledProcessError:
             self.hardreset()
-            self.test_ssh_access()
+            self.check_device_booted()
 
         provision_data = self.job_data.get("provision_data", {})
         image_url = provision_data.get("url")
@@ -69,10 +71,13 @@ class OemAutoinstall:
             raise ProvisioningError("No image url provided")
 
         if not user_data:
-            logger.error(
-                "Please provide user-data file in provision_data section"
-            )
-            raise ProvisioningError("No user-data provided")
+            logger.info("No user-data provided, using default user-data file")
+            default_user_data = self.data_path / "default-user-data"
+
+            if not default_user_data.exists():
+                raise ProvisioningError("Default user-data file not found")
+            shutil.copy(default_user_data, ATTACHMENTS_PROV_DIR)
+            user_data = "default-user-data"
 
         # provision-image.sh expects specific filename,
         # so need to rename if doesn't match
@@ -89,6 +94,7 @@ class OemAutoinstall:
             token_file_path = "url_token"
             self.copy_to_deploy_path(token_file, token_file_path)
         self.run_deploy_script(image_url)
+        self.check_device_booted()
 
     def copy_to_deploy_path(self, source_path, dest_path):
         """
@@ -116,15 +122,19 @@ class OemAutoinstall:
     def run_deploy_script(self, image_url):
         """Run the script to deploy ISO and config files"""
         device_ip = self.config["device_ip"]
+        test_username = self.get_test_data_or_default(
+            "test_username", "ubuntu"
+        )
 
-        data_path = Path(__file__).parent / "../../data/muxpi/oem_autoinstall"
         logger.info("Running deployment script")
 
-        deploy_script = data_path / "provision-image.sh"
+        deploy_script = self.data_path / "provision-image.sh"
         cmd = [
             deploy_script,
             "--iso-dut",
             image_url,
+            "-u",
+            test_username,
             "--local-config",
             ATTACHMENTS_PROV_DIR,
             device_ip,
@@ -168,6 +178,38 @@ class OemAutoinstall:
             logger.error("SSH connection failed: %s", result.stderr)
             raise ProvisioningError("Failed SSH to DUT")
 
+    def get_test_data_or_default(self, attribute, default_value):
+        """Helper function to safely get test attributes"""
+        try:
+            return self.job_data.get("test_data", {}).get(
+                attribute, default_value
+            )
+        except AttributeError:
+            return default_value
+
+    def copy_ssh_id(self):
+        """Copy the ssh id to the device"""
+
+        test_username = self.get_test_data_or_default(
+            "test_username", "ubuntu"
+        )
+        test_password = self.get_test_data_or_default(
+            "test_password", "ubuntu"
+        )
+
+        cmd = [
+            "sshpass",
+            "-p",
+            test_password,
+            "ssh-copy-id",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            f"{test_username}@{self.config['device_ip']}",
+        ]
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
+
     def hardreset(self):
         """
         Reboot the device.
@@ -185,3 +227,22 @@ class OemAutoinstall:
                 subprocess.check_call(cmd.split(), timeout=120)
             except subprocess.SubprocessError as exc:
                 raise RecoveryError("Error running reboot script!") from exc
+
+    def check_device_booted(self):
+        """Check to see if the device is booted and reachable with ssh"""
+        logger.info("Checking to see if the device is available.")
+        started = time.time()
+        # Wait for provisioning to complete - can take a very long time
+        while time.time() - started < 5400:
+            try:
+                time.sleep(90)
+                self.copy_ssh_id()
+                return True
+            except subprocess.SubprocessError:
+                pass
+        # If we get here, then we didn't boot in time
+        agent_name = self.config.get("agent_name")
+        logger.error(
+            "Device %s unreachable,  provisioning" "failed!", agent_name
+        )
+        raise ProvisioningError("Failed to boot test image!")

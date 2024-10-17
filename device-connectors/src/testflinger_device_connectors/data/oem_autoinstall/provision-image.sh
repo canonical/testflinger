@@ -22,7 +22,7 @@ EOF
 
 if [ $# -lt 3 ]; then
     usage
-    exit
+    exit 1
 fi
 
 TARGET_USER="ubuntu"
@@ -212,7 +212,7 @@ do
 
     if [ -z "$STORE_PART" ]; then
         echo "Can't find partition to store ISO on target $addr"
-        exit
+        exit 1
     fi
     RESET_PART="${STORE_PART:0:-1}2"
     RESET_PARTUUID=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o PARTUUID "$RESET_PART")
@@ -299,29 +299,6 @@ do
     fi
 done
 
-# Polling the targets
-STARTED=("${TARGET_IPS[@]}")
-finished=0
-startTime=$(date +%s)
-while :;
-do
-    sleep 180
-    currentTime=$(date +%s)
-    if [[ $((currentTime - startTime)) -gt $TIMEOUT ]]; then
-        echo "Timeout is reached, deployment was not finished"
-        break
-    fi
-
-    for addr in "${STARTED[@]}";
-    do
-        if $SSH "$TARGET_USER"@"$addr" -- exit; then
-            STARTED=("${STARTED[@]/$addr}")
-            finished=$((finished + 1))
-        fi
-    done
-
-    if [ $finished -eq ${#TARGET_IPS[@]} ]; then
-        echo "Deployment is done"
-        break
-    fi
-done
+echo "Deployment will start after reboot"
+exit 0
+# Let device connector to poll the status
