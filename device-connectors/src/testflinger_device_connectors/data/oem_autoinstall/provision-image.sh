@@ -22,7 +22,7 @@ EOF
 
 if [ $# -lt 3 ]; then
     usage
-    exit
+    exit 1
 fi
 
 TARGET_USER="ubuntu"
@@ -212,7 +212,7 @@ do
 
     if [ -z "$STORE_PART" ]; then
         echo "Can't find partition to store ISO on target $addr"
-        exit
+        exit 1
     fi
     RESET_PART="${STORE_PART:0:-1}2"
     RESET_PARTUUID=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o PARTUUID "$RESET_PART")
@@ -300,4 +300,5 @@ do
 done
 
 echo "Deployment will start after reboot"
+exit 0
 # Let device connector to poll the status
