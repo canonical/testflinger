@@ -327,3 +327,11 @@ def get_provision_log(
         if provision_log_entries
         else []
     )
+
+
+def check_queue_restricted(queue: str) -> bool:
+    """Checks if queue is restricted"""
+    queue_count = mongo.db.restricted_queues.count_documents(
+        {"queue_name": queue}
+    )
+    return queue_count != 0

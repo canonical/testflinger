@@ -83,11 +83,19 @@ def mongo_app_with_permissions(mongo_app):
         "myqueue": 100,
         "myqueue2": 200,
     }
+    allowed_queues = ["rqueue1", "rqueue2"]
     mongo.client_permissions.insert_one(
         {
             "client_id": client_id,
             "client_secret_hash": client_key_hash,
             "max_priority": max_priority,
+            "allowed_queues": allowed_queues,
         }
     )
+    restricted_queues = [
+        {"queue_name": "rqueue1"},
+        {"queue_name": "rqueue2"},
+        {"queue_name": "rqueue3"},
+    ]
+    mongo.restricted_queues.insert_many(restricted_queues)
     yield app, mongo, client_id, client_key, max_priority

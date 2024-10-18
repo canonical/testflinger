@@ -105,13 +105,17 @@ def has_attachments(data: dict) -> bool:
     )
 
 
-def check_token_priority_permission(
+def check_token_permissions(
     auth_token: str, secret_key: str, priority: int, queue: str
 ) -> bool:
     """
     Validates token received from client and checks if it can
     push a job to the queue with the requested priority
     """
+    is_queue_restricted = database.check_queue_restricted(queue)
+    if not is_queue_restricted and priority == 0:
+        return True
+
     if auth_token is None:
         abort(401, "Unauthorized")
     try:
@@ -130,7 +134,10 @@ def check_token_priority_permission(
     star_priority = max_priority_dict.get("*", 0)
     queue_priority = max_priority_dict.get(queue, 0)
     max_priority = max(star_priority, queue_priority)
-    return max_priority >= priority
+    allowed_queues = decoded_jwt.get("allowed_queues", [])
+    return max_priority >= priority and (
+        not is_queue_restricted or queue in allowed_queues
+    )
 
 
 def job_builder(data: dict, auth_token: str):
@@ -156,27 +163,25 @@ def job_builder(data: dict, auth_token: str):
     if has_attachments(data):
         data["attachments_status"] = "waiting"
 
-    if "job_priority" in data:
-        priority_level = data["job_priority"]
-        job_queue = data["job_queue"]
-        allowed = check_token_priority_permission(
-            auth_token,
-            os.environ.get("JWT_SIGNING_KEY"),
-            priority_level,
-            job_queue,
+    priority_level = data.get("job_priority", 0)
+    job_queue = data["job_queue"]
+    allowed = check_token_permissions(
+        auth_token,
+        os.environ.get("JWT_SIGNING_KEY"),
+        priority_level,
+        job_queue,
+    )
+    if not allowed:
+        abort(
+            403,
+            (
+                f"Not enough permissions to push to {job_queue}",
+                f"with priority {priority_level}",
+            ),
         )
-        if not allowed:
-            abort(
-                403,
-                (
-                    f"Not enough permissions to push to {job_queue}",
-                    f"with priority {priority_level}",
-                ),
-            )
-        job["job_priority"] = priority_level
-        data.pop("job_priority")
-    else:
-        job["job_priority"] = 0
+    job["job_priority"] = priority_level
+    data.pop("job_priority", None)
+
     job["job_id"] = job_id
     job["job_data"] = data
     return job
@@ -712,16 +717,18 @@ def queue_wait_time_percentiles_get():
     return queue_percentile_data
 
 
-def generate_token(max_priority, secret_key):
+def generate_token(allowed_resources, secret_key):
     """Generates JWT token with queue permission given a secret key"""
     expiration_time = datetime.utcnow() + timedelta(seconds=2)
     token_payload = {
         "exp": expiration_time,
         "iat": datetime.now(timezone.utc),  # Issued at time
         "sub": "access_token",
-        "max_priority": max_priority,
     }
-
+    if "max_priority" in allowed_resources:
+        token_payload["max_priority"] = allowed_resources["max_priority"]
+    if "allowed_queues" in allowed_resources:
+        token_payload["allowed_queues"] = allowed_resources["allowed_queues"]
     token = jwt.encode(token_payload, secret_key, algorithm="HS256")
     return token
 
@@ -744,8 +751,7 @@ def validate_client_key_pair(client_id: str, client_key: str):
         client_permissions_entry["client_secret_hash"].encode("utf8"),
     ):
         return None
-    max_priority = client_permissions_entry["max_priority"]
-    return max_priority
+    return client_permissions_entry
 
 
 @v1.post("/oauth2/token")
