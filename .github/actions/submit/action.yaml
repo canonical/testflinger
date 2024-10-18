@@ -96,8 +96,9 @@ runs:
         # poll
         PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
         # retrieve results:
-        # the exit status is the maximum status of the individual test phases
-        # (excluding the setup and cleanup phases)
+        # the exit status is the maximum non-zero status of the individual
+        # test phases, excluding the setup and cleanup phases
+        # (simply using the max excludes negative values)
         STATUS=$(\
           testflinger --server $SERVER results $JOB_ID  \
           | jq 'to_entries
@@ -108,7 +109,7 @@ runs:
                     and .key != "cleanup_status"
                   ).value
                 )
-              | max'
+              | [ .[] |  select(. !=0) ] | if length > 0 then max else 0 end'
         )
         echo "Test exit status: $STATUS"
         exit $STATUS
