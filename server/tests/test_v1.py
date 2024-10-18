@@ -972,3 +972,52 @@ def test_job_position_get_with_priority(mongo_app_with_permissions):
     assert job_positions[0] == "2"
     assert job_positions[1] == "0"
     assert job_positions[2] == "1"
+
+
+def test_restricted_queue_allowed(mongo_app_with_permissions):
+    """
+    Tests that jobs that submit to a restricted queue are accepted
+    when the token allows that queue
+    """
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    # rqueue1 is a restricted queue that is allowed for this client
+    job = {"job_queue": "rqueue1"}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 200 == job_response.status_code
+
+
+def test_restricted_queue_reject(mongo_app_with_permissions):
+    """
+    Tests that jobs that submit to a restricted queue are rejected
+    when the client is not allowed
+    """
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    # rqueue3 is a restricted queue that is not allowed for this client
+    job = {"job_queue": "rqueue3"}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 403 == job_response.status_code
+
+
+def test_restricted_queue_reject_no_token(mongo_app_with_permissions):
+    """
+    Tests that jobs that submit to a restricted queue are rejected
+    when no token is included
+    """
+    app, _, _, _, _ = mongo_app_with_permissions
+    job = {"job_queue": "rqueue1"}
+    job_response = app.post("/v1/job", json=job)
+    assert 401 == job_response.status_code
