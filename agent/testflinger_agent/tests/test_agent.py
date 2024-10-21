@@ -315,6 +315,32 @@ class TestClient:
         assert outcome_data.get("provision_status") == 1
         assert outcome_data.get("test_status") is None
 
+    def test_phase_timeout(self, agent, requests_mock):
+        # Make sure the status code of a timed-out phase is correct
+        self.config["test_command"] = "sleep 12"
+        mock_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test",
+            "output_timeout": 1,
+            "test_data": {"test_cmds": "foo"},
+        }
+        requests_mock.get(
+            rmock.ANY, [{"text": json.dumps(mock_job_data)}, {"text": "{}"}]
+        )
+        requests_mock.post(rmock.ANY, status_code=200)
+        with patch("shutil.rmtree"), patch("os.unlink"):
+            agent.process_jobs()
+        outcome_file = os.path.join(
+            os.path.join(
+                self.tmpdir,
+                mock_job_data.get("job_id"),
+                "testflinger-outcome.json",
+            )
+        )
+        with open(outcome_file) as f:
+            outcome_data = json.load(f)
+        assert outcome_data.get("test_status") == 247
+
     def test_retry_transmit(self, agent, requests_mock):
         # Make sure we retry sending test results
         self.config["provision_command"] = "/bin/false"
