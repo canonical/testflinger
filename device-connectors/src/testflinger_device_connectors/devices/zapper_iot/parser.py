@@ -122,7 +122,7 @@ TPLAN_SCHEMA = {
                                 "type": "array",
                                 "items": {"type": "string"},
                             },
-                            "eof_commands": {
+                            "console_commands": {
                                 "type": "array",
                                 "minItems": 1,
                                 "items": {
