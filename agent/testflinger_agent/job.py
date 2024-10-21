@@ -120,6 +120,9 @@ class TestflingerJob:
             # Set exit_event to fail for this phase in case of an exception
             exit_event = f"{phase}_fail"
             exitcode, exit_event, exit_reason = runner.run(cmd)
+            # make sure the exit code is within the expected 0-255 range
+            # (this also handles negative numbers)
+            exitcode = exitcode % 256
         except Exception as exc:
             logger.exception(exc)
             exitcode = 100
