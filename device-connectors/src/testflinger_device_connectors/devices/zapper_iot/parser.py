@@ -22,7 +22,7 @@ TPLAN_SCHEMA = {
                         "port": {"type": "string"},
                         "baud_rate": {
                             "type": "integer",
-                            "enum": [115200, 9600],
+                            "enum": [115200, 9600, 921600],
                             "default": 115200,
                         },
                     },
@@ -61,6 +61,7 @@ TPLAN_SCHEMA = {
                                     "utility": {
                                         "type": "string",
                                         "enum": [
+                                            "genio_flash",
                                             "utp_com",
                                             "uuu",
                                             "uuu_bootloader",
@@ -69,6 +70,9 @@ TPLAN_SCHEMA = {
                                         ],
                                     },
                                     "method": {"$ref": "#/$defs/method"},
+                                    "extra_provision_tool_args": {
+                                        "type": "string"
+                                    },
                                     "timeout": {
                                         "type": "integer",
                                         "default": 600,
