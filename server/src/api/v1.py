@@ -664,6 +664,7 @@ def job_position_get(job_id):
     jobs = database.mongo.db.jobs.find(
         {"job_data.job_queue": queue, "result_data.job_state": "waiting"},
         {"job_id": 1},
+        sort=[("job_priority", -1)],
     )
     # Create a dict mapping job_id (as a string) to the position in the queue
     jobs_id_position = {job.get("job_id"): pos for pos, job in enumerate(jobs)}
