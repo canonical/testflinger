@@ -23,6 +23,7 @@ import logging
 from pathlib import Path
 import sys
 import urllib.parse
+import base64
 
 import requests
 
@@ -45,7 +46,7 @@ class Client:
     def __init__(self, server):
         self.server = server
 
-    def get(self, uri_frag, timeout=15):
+    def get(self, uri_frag, timeout=15, headers=None):
         """Submit a GET request to the server
         :param uri_frag:
             endpoint for the GET request
@@ -54,7 +55,7 @@ class Client:
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
-            req = requests.get(uri, timeout=timeout)
+            req = requests.get(uri, timeout=timeout, headers=headers)
         except requests.exceptions.ConnectionError:
             logger.error("Unable to communicate with specified server.")
             raise
@@ -68,7 +69,7 @@ class Client:
             raise HTTPError(req.status_code)
         return req.text
 
-    def put(self, uri_frag, data, timeout=15):
+    def put(self, uri_frag, data, timeout=15, headers=None):
         """Submit a POST request to the server
         :param uri_frag:
             endpoint for the POST request
@@ -77,7 +78,9 @@ class Client:
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
-            req = requests.post(uri, json=data, timeout=timeout)
+            req = requests.post(
+                uri, json=data, timeout=timeout, headers=headers
+            )
         except requests.exceptions.ConnectTimeout:
             logger.error(
                 "Timeout while trying to communicate with the server."
@@ -147,7 +150,7 @@ class Client:
         data = {"job_state": state}
         self.put(endpoint, data)
 
-    def submit_job(self, data: dict) -> str:
+    def submit_job(self, data: dict, headers: dict = None) -> str:
         """Submit a test job to the testflinger server
 
         :param job_data:
@@ -156,8 +159,26 @@ class Client:
             ID for the test job
         """
         endpoint = "/v1/job"
-        response = self.put(endpoint, data)
+        response = self.put(endpoint, data, headers=headers)
         return json.loads(response).get("job_id")
+
+    def authenticate(self, client_id: str, secret_key: str) -> dict:
+        """Authenticates client id and secret key with the server
+        and returns JWT with allowed permissions
+
+        :param job_data:
+            Dictionary containing data for the job to submit
+        :return:
+            ID for the test job
+        """
+        endpoint = "/v1/oauth2/token"
+        id_key_pair = f"{client_id}:{secret_key}"
+        encoded_id_key_pair = base64.b64encode(
+            id_key_pair.encode("utf-8")
+        ).decode("utf-8")
+        headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
+        response = self.put(endpoint, {}, headers=headers)
+        return response
 
     def post_attachment(self, job_id: str, path: Path, timeout: int):
         """Send a test job attachment to the testflinger server
