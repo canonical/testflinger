@@ -1,6 +1,7 @@
 resource "juju_application" "testflinger-agent-host" {
-  name  = var.agent_host_name
-  model = var.juju_model
+  name        = var.agent_host_name
+  model       = var.juju_model
+  constraints = local.agent_host_constraints
 
   units = 1
 

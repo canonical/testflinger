@@ -8,6 +8,30 @@ variable "agent_host_name" {
   description = "Name of the agent host juju application"
 }
 
+variable "agent_host_cores" {
+  type        = number
+  description = "Number of cpu cores to use for the agent host"
+  default     = 4
+}
+
+variable "agent_host_mem" {
+  type        = string
+  description = "Amount of RAM to use for the agent host"
+  default     = "32768M"
+}
+
+variable "agent_host_storage" {
+  type        = string
+  description = "Storage size for the agent host"
+  default     = "1048576M"
+}
+
+variable "override_constraints" {
+  type        = string
+  description = "Use if you need to override the constraints built with the other agent_host_* vars"
+  default     = ""
+}
+
 variable "config_repo" {
   type        = string
   description = "Repository URL for the agent configs on this agent host"
@@ -32,4 +56,5 @@ variable "ssh_private_key" {
   type        = string
   description = "base64 encoded ssh private key to use on the agent host"
 }
+
 

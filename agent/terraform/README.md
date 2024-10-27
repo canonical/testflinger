@@ -11,13 +11,13 @@ to has already been created.
 1. First, create the model
 
     ```
-        $ juju add-model agent-host-1
+    $ juju add-model agent-host-1
     ```
 
 2. Create ssh keys to use on the agent host
 
     ```
-        $ ssh-keygen -t rsa -f mykey
+    $ ssh-keygen -t rsa -f mykey
     ```
 
 3. Create a git repo with the Testflinger configs
@@ -64,9 +64,16 @@ to has already been created.
     }
     ```
 
+    There are additional parameters you can adjust here if you want:
+     - **agent_host_cores**: (default: 4) Number of cpu cores to use for the agent host
+     - **agent_host_mem**: (default: "32768M") Amount of RAM to use for the agent host. This needs to be specified as a string with "M" at the end.
+     - **agent_host_storage: (default: 1048576M) Storage size for the agent host. This needs to be specified as a string with "M" at the end.
+     - **override_constraints**: By default, the constraints passed to Juju will use the previous parameters to build something in this format: `arch=amd64 cores=${var.agent_host_cores} mem=${var.agent_host_mem} root-disk=${var.agent_host_storage} root-disk-source=remote virt-type=virtual-machine`. If you need to override this entire line to send it something completely different, use this and the previous `agent_host_*` parameters will be ignored.
+
+
 5. Initialize terraform and apply
     ```
-        $ terraform init
-        $ terraform apply
+    $ terraform init
+    $ terraform apply
     ```
 
