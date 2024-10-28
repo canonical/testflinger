@@ -502,7 +502,7 @@ class TestflingerJob:
         self.job_id = job_data["job_id"]
 
         rundir = Path(client.config.get("execution_basedir")) / self.job_id
-        rundir.mkdir()
+        rundir.mkdir(parents=True)
         # specify directories and result files
         # Dump the job data to testflinger.json in our execution dir
         with open(rundir / "testflinger.json", "w") as f:
