@@ -316,6 +316,48 @@ def test_submit_attachments_timeout(tmp_path):
         assert history[3].path == f"/v1/job/{job_id}/action"
 
 
+def test_submit_with_priority(tmp_path, requests_mock):
+    """Tests authorization of jobs submitted with priority"""
+    job_id = str(uuid.uuid1())
+    job_data = {
+        "queue": "fake",
+        "job_priority": 100,
+    }
+    job_file = tmp_path / "test.json"
+    job_file.write_text(json.dumps(job_data))
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.client_id = "my_client_id"
+    tfcli.secret_key = "my_secret_key"
+
+    fake_jwt = "my_jwt"
+    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt)
+    mock_response = {"job_id": job_id}
+    requests_mock.post(f"{URL}/v1/job", json=mock_response)
+    tfcli.submit()
+    assert requests_mock.last_request.headers.get("Authorization") == fake_jwt
+
+
+def test_submit_priority_no_credentials(tmp_path):
+    """Tests priority jobs rejected with no specified credentials"""
+    job_data = {
+        "queue": "fake",
+        "job_priority": 100,
+    }
+    job_file = tmp_path / "test.json"
+    job_file.write_text(json.dumps(job_data))
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.submit()
+        assert (
+            "Must provide client id and secret key for priority jobs"
+            in exc_info.value
+        )
+
+
 def test_show(capsys, requests_mock):
     """Exercise show command"""
     jobid = str(uuid.uuid1())
