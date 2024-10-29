@@ -421,10 +421,14 @@ class TestflingerCli:
             except FileNotFoundError:
                 sys.exit(f"File not found: {self.args.filename}")
         job_dict = yaml.safe_load(data)
-        if "job_priority" in job_dict:
-            jwt = self.authenticate_with_server()
+        jwt = self.authenticate_with_server()
+        if jwt is not None:
             auth_headers = {"Authorization": jwt}
         else:
+            if "job_priority" in job_dict:
+                sys.exit(
+                    "Must provide client id and secret key for priority jobs"
+                )
             auth_headers = None
 
         attachments_data = self.extract_attachment_data(job_dict)
@@ -541,7 +545,7 @@ class TestflingerCli:
         and return JWT with permissions
         """
         if self.client_id is None or self.secret_key is None:
-            sys.exit("Must provide client id and secret key for priority jobs")
+            return None
 
         try:
             jwt = self.client.authenticate(self.client_id, self.secret_key)
