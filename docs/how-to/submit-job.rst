@@ -19,12 +19,3 @@ If the job is successful submitted, you will see a ``job_id`` returned by Testfl
 
 
 You can use the ``job_id`` to further monitor and manager the submitted job.
-
-If you specify a job_priority in the YAML file, the CLI will attempt to authenticate with the server first. You can specify authentication parameters using command line options:
-
-.. code-block:: shell
-
-  $ testflinger-cli submit example-job.yaml --client_id "my_client_id" --secret_key "my_secret_key"
-
-You can also specify these as environment variables, 'TESTFLINGER_CLIENT_ID' and
-'TESTFLINGER_SECRET_KEY'.

@@ -14,3 +14,5 @@ Work with jobs via Testflinger CLI
     submit-job
     cancel-job
     search-job
+    job-priority
+    authentication
