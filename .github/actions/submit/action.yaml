@@ -22,10 +22,6 @@ inputs:
   attachments-relative-to:
     description: The reference directory for relative attachment paths
     required: false
-  attachments-relative-to-job-file:
-    description: Specify that the reference directory for relative attachment paths is the location of the job file
-    required: false
-    default: false
 outputs:
   id:
     description: 'The ID of the submitted job'
@@ -89,12 +85,9 @@ runs:
       env:
         SERVER: https://${{ inputs.server }}
         RELATIVE_TO: ${{ inputs.attachments-relative-to }}
-        RELATIVE_TO_JOB_FILE: ${{ inputs.attachments-relative-to-job-file }}
       run: |
         if [ -n "$RELATIVE_TO" ]; then
           RELATIVE="--attachments-relative-to $RELATIVE_TO"
-        elif [ "$RELATIVE_TO_JOB_FILE" = "true" ]; then
-          RELATIVE="--attachments-relative-to-job-file"
         fi
         JOB_ID=$(testflinger --server $SERVER submit --quiet "$RELATIVE" "$JOB")
         echo "job id: $JOB_ID"

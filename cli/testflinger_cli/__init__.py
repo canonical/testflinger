@@ -267,15 +267,6 @@ class TestflingerCli:
             dest="relative",
             help="The reference directory for relative attachment paths",
         )
-        relative.add_argument(
-            "--attachments-relative-to-job-file",
-            action="store_true",
-            dest="relative_to_job_file",
-            help="""
-            Use the location of the job file as a reference directory for
-            relative attachment paths
-            """,
-        )
 
         self.args = parser.parse_args()
         self.help = parser.format_help()
@@ -357,12 +348,9 @@ class TestflingerCli:
         if self.args.relative:
             # provided as a command-line argument
             reference = Path(self.args.relative).resolve(strict=True)
-        elif self.args.relative_to_job_file:
+        else:
             # retrieved from the directory where the job file is contained
             reference = Path(self.args.filename).parent.resolve(strict=True)
-        else:
-            # default to the current working directory
-            reference = Path.cwd().resolve()
 
         with tarfile.open(archive, "w:gz") as tar:
             for phase, attachments in attachment_data.items():

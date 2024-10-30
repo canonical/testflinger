@@ -116,12 +116,14 @@ def test_pack_attachments(tmp_path):
         Path() / "file_0.bin",
         Path() / "folder" / "file_1.bin",
     ]
+    attachment_path = tmp_path / "attachments"
 
-    attachments[1].parent.mkdir()
+    # create attachment files in the attachment path
     for attachment in attachments:
+        attachment = attachment_path / attachment
+        attachment.parent.mkdir(parents=True)
         attachment.write_bytes(os.urandom(128))
 
-    attachment_path = tmp_path / "attachments.tar.gz"
     attachment_data = {
         "test": [
             {
@@ -134,7 +136,7 @@ def test_pack_attachments(tmp_path):
             },
             {
                 # absolute local file path, agent path in folder
-                "local": str(attachments[0].resolve()),
+                "local": str((attachment_path / attachments[0]).resolve()),
                 "agent": "folder/file_2.bin",
             },
             {
@@ -150,11 +152,14 @@ def test_pack_attachments(tmp_path):
         ]
     }
 
-    sys.argv = ["", "submit", "inconsequential"]
+    # the job.yaml is also in the attachments path
+    # (and relative attachment paths are interpreted in relation to that)
+    sys.argv = ["", "submit", f"{attachment_path}/job.yaml"]
     tfcli = testflinger_cli.TestflingerCli()
-    tfcli.pack_attachments(attachment_path, attachment_data)
+    archive = tmp_path / "attachments.tar.gz"
+    tfcli.pack_attachments(archive, attachment_data)
 
-    with tarfile.open(attachment_path) as archive:
+    with tarfile.open(archive) as archive:
         filenames = archive.getnames()
         print(filenames)
         assert "test/file_0.bin" in filenames
@@ -163,66 +168,76 @@ def test_pack_attachments(tmp_path):
         assert "test/folder/deeper/file_1.bin" in filenames
         assert "test/file_3.bin" in filenames
 
-    # cleanup
-    for attachment in attachments:
-        attachment.unlink()
-    attachments[1].parent.rmdir()
-    assert not attachments[1].parent.exists()
-
 
 def test_pack_attachments_with_reference(tmp_path):
     """Make sure attachments are packed correctly when using a reference"""
 
     attachments = [
-        tmp_path / "file_0.bin",
-        tmp_path / "folder" / "file_1.bin",
+        Path() / "file_0.bin",
+        Path() / "folder" / "file_1.bin",
     ]
+    attachment_path = tmp_path / "attachments"
 
-    attachments[1].parent.mkdir()
+    # create attachment files
     for attachment in attachments:
+        attachment = attachment_path / attachment
+        attachment.parent.mkdir(parents=True)
         attachment.write_bytes(os.urandom(128))
 
-    attachment_path = tmp_path / "attachments.tar.gz"
     attachment_data = {
         "test": [
             {
                 # relative local file path
-                "local": str(attachments[0].relative_to(tmp_path))
+                "local": str(attachments[0])
             },
             {
                 # relative local file path in folder
-                "local": str(attachments[1].relative_to(tmp_path))
+                "local": str(attachments[1])
             },
             {
                 # absolute local file path, agent path in folder
-                "local": str(attachments[0]),
+                "local": str((attachment_path / attachments[0]).resolve()),
                 "agent": "folder/file_2.bin",
             },
             {
                 # relative local path is a directory
-                "local": str(attachments[1].parent.relative_to(tmp_path)),
+                "local": str(attachments[1].parent),
                 "agent": "folder/deeper/",
             },
             {
                 # agent path is absolute (stripped, becomes relative)
-                "local": str(attachments[0].relative_to(tmp_path)),
+                "local": str(attachments[0]),
                 "agent": "/file_3.bin",
             },
         ]
     }
 
+    # the job.yaml is in the tmp_path
+    # (so packing the attachments with fail without specifying that
+    # attachments are relative to the attachments path)
+    sys.argv = ["", "submit", f"{tmp_path}/job.yaml"]
+    tfcli = testflinger_cli.TestflingerCli()
+    archive = tmp_path / "attachments.tar.gz"
+    with pytest.raises(FileNotFoundError):
+        # this fails because the job file is in `tmp_path` whereas
+        # attachments are in `tmp_path/attachments`
+        tfcli.pack_attachments(archive, attachment_data)
+
+    # the job.yaml is in the tmp_path
+    # (but now attachments are relative to the attachments path)
     sys.argv = [
         "",
         "submit",
+        f"{tmp_path}/job.yaml",
         "--attachments-relative-to",
-        str(tmp_path),
-        "inconsequential",
+        f"{attachment_path}",
     ]
     tfcli = testflinger_cli.TestflingerCli()
-    tfcli.pack_attachments(attachment_path, attachment_data)
+    archive = tmp_path / "attachments.tar.gz"
+    tfcli.pack_attachments(archive, attachment_data)
 
-    with tarfile.open(attachment_path) as attachments:
-        filenames = attachments.getnames()
+    with tarfile.open(archive) as archive:
+        filenames = archive.getnames()
         print(filenames)
         assert "test/file_0.bin" in filenames
         assert "test/folder/file_1.bin" in filenames
