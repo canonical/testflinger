@@ -909,6 +909,41 @@ def test_job_get_with_priority(mongo_app_with_permissions):
     assert returned_job_ids[2] == job_ids[0]
 
 
+def test_job_get_with_priority_multiple_queues(mongo_app_with_permissions):
+    """
+    Tests job get returns job with highest job priority when jobs are
+    submitted across different queues
+    """
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    jobs = [
+        {"job_queue": "myqueue3"},
+        {"job_queue": "myqueue2", "job_priority": 200},
+        {"job_queue": "myqueue", "job_priority": 100},
+    ]
+    job_ids = []
+    for job in jobs:
+        job_response = app.post(
+            "/v1/job", json=job, headers={"Authorization": token}
+        )
+        job_id = job_response.json.get("job_id")
+        job_ids.append(job_id)
+    returned_job_ids = []
+    for _ in range(len(jobs)):
+        job_get_response = app.get(
+            "/v1/job?queue=myqueue&queue=myqueue2&queue=myqueue3"
+        )
+        job_id = job_get_response.json.get("job_id")
+        returned_job_ids.append(job_id)
+    assert returned_job_ids[0] == job_ids[1]
+    assert returned_job_ids[1] == job_ids[2]
+    assert returned_job_ids[2] == job_ids[0]
+
+
 def test_job_position_get_with_priority(mongo_app_with_permissions):
     """Tests job position get returns correct position with priority"""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
