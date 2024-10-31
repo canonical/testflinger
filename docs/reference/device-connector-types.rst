@@ -304,9 +304,10 @@ The ``oem_autoinstall`` device connector supports the following ``provision_data
           pass = $PASSWORD
 
     * - ``user_data``
-      - Required file provided with :ref:`file attachments <file_attachments>`.
+      - Optional file provided with :ref:`file attachments <file_attachments>`.
         This file will be consumed by the autoinstall and cloud-init.
-        Sample user-data is provided in the section below.
+        Sample user-data is provided in the section below. When file is missing
+        connector will use the default-user-data file.
     * - ``redeploy_cfg``
       - Optional file provided with :ref:`file attachments <file_attachments>`.
         This file will override the grub.cfg in reset partition.

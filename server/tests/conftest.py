@@ -79,6 +79,7 @@ def mongo_app_with_permissions(mongo_app):
     ).decode("utf-8")
 
     max_priority = {
+        "*": 1,
         "myqueue": 100,
         "myqueue2": 200,
     }

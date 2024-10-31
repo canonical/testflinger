@@ -20,7 +20,6 @@ Testflinger v1 API
 import os
 import uuid
 from datetime import datetime, timezone, timedelta
-
 import pkg_resources
 from apiflask import APIBlueprint, abort
 from flask import jsonify, request, send_file
@@ -75,9 +74,9 @@ def job_post(json_data: dict):
         job_queue = ""
     if not job_queue:
         abort(422, message="Invalid data or no job_queue specified")
-
+    auth_token = request.headers.get("Authorization")
     try:
-        job = job_builder(json_data)
+        job = job_builder(json_data, auth_token)
     except ValueError:
         abort(400, message="Invalid job_id specified")
 
@@ -101,7 +100,35 @@ def has_attachments(data: dict) -> bool:
     )
 
 
-def job_builder(data):
+def check_token_priority_permission(
+    auth_token: str, secret_key: str, priority: int, queue: str
+) -> bool:
+    """
+    Validates token received from client and checks if it can
+    push a job to the queue with the requested priority
+    """
+    if auth_token is None:
+        abort(401, "Unauthorized")
+    try:
+        decoded_jwt = jwt.decode(
+            auth_token,
+            secret_key,
+            algorithms="HS256",
+            options={"require": ["exp", "iat", "sub"]},
+        )
+    except jwt.exceptions.ExpiredSignatureError:
+        abort(403, "Token has expired")
+    except jwt.exceptions.InvalidTokenError:
+        abort(403, "Invalid Token")
+
+    max_priority_dict = decoded_jwt.get("max_priority", {})
+    star_priority = max_priority_dict.get("*", 0)
+    queue_priority = max_priority_dict.get(queue, 0)
+    max_priority = max(star_priority, queue_priority)
+    return max_priority >= priority
+
+
+def job_builder(data: dict, auth_token: str):
     """Build a job from a dictionary of data"""
     job = {
         "created_at": datetime.now(timezone.utc),
@@ -124,6 +151,27 @@ def job_builder(data):
     if has_attachments(data):
         data["attachments_status"] = "waiting"
 
+    if "job_priority" in data:
+        priority_level = data["job_priority"]
+        job_queue = data["job_queue"]
+        allowed = check_token_priority_permission(
+            auth_token,
+            os.environ.get("JWT_SIGNING_KEY"),
+            priority_level,
+            job_queue,
+        )
+        if not allowed:
+            abort(
+                403,
+                (
+                    f"Not enough permissions to push to {job_queue}",
+                    f"with priority {priority_level}",
+                ),
+            )
+        job["job_priority"] = priority_level
+        data.pop("job_priority")
+    else:
+        job["job_priority"] = 0
     job["job_id"] = job_id
     job["job_data"] = data
     return job
@@ -616,6 +664,7 @@ def job_position_get(job_id):
     jobs = database.mongo.db.jobs.find(
         {"job_data.job_queue": queue, "result_data.job_state": "waiting"},
         {"job_id": 1},
+        sort=[("job_priority", -1)],
     )
     # Create a dict mapping job_id (as a string) to the position in the queue
     jobs_id_position = {job.get("job_id"): pos for pos, job in enumerate(jobs)}
@@ -676,6 +725,8 @@ def validate_client_key_pair(client_id: str, client_key: str):
     """
     Checks client_id and key pair for validity and returns their permissions
     """
+    if client_key is None:
+        return None
     client_key_bytes = client_key.encode("utf-8")
     client_permissions_entry = database.mongo.db.client_permissions.find_one(
         {

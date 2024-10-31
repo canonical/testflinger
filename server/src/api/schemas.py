@@ -115,6 +115,7 @@ class Job(Schema):
     allocate_data = fields.Dict(required=False)
     reserve_data = fields.Dict(required=False)
     job_status_webhook = fields.String(required=False)
+    job_priority = fields.Integer(required=False)
 
 
 class JobId(Schema):

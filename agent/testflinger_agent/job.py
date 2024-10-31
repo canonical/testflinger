@@ -215,30 +215,9 @@ class ExternalCommandPhase(JobPhase):
         logger.info("Running %s_command: %s", self.phase_id, self.cmd)
         try:
             exit_code, event, detail = self.runner.run(self.cmd)
-            if exit_code == 0:
-                # complete, successful run
-                return JobPhaseResult(
-                    exit_code=exit_code,
-                    event=f"{self.phase_id}_success",
-                )
-            else:
-                # [NOTE] This is a deviation from the current approach
-                # where a separate event is emitted when stop events are
-                # returned from the runner and then a fail event on top
-                # Here we *only* emit the stop event
-                # self.emitter.emit_event(event, detail)
-                if event:
-                    return JobPhaseResult(
-                        exit_code=exit_code,
-                        event=event,
-                        detail=detail,
-                    )
-                else:
-                    return JobPhaseResult(
-                        exit_code=exit_code,
-                        event=f"{self.phase_id}_fail",
-                        detail=self.parse_error_logs(),
-                    )
+            # make sure the exit code is within the expected 0-255 range
+            # (this also handles negative numbers)
+            exitcode = exitcode % 256
         except Exception as error:
             # failed phase run due to an exception
             detail = f"{type(error).__name__}: {error}"
@@ -248,6 +227,32 @@ class ExternalCommandPhase(JobPhase):
                 event=f"{self.phase_id}_fail",
                 detail=detail,
             )
+        
+        if exit_code == 0:
+            # complete, successful run
+            return JobPhaseResult(
+                exit_code=exit_code,
+                event=f"{self.phase_id}_success",
+            )
+
+        # [NOTE] This is a deviation from the current approach
+        # where a separate event is emitted when stop events are
+        # returned from the runner and then a fail event on top
+        # Here we *only* emit the stop event
+        # self.emitter.emit_event(event, detail)
+        if event:
+            return JobPhaseResult(
+                exit_code=exit_code,
+                event=event,
+                detail=detail,
+            )
+
+        return JobPhaseResult(
+            exit_code=exit_code,
+            event=f"{self.phase_id}_fail",
+            detail=self.parse_error_logs(),
+        )
+
 
     def parse_error_logs(self):
         # [TODO] Move filenames used to pass information to the common module

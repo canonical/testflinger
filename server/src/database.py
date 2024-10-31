@@ -190,8 +190,9 @@ def pop_job(queue_list):
                 "job_id": True,
                 "created_at": True,
                 "job_data": True,
-                "_id": False,
+                "_id": True,
             },
+            sort=[("job_priority", -1)],
         )
     except TypeError:
         return None
