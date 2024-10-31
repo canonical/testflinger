@@ -54,7 +54,7 @@ The following table lists the key elements that a job definition file should con
     - | (Optional) URL to send job status updates to. These updates originate from the agent and get posted to the server which then posts the update to the webhook. If no webhook is specified, these updates will not be generated.
   * - ``job_priority``
     - integer
-    - | (Optional) Integer specifying how much priority this job has. Jobs with higher job_priority will be selected by agents before other jobs. Specifying a job priority requires authorization in the form of a JWT obtained by sending a POST request to /v1/oauth2/token with a client id and client key specified in an Authorization header.
+    - | (Optional) Integer specifying how much priority this job has. Jobs with higher job_priority will be selected by agents before other jobs. Specifying a job priority requires authorisation in the form of a JWT obtained by sending a POST request to /v1/oauth2/token with a client id and client key specified in an Authorisation header.
 
 Example jobs in YAML
 ----------------------------

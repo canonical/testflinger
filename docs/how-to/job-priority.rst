@@ -10,6 +10,6 @@ job YAML like this:
 
 This field requires an integer value with a default value of 0. The maximum
 priority you can set depends on the permissions that you have for the queue
-you are submtting to.
+you are submitting to.
 
 In order to use this field, you need to be :doc:`authenticated <./authentication>` with the server.
