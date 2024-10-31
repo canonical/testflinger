@@ -23,6 +23,7 @@ EBS
 EFI
 EKS
 EMMC
+env
 favicon
 Git
 GitHub
