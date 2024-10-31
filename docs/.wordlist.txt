@@ -4,6 +4,7 @@ APIs
 authorized
 artifact
 artifacts
+Authorization
 autoinstall
 balancer
 BG
@@ -39,6 +40,7 @@ IoT
 Jira
 JSON
 Juju
+JWT
 Kubeflow
 Kubernetes
 KVM
@@ -64,6 +66,7 @@ netboot
 NodePort
 noprovision
 NVidia
+oauth
 observability
 OEM
 oem
