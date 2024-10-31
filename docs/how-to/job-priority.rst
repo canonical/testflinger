@@ -12,4 +12,4 @@ This field requires an integer value with a default value of 0. The maximum
 priority you can set depends on the permissions that you have for the queue
 you are submitting to.
 
-In order to use this field, you need to be :doc:`authenticated <./authentication>` with the server.
+In order to use this field, you need an :doc:`authorisation token <./authentication>` from the server.
