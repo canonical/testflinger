@@ -8,3 +8,5 @@ This section covers conceptual questions about Testflinger.
 
     agents
     queues
+    job-priority
+    authentication

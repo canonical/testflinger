@@ -48,6 +48,11 @@ You may also set the environment variable 'TESTFLINGER_SERVER' to
 the URI of your server, and it will prefer that over the default
 or the string specified by --server.
 
+To specify Testflinger authentication parameters, like client_id
+and secret_key, you can use '--client_id' and '--secret_key' respectively.
+You can also specify these parameters as environment variables,
+'TESTFLINGER_CLIENT_ID' and 'TESTFLINGER_SECRET_KEY'.
+
 To submit a new test job, first create a yaml or json file containing
 the job definition. Then run:
 .. code-block:: console
