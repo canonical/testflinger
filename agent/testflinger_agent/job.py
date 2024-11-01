@@ -140,9 +140,10 @@ class JobPhase(ABC):
         pass
 
     def run(self):
-        """This is the generic structure of every phase"""
+        """This is the generic structure of every phase
 
-        assert self.go()
+        This method should only be called if the `go` method has returned True.
+        """
 
         # register the output handlers with the runner
         self.runner.register_output_handler(LogUpdateHandler(self.output_log))
@@ -215,10 +216,11 @@ class ExternalCommandPhase(JobPhase):
         # execute the external command
         logger.info("Running %s_command: %s", self.phase_id, self.cmd)
         try:
+            # a non-zero exit code can arise because:
+            # - the command run has been interrupted by a condition checker
+            #   (in which case the event and detail will have been set)
+            # - the command run has completed with a non-zero exit code
             exit_code, event, detail = self.runner.run(self.cmd)
-            # make sure the exit code is within the expected 0-255 range
-            # (this also handles negative numbers)
-            exit_code = exit_code % 256
         except Exception as error:
             # failed phase run due to an exception
             detail = f"{type(error).__name__}: {error}"
@@ -236,18 +238,16 @@ class ExternalCommandPhase(JobPhase):
                 event=f"{self.phase_id}_success",
             )
 
-        # [NOTE] This is a deviation from the current approach
-        # where a separate event is emitted when stop events are
-        # returned from the runner and then a fail event on top
-        # Here we *only* emit the stop event
-        # self.emitter.emit_event(event, detail)
         if event:
+            # a condition checker has caused an interruption event
+            # (attention: no separate/additional fail event is returned)
             return JobPhaseResult(
                 exit_code=exit_code,
                 event=event,
                 detail=detail,
             )
 
+        # non-zero exit code with no event results in a fail event
         return JobPhaseResult(
             exit_code=exit_code,
             event=f"{self.phase_id}_fail",
@@ -610,6 +610,8 @@ class TestflingerJob:
 
     def check_end(self) -> bool:
         phase = self.phases[self.current_phase]
+        # if any phase has exited with a non-zero exit code the job must end;
+        # the test phase is excluded: its exit code is open to interpretation
         if phase.result.exit_code and self.current_phase != TestPhase.TEST:
             logger.debug("Phase %s failed, aborting job" % phase)
             # set these here because self.end() is called after cleanup
@@ -647,7 +649,6 @@ class TestflingerJob:
         self.emitter.emit_event(TestEvent(f"{phase_id}_start"))
         phase = self.phases[phase_id]
         phase.run()
-        # self.params.client.post_influx(phase.id, phase.result.exit_code)
         self.emitter.emit_event(phase.result.event, phase.result.detail)
         return phase.result
 
