@@ -90,7 +90,7 @@ class TestJob:
             log_data = log.read()
         assert timeout_str in log_data
         assert exit_reason == timeout_str
-        assert exit_code == -9
+        assert exit_code == 247
         assert exit_event == TestEvent.GLOBAL_TIMEOUT
 
     def test_config_global_timeout(self, client):
@@ -120,7 +120,7 @@ class TestJob:
             log_data = log.read()
         assert timeout_str in log_data
         assert exit_reason == timeout_str
-        assert exit_code == -9
+        assert exit_code == 247
         assert exit_event == TestEvent.OUTPUT_TIMEOUT
 
     def test_config_output_timeout(self, client):
