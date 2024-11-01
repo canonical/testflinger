@@ -1,7 +1,7 @@
 Authentication using Testflinger CLI
 ====================================
 
-:doc:`Authentication <../explanation/authentication>` is only required for submitting jobs with priority.
+:doc:`Authentication <../explanation/authentication>` is only required for submitting jobs with priority or submitting jobs to a restricted queue.
 
 Authenticating with Testflinger server requires a client id and a secret key.
 These credentials can be provided to the CLI using the environment variables
