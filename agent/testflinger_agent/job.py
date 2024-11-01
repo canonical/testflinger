@@ -124,10 +124,11 @@ class JobPhase(ABC):
         """Return True if the phase should run or False if skipping"""
         raise NotImplementedError
 
-    @abstractmethod
     def register(self):
         """Perform all necessary registrations with the phase runner"""
-        raise NotImplementedError
+        self.runner.register_stop_condition_checker(
+            GlobalTimeoutChecker(self.params.get_global_timeout())
+        )
 
     @abstractmethod
     def run_core(self) -> JobPhaseResult:
@@ -217,7 +218,7 @@ class ExternalCommandPhase(JobPhase):
             exit_code, event, detail = self.runner.run(self.cmd)
             # make sure the exit code is within the expected 0-255 range
             # (this also handles negative numbers)
-            exitcode = exitcode % 256
+            exit_code = exit_code % 256
         except Exception as error:
             # failed phase run due to an exception
             detail = f"{type(error).__name__}: {error}"
@@ -227,7 +228,7 @@ class ExternalCommandPhase(JobPhase):
                 event=f"{self.phase_id}_fail",
                 detail=detail,
             )
-        
+
         if exit_code == 0:
             # complete, successful run
             return JobPhaseResult(
@@ -252,7 +253,6 @@ class ExternalCommandPhase(JobPhase):
             event=f"{self.phase_id}_fail",
             detail=self.parse_error_logs(),
         )
-
 
     def parse_error_logs(self):
         # [TODO] Move filenames used to pass information to the common module
@@ -281,12 +281,93 @@ class ExternalCommandPhase(JobPhase):
                 return ""
 
 
-class SetupPhase(ExternalCommandPhase, phase_id=TestPhase.SETUP):
+class UnpackPhase(JobPhase, phase_id=TestPhase.UNPACK):
 
-    def register(self):
-        self.runner.register_stop_condition_checker(
-            GlobalTimeoutChecker(self.params.get_global_timeout())
-        )
+    # phases for which attachments are allowed
+    supported_phases = (
+        TestPhase.PROVISION,
+        TestPhase.FIRMWARE_UPDATE,
+        TestPhase.TEST,
+    )
+
+    def go(self) -> bool:
+        if self.params.job_data.get("attachments_status") != "complete":
+            # the phase is "go" if attachments have been provided
+            logger.info("No attachments provided in job data, skipping...")
+            return False
+        return True
+
+    def run_core(self) -> JobPhaseResult:
+        try:
+            self.unpack_attachments()
+        except Exception as error:
+            error_str = f"{type(error).__name__}: {error}"
+            # use the runner to display the error
+            # (so that the output is also included in the phase results)
+            for line in error_str.split("\n"):
+                self.runner.run(f"echo '{line}'")
+            return JobPhaseResult(
+                exit_code=1, event=TestEvent.UNPACK_FAIL, detail=error_str
+            )
+        return JobPhaseResult(exit_code=0, event=TestEvent.UNPACK_SUCCESS)
+
+    def secure_filter(self, member, path):
+        """Combine the `data` filter with custom attachment filtering
+
+        Makes sure that the starting folder for all attachments coincides
+        with one of the supported phases, i.e. that the attachment archive
+        has been created properly and no attachment will be extracted to an
+        unexpected location.
+        """
+        try:
+            resolved = Path(member.name).resolve().relative_to(Path.cwd())
+        except ValueError as error:
+            # essentially trying to extract higher than the attachments folder
+            raise tarfile.OutsideDestinationError(member, path) from error
+        if not str(resolved).startswith(
+            tuple(f"{phase}/" for phase in self.supported_phases)
+        ):
+            # extracting in invalid folder, under the attachments folder
+            raise tarfile.OutsideDestinationError(member, path)
+        return tarfile.data_filter(member, path)
+
+    def unpack_attachments(self):
+        """Download and unpack the attachments associated with a job"""
+        job_id = self.params.job_data["job_id"]
+        with tempfile.NamedTemporaryFile(suffix=".tar.gz") as archive_tmp:
+            archive_path = Path(archive_tmp.name)
+            # download attachment archive
+            logger.info(f"Downloading attachments for {job_id}")
+            self.params.client.get_attachments(job_id, path=archive_path)
+            # extract archive into the attachments folder
+            logger.info(f"Unpacking attachments for {job_id}")
+            with tarfile.open(archive_path, "r:gz") as tar:
+                tar.extractall(
+                    Path(self.params.rundir) / ATTACHMENTS_DIR,
+                    filter=self.secure_filter,
+                )
+
+        # side effect: remove all attachment data from `job_data`
+        # (so there is no interference with existing processes, especially
+        # provisioning or firmware update, which are triggered when these
+        # sections are not empty)
+        for phase in self.supported_phases:
+            phase_str = f"{phase}_data"
+            try:
+                phase_data = self.params.job_data[phase_str]
+            except KeyError:
+                pass
+            else:
+                # delete attachments, if they exist
+                phase_data.pop("attachments", None)
+                # it may be the case that attachments were the only data
+                # included for this phase, so the phase can now be removed
+                if not phase_data:
+                    del self.params.job_data[phase_str]
+
+
+class SetupPhase(ExternalCommandPhase, phase_id=TestPhase.SETUP):
+    pass
 
 
 class FirmwarePhase(ExternalCommandPhase, phase_id=TestPhase.FIRMWARE_UPDATE):
@@ -301,11 +382,6 @@ class FirmwarePhase(ExternalCommandPhase, phase_id=TestPhase.FIRMWARE_UPDATE):
             )
             return False
         return True
-
-    def register(self):
-        self.runner.register_stop_condition_checker(
-            GlobalTimeoutChecker(self.params.get_global_timeout())
-        )
 
 
 class ProvisionPhase(ExternalCommandPhase, phase_id=TestPhase.PROVISION):
@@ -322,9 +398,7 @@ class ProvisionPhase(ExternalCommandPhase, phase_id=TestPhase.PROVISION):
         return True
 
     def register(self):
-        self.runner.register_stop_condition_checker(
-            GlobalTimeoutChecker(self.params.get_global_timeout())
-        )
+        super().register()
         # Do not allow cancellation during provision for safety reasons
         self.runner.register_stop_condition_checker(
             JobCancelledChecker(
@@ -359,9 +433,7 @@ class TestCommandsPhase(ExternalCommandPhase, phase_id=TestPhase.TEST):
         return True
 
     def register(self):
-        self.runner.register_stop_condition_checker(
-            GlobalTimeoutChecker(self.params.get_global_timeout())
-        )
+        super().register()
         # We only need to check for output timeouts during the test phase
         output_timeout_checker = OutputTimeoutChecker(
             self.params.get_output_timeout()
@@ -382,11 +454,6 @@ class AllocatePhase(ExternalCommandPhase, phase_id=TestPhase.ALLOCATE):
         if not self.params.job_data.get(f"{self.phase_id}_data"):
             return False
         return True
-
-    def register(self):
-        self.runner.register_stop_condition_checker(
-            GlobalTimeoutChecker(self.params.get_global_timeout())
-        )
 
     def process_results(self):
         """
@@ -467,16 +534,13 @@ class ReservePhase(ExternalCommandPhase, phase_id=TestPhase.RESERVE):
 
 
 class CleanupPhase(ExternalCommandPhase, phase_id=TestPhase.CLEANUP):
-
-    def register(self):
-        self.runner.register_stop_condition_checker(
-            GlobalTimeoutChecker(self.params.get_global_timeout())
-        )
+    pass
 
 
 class TestflingerJob:
 
     phase_sequence = (
+        TestPhase.UNPACK,
         TestPhase.SETUP,
         TestPhase.PROVISION,
         TestPhase.FIRMWARE_UPDATE,
@@ -486,6 +550,7 @@ class TestflingerJob:
     )
 
     phase_cls_map = {
+        TestPhase.UNPACK: UnpackPhase,
         TestPhase.SETUP: SetupPhase,
         TestPhase.PROVISION: ProvisionPhase,
         TestPhase.FIRMWARE_UPDATE: FirmwarePhase,
@@ -585,70 +650,6 @@ class TestflingerJob:
         # self.params.client.post_influx(phase.id, phase.result.exit_code)
         self.emitter.emit_event(phase.result.event, phase.result.detail)
         return phase.result
-
-    def secure_filter(self, member, path):
-        """Combine the `data` filter with custom attachment filtering
-
-        Makes sure that the starting folder for all attachments coincides
-        with one of the supported phases, i.e. that the attachment archive
-        has been created properly and no attachment will be extracted to an
-        unexpected location.
-        """
-        try:
-            resolved = Path(member.name).resolve().relative_to(Path.cwd())
-        except ValueError as error:
-            # essentially trying to extract higher than the attachments folder
-            raise tarfile.OutsideDestinationError(member, path) from error
-        if not str(resolved).startswith(
-            tuple(
-                f"{phase}/"
-                for phase in (
-                    TestPhase.PROVISION,
-                    TestPhase.FIRMWARE_UPDATE,
-                    TestPhase.TEST,
-                )
-            )
-        ):
-            # trying to extract in invalid folder under the attachments folder
-            raise tarfile.OutsideDestinationError(member, path)
-        return tarfile.data_filter(member, path)
-
-    def check_attachments(self) -> bool:
-        return self.params.job_data.get("attachments_status") == "complete"
-
-    def unpack_attachments(self):
-        """Download and unpack the attachments associated with a job"""
-
-        with tempfile.NamedTemporaryFile(suffix=".tar.gz") as archive_tmp:
-            archive_path = Path(archive_tmp.name)
-            # download attachment archive
-            logger.info(f"Downloading attachments for {self.job_id}")
-            self.params.client.get_attachments(self.job_id, path=archive_path)
-            # extract archive into the attachments folder
-            logger.info(f"Unpacking attachments for {self.job_id}")
-            with tarfile.open(archive_path, "r:gz") as tar:
-                tar.extractall(
-                    self.params.rundir / ATTACHMENTS_DIR,
-                    filter=self.secure_filter,
-                )
-
-        # side effect: remove all attachment data from `self.params.job_data`
-        # (so there is no interference with existing processes, especially
-        # provisioning or firmware update, which are triggered when these
-        # sections are not empty)
-        for phase in self.supported_phases:
-            phase_str = f"{phase}_data"
-            try:
-                phase_data = self.params.job_data[phase_str]
-            except KeyError:
-                pass
-            else:
-                # delete attachments, if they exist
-                phase_data.pop("attachments", None)
-                # it may be the case that attachments were the only data
-                # included for this phase, so the phase can now be removed
-                if not phase_data:
-                    del self.params.job_data[phase_str]
 
 
 def banner(line: str):

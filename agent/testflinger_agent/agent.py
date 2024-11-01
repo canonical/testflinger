@@ -134,9 +134,6 @@ class TestflingerAgent:
                 self.client.post_agent_data({"job_id": job_id})
                 job.start()
 
-                if job.check_attachments():
-                    job.unpack_attachments()
-
                 # Go through the job phases
                 for phase in job.phase_sequence:
 

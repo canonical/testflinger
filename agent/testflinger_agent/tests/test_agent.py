@@ -146,8 +146,56 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+
+            for entry in history:
+                print(entry)
+
+            # client.check_jobs()
+            assert (
+                history[0].path == "/v1/job"
+                and history[0].query == "queue=test"
+                and history[0].method == "GET"
+            )
+            # client.post_agent_data({"job_id": job_id})
+            assert (
+                history[1].path.startswith("/v1/agents/data")
+                and history[1].method == "POST"
+            )
+            # client.check_job_state(job_id)
+            assert (
+                history[2].path == f"/v1/result/{job_id}"
+                and history[2].method == "GET"
+            )
+            # self.set_agent_state(phase)
+            assert (
+                history[3].path.startswith("/v1/agents/data")
+                and history[3].method == "POST"
+            )
+            # self.client.post_job_state(job_id, phase)
+            assert (
+                history[4].path == f"/v1/result/{job_id}"
+                and history[4].method == "POST"
+            )
+            # check that attachments have been requested
+            # client.get_attachments(job_id, path=archive_path)
+            attachment_requests = list(
+                filter(
+                    lambda request: request.path
+                    == f"/v1/job/{job_id}/attachments"
+                    and request.method == "GET",
+                    history,
+                )
+            )
+            assert len(attachment_requests) == 1
+            # check the results to confirm that the unpack phase succeeded
+            result_request = list(
+                filter(
+                    lambda request: request.path == f"/v1/result/{job_id}"
+                    and request.method == "POST",
+                    history,
+                )
+            )[-1]
+            assert result_request.json()["unpack_status"] == 0
 
             # check that the attachment is where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -203,8 +251,57 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+
+            for entry in history:
+                print(entry)
+
+            # client.check_jobs()
+            assert (
+                history[0].path == "/v1/job"
+                and history[0].query == "queue=test"
+                and history[0].method == "GET"
+            )
+            # client.post_agent_data({"job_id": job_id})
+            assert (
+                history[1].path.startswith("/v1/agents/data")
+                and history[1].method == "POST"
+            )
+            # client.check_job_state(job_id)
+            assert (
+                history[2].path == f"/v1/result/{job_id}"
+                and history[2].method == "GET"
+            )
+            # self.set_agent_state(phase)
+            assert (
+                history[3].path.startswith("/v1/agents/data")
+                and history[3].method == "POST"
+            )
+            # self.client.post_job_state(job_id, phase)
+            assert (
+                history[4].path == f"/v1/result/{job_id}"
+                and history[4].method == "POST"
+            )
+
+            # check that attachments have been requested
+            # client.get_attachments(job_id, path=archive_path)
+            attachment_requests = list(
+                filter(
+                    lambda request: request.path
+                    == f"/v1/job/{job_id}/attachments"
+                    and request.method == "GET",
+                    history,
+                )
+            )
+            assert len(attachment_requests) == 1
+            # check the results to confirm that the unpack phase failed
+            result_request = list(
+                filter(
+                    lambda request: request.path == f"/v1/result/{job_id}"
+                    and request.method == "POST",
+                    history,
+                )
+            )[-1]
+            assert result_request.json()["unpack_status"] != 0
 
             # check that the attachment is *not* where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -260,8 +357,57 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+
+            for entry in history:
+                print(entry)
+
+            # client.check_jobs()
+            assert (
+                history[0].path == "/v1/job"
+                and history[0].query == "queue=test"
+                and history[0].method == "GET"
+            )
+            # client.post_agent_data({"job_id": job_id})
+            assert (
+                history[1].path.startswith("/v1/agents/data")
+                and history[1].method == "POST"
+            )
+            # client.check_job_state(job_id)
+            assert (
+                history[2].path == f"/v1/result/{job_id}"
+                and history[2].method == "GET"
+            )
+            # self.set_agent_state(phase)
+            assert (
+                history[3].path.startswith("/v1/agents/data")
+                and history[3].method == "POST"
+            )
+            # self.client.post_job_state(job_id, phase)
+            assert (
+                history[4].path == f"/v1/result/{job_id}"
+                and history[4].method == "POST"
+            )
+
+            # check that attachments have been requested
+            # client.get_attachments(job_id, path=archive_path)
+            attachment_requests = list(
+                filter(
+                    lambda request: request.path
+                    == f"/v1/job/{job_id}/attachments"
+                    and request.method == "GET",
+                    history,
+                )
+            )
+            assert len(attachment_requests) == 1
+            # check the results to confirm that the unpack phase failed
+            result_request = list(
+                filter(
+                    lambda request: request.path == f"/v1/result/{job_id}"
+                    and request.method == "POST",
+                    history,
+                )
+            )[-1]
+            assert result_request.json()["unpack_status"] != 0
 
             # check that the attachment is *not* where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]

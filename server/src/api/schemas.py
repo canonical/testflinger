@@ -147,6 +147,9 @@ class JobSearchResponse(Schema):
 class Result(Schema):
     """Result schema"""
 
+    unpack_status = fields.Integer(required=False)
+    unpack_output = fields.String(required=False)
+    unpack_serial = fields.String(required=False)
     setup_status = fields.Integer(required=False)
     setup_output = fields.String(required=False)
     setup_serial = fields.String(required=False)
