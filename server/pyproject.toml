@@ -24,6 +24,9 @@ bcrypt = "^4.2.0"
 [tool.poetry.dev-dependencies]
 pytest = "^8.1.2"
 
+[tool.poetry.scripts]
+client_credentials_admin = "tools.client_credentials_admin:main"
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

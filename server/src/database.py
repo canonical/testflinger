@@ -33,12 +33,8 @@ OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 mongo = PyMongo()
 
 
-def setup_mongodb(application):
-    """
-    Setup mongodb connection if we have valid config data
-    Otherwise leave it empty, which means we are probably running unit tests
-    """
-
+def get_mongo_uri():
+    """Creates mongodb uri from environment variables"""
     mongo_user = os.environ.get("MONGODB_USERNAME")
     mongo_pass = os.environ.get("MONGODB_PASSWORD")
     if mongo_pass:
@@ -62,6 +58,15 @@ def setup_mongodb(application):
             f"?authSource={mongo_auth}"
         )
 
+    return mongo_uri
+
+
+def setup_mongodb(application):
+    """
+    Setup mongodb connection if we have valid config data
+    Otherwise leave it empty, which means we are probably running unit tests
+    """
+    mongo_uri = get_mongo_uri()
     mongo.init_app(
         application,
         uri=mongo_uri,
