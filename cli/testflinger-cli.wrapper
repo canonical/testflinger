@@ -1,0 +1,8 @@
+#!/bin/sh
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+export XDG_DATA_HOME=$SNAP_USER_DATA/.local/share
+export XDG_CONFIG_HOME=$SNAP_USER_DATA/.config
+export XDG_CACHE_HOME=$SNAP_USER_DATA/.cache
+export XDG_STATE_HOME=$SNAP_USER_DATA/.local/state
+exec testflinger-cli $@
