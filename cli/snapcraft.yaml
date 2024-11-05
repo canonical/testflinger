@@ -13,12 +13,25 @@ architectures:
   - build-on: [amd64]
     build-for: [all]
 
+plugs:
+  dot-config-testflinger-cli:
+    interface: personal-files
+    read:
+      - $HOME/.config/testflinger-cli.conf
+  dot-local-share-testflinger-cli-history:
+    interface: personal-files
+    write:
+      - $HOME/.local/share/testflinger-cli-history.json
+
 apps:
   testflinger-cli:
     command: bin/testflinger-cli.wrapper
     plugs:
       - home
       - network
+      - dot-config-testflinger-cli
+    slots:
+      - dot-local-share-testflinger-cli-history
 
 parts:
   launcher:
