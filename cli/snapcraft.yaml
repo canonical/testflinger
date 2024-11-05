@@ -1,5 +1,6 @@
 name: testflinger-cli
-summary: testflinger-cli
+title: Testflinger
+summary: Testflinger CLI
 description: |
   The testflinger-cli tool is used for interacting with the testflinger
   server for submitting test jobs, checking status, getting results, and
@@ -8,6 +9,11 @@ confinement: strict
 base: core22
 grade: stable
 adopt-info: testflinger-cli
+
+website: https://testflinger.readthedocs.io/en/latest/
+source-code: https://github.com/canonical/testflinger
+issues: https://github.com/canonical/testflinger/issues
+contact: https://github.com/canonical/testflinger/issues
 
 architectures:
   - build-on: [amd64]
