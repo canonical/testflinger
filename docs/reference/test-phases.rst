@@ -215,7 +215,9 @@ Example agent configuration:
 
 Attachments
 ------------
-In the `provisioning`, `firmware_update` and `test` phases, it is also possible to specify attachments, i.e. local files that are to be copied over to the Testflinger agent host.
+In the `provisioning`, `firmware_update` and `test` phases, it is also possible
+to specify attachments, i.e. local files that are to be copied over to
+the Testflinger agent host.
 
 * Example job definition:
 
@@ -239,11 +241,17 @@ In the `provisioning`, `firmware_update` and `test` phases, it is also possible 
         chmod u+x attachments/test/script.sh
         attachments/test/script.sh
 
-  The `local` fields specify where the attachments are to be found locally, e.g. on the machine where the CLI is executed. For this particular example, this sort of file tree is expected:
+  The `local` fields specify where the attachments are to be found locally,
+  e.g. on the machine where the CLI is executed. Unless otherwise specified,
+  relative paths are interpreted in relation to the location of the Testflinger
+  job file (which is convenient since the job file and the attachments are
+  usually stored together).
+  So for this particular example, this sort of file tree is expected:
 
   .. code-block:: bash
 
     .
+    ├── job.yaml
     ├── config.json
     ├── images
     │   └── ubuntu-logo.png
@@ -251,7 +259,10 @@ In the `provisioning`, `firmware_update` and `test` phases, it is also possible 
     │   └── my_test_script.sh
     └── ubuntu-22.04.4-preinstalled-desktop-arm64+raspi.img.xz
 
-  On the agent host, the attachments are placed under the `attachments` folder and distributed in separate sub-folders according to phase. If an `agent` field is provided, the attachments are also moved or renamed accordingly. For the example above, the file tree on the agent host would look like this:
+  On the agent host, the attachments are placed under the `attachments` folder
+  and distributed in separate sub-folders according to phase. If an `agent`
+  field is provided, the attachments are also moved or renamed accordingly.
+  For the example above, the file tree on the agent host would look like this:
 
   .. code-block:: bash
 
@@ -267,8 +278,13 @@ In the `provisioning`, `firmware_update` and `test` phases, it is also possible 
             │   └── ubuntu-logo.png
             └── script.sh
 
-In this example, there is no `url` field under the `provision_data` to specify where to download the provisioning image from.
-Instead, there is a `use_attachment` field that indicates which attachment should be used as a provisioning image.
+The Testflinger CLI also accepts an optional `--attachments-relative-to` argument.
+When provided, relative paths are interpreted in relation to this reference path,
+instead of the default,  i.e. the location of the Testflinger job file.
+
+In the example above, there is no `url` field under the `provision_data` to specify
+where to download the provisioning image from. Instead, there is a `use_attachment`
+field that indicates which attachment should be used as a provisioning image.
 The presence of *either* `url` or `use_attachment` is required.
 
 At the moment, only the :ref:`muxpi` device connector supports provisioning using an attached image.

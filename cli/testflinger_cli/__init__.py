@@ -125,15 +125,6 @@ def _print_queue_message():
     )
 
 
-def make_relative(path: Path) -> Path:
-    """Return resolved relative `path`"""
-    if path.is_absolute():
-        # strip leading '/' from absolute path
-        path = path.relative_to(path.root)
-    # resolve the path and make relative again
-    return path.resolve().relative_to(Path.cwd())
-
-
 class AttachmentError(Exception):
     """Exception thrown when attachments fail to be submitted"""
 
@@ -292,6 +283,12 @@ class TestflingerCli:
         arg_submit.add_argument("--poll", "-p", action="store_true")
         arg_submit.add_argument("--quiet", "-q", action="store_true")
         arg_submit.add_argument("filename")
+        relative = arg_submit.add_mutually_exclusive_group()
+        relative.add_argument(
+            "--attachments-relative-to",
+            dest="relative",
+            help="The reference directory for relative attachment paths",
+        )
 
         self.args = parser.parse_args()
         self.help = parser.format_help()
@@ -347,17 +344,19 @@ class TestflingerCli:
     @staticmethod
     def extract_attachment_data(job_data: dict) -> Optional[dict]:
         """Pull together the attachment data per phase from the `job_data`"""
-        attachment_data = {}
+        attachments = {}
         for phase in ("provision", "firmware_update", "test"):
-            phase_str = f"{phase}_data"
             try:
-                attachment_data[phase] = job_data[phase_str]["attachments"]
+                attachments[phase] = [
+                    attachment
+                    for attachment in job_data[f"{phase}_data"]["attachments"]
+                    if attachment.get("local")
+                ]
             except KeyError:
                 pass
-        return attachment_data or None
+        return attachments or None
 
-    @staticmethod
-    def pack_attachments(archive: str, attachment_data: dict):
+    def pack_attachments(self, archive: str, attachment_data: dict):
         """Pack the attachments specifed by `attachment_data` into `archive`
 
         Use `tarfile` instead of `shutil` because:
@@ -367,15 +366,42 @@ class TestflingerCli:
         > owner.
         Ref: https://docs.python.org/3/library/tarfile.html
         """
+        # determine the reference directory for relative attachment paths
+        if self.args.relative:
+            # provided as a command-line argument
+            reference = Path(self.args.relative).resolve(strict=True)
+        else:
+            # retrieved from the directory where the job file is contained
+            reference = Path(self.args.filename).parent.resolve(strict=True)
+
         with tarfile.open(archive, "w:gz") as tar:
             for phase, attachments in attachment_data.items():
                 phase_path = Path(phase)
                 for attachment in attachments:
                     local_path = Path(attachment["local"])
-                    # determine archive name for attachment
+                    if not local_path.is_absolute():
+                        # make relative attachment path absolute
+                        local_path = reference / local_path
+                    local_path = local_path.resolve()
+                    # determine the archive path for the attachment
                     # (essentially: the destination path on the agent host)
-                    agent_path = Path(attachment.get("agent", local_path))
-                    agent_path = make_relative(agent_path)
+                    try:
+                        agent_path = Path(attachment["agent"])
+                        if agent_path.is_absolute():
+                            # strip leading '/' from absolute path
+                            agent_path = agent_path.relative_to(
+                                agent_path.root
+                            )
+                    except KeyError:
+                        # no agent path provided: determine it from local path
+                        try:
+                            # make agent path relative to the reference path
+                            agent_path = local_path.relative_to(reference)
+                        except ValueError:
+                            # unable to determine the agent path (cannot make
+                            # the local path relative to the reference path):
+                            # just use the filename
+                            agent_path = local_path.name
                     archive_path = phase_path / agent_path
                     tar.add(local_path, arcname=archive_path)
                     # side effect: strip "local" information

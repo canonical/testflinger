@@ -19,6 +19,9 @@ inputs:
     description: The Testflinger server to use
     required: false
     default: testflinger.canonical.com
+  attachments-relative-to:
+    description: The reference directory for relative attachment paths
+    required: false
 outputs:
   id:
     description: 'The ID of the submitted job'
@@ -81,8 +84,12 @@ runs:
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
+        RELATIVE_TO: ${{ inputs.attachments-relative-to }}
       run: |
-        JOB_ID=$(testflinger --server $SERVER submit --quiet "$JOB")
+        if [ -n "$RELATIVE_TO" ]; then
+          RELATIVE="--attachments-relative-to $RELATIVE_TO"
+        fi
+        JOB_ID=$(testflinger --server $SERVER submit --quiet "$RELATIVE" "$JOB")
         echo "job id: $JOB_ID"
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
 

@@ -39,7 +39,7 @@ This monorepo is organized in a way that is consistant with the components descr
 
 # Github actions
 
-If you need to submit a job to a testflinger server through a Github action (instead, for example, of using the command-line tool), you can use the [`submit` action](https://github.com/canonical/testflinger/blob/main/.github/actions/submit/action.yaml) in a CI workflow.
+If you need to submit a job to a testflinger server through a Github action (instead, for example, of using the command-line tool), you can use the [`submit` action](https://github.com/canonical/testflinger/blob/main/.github/actions/submit/action.yaml) in a CI workflow. Please refer to the `inputs` field of the action for a complete list of the arguments that the action can receive.
 
 The corresponding step in the workflow would look like this:
 ```yaml
