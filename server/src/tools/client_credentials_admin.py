@@ -91,7 +91,7 @@ def confirm_dialogue(entry: dict) -> bool:
     """Prompts the user to confirm their changes"""
     print(entry)
     while True:
-        confirm = input("Confirm(y/n) that this entry looks correct: ")
+        confirm = input("Confirm that this entry looks correct (y/n): ")
         if confirm == "y":
             return True
 
@@ -102,22 +102,34 @@ def confirm_dialogue(entry: dict) -> bool:
         print("Enter y/n")
 
 
+def check_client_exists(db, client_id: str) -> bool:
+    """Checks if client id exists in client_permissions"""
+    return (
+        db.client_permissions.count_documents(
+            {"client_id": client_id}, limit=1
+        )
+        != 0
+    )
+
+
 def create_client_credential(db):
     """
     Creates new client_id, client_secret pair with max_priority
     and allowed_queues
     """
     client_id = input("Enter the new client_id: ")
-    if (
-        db.client_permissions.count_documents(
-            {"client_id": client_id}, limit=1
-        )
-        == 1
-    ):
-        print("Client id already exists!")
+    if check_client_exists(db, client_id):
+        print("Client id already exists!\n")
         return
 
     client_secret = getpass.getpass("Enter the new client_secret: ")
+    client_secret_confirm = getpass.getpass(
+        "Enter the new client_secret again: "
+    )
+    if client_secret != client_secret_confirm:
+        print("New client secrets do not match!\n")
+        return
+
     client_secret_hash = bcrypt.hashpw(
         client_secret.encode("utf-8"), bcrypt.gensalt()
     ).decode()
@@ -133,7 +145,7 @@ def create_client_credential(db):
     if confirm_dialogue(entry):
         entry["client_secret_hash"] = client_secret_hash
         db.client_permissions.insert_one(entry)
-        print("Entry has been created and stored in database")
+        print("Entry has been created and stored in database\n")
 
 
 def edit_client_credential(db):
@@ -143,6 +155,10 @@ def edit_client_credential(db):
     """
 
     client_id = input("Enter the client_id you wish to edit: ")
+    if not check_client_exists(db, client_id):
+        print("Client id not in database!\n")
+        return
+
     max_priority = handle_max_priority_input()
     allowed_queues = handle_allowed_queues_input()
     confirm_output = confirm_dialogue(
@@ -163,39 +179,57 @@ def edit_client_credential(db):
             },
             return_document=ReturnDocument.AFTER,
         )
-        print("Entry updated successfully")
+        print("Entry updated successfully\n")
 
 
 def remove_client_credential(db):
     """Removes a client_id and client_secret pair from the database"""
     client_id = input("Enter the client_id you wish to delete: ")
+    if not check_client_exists(db, client_id):
+        print("Client id not in database!\n")
+        return
+
     if confirm_dialogue({"client_id": client_id}):
         db.client_permissions.delete_one({"client_id": client_id})
-        print("Entry deleted successfully")
+        print("Entry deleted successfully\n")
+
+
+def check_queue_exists(db, queue_name: str) -> bool:
+    """Checks if queue is in the restricted_queues collection"""
+    return (
+        db.restricted_queues.count_documents(
+            {"queue_name": queue_name}, limit=1
+        )
+        != 0
+    )
 
 
 def add_restricted_queue(db):
     """Adds a restricted queue to the database"""
     queue_name = input("Enter the name of the restricted queue to add: ")
+    if check_queue_exists(db, queue_name):
+        print("Restricted queue already exists!\n")
+        return
+
     queue_entry = {"queue_name": queue_name}
     if confirm_dialogue(queue_entry):
-        queue_exists_num = db.restricted_queues.count_documents(
-            queue_entry, limit=1
-        )
-        if queue_exists_num != 0:
-            print("Restricted queue already exists!")
-            return
         db.restricted_queues.insert_one(queue_entry)
-        print("Restricted queue sucessfully added")
+        print("Restricted queue sucessfully added\n")
 
 
 def remove_restricted_queue(db):
     """Removes a restricted queue from the database"""
-    queue_name = input("Enter the client_id you wish to delete: ")
+    queue_name = input(
+        "Enter the name of the restricted queue you wish to delete: "
+    )
+    if not check_queue_exists(db, queue_name):
+        print("Restricted queue not in database!\n")
+        return
+
     queue_entry = {"queue_name": queue_name}
     if confirm_dialogue(queue_entry):
         db.restricted_queues.delete_one(queue_entry)
-        print("Entry deleted successfully")
+        print("Entry deleted successfully\n")
 
 
 def main():
@@ -205,11 +239,14 @@ def main():
     """
     db = setup_database()
     while True:
-        user_input = input(
-            "Do you wish to create(c), edit(e), or remove(r) a client?"
-            + " You can also add a restricted queue(aq)"
-            + " or remove a restricted queue(rq). Enter q to quit: "
-        )
+        print("(c) Create client")
+        print("(e) Edit client")
+        print("(r) Remove client")
+        print("(aq) Add restricted queue")
+        print("(rq) Remove restricted queue")
+        print("(q) Quit")
+
+        user_input = input("Enter your selection: ")
         if user_input == "c":
             create_client_credential(db)
         elif user_input == "e":
@@ -224,7 +261,8 @@ def main():
             sys.exit()
         else:
             print(
-                "Invalid selection. Please enter 'c', 'e', 'r', 'aq', or 'rq'"
+                "Invalid selection. Please enter "
+                + "'c', 'e', 'r', 'aq', 'rq', or 'q'\n"
             )
 
 
