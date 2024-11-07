@@ -137,6 +137,16 @@ TPLAN_SCHEMA = {
                                     },
                                 },
                             },
+                            "console_commands_nb": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "cmd": {"type": "string"},
+                                    },
+                                },
+                            },
                         },
                     },
                 ]
