@@ -455,3 +455,92 @@ The ``zapper_kvm`` device connector, depending on the target image, supports the
       - Set to "true" to ensure that the Zapper considers the provision process complete at the end of KVM interactions defined by the specified `robot_tasks`, without needing to unplug the external media.
     * - ``wait_until_ssh``
       - If set to "false", the Zapper will skip the SSH connection attempt, which is normally performed at the end of provisioning as a form of boot assertion. This is primarily useful in cases where the live ISO does not include an SSH server.
+
+.. _zapper_iot:
+
+zapper_iot
+------------
+Please refer to here for more details and example ``https://github.com/canonical/iot-auto-sanity``
+
+.. list-table:: Supported ``provision_data`` keys for ``zapper_iot``
+    :header-rows: 1
+
+    * - Key
+      - Stage keys
+      - Sub keys
+      - Description
+    * - ``url:``
+      -
+      -
+      - <list> The images url for provision
+    * - ``tplan:``
+      -
+      -
+      - The detailed steps to provision device, you will need the stage keys and sub keys below
+    * -
+      - ``config:``
+      -
+      - <list> setup for provision
+    * -
+      -
+      - ``project_name:``
+      - <string> your project name
+    * -
+      -
+      - ``username:``
+      - <string> target device user name
+    * -
+      -
+      - ``password:``
+      - <string> target device password
+    * -
+      -
+      - ``serial_console:``
+      - setup console that zapper connect to target device, you have to setup ``port:`` and ``baud_rate`` under this key
+    * -
+      -
+      - ``network:``
+      - target device network interface you want to use, usually it's for ubuntu core `seed override` provision method
+    * -
+      -
+      - ``hostname:``
+      - <string> the host name show in your console, this is for decide if the target device login or not
+    * -
+      - ``run_stage:``
+      -
+      - provision steps should be programmed under this key
+    * -
+      -
+      - ``sys_commands:``
+      - <list of string> command to zapper system
+    * -
+      -
+      - ``console_commands``
+      - <list of dict> command to console, two sub keys under this key. ``cmd:`` command to console, ``expected:`` the string should be included in result, if not the procedure would fail and exit(option)
+    * -
+      -
+      - ``console_commands_nb:``
+      - <list> send command to console with non-blocking mode
+    * -
+      -
+      - ``login``
+      - assume the system is already waiting for login, it would busy try login. It also support change password if your system require change password
+    * -
+      -
+      - ``run_login``
+      - #Only support Ubuntu Core#. monitor system boot up in run mode (make sure boot log has ``snapd_recovery_mode=run`` before keep going) and login.
+    * -
+      -
+      - ``initial_login:``
+      - #Only support Ubuntu Core# monitor system install (make sure boot log has ``snapd_recovery_mode=instal``) and boot up(make sure boot log has ``snapd_recovery_mode=run``) and login.
+        Also two sub keys under this key. ``method:`` <string> [`cloud-init`, `system-user`] account created method, ``timeout:`` <int>
+    * -
+      -
+      - ``reboot_install:``
+      - #Only support Ubuntu Core#. reboot into recovery and monitor install, boot up and login. Also two sub keys
+        under this key. ``method:`` <string> [`cloud-init`, `system-user`], ``timeout:`` <int>
+    * -
+      -
+      - ``deploy:``
+      - assign deploy method, four keys under this key. ``utility:`` provision method, choose from [``utp_com``, ``uuu``, ``seed_override``, ``seed_override_lk``], ``method:`` account created method,
+        choose from [``cloud-init``, ``system-user``], ``timeout:`` <int>, ``update_boot_assets:`` <Boolean>
