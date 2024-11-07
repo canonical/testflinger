@@ -38,13 +38,13 @@ class DeviceConnector(ZapperConnector):
         for the Zapper `provision` API.
         """
         try:
-            tplan = self.job_data["provision_data"]["iot_provision"]["tplan"]
+            tplan = self.job_data["provision_data"]["tplan"]
             validate_tplan(tplan)
         except KeyError as e:
             raise ProvisioningError from e
 
         try:
-            url = self.job_data["provision_data"]["iot_provision"]["url"]
+            url = self.job_data["provision_data"]["url"]
             validate_url(url)
         except KeyError:
             url = []
