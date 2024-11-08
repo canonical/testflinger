@@ -105,7 +105,7 @@ runs:
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
 
     - name: Track the status of the job (non-reservation)
-      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.output.reservation != 'true'
+      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.outputs.reservation != 'true'
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
@@ -115,7 +115,7 @@ runs:
         PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
 
     - name: Track the status of the job (reservation)
-      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.output.reservation == 'true'
+      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.outputs.reservation == 'true'
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
@@ -145,7 +145,7 @@ runs:
         exit $EXIT_STATUS
 
     - name: Retrieve job results and compute exit status
-      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.output.reservation != 'true'
+      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.outputs.reservation != 'true'
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
