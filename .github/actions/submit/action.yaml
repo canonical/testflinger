@@ -74,6 +74,17 @@ runs:
       shell: bash
       run: cat "$JOB"
 
+    - name: Determine if this is a reservation job
+      id: check-reservation
+      shell: bash
+      run: |
+        if grep -q "^reserve_data:" $JOB; then
+          RESERVATION=true
+        else
+          RESERVATION=false
+        fi
+        echo "reservation=$RESERVATION" >> $GITHUB_OUTPUT
+
     - name: Install prerequisites
       shell: bash
       run: sudo snap install testflinger-cli jq
@@ -93,8 +104,8 @@ runs:
         echo "job id: $JOB_ID"
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
 
-    - name: Track the status of the job
-      if: inputs.poll == 'true' && inputs.dry-run != 'true'
+    - name: Track the status of the job (non-reservation)
+      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.reservation != 'true'
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
@@ -103,8 +114,38 @@ runs:
         # poll
         PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
 
+    - name: Track the status of the job (reservation)
+      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.reservation == 'true'
+      shell: bash
+      env:
+        SERVER: https://${{ inputs.server }}
+        JOB_ID: ${{ steps.submit.outputs.id }}
+        TERMINATION: "TESTFLINGER SYSTEM RESERVED"
+      run: |
+        # specify file for capturing output and clear it
+        CAPTURED_OUTPUT=output
+        > "$CAPTURED_OUTPUT"
+        # perform one-shot polling until the reserve phase has been reached
+        # and the captured out contains the TERMINATION string
+        while true; do
+          PYTHONUNBUFFERED=1 testflinger --server $SERVER poll --oneshot $JOB_ID | tee -a "$CAPTURED_OUTPUT"
+          JOB_STATUS="$(testflinger --server $SERVER status $JOB_ID)"
+          if [ "$JOB_STATUS" = "reserve" ]; then
+            if grep -q "$TERMINATION" "$CAPTURED_OUTPUT"; then
+              EXIT_STATUS=0
+              break
+            fi
+          elif [[ "$JOB_STATUS" =~ ^(complete|cancelled)$ ]]; then
+            EXIT_STATUS=1
+            break
+          fi
+          sleep 10
+        done
+        echo "Reserve exit status: $EXIT_STATUS"
+        exit $EXIT_STATUS
+
     - name: Retrieve job results and compute exit status
-      if: inputs.poll == 'true' && inputs.dry-run != 'true'
+      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.reservation != 'true'
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
@@ -113,7 +154,7 @@ runs:
         # retrieve results:
         # the exit status is the maximum status of the individual test phases
         # (excluding the setup and cleanup phases)
-        STATUS=$(\
+        EXIT_STATUS=$(\
           testflinger --server $SERVER results $JOB_ID  \
           | jq 'to_entries
               | map(
@@ -125,8 +166,8 @@ runs:
                 )
               | max'
         )
-        echo "Test exit status: $STATUS"
-        exit $STATUS
+        echo "Test exit status: $EXIT_STATUS"
+        exit $EXIT_STATUS
 
     - name: Cancel the job if the action is cancelled
       if: ${{ cancelled() }}
