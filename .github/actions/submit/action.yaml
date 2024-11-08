@@ -144,9 +144,9 @@ runs:
                 )
               | max'
         )
-        echo "Test exit status: $EXIT_STATUS"
-        exit $EXIT_STATUS
         echo "::endgroup::"
+        echo "::notice::Test exit status: $EXIT_STATUS"
+        exit $EXIT_STATUS
 
     - name: Track the status of the job (reservation)
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.outputs.reservation == 'true'
@@ -176,9 +176,9 @@ runs:
           fi
           sleep 10
         done
-        echo "Reserve exit status: $EXIT_STATUS"
-        exit $EXIT_STATUS
         echo "::endgroup::"
+        echo "::notice::Reserve exit status: $EXIT_STATUS"
+        exit $EXIT_STATUS
 
     - name: Cancel the job if the action is cancelled
       if: ${{ cancelled() }}
