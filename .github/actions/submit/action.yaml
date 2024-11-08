@@ -125,7 +125,7 @@ runs:
         SERVER: https://${{ inputs.server }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
-        echo "::group::Track the status of job $JOB_ID"
+        echo "::group::Track the status of job \$JOB_ID"
         # poll
         PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
         echo "::endgroup::"
@@ -156,7 +156,7 @@ runs:
         JOB_ID: ${{ steps.submit.outputs.id }}
         TERMINATION: "TESTFLINGER SYSTEM RESERVED"
       run: |
-        echo "::group::Track the status of reservation job $JOB_ID"
+        echo "::group::Track the status of reservation job \$JOB_ID"
         # specify file for capturing output and clear it
         CAPTURED_OUTPUT=output
         > "$CAPTURED_OUTPUT"
