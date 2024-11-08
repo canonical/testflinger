@@ -93,7 +93,7 @@ runs:
         echo "job id: $JOB_ID"
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
 
-    - name: Track the status of the job and mirror its exit status
+    - name: Track the status of the job
       if: inputs.poll == 'true' && inputs.dry-run != 'true'
       shell: bash
       env:
@@ -102,6 +102,14 @@ runs:
       run: |
         # poll
         PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
+
+    - name: Retrieve job results and compute exit status
+      if: inputs.poll == 'true' && inputs.dry-run != 'true'
+      shell: bash
+      env:
+        SERVER: https://${{ inputs.server }}
+        JOB_ID: ${{ steps.submit.outputs.id }}
+      run: |
         # retrieve results:
         # the exit status is the maximum status of the individual test phases
         # (excluding the setup and cleanup phases)
