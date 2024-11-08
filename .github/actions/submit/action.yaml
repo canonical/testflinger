@@ -114,9 +114,9 @@ runs:
           RELATIVE="--attachments-relative-to $RELATIVE_TO"
         fi
         JOB_ID=$(testflinger --server $SERVER submit --quiet "$RELATIVE" "$JOB")
-        echo "job id: $JOB_ID"
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
         echo "::endgroup::"
+        echo "::notice::Submitted job $JOB_ID"
 
     - name: Track the status of the job (non-reservation)
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.outputs.reservation != 'true'
@@ -125,7 +125,7 @@ runs:
         SERVER: https://${{ inputs.server }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
-        echo "::group::Track the status of the job"
+        echo "::group::Track the status of job $JOB_ID"
         # poll
         PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
         echo "::endgroup::"
@@ -156,7 +156,7 @@ runs:
         JOB_ID: ${{ steps.submit.outputs.id }}
         TERMINATION: "TESTFLINGER SYSTEM RESERVED"
       run: |
-        echo "::group::Track the status of the reservation job"
+        echo "::group::Track the status of reservation job $JOB_ID"
         # specify file for capturing output and clear it
         CAPTURED_OUTPUT=output
         > "$CAPTURED_OUTPUT"
