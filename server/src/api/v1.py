@@ -38,9 +38,14 @@ from src import database
 from . import schemas
 
 
-jobs_metric = Counter("jobs", "Number of jobs", ["queue"])
+jobs_metric = Counter(
+    "jobs", "Number of jobs", ["queue"], namespace="testflinger"
+)
 reservations_metric = Counter(
-    "reservations", "Number of reservations", ["queue"]
+    "reservations",
+    "Number of reservations",
+    ["queue"],
+    namespace="testflinger",
 )
 
 

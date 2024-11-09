@@ -29,6 +29,7 @@ from src.database import setup_mongodb
 from src.api.v1 import v1
 from src.providers import ISODatetimeProvider
 from src.views import views
+from .extensions import metrics
 
 try:
     import sentry_sdk
@@ -62,6 +63,9 @@ def create_flask_app(config=None):
         sentry_sdk.init(  # pylint: disable=abstract-class-instantiated
             dsn=sentry_dsn, integrations=[FlaskIntegration()]
         )
+
+    metrics.group_by = "endpoint"
+    metrics.init_app(tf_app)
 
     @tf_app.errorhandler(NotFound)
     def handle_404(exc):
