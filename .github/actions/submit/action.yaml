@@ -182,13 +182,12 @@ runs:
         done
         echo "::endgroup::"
         echo "::group::Retrieve IP of reserved machine"
-        DEVICE_IP=$(grep "^Now try logging into the machine" "$CAPTURED_OUTPUT" | sed -n "s/.*@\([0-9.]*\).*/\1/p")
+        DEVICE_IP=$(grep -m 1 "^Now try logging into the machine" "$CAPTURED_OUTPUT" | sed -n "s/.*@\([0-9.]*\).*/\1/p")
         [ "$?" -eq 0 ] && DEVICE_IP_FLAG=true
         [ -n "$DEVICE_IP_FLAG" ] && echo "ip=$DEVICE_IP" >> $GITHUB_OUTPUT
         echo "::endgroup::"
         echo "::notice::Reserve exit status: $EXIT_STATUS"
         [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP: $DEVICE_IP"
-        cat $GITHUB_OUTPUT
         exit $EXIT_STATUS
 
     - name: Cancel the job if the action is cancelled
