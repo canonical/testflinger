@@ -26,6 +26,9 @@ outputs:
   id:
     description: 'The ID of the submitted job'
     value: ${{ steps.submit.outputs.id }}
+  device-ip:
+    description: 'The IP of the reserved device (if applicable)'
+    value: ${{ steps.track-reservation.outputs.device-ip }}
 runs:
   using: composite
   steps:
@@ -149,6 +152,7 @@ runs:
         exit $EXIT_STATUS
 
     - name: Track the status of the job (reservation)
+      id: track-reservation
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.outputs.reservation == 'true'
       shell: bash
       env:
@@ -177,7 +181,13 @@ runs:
           sleep 10
         done
         echo "::endgroup::"
+        echo "::group::Retrieve IP of reserved machine"
+        DEVICE_IP=$(grep "^Now try logging into the machine" "$CAPTURED_OUTPUT | sed -n "s/.*@\([0-9.]*\).*/\1/p")
+        [ "$?" -eq 0 ] && DEVICE_IP_FLAG=true
+        [ -n "$DEVICE_IP_FLAG" ] && echo "device-ip=$DEVICE_IP" | tee -a $GITHUB_OUTPUT
+        echo "::endgroup::"
         echo "::notice::Reserve exit status: $EXIT_STATUS"
+        [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP: $DEVICE_IP"
         exit $EXIT_STATUS
 
     - name: Cancel the job if the action is cancelled
