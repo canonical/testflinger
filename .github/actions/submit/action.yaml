@@ -182,7 +182,7 @@ runs:
         done
         echo "::endgroup::"
         echo "::group::Retrieve IP of reserved machine"
-        DEVICE_IP=$(grep "^Now try logging into the machine" "$CAPTURED_OUTPUT | sed -n "s/.*@\([0-9.]*\).*/\1/p")
+        DEVICE_IP=$(grep "^Now try logging into the machine" "$CAPTURED_OUTPUT" | sed -n "s/.*@\([0-9.]*\).*/\1/p")
         [ "$?" -eq 0 ] && DEVICE_IP_FLAG=true
         [ -n "$DEVICE_IP_FLAG" ] && echo "device-ip=$DEVICE_IP" | tee -a $GITHUB_OUTPUT
         echo "::endgroup::"
