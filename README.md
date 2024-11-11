@@ -74,3 +74,12 @@ in any of the subsequent steps of the workflow:
         testflinger results ${{ steps.submit-job.outputs.id }}"
 ```
 In this example, `submit-job` is the step where the `submit` action is used.
+
+If the submitted job is a reservation job (i.e. includes `reserve_data`) then
+setting the `poll` input argument to `true` results in modified behaviour: the
+job is polled only until the reservation phase is complete, instead of waiting
+for the entire job to complete (which happens when the reservation timeout
+expires or the job is cancelled). There will be no output to record after the
+reservation so there is little point in polling and idly occupying the runner.
+However, please do remember to manually cancel the job after you are done with
+the reserved device.
