@@ -187,7 +187,7 @@ runs:
         [ -n "$DEVICE_IP_FLAG" ] && echo "device-ip=$DEVICE_IP" | tee -a $GITHUB_OUTPUT
         echo "::endgroup::"
         echo "::notice::Reserve exit status: $EXIT_STATUS"
-        [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP: $DEVICE_IP"
+        [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP is $DEVICE_IP"
         exit $EXIT_STATUS
 
     - name: Cancel the job if the action is cancelled
