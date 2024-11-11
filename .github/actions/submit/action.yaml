@@ -188,6 +188,7 @@ runs:
         echo "::endgroup::"
         echo "::notice::Reserve exit status: $EXIT_STATUS"
         [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP: $DEVICE_IP"
+        cat $GITHUB_OUTPUT
         exit $EXIT_STATUS
 
     - name: Cancel the job if the action is cancelled
