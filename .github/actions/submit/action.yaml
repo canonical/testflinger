@@ -28,7 +28,7 @@ outputs:
     value: ${{ steps.submit.outputs.id }}
   device-ip:
     description: 'The IP of the reserved device (if applicable)'
-    value: ${{ steps.track-reservation.outputs.device-ip }}
+    value: ${{ steps.track-reservation.outputs.ip }}
 runs:
   using: composite
   steps:
@@ -184,7 +184,7 @@ runs:
         echo "::group::Retrieve IP of reserved machine"
         DEVICE_IP=$(grep "^Now try logging into the machine" "$CAPTURED_OUTPUT" | sed -n "s/.*@\([0-9.]*\).*/\1/p")
         [ "$?" -eq 0 ] && DEVICE_IP_FLAG=true
-        [ -n "$DEVICE_IP_FLAG" ] && echo "device-ip=$DEVICE_IP" | tee -a $GITHUB_OUTPUT
+        [ -n "$DEVICE_IP_FLAG" ] && echo "ip=$DEVICE_IP" >> $GITHUB_OUTPUT
         echo "::endgroup::"
         echo "::notice::Reserve exit status: $EXIT_STATUS"
         [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP: $DEVICE_IP"
