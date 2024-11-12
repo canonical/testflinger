@@ -4,6 +4,7 @@ import logging
 import validators
 import jsonschema
 from jsonschema import validate
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +184,10 @@ TPLAN_SCHEMA = {
 
 
 def validate_tplan(data):
-    """for verify provision yaml"""
+    """
+    Validate whether the provided custom testplan
+    is valid in terms of schema.
+    """
     try:
         validate(instance=data, schema=TPLAN_SCHEMA)
         logger.info("the JSON data is valid")
@@ -191,8 +195,14 @@ def validate_tplan(data):
         raise ValueError("the JSON data is invalid") from err
 
 
-def validate_url(url):
-    """for verify url"""
-    for link in url:
-        if not validators.url(link):
+def validate_urls(urls: List[str]):
+    """
+    Validate whether the provided URL
+    is valid in terms of format.
+
+    We cannot assert for resource availability here,
+    since this is not the host downloading the content.
+    """
+    for url in urls:
+        if not validators.url(url):
             raise ValueError("url format is not correct")
