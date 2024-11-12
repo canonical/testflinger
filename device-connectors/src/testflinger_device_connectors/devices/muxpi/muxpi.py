@@ -27,7 +27,13 @@ from typing import Optional, Union
 import urllib
 
 import yaml
-
+from testflinger_device_connectors.devices.muxpi.image import (
+    Image,
+    ImageType,
+    PEImage,
+    PEImageVariant,
+    CEImage,
+)
 from testflinger_device_connectors.devices import (
     ProvisioningError,
     RecoveryError,
@@ -45,11 +51,11 @@ class MuxPi:
     """Device Connector for MuxPi."""
 
     IMAGE_PATH_IDS = {
-        "writable/usr/bin/firefox": "pi-desktop",
-        "writable/etc": "ubuntu",
-        "writable/system-data": "core",
-        "ubuntu-seed/snaps": "core20",
-        "cloudimg-rootfs/etc/cloud/cloud.cfg": "ubuntu-cpc",
+        "writable/usr/bin/firefox": ImageType.PI_DESKTOP,
+        "writable/etc": ImageType.UBUNTU,
+        "writable/system-data": ImageType.CORE,
+        "ubuntu-seed/snaps": ImageType.CORE20,
+        "cloudimg-rootfs/etc/cloud/cloud.cfg": ImageType.UBUNTU_CPC,
     }
 
     def __init__(self, config=None, job_data=None):
@@ -246,7 +252,7 @@ class MuxPi:
 
             if self.job_data["provision_data"].get("create_user", True):
                 with self.remote_mount():
-                    image_type = self.get_image_type()
+                    image_type = self.get_image()
                     logger.info("Image type detected: {}".format(image_type))
                     logger.info("Creating Test User")
                     self.create_user(image_type)
@@ -404,7 +410,7 @@ class MuxPi:
             except Exception:
                 raise RecoveryError("timeout reaching control host!")
 
-    def get_image_type(self):
+    def get_image(self) -> Optional[Image]:
         """
         Figure out which kind of image is on the configured block device
 
@@ -416,32 +422,42 @@ class MuxPi:
             self._run_control("test -e {}".format(dir))
 
         # First check if this is a ce-oem-iot image and type
-        res = self.check_ce_oem_iot_image()
+        res = self.get_ce_oem_iot_image()
         if res:
             return res
 
-        try:
-            disk_info_path = (
-                self.mount_point / "writable/lib/firmware/*-tegra*/"
-            )
-            self._run_control(f"ls {disk_info_path} &>/dev/null")
-            return "tegra"
-        except ProvisioningError:
-            # Not a tegra image
-            pass
+        res = self.get_pe_image()
+        if res:
+            return res
 
         for path, img_type in self.IMAGE_PATH_IDS.items():
             try:
                 path = self.mount_point / path
                 check_path(path)
-                return img_type
+                return Image(image_type=img_type)
             except Exception:
                 # Path was not found, continue trying others
                 continue
-        # We have no idea what kind of image this is
-        return "unknown"
 
-    def check_ce_oem_iot_image(self) -> bool:
+        # We have no idea what kind of image this is
+        return None
+
+    def get_pe_image(self) -> Optional[PEImage]:
+        """
+        Determine if this is a partner-engineering image
+        """
+        try:
+            disk_info_path = (
+                self.mount_point / "writable/lib/firmware/*-tegra*/"
+            )
+            self._run_control(f"ls {disk_info_path} &>/dev/null")
+
+            return PEImage(variant=PEImageVariant.TEGRA)
+        except ProvisioningError:
+            # Not a tegra image
+            pass
+
+    def get_ce_oem_iot_image(self) -> Optional[CEImage]:
         """
         Determine if this is a ce-oem-iot image
 
@@ -461,16 +477,16 @@ class MuxPi:
             release = int(release)
             if release > 2000:
                 if release >= 2404:
-                    return "ce-oem-iot-24-and-beyond"
+                    return CEImage(release="ce-oem-iot-24-and-beyond")
                 else:
-                    return "ce-oem-iot-before-24"
+                    return CEImage(release="ce-oem-iot-before-24")
             else:
                 if release >= 24:
-                    return "ce-oem-iot-24-and-beyond"
+                    return CEImage(release="ce-oem-iot-24-and-beyond")
                 else:
-                    return "ce-oem-iot-before-24"
+                    return CEImage(release="ce-oem-iot-before-24")
         except ProvisioningError:
-            return False
+            return None
 
     def unmount_writable_partition(self):
         try:
@@ -484,56 +500,58 @@ class MuxPi:
             # We might not be mounted, so expect this to fail sometimes
             pass
 
-    def create_user(self, image_type):
+    def create_user(self, image: Image):
         """Create user account for default ubuntu user"""
         base = self.mount_point
         remote_tmp = Path("/tmp") / self.agent_name
         try:
             data_path = Path(__file__).parent / "../../data/muxpi"
-            if image_type == "ce-oem-iot-before-24":
-                self._run_control("mkdir -p {}".format(remote_tmp))
-                self._copy_to_control(
-                    data_path / "ce-oem-iot/user-data", remote_tmp
-                )
-                cmd = f"sudo cp {remote_tmp}/user-data {base}/system-boot/"
-                self._run_control(cmd)
-                self._configure_sudo()
-            if image_type == "ce-oem-iot-24-and-beyond":
-                self._run_control("mkdir -p {}".format(remote_tmp))
-                self._copy_to_control(
-                    data_path / "ce-oem-iot/user-data", remote_tmp
-                )
-                cmd = f"sudo cp {remote_tmp}/user-data {base}/writable"
-                cmd += "/var/lib/cloud/seed/nocloud"
-                self._run_control(cmd)
-                self._configure_sudo()
-            if image_type == "tegra":
-                base = self.mount_point / "writable"
-                ci_path = base / "var/lib/cloud/seed/nocloud"
-                self._run_control(f"sudo mkdir -p {ci_path}")
-                self._run_control(f"mkdir -p {remote_tmp}")
-                self._copy_to_control(
-                    data_path / "classic/user-data", remote_tmp
-                )
-                cmd = f"sudo cp {remote_tmp}/user-data {ci_path}"
-                self._run_control(cmd)
+            if image.image_type == ImageType.PE:
+                if image.variant == PEImageVariant.TEGRA:
+                    base = self.mount_point / "writable"
+                    ci_path = base / "var/lib/cloud/seed/nocloud"
+                    self._run_control(f"sudo mkdir -p {ci_path}")
+                    self._run_control(f"mkdir -p {remote_tmp}")
+                    self._copy_to_control(
+                        data_path / "classic/user-data", remote_tmp
+                    )
+                    cmd = f"sudo cp {remote_tmp}/user-data {ci_path}"
+                    self._run_control(cmd)
 
-                # Set grub timeouts to 0 to workaround reboot getting stuck
-                # if spurious input is received on serial
-                cmd = (
-                    "sudo sed -i 's/timeout=[0-9]*/timeout=0/g' "
-                    f"{base}/boot/grub/grub.cfg"
-                )
-                self._run_control(cmd)
-                cmd = (
-                    f"grep -rl 'GRUB_TIMEOUT=' {base}/etc/default/ | xargs "
-                    "sudo sed -i 's/GRUB_TIMEOUT=[0-9]*/GRUB_TIMEOUT=0/g'"
-                )
-                self._run_control(cmd)
+                    # Set grub timeouts to 0 to workaround reboot getting stuck
+                    # if spurious input is received on serial
+                    cmd = (
+                        "sudo sed -i 's/timeout=[0-9]*/timeout=0/g' "
+                        f"{base}/boot/grub/grub.cfg"
+                    )
+                    self._run_control(cmd)
+                    cmd = (
+                        f"grep -rl 'GRUB_TIMEOUT=' {base}/etc/default/ | xargs"
+                        " sudo sed -i 's/GRUB_TIMEOUT=[0-9]*/GRUB_TIMEOUT=0/g'"
+                    )
+                    self._run_control(cmd)
 
-                self._configure_sudo()
-                return
-            if image_type == "pi-desktop":
+                    self._configure_sudo()
+                    return
+            elif image.image_type == ImageType.CE:
+                if image.release == "ce-oem-iot-before-24":
+                    self._run_control("mkdir -p {}".format(remote_tmp))
+                    self._copy_to_control(
+                        data_path / "ce-oem-iot/user-data", remote_tmp
+                    )
+                    cmd = f"sudo cp {remote_tmp}/user-data {base}/system-boot/"
+                    self._run_control(cmd)
+                    self._configure_sudo()
+                if image.release == "ce-oem-iot-24-and-beyond":
+                    self._run_control("mkdir -p {}".format(remote_tmp))
+                    self._copy_to_control(
+                        data_path / "ce-oem-iot/user-data", remote_tmp
+                    )
+                    cmd = f"sudo cp {remote_tmp}/user-data {base}/writable"
+                    cmd += "/var/lib/cloud/seed/nocloud"
+                    self._run_control(cmd)
+                    self._configure_sudo()
+            if image.image_type == ImageType.PI_DESKTOP:
                 # make a spot to scp files to
                 self._run_control("mkdir -p {}".format(remote_tmp))
 
@@ -571,7 +589,7 @@ class MuxPi:
 
                 self._configure_sudo()
                 return
-            if image_type == "core20":
+            if image.image_type == ImageType.CORE20:
                 base = self.mount_point / "ubuntu-seed"
                 ci_path = base / "data/etc/cloud/cloud.cfg.d"
                 self._run_control(f"sudo mkdir -p {ci_path}")
@@ -584,9 +602,9 @@ class MuxPi:
             else:
                 # For core or ubuntu classic images
                 base = self.mount_point / "writable"
-                if image_type == "core":
+                if image.image_type == ImageType.CORE:
                     base = base / "system-data"
-                if image_type == "ubuntu-cpc":
+                if image.image_type == ImageType.UBUNTU_CPC:
                     base = self.mount_point / "cloudimg-rootfs"
                 ci_path = base / "var/lib/cloud/seed/nocloud-net"
                 self._run_control(f"sudo mkdir -p {ci_path}")
@@ -601,7 +619,7 @@ class MuxPi:
                 )
                 cmd = f"sudo cp {remote_tmp}/user-data {ci_path}"
                 self._run_control(cmd)
-                if image_type == "ubuntu":
+                if image.image_type == ImageType.UBUNTU:
                     # This needs to be removed on classic for rpi, else
                     # cloud-init won't find the user-data we give it
                     rm_cmd = "sudo rm -f {}".format(
