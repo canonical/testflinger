@@ -19,7 +19,7 @@ from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_iot.parser import (
     validate_provision_plan,
-    validate_url,
+    validate_urls,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,37 @@ class DeviceConnector(ZapperConnector):
         Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
+
+        username = self.job_data.get("test_data", {}).get(
+            "test_username", "ubuntu"
+        )
+        password = self.job_data.get("test_data", {}).get(
+            "test_password", "ubuntu"
+        )
+
+        provisioning_data = {
+            "username": username,
+            "password": password,
+            "preset": self.job_data["provision_data"].get("preset"),
+            "reboot_script": self.config["reboot_script"],
+        }
+
+        test_plan = self.job_data["provision_data"].get("tplan")
+        if test_plan:
+
+            try:
+                validate_tplan(test_plan)
+
+                # Make sure the user created at provision time is
+                # the same used during the test phase.
+                test_plan["config"]["username"] = username
+                test_plan["config"]["password"] = password
+
+                provisioning_data["custom_testplan"] = test_plan
+            except ValueError as e:
+                raise ProvisioningError from e
+
+        urls = self.job_data["provision_data"].get("urls", [])
         try:
             provision_plan = self.job_data["provision_data"]["provision_plan"]
             validate_provision_plan(provision_plan)
@@ -44,9 +75,10 @@ class DeviceConnector(ZapperConnector):
             raise ProvisioningError from e
 
         try:
-            url = self.job_data["provision_data"]["url"]
-            validate_url(url)
+            urls = self.job_data["provision_data"]["urls"]
+            validate_urls(urls)
         except KeyError:
-            url = []
+            urls = []
+        provisioning_data["urls"] = urls
 
-        return ((provision_plan, url), {})
+        return ((), provisioning_data)
