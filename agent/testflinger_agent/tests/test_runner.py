@@ -3,68 +3,66 @@ from testflinger_agent.masking import Masker
 from testflinger_agent.runner import CommandRunner, MaskingCommandRunner
 
 
-def test_runner(tmp_path):
-    """Check that runner output is as expected"""
+def run(runner, command, tmp_path):
     logfile = tmp_path / "testlog"
     log_handler = LogUpdateHandler(logfile)
-    runner = CommandRunner(tmp_path, env={})
     runner.register_output_handler(log_handler)
-    exit_code, _, _ = runner.run("echo -n Message")
+    exit_code, _, _ = runner.run(command)
     with open(logfile) as log:
         log_data = log.read()
+    return exit_code, log_data
+
+
+def test_runner(tmp_path):
+    """Check that runner output is as expected"""
+    runner = CommandRunner(tmp_path, env={})
+    exit_code, log_data = run(runner, "echo -n Message", tmp_path)
+    print(log_data)
     assert exit_code == 0
     assert log_data == "Message"
 
 
 def test_runner_environment(tmp_path):
     """Check injection of environment variables"""
-    logfile = tmp_path / "testlog"
-    log_handler = LogUpdateHandler(logfile)
     runner = CommandRunner(tmp_path, env={"MESSAGE": "Message"})
-    runner.register_output_handler(log_handler)
-    exit_code, _, _ = runner.run("echo -n $MESSAGE")
-    with open(logfile) as log:
-        log_data = log.read()
+    exit_code, log_data = run(runner, "echo -n $MESSAGE", tmp_path)
+    print(log_data)
     assert exit_code == 0
     assert log_data == "Message"
 
 
 def test_masking_runner(tmp_path):
     """Check masking"""
-    logfile = tmp_path / "testlog"
-    log_handler = LogUpdateHandler(logfile)
     hash_length = 24
-    non_sensitive = "Message: "
+    non_sensitive = "Message:"
     sensitive = "Sensitive"
-    masker = Masker([sensitive], hash_length=hash_length)
+    masker = Masker([r"\bSen.*ve\b"], hash_length=hash_length)
     runner = MaskingCommandRunner(tmp_path, env={}, masker=masker)
-    runner.register_output_handler(log_handler)
-    exit_code, _, _ = runner.run(f"echo -n {non_sensitive}{sensitive}")
-    with open(logfile) as log:
-        log_data = log.read()
+    exit_code, log_data = run(
+        runner, f"echo -n {non_sensitive} {sensitive}", tmp_path
+    )
+    print(log_data)
     assert exit_code == 0
-    assert log_data.startswith("Message: ")
-    assert "Sensitive" not in log_data
-    assert len(log_data) == len(non_sensitive) + hash_length + 4
+    assert log_data.startswith(non_sensitive)
+    assert sensitive not in log_data
+    assert len(log_data) == len(non_sensitive) + 1 + hash_length + 4
 
 
 def test_masking_runner_environment(tmp_path):
     """Check masking of sensitive environment variables"""
-    logfile = tmp_path / "testlog"
-    log_handler = LogUpdateHandler(logfile)
     hash_length = 24
-    non_sensitive = "Message: "
-    sensitive = {"SECRET1": "secret", "SECRET2": "another_secret"}
-    masker = Masker(list(sensitive.values()), hash_length=hash_length)
-    runner = MaskingCommandRunner(tmp_path, env=sensitive, masker=masker)
-    runner.register_output_handler(log_handler)
-    exit_code, _, _ = runner.run(
-        f"echo -n {non_sensitive}{sensitive['SECRET1']}{sensitive['SECRET2']}"
+    non_sensitive = "Message:"
+    variables = {"ENV_1": "secret", "ENV_2": "another_secret"}
+    masker = Masker(patterns=list(variables.values()), hash_length=hash_length)
+    runner = MaskingCommandRunner(tmp_path, env=variables, masker=masker)
+    exit_code, log_data = run(
+        runner,
+        f"echo -n {non_sensitive} {variables['ENV_1']} {variables['ENV_2']}",
+        tmp_path,
     )
-    with open(logfile) as log:
-        log_data = log.read()
+    print(log_data)
     assert exit_code == 0
     assert log_data.startswith("Message: ")
-    assert "secret" not in log_data
-    assert "another_secret" not in log_data
-    assert len(log_data) == len(non_sensitive) + 2 * (hash_length + 4)
+    for value in variables.values():
+        assert value not in log_data
+    assert len(log_data) == len(non_sensitive) + 2 + 2 * (hash_length + 4)
