@@ -1,5 +1,4 @@
-import os
-from testflinger_agent.masking import Masker, DynamicMasker
+from testflinger_agent.masking import Masker
 
 
 def test_hash_consistency():
@@ -64,38 +63,6 @@ def test_apply_with_multiple_matches():
             r"\b\d{3}-\d{2}-\d{4}\b",
             r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
         ],
-        hash_length=hash_length,
-    )
-    masked = masker.apply(text)
-    print(masked)
-    assert "john@example.com" not in masked
-    assert "123-45-6789" not in masked
-    assert masked.count("**") == 4
-
-
-def test_dynamic_with_pattern():
-    hash_length = 12
-    text = "Contact: john@example.com, SSN: 123-45-6789"
-    os.environ["EMAIL"] = "john@example.com"
-    masker = DynamicMasker(
-        variables=["EMAIL"],
-        patterns=[r"\b\d{3}-\d{2}-\d{4}\b"],
-        hash_length=hash_length,
-    )
-    masked = masker.apply(text)
-    print(masked)
-    assert "john@example.com" not in masked
-    assert "123-45-6789" not in masked
-    assert masked.count("**") == 4
-
-
-def test_dynamic_without_pattern():
-    hash_length = 12
-    text = "Contact: john@example.com, SSN: 123-45-6789"
-    os.environ["EMAIL"] = "john@example.com"
-    os.environ["SSN"] = "123-45-6789"
-    masker = DynamicMasker(
-        variables=["EMAIL", "SSN"],
         hash_length=hash_length,
     )
     masked = masker.apply(text)
