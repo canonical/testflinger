@@ -45,6 +45,7 @@ SCHEMA_V1 = {
     voluptuous.Optional("output_timeout"): int,
     voluptuous.Optional("advertised_queues"): dict,
     voluptuous.Optional("advertised_images"): dict,
+    voluptuous.Optional("sensitive_patterns"): list,
 }
 
 

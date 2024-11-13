@@ -17,9 +17,11 @@ import json
 import logging
 import os
 import time
+from typing import Dict, List, Optional
 
 from testflinger_agent.errors import TFServerError
-from .runner import CommandRunner, RunnerEvents
+from testflinger_agent.masking import Masker
+from .runner import CommandRunner, MaskingCommandRunner, RunnerEvents
 from .handlers import LiveOutputHandler, LogUpdateHandler
 from .stop_condition_checkers import (
     JobCancelledChecker,
@@ -42,6 +44,20 @@ class TestflingerJob:
         self.job_data = job_data
         self.job_id = job_data.get("job_id")
         self.phase = "unknown"
+
+    def get_sensitive(self) -> List[str]:
+        """
+        Return a possibly empty list of sensitive output patterns
+        (retrieved from the agent configuration)
+        """
+        return self.client.config.get("sensitive_patterns", [])
+
+    def get_secrets(self) -> Optional[Dict[str, str]]:
+        """
+        Return a mapping of envvar names to secret values
+        (retrieved from the job data)
+        """
+        return self.job_data.get("secrets")
 
     def run_test_phase(self, phase, rundir):
         """Run the specified test phase in rundir
@@ -82,7 +98,36 @@ class TestflingerJob:
         serial_log = os.path.join(rundir, phase + "-serial.log")
 
         logger.info("Running %s_command: %s", phase, cmd)
-        runner = CommandRunner(cwd=rundir, env=self.client.config)
+
+        # retrieve sensitive patterns from the configuration
+        sensitive_patterns = self.get_sensitive()
+        # retrieve secrets from the job
+        secrets_dict = self.get_secrets()
+
+        # create appropriate command runner
+        if secrets_dict:
+            # inject secrets into the runner environment
+            environment = {
+                **self.client.config,
+                **secrets_dict,
+            }
+            # add secrets to the sensitive patterns
+            sensitive_patterns.extend(secrets_dict.values())
+            # secrets and (possibly) sensitive information: use masking runner
+            masker = Masker(sensitive_patterns, hash_length=6)
+            runner = MaskingCommandRunner(
+                cwd=rundir, env=environment, masker=masker
+            )
+        elif sensitive_patterns:
+            # sensitive information but no secrets: use masking runner
+            masker = Masker(sensitive_patterns, hash_length=6)
+            runner = MaskingCommandRunner(
+                cwd=rundir, env=self.client.config, masker=masker
+            )
+        else:
+            # no secrets, no sensitive information: use regular runner
+            runner = CommandRunner(cwd=rundir, env=self.client.config)
+
         output_log_handler = LogUpdateHandler(output_log)
         live_output_handler = LiveOutputHandler(self.client, self.job_id)
         runner.register_output_handler(output_log_handler)
