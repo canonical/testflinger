@@ -7,7 +7,6 @@ the same sensitive information is always replaced by the same mask.
 """
 
 import hashlib
-import os
 import re
 from typing import List, Optional
 
