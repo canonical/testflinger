@@ -57,7 +57,7 @@ The following configuration options are supported by the Testflinger Agent:
     * - ``sensitive_patterns``
       - (Optional) A list of regular expressions that, when matched, should be masked in the agent output.
         Make sure to escape the escape characters used in the regular expressions
-        (see example below, where all IPs are matched and masked)
+        (see example below, where all IP addresses are matched and masked)
 
 Example configuration
 ^^^^^^^^^^^^^^^^^^^^^^
