@@ -8,7 +8,7 @@ from typing import List
 
 logger = logging.getLogger(__name__)
 
-TPLAN_SCHEMA = {
+TESTPLAN_SCHEMA = {
     "type": "object",
     "properties": {
         "config": {
@@ -203,7 +203,7 @@ def validate_provision_plan(data):
     is valid in terms of schema.
     """
     try:
-        validate(instance=data, schema=TPLAN_SCHEMA)
+        validate(instance=data, schema=TESTPLAN_SCHEMA)
         logger.info("the JSON data is valid")
     except jsonschema.exceptions.ValidationError as err:
         raise ValueError("the JSON data is invalid") from err

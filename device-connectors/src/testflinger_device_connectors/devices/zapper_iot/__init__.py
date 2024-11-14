@@ -52,33 +52,24 @@ class DeviceConnector(ZapperConnector):
             "reboot_script": self.config["reboot_script"],
         }
 
-        test_plan = self.job_data["provision_data"].get("tplan")
-        if test_plan:
+        provision_plan = self.job_data["provision_data"].get("provision_plan")
+        if provision_plan:
 
             try:
-                validate_tplan(test_plan)
+                validate_provision_plan(test_plan)
 
                 # Make sure the user created at provision time is
                 # the same used during the test phase.
-                test_plan["config"]["username"] = username
-                test_plan["config"]["password"] = password
+                provision_plan["config"]["username"] = username
+                provision_plan["config"]["password"] = password
 
-                provisioning_data["custom_testplan"] = test_plan
+                provisioning_data["custom_testplan"] = provision_plan
             except ValueError as e:
                 raise ProvisioningError from e
 
-        urls = self.job_data["provision_data"].get("urls", [])
-        try:
-            provision_plan = self.job_data["provision_data"]["provision_plan"]
-            validate_provision_plan(provision_plan)
-        except KeyError as e:
-            raise ProvisioningError from e
 
-        try:
-            urls = self.job_data["provision_data"]["urls"]
-            validate_urls(urls)
-        except KeyError:
-            urls = []
+        urls = self.job_data["provision_data"].get("urls", [])
+        validate_urls(urls)
         provisioning_data["urls"] = urls
 
         return ((), provisioning_data)

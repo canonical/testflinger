@@ -37,14 +37,14 @@ class ZapperIoTTests(unittest.TestCase):
 
     def test_validate_configuration_tplan(self):
         """
-        Test the function validates a custom tplan
+        Test the function validates a custom test plan
         when provided.
         """
 
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {
-                "tplan": {
+                "test_plan": {
                     "config": {
                         "project_name": "name",
                         "username": "admin",
@@ -110,14 +110,14 @@ class ZapperIoTTests(unittest.TestCase):
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
 
-    def test_validate_configuration_invalid_tplan(self):
+    def test_validate_configuration_invalid_test_plan(self):
         """
         Test the function raises an exception if the
         provided custom testplan is not valid.
         """
 
         device = DeviceConnector()
-        device.job_data = {"provision_data": {"tplan": {"key1": "value1"}}}
+        device.job_data = {"provision_data": {"test_plan": {"key1": "value1"}}}
         device.config = {"reboot_script": []}
 
         with self.assertRaises(ProvisioningError):
