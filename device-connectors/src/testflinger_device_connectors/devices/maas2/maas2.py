@@ -68,6 +68,9 @@ class Maas2:
     def recover(self):
         self._logger_info("Releasing node {}".format(self.agent_name))
         self.node_release()
+        self._logger_info(
+            "Successfully released node {}".format(self.agent_name)
+        )
 
     def provision(self):
         if self.config.get("reset_efi"):
@@ -82,6 +85,10 @@ class Maas2:
         user_data = provision_data.get("user_data")
         storage_data = provision_data.get("disks")
         self.deploy_node(distro, kernel, user_data, storage_data)
+
+    def cleanup(self):
+        """Try to release the node in maas at the end of the job."""
+        self.recover()
 
     def _install_efitools_snap(self):
         cmd = [
@@ -391,8 +398,8 @@ class Maas2:
         cmd = ["maas", self.maas_user, "machine", "release", self.node_id]
         subprocess.run(cmd, check=False)
         # Make sure the device is available before returning
-        for _ in range(0, 10):
-            time.sleep(5)
+        for _ in range(0, 30):
+            time.sleep(10)
             status = self.node_status()
             if status == "Ready":
                 return
