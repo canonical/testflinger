@@ -18,8 +18,8 @@ from typing import Any, Dict, Tuple
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_iot.parser import (
-    validate_tplan,
-    validate_url,
+    validate_test_plan,
+    validate_urls,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,16 +37,41 @@ class DeviceConnector(ZapperConnector):
         Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
+
+        username = self.job_data.get("test_data", {}).get(
+            "test_username", "ubuntu"
+        )
+        password = self.job_data.get("test_data", {}).get(
+            "test_password", "ubuntu"
+        )
+
+        provisioning_data = {
+            "username": username,
+            "password": password,
+            "preset": self.job_data["provision_data"].get("preset"),
+            "reboot_script": self.config["reboot_script"],
+        }
+
+        test_plan = self.job_data["provision_data"].get("test_plan")
+        if test_plan:
+
+            try:
+                validate_test_plan(test_plan)
+
+                # Make sure the user created at provision time is
+                # the same used during the test phase.
+                test_plan["config"]["username"] = username
+                test_plan["config"]["password"] = password
+
+                provisioning_data["custom_testplan"] = test_plan
+            except ValueError as e:
+                raise ProvisioningError from e
+
+        urls = self.job_data["provision_data"].get("urls", [])
         try:
-            tplan = self.job_data["provision_data"]["tplan"]
-            validate_tplan(tplan)
-        except KeyError as e:
+            validate_urls(urls)
+            provisioning_data["urls"] = urls
+        except ValueError as e:
             raise ProvisioningError from e
 
-        try:
-            url = self.job_data["provision_data"]["url"]
-            validate_url(url)
-        except KeyError:
-            url = []
-
-        return ((tplan, url), {})
+        return ((), provisioning_data)
