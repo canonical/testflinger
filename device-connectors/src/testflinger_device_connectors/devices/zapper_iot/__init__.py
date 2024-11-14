@@ -18,7 +18,7 @@ from typing import Any, Dict, Tuple
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_iot.parser import (
-    validate_tplan,
+    validate_test_plan,
     validate_urls,
 )
 
@@ -52,11 +52,11 @@ class DeviceConnector(ZapperConnector):
             "reboot_script": self.config["reboot_script"],
         }
 
-        test_plan = self.job_data["provision_data"].get("tplan")
+        test_plan = self.job_data["provision_data"].get("test_plan")
         if test_plan:
 
             try:
-                validate_tplan(test_plan)
+                validate_test_plan(test_plan)
 
                 # Make sure the user created at provision time is
                 # the same used during the test phase.
