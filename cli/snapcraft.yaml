@@ -21,7 +21,7 @@ architectures:
 
 apps:
   testflinger-cli:
-    command: bin/testflinger-cli.wrapper
+    command: testflinger-cli
     completer: testflinger-completion
     environment:
       LC_ALL: C.UTF-8
@@ -35,6 +35,10 @@ apps:
       - network
 
 parts:
+  launcher:
+    plugin: dump
+    source: .
+
   testflinger-cli:
     plugin: python
     source: .
