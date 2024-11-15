@@ -196,7 +196,7 @@ TPLAN_SCHEMA = {
 }
 
 
-def validate_tplan(data):
+def validate_provision_plan(data):
     """for verify provision yaml"""
     try:
         validate(instance=data, schema=TPLAN_SCHEMA)
