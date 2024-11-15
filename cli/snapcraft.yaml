@@ -22,6 +22,7 @@ architectures:
 apps:
   testflinger-cli:
     command: bin/testflinger-cli.wrapper
+    completer: testflinger-completion
     environment:
       LC_ALL: C.UTF-8
       LANG: C.UTF-8
