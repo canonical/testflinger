@@ -18,7 +18,7 @@ from typing import Any, Dict, Tuple
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_iot.parser import (
-    validate_tplan,
+    validate_provision_plan,
     validate_url,
 )
 
@@ -38,8 +38,8 @@ class DeviceConnector(ZapperConnector):
         for the Zapper `provision` API.
         """
         try:
-            tplan = self.job_data["provision_data"]["tplan"]
-            validate_tplan(tplan)
+            provision_plan = self.job_data["provision_data"]["provision_plan"]
+            validate_provision_plan(provision_plan)
         except KeyError as e:
             raise ProvisioningError from e
 
@@ -49,4 +49,4 @@ class DeviceConnector(ZapperConnector):
         except KeyError:
             url = []
 
-        return ((tplan, url), {})
+        return ((provision_plan, url), {})
