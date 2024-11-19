@@ -26,6 +26,7 @@ import subprocess
 import yaml
 import shutil
 import time
+import os
 
 from testflinger_device_connectors.devices import (
     ProvisioningError,
@@ -76,6 +77,7 @@ class OemAutoinstall:
 
             if not default_user_data.exists():
                 raise ProvisioningError("Default user-data file not found")
+            os.makedirs(ATTACHMENTS_PROV_DIR, exist_ok=True)
             shutil.copy(default_user_data, ATTACHMENTS_PROV_DIR)
             user_data = "default-user-data"
 

@@ -122,7 +122,7 @@ wget_iso_on_dut() {
             exit 4
         fi
     else
-        WGET_OPTS="--tries=3"
+        WGET_OPTS="--tries=3 --progress=bar:force"
         # Optional URL credentials
         if [ -r "$URL_TOKEN" ]; then
             username=$(awk -F':' '/^username:/ {print $2}' "$URL_TOKEN" | xargs)
