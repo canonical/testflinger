@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   mongo:
-    image: mongo:5
+    image: mongo:8
     env_file:
       - testflinger.env
     ports:
