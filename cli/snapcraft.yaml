@@ -21,7 +21,14 @@ architectures:
 
 apps:
   testflinger-cli:
-    command: bin/testflinger-cli.wrapper
+    command: testflinger-cli
+    environment:
+      LC_ALL: C.UTF-8
+      LANG: C.UTF-8
+      XDG_DATA_HOME: $SNAP_USER_DATA/.local/share
+      XDG_CONFIG_HOME: $SNAP_USER_DATA/.config
+      XDG_CACHE_HOME: $SNAP_USER_DATA/.cache
+      XDG_STATE_HOME: $SNAP_USER_DATA/.local/state
     plugs:
       - home
       - network
@@ -30,8 +37,7 @@ parts:
   launcher:
     plugin: dump
     source: .
-    organize:
-      testflinger-cli.wrapper: bin/testflinger-cli.wrapper
+
   testflinger-cli:
     plugin: python
     source: .

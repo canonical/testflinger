@@ -19,3 +19,5 @@ docs/.sphinx/.doctrees/
 
 _build
 __pycache__
+
+*.snap
