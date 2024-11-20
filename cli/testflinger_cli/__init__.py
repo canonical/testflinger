@@ -361,7 +361,12 @@ class TestflingerCli:
         job_state = self.get_job_state(self.args.job_id)
         if job_state != "unknown":
             self.history.update(self.args.job_id, job_state)
-        print(job_state)
+            print(job_state)
+        else:
+            print(
+                "Unable to retrieve job state from the server, check your "
+                "connection or try again later."
+            )
 
     def cancel(self, job_id=None):
         """Tell the server to cancel a specified JOB_ID"""
@@ -980,8 +985,8 @@ class TestflingerCli:
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
                 )
-        except (IOError, ValueError):
+        except (IOError, ValueError) as exc:
             # For other types of network errors, or JSONDecodeError if we got
             # a bad return from get_status()
-            logger.warning("Unable to retrieve job state.")
+            logger.debug("Unable to retrieve job state: %s", exc)
         return "unknown"

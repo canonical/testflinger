@@ -45,6 +45,7 @@ class Client:
 
     def __init__(self, server):
         self.server = server
+        self.error_count = 0
 
     def get(self, uri_frag, timeout=15, headers=None):
         """Submit a GET request to the server
@@ -56,14 +57,16 @@ class Client:
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
             req = requests.get(uri, timeout=timeout, headers=headers)
-        except requests.exceptions.ConnectionError:
-            logger.error("Unable to communicate with specified server.")
-            raise
-        except IOError:
-            # This should catch all other timeout cases
-            logger.error(
-                "Timeout while trying to communicate with the server."
-            )
+            self.error_count = 0
+        except (IOError, requests.exceptions.ConnectionError) as exc:
+            self.error_count += 1
+            if self.error_count % 10 == 0:
+                logger.warning(
+                    "Error communicating with the server for the past %s "
+                    "requests, but will continue to retry. Last error: %s",
+                    self.error_count,
+                    exc,
+                )
             raise
         if req.status_code != 200:
             raise HTTPError(req.status_code)
