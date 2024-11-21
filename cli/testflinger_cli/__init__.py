@@ -1,3 +1,4 @@
+# PYTHON_ARGCOMPLETE_OK
 # Copyright (C) 2017-2022 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
@@ -33,6 +34,7 @@ from argparse import ArgumentParser
 from datetime import datetime
 import yaml
 
+import argcomplete
 import requests
 
 from testflinger_cli import client, config, history
@@ -290,6 +292,7 @@ class TestflingerCli:
             help="The reference directory for relative attachment paths",
         )
 
+        argcomplete.autocomplete(parser)
         self.args = parser.parse_args()
         self.help = parser.format_help()
 
