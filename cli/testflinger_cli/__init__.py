@@ -200,61 +200,95 @@ class TestflingerCli:
             default=None,
             help="Secret key to be used with client id for authentication",
         )
-        sub = parser.add_subparsers()
-        arg_artifacts = sub.add_parser(
+        subparsers = parser.add_subparsers()
+        self._add_artifacts_args(subparsers)
+        self._add_cancel_args(subparsers)
+        self._add_config_args(subparsers)
+        self._add_jobs_args(subparsers)
+        self._add_list_queues_args(subparsers)
+        self._add_poll_args(subparsers)
+        self._add_reserve_args(subparsers)
+        self._add_status_args(subparsers)
+        self._add_results_args(subparsers)
+        self._add_show_args(subparsers)
+        self._add_submit_args(subparsers)
+
+        argcomplete.autocomplete(parser)
+        self.args = parser.parse_args()
+        self.help = parser.format_help()
+
+    def _add_artifacts_args(self, subparsers):
+        """Command line arguments for artifacts"""
+        parser = subparsers.add_parser(
             "artifacts",
             help="Download a tarball of artifacts saved for a specified job",
         )
-        arg_artifacts.set_defaults(func=self.artifacts)
-        arg_artifacts.add_argument("--filename", default="artifacts.tgz")
-        arg_artifacts.add_argument("job_id")
-        arg_cancel = sub.add_parser(
+        parser.set_defaults(func=self.artifacts)
+        parser.add_argument("--filename", default="artifacts.tgz")
+        parser.add_argument("job_id")
+
+    def _add_cancel_args(self, subparsers):
+        """Command line arguments for cancel"""
+        parser = subparsers.add_parser(
             "cancel", help="Tell the server to cancel a specified JOB_ID"
         )
-        arg_cancel.set_defaults(func=self.cancel)
-        arg_cancel.add_argument("job_id")
-        arg_config = sub.add_parser(
+        parser.set_defaults(func=self.cancel)
+        parser.add_argument("job_id")
+
+    def _add_config_args(self, subparsers):
+        """Command line arguments for config"""
+        parser = subparsers.add_parser(
             "config", help="Get or set configuration options"
         )
-        arg_config.set_defaults(func=self.configure)
-        arg_config.add_argument("setting", nargs="?", help="setting=value")
-        arg_jobs = sub.add_parser(
+        parser.set_defaults(func=self.configure)
+        parser.add_argument("setting", nargs="?", help="setting=value")
+
+    def _add_jobs_args(self, subparsers):
+        """Command line arguments for jobs"""
+        parser = subparsers.add_parser(
             "jobs", help="List the previously started test jobs"
         )
-        arg_jobs.set_defaults(func=self.jobs)
-        arg_jobs.add_argument(
+        parser.set_defaults(func=self.jobs)
+        parser.add_argument(
             "--status",
             "-s",
             action="store_true",
             help="Include job status (may add delay)",
         )
-        arg_list_queues = sub.add_parser(
+
+    def _add_list_queues_args(self, subparsers):
+        """Command line arguments for list-queues"""
+        parser = subparsers.add_parser(
             "list-queues",
             help="List the advertised queues on the Testflinger server",
         )
-        arg_list_queues.set_defaults(func=self.list_queues)
-        arg_poll = sub.add_parser(
+        parser.set_defaults(func=self.list_queues)
+
+    def _add_poll_args(self, subparsers):
+        """Command line arguments for poll"""
+        parser = subparsers.add_parser(
             "poll", help="Poll for output from a job until it is completed"
         )
-        arg_poll.set_defaults(func=self.poll)
-        arg_poll.add_argument(
+        parser.set_defaults(func=self.poll)
+        parser.add_argument(
             "--oneshot",
             "-o",
             action="store_true",
             help="Get latest output and exit immediately",
         )
-        arg_poll.add_argument("job_id")
-        arg_reserve = sub.add_parser(
+        parser.add_argument("job_id")
+
+    def _add_reserve_args(self, subparsers):
+        """Command line arguments for reserve"""
+        parser = subparsers.add_parser(
             "reserve", help="Install and reserve a system"
         )
-        arg_reserve.set_defaults(func=self.reserve)
-        arg_reserve.add_argument(
-            "--queue", "-q", help="Name of the queue to use"
-        )
-        arg_reserve.add_argument(
+        parser.set_defaults(func=self.reserve)
+        parser.add_argument("--queue", "-q", help="Name of the queue to use")
+        parser.add_argument(
             "--image", "-i", help="Name of the image to use for provisioning"
         )
-        arg_reserve.add_argument(
+        parser.add_argument(
             "--key",
             "-k",
             nargs="*",
@@ -263,38 +297,46 @@ class TestflingerCli:
                 "(ex: -k lp:userid -k gh:userid)"
             ),
         )
-        arg_results = sub.add_parser(
-            "results", help="Get results JSON for a completed JOB_ID"
-        )
-        arg_results.set_defaults(func=self.results)
-        arg_results.add_argument("job_id")
-        arg_show = sub.add_parser(
-            "show", help="Show the requested job JSON for a specified JOB_ID"
-        )
-        arg_show.set_defaults(func=self.show)
-        arg_show.add_argument("job_id")
-        arg_status = sub.add_parser(
+
+    def _add_status_args(self, subparsers):
+        """Command line arguments for status"""
+        parser = subparsers.add_parser(
             "status", help="Show the status of a specified JOB_ID"
         )
-        arg_status.set_defaults(func=self.status)
-        arg_status.add_argument("job_id")
-        arg_submit = sub.add_parser(
+        parser.set_defaults(func=self.status)
+        parser.add_argument("job_id")
+
+    def _add_results_args(self, subparsers):
+        """Command line arguments for results"""
+        parser = subparsers.add_parser(
+            "results", help="Get results JSON for a completed JOB_ID"
+        )
+        parser.set_defaults(func=self.results)
+        parser.add_argument("job_id")
+
+    def _add_show_args(self, subparsers):
+        """Command line arguments for show"""
+        parser = subparsers.add_parser(
+            "show", help="Show the requested job JSON for a specified JOB_ID"
+        )
+        parser.set_defaults(func=self.show)
+        parser.add_argument("job_id")
+
+    def _add_submit_args(self, subparsers):
+        """Command line arguments for submit"""
+        parser = subparsers.add_parser(
             "submit", help="Submit a new test job to the server"
         )
-        arg_submit.set_defaults(func=self.submit)
-        arg_submit.add_argument("--poll", "-p", action="store_true")
-        arg_submit.add_argument("--quiet", "-q", action="store_true")
-        arg_submit.add_argument("filename")
-        relative = arg_submit.add_mutually_exclusive_group()
+        parser.set_defaults(func=self.submit)
+        parser.add_argument("--poll", "-p", action="store_true")
+        parser.add_argument("--quiet", "-q", action="store_true")
+        parser.add_argument("filename")
+        relative = parser.add_mutually_exclusive_group()
         relative.add_argument(
             "--attachments-relative-to",
             dest="relative",
             help="The reference directory for relative attachment paths",
         )
-
-        argcomplete.autocomplete(parser)
-        self.args = parser.parse_args()
-        self.help = parser.format_help()
 
     def status(self):
         """Show the status of a specified JOB_ID"""
