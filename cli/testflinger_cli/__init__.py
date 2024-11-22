@@ -25,18 +25,18 @@ import json
 import logging
 import os
 import sys
-from pathlib import Path
 import tarfile
 import tempfile
 import time
-from typing import Optional
 from argparse import ArgumentParser
 from datetime import datetime
-import yaml
 from functools import partial
+from pathlib import Path
+from typing import Optional
 
 import argcomplete
 import requests
+import yaml
 
 from testflinger_cli import autocomplete, client, config, history
 
