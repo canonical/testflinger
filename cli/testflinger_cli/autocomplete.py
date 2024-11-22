@@ -23,8 +23,8 @@ from testflinger_cli.history import TestflingerCliHistory
 
 
 def job_ids_completer(
-    prefix: str,
-    parsed_args: Namespace,
+    prefix: str,  # pylint: disable=W0613
+    parsed_args: Namespace,  # pylint: disable=W0613
     history: TestflingerCliHistory,
     **kwargs,
 ):
