@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - testflinger-testenv
     paths:
       - agent/extra/testflinger-testenv/**
   workflow_dispatch:
