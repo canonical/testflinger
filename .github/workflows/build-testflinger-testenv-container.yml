@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - agent/extra/testflinger-testenv/**
+      - .github/workflows/build-testflinger-testenv-container.yml
   workflow_dispatch:
 
 env:
@@ -46,8 +47,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.base_version }}
+          tags: ${{ matrix.version }}
 
       - name: Build and push backend Docker image
         uses: docker/build-push-action@v6
