@@ -105,17 +105,11 @@ def has_attachments(data: dict) -> bool:
     )
 
 
-def check_token_permissions(
-    auth_token: str, secret_key: str, priority: int, queue: str
-) -> bool:
+def decode_jwt_token(auth_token: str, secret_key: str) -> dict:
     """
-    Validates token received from client and checks if it can
-    push a job to the queue with the requested priority
+    Decodes authorization token using the secret key. Aborts with
+    an HTTP error if it does not exist or if it fails to decode
     """
-    is_queue_restricted = database.check_queue_restricted(queue)
-    if not is_queue_restricted and priority == 0:
-        return True
-
     if auth_token is None:
         abort(401, "Unauthorized")
     try:
@@ -130,14 +124,51 @@ def check_token_permissions(
     except jwt.exceptions.InvalidTokenError:
         abort(403, "Invalid Token")
 
+    return decoded_jwt
+
+
+def check_token_priority(
+    auth_token: str, secret_key: str, queue: str, priority: int
+) -> bool:
+    """
+    Checks if the requested priority is less than the max priority
+    specified in the authorization token if it exists
+    """
+    if priority == 0:
+        return True
+    decoded_jwt = decode_jwt_token(auth_token, secret_key)
     max_priority_dict = decoded_jwt.get("max_priority", {})
     star_priority = max_priority_dict.get("*", 0)
     queue_priority = max_priority_dict.get(queue, 0)
     max_priority = max(star_priority, queue_priority)
+    return priority <= max_priority
+
+
+def check_token_queue(auth_token: str, secret_key: str, queue: str) -> bool:
+    """
+    Checks if the queue is in the restricted list. If it is, then it
+    checks the authorization token for restricted queues the user is
+    allowed to use.
+    """
+    if not database.check_queue_restricted(queue):
+        return True
+    decoded_jwt = decode_jwt_token(auth_token, secret_key)
     allowed_queues = decoded_jwt.get("allowed_queues", [])
-    return max_priority >= priority and (
-        not is_queue_restricted or queue in allowed_queues
+    return queue in allowed_queues
+
+
+def check_token_permissions(
+    auth_token: str, secret_key: str, priority: int, queue: str
+) -> bool:
+    """
+    Validates token received from client and checks if it can
+    push a job to the queue with the requested priority
+    """
+    priority_allowed = check_token_priority(
+        auth_token, secret_key, queue, priority
     )
+    queue_allowed = check_token_queue(auth_token, secret_key, queue)
+    return priority_allowed and queue_allowed
 
 
 def job_builder(data: dict, auth_token: str):
