@@ -33,11 +33,12 @@ from typing import Optional
 from argparse import ArgumentParser
 from datetime import datetime
 import yaml
+from functools import partial
 
 import argcomplete
 import requests
 
-from testflinger_cli import client, config, history
+from testflinger_cli import autocomplete, client, config, history
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +137,7 @@ class TestflingerCli:
     """Class for handling the Testflinger CLI"""
 
     def __init__(self):
+        self.history = history.TestflingerCliHistory()
         self.get_args()
         self.config = config.TestflingerCliConfig(self.args.configfile)
         server = (
@@ -167,7 +169,6 @@ class TestflingerCli:
                 '- currently set to: "{}"'.format(server)
             )
         self.client = client.Client(server)
-        self.history = history.TestflingerCliHistory()
 
     def run(self):
         """Run the subcommand specified in command line arguments"""
@@ -225,7 +226,9 @@ class TestflingerCli:
         )
         parser.set_defaults(func=self.artifacts)
         parser.add_argument("--filename", default="artifacts.tgz")
-        parser.add_argument("job_id")
+        parser.add_argument("job_id").completer = partial(
+            autocomplete.job_ids_completer, history=self.history
+        )
 
     def _add_cancel_args(self, subparsers):
         """Command line arguments for cancel"""
@@ -233,7 +236,9 @@ class TestflingerCli:
             "cancel", help="Tell the server to cancel a specified JOB_ID"
         )
         parser.set_defaults(func=self.cancel)
-        parser.add_argument("job_id")
+        parser.add_argument("job_id").completer = partial(
+            autocomplete.job_ids_completer, history=self.history
+        )
 
     def _add_config_args(self, subparsers):
         """Command line arguments for config"""
@@ -276,7 +281,9 @@ class TestflingerCli:
             action="store_true",
             help="Get latest output and exit immediately",
         )
-        parser.add_argument("job_id")
+        parser.add_argument("job_id").completer = partial(
+            autocomplete.job_ids_completer, history=self.history
+        )
 
     def _add_reserve_args(self, subparsers):
         """Command line arguments for reserve"""
@@ -304,7 +311,9 @@ class TestflingerCli:
             "status", help="Show the status of a specified JOB_ID"
         )
         parser.set_defaults(func=self.status)
-        parser.add_argument("job_id")
+        parser.add_argument("job_id").completer = partial(
+            autocomplete.job_ids_completer, history=self.history
+        )
 
     def _add_results_args(self, subparsers):
         """Command line arguments for results"""
@@ -312,7 +321,9 @@ class TestflingerCli:
             "results", help="Get results JSON for a completed JOB_ID"
         )
         parser.set_defaults(func=self.results)
-        parser.add_argument("job_id")
+        parser.add_argument("job_id").completer = partial(
+            autocomplete.job_ids_completer, history=self.history
+        )
 
     def _add_show_args(self, subparsers):
         """Command line arguments for show"""
@@ -320,7 +331,9 @@ class TestflingerCli:
             "show", help="Show the requested job JSON for a specified JOB_ID"
         )
         parser.set_defaults(func=self.show)
-        parser.add_argument("job_id")
+        parser.add_argument("job_id").completer = partial(
+            autocomplete.job_ids_completer, history=self.history
+        )
 
     def _add_submit_args(self, subparsers):
         """Command line arguments for submit"""
