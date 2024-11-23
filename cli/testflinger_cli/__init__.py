@@ -343,7 +343,11 @@ class TestflingerCli:
         parser.set_defaults(func=self.submit)
         parser.add_argument("--poll", "-p", action="store_true")
         parser.add_argument("--quiet", "-q", action="store_true")
-        parser.add_argument("filename")
+        parser.add_argument("filename").completer = (
+            argcomplete.completers.FilesCompleter(
+                allowednames=("*.yaml", "*.yml", "*.json")
+            )
+        )
         relative = parser.add_mutually_exclusive_group()
         relative.add_argument(
             "--attachments-relative-to",
