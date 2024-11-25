@@ -24,8 +24,6 @@ testing on other types of devices.
 - noprovision - devices which need to run tests, but can't be provisioned (yet)
 - oemrecovery - anything (such as core fde images) that can't be provisioned but can run a set of commands to recover back to the initial state
 - oemscript - uses a script that supports some oem images and allows injection of an iso to the recovery partition to install that image
-- zapper-iot - IoT devices which require a Zapper for HW manipulation and OEM-specific actions to get provisioned (UUU, seed-override, ...) 
-- zapper-kvm - this connector makes use of Zapper KVM capabilities to install multiple types of Ubuntu images (vanilla, oem, ...).
 
 
 Exit Status

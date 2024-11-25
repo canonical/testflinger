@@ -34,10 +34,6 @@ To specify the commands to run by the device in each test phase, set the ``testf
      - This device connector is used for HP OEM devices running certain versions of OEM supported images that can use a recovery partition to recover not only the same image, but in some cases, other OEM image versions as well.
    * - ``oem_autoinstall``
      - This device connector is used for OEM PC platforms starting from Ubuntu 24.04. It executes provision-image.sh script and consumes autoinstall configuration files to complete the installation.
-   * - ``zapper_iot``
-     - This device connector is used for provisioning ubuntu-core to ARM IoT devices. It could be provision by set device to download mode or override seed partition and do recovery.
-   * - ``zapper_kvm``
-     - This device connector makes use of Zapper KVM capabilities to install multiple types of Ubuntu images (vanilla, OEM, ...).
 
 .. _cm3:
 
@@ -135,7 +131,7 @@ The ``muxpi`` device connector supports the following ``provision_data`` keys:
        for deploying an image to the SD card.
    * - ``media``
      - Optional parameter to indicate on which boot media the disk image should
-       be programmed (using zapper commands). Supported values are ``usb`` or 
+       be programmed. Supported values are ``usb`` or 
        ``sd``
    * - ``create_user``
      - Boolean (default ``true``) specifying whether a user account should be created.
@@ -380,78 +376,3 @@ on this topic
 
     bootcmd:  # bootcmd of autoinstall
       - ['plymouth', 'display-message', '--text', 'Starting installer...']
-
-.. _zapper_kvm:
-
-zapper_kvm
-------------
-
-The ``zapper_kvm`` device connector, depending on the target image, supports the following ``provision_data`` keys:
-
-.. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target autoinstall-driven provisioning
-    :header-rows: 1
-
-    * - Key
-      - Description
-    * - ``url``
-      - URL to a disk image that is downloaded and flashed to a USB storage device,
-        which will be used to boot up the DUT.
-    * - ``robot_tasks``
-      - List of Zapper/Robot snippets to run in sequence after the USB storage device
-        is plugged into the DUT and the system restarted. The snippet ID is the relative
-        path from the ``robot/snippets`` path in the Zapper repository.
-    * - ``autoinstall_storage_layout``
-      - When provisioning an image supporting *autoinstall*, the storage_layout can
-        be either ``lvm`` (default), ``direct``, ``zfs`` or ``hybrid`` (Desktop 23.10+, UC24)
-    * - ``cmdline_append``
-      - (Optional) When provisioning an image supporting *autoinstall*, the cmdline_append can
-        be used to append Kernel parameters to the standard GRUB entry.
-    * - ``autoinstall_base_user_data``
-      - (Optional) A string containing base64 encoded user-data to use as base for autoinstall-driven provisioning.
-        For more information, see
-        `Autoinstall Reference <https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html>`_.
-        on this topic
-    * - ``autoinstall_oem``:
-      - (Optional) Set to "true" to install OEM meta-packages and the reset partition (Desktop 24.04+).
-    * - ``ubuntu_sso_email``:
-      - (Optional) A valid Ubuntu SSO email to which the DUT provisioned with a non-dangerous grade UC image will be linked (UC24). Please make sure to provide the corresponding *username* in the *test_data.test_username* field.
-    * - ``zapper_provisioning_timeout``:
-      - (Optional) The overall timeout for the provisioning stage (in seconds). Default is 5400 (90 minutes).
-
-
-.. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target Ubuntu OEM 22.04
-    :header-rows: 1
-
-    * - Key
-      - Description
-    * - ``alloem_url``
-      - URL to the ``alloem`` disk image that is downloaded and flashed to a USB storage device,
-        which will be used to boot up the DUT. It restores the OEM reset partition and installs
-        a base Ubuntu OEM 22.04 image.
-    * - ``robot_tasks``
-      - List of Zapper/Robot snippets to run in sequence after the USB storage device
-        is plugged into the DUT and the system restarted. The snippet ID is the relative
-        path from the ``robot/snippets`` path in the Zapper repository.
-    * - ``url``
-      - Optional URL to a disk image given as input to the ``oemscript`` to install on top of
-        the base OEM provisioning.
-    * - ``oem``
-      - Optional value to select the ``oemscript`` to run when specifying a ``url``, possible values
-        are ``dell``, ``hp`` and ``lenovo``.
-
-.. list-table:: Supported ``provision_data`` keys for ``zapper_kvm`` with target any generic live ISOs
-    :header-rows: 1
-
-    * - Key
-      - Description
-    * - ``url``
-      - URL to a disk image that is downloaded and flashed to a USB storage device,
-        which the DUT will then boot from.
-    * - ``robot_tasks``
-      - List of Robot snippets to run in sequence after the USB storage device
-        is plugged into the DUT and the system restarted. The snippet ID is the relative
-        path from the ``robot/snippets`` path in the Zapper repository.
-    * - ``live_image``
-      - Set to "true" to ensure that the Zapper considers the provision process complete at the end of KVM interactions defined by the specified `robot_tasks`, without needing to unplug the external media.
-    * - ``wait_until_ssh``
-      - If set to "false", the Zapper will skip the SSH connection attempt, which is normally performed at the end of provisioning as a form of boot assertion. This is primarily useful in cases where the live ISO does not include an SSH server.
