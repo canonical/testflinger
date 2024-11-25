@@ -68,7 +68,7 @@ The configuration options listed below are available for all device connectors u
      - muxpi
      - List of commands that must be executed on the test device after provisioning, with the test image mounted, for doing device-specific configuration
    * - ``control_host``
-     - cm3, muxpi, zapper_*
+     - cm3, muxpi
      - IP of the sidecar device or “controller” that can be used to assist with provisioning. This device should already be configured for ssh using a key on the agent host.
    * - ``control_user``
      - cm3, muxpi
