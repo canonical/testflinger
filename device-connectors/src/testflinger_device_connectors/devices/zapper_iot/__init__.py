@@ -19,7 +19,7 @@ from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_iot.parser import (
     validate_provision_plan,
-    validate_url,
+    validate_urls,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,9 +44,11 @@ class DeviceConnector(ZapperConnector):
             raise ProvisioningError from e
 
         try:
-            url = self.job_data["provision_data"]["url"]
-            validate_url(url)
+            urls = self.job_data["provision_data"]["urls"]
+            validate_urls(urls)
         except KeyError:
-            url = []
+            urls = []
+        except ValueError as e:
+            raise ProvisioningError from e
 
-        return ((provision_plan, url), {})
+        return ((provision_plan, urls), {})
