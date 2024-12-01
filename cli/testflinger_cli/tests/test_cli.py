@@ -28,6 +28,7 @@ import uuid
 
 import pytest
 import requests
+from mock import patch
 from requests_mock import Mocker
 
 import testflinger_cli
@@ -107,6 +108,44 @@ def test_submit_bad_data(tmp_path, requests_mock):
         "Unexpected error status from testflinger server: [422] expected error"
         in err.value.code
     )
+
+
+def test_submit_agents_available(capsys, tmp_path):
+    """Warning should not be printed if agents are online for the queue"""
+    fake_data = {"queue": "fake", "provision_data": {"distro": "fake"}}
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(testfile)]
+
+    mock_response = {"job_id": str(uuid.uuid1()), "online_agents": 1}
+    with patch.object(
+        testflinger_cli.client.Client, "submit_job"
+    ) as mock_submit:
+        mock_submit.return_value = mock_response
+        tfcli = testflinger_cli.TestflingerCli()
+        tfcli.submit()
+        std = capsys.readouterr()
+        assert (
+            "WARNING: No agents are online to process this job" not in std.out
+        )
+
+
+def test_submit_no_agents(capsys, tmp_path):
+    """Warning should be printed if no agents are online for the queue"""
+    fake_data = {"queue": "fake", "provision_data": {"distro": "fake"}}
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(testfile)]
+
+    mock_response = {"job_id": str(uuid.uuid1()), "online_agents": 0}
+    with patch.object(
+        testflinger_cli.client.Client, "submit_job"
+    ) as mock_submit:
+        mock_submit.return_value = mock_response
+        tfcli = testflinger_cli.TestflingerCli()
+        tfcli.submit()
+        std = capsys.readouterr()
+        assert "WARNING: No agents are online to process this job" in std.out
 
 
 def test_pack_attachments(tmp_path):

@@ -118,8 +118,8 @@ class Job(Schema):
     job_priority = fields.Integer(required=False)
 
 
-class JobId(Schema):
-    """Job ID schema"""
+class JobPostResponse(Schema):
+    """Job post response schema"""
 
     job_id = fields.String(required=True)
 

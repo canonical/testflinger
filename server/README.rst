@@ -94,7 +94,7 @@ the queue used, but all others will be passed along to the agent.
 
 - Returns:
 
-  {"job_id": <job_id> } (as JSON)
+  {"job_id": <str>, "online_agents" <num> } (as JSON)
 
 - Status Codes:
 

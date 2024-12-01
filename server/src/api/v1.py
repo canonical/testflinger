@@ -69,7 +69,7 @@ def get_version():
 
 @v1.post("/job")
 @v1.input(schemas.Job, location="json")
-@v1.output(schemas.JobId)
+@v1.output(schemas.JobPostResponse)
 def job_post(json_data: dict):
     """Add a job to the queue"""
     try:
@@ -92,7 +92,18 @@ def job_post(json_data: dict):
     # CAUTION! If you ever move this line, you may need to pass data as a copy
     # because it will get modified by submit_job and other things it calls
     database.add_job(job)
-    return jsonify(job_id=job.get("job_id"))
+
+    agents_on_queue = database.get_agents_on_queue(job_queue)
+    # see how many agents are not in offline state
+    online_agents = len(
+        [agent for agent in agents_on_queue if agent.get("state") != "offline"]
+    )
+
+    return_data = {
+        "job_id": job.get("job_id"),
+        "online_agents": online_agents,
+    }
+    return jsonify(return_data)
 
 
 def has_attachments(data: dict) -> bool:

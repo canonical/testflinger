@@ -430,7 +430,8 @@ class TestflingerCli:
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
             # submit job, no attachments
-            job_id = self.submit_job_data(job_dict, headers=auth_headers)
+            response = self.submit_job_data(job_dict, headers=auth_headers)
+            job_id = response.get("job_id")
         else:
             with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive:
                 archive_path = Path(archive.name)
@@ -438,7 +439,8 @@ class TestflingerCli:
                 logger.info("Packing attachments into %s", archive_path)
                 self.pack_attachments(archive_path, attachments_data)
                 # submit job, followed by the submission of the archive
-                job_id = self.submit_job_data(job_dict, headers=auth_headers)
+                response = self.submit_job_data(job_dict, headers=auth_headers)
+                job_id = response.get("job_id")
                 try:
                     logger.info("Submitting attachments for %s", job_id)
                     self.submit_job_attachments(job_id, path=archive_path)
@@ -456,13 +458,18 @@ class TestflingerCli:
         else:
             print("Job submitted successfully!")
             print("job_id: {}".format(job_id))
+            if "online_agents" in response and response["online_agents"] == 0:
+                print(
+                    "WARNING: No agents are online to process this job. "
+                    "Please check that you specified the correct queue."
+                )
         if self.args.poll:
             self.do_poll(job_id)
 
     def submit_job_data(self, data: dict, headers: dict = None):
         """Submit data that was generated or read from a file as a test job"""
         try:
-            job_id = self.client.submit_job(data, headers=headers)
+            response = self.client.submit_job(data, headers=headers)
         except client.HTTPError as exc:
             if exc.status == 400:
                 sys.exit(
@@ -480,7 +487,7 @@ class TestflingerCli:
                 "Unexpected error status from testflinger "
                 f"server: [{exc.status}] {exc.msg}"
             )
-        return job_id
+        return response
 
     def submit_job_attachments(self, job_id: str, path: Path):
         """Submit attachments archive for a job to the server
@@ -801,7 +808,8 @@ class TestflingerCli:
         print(job_data)
         answer = input("Proceed? (Y/n) ")
         if answer in ("Y", "y", ""):
-            job_id = self.submit_job_data(job_data)
+            response = self.submit_job_data(job_data)
+            job_id = response.get("job_id")
             print("Job submitted successfully!")
             print("job_id: {}".format(job_id))
             self.do_poll(job_id)

@@ -150,7 +150,7 @@ class Client:
         data = {"job_state": state}
         self.put(endpoint, data)
 
-    def submit_job(self, data: dict, headers: dict = None) -> str:
+    def submit_job(self, data: dict, headers: dict = None) -> dict:
         """Submit a test job to the testflinger server
 
         :param job_data:
@@ -160,7 +160,7 @@ class Client:
         """
         endpoint = "/v1/job"
         response = self.put(endpoint, data, headers=headers)
-        return json.loads(response).get("job_id")
+        return json.loads(response)
 
     def authenticate(self, client_id: str, secret_key: str) -> dict:
         """Authenticates client id and secret key with the server

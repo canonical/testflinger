@@ -327,3 +327,12 @@ def get_provision_log(
         if provision_log_entries
         else []
     )
+
+
+def get_agents_on_queue(queue: str) -> list[dict]:
+    """Get the agents that are listening on the specified queue"""
+    agents = mongo.db.agents.find(
+        {"queues": {"$in": [queue]}},
+        {"_id": 0},
+    )
+    return list(agents)
