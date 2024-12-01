@@ -154,7 +154,10 @@ class CommandRunner:
         if stop_reason == "":
             stop_reason = get_stop_reason(self.process.returncode, "")
 
-        return self.process.returncode, stop_event, stop_reason
+        # make sure the returned exit code is within the expected 0-255 range
+        # (handles the negative numbers that may arise from signal handling)
+        # https://docs.python.org/3.8/library/subprocess.html#subprocess.CompletedProcess.returncode
+        return self.process.returncode % 256, stop_event, stop_reason
 
 
 def get_stop_reason(returncode: int, stop_reason: str) -> str:
