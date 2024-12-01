@@ -273,3 +273,9 @@ class Client:
             return json.loads(data)
         except ValueError:
             return {}
+
+    def get_agents_on_queue(self, queue):
+        """Get the list of all agents listening to a specified queue"""
+        endpoint = f"/v1/queues/{queue}/agents"
+        data = self.get(endpoint)
+        return json.loads(data)

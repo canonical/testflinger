@@ -343,6 +343,7 @@ class TestflingerCli:
         parser.set_defaults(func=self.submit)
         parser.add_argument("--poll", "-p", action="store_true")
         parser.add_argument("--quiet", "-q", action="store_true")
+        parser.add_argument("--wait-for-available-agents", action="store_true")
         parser.add_argument("filename").completer = (
             argcomplete.completers.FilesCompleter(
                 allowednames=("*.yaml", "*.yml", "*.json")
@@ -493,6 +494,11 @@ class TestflingerCli:
                 )
             auth_headers = None
 
+        # Check if agents are available to handle this queue
+        # and warn or exit depending on options
+        queue = job_dict.get("job_queue")
+        self.check_online_agents_available(queue)
+
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
             # submit job, no attachments
@@ -515,7 +521,6 @@ class TestflingerCli:
                         "failed to submit attachments"
                     )
 
-        queue = job_dict.get("job_queue")
         self.history.new(job_id, queue)
         if self.args.quiet:
             print(job_id)
@@ -524,6 +529,30 @@ class TestflingerCli:
             print("job_id: {}".format(job_id))
         if self.args.poll:
             self.do_poll(job_id)
+
+    def check_online_agents_available(self, queue: str):
+        """Exit or warn if no online agents available for a specified queue"""
+        try:
+            agents = self.client.get_agents_on_queue(queue)
+        except client.HTTPError:
+            agents = []
+        online_agents = [
+            agent for agent in agents if agent["state"] != "offline"
+        ]
+        if len(online_agents) > 0:
+            # If there are online agents, then we can proceed
+            return
+        if not self.args.wait_for_available_agents:
+            print(
+                f"ERROR: No online agents available for queue {queue}. "
+                "If you want to wait for agents to become available, use the "
+                "--wait-for-available-agents option."
+            )
+            sys.exit(1)
+        print(
+            f"WARNING: No online agents available for queue {queue}. "
+            "Waiting for agents to become available..."
+        )
 
     def submit_job_data(self, data: dict, headers: dict = None):
         """Submit data that was generated or read from a file as a test job"""
