@@ -19,7 +19,7 @@ import os
 import time
 
 from testflinger_agent.errors import TFServerError
-from .runner import CommandRunner, RunnerEvents
+from .runner import CommandRunner, OutputEvent
 from .handlers import LiveOutputHandler, LogUpdateHandler
 from .stop_condition_checkers import (
     JobCancelledChecker,
@@ -85,8 +85,8 @@ class TestflingerJob:
         runner = CommandRunner(cwd=rundir, env=self.client.config)
         output_log_handler = LogUpdateHandler(output_log)
         live_output_handler = LiveOutputHandler(self.client, self.job_id)
-        runner.register_output_handler(output_log_handler)
-        runner.register_output_handler(live_output_handler)
+        runner.subscribe_event(OutputEvent, output_log_handler)
+        runner.subscribe_event(OutputEvent, live_output_handler)
 
         # Reserve phase uses a separate timeout handler
         if phase != "reserve":
@@ -101,9 +101,7 @@ class TestflingerJob:
                 self.get_output_timeout()
             )
             runner.register_stop_condition_checker(output_timeout_checker)
-            runner.subscribe_event(
-                RunnerEvents.OUTPUT_RECEIVED, output_timeout_checker.update
-            )
+            runner.subscribe_event(OutputEvent, output_timeout_checker.update)
 
         # Do not allow cancellation during provision for safety reasons
         if phase != "provision":
