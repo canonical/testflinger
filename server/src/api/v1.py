@@ -211,7 +211,6 @@ def job_builder(data: dict, auth_token: str):
             ),
         )
     job["job_priority"] = priority_level
-    data.pop("job_priority", None)
 
     job["job_id"] = job_id
     job["job_data"] = data
