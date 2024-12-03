@@ -105,12 +105,10 @@ def has_attachments(data: dict) -> bool:
     )
 
 
-def check_token_priority_permission(
-    auth_token: str, secret_key: str, priority: int, queue: str
-) -> bool:
+def decode_jwt_token(auth_token: str, secret_key: str) -> dict:
     """
-    Validates token received from client and checks if it can
-    push a job to the queue with the requested priority
+    Decodes authorization token using the secret key. Aborts with
+    an HTTP error if it does not exist or if it fails to decode
     """
     if auth_token is None:
         abort(401, "Unauthorized")
@@ -126,11 +124,51 @@ def check_token_priority_permission(
     except jwt.exceptions.InvalidTokenError:
         abort(403, "Invalid Token")
 
+    return decoded_jwt
+
+
+def check_token_priority(
+    auth_token: str, secret_key: str, queue: str, priority: int
+) -> bool:
+    """
+    Checks if the requested priority is less than the max priority
+    specified in the authorization token if it exists
+    """
+    if priority == 0:
+        return True
+    decoded_jwt = decode_jwt_token(auth_token, secret_key)
     max_priority_dict = decoded_jwt.get("max_priority", {})
     star_priority = max_priority_dict.get("*", 0)
     queue_priority = max_priority_dict.get(queue, 0)
     max_priority = max(star_priority, queue_priority)
-    return max_priority >= priority
+    return priority <= max_priority
+
+
+def check_token_queue(auth_token: str, secret_key: str, queue: str) -> bool:
+    """
+    Checks if the queue is in the restricted list. If it is, then it
+    checks the authorization token for restricted queues the user is
+    allowed to use.
+    """
+    if not database.check_queue_restricted(queue):
+        return True
+    decoded_jwt = decode_jwt_token(auth_token, secret_key)
+    allowed_queues = decoded_jwt.get("allowed_queues", [])
+    return queue in allowed_queues
+
+
+def check_token_permissions(
+    auth_token: str, secret_key: str, priority: int, queue: str
+) -> bool:
+    """
+    Validates token received from client and checks if it can
+    push a job to the queue with the requested priority
+    """
+    priority_allowed = check_token_priority(
+        auth_token, secret_key, queue, priority
+    )
+    queue_allowed = check_token_queue(auth_token, secret_key, queue)
+    return priority_allowed and queue_allowed
 
 
 def job_builder(data: dict, auth_token: str):
@@ -156,27 +194,24 @@ def job_builder(data: dict, auth_token: str):
     if has_attachments(data):
         data["attachments_status"] = "waiting"
 
-    if "job_priority" in data:
-        priority_level = data["job_priority"]
-        job_queue = data["job_queue"]
-        allowed = check_token_priority_permission(
-            auth_token,
-            os.environ.get("JWT_SIGNING_KEY"),
-            priority_level,
-            job_queue,
+    priority_level = data.get("job_priority", 0)
+    job_queue = data["job_queue"]
+    allowed = check_token_permissions(
+        auth_token,
+        os.environ.get("JWT_SIGNING_KEY"),
+        priority_level,
+        job_queue,
+    )
+    if not allowed:
+        abort(
+            403,
+            (
+                f"Not enough permissions to push to {job_queue}",
+                f"with priority {priority_level}",
+            ),
         )
-        if not allowed:
-            abort(
-                403,
-                (
-                    f"Not enough permissions to push to {job_queue}",
-                    f"with priority {priority_level}",
-                ),
-            )
-        job["job_priority"] = priority_level
-        data.pop("job_priority")
-    else:
-        job["job_priority"] = 0
+    job["job_priority"] = priority_level
+
     job["job_id"] = job_id
     job["job_data"] = data
     return job
@@ -712,16 +747,18 @@ def queue_wait_time_percentiles_get():
     return queue_percentile_data
 
 
-def generate_token(max_priority, secret_key):
+def generate_token(allowed_resources, secret_key):
     """Generates JWT token with queue permission given a secret key"""
     expiration_time = datetime.utcnow() + timedelta(seconds=2)
     token_payload = {
         "exp": expiration_time,
         "iat": datetime.now(timezone.utc),  # Issued at time
         "sub": "access_token",
-        "max_priority": max_priority,
     }
-
+    if "max_priority" in allowed_resources:
+        token_payload["max_priority"] = allowed_resources["max_priority"]
+    if "allowed_queues" in allowed_resources:
+        token_payload["allowed_queues"] = allowed_resources["allowed_queues"]
     token = jwt.encode(token_payload, secret_key, algorithm="HS256")
     return token
 
@@ -744,8 +781,7 @@ def validate_client_key_pair(client_id: str, client_key: str):
         client_permissions_entry["client_secret_hash"].encode("utf8"),
     ):
         return None
-    max_priority = client_permissions_entry["max_priority"]
-    return max_priority
+    return client_permissions_entry
 
 
 @v1.post("/oauth2/token")
