@@ -1,0 +1,17 @@
+name: Promote testflinger-k8s charm from edge to latest/stable
+
+on:
+  workflow_dispatch:
+jobs:
+  promote-charm:
+    name: Promote testflinger-k8s charm to stable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release testflinger-k8s charm to stable
+        uses: canonical/charming-actions/promote-charm@main
+        with:
+          credentials: ${{ secrets.CHARMHUB_TOKEN }}
+          destination-channel: latest/stable
+          origin-channel: latest/edge
+          charm-path: server/charm
