@@ -57,8 +57,9 @@ class AgentIn(Schema):
 
 
 class AgentOut(Schema):
-    """Agent data input schema"""
+    """Agent data output schema"""
 
+    name = fields.String(required=True)
     state = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     location = fields.String(required=False)

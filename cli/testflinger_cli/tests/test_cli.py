@@ -80,11 +80,15 @@ def test_cancel(requests_mock):
 def test_submit(capsys, tmp_path, requests_mock):
     """Make sure jobid is read back from submitted job"""
     jobid = str(uuid.uuid1())
-    fake_data = {"queue": "fake", "provision_data": {"distro": "fake"}}
+    fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
     testfile = tmp_path / "test.json"
     testfile.write_text(json.dumps(fake_data))
     fake_return = {"job_id": jobid}
     requests_mock.post(URL + "/v1/job", json=fake_return)
+    requests_mock.get(
+        URL + "/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
     sys.argv = ["", "submit", str(testfile)]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.submit()
@@ -94,11 +98,15 @@ def test_submit(capsys, tmp_path, requests_mock):
 
 def test_submit_bad_data(tmp_path, requests_mock):
     """Ensure a 422 response from bad data shows the returned errors"""
-    fake_data = {"badkey": "badvalue"}
+    fake_data = {"badkey": "badvalue", "job_queue": "fake"}
     testfile = tmp_path / "test.json"
     testfile.write_text(json.dumps(fake_data))
     # return 422 and "expected error"
     requests_mock.post(URL + "/v1/job", status_code=422, text="expected error")
+    requests_mock.get(
+        URL + "/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
     sys.argv = ["", "submit", str(testfile)]
     tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as err:
@@ -252,7 +260,7 @@ def test_submit_with_attachments(tmp_path):
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
-        "queue": "fake",
+        "job_queue": "fake",
         "test_data": {
             "attachments": [
                 {
@@ -273,6 +281,10 @@ def test_submit_with_attachments(tmp_path):
         mock_response = {"job_id": job_id}
         mocker.post(f"{URL}/v1/job", json=mock_response)
         mocker.post(f"{URL}/v1/job/{job_id}/attachments")
+        mocker.get(
+            f"{URL}/v1/queues/fake/agents",
+            json=[{"name": "fake_agent", "state": "waiting"}],
+        )
 
         # use cli to submit the job (processes `sys.argv` for arguments)
         tfcli.submit()
@@ -281,9 +293,9 @@ def test_submit_with_attachments(tmp_path):
         # - there is a request to the job submission endpoint
         # - there a request to the attachment submission endpoint
         history = mocker.request_history
-        assert len(history) == 2
-        assert history[0].path == "/v1/job"
-        assert history[1].path == f"/v1/job/{job_id}/attachments"
+        assert len(history) == 3
+        assert history[1].path == "/v1/job"
+        assert history[2].path == f"/v1/job/{job_id}/attachments"
 
         # extract the binary file data from the request
         # (`requests_mock` only provides access to the `PreparedRequest`)
@@ -307,7 +319,7 @@ def test_submit_attachments_retries(tmp_path):
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
-        "queue": "fake",
+        "job_queue": "fake",
         "test_data": {
             "attachments": [
                 {
@@ -339,6 +351,10 @@ def test_submit_attachments_retries(tmp_path):
                 {"status_code": 200},
             ],
         )
+        mocker.get(
+            f"{URL}/v1/queues/fake/agents",
+            json=[{"name": "fake_agent", "state": "waiting"}],
+        )
 
         # use cli to submit the job (processes `sys.argv` for arguments)
         tfcli.submit()
@@ -347,9 +363,9 @@ def test_submit_attachments_retries(tmp_path):
         # - there is a request to the job submission endpoint
         # - there are repeated requests to the attachment submission endpoint
         history = mocker.request_history
-        assert len(history) == 5
-        assert history[0].path == "/v1/job"
-        for entry in history[1:]:
+        assert len(history) == 6
+        assert history[1].path == "/v1/job"
+        for entry in history[2:]:
             assert entry.path == f"/v1/job/{job_id}/attachments"
 
 
@@ -359,7 +375,7 @@ def test_submit_attachments_no_retries(tmp_path):
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
-        "queue": "fake",
+        "job_queue": "fake",
         "test_data": {
             "attachments": [
                 {
@@ -383,6 +399,10 @@ def test_submit_attachments_no_retries(tmp_path):
             f"{URL}/v1/job/{job_id}/attachments", [{"status_code": 400}]
         )
         mocker.post(f"{URL}/v1/job/{job_id}/action", [{"status_code": 200}])
+        mocker.get(
+            f"{URL}/v1/queues/fake/agents",
+            json=[{"name": "fake_agent", "state": "waiting"}],
+        )
 
         with pytest.raises(SystemExit) as exc_info:
             # use cli to submit the job (processes `sys.argv` for arguments)
@@ -395,10 +415,10 @@ def test_submit_attachments_no_retries(tmp_path):
         #   no retries
         # - there is a final request to cancel the action
         history = mocker.request_history
-        assert len(history) == 3
-        assert history[0].path == "/v1/job"
-        assert history[1].path == f"/v1/job/{job_id}/attachments"
-        assert history[2].path == f"/v1/job/{job_id}/action"
+        assert len(history) == 4
+        assert history[1].path == "/v1/job"
+        assert history[2].path == f"/v1/job/{job_id}/attachments"
+        assert history[3].path == f"/v1/job/{job_id}/action"
 
 
 def test_submit_attachments_timeout(tmp_path):
@@ -407,7 +427,7 @@ def test_submit_attachments_timeout(tmp_path):
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
-        "queue": "fake",
+        "job_queue": "fake",
         "test_data": {
             "attachments": [
                 {
@@ -438,6 +458,10 @@ def test_submit_attachments_timeout(tmp_path):
             ],
         )
         mocker.post(f"{URL}/v1/job/{job_id}/action", [{"status_code": 200}])
+        mocker.get(
+            f"{URL}/v1/queues/fake/agents",
+            json=[{"name": "fake_agent", "state": "waiting"}],
+        )
 
         with pytest.raises(SystemExit) as exc_info:
             # use cli to submit the job (processes `sys.argv` for arguments)
@@ -448,18 +472,18 @@ def test_submit_attachments_timeout(tmp_path):
         # - there is a request to the job submission endpoint
         # - there a request to the attachment submission endpoint
         history = mocker.request_history
-        assert len(history) == 4
-        assert history[0].path == "/v1/job"
-        assert history[1].path == f"/v1/job/{job_id}/attachments"
+        assert len(history) == 5
+        assert history[1].path == "/v1/job"
         assert history[2].path == f"/v1/job/{job_id}/attachments"
-        assert history[3].path == f"/v1/job/{job_id}/action"
+        assert history[3].path == f"/v1/job/{job_id}/attachments"
+        assert history[4].path == f"/v1/job/{job_id}/action"
 
 
 def test_submit_with_priority(tmp_path, requests_mock):
     """Tests authorization of jobs submitted with priority"""
     job_id = str(uuid.uuid1())
     job_data = {
-        "queue": "fake",
+        "job_queue": "fake",
         "job_priority": 100,
     }
     job_file = tmp_path / "test.json"
@@ -474,6 +498,10 @@ def test_submit_with_priority(tmp_path, requests_mock):
     requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt)
     mock_response = {"job_id": job_id}
     requests_mock.post(f"{URL}/v1/job", json=mock_response)
+    requests_mock.get(
+        URL + "/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
     tfcli.submit()
     assert requests_mock.last_request.headers.get("Authorization") == fake_jwt
 
@@ -481,7 +509,7 @@ def test_submit_with_priority(tmp_path, requests_mock):
 def test_submit_priority_no_credentials(tmp_path):
     """Tests priority jobs rejected with no specified credentials"""
     job_data = {
-        "queue": "fake",
+        "job_queue": "fake",
         "job_priority": 100,
     }
     job_file = tmp_path / "test.json"
@@ -541,3 +569,44 @@ def test_list_queues_connection_error(caplog, requests_mock):
     with pytest.raises(SystemExit):
         tfcli.list_queues()
     assert "Unable to get a list of queues from the server." in caplog.text
+
+
+def test_submit_no_agents_fails(capsys, tmp_path, requests_mock):
+    """Test that submitting a job without online agents fails"""
+    requests_mock.get(URL + "/v1/queues/fake/agents", json=[])
+    fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.submit()
+    assert exc_info.value.code == 1
+    assert (
+        "ERROR: No online agents available for queue fake"
+        in capsys.readouterr().out
+    )
+
+
+def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
+    """
+    Test that submitting a job without online agents succeeds with
+    --wait-for-available-agents
+    """
+    jobid = str(uuid.uuid1())
+    fake_return = {"job_id": jobid}
+    requests_mock.post(URL + "/v1/job", json=fake_return)
+    requests_mock.get(
+        URL + "/v1/queues/fake/agents",
+        json=[],
+    )
+    fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file), "--wait-for-available-agents"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.submit()
+    assert (
+        "WARNING: No online agents available for queue fake"
+        in capsys.readouterr().out
+    )

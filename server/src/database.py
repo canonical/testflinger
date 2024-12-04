@@ -251,6 +251,15 @@ def get_queue_wait_times(queues: list[str] | None = None) -> list[dict]:
     return list(wait_times)
 
 
+def get_agents_on_queue(queue: str) -> list[dict]:
+    """Get the agents that are listening on the specified queue"""
+    agents = mongo.db.agents.find(
+        {"queues": {"$in": [queue]}},
+        {"_id": 0},
+    )
+    return list(agents)
+
+
 def calculate_percentiles(data: list) -> dict:
     """
     Calculate the percentiles of the wait times for each queue

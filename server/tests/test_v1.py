@@ -725,3 +725,23 @@ def test_get_queue_wait_times(mongo_app):
     assert len(output.json) == 2
     assert output.json["queue1"]["50"] == 3.0
     assert output.json["queue2"]["50"] == 30.0
+
+
+def test_get_agents_on_queue(mongo_app):
+    """Test api to get agents on a queue"""
+    app, _ = mongo_app
+    agent_name = "agent1"
+    agent_data = {"state": "provision", "queues": ["q1", "q2"]}
+    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    assert 200 == output.status_code
+
+    # Get the agents on the queue
+    output = app.get("/v1/queues/q1/agents")
+    assert 200 == output.status_code
+    assert len(output.json) == 1
+    assert output.json[0]["name"] == agent_name
+
+    # Should get an empty list if there are no agents on the queue
+    output = app.get("/v1/queues/q3/agents")
+    assert 200 == output.status_code
+    assert len(output.json) == 0

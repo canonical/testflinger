@@ -399,6 +399,22 @@ The job_status_webhook parameter is required for this endpoint. Other parameters
 
     $ curl http://localhost:8000/v1/queues/wait_times?queue=foo\&queue=bar
 
+** [GET] /v1/queues/<queue_name>/agents** - Get the list of agents listening to a specified queue
+
+- Parameters:
+
+  - queue_name (string): name of the queue for which to get the agents that are listening to it
+
+- Returns:
+
+  JSON array of agents listening to the specified queue
+
+- Example:
+
+  .. code-block:: console
+
+    $ curl http://localhost:8000/v1/queues/foo/agents
+
 **[POST] /v1/oauth2/token** - Authenticate client key and return JWT with permissions
 
 - Headers:
