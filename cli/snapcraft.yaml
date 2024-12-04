@@ -21,7 +21,8 @@ architectures:
 
 apps:
   testflinger-cli:
-    command: testflinger-cli
+    command: bin/testflinger-cli
+    completer: testflinger-completion
     environment:
       LC_ALL: C.UTF-8
       LANG: C.UTF-8
@@ -34,10 +35,6 @@ apps:
       - network
 
 parts:
-  launcher:
-    plugin: dump
-    source: .
-
   testflinger-cli:
     plugin: python
     source: .
@@ -47,3 +44,9 @@ parts:
       set -e
       craftctl default
       craftctl set version="$(date +%Y%m%d)"
+
+  completion:
+    plugin: dump
+    source: .
+    stage:
+      - testflinger-completion

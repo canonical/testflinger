@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-# Copyright (C) 2017-2019 Canonical
+# Copyright (C) 2024 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,10 +13,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+"""
+Bash completion helper functions module.
+"""
+
+from argparse import Namespace
+
+from testflinger_cli.history import TestflingerCliHistory
 
 
-from testflinger_cli import cli
-
-
-if __name__ == "__main__":
-    cli()
+def job_ids_completer(
+    prefix: str,  # pylint: disable=W0613
+    parsed_args: Namespace,  # pylint: disable=W0613
+    history: TestflingerCliHistory,
+    **kwargs,
+):
+    """Completer for job identifiers."""
+    for job_id in history.history.keys():
+        if not job_id.startswith(prefix):
+            continue
+        yield job_id
