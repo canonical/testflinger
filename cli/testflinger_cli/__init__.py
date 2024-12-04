@@ -541,6 +541,21 @@ class TestflingerCli:
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
                 )
+            if exc.status == 401:
+                sys.exit(
+                    "Received 401 error from server. The job "
+                    "you submitted specifies a job priority "
+                    "or is trying to use a restricted queue. "
+                    "Please check your credentials. "
+                )
+            if exc.status == 403:
+                sys.exit(
+                    "Received 403 error from server with reason "
+                    f"{exc.msg}Make sure you have enough "
+                    "permission to use this queue at the specified "
+                    "priority level."
+                )
+
             # This shouldn't happen, so let's get more information
             sys.exit(
                 "Unexpected error status from testflinger "
