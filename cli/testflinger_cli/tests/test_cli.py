@@ -49,6 +49,19 @@ def test_status(capsys, requests_mock):
     assert std.out == "completed\n"
 
 
+def test_status_no_connection(capsys, requests_mock):
+    """Status should return an error message"""
+    jobid = str(uuid.uuid1())
+    requests_mock.get(
+        URL + "/v1/result/" + jobid, exc=requests.exceptions.ConnectionError
+    )
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.status()
+    std = capsys.readouterr()
+    assert "Unable to retrieve job state from the server" in std.out
+
+
 def test_cancel_503(requests_mock):
     """Cancel should fail loudly if cancel action returns 503"""
     jobid = str(uuid.uuid1())
