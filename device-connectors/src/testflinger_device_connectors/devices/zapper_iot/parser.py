@@ -202,11 +202,13 @@ def validate_provision_plan(data):
         validate(instance=data, schema=TPLAN_SCHEMA)
         logger.info("the JSON data is valid")
     except jsonschema.exceptions.ValidationError as err:
+        logger.info("the JSON data is invalid")
         raise ValueError("the JSON data is invalid") from err
 
 
-def validate_url(url):
+def validate_urls(urls):
     """for verify url"""
-    for link in url:
+    for link in urls:
         if not validators.url(link):
+            logger.info("url %s is invalid", link)
             raise ValueError("url format is not correct")
