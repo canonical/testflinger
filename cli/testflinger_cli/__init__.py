@@ -291,6 +291,12 @@ class TestflingerCli:
             "reserve", help="Install and reserve a system"
         )
         parser.set_defaults(func=self.reserve)
+        parser.add_argument(
+            "--dry-run",
+            "-d",
+            action="store_true",
+            help="Only show the job data, don't submit it",
+        )
         parser.add_argument("--queue", "-q", help="Name of the queue to use")
         parser.add_argument(
             "--image", "-i", help="Name of the image to use for provisioning"
@@ -907,10 +913,12 @@ class TestflingerCli:
                                         ssh_keys:"""
         )
         for ssh_key in ssh_keys:
-            template += "\n    - {}".format(ssh_key)
+            template += "\n      - {}".format(ssh_key)
         job_data = template.format(queue=queue, image=image)
         print("\nThe following yaml will be submitted:")
         print(job_data)
+        if self.args.dry_run:
+            return
         answer = input("Proceed? (Y/n) ")
         if answer in ("Y", "y", ""):
             job_id = self.submit_job_data(job_data)
