@@ -157,8 +157,28 @@ def check_token_queue(auth_token: str, secret_key: str, queue: str) -> bool:
     return queue in allowed_queues
 
 
+def check_token_reservation_timeout(
+    auth_token: str, secret_key: str, reservation_timeout: int
+) -> bool:
+    """
+    Checks if the requested reservation is either less than the max
+    or that their token gives them the permission to use a higher one
+    """
+    # Max reservation time defaults to 6 hours
+    max_reservation_time = 6 * 60 * 60
+    if reservation_timeout <= max_reservation_time:
+        return True
+    decoded_jwt = decode_jwt_token(auth_token, secret_key)
+    max_reservation_time = decoded_jwt.get("max_reservation_time", 0)
+    return reservation_timeout <= max_reservation_time
+
+
 def check_token_permissions(
-    auth_token: str, secret_key: str, priority: int, queue: str
+    auth_token: str,
+    secret_key: str,
+    priority: int,
+    queue: str,
+    reservation_timeout: int,
 ) -> bool:
     """
     Validates token received from client and checks if it can
@@ -168,7 +188,10 @@ def check_token_permissions(
         auth_token, secret_key, queue, priority
     )
     queue_allowed = check_token_queue(auth_token, secret_key, queue)
-    return priority_allowed and queue_allowed
+    reservation_time_allowed = check_token_reservation_timeout(
+        auth_token, secret_key, reservation_timeout
+    )
+    return priority_allowed and queue_allowed and reservation_time_allowed
 
 
 def job_builder(data: dict, auth_token: str):
@@ -196,11 +219,15 @@ def job_builder(data: dict, auth_token: str):
 
     priority_level = data.get("job_priority", 0)
     job_queue = data["job_queue"]
+    reserve_data = data.get("reserve_data", {})
+    # default reservation timeout is 1 hour
+    reservation_timeout = int(reserve_data.get("timeout", "3600"))
     allowed = check_token_permissions(
         auth_token,
         os.environ.get("JWT_SIGNING_KEY"),
         priority_level,
         job_queue,
+        reservation_timeout,
     )
     if not allowed:
         abort(
