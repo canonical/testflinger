@@ -541,3 +541,32 @@ def test_list_queues_connection_error(caplog, requests_mock):
     with pytest.raises(SystemExit):
         tfcli.list_queues()
     assert "Unable to get a list of queues from the server." in caplog.text
+
+
+def test_reserve(capsys, requests_mock):
+    """ensure reserve command generates correct yaml"""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    expected_yaml = (
+        "job_queue: fake\n"
+        "provision_data:\n"
+        "    url: http://face_image.xz\n"
+        "reserve_data:\n"
+        "    ssh_keys:\n"
+        "      - lp:fakeuser"
+    )
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "-d",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert expected_yaml in std.out
