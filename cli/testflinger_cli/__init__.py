@@ -156,6 +156,11 @@ class TestflingerCli:
             or self.config.get("secret_key")
             or os.environ.get("TESTFLINGER_SECRET_KEY")
         )
+        error_threshold = self.config.get(
+            "error_threshold"
+            or os.environ.get("TESTFLINGER_ERROR_THRESHOLD")
+            or 3
+        )
 
         # Allow config subcommand without worrying about server or client
         if (
@@ -168,7 +173,7 @@ class TestflingerCli:
                 'Server must start with "http://" or "https://" '
                 '- currently set to: "{}"'.format(server)
             )
-        self.client = client.Client(server)
+        self.client = client.Client(server, error_threshold=error_threshold)
 
     def run(self):
         """Run the subcommand specified in command line arguments"""

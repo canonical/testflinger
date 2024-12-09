@@ -25,23 +25,23 @@ import requests
 from testflinger_cli.client import Client
 
 
-def test_get_warning_10_failures(caplog, requests_mock):
-    """Test that a warning is logged when 10 consecutive failures occur"""
+def test_get_error_threshold(caplog, requests_mock):
+    """Test that a warning is logged when error_threshold is reached"""
     caplog.set_level(logging.WARNING)
     requests_mock.get(
         "http://testflinger/test", exc=requests.exceptions.ConnectionError
     )
-    client = Client("http://testflinger")
-    for _ in range(9):
+    client = Client("http://testflinger", error_threshold=3)
+    for _ in range(2):
         with pytest.raises(requests.exceptions.ConnectionError):
             client.get("test")
         assert (
-            "Error communicating with the server for the past 10 requests"
+            "Error communicating with the server for the past"
             not in caplog.text
         )
     with pytest.raises(requests.exceptions.ConnectionError):
         client.get("test")
     assert (
-        "Error communicating with the server for the past 10 requests"
+        "Error communicating with the server for the past 3 requests"
         in caplog.text
     )
