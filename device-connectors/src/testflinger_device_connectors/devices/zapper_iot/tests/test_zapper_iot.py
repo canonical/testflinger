@@ -35,7 +35,7 @@ class ZapperIoTTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
-    def test_validate_configuration_tplan(self):
+    def test_validate_configuration_provision_plan(self):
         """
         Test the function validates a custom test plan
         when provided.
@@ -44,7 +44,7 @@ class ZapperIoTTests(unittest.TestCase):
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {
-                "test_plan": {
+                "provision_plan": {
                     "config": {
                         "project_name": "name",
                         "username": "admin",
@@ -69,7 +69,7 @@ class ZapperIoTTests(unittest.TestCase):
         expected = {
             "username": "ubuntu",
             "password": "ubuntu",
-            "custom_testplan": {
+            "custom_provision_plan": {
                 "config": {
                     "project_name": "name",
                     "username": "ubuntu",  # this gets overridden
@@ -110,14 +110,14 @@ class ZapperIoTTests(unittest.TestCase):
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
 
-    def test_validate_configuration_invalid_test_plan(self):
+    def test_validate_configuration_invalid_provision_plan(self):
         """
         Test the function raises an exception if the
         provided custom testplan is not valid.
         """
 
         device = DeviceConnector()
-        device.job_data = {"provision_data": {"test_plan": {"key1": "value1"}}}
+        device.job_data = {"provision_data": {"provision_plan": {"key1": "value1"}}}
         device.config = {"reboot_script": []}
 
         with self.assertRaises(ProvisioningError):

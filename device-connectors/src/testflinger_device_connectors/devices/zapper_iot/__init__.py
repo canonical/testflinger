@@ -56,20 +56,22 @@ class DeviceConnector(ZapperConnector):
         if provision_plan:
 
             try:
-                validate_provision_plan(test_plan)
+                validate_provision_plan(provision_plan)
 
                 # Make sure the user created at provision time is
                 # the same used during the test phase.
                 provision_plan["config"]["username"] = username
                 provision_plan["config"]["password"] = password
 
-                provisioning_data["custom_testplan"] = provision_plan
+                provisioning_data["custom_provision_plan"] = provision_plan
             except ValueError as e:
                 raise ProvisioningError from e
 
-
         urls = self.job_data["provision_data"].get("urls", [])
-        validate_urls(urls)
+        try:
+            validate_urls(urls)
+        except ValueError as e:
+            raise ProvisioningError from e
         provisioning_data["urls"] = urls
 
         return ((), provisioning_data)
