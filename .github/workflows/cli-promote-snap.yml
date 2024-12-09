@@ -1,0 +1,30 @@
+name: Promote testflinger-cli snap to stable
+on:
+  workflow_dispatch:
+    inputs:
+      snap:
+        description: 'Snap name'
+        default: 'testflinger-cli'
+        required: true
+        type: string
+      from-channel:
+        description: 'Channel to promote from'
+        default: 'latest/beta'
+        required: true
+        type: string
+      to-channel:
+        description: 'Channel to promote to'
+        default: 'latest/stable'
+        required: true
+        type: string
+
+jobs:
+  promote-snap:
+    runs-on: ubuntu-latest
+    env:
+      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_LOGIN }}
+    steps:
+      - name: Install Snapcraft
+        run: sudo snap install snapcraft --classic
+      - name: Promote testflinger-cli beta to stable
+        run: snapcraft promote ${{ inputs.snap }} --from-channel ${{ inputs.from-channel }} --to-channel ${{ inputs.to-channel }} --yes
