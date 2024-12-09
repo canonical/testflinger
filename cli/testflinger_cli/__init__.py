@@ -552,7 +552,8 @@ class TestflingerCli:
             if exc.status == 403:
                 sys.exit(
                     "Received 403 error from server with reason "
-                    f"{exc.msg}The specified client credentials do "
+                    f"{exc.msg}"
+                    "The specified client credentials do "
                     "not have sufficient permissions for the resource(s) "
                     "you are trying to access."
                 )
