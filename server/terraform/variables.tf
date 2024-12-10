@@ -42,6 +42,12 @@ variable "max_pool_size" {
   default     = 100
 }
 
+variable "jwt_signing_key" {
+  description = "The signing key for JWT tokens"
+  sensitive   = true
+  type        = string
+}
+
 locals {
   app_model = "testflinger-${var.environment}"
 }
