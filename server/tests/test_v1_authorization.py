@@ -316,3 +316,61 @@ def test_restricted_queue_reject_no_token(mongo_app_with_permissions):
     job = {"job_queue": "rqueue1"}
     job_response = app.post("/v1/job", json=job)
     assert 401 == job_response.status_code
+
+
+def test_extended_reservation_allowed(mongo_app_with_permissions):
+    """
+    Tests that jobs that include extended reservation are accepted when
+    the token gives them permission
+    """
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    job = {"job_queue": "myqueue", "reserve_data": {"timeout": 30000}}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 200 == job_response.status_code
+
+
+def test_extended_reservation_rejected(mongo_app_with_permissions):
+    """
+    Tests that jobs that include extended reservation are rejected when
+    the token does not give them permission
+    """
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    job = {"job_queue": "myqueue2", "reserve_data": {"timeout": 21601}}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 403 == job_response.status_code
+
+
+def test_extended_reservation_reject_no_token(mongo_app_with_permissions):
+    """
+    Tests that jobs that included extended reservation are rejected
+    when no token is included
+    """
+    app, _, _, _, _ = mongo_app_with_permissions
+    job = {"job_queue": "myqueue", "reserve_data": {"timeout": 21601}}
+    job_response = app.post("/v1/job", json=job)
+    assert 401 == job_response.status_code
+
+
+def test_normal_reservation_no_token(mongo_app):
+    """
+    Tests that jobs that include reservation times less than the maximum
+    are accepted when no token is included
+    """
+    app, _ = mongo_app
+    job = {"job_queue": "myqueue", "reserve_data": {"timeout": 21600}}
+    job_response = app.post("/v1/job", json=job)
+    assert 200 == job_response.status_code
