@@ -101,7 +101,8 @@ runs:
       shell: bash
       run: |
         echo "::group::Install prerequisites"
-        sudo snap install testflinger-cli jq
+        sudo snap install testflinger-cli
+        sudo snap install jq
         echo "::endgroup::"
 
     - name: Submit job to the Testflinger server
