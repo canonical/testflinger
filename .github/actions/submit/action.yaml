@@ -101,7 +101,8 @@ runs:
       shell: bash
       run: |
         echo "::group::Install prerequisites"
-        sudo snap install testflinger-cli jq
+        sudo snap install testflinger-cli
+        sudo snap install jq
         echo "::endgroup::"
 
     - name: Submit job to the Testflinger server
@@ -116,7 +117,7 @@ runs:
         if [ -n "$RELATIVE_TO" ]; then
           RELATIVE="--attachments-relative-to $RELATIVE_TO"
         fi
-        JOB_ID=$(testflinger --server $SERVER submit --quiet "$RELATIVE" "$JOB")
+        JOB_ID=$(testflinger --server $SERVER submit --quiet $RELATIVE "$JOB")
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
         echo "::endgroup::"
         echo "::notice::Submitted job $JOB_ID"
