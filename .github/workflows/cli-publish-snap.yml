@@ -1,4 +1,4 @@
-name: Publish Testflinger CLI snap to edge
+name: Publish Testflinger CLI snap to edge and beta
 on:
   push:
     branches: ["main"]
@@ -21,3 +21,9 @@ jobs:
       with:
         snap: ${{ steps.build.outputs.snap }}
         release: edge
+    - uses: snapcore/action-publish@v1
+      env:
+        SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_LOGIN }}
+      with:
+        snap: ${{ steps.build.outputs.snap }}
+        release: beta
