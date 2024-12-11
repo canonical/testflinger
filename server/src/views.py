@@ -178,18 +178,18 @@ def queues_data():
     return queue_data
 
 
-@views.route("/queues/<queue_id>")
-def queue_detail(queue_id):
+@views.route("/queues/<queue_name>")
+def queue_detail(queue_name):
     """Queue detailed view"""
-    queue_data = mongo.db.queues.find_one({"name": queue_id})
+    queue_data = mongo.db.queues.find_one({"name": queue_name})
     if not queue_data:
         # If it's not an advertised queue, create some dummy data
-        queue_data = {"name": queue_id, "description": "No description"}
+        queue_data = {"name": queue_name, "description": "No description"}
 
     # Find all the jobs active jobs in this queue
     job_data = mongo.db.jobs.find(
         {
-            "job_data.job_queue": queue_id,
+            "job_data.job_queue": queue_name,
             "result_data.job_state": {
                 "$nin": ["complete", "completed", "cancelled"]
             },
@@ -197,7 +197,7 @@ def queue_detail(queue_id):
     )
 
     # Get the percentiles of wait times for this queue
-    wait_times = database.get_queue_wait_times([queue_id])
+    wait_times = database.get_queue_wait_times([queue_name])
     try:
         wait_times = wait_times[0]["wait_times"]
     except (IndexError, KeyError):
@@ -208,11 +208,14 @@ def queue_detail(queue_id):
     for key, value in queue_percentile_data.items():
         queue_percentile_data[key] = seconds_to_hms(value)
 
+    agents_data = database.get_agents_on_queue(queue_name)
+
     return render_template(
         "queue_detail.html",
         queue=queue_data,
         jobs=job_data,
         queue_percentile_data=queue_percentile_data,
+        agents=agents_data,
     )
 
 
