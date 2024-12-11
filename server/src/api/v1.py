@@ -553,7 +553,7 @@ def images_post():
 
 
 @v1.get("/agents/data")
-@v1.output(schemas.AgentOut)
+@v1.output(schemas.AgentOut(many=True))
 def agents_get_all():
     """Get all agent data"""
     agents = database.mongo.db.agents.find({}, {"_id": False, "log": False})
@@ -745,6 +745,13 @@ def queue_wait_time_percentiles_get():
             queue["wait_times"]
         )
     return queue_percentile_data
+
+
+@v1.get("/queues/<queue_name>/agents")
+@v1.output(schemas.AgentOut(many=True))
+def get_agents_on_queue(queue_name):
+    """Get the list of all data for agents listening to a specified queue"""
+    return database.get_agents_on_queue(queue_name)
 
 
 def generate_token(allowed_resources, secret_key):
