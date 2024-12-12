@@ -374,3 +374,25 @@ def test_normal_reservation_no_token(mongo_app):
     job = {"job_queue": "myqueue", "reserve_data": {"timeout": 21600}}
     job_response = app.post("/v1/job", json=job)
     assert 200 == job_response.status_code
+
+
+def test_star_extended_reservation(mongo_app_with_permissions):
+    """
+    Tests submission to generic queue with extended reservation
+    when client has star permissions
+    """
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    mongo.client_permissions.find_one_and_update(
+        {"client_id": client_id},
+        {"$set": {"max_reservation_time": {"*": 30000}}},
+    )
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    job = {"job_queue": "myrandomqueue", "reserve_data": {"timeout": 30000}}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 200 == job_response.status_code
