@@ -75,3 +75,8 @@ class DeviceConnector(ZapperConnector):
         provisioning_data["urls"] = urls
 
         return ((), provisioning_data)
+
+    def _post_run_actions(self, args):
+        """Run further actions after Zapper API returns successfully."""
+
+        self._copy_ssh_id()
