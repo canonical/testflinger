@@ -1,5 +1,7 @@
+import json
 import os
 import pytest
+import re
 import shutil
 import tempfile
 
@@ -15,7 +17,7 @@ from testflinger_agent.stop_condition_checkers import (
     GlobalTimeoutChecker,
     OutputTimeoutChecker,
 )
-from testflinger_common.enums import TestEvent
+from testflinger_common.enums import TestEvent, TestPhase
 
 
 class TestJob:
@@ -172,6 +174,111 @@ class TestJob:
         assert exit_code == 100
         assert exit_event == "setup_fail"
         assert exit_reason == "failed"
+
+    def run_testcmds(self, job_data, client, tmp_path) -> str:
+        # create the outcome file manually
+        with open(tmp_path / "testflinger-outcome.json", "w") as outcome_file:
+            outcome_file.write("{}")
+        # create the agent configuration file manually
+        with open(tmp_path / "default.yaml", "w") as config_file:
+            config_file.write("agent_name: agent-007")
+        # write the job data to `testflinger.json` manually:
+        # (so that the device connector can pick it up)
+        with open(tmp_path / "testflinger.json", "w") as job_file:
+            json.dump(job_data, job_file)
+
+        # running the device connector will result in running the `test_cmds`
+        self.config["test_command"] = (
+            "testflinger-device-connector fake_connector runtest "
+            f"--config {tmp_path}/default.yaml "
+            f"{tmp_path}/testflinger.json"
+        )
+
+        # run the test phase of the job
+        job = _TestflingerJob(job_data, client)
+        exit_code, _, _ = job.run_test_phase(TestPhase.TEST, tmp_path)
+        assert exit_code == 0
+
+        # capture the output
+        with open(tmp_path / "test.log") as log:
+            return log.read()
+
+    def test_run_test_phase_sensitive(self, client, tmp_path, requests_mock):
+        requests_mock.post(rmock.ANY, status_code=200)
+
+        # sensitive patterns are added to the agent configuration file:
+        # this will result in the use of a masking command runner
+        self.config["sensitive_patterns"] = ["[Cc][a-z]*n"]
+
+        # create the job data
+        job_data = {
+            "test_data": {"test_cmds": "echo -n Message: Captain Major"}
+        }
+
+        log_data = self.run_testcmds(job_data, client, tmp_path)
+        print(log_data)
+
+        # the output should match this pattern, i.e. the sensitive pattern
+        # after "Message: " should be masked
+        output_pattern = r"^Message: \*\*([0-9a-f]{6})\*\* Major$"
+        match = re.search(output_pattern, log_data, re.MULTILINE)
+        assert match is not None
+
+    def test_run_test_phase_secret(self, client, tmp_path, requests_mock):
+        requests_mock.post(rmock.ANY, status_code=200)
+
+        # create the job data
+        job_data = {
+            "secrets": {"SECRET": "Major"},
+            "test_data": {
+                "test_cmds": "echo -n Message: Captain Major $SECRET"
+            },
+        }
+
+        log_data = self.run_testcmds(job_data, client, tmp_path)
+        print(log_data)
+
+        # the output should match this pattern, i.e. the secrets
+        # after "Message: " should be masked
+        output_pattern = (
+            r"^Message: Captain \*\*([0-9a-f]{6})\*\* \*\*([0-9a-f]{6})\*\*$"
+        )
+        match = re.search(output_pattern, log_data, re.MULTILINE)
+        assert match is not None
+        first, second = match.groups()
+        assert first == second
+
+    def test_run_test_phase_sensitive_and_secret(
+        self, client, tmp_path, requests_mock
+    ):
+        requests_mock.post(rmock.ANY, status_code=200)
+
+        # sensitive patterns are added to the agent configuration file:
+        self.config["sensitive_patterns"] = ["[Cc][a-z]*n"]
+
+        # create the job data
+        job_data = {
+            "secrets": {"SECRET": "Major"},
+            "test_data": {
+                "test_cmds": "echo -n Message: Captain Major $SECRET"
+            },
+        }
+
+        log_data = self.run_testcmds(job_data, client, tmp_path)
+        print(log_data)
+
+        # the output should match this pattern, i.e. the strings
+        # after "Message: " should be masked
+        output_pattern = (
+            r"^Message: "
+            r"\*\*([0-9a-f]{6})\*\* "
+            r"\*\*([0-9a-f]{6})\*\* "
+            r"\*\*([0-9a-f]{6})\*\*$"
+        )
+        match = re.search(output_pattern, log_data, re.MULTILINE)
+        assert match is not None
+        first, second, third = match.groups()
+        assert first != second and second == third
 
     def test_set_truncate(self, client):
         """Test the _set_truncate method of TestflingerJob"""

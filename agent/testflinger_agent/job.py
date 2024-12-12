@@ -19,7 +19,8 @@ import os
 import time
 
 from testflinger_agent.errors import TFServerError
-from .runner import CommandRunner, RunnerEvents
+from testflinger_agent.masking import Masker
+from .runner import CommandRunner, MaskingCommandRunner, RunnerEvents
 from .handlers import LiveOutputHandler, LogUpdateHandler
 from .stop_condition_checkers import (
     JobCancelledChecker,
@@ -42,6 +43,41 @@ class TestflingerJob:
         self.job_data = job_data
         self.job_id = job_data.get("job_id")
         self.phase = "unknown"
+
+    def get_runner(self, rundir):
+        hash_length = 6
+        # retrieve sensitive patterns from the agent configuration
+        sensitive_patterns = self.client.config.get("sensitive_patterns", [])
+        # retrieve secrets from the job
+        secrets_dict = self.job_data.get("secrets")
+
+        if secrets_dict:
+            # inject secrets into the runner environment
+            environment = {
+                **self.client.config,
+                **secrets_dict,
+            }
+            # add secrets to the sensitive variables
+            sensitive_patterns.extend(secrets_dict.values())
+            # secrets and (possibly) sensitive information
+            masker = Masker(
+                patterns=sensitive_patterns, hash_length=hash_length
+            )
+            return MaskingCommandRunner(
+                cwd=rundir, env=environment, masker=masker
+            )
+
+        if sensitive_patterns:
+            # sensitive patterns but no sensitive variables and no secrets
+            masker = Masker(
+                patterns=sensitive_patterns, hash_length=hash_length
+            )
+            return MaskingCommandRunner(
+                cwd=rundir, env=self.client.config, masker=masker
+            )
+
+        # no secrets, no sensitive information: use regular runner
+        return CommandRunner(cwd=rundir, env=self.client.config)
 
     def run_test_phase(self, phase, rundir):
         """Run the specified test phase in rundir
@@ -82,7 +118,7 @@ class TestflingerJob:
         serial_log = os.path.join(rundir, phase + "-serial.log")
 
         logger.info("Running %s_command: %s", phase, cmd)
-        runner = CommandRunner(cwd=rundir, env=self.client.config)
+        runner = self.get_runner(rundir)
         output_log_handler = LogUpdateHandler(output_log)
         live_output_handler = LiveOutputHandler(self.client, self.job_id)
         runner.register_output_handler(output_log_handler)
