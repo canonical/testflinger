@@ -570,6 +570,23 @@ class TestflingerCli:
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
                 )
+            if exc.status == 401:
+                sys.exit(
+                    "Received 401 error from server. You are "
+                    "attempting to use a feature that requires "
+                    "client authorisation without using client "
+                    "credentials. See https://testflinger.readthedocs"
+                    ".io/en/latest/how-to/authentication/ for more details"
+                )
+            if exc.status == 403:
+                sys.exit(
+                    "Received 403 error from server with reason "
+                    f"{exc.msg}"
+                    "The specified client credentials do "
+                    "not have sufficient permissions for the resource(s) "
+                    "you are trying to access."
+                )
+
             # This shouldn't happen, so let's get more information
             sys.exit(
                 "Unexpected error status from testflinger "
