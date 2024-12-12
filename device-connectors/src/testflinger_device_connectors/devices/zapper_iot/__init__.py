@@ -19,7 +19,7 @@ from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_iot.parser import (
     validate_provision_plan,
-    validate_url,
+    validate_urls,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,16 +37,41 @@ class DeviceConnector(ZapperConnector):
         Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
+
+        username = self.job_data.get("test_data", {}).get(
+            "test_username", "ubuntu"
+        )
+        password = self.job_data.get("test_data", {}).get(
+            "test_password", "ubuntu"
+        )
+
+        provisioning_data = {
+            "username": username,
+            "password": password,
+            "preset": self.job_data["provision_data"].get("preset"),
+            "reboot_script": self.config["reboot_script"],
+        }
+
+        provision_plan = self.job_data["provision_data"].get("provision_plan")
+        if provision_plan:
+
+            try:
+                validate_provision_plan(provision_plan)
+
+                # Make sure the user created at provision time is
+                # the same used during the test phase.
+                provision_plan["config"]["username"] = username
+                provision_plan["config"]["password"] = password
+
+                provisioning_data["custom_provision_plan"] = provision_plan
+            except ValueError as e:
+                raise ProvisioningError from e
+
+        urls = self.job_data["provision_data"].get("urls", [])
         try:
-            provision_plan = self.job_data["provision_data"]["provision_plan"]
-            validate_provision_plan(provision_plan)
-        except KeyError as e:
+            validate_urls(urls)
+        except ValueError as e:
             raise ProvisioningError from e
+        provisioning_data["urls"] = urls
 
-        try:
-            url = self.job_data["provision_data"]["url"]
-            validate_url(url)
-        except KeyError:
-            url = []
-
-        return ((provision_plan, url), {})
+        return ((), provisioning_data)
