@@ -117,7 +117,9 @@ class ZapperIoTTests(unittest.TestCase):
         """
 
         device = DeviceConnector()
-        device.job_data = {"provision_data": {"provision_plan": {"key1": "value1"}}}
+        device.job_data = {
+            "provision_data": {"provision_plan": {"key1": "value1"}}
+        }
         device.config = {"reboot_script": []}
 
         with self.assertRaises(ProvisioningError):
