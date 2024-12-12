@@ -178,6 +178,7 @@ Variables in ``reserve_data``:
 
 * ``ssh_keys``: The list of public SSH keys to use for reserving the device. Each line includes an identity provider name and your username on the provider's system. Testflinger uses the ``ssh-import-id`` command to import public SSH keys from trusted, online identity. Supported identities are Launchpad (``lp``) and GitHub (``gh``).
 * ``timeout``: Reservation time in seconds. The default is one hour (3600), and you can request a reservation for up to 6 hours (21600).
+  Authenticated clients can request longer :doc:`reservation times <../explanation/extended-reservation>` with prior authorisation.
   
 If either ``reserve_command`` is missing from the agent configuration, or the the ``reserve_data`` section is missing from the job, this phase will be skipped.
 
