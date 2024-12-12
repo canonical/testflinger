@@ -212,7 +212,7 @@ simply leave out the ``provision_data`` section.
 dell_oemscript
 --------------
 
-The ``dell_oemscript`` device connector does not support any ``provision_data`` keys.
+The ``dell_oemscript`` device connector supports the following ``provision_data`` keys.
 
 .. list-table:: Supported ``provision_data`` keys for ``dell_oemscript``
    :header-rows: 1
@@ -223,14 +223,15 @@ The ``dell_oemscript`` device connector does not support any ``provision_data`` 
      - URL to a compressed disk image that is downloaded, decompressed using
        ``unzstd`` (**xz** format is recommended, but any format supported by
        the ``zstd`` tool is supported) and
-       flashed to the device, which will be used to boot up the DUT.
+       flashed to the device, which will be used to boot up the DUT. The image
+       must be an OEM Image that retains a recovery partition on the machine.
 
 .. _lenovo_oemscript:
 
 lenovo_oemscript
 ----------------
 
-The ``lenovo_oemscript`` device connector does not support any ``provision_data`` keys.
+The ``lenovo_oemscript`` device connector supports the following ``provision_data`` keys.
 
 .. list-table:: Supported ``provision_data`` keys for ``lenovo_oemscript``
    :header-rows: 1
@@ -241,14 +242,15 @@ The ``lenovo_oemscript`` device connector does not support any ``provision_data`
      - URL to a compressed disk image that is downloaded, decompressed using
        ``unzstd`` (**xz** format is recommended, but any format supported by
        the ``zstd`` tool is supported) and
-       flashed to the device, which will be used to boot up the DUT.
+       flashed to the device, which will be used to boot up the DUT. The image
+       must be an OEM Image that retains a recovery partition on the machine.
 
 .. _hp_oemscript:
 
 hp_oemscript
 ------------
 
-The ``hp_oemscript`` device connector does not support any ``provision_data`` keys.
+The ``hp_oemscript`` device connector supports the following ``provision_data`` keys.
 
 .. list-table:: Supported ``provision_data`` keys for ``hp_oemscript``
    :header-rows: 1
@@ -259,7 +261,8 @@ The ``hp_oemscript`` device connector does not support any ``provision_data`` ke
      - URL to a compressed disk image that is downloaded, decompressed using
        ``unzstd`` (**xz** format is recommended, but any format supported by
        the ``zstd`` tool is supported) and
-       flashed to the device, which will be used to boot up the DUT.
+       flashed to the device, which will be used to boot up the DUT. The image
+       must be an OEM Image that retains a recovery partition on the machine.
 
 .. _oem_autoinstall:
 
