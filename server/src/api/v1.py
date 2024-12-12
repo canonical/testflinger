@@ -170,7 +170,9 @@ def check_token_reservation_timeout(
         return True
     decoded_jwt = decode_jwt_token(auth_token, secret_key)
     max_reservation_time_dict = decoded_jwt.get("max_reservation_time", {})
-    max_reservation_time = max_reservation_time_dict.get(queue, 0)
+    queue_reservation_time = max_reservation_time_dict.get(queue, 0)
+    star_reservation_time = max_reservation_time_dict.get("*", 0)
+    max_reservation_time = max(queue_reservation_time, star_reservation_time)
     return reservation_timeout <= max_reservation_time
 
 
