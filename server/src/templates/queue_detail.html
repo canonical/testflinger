@@ -8,7 +8,7 @@
         </h1>
     </div>
 </div>
-<table aria-label="Agent table" class="p-table--mobile-card">
+<table aria-label="Queue Details table" class="p-table--mobile-card">
     <tbody>
         <tr>
             <td>Description</td>
@@ -21,7 +21,7 @@
         <h2 class="p-heading--4">Jobs</h2>
     </div>
 </div>
-<table aria-label="Agents table" class="p-table--mobile-card">
+<table aria-label="Jobs table" class="p-table--mobile-card">
     <thead>
         <tr>
             <th>Job ID</th>
@@ -39,6 +39,51 @@
         {% endfor %}
     </tbody>
 </table>
+
+<div class="p-strip is-shallow" style="margin-top: 1rem;">
+    <div class="row">
+        <h2 class="p-heading--4">Agents</h2>
+    </div>
+</div>
+<table aria-label="Jobs table" class="p-table--mobile-card">
+    <thead>
+        <tr>
+            <th class="has-overflow" style="width: 40pt"></th>
+            <th>Name</th>
+            <th style="width: 100pt">State</th>
+            <th style="width: 150pt">Updated At</th>
+            <th>Job ID</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for agent in agents %}
+        <tr class="tr-highlight">
+            <td class="has-overflow">
+                {% if agent.provision_streak_type == "fail" and agent.provision_streak_count > 0 %}
+                <span class="p-tooltip--right" aria-describedby="tooltip">
+                    <i class="p-icon--warning"></i>
+                    <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has failed the last {{
+                        agent.provision_streak_count }} provision attempts</span>
+                </span>
+                {{ agent.provision_streak_count }}
+                {% elif agent.provision_streak_type == "pass" and agent.provision_streak_count > 0 %}
+                <span class="p-tooltip--right" aria-describedby="tooltip">
+                    <i class="p-icon--success"></i>
+                    <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has passed the last {{
+                        agent.provision_streak_count }} provision attempts</span>
+                </span>
+                {{ agent.provision_streak_count }}
+                {% endif %}
+            </td>
+            <td><a href="/agents/{{ agent.name }}">{{ agent.name }}</a></td>
+            <td>{{ agent.state }}</td>
+            <td>{{ agent.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+            <td><a href="/jobs/{{ agent.job_id }}">{{ agent.job_id }}</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
 <div class="p-strip is-shallow">
     <div class="row">
         <h2 class="p-heading--4">Wait Time Percentiles</h2>
