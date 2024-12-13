@@ -52,7 +52,6 @@ logfile
 LTS
 LVM
 MAAS
-MaaS
 maas
 Makefile
 microservice

@@ -110,7 +110,7 @@ write_files:
   path: /home/ubuntu/example-job.yaml
 - content: |
     All testflinger components are running inside this container, and
-    a test VM has been created in MaaS which can be used to demonstrate
+    a test VM has been created in MAAS which can be used to demonstrate
     provisioning and test execution.  The testflinger CLI tool has
     also been configured to talk to the testflinger server running in this
     container.

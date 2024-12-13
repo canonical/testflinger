@@ -57,7 +57,7 @@ be used with multipass to create a complete environment for demonstrating,
 testing, and developing on all parts of testflinger. This environment is
 self-contained, and automatically set up to point the command-line tools
 at a server running within this container. It also includes a deployment of
-MaaS with a pre-configured example node that runs in a VM, so you can use
+MAAS with a pre-configured example node that runs in a VM, so you can use
 this environment to run a full test job through the entire process, including
 provisioning.
 

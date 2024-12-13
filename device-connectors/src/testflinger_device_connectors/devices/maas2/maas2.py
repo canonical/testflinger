@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Ubuntu MaaS 2.x CLI support code."""
+"""Ubuntu MAAS 2.x CLI support code."""
 
 import base64
 import json
@@ -329,10 +329,10 @@ class Maas2:
             status = self.node_status()
 
             if status == "Failed deployment":
-                self._logger_error("MaaS reports Failed Deployment")
+                self._logger_error("MAAS reports Failed Deployment")
                 exception_msg = (
                     "Provisioning failed because "
-                    + "MaaS got unexpected or "
+                    + "MAAS got unexpected or "
                     + "deployment failure status signal."
                 )
                 raise ProvisioningError(exception_msg)
