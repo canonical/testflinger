@@ -32,14 +32,18 @@ class MaasStorageError(ProvisioningError):
 class MaasStorage:
     """Maas device connector storage module."""
 
-    def __init__(self, maas_user, node_id):
+    def __init__(self, maas_user, node_id, node_info=None):
         self.maas_user = maas_user
         self.node_id = node_id
         self.device_list = None
         self.init_data = None
-        self.node_info = self._node_read()
         self.block_ids = {}
         self.partition_sizes = {}
+        # Better support for testing
+        if node_info is None:
+            self.node_info = self._node_read()
+        else:
+            self.node_info = node_info
 
     def _logger_debug(self, message):
         logger.debug("MAAS: {}".format(message))
@@ -71,19 +75,24 @@ class MaasStorage:
                 stderr=subprocess.STDOUT,
                 check=False,
             )
-        except FileNotFoundError as err:
+        except (FileNotFoundError, TypeError) as err:
             raise MaasStorageError(err) from err
 
         if proc.returncode != 0:
-            raise MaasStorageError(proc.stdout.decode())
+            raise MaasStorageError(proc.stdout)
 
-        if proc.stdout:
-            output = proc.stdout.decode()
+        if not proc.stdout:
+            return {} if output_json else None
 
-            if output_json:
+        output = proc.stdout.decode()
+
+        if output_json:
+            try:
                 return json.loads(output)
+            except json.JSONDecodeError as err:
+                raise MaasStorageError(output) from err
 
-            return output
+        return output
 
     @staticmethod
     def convert_size_to_bytes(size_str):
