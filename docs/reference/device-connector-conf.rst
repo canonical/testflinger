@@ -39,10 +39,10 @@ The configuration options listed below are available for all device connectors u
      - URL for the Testflinger server to connect to for creating subordinate test jobs used by a multi-job configuration
    * - ``maas_user``
      - maas
-     - MaaS profile ID configured on the agent host to use for controlling the agent
+     - MAAS profile ID configured on the agent host to use for controlling the agent
    * - ``node_id``
      - maas
-     - MaaS Node ID for the specific agent on the MaaS server associated with this test device
+     - MAAS Node ID for the specific agent on the MAAS server associated with this test device
    * - ``reset_efi``
      - maas
      - Attempt to reset EFI systems to boot from the network in order to work around issues with the boot order sometimes getting lost on systems that require USB Ethernet dongles

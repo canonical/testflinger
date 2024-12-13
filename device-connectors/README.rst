@@ -17,10 +17,10 @@ testing on other types of devices.
 - cm3 - Raspberry PI CM3 with a sidecar device and tools to support putting it in otg mode to flash an image
 - dragonboard - dragonboard with a stable image on usb and test images are flashed to a wiped sd with a dual boot process
 - fake_connector - fake device connector that can be used for testing
-- maas2 - Metal as a Service (MaaS) systems, which support additional features such as disk layouts. Images provisioned must be imported first!
+- maas2 - Metal as a Service (MAAS) systems, which support additional features such as disk layouts. Images provisioned must be imported first!
 - multi - multi-device connector used for provisioning jobs that span multiple devices at once
 - muxpi - muxpi/sdwire provisioned devices that utilize a device that can write to an sd the boot it on the DUT
-- netboot - minimal netboot initramfs process for a specific device that couldn't be provisioned with MaaS
+- netboot - minimal netboot initramfs process for a specific device that couldn't be provisioned with MAAS
 - noprovision - devices which need to run tests, but can't be provisioned (yet)
 - oemrecovery - anything (such as core fde images) that can't be provisioned but can run a set of commands to recover back to the initial state
 - oemscript - uses a script that supports some oem images and allows injection of an iso to the recovery partition to install that image
