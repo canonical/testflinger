@@ -10,4 +10,5 @@ This section covers conceptual questions about Testflinger.
     queues
     job-priority
     restricted-queues
+    extended-reservation
     authentication
