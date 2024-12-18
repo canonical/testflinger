@@ -1,0 +1,1 @@
+This Dockerfile creates a basic test environment for running the test phase of testflinger agents in a Docker container.
