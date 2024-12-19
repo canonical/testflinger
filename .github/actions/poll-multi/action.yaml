@@ -24,7 +24,7 @@ runs:
       env:
         JOB_ID: ${{ inputs.job-id }}
       run: |
-        echo "::group::Wait for parent job $JOB_ID to complete"
+        echo "::group::Wait for parent job ${{ env.JOB_ID }} to complete"
         while true; do
           STATUS=$(testflinger status $JOB_ID)
           echo "Multi-device job status: $STATUS"
@@ -34,14 +34,14 @@ runs:
         echo "::endgroup::"
         echo "::group::Retrieve IDs of children jobs"
         JOB_IDS=$(testflinger results 761e46e8-7c33-483c-abc4-e96aaa4b7543 | jq -r '.provision_output' | sed -n 's/^.*Created job \(.*\)$/\1/p')
-        echo "::notice::$JOB_IDS"
+        echo -e "::notice::\n$JOB_IDS"
         echo "::endgroup::"
         echo "::group::Retrieve IPs of reserved devices"
         IPS=$(for JOB_ID in $JOB_IDS; do testflinger results $JOB_ID | jq -r '.device_info.device_ip'; done)
-        echo "::notice::$IPS"
+        echo -e "::notice::\n$IPS"
         echo "::endgroup::"
-        echo "::group::Track the status of a multi-device reservation job ${{ env.JOB_ID }}"
-        # save JSON string to output
-        JSON=$(paste -d ' ' <(echo "$JOB_IDS") <(echo "$IPS") | jq -R 'split(" ") | {(.[0]): .[1]}' | jq -s 'add')
-        echo "jobs=$JSON" >> $GITHUB_OUTPUT
+        echo "::group::Construct output"
+        JSON=$(paste -d ' ' <(echo "$JOB_IDS") <(echo "$IPS") | jq -R 'split(" ") | {(.[0]): .[1]}' | jq -c -s 'add')
+        echo "Diagnostic: $JSON"
+        echo "jobs=toJSON($JSON)" >> $GITHUB_OUTPUT
         echo "::endgroup::"
