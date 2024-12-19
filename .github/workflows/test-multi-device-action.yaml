@@ -1,0 +1,48 @@
+name: Temporary workflow for testing multi-device polling action
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  submit-and-poll:
+    name: Submit multi-device job and poll it for its data
+    runs-on: [self-hosted, testflinger]
+    steps:
+
+    - name: Submit job to Testflinger
+      id: submit
+      uses: canonical/testflinger/.github/actions/submit@main
+      with:
+        poll: false
+        job: |
+          job_queue: multi-1
+          name: multi-device-job
+          output_timeout: 43200
+          provision_data:
+          jobs: 
+          - job_queue: 202407-34216
+              name: dell-xps-13-9350-0cc9-c34216
+              reserve_data:
+              ssh_keys:
+                  - lp:boukeas
+              timeout: 600
+          - job_queue: 202008-28168
+              name: hp-eliteone800-g627-all-in-one-pc-c28168
+              reserve_data:
+              ssh_keys:
+                  - lp:boukeas
+              timeout: 600
+
+    - name: Retrieve multi-device job data
+      id: poll
+      uses: canonical/testflinger/.github/actions/poll-multi@CERTTF-457-multi-device-polling
+      with:
+        job-id: ${{ steps.submit.outputs.id }}
+    
+    - name: Verify
+      shell: bash
+      env:
+        JOBS: ${{ steps.poll.outputs.jobs }}
+      run: |
+        echo $JOBS
+        
