@@ -784,7 +784,11 @@ def get_agents_on_queue(queue_name):
 
 
 def generate_token(allowed_resources, secret_key):
-    """Generates JWT token with queue permission given a secret key"""
+    """
+    Generates JWT token with queue permission given a secret key
+    See retrieve_token for more information on the contents of
+    the token payload
+    """
     expiration_time = datetime.utcnow() + timedelta(seconds=2)
     token_payload = {
         "exp": expiration_time,
