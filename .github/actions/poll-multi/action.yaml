@@ -1,11 +1,11 @@
-name: Poll a multi-device job
+name: Poll a multi-device job for child job data
 inputs:
   job-id:
-    description:
+    description: The job ID of the parent multi-device job
     required: true
 outputs:
   jobs:
-    description:
+    description: A JSON string mapping child job IDs to machine IPs
     value: ${{ steps.data.outputs.jobs }}
 runs:
   using: composite
@@ -28,12 +28,12 @@ runs:
         while true; do
           STATUS=$(testflinger status $JOB_ID)
           echo "Multi-device job status: $STATUS"
-          [ "$STATUS" == "complete" ] && echo "Parent job complete -> allocation complete" && break
+          [ "$STATUS" == "complete" ] && echo "Parent job $JOB_ID complete -> allocation complete" && break
           sleep 10
         done
         echo "::endgroup::"
         echo "::group::Retrieve IDs of children jobs"
-        JOB_IDS=$(testflinger results 761e46e8-7c33-483c-abc4-e96aaa4b7543 | jq -r '.provision_output' | sed -n 's/^.*Created job \(.*\)$/\1/p')
+        JOB_IDS=$(testflinger results $JOB_ID | jq -r '.provision_output' | sed -n 's/^.*Created job \(.*\)$/\1/p')
         echo "::notice::" $JOB_IDS
         echo "::endgroup::"
         echo "::group::Retrieve IPs of reserved devices"
@@ -42,6 +42,6 @@ runs:
         echo "::endgroup::"
         echo "::group::Construct output"
         JSON=$(paste -d ' ' <(echo "$JOB_IDS") <(echo "$IPS") | jq -R 'split(" ") | {(.[0]): .[1]}' | jq -c -s 'add')
-        echo "Diagnostic: $JSON"
+        echo "Output: $JSON"
         echo "jobs=$JSON" >> $GITHUB_OUTPUT
         echo "::endgroup::"
