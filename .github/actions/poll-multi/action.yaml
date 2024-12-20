@@ -33,7 +33,12 @@ runs:
         done
         echo "::endgroup::"
         echo "::group::Retrieve IDs of children jobs"
-        JOB_IDS=$(testflinger results $JOB_ID | jq -r '.provision_output' | sed -n 's/^.*Created job \(.*\)$/\1/p')
+        RESULTS=$(testflinger results $JOB_ID)
+        if ! jq -e '.provision_status == 0' <<< "$RESULTS" >/dev/null; then
+          echo "::error::The provision phase of the parent job $JOB_ID failed"
+          exit 1
+        fi
+        JOB_IDS=$(jq -r '.provision_output' <<< "$RESULTS" | sed -n 's/^.*Created job \(.*\)$/\1/p')
         echo "::notice::" $JOB_IDS
         echo "::endgroup::"
         echo "::group::Retrieve IPs of reserved devices"
