@@ -147,12 +147,12 @@ class TestflingerCli:
             or "https://testflinger.canonical.com"
         )
         self.client_id = (
-            self.args.client_id
+            getattr(self.args, "client_id", None)
             or self.config.get("client_id")
             or os.environ.get("TESTFLINGER_CLIENT_ID")
         )
         self.secret_key = (
-            self.args.secret_key
+            getattr(self.args, "secret_key", None)
             or self.config.get("secret_key")
             or os.environ.get("TESTFLINGER_SECRET_KEY")
         )
@@ -190,16 +190,6 @@ class TestflingerCli:
         )
         parser.add_argument(
             "--server", default=None, help="Testflinger server to use"
-        )
-        parser.add_argument(
-            "--client_id",
-            default=None,
-            help="Client ID to authenticate with Testflinger server",
-        )
-        parser.add_argument(
-            "--secret_key",
-            default=None,
-            help="Secret key to be used with client id for authentication",
         )
         subparsers = parser.add_subparsers()
         self._add_artifacts_args(subparsers)
@@ -348,6 +338,16 @@ class TestflingerCli:
             argcomplete.completers.FilesCompleter(
                 allowednames=("*.yaml", "*.yml", "*.json")
             )
+        )
+        parser.add_argument(
+            "--client_id",
+            default=None,
+            help="Client ID to authenticate with Testflinger server",
+        )
+        parser.add_argument(
+            "--secret_key",
+            default=None,
+            help="Secret key to be used with client id for authentication",
         )
         relative = parser.add_mutually_exclusive_group()
         relative.add_argument(
