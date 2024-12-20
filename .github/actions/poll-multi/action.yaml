@@ -1,0 +1,52 @@
+name: Poll a multi-device job for child job data
+inputs:
+  job-id:
+    description: The job ID of the parent multi-device job
+    required: true
+outputs:
+  jobs:
+    description: A JSON string mapping child job IDs to machine IPs
+    value: ${{ steps.data.outputs.jobs }}
+runs:
+  using: composite
+  steps:
+    - name: Install prerequisites
+      shell: bash
+      run: |
+        echo "::group::Install prerequisites"
+        sudo snap install testflinger-cli
+        sudo snap install jq
+        echo "::endgroup::"
+
+    - name: Retrieve multi-device job data
+      id: data
+      shell: bash
+      env:
+        JOB_ID: ${{ inputs.job-id }}
+      run: |
+        echo "::group::Wait for parent job ${{ env.JOB_ID }} to complete"
+        while true; do
+          STATUS=$(testflinger status $JOB_ID)
+          echo "Multi-device job status: $STATUS"
+          [ "$STATUS" == "complete" ] && echo "Parent job $JOB_ID complete -> allocation complete" && break
+          sleep 10
+        done
+        echo "::endgroup::"
+        echo "::group::Retrieve IDs of children jobs"
+        RESULTS=$(testflinger results $JOB_ID)
+        if ! jq -e '.provision_status == 0' <<< "$RESULTS" >/dev/null; then
+          echo "::error::The provision phase of the parent job $JOB_ID failed"
+          exit 1
+        fi
+        JOB_IDS=$(jq -r '.provision_output' <<< "$RESULTS" | sed -n 's/^.*Created job \(.*\)$/\1/p')
+        echo "::notice::" $JOB_IDS
+        echo "::endgroup::"
+        echo "::group::Retrieve IPs of reserved devices"
+        IPS=$(for JOB_ID in $JOB_IDS; do testflinger results $JOB_ID | jq -r '.device_info.device_ip'; done)
+        echo "::notice::" $IPS
+        echo "::endgroup::"
+        echo "::group::Construct output"
+        JSON=$(paste -d ' ' <(echo "$JOB_IDS") <(echo "$IPS") | jq -R 'split(" ") | {(.[0]): .[1]}' | jq -c -s 'add')
+        echo "Output: $JSON"
+        echo "jobs=$JSON" >> $GITHUB_OUTPUT
+        echo "::endgroup::"
