@@ -151,6 +151,14 @@ class TestflingerAgentHostCharm(CharmBase):
             )
             sys.exit(1)
 
+        # Update supervisord.conf to avoid hitting open files limit
+        file_limit = """
+        [supervisord]
+        minfds=65535
+        """
+        with open("/etc/supervisor/supervisord.conf", "a") as config_file:
+            config_file.write(file_limit)
+
         # Remove all the old service files in case agents have been removed
         for conf_file in os.listdir("/etc/supervisor/conf.d"):
             if conf_file.endswith(".conf"):
