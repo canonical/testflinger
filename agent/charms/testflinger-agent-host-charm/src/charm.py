@@ -85,10 +85,6 @@ class TestflingerAgentHostCharm(CharmBase):
                 "supervisor",
             ]
         )
-        # Update supervisord.conf to avoid hitting open files limit
-        file_limit = "\n[supervisord]\nminfds=65535"
-        command = f"echo '{file_limit}' | sudo tee -a /etc/supervisor/supervisord.conf"
-        subprocess.run(command, shell=True, check=True)
 
     def update_testflinger_repo(self):
         """Update the testflinger repo"""
@@ -177,6 +173,13 @@ class TestflingerAgentHostCharm(CharmBase):
                 f"/etc/supervisor/conf.d/{agent_dir.name}.conf", "w"
             ) as agent_file:
                 agent_file.write(rendered)
+
+        # Adjust file limit for supervisord.conf to avoid too many open files
+        file_limit = "[supervisord]\nminfds=65535"
+        with open(
+                f"/etc/supervisor/conf.d/file_limit.conf", "w"
+            ) as config_file:
+                config_file.write(file_limit)
 
     def supervisor_update(self):
         """
