@@ -30,6 +30,7 @@ from defaults import (
     LOCAL_TESTFLINGER_PATH,
     VIRTUAL_ENV_PATH,
 )
+import subprocess
 
 logger = logging.getLogger(__name__)
 
@@ -85,12 +86,9 @@ class TestflingerAgentHostCharm(CharmBase):
             ]
         )
         # Update supervisord.conf to avoid hitting open files limit
-        file_limit = """
-        [supervisord]
-        minfds=65535
-        """
-        with open("/etc/supervisor/supervisord.conf", "a") as config_file:
-            config_file.write(file_limit)
+        file_limit = "\n[supervisord]\nminfds=65535"
+        command = f"echo '{file_limit}' | sudo tee -a /etc/supervisor/supervisord.conf"
+        subprocess.run(command, shell=True, check=True)
 
     def update_testflinger_repo(self):
         """Update the testflinger repo"""
