@@ -24,3 +24,11 @@ Working with Testflinger servers and agents
     testflinger-server-conf
     testflinger-agent-conf
     test-phases
+
+Using the Command Line Interface
+--------------------------------
+
+.. toctree::
+    :maxdepth: 1
+
+    cli-config
