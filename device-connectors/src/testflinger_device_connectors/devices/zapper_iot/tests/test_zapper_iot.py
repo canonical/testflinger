@@ -54,7 +54,6 @@ class ZapperIoTTests(unittest.TestCase):
                             "baud_rate": 115200,
                         },
                         "network": "eth0",
-                        "hostname": "C031051825-00136",
                     },
                     "run_stage": [
                         {"initial_login": {"method": "system-user"}},
@@ -79,7 +78,6 @@ class ZapperIoTTests(unittest.TestCase):
                         "baud_rate": 115200,
                     },
                     "network": "eth0",
-                    "hostname": "C031051825-00136",
                 },
                 "run_stage": [
                     {"initial_login": {"method": "system-user"}},
