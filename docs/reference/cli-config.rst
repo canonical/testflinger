@@ -42,6 +42,6 @@ The following config values are currently supported:
 
 * secret_key - Secret key to use for APIs that require authorisation
 
-  * Config file key: ``server``
+  * Config file key: ``secret_key``
   * Environment variable: ``TESTFLINGER_SECRET_KEY``
   * Default: ``None``
