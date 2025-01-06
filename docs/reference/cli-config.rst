@@ -5,6 +5,14 @@ The Testflinger CLI can be configured on the command line using the parameters d
 
 The configuration file is read from ``$XDG_CONFIG_HOME/testflinger-cli.conf`` by default, but this can be overridden with the ``--configfile`` parameter.
 
+When a configuration variable is defined in multiple locations, Testflinger resolves the value by applying the following priority order, from highest to lowest:
+
+1. command-line parameter (for example, ``--server <local_server>``)
+
+2. configuration file
+
+3. environment variable
+
 You can show the current values stored in the config file by running ``testflinger config``. If no value is found on the command line, config file, or environment variable, then a safe default value will be used.
 
 To set a configuration value in the config file, you can edit it directly or use ``testflinger config key=value``.
