@@ -4,4 +4,5 @@ good-names = k, v
 [MESSAGES CONTROL]
 # We currently have some older systems running this which
 # don't support f-strings yet
-disable = C0209
+# Disable too-many-lines check because pylint on github seems to be miscounting lines in __init__.py
+disable = C0209,too-many-lines
