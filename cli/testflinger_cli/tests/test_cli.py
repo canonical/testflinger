@@ -610,3 +610,32 @@ def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
         "WARNING: No online agents available for queue fake"
         in capsys.readouterr().out
     )
+
+
+def test_reserve(capsys, requests_mock):
+    """ensure reserve command generates correct yaml"""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    expected_yaml = (
+        "job_queue: fake\n"
+        "provision_data:\n"
+        "    url: http://face_image.xz\n"
+        "reserve_data:\n"
+        "    ssh_keys:\n"
+        "      - lp:fakeuser"
+    )
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "-d",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert expected_yaml in std.out
