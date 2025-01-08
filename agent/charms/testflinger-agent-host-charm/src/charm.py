@@ -255,7 +255,6 @@ class TestflingerAgentHostCharm(CharmBase):
 
     def on_config_changed(self, _):
         self.unit.status = MaintenanceStatus("Handling config_changed hook")
-        self.copy_ssh_keys()
         try:
             self.update_config_files()
         except ValueError:
@@ -263,6 +262,7 @@ class TestflingerAgentHostCharm(CharmBase):
                 "config-repo and config-dir must be set"
             )
             return
+        self.copy_ssh_keys()
         self.write_supervisor_service_files()
         self.supervisor_update()
         self.restart_agents()

@@ -4,9 +4,8 @@
 # Learn more about testing at: https://juju.is/docs/sdk/testing
 
 import unittest
-import os
-import pytest
-from unittest.mock import patch
+import base64
+from unittest.mock import patch, mock_open
 from charm import TestflingerAgentHostCharm
 from ops.testing import Harness
 
@@ -17,6 +16,8 @@ class TestCharm(unittest.TestCase):
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
+    @patch("os.chown")
+    @patch("os.chmod")
     @patch("shutil.move")
     @patch("git.Repo.clone_from")
     @patch("charm.TestflingerAgentHostCharm.write_file")
@@ -24,7 +25,15 @@ class TestCharm(unittest.TestCase):
     @patch("charm.TestflingerAgentHostCharm.supervisor_update")
     @patch("charm.TestflingerAgentHostCharm.write_supervisor_service_files")
     def test_copy_ssh_keys(
-        self, _, __, ___, mock_write_file, mock_clone_from, mock_move
+        self,
+        _,
+        __,
+        ___,
+        mock_write_file,
+        mock_clone_from,
+        mock_move,
+        mock_chmod,
+        mock_chown,
     ):
         """
         Test the copy_ssh_keys method
@@ -38,8 +47,12 @@ class TestCharm(unittest.TestCase):
         mock_move.return_value = None
         self.harness.update_config(
             {
-                "ssh-private-key": "ssh_private_key_content",
-                "ssh-public-key": "ssh_public_key_content",
+                "ssh-private-key": base64.b64encode(
+                    b"ssh_private_key_content"
+                ).decode(),
+                "ssh-public-key": base64.b64encode(
+                    b"ssh_public_key_content"
+                ).decode(),
                 "config-repo": "foo",
                 "config-dir": "bar",
             }
@@ -50,37 +63,29 @@ class TestCharm(unittest.TestCase):
         mock_write_file.assert_any_call(
             "/home/ubuntu/.ssh/id_rsa.pub", "ssh_public_key_content"
         )
-        self.assertEqual(mock_write_file.call_count, 2)
+        self.assertEqual(mock_write_file.call_count, 3)
 
     @patch("os.listdir")
-    @patch("shutil.copy")
-    @patch("os.chmod")
-    def test_update_tf_cmd_scripts(self, mock_chmod, mock_copy, mock_listdir):
+    @patch("builtins.open", new_callable=mock_open, read_data="test data")
+    @patch("pathlib.Path.write_text")
+    @patch("pathlib.Path.chmod")
+    def test_update_tf_cmd_scripts(
+        self,
+        mock_chmod,
+        mock_write_text,
+        mock_open,
+        mock_listdir,
+    ):
         """Test the update_tf_cmd_scripts method"""
         charm = self.harness.charm
-        tf_cmd_scripts_files = ["tf-script3", "tf-script4"]
+        tf_cmd_scripts_files = ["tf-setup"]
 
         mock_listdir.side_effect = [tf_cmd_scripts_files]
 
         charm.update_tf_cmd_scripts()
-        tf_cmd_dir = "src/tf-cmd-scripts/"
-        usr_local_bin = "/usr/local/bin/"
-        mock_copy.assert_any_call(
-            os.path.join(tf_cmd_dir, "tf-script3"),
-            usr_local_bin,
-        )
-        mock_copy.assert_any_call(
-            os.path.join(tf_cmd_dir, "tf-script4"),
-            usr_local_bin,
-        )
-        self.assertEqual(mock_copy.call_count, 2)
-        mock_chmod.assert_any_call(
-            os.path.join(usr_local_bin, "tf-script3"), 0o775
-        )
-        mock_chmod.assert_any_call(
-            os.path.join(usr_local_bin, "tf-script4"), 0o775
-        )
-        self.assertEqual(mock_chmod.call_count, 2)
+
+        # Ensure it tried to write the file correctly
+        mock_write_text.assert_any_call("test data")
 
     def test_blocked_on_no_config_repo(self):
         """Test the on_config_changed method with no config-repo"""

@@ -1,5 +1,4 @@
 from pathlib import Path
-from unittest.mock import patch
 import pytest
 from pytest_operator.plugin import OpsTest
 
@@ -9,12 +8,12 @@ APP_NAME = "testflinger-agent-host"
 TEST_CONFIG_01 = {
     "config-repo": "https://github.com/canonical/testflinger.git",
     "config-dir": "agent/charms/testflinger-agent-host-charm/tests/integration/data/test01",
-    "config-branch": "write-supervisord-service-files",
+    "config-branch": "unified-agent-host-charm",
 }
 TEST_CONFIG_02 = {
     "config-repo": "https://github.com/canonical/testflinger.git",
     "config-dir": "agent/charms/testflinger-agent-host-charm/tests/integration/data/test02",
-    "config-branch": "write-supervisord-service-files",
+    "config-branch": "unified-agent-host-charm",
 }
 
 
@@ -82,11 +81,13 @@ async def test_supervisord_files_written(ops_test: OpsTest):
     # check that agent001.conf was written in /etc/supervisor/conf.d/
     expected_contents = (
         "[program:agent001]\n"
-        "environment=PYTHONIOENCODING=utf-8\n"
+        "redirect_stderr=true\n"
+        'environment=USER="ubuntu",HOME="/home/ubuntu",'
+        "PYTHONIOENCODING=utf-8\n"
         "user=ubuntu\n"
-        "command=/srv/testflinger-venv/bin/testflinger-agent -c /srv/agent-configs/agent/charms/"
-        "testflinger-agent-host-charm/tests/integration/data/test01/agent001/"
-        "testflinger-agent.conf\n"
+        "command=/srv/testflinger-venv/bin/testflinger-agent -c "
+        "/srv/agent-configs/agent/charms/testflinger-agent-host-charm/tests/"
+        "integration/data/test01/agent001/testflinger-agent.conf\n"
     )
 
     conf_file = "/etc/supervisor/conf.d/agent001.conf"

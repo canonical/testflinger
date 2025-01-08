@@ -28,7 +28,7 @@ def test_clone_repo(mock_run_with_logged_errors, mock_clone_from):
             f"{VIRTUAL_ENV_PATH}/bin/pip3",
             "install",
             "-I",
-            "/srv/testflinger/agent",
+            "/srv/testflinger/device-connectors",
         ]
     )
 
