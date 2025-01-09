@@ -50,9 +50,9 @@ def test_retrieve_token(mongo_app_with_permissions):
         token,
         os.environ.get("JWT_SIGNING_KEY"),
         algorithms="HS256",
-        options={"require": ["exp", "iat", "sub", "max_priority"]},
+        options={"require": ["exp", "iat", "sub", "permissions"]},
     )
-    assert decoded_token["max_priority"] == max_priority
+    assert decoded_token["permissions"]["max_priority"] == max_priority
 
 
 def test_retrieve_token_invalid_client_id(mongo_app_with_permissions):
@@ -147,7 +147,9 @@ def test_priority_expired_token(mongo_app_with_permissions):
         "exp": datetime.utcnow() - timedelta(seconds=2),
         "iat": datetime.utcnow() - timedelta(seconds=4),
         "sub": "access_token",
-        "max_priority": {},
+        "permissions": {
+            "max_priority": {},
+        },
     }
     token = jwt.encode(expired_token_payload, secret_key, algorithm="HS256")
     job = {"job_queue": "myqueue", "job_priority": 100}
@@ -163,7 +165,9 @@ def test_missing_fields_in_token(mongo_app_with_permissions):
     app, _, _, _, _ = mongo_app_with_permissions
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     incomplete_token_payload = {
-        "max_priority": {},
+        "permissions": {
+            "max_priority": {},
+        }
     }
     token = jwt.encode(incomplete_token_payload, secret_key, algorithm="HS256")
     job = {"job_queue": "myqueue", "job_priority": 100}

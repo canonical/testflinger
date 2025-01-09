@@ -137,7 +137,8 @@ def check_token_priority(
     if priority == 0:
         return
     decoded_jwt = decode_jwt_token(auth_token, secret_key)
-    max_priority_dict = decoded_jwt.get("max_priority", {})
+    permissions = decoded_jwt.get("permissions", {})
+    max_priority_dict = permissions.get("max_priority", {})
     star_priority = max_priority_dict.get("*", 0)
     queue_priority = max_priority_dict.get(queue, 0)
     max_priority = max(star_priority, queue_priority)
@@ -160,7 +161,8 @@ def check_token_queue(auth_token: str, secret_key: str, queue: str):
     if not database.check_queue_restricted(queue):
         return
     decoded_jwt = decode_jwt_token(auth_token, secret_key)
-    allowed_queues = decoded_jwt.get("allowed_queues", [])
+    permissions = decoded_jwt.get("permissions", {})
+    allowed_queues = permissions.get("allowed_queues", [])
     if queue not in allowed_queues:
         abort(
             403,
@@ -183,7 +185,8 @@ def check_token_reservation_timeout(
     if reservation_timeout <= max_reservation_time:
         return
     decoded_jwt = decode_jwt_token(auth_token, secret_key)
-    max_reservation_time_dict = decoded_jwt.get("max_reservation_time", {})
+    permissions = decoded_jwt.get("permissions", {})
+    max_reservation_time_dict = permissions.get("max_reservation_time", {})
     queue_reservation_time = max_reservation_time_dict.get(queue, 0)
     star_reservation_time = max_reservation_time_dict.get("*", 0)
     max_reservation_time = max(queue_reservation_time, star_reservation_time)
@@ -803,8 +806,9 @@ def generate_token(allowed_resources, secret_key):
         "exp": expiration_time,
         "iat": datetime.now(timezone.utc),  # Issued at time
         "sub": "access_token",
+        "permissions": {},
     }
-    token_payload.update(allowed_resources)
+    token_payload.get("permissions").update(allowed_resources)
     token = jwt.encode(token_payload, secret_key, algorithm="HS256")
     return token
 
@@ -841,9 +845,11 @@ def retrieve_token():
         exp: <Expiration DateTime of Token>,
         iat: <Issuance DateTime of Token>,
         sub: <Subject Field of Token>,
-        max_priority: <Queue to Priority Level Dict>,
-        allowed_queues: <List of Allowed Restricted Queues>,
-        max_reservation_time: <Queue to Max Reservation Time Dict>,
+        permissions: {
+            max_priority: <Queue to Priority Level Dict>,
+            allowed_queues: <List of Allowed Restricted Queues>,
+            max_reservation_time: <Queue to Max Reservation Time Dict>,
+        }
     }
     """
     auth_header = request.authorization
