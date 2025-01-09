@@ -196,7 +196,7 @@ class OemAutoinstall:
             "test_username", "ubuntu"
         )
         test_password = self.get_test_data_or_default(
-            "test_password", "ubuntu"
+            "test_password", "insecure"
         )
 
         cmd = [
