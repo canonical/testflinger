@@ -3,4 +3,13 @@
 AGENT=$(echo $agent_id | sed 's/-\([0-9]*\)$/\1/g')
 PROVISION_TYPE="$provision_type"
 
-. /srv/testflinger-agent/$AGENT/env/bin/activate && PYTHONUNBUFFERED=1 testflinger-device-connector $PROVISION_TYPE allocate -c /srv/testflinger-agent/$AGENT/default.yaml testflinger.json
+# The following variables are set by the agent charm
+AGENT_CONFIGS_PATH={{ agent_configs_path }}
+CONFIG_DIR="{{ config_dir }}"
+VIRTUAL_ENV_PATH="{{ virtual_env_path }}"
+
+if [ -d "$VIRTUAL_ENV_PATH" ]; then
+    PYTHONUNBUFFERED=1 $VIRTUAL_ENV_PATH/bin/testflinger-device-connector $PROVISION_TYPE allocate -c $AGENT_CONFIGS_PATH/$CONFIG_DIR/$agent_id/default.yaml testflinger.json
+else
+    . /srv/testflinger-agent/$AGENT/env/bin/activate && PYTHONUNBUFFERED=1 testflinger-device-connector $PROVISION_TYPE allocate -c /srv/testflinger-agent/$AGENT/default.yaml testflinger.json
+fi
