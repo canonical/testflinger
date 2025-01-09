@@ -135,31 +135,45 @@ def check_token_priority(
     specified in the authorization token if it exists
     """
     if priority == 0:
-        return True
+        return
     decoded_jwt = decode_jwt_token(auth_token, secret_key)
     max_priority_dict = decoded_jwt.get("max_priority", {})
     star_priority = max_priority_dict.get("*", 0)
     queue_priority = max_priority_dict.get(queue, 0)
     max_priority = max(star_priority, queue_priority)
-    return priority <= max_priority
+    if priority > max_priority:
+        abort(
+            403,
+            (
+                f"Not enough permissions to push to {queue}",
+                f"with priority {priority}",
+            ),
+        )
 
 
-def check_token_queue(auth_token: str, secret_key: str, queue: str) -> bool:
+def check_token_queue(auth_token: str, secret_key: str, queue: str):
     """
     Checks if the queue is in the restricted list. If it is, then it
     checks the authorization token for restricted queues the user is
     allowed to use.
     """
     if not database.check_queue_restricted(queue):
-        return True
+        return
     decoded_jwt = decode_jwt_token(auth_token, secret_key)
     allowed_queues = decoded_jwt.get("allowed_queues", [])
-    return queue in allowed_queues
+    if queue not in allowed_queues:
+        abort(
+            403,
+            (
+                "Not enough permissions to push to the ",
+                f"restricted queue: {queue}",
+            ),
+        )
 
 
 def check_token_reservation_timeout(
     auth_token: str, secret_key: str, reservation_timeout: int, queue: str
-) -> bool:
+):
     """
     Checks if the requested reservation is either less than the max
     or that their token gives them the permission to use a higher one
@@ -167,38 +181,42 @@ def check_token_reservation_timeout(
     # Max reservation time defaults to 6 hours
     max_reservation_time = 6 * 60 * 60
     if reservation_timeout <= max_reservation_time:
-        return True
+        return
     decoded_jwt = decode_jwt_token(auth_token, secret_key)
     max_reservation_time_dict = decoded_jwt.get("max_reservation_time", {})
     queue_reservation_time = max_reservation_time_dict.get(queue, 0)
     star_reservation_time = max_reservation_time_dict.get("*", 0)
     max_reservation_time = max(queue_reservation_time, star_reservation_time)
-    return reservation_timeout <= max_reservation_time
+    if reservation_timeout > max_reservation_time:
+        abort(
+            403,
+            (
+                f"Not enough permissions to push to {queue}",
+                f"with reservation timeout {reservation_timeout}",
+            ),
+        )
 
 
 def check_token_permissions(
     auth_token: str,
     secret_key: str,
     job_data: dict,
-) -> bool:
+):
     """
     Validates token received from client and checks if it can
     push a job to the queue with the requested priority
     """
     priority_level = job_data.get("job_priority", 0)
     job_queue = job_data["job_queue"]
-    priority_allowed = check_token_priority(
-        auth_token, secret_key, job_queue, priority_level
-    )
-    queue_allowed = check_token_queue(auth_token, secret_key, job_queue)
+    check_token_priority(auth_token, secret_key, job_queue, priority_level)
+    check_token_queue(auth_token, secret_key, job_queue)
 
     reserve_data = job_data.get("reserve_data", {})
     # default reservation timeout is 1 hour
     reservation_timeout = reserve_data.get("timeout", 3600)
-    reservation_time_allowed = check_token_reservation_timeout(
+    check_token_reservation_timeout(
         auth_token, secret_key, reservation_timeout, job_queue
     )
-    return priority_allowed and queue_allowed and reservation_time_allowed
 
 
 def job_builder(data: dict, auth_token: str):
@@ -225,20 +243,11 @@ def job_builder(data: dict, auth_token: str):
         data["attachments_status"] = "waiting"
 
     priority_level = data.get("job_priority", 0)
-    job_queue = data["job_queue"]
-    allowed = check_token_permissions(
+    check_token_permissions(
         auth_token,
         os.environ.get("JWT_SIGNING_KEY"),
         data,
     )
-    if not allowed:
-        abort(
-            403,
-            (
-                f"Not enough permissions to push to {job_queue}",
-                f"with priority {priority_level}",
-            ),
-        )
     job["job_priority"] = priority_level
 
     job["job_id"] = job_id
