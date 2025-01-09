@@ -832,6 +832,7 @@ def validate_client_key_pair(client_id: str, client_key: str):
     ):
         return None
     client_permissions_entry.pop("_id", None)
+    client_permissions_entry.pop("client_secret_hash", None)
     return client_permissions_entry
 
 
