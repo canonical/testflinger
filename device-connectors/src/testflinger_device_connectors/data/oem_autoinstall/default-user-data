@@ -60,8 +60,8 @@ autoinstall:
         sudo: "ALL=(ALL) NOPASSWD:ALL"
         lock_passwd: false
         shell: /bin/bash
-        # this is just "ubuntu"
-        passwd: "$6$rounds=4096$PCrfo.ggdf4ubP$REjyaoY2tUWH2vjFJjvLs3rDxVTszGR9P7mhH9sHb2MsELfc53uV/v15jDDOJU/9WInfjjTKJPlD5URhX5Mix0"
+        # this is just "insecure"
+        passwd: "$6$rounds=4096$PCrfo.ggdf4ubP$jpQFjLelT0wZqlsuSgQ4cINcuswPMgKMVaBm198oG9mphcCvqQJ9n0klROSuAgYUn4tbn1ds5K1ba2gTweHwI/"
 
     locale: en_US.UTF-8
 
