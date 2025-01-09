@@ -6,10 +6,10 @@ import shutil
 import tarfile
 import tempfile
 import uuid
+from unittest.mock import patch
+
 import requests_mock as rmock
 import pytest
-
-from mock import patch
 
 import testflinger_agent
 from testflinger_agent.config import ATTACHMENTS_DIR
