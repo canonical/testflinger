@@ -64,7 +64,7 @@ def get_version():
         version = pkg_resources.get_distribution("testflinger").version
     except pkg_resources.DistributionNotFound:
         version = "devel"
-    return "Testflinger Server v{}".format(version)
+    return f"Testflinger Server v{version}"
 
 
 @v1.post("/job")
@@ -699,7 +699,7 @@ def job_position_get(job_id):
     try:
         queue = job_data.json.get("job_queue")
     except (AttributeError, TypeError):
-        return "Invalid json returned for id: {}\n".format(job_id), 400
+        return f"Invalid json returned for id: {job_id}\n", 400
     # Get all jobs with job_queue=queue and return only the _id
     jobs = database.mongo.db.jobs.find(
         {"job_data.job_queue": queue, "result_data.job_state": "waiting"},
