@@ -19,8 +19,8 @@ Unit tests for Testflinger views
 
 from datetime import datetime
 import re
+from unittest.mock import patch
 import mongomock
-from mock import patch
 from src.views import job_detail, queues_data, agent_detail
 
 

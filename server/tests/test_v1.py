@@ -160,7 +160,7 @@ def test_initial_job_state(mongo_app):
     # Place a job on the queue
     output = app.post("/v1/job", json=job_data)
     job_id = output.json.get("job_id")
-    result_url = "/v1/result/{}".format(job_id)
+    result_url = f"/v1/result/{job_id}"
     response = app.get(result_url)
     assert "waiting" == response.json.get("job_state")
 
@@ -175,7 +175,7 @@ def test_resubmit_job_state(mongo_app):
     job_id = output.json.get("job_id")
     job_data["job_id"] = job_id
     output = app.post("/v1/job", json=job_data)
-    result_url = "/v1/result/{}".format(job_id)
+    result_url = f"/v1/result/{job_id}"
     updated_data = app.get(result_url).json
     assert "waiting" == updated_data.get("job_state")
 
@@ -345,7 +345,7 @@ def test_job_get_id_with_data(mongo_app):
     # Place a job on the queue
     output = app.post("/v1/job", json=job_data)
     job_id = output.json.get("job_id")
-    job_url = "/v1/job/{}".format(job_id)
+    job_url = f"/v1/job/{job_id}"
     # Request the original json for the job
     app.get(job_url)
     output = app.get(job_url)
@@ -365,7 +365,7 @@ def test_job_position(mongo_app):
     for pos in range(3):
         output = app.post("/v1/job", json=job_data)
         job_id.append(output.json.get("job_id"))
-        output = app.get("/v1/job/{}/position".format(job_id[pos]))
+        output = app.get(f"/v1/job/{job_id[pos]}/position")
         # Initial position should increment for each job as we add them
         assert output.text == str(pos)
 
@@ -374,11 +374,11 @@ def test_job_position(mongo_app):
     # The job we get should be the first one that was added
     assert output.json.get("job_id") == job_id[0]
     # The position of the remaining jobs should decrement
-    assert app.get("/v1/job/{}/position".format(job_id[2])).text == "1"
+    assert app.get(f"/v1/job/{job_id[2]}/position").text == "1"
     # Cancel the next job in the queue
     output = app.post(f"/v1/job/{job_id[1]}/action", json={"action": "cancel"})
     # The position of the remaining job should decrement again
-    assert app.get("/v1/job/{}/position".format(job_id[2])).text == "0"
+    assert app.get(f"/v1/job/{job_id[2]}/position").text == "0"
 
 
 def test_action_post(mongo_app):

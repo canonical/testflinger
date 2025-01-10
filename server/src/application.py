@@ -70,7 +70,7 @@ def create_flask_app(config=None):
     @tf_app.errorhandler(NotFound)
     def handle_404(exc):
         tf_log.error("[404] Not found: %s", request.url)
-        return "Not found: {}\n".format(exc), 404
+        return f"Not found: {exc}\n", 404
 
     @tf_app.errorhandler(ConnectionFailure)
     def handle_timeout(exc):
@@ -80,7 +80,7 @@ def create_flask_app(config=None):
     @tf_app.errorhandler(Exception)
     def unhandled_exception(exc):
         tf_log.exception("Unhandled Exception: %s", (exc))
-        return "Unhandled Exception: {}\n".format(exc), 500
+        return f"Unhandled Exception: {exc}\n", 500
 
     tf_app.register_blueprint(views)
     tf_app.register_blueprint(v1, url_prefix="/v1")

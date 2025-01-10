@@ -15,8 +15,8 @@
 import json
 import pytest
 import uuid
+from unittest.mock import patch
 
-from mock import patch
 import requests_mock as rmock
 
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
