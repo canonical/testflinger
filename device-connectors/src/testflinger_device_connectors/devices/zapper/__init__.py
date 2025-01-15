@@ -131,7 +131,7 @@ class ZapperConnector(ABC, DefaultDevice):
             "UserKnownHostsFile=/dev/null",
             f"{test_username}@{self.config['device_ip']}",
         ]
-        subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
+        subprocess.check_call(cmd, timeout=60)
 
     @abstractmethod
     def _post_run_actions(self, args):
