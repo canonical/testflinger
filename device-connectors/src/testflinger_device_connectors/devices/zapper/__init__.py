@@ -23,6 +23,7 @@ validating the configuration and preparing the API arguments.
 
 import json
 import logging
+import subprocess
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
@@ -103,5 +104,35 @@ class ZapperConnector(ABC, DefaultDevice):
             **kwargs,
         )
 
+    def _copy_ssh_id(self):
+        """Copy the ssh id to the device"""
+
+        logger.info("Copying the agent's SSH public key to the DUT.")
+
+        try:
+            test_username = self.job_data.get("test_data", {}).get(
+                "test_username", "ubuntu"
+            )
+            test_password = self.job_data.get("test_data", {}).get(
+                "test_password", "ubuntu"
+            )
+        except AttributeError:
+            test_username = "ubuntu"
+            test_password = "ubuntu"
+
+        cmd = [
+            "sshpass",
+            "-p",
+            test_password,
+            "ssh-copy-id",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            f"{test_username}@{self.config['device_ip']}",
+        ]
+        subprocess.check_call(cmd, timeout=60)
+
+    @abstractmethod
     def _post_run_actions(self, args):
         """Run further actions after Zapper API returns successfully."""

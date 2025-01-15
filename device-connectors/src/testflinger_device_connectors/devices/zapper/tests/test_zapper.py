@@ -28,6 +28,9 @@ class MockConnector(ZapperConnector):
     def _validate_configuration(self):
         return (), {}
 
+    def _post_run_actions(self, args):
+        pass
+
 
 class ZapperConnectorTests(unittest.TestCase):
     """Unit tests for ZapperConnector class."""
