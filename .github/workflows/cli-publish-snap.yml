@@ -20,10 +20,4 @@ jobs:
         SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_LOGIN }}
       with:
         snap: ${{ steps.build.outputs.snap }}
-        release: edge
-    - uses: snapcore/action-publish@v1
-      env:
-        SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_LOGIN }}
-      with:
-        snap: ${{ steps.build.outputs.snap }}
-        release: beta
+        release: "edge,beta"
