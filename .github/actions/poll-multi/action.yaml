@@ -2,7 +2,14 @@ name: Poll a multi-device job for child job data
 inputs:
   job-id:
     description: The job ID of the parent multi-device job
+    type: string
     required: true
+  sentinel-phase:
+    description: >
+      The phase that all child jobs must reach before this action terminates
+    type: string
+    required: false
+    default: complete
 outputs:
   jobs:
     description: A JSON string mapping child job IDs to machine IPs
@@ -39,6 +46,7 @@ runs:
           exit 1
         fi
         JOB_IDS=$(jq -r '.provision_output' <<< "$RESULTS" | sed -n 's/^.*Created job \(.*\)$/\1/p')
+        echo "$JOB_IDS" > JOB_IDS_FILE
         echo "::notice::" $JOB_IDS
         echo "::endgroup::"
         echo "::group::Retrieve IPs of reserved devices"
@@ -50,3 +58,21 @@ runs:
         echo "Output: $JSON"
         echo "jobs=$JSON" >> $GITHUB_OUTPUT
         echo "::endgroup::"
+
+    - name: Hold until all child jobs reach the ${{ inputs.sentinel-phase }} phase
+      shell: bash
+      env:
+        SENTINEL_PHASE: ${{ inputs.sentinel-phase }}
+      run: |
+        echo "::group::Wait for child jobs to reach the ${{ inputs.sentinel-phase }} phase"
+        JOB_IDS=$(cat JOB_IDS_FILE)
+        while [ -n "$JOB_IDS" ]; do
+          REMAINING_JOB_IDS=
+          for JOB_ID in $JOB_IDS; do
+            JOB_STATUS=$(testflinger status $JOB_ID)
+            echo "Job $JOB_ID is in $JOB_STATUS phase"
+            [[ "$JOB_STATUS" != "$SENTINEL_PHASE" ]] && REMAINING_JOB_IDS="$REMAINING_JOB_IDS $JOB_ID" && echo $REMAINING_JOB_IDS
+          done
+          JOB_IDS="$REMAINING_JOB_IDS"
+          sleep 60
+        done
