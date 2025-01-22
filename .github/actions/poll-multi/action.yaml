@@ -78,17 +78,3 @@ runs:
           echo "Waiting for $(echo $JOB_IDS | wc -w) child jobs to reach the $SENTINEL_PHASE phase"
           sleep 60
         done
-
-    - name: Cancel parent and child jobs if the action is cancelled
-      if: ${{ cancelled() }}
-      shell: bash
-      env:
-        JOB_ID: ${{ inputs.job-id }}
-      run: |
-        echo "::group::Cancel jobs"
-        testflinger cancel $JOB_ID
-        if [ -f JOB_IDS_FILE]; then
-          JOB_IDS=$(cat JOB_IDS_FILE)
-          for JOB_ID in $JOB_IDS; do testflinger cancel $JOB_ID; done
-        fi
-        echo "::endgroup::"
