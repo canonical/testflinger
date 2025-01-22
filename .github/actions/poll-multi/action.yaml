@@ -64,15 +64,16 @@ runs:
       env:
         SENTINEL_PHASE: ${{ inputs.sentinel-phase }}
       run: |
-        echo "::group::Wait for child jobs to reach the ${{ inputs.sentinel-phase }} phase"
+        echo "::group::Wait for child jobs to reach the $SENTINEL_PHASE phase"
         JOB_IDS=$(cat JOB_IDS_FILE)
         while [ -n "$JOB_IDS" ]; do
           REMAINING_JOB_IDS=
           for JOB_ID in $JOB_IDS; do
             JOB_STATUS=$(testflinger status $JOB_ID)
-            echo "Job $JOB_ID is in $JOB_STATUS phase"
-            [[ "$JOB_STATUS" != "$SENTINEL_PHASE" ]] && REMAINING_JOB_IDS="$REMAINING_JOB_IDS $JOB_ID" && echo $REMAINING_JOB_IDS
+            echo "Job $JOB_ID is in the $JOB_STATUS phase"
+            [[ "$JOB_STATUS" != "$SENTINEL_PHASE" ]] && REMAINING_JOB_IDS="$REMAINING_JOB_IDS $JOB_ID"
           done
           JOB_IDS="$REMAINING_JOB_IDS"
+          echo "Waiting for $(echo $JOB_IDS | wc -w) child jobs to reach the $SENTINEL_PHASE phase"
           sleep 60
         done
