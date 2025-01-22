@@ -12,11 +12,12 @@ import requests_mock as rmock
 import pytest
 
 import testflinger_agent
+from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
+from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
-from testflinger_agent.client import TestflingerClient as _TestflingerClient
-from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
-from testflinger_common.enums import TestPhase, TestEvent
+from testflinger_agent.job import TestflingerJob, JobPhaseResult
+from testflinger_common.enums import TestEvent
 
 
 class TestClient:
@@ -145,8 +146,56 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+
+            for entry in history:
+                print(entry)
+
+            # client.check_jobs()
+            assert (
+                history[0].path == "/v1/job"
+                and history[0].query == "queue=test"
+                and history[0].method == "GET"
+            )
+            # client.post_agent_data({"job_id": job_id})
+            assert (
+                history[1].path.startswith("/v1/agents/data")
+                and history[1].method == "POST"
+            )
+            # client.check_job_state(job_id)
+            assert (
+                history[2].path == f"/v1/result/{job_id}"
+                and history[2].method == "GET"
+            )
+            # self.set_agent_state(phase)
+            assert (
+                history[3].path.startswith("/v1/agents/data")
+                and history[3].method == "POST"
+            )
+            # self.client.post_job_state(job_id, phase)
+            assert (
+                history[4].path == f"/v1/result/{job_id}"
+                and history[4].method == "POST"
+            )
+            # check that attachments have been requested
+            # client.get_attachments(job_id, path=archive_path)
+            attachment_requests = list(
+                filter(
+                    lambda request: request.path
+                    == f"/v1/job/{job_id}/attachments"
+                    and request.method == "GET",
+                    history,
+                )
+            )
+            assert len(attachment_requests) == 1
+            # check the results to confirm that the unpack phase succeeded
+            result_request = list(
+                filter(
+                    lambda request: request.path == f"/v1/result/{job_id}"
+                    and request.method == "POST",
+                    history,
+                )
+            )[-1]
+            assert result_request.json()["unpack_status"] == 0
 
             # check that the attachment is where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -202,8 +251,57 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+
+            for entry in history:
+                print(entry)
+
+            # client.check_jobs()
+            assert (
+                history[0].path == "/v1/job"
+                and history[0].query == "queue=test"
+                and history[0].method == "GET"
+            )
+            # client.post_agent_data({"job_id": job_id})
+            assert (
+                history[1].path.startswith("/v1/agents/data")
+                and history[1].method == "POST"
+            )
+            # client.check_job_state(job_id)
+            assert (
+                history[2].path == f"/v1/result/{job_id}"
+                and history[2].method == "GET"
+            )
+            # self.set_agent_state(phase)
+            assert (
+                history[3].path.startswith("/v1/agents/data")
+                and history[3].method == "POST"
+            )
+            # self.client.post_job_state(job_id, phase)
+            assert (
+                history[4].path == f"/v1/result/{job_id}"
+                and history[4].method == "POST"
+            )
+
+            # check that attachments have been requested
+            # client.get_attachments(job_id, path=archive_path)
+            attachment_requests = list(
+                filter(
+                    lambda request: request.path
+                    == f"/v1/job/{job_id}/attachments"
+                    and request.method == "GET",
+                    history,
+                )
+            )
+            assert len(attachment_requests) == 1
+            # check the results to confirm that the unpack phase failed
+            result_request = list(
+                filter(
+                    lambda request: request.path == f"/v1/result/{job_id}"
+                    and request.method == "POST",
+                    history,
+                )
+            )[-1]
+            assert result_request.json()["unpack_status"] != 0
 
             # check that the attachment is *not* where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -259,8 +357,57 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+
+            for entry in history:
+                print(entry)
+
+            # client.check_jobs()
+            assert (
+                history[0].path == "/v1/job"
+                and history[0].query == "queue=test"
+                and history[0].method == "GET"
+            )
+            # client.post_agent_data({"job_id": job_id})
+            assert (
+                history[1].path.startswith("/v1/agents/data")
+                and history[1].method == "POST"
+            )
+            # client.check_job_state(job_id)
+            assert (
+                history[2].path == f"/v1/result/{job_id}"
+                and history[2].method == "GET"
+            )
+            # self.set_agent_state(phase)
+            assert (
+                history[3].path.startswith("/v1/agents/data")
+                and history[3].method == "POST"
+            )
+            # self.client.post_job_state(job_id, phase)
+            assert (
+                history[4].path == f"/v1/result/{job_id}"
+                and history[4].method == "POST"
+            )
+
+            # check that attachments have been requested
+            # client.get_attachments(job_id, path=archive_path)
+            attachment_requests = list(
+                filter(
+                    lambda request: request.path
+                    == f"/v1/job/{job_id}/attachments"
+                    and request.method == "GET",
+                    history,
+                )
+            )
+            assert len(attachment_requests) == 1
+            # check the results to confirm that the unpack phase failed
+            result_request = list(
+                filter(
+                    lambda request: request.path == f"/v1/result/{job_id}"
+                    and request.method == "POST",
+                    history,
+                )
+            )[-1]
+            assert result_request.json()["unpack_status"] != 0
 
             # check that the attachment is *not* where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -455,8 +602,10 @@ class TestClient:
         event_name_list = [event["event_name"] for event in event_list]
         expected_event_name_list = [
             phase.value + postfix
-            for phase in TestPhase
+            for phase in TestflingerJob.phase_sequence
             for postfix in ["_start", "_success"]
+            if f"{phase}_data" in fake_job_data
+            and f"{phase}_command" in self.config
         ]
         expected_event_name_list.insert(0, "job_start")
         expected_event_name_list.append("job_end")
@@ -613,12 +762,12 @@ class TestClient:
 
     def test_provision_error_in_event_detail(self, agent, requests_mock):
         """Tests provision log error messages in event log detail field"""
-        self.config["test_command"] = "echo test1"
+        self.config["provision_command"] = "echo provision1"
         job_id = str(uuid.uuid1())
         fake_job_data = {
             "job_id": job_id,
             "job_queue": "test",
-            "test_data": {"test_cmds": "foo"},
+            "provision_data": {"url": "foo"},
             "job_status_webhook": "https://mywebhook",
         }
         requests_mock.get(
@@ -636,28 +785,23 @@ class TestClient:
             }
         }
 
+        def run_core_provision_patch(self):
+            provision_log_path = (
+                self.params.rundir / "device-connector-error.json"
+            )
+            with open(provision_log_path, "w") as provision_log_file:
+                provision_log_file.write(json.dumps(provision_exception_info))
+            self.result = JobPhaseResult(
+                exit_code=99,
+                event=f"{self.phase_id}_fail",
+                detail=self.parse_error_logs(),
+            )
+
         with patch("shutil.rmtree"):
             with patch(
-                "testflinger_agent.agent.TestflingerJob.run_test_phase"
-            ) as mock_run_test_phase:
-
-                def run_test_phase_side_effect(phase, rundir):
-                    if phase == "provision":
-                        provision_log_path = os.path.join(
-                            rundir, "device-connector-error.json"
-                        )
-                        with open(
-                            provision_log_path, "w"
-                        ) as provision_log_file:
-                            provision_log_file.write(
-                                json.dumps(provision_exception_info)
-                            )
-                            provision_log_file.close()
-                        return 99, None, ""
-                    else:
-                        return 0, None, ""
-
-                mock_run_test_phase.side_effect = run_test_phase_side_effect
+                "testflinger_agent.job.ProvisionPhase.run",
+                run_core_provision_patch,
+            ):
                 agent.process_jobs()
 
         status_update_requests = list(
@@ -682,12 +826,12 @@ class TestClient:
 
     def test_provision_error_no_cause(self, agent, requests_mock):
         """Tests provision log error messages for exceptions with no cause"""
-        self.config["test_command"] = "echo test1"
+        self.config["provision_command"] = "echo provision1"
         job_id = str(uuid.uuid1())
         fake_job_data = {
             "job_id": job_id,
             "job_queue": "test",
-            "test_data": {"test_cmds": "foo"},
+            "provision_data": {"url": "foo"},
             "job_status_webhook": "https://mywebhook",
         }
         requests_mock.get(
@@ -705,28 +849,23 @@ class TestClient:
             }
         }
 
+        def run_core_provision_patch(self):
+            provision_log_path = (
+                self.params.rundir / "device-connector-error.json"
+            )
+            with open(provision_log_path, "w") as provision_log_file:
+                provision_log_file.write(json.dumps(provision_exception_info))
+            self.result = JobPhaseResult(
+                exit_code=99,
+                event=f"{self.phase_id}_fail",
+                detail=self.parse_error_logs(),
+            )
+
         with patch("shutil.rmtree"):
             with patch(
-                "testflinger_agent.agent.TestflingerJob.run_test_phase"
-            ) as mock_run_test_phase:
-
-                def run_test_phase_side_effect(phase, rundir):
-                    if phase == "provision":
-                        provision_log_path = os.path.join(
-                            rundir, "device-connector-error.json"
-                        )
-                        with open(
-                            provision_log_path, "w"
-                        ) as provision_log_file:
-                            provision_log_file.write(
-                                json.dumps(provision_exception_info)
-                            )
-                            provision_log_file.close()
-                        return 99, None, ""
-                    else:
-                        return 0, None, ""
-
-                mock_run_test_phase.side_effect = run_test_phase_side_effect
+                "testflinger_agent.job.ProvisionPhase.run",
+                run_core_provision_patch,
+            ):
                 agent.process_jobs()
 
         status_update_requests = list(
