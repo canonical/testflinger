@@ -1,5 +1,0 @@
-/env
-/venv
-*.py[cod]
-*.charm
-.flake8
