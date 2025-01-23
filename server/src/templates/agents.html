@@ -17,18 +17,18 @@
     <button type="reset" class="p-search-box__reset"><i class="p-icon--close"></i></button>
     <button type="submit" class="p-search-box__button"><i class="p-icon--search"></i></button>
 </form>
-<table aria-label="Agents table" class="p-table--mobile-card">
+<table aria-label="Agents table" class="p-table--mobile-card" id="agentsTable">
     <thead>
         <tr>
-            <th aria-sort="none" class="has-overflow" style="width: 80pt" use-outcome-sort>
+            <th aria-sort="none" class="has-overflow" style="width: 80pt" use-outcome-sort id="agentsOutcomeHeader">
 	        <span class="p-tooltip--top-left" aria-describedby="tooltip">
 		    <span class="p-tooltip__message" role="tooltip" id="tooltip">The number of consecutively successful / failed provisioning attempts</span>
 		    Outcome
 	        </span>
 	    </th>
-            <th aria-sort="none">Name</th>
-            <th aria-sort="none">State</th>
-            <th aria-sort="none">Updated At</th>
+            <th aria-sort="none" id="agentsNameHeader">Name</th>
+            <th aria-sort="none" id="agentsStateHeader">State</th>
+            <th aria-sort="none" id="agentsUpdatedAtHeader">Updated At</th>
             <th>Job ID</th>
         </tr>
     </thead>
