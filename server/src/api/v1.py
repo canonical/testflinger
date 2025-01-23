@@ -806,9 +806,8 @@ def generate_token(allowed_resources, secret_key):
         "exp": expiration_time,
         "iat": datetime.now(timezone.utc),  # Issued at time
         "sub": "access_token",
-        "permissions": {},
+        "permissions": allowed_resources,
     }
-    token_payload.get("permissions").update(allowed_resources)
     token = jwt.encode(token_payload, secret_key, algorithm="HS256")
     return token
 
