@@ -156,6 +156,11 @@ class TestflingerCli:
             or self.config.get("secret_key")
             or os.environ.get("TESTFLINGER_SECRET_KEY")
         )
+        error_threshold = self.config.get(
+            "error_threshold"
+            or os.environ.get("TESTFLINGER_ERROR_THRESHOLD")
+            or 3
+        )
 
         # Allow config subcommand without worrying about server or client
         if (
@@ -168,7 +173,7 @@ class TestflingerCli:
                 'Server must start with "http://" or "https://" '
                 '- currently set to: "{}"'.format(server)
             )
-        self.client = client.Client(server)
+        self.client = client.Client(server, error_threshold=error_threshold)
 
     def run(self):
         """Run the subcommand specified in command line arguments"""
@@ -367,7 +372,12 @@ class TestflingerCli:
         job_state = self.get_job_state(self.args.job_id)
         if job_state != "unknown":
             self.history.update(self.args.job_id, job_state)
-        print(job_state)
+            print(job_state)
+        else:
+            print(
+                "Unable to retrieve job state from the server, check your "
+                "connection or try again later."
+            )
 
     def cancel(self, job_id=None):
         """Tell the server to cancel a specified JOB_ID"""
@@ -988,8 +998,8 @@ class TestflingerCli:
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
                 )
-        except (IOError, ValueError):
+        except (IOError, ValueError) as exc:
             # For other types of network errors, or JSONDecodeError if we got
             # a bad return from get_status()
-            logger.warning("Unable to retrieve job state.")
+            logger.debug("Unable to retrieve job state: %s", exc)
         return "unknown"
