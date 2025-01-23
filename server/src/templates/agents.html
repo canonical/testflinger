@@ -20,8 +20,12 @@
 <table aria-label="Agents table" class="p-table--mobile-card">
     <thead>
         <tr>
-            <th aria-sort="none" class="has-overflow" style="width: 40pt" use-outcome-sort></th>
-            <!-- Added an empty header for the warning icon column -->
+            <th aria-sort="none" class="has-overflow" style="width: 80pt" use-outcome-sort>
+	        <span class="p-tooltip--top-left" aria-describedby="tooltip">
+		    <span class="p-tooltip__message" role="tooltip" id="tooltip">The number of consecutively successful / failed provisioning attempts</span>
+		    Outcome
+	        </span>
+	    </th>
             <th aria-sort="none">Name</th>
             <th aria-sort="none">State</th>
             <th aria-sort="none">Updated At</th>
