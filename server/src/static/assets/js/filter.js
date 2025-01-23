@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-function sortTable(header, table) {
+function sortTable(header, table, sortOrderFunc) {
   var SORTABLE_STATES = {
     none: 0,
     ascending: -1,
@@ -58,16 +58,7 @@ function sortTable(header, table) {
   } else {
     // Sort based on a cell contents
     newRows.sort(function (rowA, rowB) {
-      // Trim the cell contents.
-      var contentA = rowA.cells[col].textContent.trim();
-      var contentB = rowB.cells[col].textContent.trim();
-
-      // Based on the direction, do the sort.
-      //
-      // This example only sorts based on alphabetical order, to sort based on
-      // number value a more specific implementation would be needed, to provide
-      // number parsing and comparison function between text strings and numbers.
-      return contentA < contentB ? direction : -direction;
+      return sortOrderFunc(rowA.cells[col], rowB.cells[col], direction);
     });
   }
   // Append each row into the table, replacing the current elements.
@@ -76,10 +67,53 @@ function sortTable(header, table) {
   }
 }
 
+/**
+ * Default sort order for generic table columns. Uses an alphebetical ordering.
+ * @param {HTMLTableCellElement} cellA
+ * @param {HTMLTableCellElement} cellB
+ * @param {Number} direction
+ */
+function defaultSortOrder(cellA, cellB, direction) {
+  // Trim the cell contents.
+  var contentA = cellA.textContent.trim();
+  var contentB = cellB.textContent.trim();
+  return contentA < contentB ? direction : -direction;
+}
+
+/**
+ * Custom ordering function to sort the provisioning streak column in the agents table.
+ * Succeses and failures are grouped, then the streak number is always ordered
+ * in descending order.
+ * @param {HTMLTableCellElement} cellA
+ * @param {HTMLTableCellElement} cellB
+ * @param {Number} direction
+ */
+function outcomeSortOrder(cellA, cellB, direction) {
+  // Trim the provision streak number.
+  var streakA = cellA.getElementsByClassName("provision-streak")[0].textContent.trim();
+  var streakB = cellB.getElementsByClassName("provision-streak")[0].textContent.trim();
+  // Get success/failure icon of the row
+  var isFailureA = cellA.getElementsByClassName("p-icon--warning").length > 0;
+  var isFailureB = cellB.getElementsByClassName("p-icon--warning").length > 0;
+  // If both are failures or both are successes, we do a simple comparison
+  if (isFailureA == isFailureB) {
+    return parseInt(streakB) - parseInt(streakA);
+  }
+
+  // If A is failure and B is success, A should come before B in descending order
+  return isFailureA ? -direction : direction;
+}
+
 function setupClickableHeader(table, header) {
-  header.addEventListener('click', function () {
-    sortTable(header, table);
-  });
+  if (header.hasAttribute("use-outcome-sort")) {
+    header.addEventListener('click', function () {
+      sortTable(header, table, outcomeSortOrder);
+    });
+  } else {
+    header.addEventListener('click', function () {
+      sortTable(header, table, defaultSortOrder);
+    });
+  }
 }
 
 /**

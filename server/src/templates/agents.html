@@ -20,7 +20,7 @@
 <table aria-label="Agents table" class="p-table--mobile-card">
     <thead>
         <tr>
-            <th aria-sort="none" class="has-overflow" style="width: 40pt"></th>
+            <th aria-sort="none" class="has-overflow" style="width: 40pt" use-outcome-sort></th>
             <!-- Added an empty header for the warning icon column -->
             <th aria-sort="none">Name</th>
             <th aria-sort="none">State</th>
@@ -38,14 +38,18 @@
                     <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has failed the last {{
                         agent.provision_streak_count }} provision attempts</span>
                 </span>
-                {{ agent.provision_streak_count }}
+		<span class="provision-streak">
+                  {{ agent.provision_streak_count }}
+		</span>
                 {% elif agent.provision_streak_type == "pass" and agent.provision_streak_count > 0 %}
                 <span class="p-tooltip--right" aria-describedby="tooltip">
                     <i class="p-icon--success"></i>
                     <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has passed the last {{
                         agent.provision_streak_count }} provision attempts</span>
                 </span>
-                {{ agent.provision_streak_count }}
+		<span class="provision-streak">
+                  {{ agent.provision_streak_count }}
+		</span>
                 {% endif %}
             </td>
             <td><a href="/agents/{{ agent.name }}">{{ agent.name }}</a></td>
