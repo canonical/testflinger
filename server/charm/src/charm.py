@@ -26,6 +26,7 @@ from ops.pebble import Layer
 from ops.main import main
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
+from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
 from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
 from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 
@@ -59,6 +60,10 @@ class TestflingerCharm(ops.CharmBase):
             relation_name="metrics-endpoint",
             jobs=[{"static_configs": [{"targets": ["*:5000"]}]}],
             refresh_event=self.on.config_changed,
+        )
+
+        self._grafana_dashboards = GrafanaDashboardProvider(
+            self, relation_name="grafana-dashboard"
         )
 
         self.framework.observe(
