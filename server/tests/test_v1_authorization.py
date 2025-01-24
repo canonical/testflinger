@@ -50,9 +50,9 @@ def test_retrieve_token(mongo_app_with_permissions):
         token,
         os.environ.get("JWT_SIGNING_KEY"),
         algorithms="HS256",
-        options={"require": ["exp", "iat", "sub", "max_priority"]},
+        options={"require": ["exp", "iat", "sub", "permissions"]},
     )
-    assert decoded_token["max_priority"] == max_priority
+    assert decoded_token["permissions"]["max_priority"] == max_priority
 
 
 def test_retrieve_token_invalid_client_id(mongo_app_with_permissions):
@@ -147,7 +147,9 @@ def test_priority_expired_token(mongo_app_with_permissions):
         "exp": datetime.utcnow() - timedelta(seconds=2),
         "iat": datetime.utcnow() - timedelta(seconds=4),
         "sub": "access_token",
-        "max_priority": {},
+        "permissions": {
+            "max_priority": {},
+        },
     }
     token = jwt.encode(expired_token_payload, secret_key, algorithm="HS256")
     job = {"job_queue": "myqueue", "job_priority": 100}
@@ -163,7 +165,9 @@ def test_missing_fields_in_token(mongo_app_with_permissions):
     app, _, _, _, _ = mongo_app_with_permissions
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     incomplete_token_payload = {
-        "max_priority": {},
+        "permissions": {
+            "max_priority": {},
+        }
     }
     token = jwt.encode(incomplete_token_payload, secret_key, algorithm="HS256")
     job = {"job_queue": "myqueue", "job_priority": 100}
@@ -316,3 +320,83 @@ def test_restricted_queue_reject_no_token(mongo_app_with_permissions):
     job = {"job_queue": "rqueue1"}
     job_response = app.post("/v1/job", json=job)
     assert 401 == job_response.status_code
+
+
+def test_extended_reservation_allowed(mongo_app_with_permissions):
+    """
+    Tests that jobs that include extended reservation are accepted when
+    the token gives them permission
+    """
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    job = {"job_queue": "myqueue", "reserve_data": {"timeout": 30000}}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 200 == job_response.status_code
+
+
+def test_extended_reservation_rejected(mongo_app_with_permissions):
+    """
+    Tests that jobs that include extended reservation are rejected when
+    the token does not give them permission
+    """
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    job = {"job_queue": "myqueue2", "reserve_data": {"timeout": 21601}}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 403 == job_response.status_code
+
+
+def test_extended_reservation_reject_no_token(mongo_app_with_permissions):
+    """
+    Tests that jobs that included extended reservation are rejected
+    when no token is included
+    """
+    app, _, _, _, _ = mongo_app_with_permissions
+    job = {"job_queue": "myqueue", "reserve_data": {"timeout": 21601}}
+    job_response = app.post("/v1/job", json=job)
+    assert 401 == job_response.status_code
+
+
+def test_normal_reservation_no_token(mongo_app):
+    """
+    Tests that jobs that include reservation times less than the maximum
+    are accepted when no token is included
+    """
+    app, _ = mongo_app
+    job = {"job_queue": "myqueue", "reserve_data": {"timeout": 21600}}
+    job_response = app.post("/v1/job", json=job)
+    assert 200 == job_response.status_code
+
+
+def test_star_extended_reservation(mongo_app_with_permissions):
+    """
+    Tests submission to generic queue with extended reservation
+    when client has star permissions
+    """
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    mongo.client_permissions.find_one_and_update(
+        {"client_id": client_id},
+        {"$set": {"max_reservation_time": {"*": 30000}}},
+    )
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+    job = {"job_queue": "myrandomqueue", "reserve_data": {"timeout": 30000}}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+    assert 200 == job_response.status_code

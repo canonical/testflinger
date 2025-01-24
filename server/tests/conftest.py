@@ -84,12 +84,14 @@ def mongo_app_with_permissions(mongo_app):
         "myqueue2": 200,
     }
     allowed_queues = ["rqueue1", "rqueue2"]
+    max_reservation_time = {"myqueue": 30000}
     mongo.client_permissions.insert_one(
         {
             "client_id": client_id,
             "client_secret_hash": client_key_hash,
             "max_priority": max_priority,
             "allowed_queues": allowed_queues,
+            "max_reservation_time": max_reservation_time,
         }
     )
     restricted_queues = [
