@@ -42,6 +42,8 @@ charm-libs:
     version: "0"
   - lib: observability_libs.juju_topology
     version: "0"
+  - lib: grafana_k8s.grafana_dashboard
+    version: "0"
 
 base: ubuntu@22.04
 platforms:
