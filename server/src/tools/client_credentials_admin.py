@@ -56,8 +56,8 @@ def handle_max_priority_input() -> dict:
         )
         if max_priority_input == "y":
             queue_name = input(
-                "Enter the name of the queue(* to apply max priority for"
-                + " all queues): "
+                "Enter the name of the queue(* to apply max priority for",
+                " all queues): ",
             )
             max_priority[queue_name] = int(
                 input("Enter the max priority for this queue: ")
@@ -74,8 +74,8 @@ def handle_allowed_queues_input() -> list:
     allowed_queues = []
     while True:
         allowed_queues_input = input(
-            "Do you want to specify a restricted queue that"
-            + " you are allowed to use? (y/n): "
+            "Do you want to specify a restricted queue that",
+            " you are allowed to use? (y/n): ",
         )
         if allowed_queues_input == "y":
             queue_name = input("Enter the name of the queue: ")
@@ -92,13 +92,13 @@ def handle_max_reservation_input() -> list:
     max_reservation = {}
     while True:
         max_reservation_input = input(
-            "Do you want to specify a queue to set"
-            + " max reservation time for? (y/n): "
+            "Do you want to specify a queue to set",
+            " max reservation time for? (y/n): ",
         )
         if max_reservation_input == "y":
             queue_name = input(
-                "Enter the name of the queue(* to apply max reservation for"
-                + " all queues): "
+                "Enter the name of the queue(* to apply max reservation",
+                " for all queues): ",
             )
             max_reservation[queue_name] = int(
                 input("Enter the maximum reservation time for this queue: ")
@@ -289,8 +289,8 @@ def main():
             sys.exit()
         else:
             print(
-                "Invalid selection. Please enter "
-                + "'c', 'e', 'r', 'aq', 'rq', or 'q'\n"
+                "Invalid selection. Please enter ",
+                "'c', 'e', 'r', 'aq', 'rq', or 'q'\n",
             )
 
 
