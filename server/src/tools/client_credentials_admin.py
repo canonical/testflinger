@@ -56,8 +56,8 @@ def handle_max_priority_input() -> dict:
         )
         if max_priority_input == "y":
             queue_name = input(
-                "Enter the name of the queue(* to apply max priority for"
-                + " all queues): "
+                "Enter the name of the queue(* to apply max priority for "
+                "all queues): ",
             )
             max_priority[queue_name] = int(
                 input("Enter the max priority for this queue: ")
@@ -74,8 +74,8 @@ def handle_allowed_queues_input() -> list:
     allowed_queues = []
     while True:
         allowed_queues_input = input(
-            "Do you want to specify a restricted queue that"
-            + " you are allowed to use? (y/n): "
+            "Do you want to specify a restricted queue that "
+            "you are allowed to use? (y/n): "
         )
         if allowed_queues_input == "y":
             queue_name = input("Enter the name of the queue: ")
@@ -85,6 +85,37 @@ def handle_allowed_queues_input() -> list:
         else:
             print("Invalid input. Please enter 'y' or 'n'.")
     return allowed_queues
+
+
+def handle_max_reservation_input() -> list:
+    """Gets a user inputted max_reservation_time dict"""
+    max_reservation = {}
+    while True:
+        max_reservation_input = input(
+            "Do you want to specify a queue to set "
+            "max reservation time for? (y/n): "
+        )
+        if max_reservation_input.lower() == "y":
+            queue_name = input(
+                "Enter the name of the queue "
+                "(* to apply max reservation for all queues): "
+            )
+            while True:
+                try:
+                    max_reservation[queue_name] = int(
+                        input(
+                            "Enter the maximum reservation time "
+                            "for this queue: "
+                        )
+                    )
+                    break
+                except ValueError:
+                    print("Please enter a valid integer value")
+        elif max_reservation_input.lower() == "n":
+            break
+        else:
+            print("Invalid input. Please enter 'y' or 'n'.")
+    return max_reservation
 
 
 def confirm_dialogue(entry: dict) -> bool:
@@ -136,11 +167,13 @@ def create_client_credential(db):
 
     max_priority = handle_max_priority_input()
     allowed_queues = handle_allowed_queues_input()
+    max_reservation = handle_max_reservation_input()
 
     entry = {
         "client_id": client_id,
         "max_priority": max_priority,
         "allowed_queues": allowed_queues,
+        "max_reservation_time": max_reservation,
     }
     if confirm_dialogue(entry):
         entry["client_secret_hash"] = client_secret_hash
@@ -161,11 +194,13 @@ def edit_client_credential(db):
 
     max_priority = handle_max_priority_input()
     allowed_queues = handle_allowed_queues_input()
+    max_reservation = handle_max_reservation_input()
     confirm_output = confirm_dialogue(
         {
             "client_id": client_id,
             "max_priority": max_priority,
             "allowed_queues": allowed_queues,
+            "max_reservation_time": max_reservation,
         }
     )
     if confirm_output:
@@ -175,6 +210,7 @@ def edit_client_credential(db):
                 "$set": {
                     "max_priority": max_priority,
                     "allowed_queues": allowed_queues,
+                    "max_reservation_time": max_reservation,
                 }
             },
             return_document=ReturnDocument.AFTER,
@@ -262,7 +298,7 @@ def main():
         else:
             print(
                 "Invalid selection. Please enter "
-                + "'c', 'e', 'r', 'aq', 'rq', or 'q'\n"
+                "'c', 'e', 'r', 'aq', 'rq', or 'q'\n"
             )
 
 
