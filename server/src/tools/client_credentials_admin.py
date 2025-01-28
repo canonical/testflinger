@@ -95,15 +95,23 @@ def handle_max_reservation_input() -> list:
             "Do you want to specify a queue to set "
             "max reservation time for? (y/n): "
         )
-        if max_reservation_input == "y":
+        if max_reservation_input.lower() == "y":
             queue_name = input(
-                "Enter the name of the queue(* to apply max reservation "
-                "for all queues): "
+                "Enter the name of the queue "
+                "(* to apply max reservation for all queues): "
             )
-            max_reservation[queue_name] = int(
-                input("Enter the maximum reservation time for this queue: ")
-            )
-        elif max_reservation_input == "n":
+            while True:
+                try:
+                    max_reservation[queue_name] = int(
+                        input(
+                            "Enter the maximum reservation time "
+                            "for this queue: "
+                        )
+                    )
+                    break
+                except ValueError:
+                    print("Please enter a valid integer value")
+        elif max_reservation_input.lower() == "n":
             break
         else:
             print("Invalid input. Please enter 'y' or 'n'.")
