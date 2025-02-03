@@ -12,7 +12,9 @@ inputs:
     default: complete
 outputs:
   jobs:
-    description: A JSON string mapping child job IDs to machine IPs
+    description: >
+      A JSON string containing an array of objects with machine IPs
+      and child job IDs
     value: ${{ steps.data.outputs.jobs }}
 runs:
   using: composite
@@ -54,7 +56,7 @@ runs:
         echo "::notice::" $IPS
         echo "::endgroup::"
         echo "::group::Construct output"
-        JSON=$(paste -d ' ' <(echo "$JOB_IDS") <(echo "$IPS") | jq -R 'split(" ") | {(.[0]): .[1]}' | jq -c -s 'add')
+        JSON=$(paste -d ' ' <(echo "$JOB_IDS") <(echo "$IPS") | jq -Rnc '[inputs | split(" ") | {"device-ip": .[1], "id": .[0]}]')
         echo "Output: $JSON"
         echo "jobs=$JSON" >> $GITHUB_OUTPUT
         echo "::endgroup::"
