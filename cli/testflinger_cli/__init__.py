@@ -487,6 +487,17 @@ class TestflingerCli:
                     attachment["agent"] = str(agent_path)
                     del attachment["local"]
 
+    def build_auth_headers(self):
+        """
+        Gets a JWT from the server and creates an authorization header from it
+        """
+        jwt = self.authenticate_with_server()
+        if jwt is not None:
+            auth_headers = {"Authorization": jwt}
+        else:
+            auth_headers = None
+        return auth_headers
+
     def submit(self):
         """Submit a new test job to the server"""
         if self.args.filename == "-":
@@ -500,15 +511,6 @@ class TestflingerCli:
             except FileNotFoundError:
                 sys.exit(f"File not found: {self.args.filename}")
         job_dict = yaml.safe_load(data)
-        jwt = self.authenticate_with_server()
-        if jwt is not None:
-            auth_headers = {"Authorization": jwt}
-        else:
-            if "job_priority" in job_dict:
-                sys.exit(
-                    "Must provide client id and secret key for priority jobs"
-                )
-            auth_headers = None
 
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
@@ -518,7 +520,7 @@ class TestflingerCli:
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
             # submit job, no attachments
-            job_id = self.submit_job_data(job_dict, headers=auth_headers)
+            job_id = self.submit_job_data(job_dict)
         else:
             with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive:
                 archive_path = Path(archive.name)
@@ -526,7 +528,7 @@ class TestflingerCli:
                 logger.info("Packing attachments into %s", archive_path)
                 self.pack_attachments(archive_path, attachments_data)
                 # submit job, followed by the submission of the archive
-                job_id = self.submit_job_data(job_dict, headers=auth_headers)
+                job_id = self.submit_job_data(job_dict)
                 try:
                     logger.info("Submitting attachments for %s", job_id)
                     self.submit_job_attachments(job_id, path=archive_path)
@@ -570,10 +572,11 @@ class TestflingerCli:
             "Waiting for agents to become available..."
         )
 
-    def submit_job_data(self, data: dict, headers: dict = None):
+    def submit_job_data(self, data: dict):
         """Submit data that was generated or read from a file as a test job"""
         try:
-            job_id = self.client.submit_job(data, headers=headers)
+            auth_headers = self.build_auth_headers()
+            job_id = self.client.submit_job(data, headers=auth_headers)
         except client.HTTPError as exc:
             if exc.status == 400:
                 sys.exit(
