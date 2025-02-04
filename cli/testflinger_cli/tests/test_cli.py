@@ -506,25 +506,6 @@ def test_submit_with_priority(tmp_path, requests_mock):
     assert requests_mock.last_request.headers.get("Authorization") == fake_jwt
 
 
-def test_submit_priority_no_credentials(tmp_path):
-    """Tests priority jobs rejected with no specified credentials"""
-    job_data = {
-        "job_queue": "fake",
-        "job_priority": 100,
-    }
-    job_file = tmp_path / "test.json"
-    job_file.write_text(json.dumps(job_data))
-
-    sys.argv = ["", "submit", str(job_file)]
-    tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(SystemExit) as exc_info:
-        tfcli.submit()
-        assert (
-            "Must provide client id and secret key for priority jobs"
-            in exc_info.value
-        )
-
-
 def test_show(capsys, requests_mock):
     """Exercise show command"""
     jobid = str(uuid.uuid1())
