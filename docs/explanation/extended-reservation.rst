@@ -1,5 +1,5 @@
 Extended Reservation
-============
+====================
 
 Normal users can reserve a machine with Testflinger for a maximum of 6 hours.
 However, for certain use cases this is limiting. Testflinger has the ability
