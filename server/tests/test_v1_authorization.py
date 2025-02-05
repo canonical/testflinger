@@ -156,7 +156,7 @@ def test_priority_expired_token(mongo_app_with_permissions):
     job_response = app.post(
         "/v1/job", json=job, headers={"Authorization": token}
     )
-    assert 403 == job_response.status_code
+    assert 401 == job_response.status_code
     assert "Token has expired" in job_response.text
 
 

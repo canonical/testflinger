@@ -527,7 +527,7 @@ def test_submit_token_timeout_retry(tmp_path, requests_mock):
     fake_jwt = "my_jwt"
     requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt)
     requests_mock.post(
-        f"{URL}/v1/job", text="Token has expired", status_code=403
+        f"{URL}/v1/job", text="Token has expired", status_code=401
     )
     requests_mock.get(
         URL + "/v1/queues/fake/agents",

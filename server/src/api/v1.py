@@ -120,7 +120,7 @@ def decode_jwt_token(auth_token: str, secret_key: str) -> dict:
             options={"require": ["exp", "iat", "sub"]},
         )
     except jwt.exceptions.ExpiredSignatureError:
-        abort(403, "Token has expired")
+        abort(401, "Token has expired")
     except jwt.exceptions.InvalidTokenError:
         abort(403, "Invalid Token")
 

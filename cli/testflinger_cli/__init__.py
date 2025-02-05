@@ -592,24 +592,32 @@ class TestflingerCli:
                         "Received 404 error from server. Are you "
                         "sure this is a testflinger server?"
                     )
-                if exc.status == 401:
-                    sys.exit(
-                        "Received 401 error from server. You are "
-                        "attempting to use a feature that requires "
-                        "client authorisation without using client "
-                        "credentials. See https://testflinger.readthedocs"
-                        ".io/en/latest/how-to/authentication/ for more details"
-                    )
+
                 if exc.status == 403:
-                    if "expired" in exc.msg and retry_count < 2:
-                        retry_count += 1
+                    sys.exit(
+                        "Received 403 error from server with reason "
+                        f"{exc.msg}"
+                        "The specified client credentials do not have "
+                        "sufficient permissions for the resource(s) "
+                        "you are trying to access."
+                    )
+                if exc.status == 401:
+                    if "expired" in exc.msg:
+                        if retry_count < 2:
+                            retry_count += 1
+                        else:
+                            sys.exit(
+                                "Received 401 error from server due to "
+                                "expired authorization token."
+                            )
                     else:
                         sys.exit(
-                            "Received 403 error from server with reason "
-                            f"{exc.msg}"
-                            "The specified client credentials do not have "
-                            "sufficient permissions for the resource(s) "
-                            "you are trying to access."
+                            "Received 401 error from server with reason "
+                            f"{exc.msg} You are attempting to use a feature "
+                            "that requires client authorisation "
+                            "without using client credentials. "
+                            "See https://testflinger.readthedocs.io/en/latest"
+                            "/how-to/authentication/ for more details"
                         )
                 else:
                     # This shouldn't happen, so let's get more information
