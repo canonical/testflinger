@@ -574,43 +574,49 @@ class TestflingerCli:
 
     def submit_job_data(self, data: dict):
         """Submit data that was generated or read from a file as a test job"""
-        try:
-            auth_headers = self.build_auth_headers()
-            job_id = self.client.submit_job(data, headers=auth_headers)
-        except client.HTTPError as exc:
-            if exc.status == 400:
-                sys.exit(
-                    "The job you submitted contained bad data or "
-                    "bad formatting, or did not specify a "
-                    "job_queue."
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
-                )
-            if exc.status == 401:
-                sys.exit(
-                    "Received 401 error from server. You are "
-                    "attempting to use a feature that requires "
-                    "client authorisation without using client "
-                    "credentials. See https://testflinger.readthedocs"
-                    ".io/en/latest/how-to/authentication/ for more details"
-                )
-            if exc.status == 403:
-                sys.exit(
-                    "Received 403 error from server with reason "
-                    f"{exc.msg}"
-                    "The specified client credentials do "
-                    "not have sufficient permissions for the resource(s) "
-                    "you are trying to access."
-                )
-
-            # This shouldn't happen, so let's get more information
-            sys.exit(
-                "Unexpected error status from testflinger "
-                f"server: [{exc.status}] {exc.msg}"
-            )
+        retry_count = 0
+        while True:
+            try:
+                auth_headers = self.build_auth_headers()
+                job_id = self.client.submit_job(data, headers=auth_headers)
+                break
+            except client.HTTPError as exc:
+                if exc.status == 400:
+                    sys.exit(
+                        "The job you submitted contained bad data or "
+                        "bad formatting, or did not specify a "
+                        "job_queue."
+                    )
+                if exc.status == 404:
+                    sys.exit(
+                        "Received 404 error from server. Are you "
+                        "sure this is a testflinger server?"
+                    )
+                if exc.status == 401:
+                    sys.exit(
+                        "Received 401 error from server. You are "
+                        "attempting to use a feature that requires "
+                        "client authorisation without using client "
+                        "credentials. See https://testflinger.readthedocs"
+                        ".io/en/latest/how-to/authentication/ for more details"
+                    )
+                if exc.status == 403:
+                    if "expired" in exc.msg and retry_count < 2:
+                        retry_count += 1
+                    else:
+                        sys.exit(
+                            "Received 403 error from server with reason "
+                            f"{exc.msg}"
+                            "The specified client credentials do not have "
+                            "sufficient permissions for the resource(s) "
+                            "you are trying to access."
+                        )
+                else:
+                    # This shouldn't happen, so let's get more information
+                    sys.exit(
+                        "Unexpected error status from testflinger "
+                        f"server: [{exc.status}] {exc.msg}"
+                    )
         return job_id
 
     def submit_job_attachments(self, job_id: str, path: Path):
