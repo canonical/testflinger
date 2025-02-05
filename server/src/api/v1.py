@@ -801,7 +801,7 @@ def generate_token(allowed_resources, secret_key):
     See retrieve_token for more information on the contents of
     the token payload
     """
-    expiration_time = datetime.utcnow() + timedelta(seconds=8)
+    expiration_time = datetime.utcnow() + timedelta(seconds=30)
     token_payload = {
         "exp": expiration_time,
         "iat": datetime.now(timezone.utc),  # Issued at time
