@@ -487,6 +487,17 @@ class TestflingerCli:
                     attachment["agent"] = str(agent_path)
                     del attachment["local"]
 
+    def build_auth_headers(self):
+        """
+        Gets a JWT from the server and creates an authorization header from it
+        """
+        jwt = self.authenticate_with_server()
+        if jwt is not None:
+            auth_headers = {"Authorization": jwt}
+        else:
+            auth_headers = None
+        return auth_headers
+
     def submit(self):
         """Submit a new test job to the server"""
         if self.args.filename == "-":
@@ -500,15 +511,6 @@ class TestflingerCli:
             except FileNotFoundError:
                 sys.exit(f"File not found: {self.args.filename}")
         job_dict = yaml.safe_load(data)
-        jwt = self.authenticate_with_server()
-        if jwt is not None:
-            auth_headers = {"Authorization": jwt}
-        else:
-            if "job_priority" in job_dict:
-                sys.exit(
-                    "Must provide client id and secret key for priority jobs"
-                )
-            auth_headers = None
 
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
@@ -518,7 +520,7 @@ class TestflingerCli:
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
             # submit job, no attachments
-            job_id = self.submit_job_data(job_dict, headers=auth_headers)
+            job_id = self.submit_job_data(job_dict)
         else:
             with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive:
                 archive_path = Path(archive.name)
@@ -526,7 +528,7 @@ class TestflingerCli:
                 logger.info("Packing attachments into %s", archive_path)
                 self.pack_attachments(archive_path, attachments_data)
                 # submit job, followed by the submission of the archive
-                job_id = self.submit_job_data(job_dict, headers=auth_headers)
+                job_id = self.submit_job_data(job_dict)
                 try:
                     logger.info("Submitting attachments for %s", job_id)
                     self.submit_job_attachments(job_id, path=archive_path)
@@ -570,44 +572,59 @@ class TestflingerCli:
             "Waiting for agents to become available..."
         )
 
-    def submit_job_data(self, data: dict, headers: dict = None):
+    def submit_job_data(self, data: dict):
         """Submit data that was generated or read from a file as a test job"""
-        try:
-            job_id = self.client.submit_job(data, headers=headers)
-        except client.HTTPError as exc:
-            if exc.status == 400:
-                sys.exit(
-                    "The job you submitted contained bad data or "
-                    "bad formatting, or did not specify a "
-                    "job_queue."
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
-                )
-            if exc.status == 401:
-                sys.exit(
-                    "Received 401 error from server. You are "
-                    "attempting to use a feature that requires "
-                    "client authorisation without using client "
-                    "credentials. See https://testflinger.readthedocs"
-                    ".io/en/latest/how-to/authentication/ for more details"
-                )
-            if exc.status == 403:
-                sys.exit(
-                    "Received 403 error from server with reason "
-                    f"{exc.msg}"
-                    "The specified client credentials do "
-                    "not have sufficient permissions for the resource(s) "
-                    "you are trying to access."
-                )
+        retry_count = 0
+        while True:
+            try:
+                auth_headers = self.build_auth_headers()
+                job_id = self.client.submit_job(data, headers=auth_headers)
+                break
+            except client.HTTPError as exc:
+                if exc.status == 400:
+                    sys.exit(
+                        "The job you submitted contained bad data or "
+                        "bad formatting, or did not specify a "
+                        "job_queue."
+                    )
+                if exc.status == 404:
+                    sys.exit(
+                        "Received 404 error from server. Are you "
+                        "sure this is a testflinger server?"
+                    )
 
-            # This shouldn't happen, so let's get more information
-            sys.exit(
-                "Unexpected error status from testflinger "
-                f"server: [{exc.status}] {exc.msg}"
-            )
+                if exc.status == 403:
+                    sys.exit(
+                        "Received 403 error from server with reason "
+                        f"{exc.msg}"
+                        "The specified client credentials do not have "
+                        "sufficient permissions for the resource(s) "
+                        "you are trying to access."
+                    )
+                if exc.status == 401:
+                    if "expired" in exc.msg:
+                        if retry_count < 2:
+                            retry_count += 1
+                        else:
+                            sys.exit(
+                                "Received 401 error from server due to "
+                                "expired authorization token."
+                            )
+                    else:
+                        sys.exit(
+                            "Received 401 error from server with reason "
+                            f"{exc.msg} You are attempting to use a feature "
+                            "that requires client authorisation "
+                            "without using client credentials. "
+                            "See https://testflinger.readthedocs.io/en/latest"
+                            "/how-to/authentication/ for more details"
+                        )
+                else:
+                    # This shouldn't happen, so let's get more information
+                    sys.exit(
+                        "Unexpected error status from testflinger "
+                        f"server: [{exc.status}] {exc.msg}"
+                    )
         return job_id
 
     def submit_job_attachments(self, job_id: str, path: Path):

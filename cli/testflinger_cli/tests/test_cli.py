@@ -503,11 +503,15 @@ def test_submit_with_priority(tmp_path, requests_mock):
         json=[{"name": "fake_agent", "state": "waiting"}],
     )
     tfcli.submit()
-    assert requests_mock.last_request.headers.get("Authorization") == fake_jwt
+    history = requests_mock.request_history
+    assert len(history) == 3
+    assert history[1].path == "/v1/oauth2/token"
+    assert history[2].path == "/v1/job"
+    assert history[2].headers.get("Authorization") == fake_jwt
 
 
-def test_submit_priority_no_credentials(tmp_path):
-    """Tests priority jobs rejected with no specified credentials"""
+def test_submit_token_timeout_retry(tmp_path, requests_mock):
+    """Tests job submission retries 3 times when token has expired"""
     job_data = {
         "job_queue": "fake",
         "job_priority": 100,
@@ -517,12 +521,30 @@ def test_submit_priority_no_credentials(tmp_path):
 
     sys.argv = ["", "submit", str(job_file)]
     tfcli = testflinger_cli.TestflingerCli()
+    tfcli.client_id = "my_client_id"
+    tfcli.secret_key = "my_secret_key"
+
+    fake_jwt = "my_jwt"
+    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt)
+    requests_mock.post(
+        f"{URL}/v1/job", text="Token has expired", status_code=401
+    )
+    requests_mock.get(
+        URL + "/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
     with pytest.raises(SystemExit) as exc_info:
         tfcli.submit()
-        assert (
-            "Must provide client id and secret key for priority jobs"
-            in exc_info.value
-        )
+        assert "Token has expired" in exc_info.value
+
+    history = requests_mock.request_history
+    assert len(history) == 7
+    assert history[1].path == "/v1/oauth2/token"
+    assert history[2].path == "/v1/job"
+    assert history[3].path == "/v1/oauth2/token"
+    assert history[4].path == "/v1/job"
+    assert history[5].path == "/v1/oauth2/token"
+    assert history[6].path == "/v1/job"
 
 
 def test_show(capsys, requests_mock):

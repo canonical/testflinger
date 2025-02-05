@@ -120,7 +120,7 @@ def decode_jwt_token(auth_token: str, secret_key: str) -> dict:
             options={"require": ["exp", "iat", "sub"]},
         )
     except jwt.exceptions.ExpiredSignatureError:
-        abort(403, "Token has expired")
+        abort(401, "Token has expired")
     except jwt.exceptions.InvalidTokenError:
         abort(403, "Invalid Token")
 
@@ -801,7 +801,7 @@ def generate_token(allowed_resources, secret_key):
     See retrieve_token for more information on the contents of
     the token payload
     """
-    expiration_time = datetime.utcnow() + timedelta(seconds=2)
+    expiration_time = datetime.utcnow() + timedelta(seconds=30)
     token_payload = {
         "exp": expiration_time,
         "iat": datetime.now(timezone.utc),  # Issued at time
