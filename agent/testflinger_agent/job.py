@@ -12,7 +12,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
-import fcntl
 import json
 import logging
 import os
@@ -274,16 +273,3 @@ class TestflingerJob:
         yield "*" * (len(line) + 4)
         yield "* {} *".format(line)
         yield "*" * (len(line) + 4)
-
-
-def set_nonblock(fd):
-    """Set the specified fd to nonblocking output
-
-    :param fd:
-        File descriptor that should be set to nonblocking mode
-    """
-
-    # XXX: This is only used in one place right now, may want to consider
-    # moving it if it gets wider use in the future
-    fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-    fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
