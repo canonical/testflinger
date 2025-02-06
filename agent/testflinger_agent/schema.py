@@ -46,8 +46,8 @@ SCHEMA_V1 = {
     voluptuous.Optional("advertised_queues"): dict,
     voluptuous.Optional("advertised_images"): dict,
     # only the last `output_bytes` of the log will be included
-    # in the results submitted to the server (default: 1MB)
-    voluptuous.Optional("output_bytes", default=1024 * 1024): int,
+    # in the results submitted to the server (default: 10MB)
+    voluptuous.Optional("output_bytes", default=10 * 1024 * 1024): int,
 }
 
 

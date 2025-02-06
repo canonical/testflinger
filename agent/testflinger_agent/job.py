@@ -229,6 +229,8 @@ class TestflingerJob:
             (overrides default `output_bytes` value in the agent config)
         """
         if size is None:
+            # the default for `output_bytes` when it is not explicitly set
+            # in the agent config is specified in the config schema
             size = self.client.config["output_bytes"]
         with open(filename, "r", encoding="utf-8", errors="ignore") as file:
             end = file.seek(0, 2)
