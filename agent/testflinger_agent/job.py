@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import time
+from typing import Optional
 
 from testflinger_agent.errors import TFServerError
 from .runner import CommandRunner, RunnerEvents
@@ -154,15 +155,13 @@ class TestflingerJob:
         with open(results_file, "r+") as results:
             outcome_data = json.load(results)
             if os.path.exists(output_log):
-                with open(output_log, "r+", encoding="utf-8") as logfile:
-                    self._set_truncate(logfile)
-                    outcome_data[phase + "_output"] = logfile.read()
+                outcome_data[phase + "_output"] = self._read_truncated(
+                    output_log
+                )
             if os.path.exists(serial_log):
-                with open(
-                    serial_log, "r+", encoding="utf-8", errors="ignore"
-                ) as logfile:
-                    self._set_truncate(logfile)
-                    outcome_data[phase + "_serial"] = logfile.read()
+                outcome_data[phase + "_serial"] = self._read_truncated(
+                    serial_log
+                )
             outcome_data[phase + "_status"] = exitcode
             results.seek(0)
             json.dump(outcome_data, results)
@@ -215,22 +214,32 @@ class TestflingerJob:
                 logger.warning("Failed to get allocated job status, retrying")
             time.sleep(60)
 
-    def _set_truncate(self, f, size=1024 * 1024):
-        """Set up an open file so that we don't read more than a specified
-           size. We want to read from the end of the file rather than the
-           beginning. Write a warning at the end of the file if it was too big.
+    def _read_truncated(
+        self, filename: str, size: Optional[int] = None
+    ) -> str:
+        """Return a string corresponding to the last bytes of a text file.
 
-        :param f:
-            The file object, which should be opened for read/write
+        Include a warning message at the end of the returned value if the file
+        has been truncated.
+
+        :param filename:
+            The name of the text file
         :param size:
-            Maximum number of bytes we want to allow from reading the file
+            Maximum number of bytes to be read from the end of the file
+            (overrides default `output_bytes` value in the agent config)
         """
-        end = f.seek(0, 2)
-        if end > size:
-            f.write("\nWARNING: File has been truncated due to length!")
-            f.seek(end - size, 0)
-        else:
-            f.seek(0, 0)
+        if size is None:
+            size = self.client.config["output_bytes"]
+        with open(filename, "r", encoding="utf-8", errors="ignore") as file:
+            end = file.seek(0, 2)
+            if end > size:
+                file.seek(end - size, 0)
+                return file.read() + (
+                    f"\nWARNING: File truncated to its last {size} bytes!"
+                )
+            else:
+                file.seek(0, 0)
+                return file.read()
 
     def get_global_timeout(self):
         """Get the global timeout for the test run in seconds"""
