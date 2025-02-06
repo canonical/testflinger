@@ -156,8 +156,8 @@ class TestflingerCli:
             or self.config.get("secret_key")
             or os.environ.get("TESTFLINGER_SECRET_KEY")
         )
-        error_threshold = self.config.get(
-            "error_threshold"
+        error_threshold = (
+            self.config.get("error_threshold")
             or os.environ.get("TESTFLINGER_ERROR_THRESHOLD")
             or 3
         )
