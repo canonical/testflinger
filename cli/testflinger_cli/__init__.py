@@ -617,7 +617,7 @@ class TestflingerCli:
                             "that requires client authorisation "
                             "without using client credentials. "
                             "See https://testflinger.readthedocs.io/en/latest"
-                            "/how-to/authentication/ for more details"
+                            "/how-to/authentication.html for more details"
                         )
                 else:
                     # This shouldn't happen, so let's get more information
