@@ -85,7 +85,7 @@ function sortTable(header, table, newOrder) {
  * @param {HTMLTableCellElement} header
  * @param {HTMLTableElement} table
  */
-function cycleTableSort(header, table) {
+function cycleTableSort(header, table, reverse=false) {
   var SORTABLE_STATES = {
     none: 0,
     ascending: -1,
@@ -93,9 +93,14 @@ function cycleTableSort(header, table) {
     ORDER: ['none', 'ascending', 'descending'],
   };
 
-  // Based on the current aria-sort value, get the next state.
-  var newOrder = SORTABLE_STATES.ORDER.indexOf(header.getAttribute('aria-sort')) + 1;
-  newOrder = newOrder > SORTABLE_STATES.ORDER.length - 1 ? 0 : newOrder;
+  // Based on the current aria-sort value, get the next state. Go backwards if cycle is reversed.
+  var newOrder = (SORTABLE_STATES.ORDER.indexOf(header.getAttribute('aria-sort')) + 1) % 3;
+  if (reverse) {
+    newOrder = SORTABLE_STATES.ORDER.indexOf(header.getAttribute('aria-sort')) - 1;
+    if (newOrder < 0) {
+      newOrder += 3
+    }
+  }
   newOrder = SORTABLE_STATES.ORDER[newOrder];
 
   sortTable(header, table, newOrder);
@@ -131,16 +136,20 @@ function outcomeSortOrder(cellA, cellB, direction) {
   var isFailureB = cellB.getElementsByClassName("p-icon--warning").length > 0;
   // If both are failures or both are successes, we do a simple comparison
   if (isFailureA == isFailureB) {
-    return parseInt(streakB) - parseInt(streakA);
+    return direction * (parseInt(streakB) - parseInt(streakA));
   }
 
-  // If A is failure and B is success, A should come before B in descending order
-  return isFailureA ? -direction : direction;
+  // If A is failure and B is success, A should come before B
+  return isFailureA ? -1 : 1;
 }
 
 function setupClickableHeader(table, header) {
+  var reverse = false
+  if (table.id == "agentsTable") {
+    reverse = true;
+  }
   header.addEventListener('click', function () {
-    cycleTableSort(header, table);
+    cycleTableSort(header, table, reverse);
   });
 }
 
