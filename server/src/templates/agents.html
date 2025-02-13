@@ -21,11 +21,11 @@
     <thead>
         <tr>
             <th aria-sort="none" class="has-overflow" style="width:10%" use-outcome-sort id="agentsOutcomeHeader">
-	        <span class="p-tooltip--top-left" aria-describedby="tooltip">
-		    <span class="p-tooltip__message" role="tooltip" id="tooltip">The number of consecutively successful / failed provisioning attempts</span>
-		    Outcome
-	        </span>
-	    </th>
+                <span class="p-tooltip--top-left" aria-describedby="tooltip">
+                    <span class="p-tooltip__message" role="tooltip" id="tooltip">The number of consecutively successful / failed provisioning attempts</span>
+                    Outcome
+                </span>
+            </th>
             <th aria-sort="none" id="agentsNameHeader">Name</th>
             <th aria-sort="none" id="agentsStateHeader">State</th>
             <th aria-sort="none" id="agentsUpdatedAtHeader">Updated At</th>
@@ -42,16 +42,16 @@
                     <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has failed the last {{
                         agent.provision_streak_count }} provision attempts</span>
                 </span>
-		<span class="provision-streak">
+                <span class="provision-streak">
                     {{ agent.provision_streak_count }}
-		</span>
+                </span>
                 {% elif agent.provision_streak_type == "pass" and agent.provision_streak_count > 0 %}
                 <span class="p-tooltip--right" aria-describedby="tooltip">
                     <i class="p-icon--success"></i>
                     <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has passed the last {{
                         agent.provision_streak_count }} provision attempts</span>
                 </span>
-		<span class="provision-streak">
+                <span class="provision-streak">
                     {{ agent.provision_streak_count }}
 		</span>
                 {% endif %}
