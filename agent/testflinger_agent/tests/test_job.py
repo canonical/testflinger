@@ -8,9 +8,13 @@ from unittest.mock import patch
 
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
-from testflinger_agent.job import TestflingerJob as _TestflingerJob
+from testflinger_agent.job import (
+    TestflingerJob as _TestflingerJob,
+    read_truncated,
+)
 from testflinger_agent.runner import CommandRunner
 from testflinger_agent.handlers import LogUpdateHandler
+from testflinger_agent.schema import validate
 from testflinger_agent.stop_condition_checkers import (
     GlobalTimeoutChecker,
     OutputTimeoutChecker,
@@ -22,15 +26,17 @@ class TestJob:
     @pytest.fixture
     def client(self):
         self.tmpdir = tempfile.mkdtemp()
-        self.config = {
-            "agent_id": "test01",
-            "polling_interval": "2",
-            "server_address": "127.0.0.1:8000",
-            "job_queues": ["test"],
-            "execution_basedir": self.tmpdir,
-            "logging_basedir": self.tmpdir,
-            "results_basedir": os.path.join(self.tmpdir, "results"),
-        }
+        self.config = validate(
+            {
+                "agent_id": "test01",
+                "polling_interval": 2,
+                "server_address": "127.0.0.1:8000",
+                "job_queues": ["test"],
+                "execution_basedir": self.tmpdir,
+                "logging_basedir": self.tmpdir,
+                "results_basedir": os.path.join(self.tmpdir, "results"),
+            }
+        )
         testflinger_agent.configure_logging(self.config)
         yield _TestflingerClient(self.config)
         shutil.rmtree(self.tmpdir)
@@ -173,24 +179,26 @@ class TestJob:
         assert exit_event == "setup_fail"
         assert exit_reason == "failed"
 
-    def test_set_truncate(self, client):
-        """Test the _set_truncate method of TestflingerJob"""
-        job = _TestflingerJob({}, client)
-        with tempfile.TemporaryFile(mode="r+") as f:
-            # First check that a small file doesn't get truncated
-            f.write("x" * 100)
-            job._set_truncate(f, size=100)
-            contents = f.read()
-            assert len(contents) == 100
-            assert "WARNING" not in contents
+    def test_read_truncated(self, client, tmp_path):
+        """Test the read_truncated function"""
 
-            # Now check that a larger file does get truncated
-            f.write("x" * 100)
-            job._set_truncate(f, size=100)
-            contents = f.read()
-            # It won't be exactly 100 bytes, because a warning is added
-            assert len(contents) < 150
-            assert "WARNING" in contents
+        # First check that a small file doesn't get truncated
+        short_file = tmp_path / "short"
+        short_file.write_text("x" * 100)
+        contents = read_truncated(short_file, size=100)
+        assert len(contents) == 100
+        assert "WARNING" not in contents
+
+        # Now check that a larger file does get truncated
+        long_file = tmp_path / "long"
+        long_file.write_text("x" * 200)
+        contents = read_truncated(long_file, size=100)
+        # It won't be exactly 100 bytes, because a warning is added
+        assert len(contents) < 150
+        assert "WARNING" in contents
+
+        # Check that a default value exists for `output_bytes`
+        assert "output_bytes" in client.config
 
     @pytest.mark.timeout(1)
     def test_wait_for_completion(self, client):

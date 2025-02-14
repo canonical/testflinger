@@ -212,6 +212,11 @@ In some cases, you might want to check the device output to know how each job ph
 
 Besides the output from the provisioning and testing commands, the returned data also includes an exit code of each phase and output from the Testflinger agent. This information is very useful for troubleshooting testing issues.
 
+Note: Testflinger agents truncate the `*_output` fields when submitting job results to the server,
+keeping only the last section of the output log if it exceeds a certain threshold. This threshold
+can be set through the `output_bytes` field of the agent configuration file and its default value
+is 10 MB.
+
 ---------
 
 Congratulations! You've successfully set up the Testflinger CLI, created and submitted your first test job, and checked its status. You can now create more complex jobs and manage your test jobs efficiently using the command line tool. Happy testing!

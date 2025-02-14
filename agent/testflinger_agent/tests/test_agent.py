@@ -16,6 +16,7 @@ from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
+from testflinger_agent.schema import validate
 from testflinger_common.enums import TestPhase, TestEvent
 
 
@@ -23,19 +24,20 @@ class TestClient:
     @pytest.fixture
     def agent(self, requests_mock):
         self.tmpdir = tempfile.mkdtemp()
-        self.config = {
-            "agent_id": "test01",
-            "identifier": "12345-123456",
-            "polling_interval": "2",
-            "server_address": "127.0.0.1:8000",
-            "job_queues": ["test"],
-            "location": "nowhere",
-            "provision_type": "noprovision",
-            "execution_basedir": self.tmpdir,
-            "logging_basedir": self.tmpdir,
-            "results_basedir": os.path.join(self.tmpdir, "results"),
-            "test_string": "ThisIsATest",
-        }
+        self.config = validate(
+            {
+                "agent_id": "test01",
+                "identifier": "12345-123456",
+                "polling_interval": 2,
+                "server_address": "127.0.0.1:8000",
+                "job_queues": ["test"],
+                "location": "nowhere",
+                "provision_type": "noprovision",
+                "execution_basedir": self.tmpdir,
+                "logging_basedir": self.tmpdir,
+                "results_basedir": os.path.join(self.tmpdir, "results"),
+            }
+        )
         testflinger_agent.configure_logging(self.config)
         client = _TestflingerClient(self.config)
         requests_mock.get(rmock.ANY)
@@ -268,9 +270,7 @@ class TestClient:
             assert not attachment.exists()
 
     def test_config_vars_in_env(self, agent, requests_mock):
-        self.config["test_command"] = (
-            "bash -c 'echo test_string is $test_string'"
-        )
+        self.config["test_command"] = "bash -c 'echo agent_id is $agent_id'"
         mock_job_data = {
             "job_id": str(uuid.uuid1()),
             "job_queue": "test",
@@ -285,7 +285,7 @@ class TestClient:
         testlog = open(
             os.path.join(self.tmpdir, mock_job_data.get("job_id"), "test.log")
         ).read()
-        assert "ThisIsATest" in testlog
+        assert self.config["agent_id"] in testlog
 
     def test_phase_failed(self, agent, requests_mock):
         # Make sure we stop running after a failed phase
