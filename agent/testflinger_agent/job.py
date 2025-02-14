@@ -16,7 +16,6 @@ import json
 import logging
 import os
 import time
-from typing import Optional
 
 from testflinger_agent.errors import TFServerError
 from .runner import CommandRunner, RunnerEvents
@@ -249,7 +248,7 @@ class TestflingerJob:
         yield "*" * (len(line) + 4)
 
 
-def read_truncated(filename: str, size: Optional[int]) -> str:
+def read_truncated(filename: str, size: int) -> str:
     """Return a string corresponding to the last bytes of a text file.
 
     Include a warning message at the end of the returned value if the file
