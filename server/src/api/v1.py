@@ -497,6 +497,47 @@ def output_post(job_id):
     return "OK"
 
 
+@v1.get("/result/<job_id>/serial_output")
+def serial_output_get(job_id):
+    """Get latest serial output for a specified job ID
+
+    :param job_id:
+        UUID as a string for the job
+    :return:
+        Output lines
+    """
+    if not check_valid_uuid(job_id):
+        return "Invalid job id\n", 400
+    response = database.mongo.db.serial_output.find_one_and_delete(
+        {"job_id": job_id}, {"_id": False}
+    )
+    output = response.get("serial_output", []) if response else None
+    if output:
+        return "\n".join(output)
+    return "", 204
+
+
+@v1.post("/result/<job_id>/serial_output")
+def serial_output_post(job_id):
+    """Post output for a specified job ID
+
+    :param job_id:
+        UUID as a string for the job
+    :param data:
+        A string containing the latest lines of output to post
+    """
+    if not check_valid_uuid(job_id):
+        abort(400, message="Invalid job_id specified")
+    data = request.get_data().decode("utf-8")
+    timestamp = datetime.utcnow()
+    database.mongo.db.serial_output.update_one(
+        {"job_id": job_id},
+        {"$set": {"updated_at": timestamp}, "$push": {"serial_output": data}},
+        upsert=True,
+    )
+    return "OK"
+
+
 @v1.post("/job/<job_id>/action")
 @v1.input(schemas.ActionIn, location="json")
 def action_post(job_id, json_data):
