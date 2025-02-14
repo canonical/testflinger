@@ -151,15 +151,18 @@ class TestflingerJob:
         :param serial_log:
             Path to the serial log file
         """
+        # the default for `output_bytes` when it is not explicitly set
+        # in the agent config is specified in the config schema
+        max_log_size = self.client.config["output_bytes"]
         with open(results_file, "r+") as results:
             outcome_data = json.load(results)
             if os.path.exists(output_log):
-                outcome_data[phase + "_output"] = self._read_truncated(
-                    output_log
+                outcome_data[phase + "_output"] = read_truncated(
+                    output_log, size=max_log_size
                 )
             if os.path.exists(serial_log):
-                outcome_data[phase + "_serial"] = self._read_truncated(
-                    serial_log
+                outcome_data[phase + "_serial"] = read_truncated(
+                    serial_log, max_log_size
                 )
             outcome_data[phase + "_status"] = exitcode
             results.seek(0)
@@ -213,35 +216,6 @@ class TestflingerJob:
                 logger.warning("Failed to get allocated job status, retrying")
             time.sleep(60)
 
-    def _read_truncated(
-        self, filename: str, size: Optional[int] = None
-    ) -> str:
-        """Return a string corresponding to the last bytes of a text file.
-
-        Include a warning message at the end of the returned value if the file
-        has been truncated.
-
-        :param filename:
-            The name of the text file
-        :param size:
-            Maximum number of bytes to be read from the end of the file
-            (overrides default `output_bytes` value in the agent config)
-        """
-        if size is None:
-            # the default for `output_bytes` when it is not explicitly set
-            # in the agent config is specified in the config schema
-            size = self.client.config["output_bytes"]
-        with open(filename, "r", encoding="utf-8", errors="ignore") as file:
-            end = file.seek(0, 2)
-            if end > size:
-                file.seek(end - size, 0)
-                return file.read() + (
-                    f"\nWARNING: File truncated to its last {size} bytes!"
-                )
-            else:
-                file.seek(0, 0)
-                return file.read()
-
     def get_global_timeout(self):
         """Get the global timeout for the test run in seconds"""
         # Default timeout is 4 hours
@@ -273,3 +247,26 @@ class TestflingerJob:
         yield "*" * (len(line) + 4)
         yield "* {} *".format(line)
         yield "*" * (len(line) + 4)
+
+
+def read_truncated(filename: str, size: Optional[int]) -> str:
+    """Return a string corresponding to the last bytes of a text file.
+
+    Include a warning message at the end of the returned value if the file
+    has been truncated.
+
+    :param filename:
+        The name of the text file
+    :param size:
+        Maximum number of bytes to be read from the end of the file
+        (overrides default `output_bytes` value in the agent config)
+    """
+    with open(filename, "r", encoding="utf-8", errors="ignore") as file:
+        end = file.seek(0, 2)
+        if end > size:
+            file.seek(end - size, 0)
+            return file.read() + (
+                f"\nWARNING: File truncated to its last {size} bytes!"
+            )
+        file.seek(0, 0)
+        return file.read()
