@@ -17,14 +17,18 @@
     <button type="reset" class="p-search-box__reset"><i class="p-icon--close"></i></button>
     <button type="submit" class="p-search-box__button"><i class="p-icon--search"></i></button>
 </form>
-<table aria-label="Agents table" class="p-table--mobile-card">
+<table aria-label="Agents table" class="p-table--mobile-card" id="agentsTable">
     <thead>
         <tr>
-            <th aria-sort="none" class="has-overflow" style="width: 40pt"></th>
-            <!-- Added an empty header for the warning icon column -->
-            <th aria-sort="none">Name</th>
-            <th aria-sort="none">State</th>
-            <th aria-sort="none">Updated At</th>
+            <th aria-sort="none" class="has-overflow" style="width:10%" use-outcome-sort id="agentsOutcomeHeader">
+                <span class="p-tooltip--top-left" aria-describedby="tooltip">
+                    <span class="p-tooltip__message" role="tooltip" id="tooltip" style="text-transform:none;font-weight:400">The number of consecutively successful / failed provisioning attempts</span>
+                    Outcome
+                </span>
+            </th>
+            <th aria-sort="none" id="agentsNameHeader">Name</th>
+            <th aria-sort="none" id="agentsStateHeader">State</th>
+            <th aria-sort="none" id="agentsUpdatedAtHeader">Updated At</th>
             <th>Job ID</th>
         </tr>
     </thead>
@@ -38,14 +42,18 @@
                     <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has failed the last {{
                         agent.provision_streak_count }} provision attempts</span>
                 </span>
-                {{ agent.provision_streak_count }}
+                <span class="provision-streak">
+                    {{ agent.provision_streak_count }}
+                </span>
                 {% elif agent.provision_streak_type == "pass" and agent.provision_streak_count > 0 %}
                 <span class="p-tooltip--right" aria-describedby="tooltip">
                     <i class="p-icon--success"></i>
                     <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has passed the last {{
                         agent.provision_streak_count }} provision attempts</span>
                 </span>
-                {{ agent.provision_streak_count }}
+                <span class="provision-streak">
+                    {{ agent.provision_streak_count }}
+                </span>
                 {% endif %}
             </td>
             <td><a href="/agents/{{ agent.name }}">{{ agent.name }}</a></td>
