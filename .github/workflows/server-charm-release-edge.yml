@@ -54,7 +54,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Upload charm to charmhub
-        uses: canonical/charming-actions/upload-charm@2.4.0
+        uses: canonical/charming-actions/upload-charm@2.7.0
         with:
           charm-path: server/charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
