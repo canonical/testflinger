@@ -208,8 +208,10 @@ If either ``reserve_command`` is missing from the agent configuration, or the th
       url: <url>
     reserve_data:
       ssh_keys:
-        - lp:user1
+        - "lp:user1"
       timeout: 4800
+
+ Note: "lp:user1" is a string in the job definition yaml, not a yaml key-value pair, so there should be no space between the colon and the username.
 
 Cleanup 
 ~~~~~~~~~
