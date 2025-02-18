@@ -50,6 +50,16 @@ If either ``provision_command`` is missing from the agent configuration, or the 
     provision_data:
       url: http://cdimage.ubuntu.com/ubuntu-core/16/stable/current/image.img.xz    # Data to pass to the provisioning step
 
+The `kernel` field can be included in provision_data to select an alternate kernel to install during provisioning. The accepted values for this field correspond to the kernel names that the connected MAAS instance is aware of. (These can be found under the "Deploy" menu's "Kernel" dropdown on the corresponding MAAS instance.)
+
+* Example job definition with hwe kernel:
+
+  .. code-block:: yaml
+
+    job_queue: example-queue
+    provision_data:
+      distro: jammy
+      kernel: hwe-22.04
 
 
 Firmware update
