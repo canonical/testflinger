@@ -3,12 +3,15 @@
 import unittest
 import pytest
 from unittest.mock import patch
-from testflinger_device_connectors.fw_devices import LVFSDevice
+from testflinger_device_connectors.fw_devices import (
+    LVFSDevice,
+    FirmwareUpdateError,
+)
 from testflinger_device_connectors.fw_devices.firmware_update import (
     detect_device,
 )
 
-
+LVFSDevice_path = "testflinger_device_connectors.fw_devices.LVFSDevice"
 vendor_cmd = "sudo cat /sys/class/dmi/id/chassis_vendor"
 type_cmd = "sudo cat /sys/class/dmi/id/chassis_type"
 
@@ -73,55 +76,56 @@ class TestFirmwareUpdate(unittest.TestCase):
 
     def test_detect_device_supported(self):
         """Test if detects_device returns a correct device class"""
-        with patch(
-            "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
-        ) as mock_path:
-            mock_path.side_effect = self.mock_run_cmd_supported
+        with patch(f"{LVFSDevice_path}.run_cmd") as mock1, patch(
+            f"{LVFSDevice_path}.check_connectable"
+        ) as mock2:
+            mock1.side_effect = self.mock_run_cmd_supported
+            mock2.return_value = None
             device = detect_device("", "", "")
             self.assertTrue(isinstance(device, LVFSDevice))
 
     def test_detect_device_unsupported(self):
         """Test if detects_device exits while given a unsupported device"""
-        with pytest.raises(RuntimeError) as pytest_wrapped_e:
-            with patch(
-                "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
-            ) as mock_path:
-                mock_path.side_effect = self.mock_run_cmd_unsupported
+        with pytest.raises(FirmwareUpdateError) as pytest_wrapped_e:
+            with patch(f"{LVFSDevice_path}.run_cmd") as mock1, patch(
+                f"{LVFSDevice_path}.check_connectable"
+            ) as mock2:
+                mock1.side_effect = self.mock_run_cmd_unsupported
+                mock2.return_value = None
                 detect_device("", "", "")
-        self.assertEqual(pytest_wrapped_e.type, RuntimeError)
-        self.assertIn(
-            "is not in current support scope",
-            str(pytest_wrapped_e.value),
-        )
+            self.assertIn(
+                "is not in current support scope",
+                str(pytest_wrapped_e.value),
+            )
 
     def test_detect_device_fail(self):
         """
         Test if detects_device exits while given a device without dmi data
         """
-        with pytest.raises(RuntimeError) as pytest_wrapped_e:
-            with patch(
-                "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
-            ) as mock_path:
-                mock_path.side_effect = self.mock_run_cmd_fail
+        with pytest.raises(FirmwareUpdateError) as pytest_wrapped_e:
+            with patch(f"{LVFSDevice_path}.run_cmd") as mock1, patch(
+                f"{LVFSDevice_path}.check_connectable"
+            ) as mock2:
+                mock1.side_effect = self.mock_run_cmd_fail
+                mock2.return_value = None
                 detect_device("", "", "")
-        self.assertEqual(pytest_wrapped_e.type, RuntimeError)
-        self.assertIn(
-            "Unable to detect device vendor/type due to lacking of dmi info",
-            str(pytest_wrapped_e.value),
-        )
+            self.assertIn(
+                "Unable to detect device vendor/type due to lacking of dmi",
+                str(pytest_wrapped_e.value),
+            )
 
     def test_detect_device_nossh(self):
         """
         Test if detects_device exits while given an unreachable device
         """
-        with pytest.raises(RuntimeError) as pytest_wrapped_e:
-            with patch(
-                "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
-            ) as mock_path:
-                mock_path.side_effect = self.mock_run_cmd_nossh
+        with pytest.raises(FirmwareUpdateError) as pytest_wrapped_e:
+            with patch(f"{LVFSDevice_path}.run_cmd") as mock1, patch(
+                f"{LVFSDevice_path}.check_connectable"
+            ) as mock2:
+                mock1.side_effect = self.mock_run_cmd_nossh
+                mock2.return_value = None
                 detect_device("", "", "")
-        self.assertEqual(pytest_wrapped_e.type, RuntimeError)
-        self.assertIn(
-            "Unable to detect device vendor/type due to lacking of dmi info",
-            str(pytest_wrapped_e.value),
-        )
+            self.assertIn(
+                "Unable to detect device vendor/type due to lacking of dmi",
+                str(pytest_wrapped_e.value),
+            )
