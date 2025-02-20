@@ -31,7 +31,7 @@ The following table lists the key elements that a job definition file should con
     - integer
     - | 900
       | (15 minutes)
-    - (Optional) Maximum time (in seconds) Testflinger should wait in the ``test`` phase to get output from the job. If the timeout is reached before the test phase has any output, Testflinger will cancel the job. This value should be smaller than, or equal to, the ``global_timeout``. 
+    - (Optional) Maximum time (in seconds) Testflinger should wait in the ``test`` phase to get output from the job. If the timeout is reached before the test phase has any output, Testflinger will cancel the job. This is meant to protect from individual commands being stuck vs the ``global_timeout`` doing the same for the whole job. Any new output, even a single character, by any of the ``test_cmds`` will reset this timer. This value should be smaller than, or equal to, the ``global_timeout``. 
   * - ``allocation_timeout``
     - integer
     - | 7200
