@@ -211,7 +211,7 @@ If either ``reserve_command`` is missing from the agent configuration, or the th
         - "lp:user1"
       timeout: 4800
 
- Note: "lp:user1" is a string in the job definition yaml, not a yaml key-value pair, so there should be no space between the colon and the username.
+Note: ``lp:user1`` is a string in the job definition YAML, not a YAML key-value pair, so there should be no space between the colon and the username.
 
 Cleanup 
 ~~~~~~~~~
