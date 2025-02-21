@@ -52,7 +52,7 @@ If either ``provision_command`` is missing from the agent configuration, or the 
 
 The `kernel` field can be included in provision_data to select an alternate kernel to install during provisioning. The accepted values for this field correspond to the kernel names that the connected MAAS instance is aware of. (These can be found under the "Deploy" menu's "Kernel" dropdown on the corresponding MAAS instance.)
 
-* Example job definition with hwe kernel:
+* Example job definition with ``hwe`` kernel:
 
   .. code-block:: yaml
 
