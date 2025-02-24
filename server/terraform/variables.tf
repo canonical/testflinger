@@ -1,20 +1,25 @@
 variable "environment" {
   description = "The environment to deploy to (dev, staging, prod)"
+  type        = string
+  default     = "dev"
 }
 
 variable "external_ingress_hostname" {
   description = "External hostname for the ingress"
   type        = string
+  default     = "testflinger.local"
 }
 
 variable "tls_secret_name" {
   description = "Secret where the TLS certificate for ingress is stored"
   type        = string
+  default     = ""
 }
 
 variable "db_offer" {
   description = "Name of the juju offer for mongodb to use for the cross-model relation"
   type        = string
+  default     = "admin/testflinger-dev-db.mongodb"
 }
 
 variable "nginx_ingress_integrator_charm_whitelist_source_range" {
@@ -46,6 +51,7 @@ variable "jwt_signing_key" {
   description = "The signing key for JWT tokens"
   sensitive   = true
   type        = string
+  default     = "secret"
 }
 
 locals {

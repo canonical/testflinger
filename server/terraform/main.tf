@@ -6,14 +6,14 @@ resource "juju_application" "testflinger" {
 
   charm {
     name    = "testflinger-k8s"
-    series  = "jammy"
-    channel = var.environment == "production" ? "stable" : "edge"
+    base    = "ubuntu@22.04"
+    channel = var.environment == "production" ? "latest/stable" : "latest/edge"
   }
 
   config = {
     external_hostname = var.external_ingress_hostname
-    max_pool_size = var.max_pool_size
-    jwt_signing_key = var.jwt_signing_key
+    max_pool_size     = var.max_pool_size
+    jwt_signing_key   = var.jwt_signing_key
   }
 }
 
@@ -24,13 +24,13 @@ resource "juju_application" "ingress" {
 
   charm {
     name    = "nginx-ingress-integrator"
-    channel = "stable"
+    channel = "latest/stable"
   }
 
   config = {
-    tls-secret-name = var.tls_secret_name
+    tls-secret-name        = var.tls_secret_name
     whitelist-source-range = var.nginx_ingress_integrator_charm_whitelist_source_range
-    max-body-size = var.nginx_ingress_integrator_charm_max_body_size
+    max-body-size          = var.nginx_ingress_integrator_charm_max_body_size
   }
 }
 
@@ -50,11 +50,11 @@ resource "juju_integration" "testflinger-ingress-relation" {
   model = local.app_model
 
   application {
-    name     = juju_application.testflinger.name
+    name = juju_application.testflinger.name
   }
 
   application {
-    name     = juju_application.ingress.name
+    name = juju_application.ingress.name
   }
 }
 

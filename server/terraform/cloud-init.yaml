@@ -1,0 +1,30 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+snap:
+  commands:
+    - snap install lxd --channel=6.1/stable
+    - snap install juju --channel=3.6/stable
+    - snap install charmcraft --channel=3.x/stable --classic
+    - snap install terraform --classic
+    - snap install microk8s --channel=1.32-strict/stable
+    - snap alias microk8s.kubectl kubectl
+runcmd:
+  - lxd init --auto
+  - adduser ubuntu snap_microk8s
+  - microk8s status --wait-ready
+  - microk8s enable dns
+  - microk8s enable hostpath-storage
+  - microk8s enable ingress
+  - sudo -u ubuntu juju bootstrap microk8s microk8s-controller
+  - sudo -u ubuntu juju bootstrap localhost localhost-controller
+  - |
+    # workaround to get the localhost-controller to connect to microk8s
+    server_url=$(microk8s config | grep server | awk '{print $2;}')
+    sed -i "s|server: .*|server: $server_url|g" /var/snap/microk8s/current/credentials/client.config
+  - sudo -u ubuntu juju add-cloud microk8s --controller localhost-controller
+  - sudo -u ubuntu juju add-model testflinger-dev-db localhost
+  - sudo -u ubuntu juju deploy mongodb --channel 5/edge
+  - sudo -u ubuntu juju offer testflinger-dev-db.mongodb:database mongodb
+  - sudo -u ubuntu juju add-model testflinger-dev microk8s
