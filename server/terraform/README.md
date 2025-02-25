@@ -20,7 +20,7 @@ Feel free to increase the storage, memory, cpu limits or change the VM name.
 
 ## Initialize project's terraform
 
-Now that everything has been setup, you can initialize the project's terraform.
+Now that everything has been set up, you can initialize the project's terraform.
 
 In the terraform directory on your host machine, run:
 
