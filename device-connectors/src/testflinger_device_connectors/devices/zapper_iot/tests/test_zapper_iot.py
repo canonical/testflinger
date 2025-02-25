@@ -132,7 +132,9 @@ class ZapperIoTTests(unittest.TestCase):
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {
-                "provision_plan": {"run_stage": [{"initial_login": {"method": "system-user"}}]}
+                "provision_plan": {
+                    "run_stage": [{"initial_login": {"method": "system-user"}}]
+                }
             }
         }
         device._post_run_actions()
@@ -148,7 +150,11 @@ class ZapperIoTTests(unittest.TestCase):
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {
-                "provision_plan": {"run_stage": [{"initial_login": {"method": "console-conf"}}]}
+                "provision_plan": {
+                    "run_stage": [
+                        {"initial_login": {"method": "console-conf"}}
+                    ]
+                }
             }
         }
         device._post_run_actions()
