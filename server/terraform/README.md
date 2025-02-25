@@ -62,7 +62,7 @@ Once you find the IP address add the following entry to your host machine's `/et
 <ip-address>   testflinger.local
 ```
 
-After that you should be able to get to Testflinger frontend on your host machine's browser through the url testflinger.local. You should also be able to access the API through testflinger.local/v1/.
+After that you should be able to get to Testflinger frontend on your host machine's browser through the url `http://testflinger.local`. You should also be able to access the API through `http://testflinger.local/v1/`.
 
 ## Teardown
 
