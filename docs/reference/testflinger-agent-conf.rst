@@ -54,6 +54,8 @@ The following configuration options are supported by the Testflinger Agent:
       - Command to run for the cleanup phase
     * - ``provision_type``
       - (Optional) type of device connector used. This is sometimes useful when templating the call to the external device-agent command, but is not required. For the list of supported provision types, see :doc:`device-connector-types`.
+    * - ``conserver_address``
+      - (Optional) Address of the Conserver server. This is used by the agent to retrieve serial logs from the device.
 
 Example configuration
 ^^^^^^^^^^^^^^^^^^^^^^
