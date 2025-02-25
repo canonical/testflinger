@@ -1,90 +1,97 @@
-# Deploying with Terraform + Juju + Kubernetes
+# Juju deployment
 
-The `testflinger.tf` plan in this directory can be used for deploying
-the Testflinger server into a dev, staging, or production environment.
-For development, it is recommended to use Juju with Microk8s.
+Local Juju and charm deployment via microk8s and terraform.
 
+## Setup a juju environment
 
-## Setting up microk8s and juju for development
+It is recommended to install the pre-requisites on a VM rather than your host machine. To do so, first install multipass:
 
-Microk8s makes a great environment for development and testing this,
-and you can find more information about deploying it and using it with
-juju in this howto: https://juju.is/docs/olm/microk8s
-
-However, the required steps are:
-
-```
-sudo snap install microk8s --channel=1.27-strict/stable
-sudo usermod -a -G snap_microk8s $USER
-sudo chown -f -R $USER ~/.kube
-newgrp snap_microk8s
-sudo microk8s enable hostpath-storage dns ingress
-sudo snap alias microk8s.kubectl kubectl
-sudo snap install juju --channel=3.1/stable
-mkdir -p ~/.local/share
-juju bootstrap microk8s tf-controller
+```bash
+sudo snap install multipass
 ```
 
-## Deploying an Environment
+Then launch a new VM instance using (this will take a while):
 
-For purposes of this example, we will be deploying a **dev**
-environment.
-
-1. First, create the model
-```
-    $ juju add-model testflinger-dev
+```bash
+multipass launch noble --disk 50G --memory 4G --cpus 2 --name testflinger-juju --mount /path/to/testflinger:/home/ubuntu/testflinger --cloud-init /path/to/testflinger/server/terraform/cloud-init.yaml --timeout 1800
 ```
 
-2. The terraform juju provider doesn't currently support specifying storage
-requirements. So we need to work around this by manually deploying the
-database. You can modify the specified storage requirements to fit your needs.
-```
-    $ juju deploy -m testflinger-dev --channel=5/edge mongodb-k8s --storage mongodb=10G
+Feel free to increase the storage, memory, cpu limits or change the VM name.
+
+## Initialize project's terraform
+
+Now that everything has been set up, you can initialize the project's terraform.
+
+In the terraform directory on your host machine, run:
+
+```bash
+multipass exec testflinger-juju -- terraform init
 ```
 
-3. (optional) If you want to use https, you will need to import the
-TLS certificate into a k8s secret. To generate and import a self-signed
-certificate for *testflinger.local* (as an example), you can use the following
-process:
-```
-    $ openssl genrsa -out ca.key 2048
-    $ openssl req -x509 -new -nodes -days 365 -key ca.key -out ca.crt -subj "/CN=testflinger.local"
-    $ microk8s kubectl create secret tls my-tls-secret --key ca.key --cert ca.crt
+## Deploy everything
+
+In the terraform directory on your host machine, run:
+
+```bash
+multipass exec testflinger-juju -- terraform apply -auto-approve
 ```
 
-4. (optional) Export environment variables to be used in the following steps. If
-you choose not to do this, you'll need to either specify them on the command line
-for each command, or answer the interactive prompts from terraform.
-```
-    $ export TF_VAR_environment=dev
-    $ export TF_VAR_external_ingress_hostname=testflinger.local
-    $ export TF_VAR_tls_secret_name=my-tls-secret
+Then wait for the deployment to settle and all the statuses to become active. You can watch the statuses via:
+
+```bash
+multipass exec testflinger-juju -- juju status --storage --relations --watch 5s
 ```
 
-5. (First run only) Initialize terraform
-```
-    $ terraform init
+## Connect to your deployment
+
+Look at the IPv4 addresses of your testflinger-juju vm through:
+
+```bash
+multipass info testflinger-juju
 ```
 
-6. Since we specify the model name (testflinger-${environment}) in the terraform plan,
-and we already created it by hand to deploy mongodb, we need to import that
-existing model into the terraform state so that terraform doesn't give
-us an error when it tries to create it.
-```
-    $ terraform import juju_model.testflinger_model testflinger-dev
+One of these connect to the ingress enabled inside the VM. To figure out which one try the following command on each IP address until you get response:
+
+```bash
+curl --connect-to ::<ip-address> http://testflinger.local
 ```
 
-7. Running `terraform plan` will show us what it intends to do without
-actually doing it. Look at the output from this and make sure it looks
-correct.
-```
-    $ terraform plan
+Once you find the IP address add the following entry to your host machine's `/etc/hosts` file:
+
+```text
+<ip-address>   testflinger.local
 ```
 
-8. Finally, apply the terraform plan. After the initial deployment,
-future changes can also be applied using this command without the need
-for any of the previous steps. After this settles, everything should
-be deployed, and the details will be visible from `juju status`.
+After that you should be able to get to Testflinger frontend on your host machine's browser through the url `http://testflinger.local`. You should also be able to access the API through `http://testflinger.local/v1/`.
+
+## Teardown
+
+To take everything down you can start with terraform:
+
+```bash
+multipass exec testflinger-juju -- terraform destroy -auto-approve
 ```
-    $ terraform apply
+
+The above step can take a while and may even get stuck with some applications in error state. You can watch it through:
+
+```bash
+multipass exec testflinger-juju -- juju status --storage --relations --watch 5s
+```
+
+To forcefully remove applications stuck in error state:
+
+```bash
+multipass exec testflinger-juju -- juju remove-application <application-name> --destroy-storage --force
+```
+
+Once everything is down and the juju model has been deleted you can stop the multipass VM:
+
+```bash
+multipass stop testflinger-juju
+```
+
+Optionally, delete the VM:
+
+```bash
+multipass delete --purge testflinger-juju
 ```
