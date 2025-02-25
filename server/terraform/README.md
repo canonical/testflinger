@@ -58,7 +58,7 @@ curl --connect-to ::<ip-address> http://testflinger.local
 
 Once you find the IP address add the following entry to your host machine's `/etc/hosts` file:
 
-```bash
+```text
 <ip-address>   testflinger.local
 ```
 
