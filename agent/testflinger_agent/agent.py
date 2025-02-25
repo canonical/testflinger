@@ -27,7 +27,6 @@ from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.event_emitter import EventEmitter
 from testflinger_common.enums import JobState, TestPhase, TestEvent
 
-
 try:
     # attempt importing a tarfile filter, to check if filtering is supported
     from tarfile import data_filter
@@ -281,7 +280,7 @@ class TestflingerAgent:
                 )
                 # Clear  error log before starting
                 open(error_log_path, "w").close()
-
+                job.start_serial_log_capture(rundir)
                 for phase in TEST_PHASES:
                     # First make sure the job hasn't been cancelled
                     if (
@@ -327,6 +326,7 @@ class TestflingerAgent:
                 # Always run the cleanup, even if the job was cancelled
                 event_emitter.emit_event(TestEvent.CLEANUP_START)
                 job.run_test_phase(TestPhase.CLEANUP, rundir)
+                job.end_serial_log_capture()
                 event_emitter.emit_event(TestEvent.CLEANUP_SUCCESS)
                 event_emitter.emit_event(TestEvent.JOB_END, job_end_reason)
                 # clear job id
