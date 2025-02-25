@@ -97,12 +97,12 @@ The ``maas2`` device connector supports the following ``provision_data`` keys:
      - Specify a kernel to use during deployment. This is the name of the
        kernel as it appears in the MAAS web UI and must already be imported into MAAS.
        For more information, see
-       `MAAS documentation: Set a specific kernel <https://maas.io/docs/how-to-customise-machines#set-a-specific-kernel-during-machine-deployment-5>`_.
+       `MAAS documentation: Set a specific kernel <https://maas.io/docs/about-machine-customisation#p-17465-ubuntu-kernels>`_.
        on this topic
    * - ``user_data``
      - A string containing base64 encoded cloud-init user data to be used for provisioning.
        For more information, see
-       `MAAS documentation: Pre-seed cloud-init <https://maas.io/docs/how-to-customise-machines#pre-seed-cloud-init-2>`_.
+       `MAAS documentation: Pre-seed cloud-init <https://maas.io/docs/about-machine-customisation#p-17465-pre-seeding>`_.
        on this topic
    * - ``disks``
      - Specify a custom disk configuration for the machine. For more information, see the
