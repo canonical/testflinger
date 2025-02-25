@@ -20,13 +20,15 @@ import shutil
 import signal
 import sys
 import tempfile
+import copy
 
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.event_emitter import EventEmitter
 from testflinger_common.enums import JobState, TestPhase, TestEvent
-
+from .runner import CommandRunner
+from .handlers import LiveSerialOutputHandler, LogUpdateHandler
 
 try:
     # attempt importing a tarfile filter, to check if filtering is supported
@@ -93,6 +95,7 @@ def parse_error_logs(error_log_path: str, phase: str):
 class TestflingerAgent:
     def __init__(self, client):
         self.client = client
+        self.conserver_runner = CommandRunner(cwd=None, env=self.client.config)
         signal.signal(signal.SIGUSR1, self.restart_signal_handler)
         self.set_agent_state("waiting")
         self._post_initial_agent_data()
@@ -281,7 +284,7 @@ class TestflingerAgent:
                 )
                 # Clear  error log before starting
                 open(error_log_path, "w").close()
-
+                self.start_serial_log_capture(rundir, job.job_id)
                 for phase in TEST_PHASES:
                     # First make sure the job hasn't been cancelled
                     if (
@@ -327,6 +330,7 @@ class TestflingerAgent:
                 # Always run the cleanup, even if the job was cancelled
                 event_emitter.emit_event(TestEvent.CLEANUP_START)
                 job.run_test_phase(TestPhase.CLEANUP, rundir)
+                self.end_serial_log_capture(rundir, job.job_id)
                 event_emitter.emit_event(TestEvent.CLEANUP_SUCCESS)
                 event_emitter.emit_event(TestEvent.JOB_END, job_end_reason)
                 # clear job id
@@ -376,3 +380,29 @@ class TestflingerAgent:
         logger.info("Marked agent for restart")
         restart_file = self.get_restart_files()[0]
         open(restart_file, "w").close()
+
+    def start_serial_log_capture(self, rundir, job_id):
+        """
+        Start capturing serial logs from the conserver server
+        """
+        if "conserver_address" not in self.client.config:
+            return
+
+        full_serial_log = os.path.join(rundir, "full-serial.log")
+        serial_log_handler = LogUpdateHandler(full_serial_log)
+        live_serial_output_handler = LiveSerialOutputHandler(
+            copy.deepcopy(self.client), job_id
+        )
+        self.conserver_runner.register_output_handler(serial_log_handler)
+        self.conserver_runner.register_output_handler(
+            live_serial_output_handler
+        )
+        self.conserver_runner.run_async(
+            (
+                f"console -M {self.client.config['conserver_address']} "
+                f"{self.client.config['agent_id']}"
+            )
+        )
+
+    def end_serial_log_capture(self, rundir, job_id):
+        self.conserver_runner.kill_async()
