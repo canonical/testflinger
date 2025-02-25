@@ -69,7 +69,7 @@ After that you should be able to get to Testflinger frontend on your host machin
 To take everything down you can start with terraform:
 
 ```bash
-multipass exec testflinger-juju -- terraform destroy --auto-approve
+multipass exec testflinger-juju -- terraform destroy -auto-approve
 ```
 
 The above step can take a while and may even get stuck with some applications in error state. You can watch it through:
