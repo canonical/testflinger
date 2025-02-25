@@ -85,9 +85,12 @@ class DeviceConnector(ZapperConnector):
         if provision_plan:
             run_stages = provision_plan["run_stage"]
             for stage in run_stages:
-                if stage.type is dict and stage.key == "initial_login":
-                    if stage.get("method") == "console-conf":
-                        do_copy_ssh_id = False
+                if (
+                    isinstance(stage, dict)
+                    and "initial_login" in stage.keys()
+                    and stage["initial_login"].get("method") == "console-conf"
+                ):
+                    do_copy_ssh_id = False
 
         if do_copy_ssh_id:
             self._copy_ssh_id()
