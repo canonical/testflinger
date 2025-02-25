@@ -122,3 +122,34 @@ class ZapperIoTTests(unittest.TestCase):
 
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
+
+    def test_post_run_actions_copy_ssh_id(self):
+        """
+        Test the function copies the ssh id if the
+        initial login method is Not console-conf.
+        """
+
+        device = DeviceConnector()
+        device.job_data = {
+            "provision_data": {
+                "provision_plan": {"run_stage": [{"initial_login": {"method": "system-user"}}]}
+            }
+        }
+        device._post_run_actions()
+
+        self.assertEqual(device._copy_ssh_id.call_count, 1)
+
+    def test_post_run_actions_no_copy_ssh_id(self):
+        """
+        Test the function does not copy the ssh id if the
+        initial login method is console-conf.
+        """
+
+        device = DeviceConnector()
+        device.job_data = {
+            "provision_data": {
+                "provision_plan": {"run_stage": [{"initial_login": {"method": "console-conf"}}]}
+            }
+        }
+        device._post_run_actions()
+        self.assertEqual(device._copy_ssh_id.call_count, 0)

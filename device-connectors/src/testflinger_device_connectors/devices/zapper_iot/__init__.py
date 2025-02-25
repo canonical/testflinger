@@ -78,5 +78,16 @@ class DeviceConnector(ZapperConnector):
 
     def _post_run_actions(self, args):
         """Run further actions after Zapper API returns successfully."""
+        super()._post_run_actions(args)
 
-        self._copy_ssh_id()
+        do_copy_ssh_id = True
+        provision_plan = self.job_data["provision_data"].get("provision_plan")
+        if provision_plan:
+            run_stages = provision_plan["run_stage"]
+            for stage in run_stages:
+                if stage.type is dict and stage.key == "initial_login":
+                    if stage.get("method") == "console-conf":
+                        do_copy_ssh_id = False
+
+        if do_copy_ssh_id:
+            self._copy_ssh_id()
