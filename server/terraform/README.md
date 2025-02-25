@@ -89,3 +89,9 @@ Once everything is down and the juju model has been deleted you can stop the mul
 ```bash
 multipass stop testflinger-juju
 ```
+
+Optionally, delete the VM:
+
+```bash
+multipass delete --purge testflinger-juju
+```
