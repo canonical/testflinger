@@ -17,14 +17,14 @@ runcmd:
   - microk8s enable dns
   - microk8s enable hostpath-storage
   - microk8s enable ingress
-  - sudo -u ubuntu juju bootstrap microk8s microk8s-controller
-  - sudo -u ubuntu juju bootstrap localhost localhost-controller
+  - sudo -i -u ubuntu snap run juju bootstrap microk8s microk8s-controller
+  - sudo -i -u ubuntu snap run juju bootstrap localhost localhost-controller
   - |
     # workaround to get the localhost-controller to connect to microk8s
     server_url=$(microk8s config | grep server | awk '{print $2;}')
     sed -i "s|server: .*|server: $server_url|g" /var/snap/microk8s/current/credentials/client.config
-  - sudo -u ubuntu juju add-cloud microk8s --controller localhost-controller
-  - sudo -u ubuntu juju add-model testflinger-dev-db localhost
-  - sudo -u ubuntu juju deploy mongodb --channel 5/edge
-  - sudo -u ubuntu juju offer testflinger-dev-db.mongodb:database mongodb
-  - sudo -u ubuntu juju add-model testflinger-dev microk8s
+  - sudo -i -u ubuntu snap run juju add-cloud microk8s --controller localhost-controller
+  - sudo -i -u ubuntu snap run juju add-model testflinger-dev-db localhost
+  - sudo -i -u ubuntu snap run juju deploy mongodb --channel 5/edge
+  - sudo -i -u ubuntu snap run juju offer testflinger-dev-db.mongodb:database mongodb
+  - sudo -i -u ubuntu snap run juju add-model testflinger-dev microk8s

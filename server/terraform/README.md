@@ -13,10 +13,16 @@ sudo snap install multipass
 Then launch a new VM instance using (this will take a while):
 
 ```bash
-multipass launch noble --disk 50G --memory 4G --cpus 2 --name testflinger-juju --mount /path/to/testflinger:/home/ubuntu/testflinger --cloud-init /path/to/testflinger/server/terraform/cloud-init.yaml --timeout 1800
+multipass launch noble --disk 50G --memory 4G --cpus 2 --name testflinger-juju --mount /path/to/testflinger:/home/ubuntu/testflinger --cloud-init /path/to/testflinger/server/terraform/cloud-init.yaml --timeout 1200
 ```
 
 Feel free to increase the storage, memory, cpu limits or change the VM name.
+
+Note that the initialization may timeout. That's fine as long as the setup actually completed. You can tell that the setup completed by checking if there are juju models created already:
+
+```bash
+multipass exec testflinger-juju -- juju models
+```
 
 ## Initialize project's terraform
 
