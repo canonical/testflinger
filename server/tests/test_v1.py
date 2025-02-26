@@ -745,3 +745,18 @@ def test_get_agents_on_queue(mongo_app):
     output = app.get("/v1/queues/q3/agents")
     assert 200 == output.status_code
     assert len(output.json) == 0
+
+
+def test_serial_output(mongo_app):
+    """Test api endpoint to get serial log output"""
+    app, _ = mongo_app
+    output_url = (
+        "/v1/result/00000000-0000-0000-0000-000000000000/serial_output"
+    )
+    data = "line1\nline2\nline3"
+    output = app.post(output_url, data=data)
+    assert "OK" == output.text
+    output = app.get(output_url)
+    assert output.text == data
+    empty_output = app.get(output_url)
+    assert empty_output.text == ""
