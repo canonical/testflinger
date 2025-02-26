@@ -190,6 +190,7 @@ TESTPLAN_SCHEMA = {
                 "cloud-init",
                 "console-conf",
                 "system-user",
+                "builtin-account",
             ],
         },
     },
