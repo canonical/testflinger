@@ -18,6 +18,12 @@ multipass launch noble --disk 50G --memory 4G --cpus 2 --name testflinger-juju -
 
 Feel free to increase the storage, memory, cpu limits or change the VM name.
 
+Note that the initialization may timeout. That's fine as long as the setup actually completed. You can tell that the setup completed by checking if there are juju models created already:
+
+```bash
+multipass exec testflinger-juju -- juju models
+```
+
 ## Initialize project's terraform
 
 Now that everything has been set up, you can initialize the project's terraform.
