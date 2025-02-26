@@ -69,7 +69,6 @@ TESTPLAN_SCHEMA = {
                                             "seed_override_lk",
                                         ],
                                     },
-                                    "method": {"$ref": "#/$defs/method"},
                                     "extra_provision_tool_args": {
                                         "type": "string"
                                     },
@@ -79,7 +78,7 @@ TESTPLAN_SCHEMA = {
                                     },
                                     "update_boot_assets": {"type": "boolean"},
                                 },
-                                "required": ["utility", "method"],
+                                "required": ["utility"],
                             },
                             "checkbox": {
                                 "type": "object",
