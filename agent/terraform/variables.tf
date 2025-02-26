@@ -48,13 +48,13 @@ variable "config_dir" {
 }
 
 variable "ssh_public_key" {
+  sensitive   = true
   type        = string
   description = "base64 encoded ssh public key to use on the agent host"
 }
 
 variable "ssh_private_key" {
+  sensitive   = true
   type        = string
   description = "base64 encoded ssh private key to use on the agent host"
 }
-
-
