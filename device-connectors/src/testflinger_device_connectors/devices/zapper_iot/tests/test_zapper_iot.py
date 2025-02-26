@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_iot import DeviceConnector
@@ -122,3 +123,42 @@ class ZapperIoTTests(unittest.TestCase):
 
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
+
+    @patch.object(DeviceConnector, "_copy_ssh_id")
+    def test_post_run_actions_copy_ssh_id(self, mock_copy_ssh_id):
+        """
+        Test the function copies the ssh id if the
+        initial login method is Not console-conf.
+        """
+
+        device = DeviceConnector()
+        device.job_data = {
+            "provision_data": {
+                "provision_plan": {
+                    "run_stage": [{"initial_login": {"method": "system-user"}}]
+                }
+            }
+        }
+        device._post_run_actions(args=None)
+
+        mock_copy_ssh_id.assert_called_once()
+
+    @patch.object(DeviceConnector, "_copy_ssh_id")
+    def test_post_run_actions_no_copy_ssh_id(self, mock_copy_ssh_id):
+        """
+        Test the function does not copy the ssh id if the
+        initial login method is console-conf.
+        """
+
+        device = DeviceConnector()
+        device.job_data = {
+            "provision_data": {
+                "provision_plan": {
+                    "run_stage": [
+                        {"initial_login": {"method": "console-conf"}}
+                    ]
+                }
+            }
+        }
+        device._post_run_actions(args=None)
+        mock_copy_ssh_id.assert_not_called()
