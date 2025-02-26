@@ -248,6 +248,17 @@ class Client:
         endpoint = "/v1/result/{}/output".format(job_id)
         return self.get(endpoint)
 
+    def get_serial_output(self, job_id):
+        """Get the latest serial output for a specified test job
+
+        :param job_id:
+            ID for the test job
+        :return:
+            String containing the latest serial output from the job
+        """
+        endpoint = "/v1/result/{}/serial_output".format(job_id)
+        return self.get(endpoint)
+
     def get_job_position(self, job_id):
         """Get the status of a test job
 
