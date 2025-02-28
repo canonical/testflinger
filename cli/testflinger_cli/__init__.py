@@ -203,6 +203,7 @@ class TestflingerCli:
         self._add_jobs_args(subparsers)
         self._add_list_queues_args(subparsers)
         self._add_poll_args(subparsers)
+        self._add_poll_serial_args(subparsers)
         self._add_reserve_args(subparsers)
         self._add_status_args(subparsers)
         self._add_results_args(subparsers)
@@ -275,6 +276,23 @@ class TestflingerCli:
             "-o",
             action="store_true",
             help="Get latest output and exit immediately",
+        )
+        parser.add_argument("job_id").completer = partial(
+            autocomplete.job_ids_completer, history=self.history
+        )
+
+    def _add_poll_serial_args(self, subparsers):
+        """Command line arguments for poll-serial"""
+        parser = subparsers.add_parser(
+            "poll-serial",
+            help="Poll for output from a job until it is completed",
+        )
+        parser.set_defaults(func=self.poll_serial)
+        parser.add_argument(
+            "--oneshot",
+            "-o",
+            action="store_true",
+            help="Get latest serial log output and exit immediately",
         )
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
@@ -797,6 +815,15 @@ class TestflingerCli:
             sys.exit(0)
         self.do_poll(self.args.job_id)
 
+    def poll_serial(self):
+        """Poll for serial output from a job until it is completed"""
+        if self.args.oneshot:
+            output = self.get_latest_serial_output(self.args.job_id)
+            if output:
+                print(output, end="", flush=True)
+            sys.exit(0)
+        self.do_poll_serial(self.args.job_id)
+
     def do_poll(self, job_id):
         """Poll for output from a running job and print it while it runs
 
@@ -842,6 +869,22 @@ class TestflingerCli:
                 raise
 
         print(job_state)
+
+    def do_poll_serial(self, job_id):
+        """Poll for serial output from a running job and print it while it runs
+
+        :param str job_id: Job ID
+        """
+        while True:
+            try:
+                output = ""
+                output = self.get_latest_serial_output(job_id)
+                if output:
+                    print(output, end="", flush=True)
+            except (IOError, client.HTTPError):
+                # Ignore/retry or debug any connection errors or timeouts
+                if self.args.debug:
+                    logging.exception("Error polling for serial output")
 
     def jobs(self):
         """List the previously started test jobs"""
@@ -984,6 +1027,21 @@ class TestflingerCli:
         output = ""
         try:
             output = self.client.get_output(job_id)
+        except client.HTTPError as exc:
+            if exc.status == 204:
+                # We are still waiting for the job to start
+                pass
+        return output
+
+    def get_latest_serial_output(self, job_id):
+        """Get the latest serial output from a running job
+
+        :param str job_id: Job ID
+        :return str: New serial output from the running job
+        """
+        output = ""
+        try:
+            output = self.client.get_serial_output(job_id)
         except client.HTTPError as exc:
             if exc.status == 204:
                 # We are still waiting for the job to start

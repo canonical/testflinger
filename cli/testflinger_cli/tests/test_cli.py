@@ -661,3 +661,17 @@ def test_reserve(capsys, requests_mock):
     tfcli.reserve()
     std = capsys.readouterr()
     assert expected_yaml in std.out
+
+
+def test_poll_serial(capsys, requests_mock):
+    """Tests that serial output is polled from the correct endpoint"""
+    job_id = str(uuid.uuid1())
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/serial_output", text="serial output"
+    )
+    sys.argv = ["", "poll-serial", "--oneshot", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit):
+        tfcli.poll_serial()
+    std = capsys.readouterr()
+    assert "serial output" in std.out
