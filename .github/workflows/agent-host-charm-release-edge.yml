@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Upload charm to charmhub
-        uses: canonical/charming-actions/upload-charm@2.6.0
+        uses: canonical/charming-actions/upload-charm@2.7.0
         with:
           charm-path: agent/charms/testflinger-agent-host-charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
