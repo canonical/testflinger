@@ -42,7 +42,7 @@ exclude = "charm/lib"
 
 [tool.djlint]
 profile = "jinja"
-ignore = "H023"
+ignore = "H023,H021"
 indent = 2
 
 [tool.pytest.ini_options]
