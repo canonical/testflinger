@@ -1,11 +1,9 @@
-{% extends 'base.html' %}
-{% set active_page = 'agents' %}
+{% extends "base.html" %}
+{% set active_page = "agents" %}
 {% block content %}
-<div class="p-strip is-shallow">
+  <div class="p-strip is-shallow">
     <div class="row">
-        <h1 class="p-heading--3">
-            Agent not found: {{ agent_id }}
-        </h1>
+      <h1 class="p-heading--3">Agent not found: {{ agent_id }}</h1>
     </div>
-</div>
-{% endblock %}
+  </div>
+{% endblock content %}
