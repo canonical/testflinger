@@ -45,6 +45,10 @@ class DeviceConnector(ZapperConnector):
             "test_password", "ubuntu"
         )
 
+        ubuntu_sso_email = self.job_data["provision_data"].get(
+            "ubuntu_sso_email", ""
+        )
+
         provisioning_data = {
             "username": username,
             "password": password,
@@ -56,16 +60,44 @@ class DeviceConnector(ZapperConnector):
         if provision_plan:
 
             try:
-                validate_provision_plan(provision_plan)
-
                 # Make sure the user created at provision time is
                 # the same used during the test phase.
                 provision_plan["config"]["username"] = username
                 provision_plan["config"]["password"] = password
 
+                # If the initial login is using console-conf, we need to
+                # check if the user has provided an ubuntu_sso_email.
+                # If not, we raise an error.
+                # ubuntu_sso_email will be used to set the username for the
+                # initial login.
+                run_stages = provision_plan["run_stage"]
+                for stage in run_stages:
+                    if (
+                        isinstance(stage, dict)
+                        and "initial_login" in stage.keys()
+                        and stage["initial_login"].get("method")
+                        == "console-conf"
+                    ):
+                        if ubuntu_sso_email:
+                            provision_plan["config"][
+                                "username"
+                            ] = ubuntu_sso_email
+                            break
+                        else:
+                            raise ValueError(
+                                "ubuntu_sso_email is required "
+                                "when initial login using console-conf"
+                            )
+
+                validate_provision_plan(provision_plan)
+
                 provisioning_data["custom_provision_plan"] = provision_plan
-            except ValueError as e:
+            except (ValueError, KeyError) as e:
                 raise ProvisioningError from e
+        # If there is an ubuntu_sso_email and no provision plan, we use it
+        # as the username.
+        elif ubuntu_sso_email:
+            provisioning_data["username"] = ubuntu_sso_email
 
         urls = self.job_data["provision_data"].get("urls", [])
         try:
@@ -80,8 +112,12 @@ class DeviceConnector(ZapperConnector):
         """Run further actions after Zapper API returns successfully."""
         super()._post_run_actions(args)
 
+        # Default to do copy the ssh id.
         do_copy_ssh_id = True
+
         provision_plan = self.job_data["provision_data"].get("provision_plan")
+        # If provision plan is provided, we check if the initial login
+        # is using console-conf. If so, we do not copy the ssh id.
         if provision_plan:
             run_stages = provision_plan["run_stage"]
             for stage in run_stages:
@@ -91,6 +127,15 @@ class DeviceConnector(ZapperConnector):
                     and stage["initial_login"].get("method") == "console-conf"
                 ):
                     do_copy_ssh_id = False
+                    break
+        # If no provision plan is provided, we check if the user has
+        # provided an ubuntu_sso_email. If so, we do not copy the ssh id.
+        else:
+            ubuntu_sso_email = self.job_data["provision_data"].get(
+                "ubuntu_sso_email", ""
+            )
+            if ubuntu_sso_email:
+                do_copy_ssh_id = False
 
         if do_copy_ssh_id:
             self._copy_ssh_id()
