@@ -40,5 +40,10 @@ build-backend = "poetry.core.masonry.api"
 line-length = 79
 exclude = "charm/lib"
 
+[tool.djlint]
+profile = "jinja"
+ignore = "H023"
+indent = 2
+
 [tool.pytest.ini_options]
 pythonpath = ["charm/src", "charm/lib"]
