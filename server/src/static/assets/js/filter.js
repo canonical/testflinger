@@ -129,8 +129,8 @@ function defaultSortOrder(cellA, cellB, direction) {
  */
 function outcomeSortOrder(cellA, cellB, direction) {
   // Trim the provision streak number.
-  var streakA = cellA.getElementsByClassName("provision-streak")[0].textContent.trim();
-  var streakB = cellB.getElementsByClassName("provision-streak")[0].textContent.trim();
+  var streakA = (cellA.getElementsByClassName("provision-streak")[0] || {textContent: "0"}).textContent.trim();
+  var streakB = (cellB.getElementsByClassName("provision-streak")[0] || {textContent: "0"}).textContent.trim();
   // Get success/failure icon of the row
   var isFailureA = cellA.getElementsByClassName("p-icon--warning").length > 0;
   var isFailureB = cellB.getElementsByClassName("p-icon--warning").length > 0;
