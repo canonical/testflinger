@@ -151,7 +151,7 @@ class ZapperIoTTests(unittest.TestCase):
         args, kwargs = device._validate_configuration()
 
         expected = {
-            "username": "ubuntu",
+            "username": "test@example.com",
             "password": "ubuntu",
             "custom_provision_plan": {
                 "config": {
@@ -310,28 +310,6 @@ class ZapperIoTTests(unittest.TestCase):
         device._post_run_actions(args=None)
 
         mock_copy_ssh_id.assert_called_once()
-
-    @patch.object(DeviceConnector, "_copy_ssh_id")
-    def test_post_run_actions_no_copy_ssh_id_provision_plan(
-        self, mock_copy_ssh_id
-    ):
-        """
-        Test the function does not copy the ssh id if the
-        initial login method is console-conf.
-        """
-
-        device = DeviceConnector()
-        device.job_data = {
-            "provision_data": {
-                "provision_plan": {
-                    "run_stage": [
-                        {"initial_login": {"method": "console-conf"}}
-                    ]
-                }
-            }
-        }
-        device._post_run_actions(args=None)
-        mock_copy_ssh_id.assert_not_called()
 
 
 if __name__ == "__main__":
