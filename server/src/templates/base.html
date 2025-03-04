@@ -9,8 +9,9 @@
       {% endblock title %}
     - Testflinger</title>
     <!-- Site CSS Files -->
-    <link href="{{ url_for('static', filename='assets/css/testflinger.css') }}"
-          rel="stylesheet" />
+    <!-- djlint:off J004 -->
+    <link href="/static/assets/css/testflinger.css" rel="stylesheet" />
+    <!-- djlint:on -->
     <link rel="stylesheet"
           href="https://assets.ubuntu.com/v1/vanilla-framework-version-4.13.0.min.css" />
     <!-- Don't request favicon -->
@@ -93,7 +94,8 @@
         </ul>
       </div>
     </footer>
-    <script type="text/javascript"
-            src="{{ url_for('static', filename='assets/js/filter.js') }}"></script>
+    <!-- djlint:off J004 -->
+    <script type="text/javascript" src="/static/assets/js/filter.js"></script>
+    <!-- djlint:on -->
   </body>
 </html>

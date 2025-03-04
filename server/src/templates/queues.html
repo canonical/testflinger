@@ -39,7 +39,9 @@
       {% for queue in queues %}
         <tr class="searchable-row">
           <td>
-            <a href="{{ url_for('queue_detail', queue_name=queue.name) }}">{{ queue.name }}</a>
+            <!-- djlint:off J018 -->
+            <a href="/queues/{{ queue.name }}">{{ queue.name }}</a>
+            <!-- djlint:on -->
           </td>
           <td>{{ queue.numjobs }}</td>
           <td>{{ queue.description }}</td>
