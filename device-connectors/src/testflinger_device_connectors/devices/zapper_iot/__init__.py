@@ -14,6 +14,7 @@
 
 """Zapper Connector for IOT provisioning."""
 import logging
+import contextlib
 from typing import Any, Dict, Tuple
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices import ProvisioningError
@@ -44,9 +45,13 @@ class DeviceConnector(ZapperConnector):
         password = self.job_data.get("test_data", {}).get(
             "test_password", "ubuntu"
         )
+        ubuntu_sso_email = self.job_data["provision_data"].get(
+            "ubuntu_sso_email"
+        )
 
+        # If ubuntu_sso_email is provided, use it instead of the test_username
         provisioning_data = {
-            "username": username,
+            "username": username if not ubuntu_sso_email else ubuntu_sso_email,
             "password": password,
             "preset": self.job_data["provision_data"].get("preset"),
             "reboot_script": self.config["reboot_script"],
@@ -56,15 +61,35 @@ class DeviceConnector(ZapperConnector):
         if provision_plan:
 
             try:
+                # Ensure the provisioning username matches either the test
+                # username or the Ubuntu SSO email if provided
+                provision_plan["config"]["username"] = provisioning_data[
+                    "username"
+                ]
+                provision_plan["config"]["password"] = provisioning_data[
+                    "password"
+                ]
+
+                # For console-conf initial login, ubuntu_sso_email is required.
+                # Validate that it was provided.
+                run_stages = provision_plan["run_stage"]
+                for stage in run_stages:
+                    with contextlib.suppress(KeyError):
+                        if (
+                            stage["initial_login"].get("method")
+                            == "console-conf"
+                        ):
+                            if not ubuntu_sso_email:
+                                raise ValueError(
+                                    "ubuntu_sso_email is required "
+                                    "when initial login using console-conf"
+                                )
+                            break
+
                 validate_provision_plan(provision_plan)
 
-                # Make sure the user created at provision time is
-                # the same used during the test phase.
-                provision_plan["config"]["username"] = username
-                provision_plan["config"]["password"] = password
-
                 provisioning_data["custom_provision_plan"] = provision_plan
-            except ValueError as e:
+            except (ValueError, KeyError) as e:
                 raise ProvisioningError from e
 
         urls = self.job_data["provision_data"].get("urls", [])
@@ -78,5 +103,8 @@ class DeviceConnector(ZapperConnector):
 
     def _post_run_actions(self, args):
         """Run further actions after Zapper API returns successfully."""
+        super()._post_run_actions(args)
 
-        self._copy_ssh_id()
+        # Copy the ssh id if ubuntu_sso_email is not provided in provision_data
+        if not self.job_data["provision_data"].get("ubuntu_sso_email"):
+            self._copy_ssh_id()
