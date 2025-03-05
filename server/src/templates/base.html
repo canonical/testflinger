@@ -1,77 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <title>{% block title %} {% endblock %} - Testflinger</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="Canonical Testflinger server" />
+    <meta name="keywords" content="test, test orchestration, testflinger" />
+    <title>
+      {% block title %}
+      {% endblock title %}
+    - Testflinger</title>
     <!-- Site CSS Files -->
+    <!-- djlint:off J004 -->
     <link href="/static/assets/css/testflinger.css" rel="stylesheet" />
-    <link rel="stylesheet" href="https://assets.ubuntu.com/v1/vanilla-framework-version-4.13.0.min.css" />
+    <!-- djlint:on -->
+    <link rel="stylesheet"
+          href="https://assets.ubuntu.com/v1/vanilla-framework-version-4.13.0.min.css" />
     <!-- Don't request favicon -->
     <link rel="icon" href="data:,">
     <!-- Page specific CSS Files -->
-    {% block stylesheets %}{% endblock stylesheets %}
-</head>
-
-<body>
+    {% block stylesheets %}
+    {% endblock stylesheets %}
+  </head>
+  <body>
     {%- set nav_bar = [
-    {'name': 'Agents', 'url': '/agents'},
-    {'name': 'Jobs', 'url': '/jobs'},
-    {'name': 'Queues', 'url': '/queues'},
-    {'name': 'Documentation', 'url': 'https://canonical-testflinger.readthedocs-hosted.com'},
+      {
+        "name": "Agents",
+        "url": "/agents"
+      },
+      {
+        "name": "Jobs",
+        "url": "/jobs"
+      },
+      {
+        "name": "Queues",
+        "url": "/queues"
+      },
+      {
+        "name": "Documentation",
+        "url": "https://canonical-testflinger.readthedocs-hosted.com"
+      }
     ] -%}
     {%- set active_page = active_page|default('agents') %}
-
     <header id="navigation" class="p-navigation is-dark">
-        <div class="p-navigation__row">
-            <div class="p-navigation__banner">
-                <div class="p-navigation__tagged-logo">
-                    <a class="p-navigation__link" href="/">
-                        <div class="p-navigation__logo-tag">
-                            <img class="p-navigation__logo-icon"
-                                src="https://assets.ubuntu.com/v1/82818827-CoF_white.svg" alt="">
-                        </div>
-                        <span class="p-navigation__logo-title">Testflinger</span>
-                    </a>
-                </div>
-                <a href="#navigation" class="p-navigation__toggle--open" title="menu">Menu</a>
-                <a href="#navigation-closed" class="p-navigation__toggle--close" title="close menu">Close menu</a>
-            </div>
-            <nav class="p-navigation__nav u-image-position" aria-label="Example main">
-                <span class="u-off-screen">
-                    <a href="#main-content">Jump to main content</a>
-                </span>
-                <ul class="p-navigation__items">
-                    {%- for item in nav_bar %}
-                    <li {% if item.name|lower==active_page %} class="p-navigation__item is-selected" {% else %}
-                        class="p-navigation__item" {% endif %}>
-                        <a class="p-navigation__link" href="{{ item.url }}">{{ item.name }}</a>
-                    </li>
-                    {%- endfor %}
-                </ul>
-            </nav>
+      <div class="p-navigation__row">
+        <div class="p-navigation__banner">
+          <div class="p-navigation__tagged-logo">
+            <!-- djlint:off J018 -->
+            <a class="p-navigation__link" href="/">
+              <!-- djlint:on -->
+              <div class="p-navigation__logo-tag">
+                <!-- djlint:off H006 -->
+                <img class="p-navigation__logo-icon"
+                     src="https://assets.ubuntu.com/v1/82818827-CoF_white.svg"
+                     alt="ubuntu circle of friends logo">
+                <!-- djlint:on -->
+              </div>
+              <span class="p-navigation__logo-title">Testflinger</span>
+            </a>
+          </div>
+          <a href="#navigation" class="p-navigation__toggle--open" title="menu">Menu</a>
+          <a href="#navigation-closed"
+             class="p-navigation__toggle--close"
+             title="close menu">Close menu</a>
         </div>
+        <nav class="p-navigation__nav u-image-position" aria-label="Example main">
+          <span class="u-off-screen">
+            <a href="#main-content">Jump to main content</a>
+          </span>
+          <ul class="p-navigation__items">
+            {%- for item in nav_bar %}
+              <li class="p-navigation__item {% if item.name|lower==active_page %}is-selected{% endif %}">
+                <a class="p-navigation__link" href="{{ item.url }}">{{ item.name }}</a>
+              </li>
+            {%- endfor %}
+          </ul>
+        </nav>
+      </div>
     </header>
-
     <div class="row">
-        {% block content %} {% endblock %}
+      {% block content %}
+      {% endblock content %}
     </div>
-
     <hr>
     <footer id="footer" class="p-strip" role="contentinfo">
-        <div id="copyright" class="row">
-            <p>&copy;2023 Canonical Ltd. Ubuntu and Canonical are registered trademarks of Canonical Ltd.</p>
-            <ul class="p-inline-list--middot">
-                <li class="p-inline-list__item">
-                    <a href="http://www.ubuntu.com/legal">Legal information</a>
-                </li>
-                <li class="p-inline-list__item">
-                    <a href="https://ubuntu.com/legal/data-privacy">Data privacy</a>
-                </li>
-            </ul>
-        </div>
+      <div id="copyright" class="row">
+        <p>&copy;2023 Canonical Ltd. Ubuntu and Canonical are registered trademarks of Canonical Ltd.</p>
+        <ul class="p-inline-list--middot">
+          <li class="p-inline-list__item">
+            <a href="https://www.ubuntu.com/legal">Legal information</a>
+          </li>
+          <li class="p-inline-list__item">
+            <a href="https://ubuntu.com/legal/data-privacy">Data privacy</a>
+          </li>
+        </ul>
+      </div>
     </footer>
-<script type="text/javascript" src="/static/assets/js/filter.js"></script>
-</body>
-
+    <!-- djlint:off J004 -->
+    <script type="text/javascript" src="/static/assets/js/filter.js"></script>
+    <!-- djlint:on -->
+  </body>
 </html>

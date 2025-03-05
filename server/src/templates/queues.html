@@ -1,38 +1,52 @@
-{% extends 'base.html' %}
-{% set active_page = 'queues' %}
+{% extends "base.html" %}
+{% set active_page = "queues" %}
 {% block content %}
-<div class="p-strip is-shallow">
+  <div class="p-strip is-shallow">
     <div class="row">
-        <h1 class="p-heading--3">
-            Queues
-            <a href="https://testflinger.readthedocs.io/en/latest/explanation/queues/" target="_blank">
-                <i class="p-icon--help"></i>
-            </a>
-        </h1>
+      <h1 class="p-heading--3">
+        Queues
+        <a href="https://testflinger.readthedocs.io/en/latest/explanation/queues/"
+           target="_blank">
+          <i class="p-icon--help"></i>
+        </a>
+      </h1>
     </div>
-</div>
-<form class="p-search-box">
-    <input aria-label="search" type="search" class="p-search-box__input" name="search" placeholder="Search" required
-        autocomplete="on">
-    <button type="reset" class="p-search-box__reset"><i class="p-icon--close"></i></button>
-    <button type="submit" class="p-search-box__button"><i class="p-icon--search"></i></button>
-</form>
-<table aria-label="Queues table" class="p-table--mobile-card">
+  </div>
+  <form class="p-search-box">
+    <input aria-label="search"
+           type="search"
+           class="p-search-box__input"
+           name="search"
+           placeholder="Search"
+           required
+           autocomplete="on">
+    <button type="reset" class="p-search-box__reset">
+      <i class="p-icon--close"></i>
+    </button>
+    <button type="submit" class="p-search-box__button">
+      <i class="p-icon--search"></i>
+    </button>
+  </form>
+  <table aria-label="Queues table" class="p-table--mobile-card">
     <thead>
-        <tr>
-            <th>Name</th>
-            <th>Number of jobs</th>
-            <th>Description</th>
-        </tr>
+      <tr>
+        <th>Name</th>
+        <th>Number of jobs</th>
+        <th>Description</th>
+      </tr>
     </thead>
     <tbody>
-        {% for queue in queues %}
+      {% for queue in queues %}
         <tr class="searchable-row">
-            <td><a href="/queues/{{ queue.name }}">{{ queue.name }}</a></td>
-            <td>{{ queue.numjobs }}</td>
-            <td>{{ queue.description }}</td>
+          <td>
+            <!-- djlint:off J018 -->
+            <a href="/queues/{{ queue.name }}">{{ queue.name }}</a>
+            <!-- djlint:on -->
+          </td>
+          <td>{{ queue.numjobs }}</td>
+          <td>{{ queue.description }}</td>
         </tr>
-        {% endfor %}
+      {% endfor %}
     </tbody>
-</table>
-{% endblock %}
+  </table>
+{% endblock content %}

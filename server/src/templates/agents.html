@@ -1,67 +1,91 @@
-{% extends 'base.html' %}
-{% set active_page = 'agents' %}
+{% extends "base.html" %}
+{% set active_page = "agents" %}
 {% block content %}
-<div class="p-strip is-shallow">
+  <div class="p-strip is-shallow">
     <div class="row">
-        <h1 class="p-heading--3">
-            Agents
-            <a href="https://testflinger.readthedocs.io/en/latest/explanation/agents/" target="_blank">
-                <i class="p-icon--help"></i>
-            </a>
-        </h1>
+      <h1 class="p-heading--3">
+        Agents
+        <a href="https://testflinger.readthedocs.io/en/latest/explanation/agents/"
+           target="_blank">
+          <i class="p-icon--help"></i>
+        </a>
+      </h1>
     </div>
-</div>
-<form class="p-search-box">
-    <input aria-label="search" type="search" class="p-search-box__input" name="search" placeholder="Search" required
-        autocomplete="on">
-    <button type="reset" class="p-search-box__reset"><i class="p-icon--close"></i></button>
-    <button type="submit" class="p-search-box__button"><i class="p-icon--search"></i></button>
-</form>
-<table aria-label="Agents table" class="p-table--mobile-card" id="agentsTable">
+  </div>
+  <form class="p-search-box">
+    <input aria-label="search"
+           type="search"
+           class="p-search-box__input"
+           name="search"
+           placeholder="Search"
+           required
+           autocomplete="on">
+    <button type="reset" class="p-search-box__reset">
+      <i class="p-icon--close"></i>
+    </button>
+    <button type="submit" class="p-search-box__button">
+      <i class="p-icon--search"></i>
+    </button>
+  </form>
+  <table aria-label="Agents table"
+         class="p-table--mobile-card"
+         id="agentsTable">
     <thead>
-        <tr>
-            <th aria-sort="none" class="has-overflow" style="width:10%" use-outcome-sort id="agentsOutcomeHeader">
-                <span class="p-tooltip--top-left" aria-describedby="tooltip">
-                    <span class="p-tooltip__message" role="tooltip" id="tooltip" style="text-transform:none;font-weight:400">The number of consecutively successful / failed provisioning attempts</span>
-                    Outcome
-                </span>
-            </th>
-            <th aria-sort="none" id="agentsNameHeader">Name</th>
-            <th aria-sort="none" id="agentsStateHeader">State</th>
-            <th aria-sort="none" id="agentsUpdatedAtHeader">Updated At</th>
-            <th>Job ID</th>
-        </tr>
+      <tr>
+        <th aria-sort="none"
+            class="has-overflow"
+            style="width:10%"
+            use-outcome-sort
+            id="agentsOutcomeHeader">
+          <span class="p-tooltip--top-left" aria-describedby="tooltip">
+            <span class="p-tooltip__message"
+                  role="tooltip"
+                  id="tooltip"
+                  style="text-transform:none;
+                         font-weight:400">The number of consecutively successful / failed provisioning attempts</span>
+            Outcome
+          </span>
+        </th>
+        <th aria-sort="none" id="agentsNameHeader">Name</th>
+        <th aria-sort="none" id="agentsStateHeader">State</th>
+        <th aria-sort="none" id="agentsUpdatedAtHeader">Updated At</th>
+        <th>Job ID</th>
+      </tr>
     </thead>
     <tbody>
-        {% for agent in agents %}
+      {% for agent in agents %}
         <tr class="searchable-row">
-            <td class="has-overflow">
-                {% if agent.provision_streak_type == "fail" and agent.provision_streak_count > 0 %}
-                <span class="p-tooltip--right" aria-describedby="tooltip">
-                    <i class="p-icon--warning"></i>
-                    <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has failed the last {{
-                        agent.provision_streak_count }} provision attempts</span>
-                </span>
-                <span class="provision-streak">
-                    {{ agent.provision_streak_count }}
-                </span>
-                {% elif agent.provision_streak_type == "pass" and agent.provision_streak_count > 0 %}
-                <span class="p-tooltip--right" aria-describedby="tooltip">
-                    <i class="p-icon--success"></i>
-                    <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has passed the last {{
-                        agent.provision_streak_count }} provision attempts</span>
-                </span>
-                <span class="provision-streak">
-                    {{ agent.provision_streak_count }}
-                </span>
-                {% endif %}
-            </td>
-            <td><a href="/agents/{{ agent.name }}">{{ agent.name }}</a></td>
-            <td>{{ agent.state }}</td>
-            <td>{{ agent.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-            <td class="u-align--right u-truncate"><a href="/jobs/{{ agent.job_id }}">{{ agent.job_id }}</a></td>
+          <td class="has-overflow">
+            {% if agent.provision_streak_type == "fail" and agent.provision_streak_count > 0 %}
+              <span class="p-tooltip--right" aria-describedby="tooltip">
+                <i class="p-icon--warning"></i>
+                <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has failed the last {{
+                agent.provision_streak_count }} provision attempts</span>
+              </span>
+              <span class="provision-streak">{{ agent.provision_streak_count }}</span>
+            {% elif agent.provision_streak_type == "pass" and agent.provision_streak_count > 0 %}
+              <span class="p-tooltip--right" aria-describedby="tooltip">
+                <i class="p-icon--success"></i>
+                <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has passed the last {{
+                agent.provision_streak_count }} provision attempts</span>
+              </span>
+              <span class="provision-streak">{{ agent.provision_streak_count }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <!-- djlint:off J018 -->
+            <a href="/agents/{{ agent.name }}">{{ agent.name }}</a>
+            <!-- djlint:on -->
+          </td>
+          <td>{{ agent.state }}</td>
+          <td>{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+          <td class="u-align--right u-truncate">
+            <!-- djlint:off J018 -->
+            <a href="/jobs/{{ agent.job_id }}">{{ agent.job_id }}</a>
+            <!-- djlint:on -->
+          </td>
         </tr>
-        {% endfor %}
+      {% endfor %}
     </tbody>
-</table>
-{% endblock %}
+  </table>
+{% endblock content %}

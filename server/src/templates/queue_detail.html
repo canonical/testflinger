@@ -1,116 +1,116 @@
-{% extends 'base.html' %}
-{% set active_page = 'queues' %}
+{% extends "base.html" %}
+{% set active_page = "queues" %}
 {% block content %}
-<div class="p-strip is-shallow">
+  <div class="p-strip is-shallow">
     <div class="row">
-        <h1 class="p-heading--3">
-            Queue Detail - {{ queue.name }}
-        </h1>
+      <h1 class="p-heading--3">Queue Detail - {{ queue.name }}</h1>
     </div>
-</div>
-<table aria-label="Queue Details table" class="p-table--mobile-card">
+  </div>
+  <table aria-label="Queue Details table" class="p-table--mobile-card">
     <tbody>
-        <tr>
-            <td>Description</td>
-            <td>{{ queue.description }}</td>
-        </tr>
+      <tr>
+        <td>Description</td>
+        <td>{{ queue.description }}</td>
+      </tr>
     </tbody>
-</table>
-<div class="p-strip is-shallow" style="margin-top: 1rem;">
+  </table>
+  <div class="p-strip is-shallow" style="margin-top: 1rem;">
     <div class="row">
-        <h2 class="p-heading--4">Jobs</h2>
+      <h2 class="p-heading--4">Jobs</h2>
     </div>
-</div>
-<table aria-label="Jobs table" class="p-table--mobile-card">
+  </div>
+  <table aria-label="Jobs table" class="p-table--mobile-card">
     <thead>
-        <tr>
-            <th>Job ID</th>
-            <th>State</th>
-            <th>Created At</th>
-        </tr>
+      <tr>
+        <th>Job ID</th>
+        <th>State</th>
+        <th>Created At</th>
+      </tr>
     </thead>
     <tbody>
-        {% for job in jobs %}
+      {% for job in jobs %}
         <tr class="tr-highlight">
-            <td><a href="/jobs/{{ job.job_id}}">{{ job.job_id }}</a></td>
-            <td>{{ job.result_data.job_state }}</td>
-            <td>{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+          <td>
+            <!-- djlint:off J018 -->
+            <a href="/jobs/{{ job.job_id }}">{{ job.job_id }}</a>
+            <!-- djlint:on -->
+          </td>
+          <td>{{ job.result_data.job_state }}</td>
+          <td>{{ job.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
         </tr>
-        {% endfor %}
+      {% endfor %}
     </tbody>
-</table>
-
-<div class="p-strip is-shallow" style="margin-top: 1rem;">
+  </table>
+  <div class="p-strip is-shallow" style="margin-top: 1rem;">
     <div class="row">
-        <h2 class="p-heading--4">Agents</h2>
+      <h2 class="p-heading--4">Agents</h2>
     </div>
-</div>
-<table aria-label="Jobs table" class="p-table--mobile-card">
+  </div>
+  <table aria-label="Jobs table" class="p-table--mobile-card">
     <thead>
-        <tr>
-            <th class="has-overflow" style="width: 40pt"></th>
-            <th>Name</th>
-            <th style="width: 100pt">State</th>
-            <th style="width: 150pt">Updated At</th>
-            <th>Job ID</th>
-        </tr>
+      <tr>
+        <th class="has-overflow" style="width: 40pt"></th>
+        <th>Name</th>
+        <th style="width: 100pt">State</th>
+        <th style="width: 150pt">Updated At</th>
+        <th>Job ID</th>
+      </tr>
     </thead>
     <tbody>
-        {% if agents %}
+      {% if agents %}
         {% for agent in agents %}
-        <tr class="tr-highlight">
+          <tr class="tr-highlight">
             <td class="has-overflow">
-                {% if agent.provision_streak_type == "fail" and agent.provision_streak_count > 0 %}
+              {% if agent.provision_streak_type == "fail" and agent.provision_streak_count > 0 %}
                 <span class="p-tooltip--right" aria-describedby="tooltip">
-                    <i class="p-icon--warning"></i>
-                    <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has failed the last {{
-                        agent.provision_streak_count }} provision attempts</span>
+                  <i class="p-icon--warning"></i>
+                  <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has failed the last {{
+                  agent.provision_streak_count }} provision attempts</span>
                 </span>
                 {{ agent.provision_streak_count }}
-                {% elif agent.provision_streak_type == "pass" and agent.provision_streak_count > 0 %}
+              {% elif agent.provision_streak_type == "pass" and agent.provision_streak_count > 0 %}
                 <span class="p-tooltip--right" aria-describedby="tooltip">
-                    <i class="p-icon--success"></i>
-                    <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has passed the last {{
-                        agent.provision_streak_count }} provision attempts</span>
+                  <i class="p-icon--success"></i>
+                  <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has passed the last {{
+                  agent.provision_streak_count }} provision attempts</span>
                 </span>
                 {{ agent.provision_streak_count }}
-                {% endif %}
+              {% endif %}
             </td>
             <td>{{ agent.name }}</td>
             <td>{{ agent.state }}</td>
-            <td>{{ agent.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+            <td>{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
             <td>{{ agent.job_id }}</td>
-        </tr>
+          </tr>
         {% endfor %}
-        {% else %}
+      {% else %}
         <tr>
-            <td colspan="5" class="u-align--center">
-                No agents detected that serve this queue. Please check the spelling of the queue name.
-            </td>
+          <td colspan="5" class="u-align--center">
+            No agents detected that serve this queue. Please check the spelling of the queue name.
+          </td>
         </tr>
-        {% endif %}
+      {% endif %}
     </tbody>
-</table>
-
-<div class="p-strip is-shallow">
+  </table>
+  <div class="p-strip is-shallow">
     <div class="row">
-        <h2 class="p-heading--4">Wait Time Percentiles</h2>
+      <h2 class="p-heading--4">Wait Time Percentiles</h2>
     </div>
     <table>
-        <thead>
-            <tr>
-                <th>Percentile</th>
-                <th>Wait Time</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for percentile, wait_time in queue_percentile_data.items() %}
-            <tr>
-                <td>{{ percentile }}th</td>
-                <td>{{ wait_time }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
+      <thead>
+        <tr>
+          <th>Percentile</th>
+          <th>Wait Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for percentile, wait_time in queue_percentile_data.items() %}
+          <tr>
+            <td>{{ percentile }}th</td>
+            <td>{{ wait_time }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
     </table>
-</div>
-{% endblock %}
+  </div>
+{% endblock content %}
