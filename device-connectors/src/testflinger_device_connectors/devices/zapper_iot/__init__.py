@@ -55,6 +55,7 @@ class DeviceConnector(ZapperConnector):
             "password": password,
             "preset": self.job_data["provision_data"].get("preset"),
             "reboot_script": self.config["reboot_script"],
+            "device_ip": self.config["device_ip"],
         }
 
         provision_plan = self.job_data["provision_data"].get("provision_plan")

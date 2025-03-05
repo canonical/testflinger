@@ -21,7 +21,10 @@ class ZapperIoTTests(unittest.TestCase):
                 "urls": ["http://test.tar.gz"],
             }
         }
-        device.config = {"reboot_script": ["cmd1", "cmd2"]}
+        device.config = {
+            "device_ip": "1.1.1.1",
+            "reboot_script": ["cmd1", "cmd2"],
+        }
 
         args, kwargs = device._validate_configuration()
 
@@ -30,6 +33,7 @@ class ZapperIoTTests(unittest.TestCase):
             "password": "ubuntu",
             "preset": "TestPreset",
             "reboot_script": ["cmd1", "cmd2"],
+            "device_ip": "1.1.1.1",
             "urls": ["http://test.tar.gz"],
         }
 
@@ -49,7 +53,10 @@ class ZapperIoTTests(unittest.TestCase):
                 "urls": ["http://test.tar.gz"],
             }
         }
-        device.config = {"reboot_script": ["cmd1", "cmd2"]}
+        device.config = {
+            "device_ip": "1.1.1.1",
+            "reboot_script": ["cmd1", "cmd2"],
+        }
 
         args, kwargs = device._validate_configuration()
 
@@ -58,6 +65,7 @@ class ZapperIoTTests(unittest.TestCase):
             "password": "ubuntu",
             "preset": "TestPreset",
             "reboot_script": ["cmd1", "cmd2"],
+            "device_ip": "1.1.1.1",
             "urls": ["http://test.tar.gz"],
         }
 
@@ -90,7 +98,10 @@ class ZapperIoTTests(unittest.TestCase):
                 }
             }
         }
-        device.config = {"reboot_script": ["cmd1", "cmd2"]}
+        device.config = {
+            "device_ip": "1.1.1.1",
+            "reboot_script": ["cmd1", "cmd2"],
+        }
 
         args, kwargs = device._validate_configuration()
 
@@ -114,6 +125,7 @@ class ZapperIoTTests(unittest.TestCase):
             },
             "urls": [],
             "reboot_script": ["cmd1", "cmd2"],
+            "device_ip": "1.1.1.1",
             "preset": None,
         }
         self.maxDiff = None
@@ -146,7 +158,10 @@ class ZapperIoTTests(unittest.TestCase):
                 },
             }
         }
-        device.config = {"reboot_script": ["cmd1", "cmd2"]}
+        device.config = {
+            "device_ip": "1.1.1.1",
+            "reboot_script": ["cmd1", "cmd2"],
+        }
 
         args, kwargs = device._validate_configuration()
 
@@ -170,6 +185,7 @@ class ZapperIoTTests(unittest.TestCase):
             },
             "urls": [],
             "reboot_script": ["cmd1", "cmd2"],
+            "device_ip": "1.1.1.1",
             "preset": None,
         }
         self.maxDiff = None
@@ -202,7 +218,10 @@ class ZapperIoTTests(unittest.TestCase):
                 }
             }
         }
-        device.config = {"reboot_script": ["cmd1", "cmd2"]}
+        device.config = {
+            "device_ip": "1.1.1.1",
+            "reboot_script": ["cmd1", "cmd2"],
+        }
 
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
@@ -219,7 +238,10 @@ class ZapperIoTTests(unittest.TestCase):
                 "urls": ["not-a-url"],
             }
         }
-        device.config = {"reboot_script": ["cmd1", "cmd2"]}
+        device.config = {
+            "device_ip": "1.1.1.1",
+            "reboot_script": ["cmd1", "cmd2"],
+        }
 
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
@@ -234,7 +256,10 @@ class ZapperIoTTests(unittest.TestCase):
         device.job_data = {
             "provision_data": {"provision_plan": {"key1": "value1"}}
         }
-        device.config = {"reboot_script": []}
+        device.config = {
+            "device_ip": "",
+            "reboot_script": [],
+        }
 
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
@@ -253,7 +278,10 @@ class ZapperIoTTests(unittest.TestCase):
                 }
             }
         }
-        device.config = {"reboot_script": []}
+        device.config = {
+            "device_ip": "",
+            "reboot_script": [],
+        }
 
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
