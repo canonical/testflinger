@@ -9,7 +9,8 @@
       {% endblock title %}
     - Testflinger</title>
     <!-- Site CSS Files -->
-    <link href="{{ url_for('static', filename='assets/css/testflinger.css') }}" rel="stylesheet" />
+    <link href="{{ url_for('static', filename='assets/css/testflinger.css') }}"
+          rel="stylesheet" />
     <link rel="stylesheet"
           href="https://assets.ubuntu.com/v1/vanilla-framework-version-4.13.0.min.css" />
     <!-- Don't request favicon -->
@@ -20,23 +21,23 @@
   </head>
   <body>
     {%- set nav_bar = [
-      {
+        {
         "name": "Agents",
         "url": url_for("testflinger.agents")
-      },
-      {
+        },
+        {
         "name": "Jobs",
         "url": url_for("testflinger.jobs")
-      },
-      {
+        },
+        {
         "name": "Queues",
         "url": url_for("testflinger.queues")
-      },
-      {
+        },
+        {
         "name": "Documentation",
         "url": "https://canonical-testflinger.readthedocs-hosted.com"
-      }
-    ] -%}
+        }
+        ] -%}
     {%- set active_page = active_page|default('agents') %}
     <header id="navigation" class="p-navigation is-dark">
       <div class="p-navigation__row">
@@ -90,6 +91,7 @@
         </ul>
       </div>
     </footer>
-    <script type="text/javascript" src="{{ url_for('static', filename='assets/js/filter.js') }}"></script>
+    <script type="text/javascript"
+            src="{{ url_for('static', filename='assets/js/filter.js') }}"></script>
   </body>
 </html>
