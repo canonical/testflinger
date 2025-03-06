@@ -19,7 +19,6 @@ from typing import Any, Dict, Tuple
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_iot.parser import (
-    validate_provision_plan,
     validate_urls,
 )
 
@@ -86,8 +85,6 @@ class DeviceConnector(ZapperConnector):
                                     "when initial login using console-conf"
                                 )
                             break
-
-                validate_provision_plan(provision_plan)
 
                 provisioning_data["custom_provision_plan"] = provision_plan
             except (ValueError, KeyError) as e:
