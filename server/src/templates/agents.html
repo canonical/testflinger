@@ -73,16 +73,12 @@
             {% endif %}
           </td>
           <td>
-            <!-- djlint:off J018 -->
-            <a href="/agents/{{ agent.name }}">{{ agent.name }}</a>
-            <!-- djlint:on -->
+            <a href="{{ url_for('testflinger.agent_detail', agent_id=agent.name) }}">{{ agent.name }}</a>
           </td>
           <td>{{ agent.state }}</td>
           <td>{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
           <td class="u-align--right u-truncate">
-            <!-- djlint:off J018 -->
-            <a href="/jobs/{{ agent.job_id }}">{{ agent.job_id }}</a>
-            <!-- djlint:on -->
+            <a href="{{ url_for('testflinger.job_detail', job_id=agent.job_id) }}">{{ agent.job_id }}</a>
           </td>
         </tr>
       {% endfor %}

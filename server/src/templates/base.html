@@ -9,9 +9,8 @@
       {% endblock title %}
     - Testflinger</title>
     <!-- Site CSS Files -->
-    <!-- djlint:off J004 -->
-    <link href="/static/assets/css/testflinger.css" rel="stylesheet" />
-    <!-- djlint:on -->
+    <link href="{{ url_for('static', filename='assets/css/testflinger.css') }}"
+          rel="stylesheet" />
     <link rel="stylesheet"
           href="https://assets.ubuntu.com/v1/vanilla-framework-version-4.13.0.min.css" />
     <!-- Circle of friends favicon -->
@@ -29,31 +28,29 @@
   </head>
   <body>
     {%- set nav_bar = [
-      {
+        {
         "name": "Agents",
-        "url": "/agents"
-      },
-      {
+        "url": url_for("testflinger.agents")
+        },
+        {
         "name": "Jobs",
-        "url": "/jobs"
-      },
-      {
+        "url": url_for("testflinger.jobs")
+        },
+        {
         "name": "Queues",
-        "url": "/queues"
-      },
-      {
+        "url": url_for("testflinger.queues")
+        },
+        {
         "name": "Documentation",
         "url": "https://canonical-testflinger.readthedocs-hosted.com"
-      }
-    ] -%}
+        }
+        ] -%}
     {%- set active_page = active_page|default('agents') %}
     <header id="navigation" class="p-navigation is-dark">
       <div class="p-navigation__row">
         <div class="p-navigation__banner">
           <div class="p-navigation__tagged-logo">
-            <!-- djlint:off J018 -->
-            <a class="p-navigation__link" href="/">
-              <!-- djlint:on -->
+            <a class="p-navigation__link" href="{{ url_for('testflinger.home') }}">
               <div class="p-navigation__logo-tag">
                 <!-- djlint:off H006 -->
                 <img class="p-navigation__logo-icon"
@@ -101,8 +98,7 @@
         </ul>
       </div>
     </footer>
-    <!-- djlint:off J004 -->
-    <script type="text/javascript" src="/static/assets/js/filter.js"></script>
-    <!-- djlint:on -->
+    <script type="text/javascript"
+            src="{{ url_for('static', filename='assets/js/filter.js') }}"></script>
   </body>
 </html>

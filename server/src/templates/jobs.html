@@ -19,9 +19,7 @@
       {% for job in jobs %}
         <tr>
           <td>
-            <!-- djlint:off J018 -->
-            <a href="/jobs/{{ job.job_id }}">{{ job.job_id }}</a>
-            <!-- djlint:on -->
+            <a href="{{ url_for('testflinger.job_detail', job_id=job.job_id) }}">{{ job.job_id }}</a>
           </td>
           <td>{{ job.job_data.job_queue }}</td>
           <td>{{ job.result_data.job_state }}</td>

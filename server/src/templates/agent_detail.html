@@ -30,9 +30,7 @@
   <ul>
     {% for queue in agent.queues %}
       <li>
-        <!-- djlint:off J018 -->
-        <a href="/queues/{{ queue }}">{{ queue }}</a>
-        <!-- djlint:on -->
+        <a href="{{ url_for('testflinger.queue_detail', queue_name=queue) }}">{{ queue }}</a>
       </li>
     {% endfor %}
   </ul>
@@ -74,9 +72,7 @@
           <tr>
             <td>{{ log.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
             <td>
-              <!-- djlint:off J018 -->
-              <a href="/jobs/{{ log.job_id }}">{{ log.job_id }}</a>
-              <!-- djlint:on -->
+              <a href="{{ url_for('testflinger.job_detail', job_id=log.job_id) }}">{{ log.job_id }}</a>
             </td>
             <td class="u-align--right p-table__cell--icon-placeholder">
               <i class="{{ 'p-icon--success' if log.exit_code==0 else 'p-icon--error' }}"></i>{{ log.exit_code }}
