@@ -75,7 +75,9 @@
                 {{ agent.provision_streak_count }}
               {% endif %}
             </td>
-            <td>{{ agent.name }}</td>
+            <td>
+              <a href="{{ url_for('testflinger.agent_detail', agent_id=agent.name) }}">{{ agent.name }}</a>
+            </td>
             <td>{{ agent.state }}</td>
             <td>{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
             <td>{{ agent.job_id }}</td>
