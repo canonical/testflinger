@@ -18,6 +18,7 @@
         </span>
       </th>
       <th aria-sort="none" id="agentsNameHeader">Name</th>
+      <th aria-sort="none" id="agentsNameHeader">Location</th>
       <th aria-sort="none" id="agentsStateHeader">State</th>
       <th aria-sort="none" id="agentsUpdatedAtHeader">Updated At</th>
       <th>Job ID</th>
@@ -47,6 +48,7 @@
           <td>
             <a href="{{ url_for('testflinger.agent_detail', agent_id=agent.name) }}">{{ agent.name }}</a>
           </td>
+          <td>{{ agent.location or "unknown" }}</td>
           <td>{{ agent.state }}</td>
           <td>{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
           <td class="u-align--right u-truncate">
