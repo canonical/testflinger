@@ -5,9 +5,9 @@
     <meta name="description" content="Canonical Testflinger server" />
     <meta name="keywords" content="test, test orchestration, testflinger" />
     <title>
-      {% block title %}
-      {% endblock title %}
-    - Testflinger</title>
+      {% if title %}{{ title }} |{% endif %}
+      Testflinger
+    </title>
     <!-- Site CSS Files -->
     <link href="{{ url_for('static', filename='assets/css/testflinger.css') }}"
           rel="stylesheet" />
