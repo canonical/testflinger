@@ -18,7 +18,6 @@ Testflinger v1 API
 """
 
 import uuid
-import json
 from datetime import datetime, timezone
 
 import pkg_resources
@@ -256,14 +255,8 @@ def result_post(job_id, json_data):
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
 
-    # Check content size from request header
     content_length = request.content_length
     if content_length and content_length >= 16 * 1024 * 1024:
-        abort(413, message="Payload too large")
-
-    # Check serialized document size
-    serialized_data = json.dumps(json_data)
-    if len(serialized_data) >= 16 * 1024 * 1024:
         abort(413, message="Payload too large")
 
     # First, we need to prepend "result_data" to each key in the result_data
