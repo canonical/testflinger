@@ -1,7 +1,13 @@
 variable "environment" {
-  description = "The environment to deploy to (dev, staging, prod)"
+  description = "The environment to deploy to (dev, staging, prod). When the \"revision\" variable is not set, the value of \"environment\" determines the channel to deploy from, either \"latest/stable\" (for production) or \"latest/edge\" channel otherwise."
   type        = string
   default     = "dev"
+}
+
+variable "revision" {
+  description = "The revision of the API server charm to deploy"
+  type        = string
+  default     = null
 }
 
 variable "external_ingress_hostname" {
