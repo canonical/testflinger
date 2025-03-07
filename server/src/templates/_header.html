@@ -1,0 +1,54 @@
+{%- set nav_bar = [
+{
+"name": "Agents",
+"url": url_for("testflinger.agents")
+},
+{
+"name": "Jobs",
+"url": url_for("testflinger.jobs")
+},
+{
+"name": "Queues",
+"url": url_for("testflinger.queues")
+},
+{
+"name": "Documentation",
+"url": "https://canonical-testflinger.readthedocs-hosted.com"
+}
+] -%}
+{%- set active_page = active_page|default('agents') %}
+<header id="navigation" class="p-navigation is-dark">
+  <div class="p-navigation__row">
+    <div class="p-navigation__banner">
+      <div class="p-navigation__tagged-logo">
+        <a class="p-navigation__link" href="{{ url_for('testflinger.home') }}">
+          <div class="p-navigation__logo-tag">
+            <!-- djlint:off H006 -->
+            <img class="p-navigation__logo-icon"
+                 src="https://assets.ubuntu.com/v1/82818827-CoF_white.svg"
+                 alt="ubuntu circle of friends logo">
+            <!-- djlint:on -->
+          </div>
+          <span class="p-navigation__logo-title">Testflinger</span>
+        </a>
+      </div>
+      <a href="#navigation" class="p-navigation__toggle--open" title="menu">Menu</a>
+      <a href="#navigation-closed"
+         class="p-navigation__toggle--close"
+         title="close menu">Close menu</a>
+    </div>
+    <nav class="p-navigation__nav u-image-position"
+         aria-label="Main navigation">
+      <span class="u-off-screen">
+        <a href="#main-content">Jump to main content</a>
+      </span>
+      <ul class="p-navigation__items">
+        {%- for item in nav_bar %}
+          <li class="p-navigation__item {% if item.name|lower==active_page %}is-selected{% endif %}">
+            <a class="p-navigation__link" href="{{ item.url }}">{{ item.name }}</a>
+          </li>
+        {%- endfor %}
+      </ul>
+    </nav>
+  </div>
+</header>
