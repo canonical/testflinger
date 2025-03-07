@@ -10,7 +10,9 @@
     <tbody>
       <tr>
         <td>Queue</td>
-        <td>{{ job.job_data.job_queue }}</td>
+        <td>
+          <a href="{{ url_for('testflinger.queue_detail', queue_name=job.job_data.job_queue) }}">{{ job.job_data.job_queue }}</a>
+        </td>
       </tr>
       <tr>
         <td>State</td>

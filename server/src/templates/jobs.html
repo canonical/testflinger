@@ -21,7 +21,9 @@
           <td>
             <a href="{{ url_for('testflinger.job_detail', job_id=job.job_id) }}">{{ job.job_id }}</a>
           </td>
-          <td>{{ job.job_data.job_queue }}</td>
+          <td>
+            <a href="{{ url_for('testflinger.queue_detail', queue_name=job.job_data.job_queue) }}">{{ job.job_data.job_queue }}</a>
+          </td>
           <td>{{ job.result_data.job_state }}</td>
           <td>{{ job.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
         </tr>
