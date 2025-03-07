@@ -18,6 +18,7 @@ Testflinger v1 API
 """
 
 import uuid
+import json
 from datetime import datetime, timezone
 
 import pkg_resources
