@@ -657,3 +657,14 @@ def test_search_jobs_datetime_iso8601(mongo_app):
     output = app.get("/v1/job/search?tags=foo")
     assert 200 == output.status_code
     assert output.json[0]["created_at"] == "2020-01-01T00:00:00Z"
+
+
+def test_result_post_large_payload(mongo_app):
+    """Test that posting a result with a payload size of 16MB or more fails"""
+    app, _ = mongo_app
+    job_id = "00000000-0000-0000-0000-000000000000"
+    result_url = f"/v1/result/{job_id}"
+    large_data = {"test_output": "a" * (16 * 1024 * 1024)}  # 16MB payload
+    response = app.post(result_url, json=large_data)
+    assert 413 == response.status_code
+    assert "Payload too large" in response.json["message"]
