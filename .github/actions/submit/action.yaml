@@ -36,9 +36,10 @@ runs:
       shell: bash {0}  # allow curl to fail
       env:
         SERVER: https://${{ inputs.server }}
+        REQUEST_ID: ${{ github.run_id }}
       run: |
         echo "::group::Test connection to Testflinger server"
-        STATUS=$(curl --stderr error.log -Ivw "%{http_code}\n" -o /dev/null $SERVER/jobs)
+        STATUS=$(curl --stderr error.log -Ivw "%{http_code}\n" -o /dev/null $SERVER/v1 -H "X-Request-ID: $REQUEST_ID")
         ERROR=$?
         if [ ! $ERROR -eq 0 ]; then
           echo "Unable to ping Testflinger server at $SERVER"
