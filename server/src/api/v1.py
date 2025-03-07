@@ -394,6 +394,12 @@ def result_post(job_id, json_data):
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
 
+    # fail if input payload is larger than the BSON size limit
+    # see https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limit-BSON-Document-Size
+    content_length = request.content_length
+    if content_length and content_length >= 16 * 1024 * 1024:
+        abort(413, message="Payload too large")
+
     # First, we need to prepend "result_data" to each key in the result_data
     for key in list(json_data):
         json_data[f"result_data.{key}"] = json_data.pop(key)
