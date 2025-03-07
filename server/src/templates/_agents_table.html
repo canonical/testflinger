@@ -1,0 +1,76 @@
+<table aria-label="Agents table"
+       class="p-table--mobile-card"
+       id="agentsTable">
+  <thead>
+    <tr>
+      <th aria-sort="none"
+          class="has-overflow"
+          style="width:10%"
+          use-outcome-sort
+          id="agentsOutcomeHeader">
+        <span class="p-tooltip--top-left" aria-describedby="tooltip">
+          <span class="p-tooltip__message"
+                role="tooltip"
+                id="tooltip"
+                style="text-transform:none;
+                       font-weight:400">The number of consecutively successful / failed provisioning attempts</span>
+          Outcome
+        </span>
+      </th>
+      <th aria-sort="none" id="agentsNameHeader">Name</th>
+      <th aria-sort="none" id="agentsStateHeader">State</th>
+      <th aria-sort="none" id="agentsUpdatedAtHeader">Updated At</th>
+      <th>Job ID</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% if agents %}
+      {% for agent in agents %}
+        <tr class="searchable-row">
+          <td class="has-overflow">
+            {% if agent.provision_streak_type == "fail" and agent.provision_streak_count > 0 %}
+              <span class="p-tooltip--right" aria-describedby="tooltip">
+                <i class="p-icon--warning"></i>
+                <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has failed the last {{
+                agent.provision_streak_count }} provision attempts</span>
+              </span>
+              <span class="provision-streak">{{ agent.provision_streak_count }}</span>
+            {% elif agent.provision_streak_type == "pass" and agent.provision_streak_count > 0 %}
+              <span class="p-tooltip--right" aria-describedby="tooltip">
+                <i class="p-icon--success"></i>
+                <span class="p-tooltip__message" role="tooltip" id="tooltip">This agent has passed the last {{
+                agent.provision_streak_count }} provision attempts</span>
+              </span>
+              <span class="provision-streak">{{ agent.provision_streak_count }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('testflinger.agent_detail', agent_id=agent.name) }}">{{ agent.name }}</a>
+          </td>
+          <td>{{ agent.state }}</td>
+          <td>{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+          <td class="u-align--right u-truncate">
+            <a href="{{ url_for('testflinger.job_detail', job_id=agent.job_id) }}">{{ agent.job_id }}</a>
+          </td>
+        </tr>
+      {% endfor %}
+    {% else %}
+      <caption>
+        <div class="p-strip">
+          <div class="row">
+            <div class="u-align--right col-4 col-medium-2 col-small-1"></div>
+            <div class="u-align--left col-8 col-medium-4 col-small-3">
+              <p class="p-heading--4 u-no-margin--bottom">No Agents</p>
+              {% if active_page == "agents" %}
+                <p>Please create agent hosts with agent configurations to populate this server.</p>
+              {% elif active_page == "queues" %}
+                <p>No agents detected that serve this queue. Please check the spelling of the queue name.</p>
+                <a class="p-button" href="{{ url_for('testflinger.queues') }}">View Queues</a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </caption>
+    {% endif %}
+  </tbody>
+</table>
