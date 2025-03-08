@@ -187,6 +187,7 @@ class TestflingerCli:
         parser.add_argument(
             "-c",
             "--configfile",
+            type=Path,
             default=None,
             help="Configuration file to use",
         )
