@@ -12,7 +12,7 @@ readme = "README.rst"
 dependencies = [
     "PyYAML",
     "requests",
-    "xdg<5.2",
+    "xdg-base-dirs",
     "argcomplete",
 ]
 dynamic = ["version"]
