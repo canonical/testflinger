@@ -73,7 +73,7 @@ class TestflingerCliHistory:
         with self.historyfile.open(
             "w", encoding="utf-8", errors="ignore"
         ) as history_file:
-            json.dump(self.history, history_file, indent=2)
+            json.dump(self.history, history_file)
 
     def update(self, job_id, state):
         """Update job state in the history file"""
