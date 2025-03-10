@@ -16,6 +16,7 @@ dependencies = [
     "argcomplete",
 ]
 dynamic = ["version"]
+requires-python = ">= 3.10"
 
 [project.scripts]
 testflinger-cli = "testflinger_cli:cli"
