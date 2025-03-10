@@ -13,20 +13,20 @@
         <th>Job ID</th>
         <th>Queue</th>
         <th style="width: 100pt">State</th>
-        <th style="width: 150pt">Created at</th>
+        <th style="width: 150pt">Created At</th>
       </tr>
     </thead>
     <tbody>
       {% for job in jobs %}
         <tr>
-          <td>
+          <td data-heading="Job ID">
             <a href="{{ url_for('testflinger.job_detail', job_id=job.job_id) }}">{{ job.job_id }}</a>
           </td>
-          <td>
+          <td data-heading="Queue">
             <a href="{{ url_for('testflinger.queue_detail', queue_name=job.job_data.job_queue) }}">{{ job.job_data.job_queue }}</a>
           </td>
-          <td>{{ job.result_data.job_state }}</td>
-          <td>{{ job.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+          <td data-heading="State">{{ job.result_data.job_state }}</td>
+          <td data-heading="Created At">{{ job.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
         </tr>
       {% endfor %}
     </tbody>

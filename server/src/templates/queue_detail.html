@@ -10,7 +10,7 @@
   <table aria-label="Queue Details table" class="p-table--mobile-card">
     <tbody>
       <tr>
-        <td>Description</td>
+        <th scope="row">Description</th>
         <td>{{ queue.description }}</td>
       </tr>
     </tbody>
@@ -31,11 +31,11 @@
     <tbody>
       {% for job in jobs %}
         <tr class="tr-highlight">
-          <td>
+          <td data-heading="Job ID">
             <a href="{{ url_for('testflinger.job_detail', job_id=job.job_id) }}">{{ job.job_id }}</a>
           </td>
-          <td>{{ job.result_data.job_state }}</td>
-          <td>{{ job.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+          <td data-heading="State">{{ job.result_data.job_state }}</td>
+          <td data-heading="Created At">{{ job.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
         </tr>
       {% endfor %}
     </tbody>

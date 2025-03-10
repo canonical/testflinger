@@ -39,11 +39,11 @@
     <tbody>
       {% for queue in queues %}
         <tr class="searchable-row">
-          <td>
+          <td data-heading="Name">
             <a href="{{ url_for('testflinger.queue_detail', queue_name=queue.name) }}">{{ queue.name }}</a>
           </td>
-          <td>{{ queue.numjobs }}</td>
-          <td>{{ queue.description }}</td>
+          <td data-heading="Number of Jobs">{{ queue.numjobs }}</td>
+          <td data-heading="Description">{{ queue.description }}</td>
         </tr>
       {% endfor %}
     </tbody>
