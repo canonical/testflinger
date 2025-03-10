@@ -35,6 +35,7 @@ class TestflingerCliHistory:
         config_home = xdg_config_home()
         config_home.mkdir(parents=True, exist_ok=True)
         self.historyfile = config_home / "testflinger-cli-history.json"
+        self.history = OrderedDict()
         self.load()
 
     def new(self, job_id, queue):
@@ -53,8 +54,6 @@ class TestflingerCliHistory:
 
     def load(self):
         """Load the history file"""
-        if not hasattr(self, "history"):
-            self.history = OrderedDict()
         if self.historyfile.exists():
             with self.historyfile.open(
                 encoding="utf-8", errors="ignore"
