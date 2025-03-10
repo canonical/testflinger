@@ -60,8 +60,9 @@ class TestflingerCliHistory:
             ) as history_file:
                 try:
                     self.history.update(json.load(history_file))
-                except (OSError, ValueError):
+                except (OSError, ValueError) as e:
                     # If there's any error loading the history, ignore it
+                    logging.exception(e)
                     logger.error(
                         "Error loading history file from %s", self.historyfile
                     )
