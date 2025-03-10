@@ -20,7 +20,6 @@ Testflinger config module
 
 import configparser
 from collections import OrderedDict
-from os import PathLike
 from pathlib import Path
 
 from xdg_base_dirs import xdg_config_home
@@ -29,18 +28,20 @@ from xdg_base_dirs import xdg_config_home
 class TestflingerCliConfig:
     """TestflingerCliConfig class load values from files, env, and params"""
 
-    def __init__(self, configfile: str | PathLike | None = None):
-        config = configparser.ConfigParser()
+    def __init__(self, configfile: Path | None = None):
         if configfile is None:
             config_home = xdg_config_home()
             config_home.mkdir(parents=True, exist_ok=True)
             configfile = config_home / "testflinger-cli.conf"
-        config.read(configfile)
-        # Default empty config in case there's no config file
-        self.data = OrderedDict()
-        if "testflinger-cli" in config.sections():
-            self.data = OrderedDict(config["testflinger-cli"])
         self.configfile = Path(configfile)
+
+        config = configparser.ConfigParser()
+        config.read(configfile)
+        try:
+            self.data = OrderedDict(config["testflinger-cli"])
+        except KeyError:
+            # Default empty config in case there's no config file
+            self.data = OrderedDict()
 
     def get(self, key, default=None):
         """Get config item"""
