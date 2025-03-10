@@ -37,7 +37,6 @@ from typing import Optional
 import argcomplete
 import requests
 import yaml
-
 from testflinger_cli import autocomplete, client, config, history
 
 logger = logging.getLogger(__name__)
@@ -364,7 +363,7 @@ class TestflingerCli:
         parser.add_argument("--poll", "-p", action="store_true")
         parser.add_argument("--quiet", "-q", action="store_true")
         parser.add_argument("--wait-for-available-agents", action="store_true")
-        parser.add_argument("filename").completer = (
+        parser.add_argument("filename", type=Path).completer = (
             argcomplete.completers.FilesCompleter(
                 allowednames=("*.yaml", "*.yml", "*.json")
             )
