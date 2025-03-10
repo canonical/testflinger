@@ -19,27 +19,29 @@ Testflinger config module
 """
 
 import configparser
-import os
 from collections import OrderedDict
-import xdg
+from pathlib import Path
+
+from xdg_base_dirs import xdg_config_home
 
 
 class TestflingerCliConfig:
     """TestflingerCliConfig class load values from files, env, and params"""
 
-    def __init__(self, configfile=None):
+    def __init__(self, configfile: Path | None = None):
+        if configfile is None:
+            config_home = xdg_config_home()
+            config_home.mkdir(parents=True, exist_ok=True)
+            configfile = config_home / "testflinger-cli.conf"
+        self.configfile = Path(configfile)
+
         config = configparser.ConfigParser()
-        if not configfile:
-            os.makedirs(xdg.XDG_CONFIG_HOME, exist_ok=True)
-            configfile = os.path.join(
-                xdg.XDG_CONFIG_HOME, "testflinger-cli.conf"
-            )
         config.read(configfile)
-        # Default empty config in case there's no config file
-        self.data = OrderedDict()
-        if "testflinger-cli" in config.sections():
+        try:
             self.data = OrderedDict(config["testflinger-cli"])
-        self.configfile = configfile
+        except KeyError:
+            # Default empty config in case there's no config file
+            self.data = OrderedDict()
 
     def get(self, key, default=None):
         """Get config item"""
@@ -54,7 +56,7 @@ class TestflingerCliConfig:
         """Save config back to the config file"""
         config = configparser.ConfigParser()
         config.read_dict({"testflinger-cli": self.data})
-        with open(
-            self.configfile, "w", encoding="utf-8", errors="ignore"
+        with self.configfile.open(
+            "w", encoding="utf-8", errors="ignore"
         ) as config_file:
             config.write(config_file)
