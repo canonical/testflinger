@@ -54,18 +54,19 @@ class TestflingerCliHistory:
 
     def load(self):
         """Load the history file"""
-        if self.historyfile.exists():
+        try:
             with self.historyfile.open(
                 encoding="utf-8", errors="ignore"
             ) as history_file:
-                try:
-                    self.history.update(json.load(history_file))
-                except (OSError, ValueError) as e:
-                    # If there's any error loading the history, ignore it
-                    logging.exception(e)
-                    logger.error(
-                        "Error loading history file from %s", self.historyfile
-                    )
+                self.history.update(json.load(history_file))
+        except FileNotFoundError:
+            logging.error("History file %s not found", self.historyfile)
+        except (OSError, ValueError) as e:
+            # If there's any error loading the history, ignore it
+            logging.exception(e)
+            logger.error(
+                "Error loading history file from %s", self.historyfile
+            )
 
     def save(self):
         """Save the history out to the history file"""
