@@ -221,9 +221,7 @@ class TestflingerCli:
             help="Download a tarball of artifacts saved for a specified job",
         )
         parser.set_defaults(func=self.artifacts)
-        parser.add_argument(
-            "--filename", type=Path, default=Path("artifacts.tgz")
-        )
+        parser.add_argument("--filename", type=Path, default="artifacts.tgz")
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
         )
