@@ -10,17 +10,17 @@
   <table aria-label="Agent table" class="p-table--mobile-card">
     <tbody>
       <tr>
-        <td>Queue</td>
+        <th scope="row">Queue</th>
         <td>
           <a href="{{ url_for('testflinger.queue_detail', queue_name=job.job_data.job_queue) }}">{{ job.job_data.job_queue }}</a>
         </td>
       </tr>
       <tr>
-        <td>State</td>
+        <th scope="row">State</th>
         <td>{{ job.result_data.job_state }}</td>
       </tr>
       <tr>
-        <td>Created At</td>
+        <th scope="row">Created At</th>
         <td>{{ job.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
       </tr>
     </tbody>

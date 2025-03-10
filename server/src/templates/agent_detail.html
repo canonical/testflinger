@@ -10,19 +10,19 @@
   <table aria-label="Agent table" class="p-table--mobile-card">
     <tbody>
       <tr>
-        <td>State</td>
+        <th scope="row">State</th>
         <td>{{ agent.state }}</td>
       </tr>
       <tr>
-        <td>Location</td>
+        <th scope="row">Location</th>
         <td>{{ agent.location }}</td>
       </tr>
       <tr>
-        <td>Provision Type</td>
+        <th scope="row">Provision Type</th>
         <td>{{ agent.provision_type }}</td>
       </tr>
       <tr>
-        <td>Last updated</td>
+        <th scope="row">Last updated</th>
         <td>{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
       </tr>
     </tbody>
