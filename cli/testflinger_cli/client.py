@@ -18,15 +18,14 @@
 Testflinger client module
 """
 
+import base64
 import json
 import logging
-from pathlib import Path
 import sys
 import urllib.parse
-import base64
+from pathlib import Path
 
 import requests
-
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +218,7 @@ class Client:
         endpoint = "/v1/result/{}".format(job_id)
         return json.loads(self.get(endpoint))
 
-    def get_artifact(self, job_id, path):
+    def get_artifact(self, job_id, path: Path):
         """Get results for a specified test job
 
         :param job_id:
@@ -232,7 +231,7 @@ class Client:
         req = requests.get(uri, timeout=15, stream=True)
         if req.status_code != 200:
             raise HTTPError(req.status_code)
-        with open(path, "wb") as artifact:
+        with path.open("wb") as artifact:
             for chunk in req.raw.stream(4096, decode_content=False):
                 if chunk:
                     artifact.write(chunk)

@@ -221,7 +221,9 @@ class TestflingerCli:
             help="Download a tarball of artifacts saved for a specified job",
         )
         parser.set_defaults(func=self.artifacts)
-        parser.add_argument("--filename", default="artifacts.tgz")
+        parser.add_argument(
+            "--filename", type=Path, default=Path("artifacts.tgz")
+        )
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
         )
@@ -802,7 +804,7 @@ class TestflingerCli:
                 exc.status,
             )
             sys.exit(1)
-        print("Artifacts downloaded to {}".format(self.args.filename))
+        print(f"Artifacts downloaded to {self.args.filename}")
 
     def poll(self):
         """Poll for output from a job until it is completed"""
