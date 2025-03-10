@@ -60,7 +60,7 @@ class TestflingerCliHistory:
             ) as history_file:
                 self.history.update(json.load(history_file))
         except FileNotFoundError:
-            logging.error("History file %s not found", self.historyfile)
+            pass
         except (OSError, ValueError) as e:
             # If there's any error loading the history, ignore it
             logging.exception(e)
