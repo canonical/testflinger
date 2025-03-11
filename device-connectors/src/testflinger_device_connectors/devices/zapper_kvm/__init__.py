@@ -129,6 +129,7 @@ class DeviceConnector(ZapperConnector):
             "wait_until_ssh",
             "live_image",
             "ubuntu_sso_email",
+            "assets",
         ]
         provisioning_data.update(
             {
