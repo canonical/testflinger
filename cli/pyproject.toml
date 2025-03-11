@@ -12,10 +12,11 @@ readme = "README.rst"
 dependencies = [
     "PyYAML",
     "requests",
-    "xdg<5.2",
+    "xdg-base-dirs",
     "argcomplete",
 ]
 dynamic = ["version"]
+requires-python = ">= 3.10"
 
 [project.scripts]
 testflinger-cli = "testflinger_cli:cli"

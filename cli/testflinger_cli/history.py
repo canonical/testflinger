@@ -20,11 +20,10 @@ Testflinger history module
 
 import json
 import logging
-import os
 from collections import OrderedDict
 from datetime import datetime
-import xdg
 
+from xdg_base_dirs import xdg_config_home
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +32,10 @@ class TestflingerCliHistory:
     """History class used for storing job history on a device"""
 
     def __init__(self):
-        os.makedirs(xdg.XDG_DATA_HOME, exist_ok=True)
-        self.historyfile = os.path.join(
-            xdg.XDG_DATA_HOME, "testflinger-cli-history.json"
-        )
+        config_home = xdg_config_home()
+        config_home.mkdir(parents=True, exist_ok=True)
+        self.historyfile = config_home / "testflinger-cli-history.json"
+        self.history = OrderedDict()
         self.load()
 
     def new(self, job_id, queue):
@@ -55,26 +54,26 @@ class TestflingerCliHistory:
 
     def load(self):
         """Load the history file"""
-        if not hasattr(self, "history"):
-            self.history = OrderedDict()
-        if os.path.exists(self.historyfile):
-            with open(
-                self.historyfile, encoding="utf-8", errors="ignore"
+        try:
+            with self.historyfile.open(
+                encoding="utf-8", errors="ignore"
             ) as history_file:
-                try:
-                    self.history.update(json.load(history_file))
-                except (OSError, ValueError):
-                    # If there's any error loading the history, ignore it
-                    logger.error(
-                        "Error loading history file from %s", self.historyfile
-                    )
+                self.history.update(json.load(history_file))
+        except FileNotFoundError:
+            pass
+        except (OSError, ValueError) as e:
+            # If there's any error loading the history, ignore it
+            logging.exception(e)
+            logger.error(
+                "Error loading history file from %s", self.historyfile
+            )
 
     def save(self):
         """Save the history out to the history file"""
-        with open(
-            self.historyfile, "w", encoding="utf-8", errors="ignore"
+        with self.historyfile.open(
+            "w", encoding="utf-8", errors="ignore"
         ) as history_file:
-            json.dump(self.history, history_file, indent=2)
+            json.dump(self.history, history_file)
 
     def update(self, job_id, state):
         """Update job state in the history file"""

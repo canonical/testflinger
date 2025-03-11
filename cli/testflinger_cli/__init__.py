@@ -37,7 +37,6 @@ from typing import Optional
 import argcomplete
 import requests
 import yaml
-
 from testflinger_cli import autocomplete, client, config, history
 
 logger = logging.getLogger(__name__)
@@ -187,6 +186,7 @@ class TestflingerCli:
         parser.add_argument(
             "-c",
             "--configfile",
+            type=Path,
             default=None,
             help="Configuration file to use",
         )
@@ -221,7 +221,7 @@ class TestflingerCli:
             help="Download a tarball of artifacts saved for a specified job",
         )
         parser.set_defaults(func=self.artifacts)
-        parser.add_argument("--filename", default="artifacts.tgz")
+        parser.add_argument("--filename", type=Path, default="artifacts.tgz")
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
         )
@@ -363,7 +363,7 @@ class TestflingerCli:
         parser.add_argument("--poll", "-p", action="store_true")
         parser.add_argument("--quiet", "-q", action="store_true")
         parser.add_argument("--wait-for-available-agents", action="store_true")
-        parser.add_argument("filename").completer = (
+        parser.add_argument("filename", type=Path).completer = (
             argcomplete.completers.FilesCompleter(
                 allowednames=("*.yaml", "*.yml", "*.json")
             )
@@ -802,7 +802,7 @@ class TestflingerCli:
                 exc.status,
             )
             sys.exit(1)
-        print("Artifacts downloaded to {}".format(self.args.filename))
+        print(f"Artifacts downloaded to {self.args.filename}")
 
     def poll(self):
         """Poll for output from a job until it is completed"""
