@@ -363,10 +363,12 @@ class TestflingerCli:
         parser.add_argument("--poll", "-p", action="store_true")
         parser.add_argument("--quiet", "-q", action="store_true")
         parser.add_argument("--wait-for-available-agents", action="store_true")
-        parser.add_argument("filename", type=Path).completer = (
-            argcomplete.completers.FilesCompleter(
-                allowednames=("*.yaml", "*.yml", "*.json")
-            )
+        parser.add_argument(
+            "filename",
+            type=str,
+            help="YAML or JSON file with your job definition, '-' for stdin",
+        ).completer = argcomplete.completers.FilesCompleter(
+            allowednames=("*.yaml", "*.yml", "*.json")
         )
         parser.add_argument(
             "--client_id",
@@ -521,13 +523,13 @@ class TestflingerCli:
         if self.args.filename == "-":
             data = sys.stdin.read()
         else:
+            path = Path(self.args.filename)
             try:
-                with open(
-                    self.args.filename, encoding="utf-8", errors="ignore"
-                ) as job_file:
-                    data = job_file.read()
+                data = path.read_text(encoding="utf-8", errors="ignore")
+            except PermissionError:
+                sys.exit(f"File not readable: {path}")
             except FileNotFoundError:
-                sys.exit(f"File not found: {self.args.filename}")
+                sys.exit(f"File not found: {path}")
         job_dict = yaml.safe_load(data)
 
         # Check if agents are available to handle this queue
