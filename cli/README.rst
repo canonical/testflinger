@@ -21,6 +21,13 @@ To install testflinger using the snap:
 
   $ sudo snap install testflinger-cli
 
+In order for Testflinger to see files/directories in removable media, you will
+need to connect the ``removable-media`` interface manually:
+
+.. code-block:: console
+
+  $ sudo snap connect testflinger-cli:removable-media
+
 When changes are made to the CLI, the snap is automatically built and uploaded
 to the `edge` channel. Once sufficient testing has been performed, this snap
 is also published to the `stable` channel. If you prefer to use the latest
