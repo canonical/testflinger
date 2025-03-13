@@ -326,8 +326,12 @@ class TestflingerAgent:
             finally:
                 # Always run the cleanup, even if the job was cancelled
                 event_emitter.emit_event(TestEvent.CLEANUP_START)
-                job.run_test_phase(TestPhase.CLEANUP, rundir)
-                event_emitter.emit_event(TestEvent.CLEANUP_SUCCESS)
+                exit_code, _, _ = job.run_test_phase(TestPhase.CLEANUP, rundir)
+                if exit_code:
+                    logger.debug("Issue with cleanup phase")
+                    event_emitter.emit_event(TestEvent.CLEANUP_FAIL)
+                else:
+                    event_emitter.emit_event(TestEvent.CLEANUP_SUCCESS)
                 event_emitter.emit_event(TestEvent.JOB_END, job_end_reason)
                 # clear job id
                 self.client.post_agent_data({"job_id": ""})
