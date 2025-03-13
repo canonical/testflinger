@@ -1,18 +1,38 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const searchBox = document.querySelector('.p-search-box__input');
+    const searchBox = document.querySelector('.p-search-box');
+    const searchBoxInput = document.querySelector('.p-search-box__input');
     const tableRows = Array.from(document.querySelectorAll('.p-table--mobile-card tbody tr.searchable-row'));
 
-    searchBox.addEventListener('input', function() {
-        const searchTerm = searchBox.value.toLowerCase();
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const searchTerm = urlParams.get("search");
+    if (searchTerm) {
+      searchBoxInput.value = searchTerm;
+      filterTable(tableRows, searchTerm);
+    }
 
-        tableRows.forEach(function(row) {
-            const rowText = row.textContent.toLowerCase();
-            const isMatch = rowText.includes(searchTerm);
+    searchBoxInput.addEventListener('input', function() {
+        const searchTerm = searchBoxInput.value;
+        filterTable(tableRows, searchTerm);
+    });
 
-            row.style.display = isMatch ? '' : 'none';
-        });
+    searchBox.addEventListener('reset', function() {
+        filterTable(tableRows, '');
     });
 });
+
+/**
+ * Filters the table rows to those that include the search term (case insensitive)
+ * @param {Element[]} tableRows
+ * @param {String} searchTerm
+ */
+function filterTable(tableRows, searchTerm) {
+  tableRows.forEach(function(row) {
+    const rowText = row.textContent.toLowerCase();
+    const isMatch = !searchTerm || rowText.includes(searchTerm.toLowerCase());
+    row.style.display = isMatch ? '' : 'none';
+  });
+}
 
 /**
  * Sorts the specified table by the specified ordering
