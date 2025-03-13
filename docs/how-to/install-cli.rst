@@ -14,6 +14,12 @@ The most convenient way to get the CLI tool is via snap:
 
     $ sudo snap install testflinger-cli
 
+In order for Testflinger to see files/directories in removable media, you will
+need to connect the ``removable-media`` interface manually:
+
+.. code-block:: console
+
+  $ sudo snap connect testflinger-cli:removable-media
 
 Install in virtual environment
 -------------------------------
