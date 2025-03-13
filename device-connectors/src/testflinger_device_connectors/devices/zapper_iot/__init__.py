@@ -74,7 +74,7 @@ class DeviceConnector(ZapperConnector):
                 # Validate that it was provided.
                 run_stages = provision_plan["run_stage"]
                 for stage in run_stages:
-                    with contextlib.suppress(KeyError):
+                    with contextlib.suppress(KeyError, TypeError):
                         if (
                             stage["initial_login"].get("method")
                             == "console-conf"
