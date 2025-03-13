@@ -18,13 +18,14 @@
 Unit tests for testflinger-cli
 """
 
+import io
 import json
 import os
-from pathlib import Path
 import re
 import sys
 import tarfile
 import uuid
+from pathlib import Path
 
 import pytest
 import requests
@@ -32,7 +33,6 @@ from requests_mock import Mocker
 
 import testflinger_cli
 from testflinger_cli.client import HTTPError
-
 
 URL = "https://testflinger.canonical.com"
 
@@ -90,6 +90,24 @@ def test_submit(capsys, tmp_path, requests_mock):
         json=[{"name": "fake_agent", "state": "waiting"}],
     )
     sys.argv = ["", "submit", str(testfile)]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.submit()
+    std = capsys.readouterr()
+    assert jobid in std.out
+
+
+def test_submit_stdin(capsys, monkeypatch, requests_mock):
+    """Make sure jobid is read back from submitted job via stdin"""
+    jobid = str(uuid.uuid1())
+    fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(fake_data)))
+    fake_return = {"job_id": jobid}
+    requests_mock.post(URL + "/v1/job", json=fake_return)
+    requests_mock.get(
+        URL + "/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+    sys.argv = ["", "submit", "-"]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.submit()
     std = capsys.readouterr()
