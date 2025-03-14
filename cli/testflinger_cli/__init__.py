@@ -526,10 +526,9 @@ class TestflingerCli:
             filename = Path(self.args.filename)
             try:
                 data = filename.read_text(encoding="utf-8", errors="ignore")
-            except PermissionError:
-                sys.exit(f"File not readable: {filename}")
-            except FileNotFoundError:
-                sys.exit(f"File not found: {filename}")
+            except (PermissionError, FileNotFoundError) as error:
+                logger.exception(error)
+                sys.exit(1)
         job_dict = yaml.safe_load(data)
 
         # Check if agents are available to handle this queue
