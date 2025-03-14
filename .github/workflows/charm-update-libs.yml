@@ -1,0 +1,17 @@
+name: Auto-update Charm Libraries
+on:
+  workflow_dispatch:
+  schedule:
+    # Checks regularly the upstream every four hours
+    - cron: "0 */4 * * *"
+
+jobs:
+  update-lib:
+    strategy:
+      matrix:
+        path: [server/charm, agent/charms/testflinger-agent-host-charm]
+    name: Check libraries
+    uses: canonical/observability/.github/workflows/charm-update-libs.yaml@v1
+    secrets: inherit
+    with:
+      charm-path: ${{ matrix.path }}
