@@ -1,11 +1,71 @@
 type: charm
-bases:
-  - build-on:
-    - name: ubuntu
-      channel: "22.04"
-    run-on:
-    - name: ubuntu
-      channel: "22.04"
+name: testflinger-k8s
+title: Testflinger Server
+summary: Juju K8s charm for Testflinger server
+description: |
+  Testflinger is a microservice that provides an API to request tests
+  and place the tests on a queue which can be serviced by any agent
+  capable of handling the test.
+
+links:
+  source: [https://github.com/canonical/testflinger]
+  issues: [https://github.com/canonical/testflinger/issues]
+  website: [https://canonical-testflinger.readthedocs-hosted.com/en/latest/]
+
+containers:
+  testflinger:
+    resource: testflinger-image
+
+resources:
+  testflinger-image:
+    type: oci-image
+    description: OCI image for the 'testflinger' container
+    upstream-source: ghcr.io/canonical/testflinger:main
+
+requires:
+  mongodb_client:
+    interface: mongodb_client
+    limit: 1
+  nginx-route:
+    interface: nginx-route
+
+provides:
+  metrics-endpoint:
+    interface: prometheus_scrape
+
+charm-libs:
+  - lib: data_platform_libs.data_interfaces
+    version: "0"
+  - lib: nginx_ingress_integrator.nginx_route
+    version: "0"
+  - lib: prometheus_k8s.prometheus_scrape
+    version: "0"
+  - lib: observability_libs.juju_topology
+    version: "0"
+
+base: ubuntu@22.04
+platforms:
+  amd64:
+
+config:
+  options:
+    external_hostname:
+      type: string
+      default: testflinger.local
+      description: The external hostname for accessing the Testflinger server
+    keepalive:
+      type: int
+      default: 10
+      description: Number of seconds to wait for keepalive connections
+    max_pool_size:
+      type: int
+      default: 100
+      description: Maximum number of concurrent connections to the database
+    jwt_signing_key:
+      type: string
+      default: ""
+      description: The secret key used for signing authorization tokens
+
 parts:
   charm:
     build-packages: [cargo, rustc, pkg-config, libffi-dev, libssl-dev]

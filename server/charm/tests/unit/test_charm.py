@@ -18,22 +18,19 @@ Unit tests for Testflinger Juju charm
 """
 
 from pathlib import Path
-import pytest
-import yaml
 
 import ops
 import ops.testing
+import pytest
 from charm import TestflingerCharm
 
 CHARMDIR = Path(__file__).parent.parent.parent.resolve()
-METADATA_FILE = CHARMDIR / "metadata.yaml"
-METADATA = str(yaml.safe_load(METADATA_FILE.read_text()))
 
 
 @pytest.fixture(name="harness")
 def fixture_harness():
     """Pytest fixture for getting the harness"""
-    harness = ops.testing.Harness(TestflingerCharm, meta=METADATA)
+    harness = ops.testing.Harness(TestflingerCharm)
     return harness
 
 
