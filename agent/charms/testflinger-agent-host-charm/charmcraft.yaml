@@ -1,12 +1,74 @@
-# Learn more about charmcraft.yaml configuration at:
-# https://juju.is/docs/sdk/charmcraft-config
-type: "charm"
-bases:
-  - build-on:
-    - name: "ubuntu"
-      channel: "22.04"
-    run-on:
-    - name: "ubuntu"
-      channel: "20.04"
-    - name: "ubuntu"
-      channel: "22.04"
+type: charm
+name: testflinger-agent-host
+title: Testflinger Agent Host
+summary: Testflinger host for device agents
+description: |
+  Testflinger is a system for orchestrating the time-sharing of access to a pool
+  of target machines.
+
+  The Testflinger agent is a per-machine service that runs on an agent host
+  system. The agent is configured with a set of queues for which it knows how to
+  run jobs. When it is not running a job, the agent:
+
+  - Asks the server for a job to run from the list of configured queues
+  - Dispatches the device connector to execute each phase of the job
+  - Reports the results of the job back to the server
+  - Uploads artifacts (if any) saved from the job to the server
+
+links:
+  source: [https://github.com/canonical/testflinger]
+  issues: [https://github.com/canonical/testflinger/issues]
+  website: [https://canonical-testflinger.readthedocs-hosted.com/en/latest/]
+
+platforms:
+  ubuntu@20.04:amd64:
+  ubuntu@22.04:amd64:
+
+charm-libs:
+  - lib: operator_libs_linux.apt
+    version: "0"
+  - lib: operator_libs_linux.passwd
+    version: "0"
+  - lib: operator_libs_linux.systemd
+    version: "0"
+
+actions:
+  update-configs:
+    description: Pull Testflinger agent configurations
+  update-testflinger:
+    description: Update the Testflinger agent code
+
+config:
+  options:
+    config-repo:
+      type: string
+      default: ""
+      description: Git repository containing the agent configuration data
+    config-branch:
+      type: string
+      default: main
+      description: Git branch to pull for the agent configuration data
+    config-dir:
+      type: string
+      default: ""
+      description: The path from the repository root where the directories and configurations are located for this agent host
+    ssh-private-key:
+      type: string
+      default: ""
+      description: The base64 encoded private SSH key file for connecting to local test devices
+    ssh-public-key:
+      type: string
+      default: ""
+      description: The base64 encoded public SSH key file for connecting to local test devices
+    ssh-config:
+      type: string
+      description: The SSH configuration for connecting to local test devices
+      default: |
+        StrictHostKeyChecking no
+        UserKnownHostsFile /dev/null
+        LogLevel QUIET
+        ConnectTimeout 30
+
+parts:
+  charm:
+    plugin: charm
