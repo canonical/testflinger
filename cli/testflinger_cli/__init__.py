@@ -523,13 +523,13 @@ class TestflingerCli:
         if self.args.filename == "-":
             data = sys.stdin.read()
         else:
-            path = Path(self.args.filename)
+            filename = Path(self.args.filename)
             try:
-                data = path.read_text(encoding="utf-8", errors="ignore")
+                data = filename.read_text(encoding="utf-8", errors="ignore")
             except PermissionError:
-                sys.exit(f"File not readable: {path}")
+                sys.exit(f"File not readable: {filename}")
             except FileNotFoundError:
-                sys.exit(f"File not found: {path}")
+                sys.exit(f"File not found: {filename}")
         job_dict = yaml.safe_load(data)
 
         # Check if agents are available to handle this queue
