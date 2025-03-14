@@ -18,8 +18,7 @@ Testflinger v1 OpenAPI schemas
 """
 
 from apiflask import Schema, fields
-from apiflask.validators import OneOf
-
+from apiflask.validators import OneOf, Regexp
 
 ValidJobStates = (
     "setup",
@@ -95,6 +94,15 @@ class TestData(Schema):
     test_password = fields.String(required=False)
 
 
+class ReserveData(Schema):
+    """Schema for the `reserve_data` section of a Testflinger job."""
+
+    ssh_keys = fields.List(
+        fields.String(validate=Regexp(r"^(lp|gh):(\S+)$")), required=False
+    )
+    timeout = fields.Integer(required=False)
+
+
 class Job(Schema):
     """Job schema"""
 
@@ -114,7 +122,7 @@ class Job(Schema):
     firmware_update_data = fields.Dict(required=False)
     test_data = fields.Nested(TestData, required=False)
     allocate_data = fields.Dict(required=False)
-    reserve_data = fields.Dict(required=False)
+    reserve_data = fields.Nested(ReserveData, required=False)
     job_status_webhook = fields.String(required=False)
     job_priority = fields.Integer(required=False)
 
