@@ -365,7 +365,7 @@ class TestflingerCli:
         parser.add_argument("--wait-for-available-agents", action="store_true")
         parser.add_argument(
             "filename",
-            type=str,
+            type=Path,
             help="YAML or JSON file with your job definition, '-' for stdin",
         ).completer = argcomplete.completers.FilesCompleter(
             allowednames=("*.yaml", "*.yml", "*.json")
@@ -520,7 +520,7 @@ class TestflingerCli:
 
     def submit(self):
         """Submit a new test job to the server"""
-        if self.args.filename == "-":
+        if self.args.filename.name == "-":
             data = sys.stdin.read()
         else:
             filename = Path(self.args.filename)
