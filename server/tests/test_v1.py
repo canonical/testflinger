@@ -35,6 +35,7 @@ def test_home(mongo_app):
 
 def test_add_job_invalid_reserve_data(mongo_app):
     """Test that a job with an invalid reserve_data field fails"""
+    # Invalid ssh_keys field
     job_data = {
         "job_queue": "test",
         "reserve_data": {"ssh_keys": {"lp": "me"}},
@@ -42,6 +43,58 @@ def test_add_job_invalid_reserve_data(mongo_app):
     app, _ = mongo_app
     output = app.post("/v1/job", json=job_data)
     assert 422 == output.status_code
+    # Unsupported SSH key server field
+    job_data = {
+        "job_queue": "test",
+        "reserve_data": {"ssh_keys": ["who:me"]},
+    }
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert 422 == output.status_code
+    # Invalid timeout
+    job_data = {
+        "job_queue": "test",
+        "reserve_data": {"timeout": "invalid"},
+    }
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert 422 == output.status_code
+    # Invalid additional fields
+    job_data = {
+        "job_queue": "test",
+        "reserve_data": {"invalid_field": "what am I doing here"},
+    }
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert 422 == output.status_code
+
+
+def test_add_job_valid_reserve_data(mongo_app):
+    """Test that a job with valid reserve_data field works"""
+    # Valid ssh_keys
+    job_data = {
+        "job_queue": "test",
+        "reserve_data": {"ssh_keys": ["lp:me"]},
+    }
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert 200 == output.status_code
+    # Valid timeout
+    job_data = {
+        "job_queue": "test",
+        "reserve_data": {"timeout": 1200},
+    }
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert 200 == output.status_code
+    # All reserve_data fields defined
+    job_data = {
+        "job_queue": "test",
+        "reserve_data": {"ssh_keys": ["lp:me"], "timeout": 1200},
+    }
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert 200 == output.status_code
 
 
 def test_add_job_good(mongo_app):
