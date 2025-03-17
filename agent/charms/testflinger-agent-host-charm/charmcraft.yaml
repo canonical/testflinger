@@ -51,6 +51,10 @@ actions:
     description: Pull Testflinger agent configurations
   update-testflinger:
     description: Update the Testflinger agent code
+    params:
+      branch:
+        type: string
+        description: The name of the branch or tag to pull Testflinger agent code from
 
 config:
   options:

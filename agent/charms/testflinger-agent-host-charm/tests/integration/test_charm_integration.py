@@ -38,6 +38,17 @@ async def test_action_update_testflinger(ops_test: OpsTest):
     assert action.results["return-code"] == 0
 
 
+async def test_action_update_testflinger_with_branch(ops_test: OpsTest):
+    await ops_test.model.wait_for_idle(status="active", timeout=600)
+    action = await ops_test.model.units.get(f"{APP_NAME}/0").run_action(
+        "update-testflinger",
+        branch="main",
+    )
+    await action.wait()
+    assert action.status == "completed"
+    assert action.results["return-code"] == 0
+
+
 async def test_action_update_configs(ops_test: OpsTest):
     await ops_test.model.wait_for_idle(status="active", timeout=600)
 
