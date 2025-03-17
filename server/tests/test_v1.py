@@ -33,6 +33,17 @@ def test_home(mongo_app):
     assert "/agents" == response.headers.get("Location")
 
 
+def test_add_job_invalid_reserve_data(mongo_app):
+    """Test that a job with an invalid reserve_data field fails"""
+    job_data = {
+        "job_queue": "test",
+        "reserve_data": {"ssh_keys": {"lp": "me"}},
+    }
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert 422 == output.status_code
+
+
 def test_add_job_good(mongo_app):
     """Test that adding a new job works"""
     job_data = {"job_queue": "test", "tags": ["foo", "bar"]}
