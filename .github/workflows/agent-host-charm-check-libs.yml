@@ -1,12 +1,17 @@
-name: Check Server Charm Libs on Pull Request
+name: Check Agent Host Charm Libs on Pull Request
 
 on: 
   pull_request:
     branches:
       - main
     paths:
-      - server/charm/**
+      - .github/workflows/agent-host-charm-check-libs.yml
+      - agent/charms/testflinger-agent-host-charm/**
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -20,6 +25,6 @@ jobs:
       - name: Check libraries
         uses: canonical/charming-actions/check-libraries@2.7.0
         with:
-          charm-path: server/charm
+          charm-path: agent/charms/testflinger-agent-host-charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
