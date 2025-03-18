@@ -43,6 +43,14 @@ def test_add_job_invalid_reserve_data(mongo_app):
     app, _ = mongo_app
     output = app.post("/v1/job", json=job_data)
     assert 422 == output.status_code
+    # Invalid multiple ssh_keys
+    job_data = {
+        "job_queue": "test",
+        "reserve_data": {"ssh_keys": ["lp:me", {"gh": "alsome"}]},
+    }
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert 422 == output.status_code
     # Unsupported SSH key server field
     job_data = {
         "job_queue": "test",
@@ -75,6 +83,14 @@ def test_add_job_valid_reserve_data(mongo_app):
     job_data = {
         "job_queue": "test",
         "reserve_data": {"ssh_keys": ["lp:me"]},
+    }
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert 200 == output.status_code
+    # Valid multiple ssh_keys
+    job_data = {
+        "job_queue": "test",
+        "reserve_data": {"ssh_keys": ["lp:me", "gh:alsome"]},
     }
     app, _ = mongo_app
     output = app.post("/v1/job", json=job_data)
