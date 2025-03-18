@@ -85,12 +85,17 @@ class TestflingerAgentHostCharm(CharmBase):
             ]
         )
 
-    def update_testflinger_repo(self):
+    def update_testflinger_repo(self, branch=None):
         """Update the testflinger repo"""
         self.unit.status = MaintenanceStatus("Creating virtualenv")
         testflinger_source.create_virtualenv()
         self.unit.status = MaintenanceStatus("Cloning testflinger repo")
-        testflinger_source.clone_repo(LOCAL_TESTFLINGER_PATH)
+        if branch is not None:
+            testflinger_source.clone_repo(
+                LOCAL_TESTFLINGER_PATH, branch=branch
+            )
+        else:
+            testflinger_source.clone_repo(LOCAL_TESTFLINGER_PATH)
 
     def update_config_files(self):
         """
@@ -285,7 +290,8 @@ class TestflingerAgentHostCharm(CharmBase):
     def on_update_testflinger_action(self, event):
         """Update Testflinger agent code"""
         self.unit.status = MaintenanceStatus("Updating Testflinger Agent Code")
-        self.update_testflinger_repo()
+        branch = event.params.get("branch")
+        self.update_testflinger_repo(branch)
         self.restart_agents()
         self.unit.status = ActiveStatus()
 
