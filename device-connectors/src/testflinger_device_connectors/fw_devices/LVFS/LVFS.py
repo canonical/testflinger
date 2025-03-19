@@ -6,13 +6,14 @@ import subprocess
 import time
 from enum import Enum, auto
 from typing import Tuple
+from testflinger_device_connectors.fw_devices.base import (
+    AbstractDevice,
+    SSH_OPTS,
+    FirmwareUpdateError,
+)
 
-from testflinger_device_connectors.fw_devices.base import AbstractDevice
 
-logger = logging.getLogger()
-
-
-SSH_OPTS = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+logger = logging.getLogger(__name__)
 
 
 class LVFSDevice(AbstractDevice):
@@ -33,13 +34,7 @@ class LVFSDevice(AbstractDevice):
         :param timeout:      timeout for the command response
         :returns:            return code, stdout, stderr
         """
-        if self.password == "":
-            ssh_cmd = f'ssh -t {SSH_OPTS} {self.user}@{self.ipaddr} "{cmd}"'
-        else:
-            ssh_cmd = (
-                f"sshpass -p {self.password}  ssh -t {SSH_OPTS} "
-                + f' {self.user}@{self.ipaddr} "{cmd}"'
-            )
+        ssh_cmd = f'ssh -t {SSH_OPTS} {self.user}@{self.ipaddr} "{cmd}"'
         try:
             r = subprocess.run(
                 ssh_cmd,
@@ -50,7 +45,7 @@ class LVFSDevice(AbstractDevice):
             )
         except subprocess.TimeoutExpired as e:
             if raise_stderr:
-                raise e
+                raise FirmwareUpdateError(e.output)
             else:
                 return 124, f"command timeout after {timeout}s", ""
         rc, stdout, stderr = (
@@ -60,7 +55,7 @@ class LVFSDevice(AbstractDevice):
         )
         if raise_stderr and rc != 0:
             err_msg = f"Failed to execute {cmd}:\n [{rc}] {stdout} {stderr}"
-            raise RuntimeError(err_msg)
+            raise FirmwareUpdateError(err_msg)
         return rc, stdout, stderr
 
     def get_fw_info(self):
@@ -198,7 +193,7 @@ class LVFSDevice(AbstractDevice):
                     raise_stderr=False,
                 )
                 if not (rc == 0 or (rc == 1 and "already exists" in stderr)):
-                    raise RuntimeError(
+                    raise FirmwareUpdateError(
                         f"[{dev_name}] fail to download firmware file from"
                         f" LVFS target: {prev_ver['Uri']}\nerror: {stdout}"
                     )

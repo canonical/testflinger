@@ -1,17 +1,17 @@
 """Detecting device types."""
 
 import logging
+import json
 import subprocess
-
 from testflinger_device_connectors.fw_devices import (
     AbstractDevice,
     LVFSDevice,
     OEMDevice,
+    FirmwareUpdateError,
 )
 from testflinger_device_connectors.fw_devices.dmi import Dmi
 
-logger = logging.getLogger()
-
+logger = logging.getLogger(__name__)
 
 SSH_OPTS = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
@@ -22,22 +22,20 @@ def all_subclasses(cls):
     ]
 
 
-def detect_device(
-    ip: str, user: str, password: str = "", **options
-) -> AbstractDevice:
+def detect_device(ip: str, user: str, config: dict) -> AbstractDevice:
     """Detect device's firmware upgrade type by checking on DMI data.
 
     :param ip:        DUT IP
     :param user:      DUT user
-    :param password:  DUT password (default=blank)
     :return:          device class object
     :rtype:           an instance of a class that implements AbstractDevice
     """
-    temp_device = LVFSDevice(ip, user, password)
+    temp_device = LVFSDevice(ip, user)
     run_ssh = temp_device.run_cmd
     devices = all_subclasses(AbstractDevice)
 
     try:
+        temp_device.check_connectable(60)
         dmi_chassis_vendor = "sudo cat /sys/class/dmi/id/chassis_vendor"
         dmi_chassis_type = "sudo cat /sys/class/dmi/id/chassis_type"
         rc1, vendor_string, stderr1 = run_ssh(
@@ -48,7 +46,7 @@ def detect_device(
         )
     except subprocess.CalledProcessError as err:
         logger.error(err.output)
-        raise RuntimeError(err.output) from err
+        raise FirmwareUpdateError(err.output)
 
     err_msg = ""
     if rc1 != 0:
@@ -61,7 +59,7 @@ def detect_device(
             + err_msg
         )
         logger.error(err_msg)
-        raise RuntimeError(err_msg)
+        raise FirmwareUpdateError(err_msg)
 
     type_index = int(type_string)
     upgrade_type = Dmi.chassis_types[type_index]
@@ -81,10 +79,33 @@ def detect_device(
         logger.info("%s is a %s %s", ip, vendor_string, dev.__name__)
     except IndexError as err:
         logger.error(err_msg)
-        raise RuntimeError(err_msg) from err
+        raise FirmwareUpdateError(err_msg)
 
     if issubclass(dev, LVFSDevice):
-        return dev(ip, user, password)
+        return dev(ip, user)
     elif issubclass(dev, OEMDevice):
-        logger.info(err_msg)
-        raise RuntimeError(err_msg)
+        # get BMC info from MAAS
+        try:
+            cmd = [
+                f"maas {config['maas_user']} "
+                f"node power-parameters {config['node_id']}"
+            ]
+            out = subprocess.check_output(
+                cmd,
+                shell=True,
+                universal_newlines=True,
+            ).strip()
+            bmc_info = json.loads(out)
+            return dev(
+                ip,
+                user,
+                bmc_info["power_address"],
+                bmc_info["power_user"],
+                bmc_info["power_pass"],
+            )
+        except KeyError:
+            raise FirmwareUpdateError("MAAS info isn't provided")
+        except subprocess.CalledProcessError:
+            err_msg = f"maas error running: {' '.join(cmd)}"
+            logger.error(err_msg)
+            raise FirmwareUpdateError(err_msg)
