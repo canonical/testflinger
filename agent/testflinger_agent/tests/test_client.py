@@ -20,6 +20,7 @@ from unittest.mock import patch
 import requests_mock as rmock
 
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
+from testflinger_agent.errors import TFServerError
 
 
 class TestClient:
@@ -127,6 +128,47 @@ class TestClient:
         assert tmp_path.exists() is False
         assert "Unable to save artifacts" in caplog.text
 
+    def test_result_post_endpoint_error(self, client, requests_mock, caplog):
+        """
+        Test that the client handles the case where the server returns
+        an error status code for the results post endpoint.
+        """
+        job_id = str(uuid.uuid1())
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/result/{job_id}", status_code=404
+        )
+        with pytest.raises(TFServerError):
+            client.post_result(job_id, {})
+            assert "Unable to post results" in caplog.text
+
+    def test_result_get_endpoint_error(self, client, requests_mock, caplog):
+        """
+        Test that the client handles the case where the server returns
+        an error status code for the results get endpoint.
+        """
+        job_id = str(uuid.uuid1())
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/result/{job_id}", status_code=404
+        )
+        response = client.get_result(job_id)
+        assert response == {}
+        assert "Unable to get results" in caplog.text
+
+    def test_attachment_endpoint_error(self, client, requests_mock, caplog):
+        """
+        Test that the client handles the case where the server returns
+        an error status code for the attachment endpoint.
+        """
+        job_id = str(uuid.uuid1())
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/job/{job_id}/attachments",
+            status_code=404,
+        )
+
+        with pytest.raises(TFServerError):
+            client.get_attachments(job_id, None)
+            assert "Unable to retrieve attachments for job" in caplog.text
+
     def test_transmit_job_artifact(self, client, requests_mock, tmp_path):
         """
         Test that transmit_job_outcome sends artifacts if they exist
@@ -182,3 +224,15 @@ class TestClient:
             "events": events,
         }
         assert requests_mock.last_request.json() == expected_json
+
+    def test_status_update_endpoint_error(self, client, requests_mock, caplog):
+        """
+        Test that the client handles the case where the server returns
+        an error status code for the status_update endpoint.
+        """
+        job_id = str(uuid.uuid1())
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/job/{job_id}/events", status_code=404
+        )
+        client.post_status_update("", "", [], job_id)
+        assert "Unable to post status updates" in caplog.text
