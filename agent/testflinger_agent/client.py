@@ -117,7 +117,7 @@ class TestflingerClient:
         """
         uri = urljoin(self.server, f"/v1/job/{job_id}/attachments")
         with requests.get(uri, stream=True, timeout=600) as response:
-            if response.status_code != 200:
+            if not response:
                 logger.error(
                     f"Unable to retrieve attachments for job {job_id} "
                     f"(error: {response.status_code})"
@@ -439,11 +439,16 @@ class TestflingerClient:
             job_request = self.session.post(
                 status_update_uri, json=status_update_request, timeout=30
             )
+            # Response code is greater than 399
+            if not job_request:
+                logger.error(
+                    "Unable to post status updates to: %s (error: %s)",
+                    status_update_uri,
+                    job_request.status_code,
+                )
         except RequestException as exc:
-            logger.error("Server Error: %s" % exc)
-            job_request = None
-        if not job_request:
             logger.error(
-                "Unable to post status updates to: %s (error: %s)"
-                % (status_update_uri, job_request.status_code)
+                "Unable to post status updates to: %s (error: %s)",
+                status_update_uri,
+                exc,
             )
