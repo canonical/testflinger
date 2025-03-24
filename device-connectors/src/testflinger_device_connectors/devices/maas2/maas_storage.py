@@ -51,13 +51,24 @@ class MaasStorage:
     def _logger_info(self, message):
         logger.info("MAAS: {}".format(message))
 
+    def _logger_error(self, message):
+        logger.error("MAAS: {}".format(message))
+
     def _node_read(self):
         """Read node block-devices.
 
         :return: the node's block device information
         """
+        self._logger_info("Reading node's block device information")
         cmd = ["maas", self.maas_user, "block-devices", "read", self.node_id]
-        return self.call_cmd(cmd, output_json=True)
+        try:
+            output = self.call_cmd(cmd, output_json=True)
+        except MaasStorageError as err:
+            self._logger_error(
+                f"Unable to read node's block device information: {err}"
+            )
+            raise
+        return output
 
     @staticmethod
     def call_cmd(cmd, output_json=False):
