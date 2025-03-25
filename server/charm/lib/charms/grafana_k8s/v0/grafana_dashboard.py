@@ -219,7 +219,7 @@ LIBAPI = 0
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
 
-LIBPATCH = 39
+LIBPATCH = 42
 
 PYDEPS = ["cosl >= 0.0.50"]
 
@@ -417,8 +417,7 @@ class RelationInterfaceMismatchError(Exception):
         self.expected_relation_interface = expected_relation_interface
         self.actual_relation_interface = actual_relation_interface
         self.message = (
-            "The '{}' relation has '{}' as "
-            "interface rather than the expected '{}'".format(
+            "The '{}' relation has '{}' as " "interface rather than the expected '{}'".format(
                 relation_name, actual_relation_interface, expected_relation_interface
             )
         )
@@ -634,7 +633,10 @@ class CharmedDashboard:
         deletions = []
         for tmpl in dict_content["templating"]["list"]:
             if tmpl["name"] and tmpl["name"] in used_replacements:
-                deletions.append(tmpl)
+                # it might happen that existing template var name is the same as the one we insert (i.e prometheusds or lokids)
+                # in that case, we want to pop the existing one only.
+                if tmpl not in DATASOURCE_TEMPLATE_DROPDOWNS:
+                    deletions.append(tmpl)
 
         for d in deletions:
             dict_content["templating"]["list"].remove(d)
@@ -963,6 +965,13 @@ class CharmedDashboard:
             )
 
     @classmethod
+    def _add_tags(cls, dashboard_dict: dict, charm_name: str):
+        tags: List[str] = dashboard_dict.get("tags", [])
+        if not any(tag.startswith("charm: ") for tag in tags):
+            tags.append(f"charm: {charm_name}")
+        dashboard_dict["tags"] = tags
+
+    @classmethod
     def load_dashboards_from_dir(
         cls,
         *,
@@ -1003,6 +1012,8 @@ class CharmedDashboard:
                 charm_dir=charm_dir,
                 charm_name=charm_name,
             )
+
+            cls._add_tags(dashboard_dict=dashboard_dict, charm_name=charm_name)
 
             id = "file:{}".format(path.stem)
             dashboard_templates[id] = cls._content_to_dashboard_object(
@@ -1601,7 +1612,7 @@ class GrafanaDashboardConsumer(Object):
 
         if not coerced_data == stored_data:
             stored_dashboards = self.get_peer_data("dashboards")
-            stored_dashboards[relation.id] = stored_data
+            stored_dashboards[str(relation.id)] = stored_data
             self.set_peer_data("dashboards", stored_dashboards)
             return True
         return None  # type: ignore
