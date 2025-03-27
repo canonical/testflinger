@@ -1,20 +1,12 @@
 [build-system]
-requires = [
-    "setuptools",
-    "setuptools-scm",
-]
+requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "testflinger-cli"
 description = "Testflinger CLI"
 readme = "README.rst"
-dependencies = [
-    "PyYAML",
-    "requests",
-    "xdg-base-dirs",
-    "argcomplete",
-]
+dependencies = ["PyYAML", "requests", "xdg-base-dirs", "argcomplete"]
 dynamic = ["version"]
 requires-python = ">= 3.10"
 
@@ -24,3 +16,9 @@ testflinger = "testflinger_cli:cli"
 
 [tool.black]
 line-length = 79
+
+[tool.pylint.basic]
+good-names = ["k", "v"]
+
+[tool.pylint."messages control"]
+disable = ["C0209", "too-many-lines"]
