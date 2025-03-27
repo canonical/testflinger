@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Release testflinger-agent-host charm to stable
-        uses: canonical/charming-actions/promote-charm@main
+        uses: canonical/charming-actions/promote-charm@2.7.0
         with:
           credentials: ${{ secrets.CHARMHUB_TOKEN }}
           destination-channel: latest/stable
