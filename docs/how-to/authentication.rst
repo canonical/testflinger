@@ -1,7 +1,7 @@
 Authentication using Testflinger CLI
 ====================================
 
-:doc:`Authentication <../explanation/authentication>` is required for submitting jobs with priority, submitting jobs to a restricted queue, or reserving a machine for greater than 6 hours.
+:doc:`Authentication <../explanation/authentication>` is required for submitting jobs with priority, submitting jobs to a restricted queue, or reserving a machine for longer than 6 hours.
 
 Authenticating with Testflinger server requires a client id and a secret key.
 These credentials can be provided to the CLI using the environment variables
