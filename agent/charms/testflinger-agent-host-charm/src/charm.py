@@ -15,7 +15,7 @@ from common import run_with_logged_errors
 from git import Repo, GitCommandError
 from jinja2 import Template
 
-from charms.operator_libs_linux.v0 import apt
+from charms.operator_libs_linux.v0 import apt, passwd
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import (
@@ -197,8 +197,8 @@ class TestflingerAgentHostCharm(CharmBase):
         run_with_logged_errors(["supervisorctl", "signal", "USR1", "all"])
 
     def setup_docker(self):
-        run_with_logged_errors(["groupadd", "docker"])
-        run_with_logged_errors(["gpasswd", "-a", "ubuntu", "docker"])
+        passwd.add_group("docker")
+        passwd.add_user_to_group("ubuntu", "docker")
 
     def write_file(self, location, contents):
         with open(location, "w", encoding="utf-8", errors="ignore") as out:
