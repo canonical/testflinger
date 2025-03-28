@@ -18,6 +18,8 @@
 import json
 import pytest
 import yaml
+from unittest.mock import patch
+from collections import namedtuple
 from testflinger_device_connectors.devices.maas2 import Maas2
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.maas2.maas_storage import (
@@ -40,3 +42,36 @@ def test_maas2_agent_invalid_storage(tmp_path):
 
     # MaasStorageError should also be a subclass of ProvisioningError
     assert isinstance(err.value, ProvisioningError)
+
+
+def test_maas_cmd_retry(tmp_path):
+    """
+    Test that maas commands get retried 6 times when the command returns an
+    exit code
+    """
+    Process = namedtuple("Process", ["returncode", "stdout"])
+    with patch(
+        "testflinger_device_connectors.devices.maas2.maas2.MaasStorage",
+        return_value=None,
+    ):
+        with patch("subprocess.run", return_value=Process(1, b"error")), patch(
+            "time.sleep", return_value=None
+        ) as mocked_time_sleep:
+            config_yaml = tmp_path / "config.yaml"
+            config = {
+                "maas_user": "user",
+                "node_id": "abc",
+                "agent_name": "agent001",
+            }
+            config_yaml.write_text(yaml.safe_dump(config))
+
+            job_json = tmp_path / "job.json"
+            job = {}
+            job_json.write_text(json.dumps(job))
+            maas2 = Maas2(config=config_yaml, job_data=job_json)
+            cmd = "my_maas_cmd"
+            with pytest.raises(ProvisioningError) as err:
+                maas2.run_maas_cmd_with_retry(cmd)
+                assert err.messsage == "error"
+
+            assert mocked_time_sleep.call_count == 6
