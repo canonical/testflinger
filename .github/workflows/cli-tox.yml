@@ -2,11 +2,11 @@ name: "[cli] Run unit tests"
 
 on:
   push:
-    branches: [ main, try-self-hosted ]
+    branches: [main]
     paths:
       - cli/**
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
       - cli/**
 
