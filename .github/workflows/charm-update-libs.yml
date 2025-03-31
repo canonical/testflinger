@@ -8,6 +8,8 @@ on:
 jobs:
   update-lib:
     strategy:
+      # Can't parallelize because the action uses the same branch for all charms
+      max-parallel: 1
       matrix:
         path: [server/charm, agent/charms/testflinger-agent-host-charm]
     name: Check libraries
