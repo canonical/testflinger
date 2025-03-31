@@ -16,17 +16,9 @@ jobs:
       run:
         working-directory: cli
     runs-on: [self-hosted, linux, jammy, X64]
-    strategy:
-      matrix:
-        python: ["3.10"]
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python }}
-    - name: Install tox
-      run: pip install tox
-    - name: Run tests
-      run: |
-        tox
+      - uses: actions/checkout@v4
+      - name: Install uv and set the Python version
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+      - name: Run tests
+        run: uvx --with tox-uv tox
