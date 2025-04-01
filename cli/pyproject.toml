@@ -60,3 +60,6 @@ commands = [["flake8", "testflinger_cli"], ["pylint", "testflinger_cli"]]
 [tool.tox.env.unit]
 description = "Run unit tests"
 commands = [["pytest", "--cov=.", "--doctest-modules"]]
+
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true } }]
