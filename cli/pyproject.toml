@@ -38,3 +38,24 @@ good-names = ["k", "v"]
 
 [tool.pylint."messages control"]
 disable = ["C0209", "too-many-lines"]
+
+[tool.tox]
+requires = ["tox-uv>=1.25.0"]
+env_list = ["format", "lint", "unit"]
+no_package = true
+
+[tool.tox.env_run_base]
+dependency_groups = ["dev"]
+set_env = { HOME = "{envtmpdir}" }
+
+[tool.tox.env.format]
+description = "Run formatting tests"
+commands = [["black", "--check", "testflinger_cli"]]
+
+[tool.tox.env.lint]
+description = "Run linting tests"
+commands = [["flake8", "testflinger_cli"], ["pylint", "testflinger_cli"]]
+
+[tool.tox.env.unit]
+description = "Run unit tests"
+commands = [["pytest", "--cov=.", "--doctest-modules"]]
