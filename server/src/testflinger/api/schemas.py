@@ -83,6 +83,60 @@ class Attachment(Schema):
     device = fields.String(required=False)
 
 
+class ProvisionData(Schema):
+    """Schema for the `provision_data` section of a Testflinger job."""
+
+    url = fields.URL(required=False)
+    distro = fields.String(required=False)
+    kernel = fields.String(required=False)
+
+    attachments = fields.List(fields.Nested(Attachment), required=False)
+    use_attachment = fields.String(required=False)
+
+    user_data = fields.String(required=False)
+    ubuntu_sso_email = fields.Email(required=False)
+
+    # OEM Autoinstall specific fields
+    authorized_keys = fields.String(required=False)
+    redeploy_cfg = fields.String(required=False)
+    token_file = fields.String(required=False)
+
+    # MuxPi specific fields
+    boot_check_url = fields.String(required=False)
+    create_user = fields.Boolean(required=False)
+    media = fields.String(required=False)
+
+    # MAAS specific fields
+    # [TODO] Specify Nested schema to improve validation
+    disks = fields.List(fields.Dict(), required=False)
+
+    # Multi-device specific fields
+    # [TODO] Specify Nested schema to improve validation
+    jobs = fields.List(fields.Dict(), required=False)
+
+    # Zapper specific fields
+    zapper_provisioning_timeout = fields.Integer(required=False)
+
+    # Zapper IOT specific fields
+    preset = fields.String(required=False)
+    # [TODO] Specify Nested schema to improve validation
+    provision_plan = fields.Dict(required=False)
+    urls = fields.List(fields.URL(), required=False)
+
+    # Zapper KVM specific fields
+    alloem_url = fields.URL(required=False)
+    autoinstall_base_user_data = fields.String(required=False)
+    autoinstall_oem = fields.Boolean(required=False)
+    autoinstall_storage_layout = fields.String(required=False)
+    cmdline_append = fields.String(required=False)
+    live_image = fields.Boolean(required=False)
+    oem = fields.String(required=False)
+    robot_retries = fields.Integer(required=False)
+    robot_tasks = fields.List(fields.String(), required=False)
+    skip_download = fields.Boolean(required=False)
+    wait_until_ssh = fields.Boolean(required=False)
+
+
 class TestData(Schema):
     """Schema for the `test_data` section of a testflinger job"""
 
@@ -114,9 +168,7 @@ class Job(Schema):
     global_timeout = fields.Integer(required=False)
     output_timeout = fields.Integer(required=False)
     allocation_timeout = fields.Integer(required=False)
-    # [TODO] specify Nested schema to improve validation,
-    # i.e. expected fields within `provision_data`
-    provision_data = fields.Dict(required=False)
+    provision_data = fields.Nested(ProvisionData, required=False)
     # [TODO] specify Nested schema to improve validation,
     # i.e. expected fields within `firmware_update_data`
     firmware_update_data = fields.Dict(required=False)
