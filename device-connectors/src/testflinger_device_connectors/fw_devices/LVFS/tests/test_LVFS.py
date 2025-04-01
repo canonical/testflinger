@@ -72,7 +72,6 @@ class TestLVFSDevice(unittest.TestCase):
 
     def test_check_results_mismatched_version(self):
         """Validate version check in check_results"""
-        global device_results
         with patch(
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
