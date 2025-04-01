@@ -5,9 +5,9 @@ PROVISION_TYPE="$provision_type"
 
 # Variables for docker image
 REGISTRY=ghcr.io
-NAMESPACE=canonical/testflinger
+NAMESPACE=canonical
 IMAGE_TAG=jammy
-IMAGE=testflinger-testenv
+IMAGE=testflinger/testflinger-testenv
 
 # The following variables are set by the agent charm
 AGENT_CONFIGS_PATH={{ agent_configs_path }}
