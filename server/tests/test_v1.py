@@ -421,7 +421,10 @@ def test_job_get_result_no_data(mongo_app):
 def test_job_get_id_with_data(mongo_app):
     """Test getting the json for a job that has been submitted"""
     app, _ = mongo_app
-    job_data = {"job_queue": "test", "provision_data": {"url": "test"}}
+    job_data = {
+        "job_queue": "test",
+        "provision_data": {"url": "https://example.com/image.img.xz"},
+    }
     # Place a job on the queue
     output = app.post("/v1/job", json=job_data)
     job_id = output.json.get("job_id")
