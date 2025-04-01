@@ -2,7 +2,7 @@
 
 _testflinger_argcomplete () {
 	local IFS=$'\013'
-	local SUPRESS_SPACE=0
+	local SUPPRESS_SPACE=0
 	if compopt +o nospace 2> /dev/null ; then
 		SUPPRESS_SPACE=1
 	fi
