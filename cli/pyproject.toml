@@ -39,3 +39,6 @@ good-names = ["k", "v"]
 
 [tool.pylint."messages control"]
 disable = ["C0209", "too-many-lines"]
+
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true } }]
