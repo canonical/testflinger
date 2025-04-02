@@ -20,6 +20,7 @@ Unit tests for Testflinger v1 API
 import json
 import os
 from datetime import datetime
+from http import HTTPStatus
 from io import BytesIO
 
 from testflinger.api import v1
@@ -111,6 +112,50 @@ def test_add_job_valid_reserve_data(mongo_app):
     app, _ = mongo_app
     output = app.post("/v1/job", json=job_data)
     assert 200 == output.status_code
+
+
+def test_add_job_invalid_provision_data(mongo_app):
+    """Test that a job with an invalid provision_data field fails"""
+    # Invalid URL fails
+    reserve_data = {"url": "invalid_url"}
+    job_data = {"job_queue": "test", "reserve_data": reserve_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # Invalid email fails
+    reserve_data = {"ubuntu_sso_email": "invalid_email"}
+    job_data = {"job_queue": "test", "reserve_data": reserve_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # Invalid attachments fails
+    reserve_data = {"attachments": [{"invalid": "filename"}]}
+    job_data = {"job_queue": "test", "reserve_data": reserve_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+
+
+def test_add_job_valid_provision_data(mongo_app):
+    """Test that a job with a valid provision_data field works"""
+    # Valid URL succeeds
+    reserve_data = {"url": "http://example.com/image.img.xz"}
+    job_data = {"job_queue": "test", "reserve_data": reserve_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # Valid email succeeds
+    reserve_data = {"ubuntu_sso_email": "noreply@ubuntu.com"}
+    job_data = {"job_queue": "test", "reserve_data": reserve_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # Valid attachments succeeds
+    reserve_data = {"attachments": [{"agent": "filename"}]}
+    job_data = {"job_queue": "test", "reserve_data": reserve_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
 
 
 def test_add_job_good(mongo_app):
