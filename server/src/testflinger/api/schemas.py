@@ -18,7 +18,9 @@ Testflinger v1 OpenAPI schemas
 """
 
 from apiflask import Schema, fields
-from apiflask.validators import OneOf, Regexp
+from apiflask.validators import Length, OneOf, Regexp
+from marshmallow import ValidationError, validates_schema
+from marshmallow_oneofschema import OneOfSchema
 
 ValidJobStates = (
     "setup",
@@ -83,58 +85,166 @@ class Attachment(Schema):
     device = fields.String(required=False)
 
 
-class ProvisionData(Schema):
-    """Schema for the `provision_data` section of a Testflinger job."""
+class CM3ProvisionData(Schema):
+    """Schema for the `provision_data` section of a CM3 job."""
 
-    url = fields.URL(required=False)
+    url = fields.URL(required=True)
+
+
+class MAASProvisionData(Schema):
+    """Schema for the `provision_data` section of a MAAS job."""
+
     distro = fields.String(required=False)
     kernel = fields.String(required=False)
-
-    attachments = fields.List(fields.Nested(Attachment), required=False)
-    use_attachment = fields.String(required=False)
-
     user_data = fields.String(required=False)
-    ubuntu_sso_email = fields.Email(required=False)
-
-    # OEM Autoinstall specific fields
-    authorized_keys = fields.String(required=False)
-    redeploy_cfg = fields.String(required=False)
-    token_file = fields.String(required=False)
-
-    # MuxPi specific fields
-    boot_check_url = fields.String(required=False)
-    create_user = fields.Boolean(required=False)
-    media = fields.String(required=False)
-
-    # MAAS specific fields
     # [TODO] Specify Nested schema to improve validation
     disks = fields.List(fields.Dict(), required=False)
 
-    # Multi-device specific fields
-    # [TODO] Specify Nested schema to improve validation
-    jobs = fields.List(fields.Dict(), required=False)
 
-    # Zapper specific fields
+class MultiProvisionData(Schema):
+    """Schema for the `provision_data` section of a Multi-device job."""
+
+    # [TODO] Specify Nested schema to improve validation
+    jobs = fields.List(fields.Dict(), required=True, validate=Length(min=1))
+
+
+class MuxPiProvisionData(Schema):
+    """Schema for the `provision_data` section of a MuxPi job."""
+
+    url = fields.URL(required=False)
+    use_attachment = fields.String(required=False)
+    create_user = fields.Boolean(required=False)
+    boot_check_url = fields.String(required=False)
+    media = fields.String(validate=OneOf(["sd", "usb"]), required=False)
+
+    @validates_schema
+    def validate_image(self, data, **_):
+        """Validate that either `url` or `use_attachment` is provided."""
+        if not data.get("url") and not data.get("use_attachment"):
+            raise ValidationError(
+                "Either 'url' or 'use_attachment' must be provided."
+            )
+
+
+class OEMAutoinstallProvisionData(Schema):
+    """Schema for the `provision_data` section of a OEM Autoinstall job."""
+
+    url = fields.URL(required=True)
+    token_file = fields.String(required=False)
+    user_data = fields.String(required=False)
+    redeploy_cfg = fields.String(required=False)
+    authorized_keys = fields.String(required=False)
+
+
+class OEMScriptProvisionData(Schema):
+    """Schema for the `provision_data` section of a OEM Script job."""
+
+    url = fields.URL(required=True)
+
+
+class BaseZapperProvisionData(Schema):
+    """Shared schema for the `provision_data` of Zapper jobs."""
+
     zapper_provisioning_timeout = fields.Integer(required=False)
 
-    # Zapper IOT specific fields
-    preset = fields.String(required=False)
-    # [TODO] Specify Nested schema to improve validation
-    provision_plan = fields.Dict(required=False)
-    urls = fields.List(fields.URL(), required=False)
 
-    # Zapper KVM specific fields
-    alloem_url = fields.URL(required=False)
+class ZapperIoTPresetProvisionData(BaseZapperProvisionData):
+    """Schema for the `provision_data` section of a Zapper IoT job.
+
+    This schema is used when using a preset for provisioning.
+    """
+
+    urls = fields.List(fields.URL(), required=True)
+    preset = fields.String(required=True)
+
+
+class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
+    """Schema for the `provision_data` section of a Zapper IoT job.
+
+    This schema is used when using a custom plan for provisioning.
+    """
+
+    urls = fields.List(fields.URL(), required=True)
+    ubuntu_sso_email = fields.Email(required=False)
+    # [TODO] Specify Nested schema to improve validation
+    provision_plan = fields.Dict(required=True)
+
+
+class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
+    """Schema for the `provision_data` section of a Zapper KVM job.
+
+    This schema is used to target autoinstall-driven provisioning.
+    """
+
+    url = fields.URL(required=True)
+    robot_tasks = fields.List(fields.String(), required=True)
+    autoinstall_storage_layout = fields.String(required=True)
+    ubuntu_sso_email = fields.Email(required=False)
     autoinstall_base_user_data = fields.String(required=False)
     autoinstall_oem = fields.Boolean(required=False)
-    autoinstall_storage_layout = fields.String(required=False)
     cmdline_append = fields.String(required=False)
-    live_image = fields.Boolean(required=False)
+
+
+class ZapperKVMOEM2204ProvisionData(BaseZapperProvisionData):
+    """Schema for the `provision_data` section of a Zapper KVM job.
+
+    This schema is used to target Ubuntu OEM 22.04.
+    """
+
+    alloem_url = fields.URL(required=True)
+    robot_tasks = fields.List(fields.String(), required=True)
+    url = fields.URL(required=False)
     oem = fields.String(required=False)
-    robot_retries = fields.Integer(required=False)
-    robot_tasks = fields.List(fields.String(), required=False)
-    skip_download = fields.Boolean(required=False)
-    wait_until_ssh = fields.Boolean(required=False)
+
+
+class ZapperKVMGenericProvisionData(BaseZapperProvisionData):
+    """Schema for the `provision_data` section of a Zapper KVM job.
+
+    This schema is used to target any generic live ISOs.
+    """
+
+    url = fields.URL(required=True)
+    robot_tasks = fields.List(fields.String(), required=True)
+    live_image = fields.Boolean(required=True)
+    wait_until_ssh = fields.Boolean(required=True)
+
+
+class ProvisionData(OneOfSchema):
+    """Polymorphic schema for the `provision_data` section of a job."""
+
+    type_schemas = {
+        "cm3": CM3ProvisionData,
+        "maas": MAASProvisionData,
+        "multi": MultiProvisionData,
+        "muxpi": MuxPiProvisionData,
+        "oem_autoinstall": OEMAutoinstallProvisionData,
+        "oem_script": OEMScriptProvisionData,
+        "zapper_iot_preset": ZapperIoTPresetProvisionData,
+        "zapper_iot_custom": ZapperIoTCustomProvisionData,
+        "zapper_kvm_autoinstall": ZapperKVMAutoinstallProvisionData,
+        "zapper_kvm_oem_2204": ZapperKVMOEM2204ProvisionData,
+        "zapper_kvm_generic": ZapperKVMGenericProvisionData,
+    }
+
+    def get_obj_type(self, obj):
+        """Get object type depending on which schema is correctly parsed."""
+        return self.get_data_type(obj)
+
+    def get_data_type(self, data):
+        """Get schema type depending on which schema is correctly parsed."""
+        for slug, schema in self.type_schemas.items():
+            try:
+                schema().load(data)
+                return slug
+            except ValidationError:
+                continue
+        raise ValidationError("Invalid provision data schema.")
+
+    def _dump(self, obj, *, update_fields=True, **kwargs):
+        """Removes the type field from the result."""
+        result = super()._dump(obj, update_fields=update_fields, **kwargs)
+        result.pop(self.type_field)
+        return result
 
 
 class TestData(Schema):
