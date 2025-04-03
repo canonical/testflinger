@@ -154,7 +154,7 @@ class ZapperIoTPresetProvisionData(BaseZapperProvisionData):
     This schema is used when using a preset for provisioning.
     """
 
-    urls = fields.List(fields.URL(), required=True)
+    urls = fields.List(fields.URL(), required=True, validate=Length(min=1))
     preset = fields.String(required=True)
 
 
@@ -164,7 +164,7 @@ class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
     This schema is used when using a custom plan for provisioning.
     """
 
-    urls = fields.List(fields.URL(), required=True)
+    urls = fields.List(fields.URL(), required=True, validate=Length(min=1))
     ubuntu_sso_email = fields.Email(required=False)
     # [TODO] Specify Nested schema to improve validation
     provision_plan = fields.Dict(required=True)
