@@ -33,7 +33,7 @@ We use [`uv`][uv] to manage our project and dependencies. You should install it
 from the [Snap Store][uv-snap] by using the following command:
 
 ```shell
-sudo snap install astral-uv
+sudo snap install --classic astral-uv
 ```
 
 To create your development environment, run the following:
