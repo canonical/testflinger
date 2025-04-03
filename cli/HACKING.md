@@ -1,9 +1,36 @@
 # Testflinger CLI
 
+## Build the Snap Package
+
+Testflinger CLI is distributed as a [Snap package][snap].
+
+Install [`snapcraft`][snapcraft]:
+
+```shell
+sudo snap install --classic snapcraft
+```
+
+Then you can build the Snap package by running `snapcraft`:
+
+```shell
+snapcraft pack
+```
+
+Then you can install the Snap package locally with the `--dangerous` flag
+(replace `testflinger.snap` with the name of the `.snap` file that was
+created by the previous command):
+
+```shell
+sudo snap install --dangerous testflinger.snap
+```
+
+To learn more about `snapcraft`, refer to the
+[`snapcraft` documentation][snapcraft-docs].
+
 ## Set up your Development Environment
 
-Testflinger uses [`uv`][uv] to manage our project. You should install it from
-the Snap Store by using the following command:
+We use [`uv`][uv] to manage our project and dependencies. You should install it
+from the [Snap Store][uv-snap] by using the following command:
 
 ```shell
 sudo snap install astral-uv
@@ -65,6 +92,10 @@ You can also run `tox` on its own, and it should automatically pull in `tox-uv` 
 tox
 ```
 
+[snap]: https://snapcraft.io/testflinger-cli
+[snapcraft]: https://snapcraft.io/snapcraft
+[snapcraft-docs]: https://snapcraft.io/docs/snapcraft
 [uv]: https://docs.astral.sh/uv
+[uv-snap]: https://snapcraft.io/astral-uv
 [uv-add]: https://docs.astral.sh/uv/reference/cli/#uv-add
 [uv-remove]: https://docs.astral.sh/uv/reference/cli/#uv-remove
