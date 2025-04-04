@@ -1,4 +1,4 @@
-# Testflinger
+# Testflinger CLI
 
 [![Snapcraft][snapcraft-badge]][snapcraft-site]
 [![Documentation status][rtd-badge]][rtd-latest]
