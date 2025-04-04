@@ -258,27 +258,27 @@ class Maas2:
                 stderr=subprocess.STDOUT,
                 check=False,
             )
-            if proc.returncode:
-                if retry_count > max_retries:
-                    self._logger_error(
-                        (
-                            f"maas error running: {' '.join(cmd)}"
-                            "maximum retries reached"
-                        )
-                    )
-                    raise ProvisioningError(proc.stdout.decode())
-
-                timeout = backoff_start * 2**retry_count
-                self._logger_warning(
+            if proc.returncode == 0:
+                return proc
+            
+            if retry_count > max_retries:
+                self._logger_error(
                     (
                         f"maas error running: {' '.join(cmd)}"
-                        f"trying again in {timeout} seconds"
+                        "maximum retries reached"
                     )
                 )
-                time.sleep(timeout)
-                retry_count += 1
-            else:
-                return proc
+                raise ProvisioningError(proc.stdout.decode())
+
+            timeout = backoff_start * 2**retry_count
+            self._logger_warning(
+                (
+                    f"maas error running: {' '.join(cmd)}"
+                    f"trying again in {timeout} seconds"
+                )
+            )
+            time.sleep(timeout)
+            retry_count += 1
 
     def deploy_node(
         self, distro="bionic", kernel=None, user_data=None, storage_data=None
