@@ -46,7 +46,7 @@ def test_maas2_agent_invalid_storage(tmp_path):
 
 def test_maas_cmd_retry(tmp_path):
     """
-    Test that maas commands get retried 6 times when the command returns an
+    Test that maas commands get retried when the command returns an
     exit code
     """
     Process = namedtuple("Process", ["returncode", "stdout"])

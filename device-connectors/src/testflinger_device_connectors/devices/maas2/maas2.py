@@ -239,8 +239,17 @@ class Maas2:
             return True
         return False
 
-    def run_maas_cmd_with_retry(self, cmd):
-        """Run maas command up to 3 times on failure"""
+    def run_maas_cmd_with_retry(self, cmd, max_retries=5, backoff_start=60):
+        """
+        Run maas command with retries on failure
+
+        :param cmd:
+            MAAS command to be run
+        :param max_retries:
+            Maximum amount of times to retry the command on failure
+        :param backoff_start:
+            Initial time in seconds to sleep after failure
+        """
         retry_count = 0
         while True:
             proc = subprocess.run(
@@ -250,25 +259,24 @@ class Maas2:
                 check=False,
             )
             if proc.returncode:
-                if retry_count > 5:
+                if retry_count > max_retries:
                     self._logger_error(
                         (
-                            f"maas error running: {' '.join(cmd)}",
-                            "maximum retries reached",
+                            f"maas error running: {' '.join(cmd)}"
+                            "maximum retries reached"
                         )
                     )
                     raise ProvisioningError(proc.stdout.decode())
-                else:
-                    # Exponential backoff starting with 1 minute
-                    timeout = 60 * 2**retry_count
-                    self._logger_warning(
-                        (
-                            f"maas error running: {' '.join(cmd)}",
-                            f"trying again in {timeout} seconds",
-                        )
+
+                timeout = backoff_start * 2**retry_count
+                self._logger_warning(
+                    (
+                        f"maas error running: {' '.join(cmd)}"
+                        f"trying again in {timeout} seconds"
                     )
-                    time.sleep(timeout)
-                    retry_count += 1
+                )
+                time.sleep(timeout)
+                retry_count += 1
             else:
                 return proc
 
