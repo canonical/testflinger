@@ -44,7 +44,7 @@ charm-libs:
   - lib: operator_libs_linux.passwd
     version: "0"
   - lib: operator_libs_linux.systemd
-    version: "0"
+    version: "1"
 
 actions:
   update-configs:
