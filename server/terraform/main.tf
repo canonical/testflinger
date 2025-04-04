@@ -7,7 +7,8 @@ resource "juju_application" "testflinger" {
   charm {
     name    = "testflinger-k8s"
     base    = "ubuntu@22.04"
-    channel = var.environment == "production" ? "latest/stable" : "latest/edge"
+    channel = var.revision == "" ? (var.environment == "production" ? "latest/stable" : "latest/edge") : null
+    revision = var.revision != "" ? var.revision : null
   }
 
   config = {
