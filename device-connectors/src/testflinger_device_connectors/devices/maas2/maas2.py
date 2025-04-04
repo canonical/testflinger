@@ -239,6 +239,47 @@ class Maas2:
             return True
         return False
 
+    def run_maas_cmd_with_retry(self, cmd, max_retries=5, backoff_start=60):
+        """
+        Run maas command with retries on failure
+
+        :param cmd:
+            MAAS command to be run
+        :param max_retries:
+            Maximum amount of times to retry the command on failure
+        :param backoff_start:
+            Initial time in seconds to sleep after failure
+        """
+        retry_count = 0
+        while True:
+            proc = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            if proc.returncode == 0:
+                return proc
+
+            if retry_count > max_retries:
+                self._logger_error(
+                    (
+                        f"maas error running: {' '.join(cmd)}"
+                        "maximum retries reached"
+                    )
+                )
+                raise ProvisioningError(proc.stdout.decode())
+
+            timeout = backoff_start * 2**retry_count
+            self._logger_warning(
+                (
+                    f"maas error running: {' '.join(cmd)}"
+                    f"trying again in {timeout} seconds"
+                )
+            )
+            time.sleep(timeout)
+            retry_count += 1
+
     def deploy_node(
         self, distro="bionic", kernel=None, user_data=None, storage_data=None
     ):
@@ -285,12 +326,7 @@ class Maas2:
             "system_id={}".format(self.node_id),
         ]
         # Do not use runcmd for this - we need the output, not the end user
-        proc = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
-        )
-        if proc.returncode:
-            self._logger_error(f"maas error running: {' '.join(cmd)}")
-            raise ProvisioningError(proc.stdout.decode())
+        proc = self.run_maas_cmd_with_retry(cmd)
         self._logger_info(
             "Starting node {} "
             "with distro {}".format(self.agent_name, distro)
@@ -308,12 +344,7 @@ class Maas2:
         if user_data:
             data = base64.b64encode(user_data.encode()).decode()
             cmd.append("user_data={}".format(data))
-        proc = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
-        )
-        if proc.returncode:
-            self._logger_error(f"maas-cli error running: {' '.join(cmd)}")
-            raise ProvisioningError(proc.stdout.decode())
+        proc = self.run_maas_cmd_with_retry(cmd)
 
         # Make sure the device is available before returning
         minutes_spent = 0
@@ -384,12 +415,7 @@ class Maas2:
         """
         cmd = ["maas", self.maas_user, "machine", "read", self.node_id]
         # Do not use runcmd for this - we need the output, not the end user
-        proc = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
-        )
-        if proc.returncode:
-            self._logger_error(f"maas error running: {' '.join(cmd)}")
-            raise ProvisioningError(proc.stdout.decode())
+        proc = self.run_maas_cmd_with_retry(cmd)
         data = json.loads(proc.stdout.decode())
         return data.get("status_name")
 
