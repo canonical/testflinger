@@ -45,7 +45,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 3
+LIBPATCH = 4
 
 
 def user_exists(user: Union[str, int]) -> Optional[pwd.struct_passwd]:
@@ -99,6 +99,7 @@ def add_user(
     secondary_groups: List[str] = None,
     uid: int = None,
     home_dir: str = None,
+    create_home: bool = True,
 ) -> str:
     """Add a user to the system.
 
@@ -113,6 +114,7 @@ def add_user(
         secondary_groups: Optional list of additional groups
         uid: UID for user being created
         home_dir: Home directory for user
+        create_home: Force home directory creation
 
     Returns:
         The password database entry struct, as returned by `pwd.getpwnam`
@@ -135,7 +137,9 @@ def add_user(
     if home_dir:
         cmd.extend(["--home", str(home_dir)])
     if password:
-        cmd.extend(["--password", password, "--create-home"])
+        cmd.extend(["--password", password])
+    if create_home:
+        cmd.append("--create-home")
     if system_user or password is None:
         cmd.append("--system")
 
