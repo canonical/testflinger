@@ -17,3 +17,5 @@ jobs:
     secrets: inherit
     with:
       charm-path: ${{ matrix.path }}
+      commit-username: Canonical-Certification-Bot
+      commit-email: solutions-qa@lists.canonical.com
