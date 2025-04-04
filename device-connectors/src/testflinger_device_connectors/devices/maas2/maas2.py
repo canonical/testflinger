@@ -260,7 +260,7 @@ class Maas2:
             )
             if proc.returncode == 0:
                 return proc
-            
+
             if retry_count > max_retries:
                 self._logger_error(
                     (
