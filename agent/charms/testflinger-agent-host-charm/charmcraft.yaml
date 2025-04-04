@@ -30,13 +30,13 @@ links:
 
 bases:
   - build-on:
-    - name: ubuntu
-      channel: "22.04"
+      - name: ubuntu
+        channel: "22.04"
     run-on:
-    - name: ubuntu
-      channel: "20.04"
-    - name: ubuntu
-      channel: "22.04"
+      - name: ubuntu
+        channel: "20.04"
+      - name: ubuntu
+        channel: "22.04"
 
 charm-libs:
   - lib: operator_libs_linux.apt
@@ -44,7 +44,7 @@ charm-libs:
   - lib: operator_libs_linux.passwd
     version: "0"
   - lib: operator_libs_linux.systemd
-    version: "0"
+    version: "1"
 
 actions:
   update-configs:
