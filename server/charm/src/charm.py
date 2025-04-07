@@ -41,6 +41,7 @@ class TestflingerCharm(ops.CharmBase):
         """Initialize the charm"""
         super().__init__(*args)
         self.pebble_service_name = "testflinger"
+        self.pebble_check_name = "v1_up"
         self.container = self.unit.get_container("testflinger")
         self._stored.set_default(
             reldata={},
@@ -177,6 +178,17 @@ class TestflingerCharm(ops.CharmBase):
         pebble_layer = {
             "summary": "Testflinger server",
             "description": "pebble config layer for Testflinger server",
+            "checks": {
+                self.pebble_check_name: {
+                    "override": "replace",
+                    "period": "10s",
+                    "timeout": "3s",
+                    "threshold": 5,
+                    "http": {
+                        "url": "0.0.0.0:5000/v1/",
+                    },
+                }
+            },
             "services": {
                 self.pebble_service_name: {
                     "override": "replace",
@@ -184,6 +196,9 @@ class TestflingerCharm(ops.CharmBase):
                     "command": command,
                     "startup": "enabled",
                     "environment": self.app_environment,
+                    "on-check-failure": {
+                        self.pebble_check_name: "restart",
+                    },
                 }
             },
         }
