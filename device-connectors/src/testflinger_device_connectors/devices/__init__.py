@@ -199,6 +199,7 @@ class DefaultDevice:
         extra_env = {}
         extra_env["AGENT_NAME"] = config.get("agent_name", "")
         extra_env["REBOOT_SCRIPT"] = ";".join(config.get("reboot_script", ""))
+        extra_env["CONSERVER_ADDRESS"] = config.get("conserver_address", "")
         if "env" not in config:
             config["env"] = {}
         config["env"].update(extra_env)
