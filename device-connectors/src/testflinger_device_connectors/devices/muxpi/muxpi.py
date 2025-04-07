@@ -641,17 +641,27 @@ class MuxPi:
             )
 
         while time.time() - started < 1200:
-            try:
-                time.sleep(10)
+            time.sleep(10)
 
-                if boot_check_url is not None:
+            if boot_check_url is not None:
+
+                logger.info(
+                    "Checking %s to confirm boot success ...", boot_check_url
+                )
+                try:
                     with urllib.request.urlopen(
                         boot_check_url, timeout=5
                     ) as response:
                         if response.status == 200:
                             return True
+                        logger.info(
+                            "Check returned %d, expecting 200", response.status
+                        )
+                except urllib.error.URLError as e:
+                    logger.info("Boot check failed with %s", e)
 
-                    continue
+            else:
+
                 device_ip = self.config["device_ip"]
                 cmd = [
                     "sshpass",
@@ -661,12 +671,14 @@ class MuxPi:
                     *self.get_ssh_options(),
                     f"{test_username}@{device_ip}",
                 ]
-                subprocess.check_output(
-                    cmd, stderr=subprocess.STDOUT, timeout=60
-                )
-                return True
-            except Exception:
-                pass
+                try:
+                    subprocess.check_output(
+                        cmd, stderr=subprocess.STDOUT, timeout=60
+                    )
+                    return True
+                except subprocess.CalledProcessError as e:
+                    logger.info("ssh-id-copy failed with %s", e)
+
         # If we get here, then we didn't boot in time
         raise ProvisioningError("Failed to boot test image!")
 
