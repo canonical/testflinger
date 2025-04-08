@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "testflinger-cli"
 description = "Testflinger CLI"
 readme = "README.rst"
+license-files = ["COPYING"]
 dependencies = ["PyYAML", "requests", "xdg-base-dirs", "argcomplete"]
 dynamic = ["version"]
 requires-python = ">= 3.10"
