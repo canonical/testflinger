@@ -1,7 +1,18 @@
 variable "environment" {
-  description = "The environment to deploy to (dev, staging, prod)"
+  description = "The environment to deploy to. When the \"revision\" variable is not set, the value of \"environment\" determines the channel to deploy from, either \"latest/stable\" (for production) or \"latest/edge\" channel otherwise."
   type        = string
   default     = "dev"
+  validation {
+    condition     = contains(["dev", "staging", "prod", "production"], var.environment)
+    error_message = "The environment must be one of 'dev', 'staging', or 'prod'."
+  }
+}
+
+variable "revision" {
+  description = "Revision of the charm to use"
+  type        = number
+  nullable    = true
+  default     = null
 }
 
 variable "external_ingress_hostname" {
@@ -56,4 +67,5 @@ variable "jwt_signing_key" {
 
 locals {
   app_model = "testflinger-${var.environment}"
+  channel   = var.revision == null ? (startswith(var.environment, "prod") ? "latest/stable" : "latest/edge") : null
 }

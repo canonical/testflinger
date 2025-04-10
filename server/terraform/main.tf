@@ -5,9 +5,10 @@ resource "juju_application" "testflinger" {
   units = var.application_units
 
   charm {
-    name    = "testflinger-k8s"
-    base    = "ubuntu@22.04"
-    channel = var.environment == "production" ? "latest/stable" : "latest/edge"
+    name     = "testflinger-k8s"
+    base     = "ubuntu@22.04"
+    channel  = local.channel
+    revision = var.revision
   }
 
   config = {
