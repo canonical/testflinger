@@ -2,6 +2,10 @@ variable "environment" {
   description = "The environment to deploy to (dev, staging, prod). When the \"revision\" variable is not set, the value of \"environment\" determines the channel to deploy from, either \"latest/stable\" (for production) or \"latest/edge\" channel otherwise."
   type        = string
   default     = "dev"
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "The environment must be one of 'dev', 'staging', or 'prod'."
+  }
 }
 
 variable "revision" {
