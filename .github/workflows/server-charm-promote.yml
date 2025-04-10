@@ -22,11 +22,11 @@ on:
 
 jobs:
   promote-charm:
-    name: Promote testflinger-k8s charm to stable
+    name: Promote testflinger-k8s charm
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Release testflinger-k8s charm to stable
+      - name: Promote testflinger-k8s charm
         uses: canonical/charming-actions/promote-charm@2.7.0
         with:
           credentials: ${{ secrets.CHARMHUB_TOKEN }}
