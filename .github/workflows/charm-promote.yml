@@ -31,8 +31,18 @@ on:
 
 jobs:
   promote-charm:
+    name: Promote Charm
     runs-on: ubuntu-latest
     steps:
+      - name: Validate inputs
+        run: |
+          echo "Charm Path: ${{ inputs.charm-path }}"
+          echo "Destination Channel: ${{ inputs.destination-channel }}"
+          echo "Origin Channel: ${{ inputs.origin-channel }}"
+          if [ "${{ inputs.destination-channel }}" = "${{ inputs.origin-channel }}" ]; then
+            echo "Error: Destination and origin channels cannot be the same."
+            exit 1
+          fi
       - uses: actions/checkout@v4
       - name: Promote Charm
         uses: canonical/charming-actions/promote-charm@2.7.0
