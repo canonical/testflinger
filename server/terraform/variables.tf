@@ -67,5 +67,5 @@ variable "jwt_signing_key" {
 
 locals {
   app_model = "testflinger-${var.environment}"
-  channel   = coalesce(var.revision, var.environment == "prod" ? "latest/stable" : "latest/edge")
+  channel   = var.revision == null ? (var.environment == "prod" ? "latest/stable" : "latest/edge") : null
 }
