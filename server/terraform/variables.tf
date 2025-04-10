@@ -9,8 +9,9 @@ variable "environment" {
 }
 
 variable "revision" {
-  description = "The revision of the API server charm to deploy"
-  type        = string
+  description = "Revision of the charm to use"
+  type        = number
+  nullable    = true
   default     = null
 }
 
@@ -66,4 +67,5 @@ variable "jwt_signing_key" {
 
 locals {
   app_model = "testflinger-${var.environment}"
+  channel   = var.revision == "" ? (var.environment == "prod" ? "latest/stable" : "latest/edge") : null
 }
