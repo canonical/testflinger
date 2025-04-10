@@ -1,0 +1,43 @@
+name: Promote Charm
+
+on:
+  workflow_dispatch:
+    inputs:
+      charm-path:
+        description: The path to the charm to promote
+        required: true
+        type: choice
+        options:
+          - server/charm
+          - agent/charms/testflinger-agent-host-charm
+      destination-channel:
+        description: The channel to promote to
+        required: true
+        default: latest/stable
+        type: choice
+        options:
+          - latest/stable
+          - latest/candidate
+          - latest/beta
+      origin-channel:
+        description: The channel to promote from
+        required: true
+        default: latest/edge
+        type: choice
+        options:
+          - latest/candidate
+          - latest/beta
+          - latest/edge
+
+jobs:
+  promote-charm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Promote Charm
+        uses: canonical/charming-actions/promote-charm@2.7.0
+        with:
+          credentials: ${{ secrets.CHARMHUB_TOKEN }}
+          destination-channel: ${{ inputs.destination-channel }}
+          origin-channel: ${{ inputs.origin-channel }}
+          charm-path: ${{ inputs.charm-path }}
