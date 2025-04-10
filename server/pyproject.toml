@@ -25,6 +25,7 @@ pymongo = "<4.9.0"
 pyjwt = "^2.8.0"
 bcrypt = "^4.2.0"
 prometheus-flask-exporter = "^0.23.1"
+marshmallow-oneofschema = "^3.1.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.1.2"
