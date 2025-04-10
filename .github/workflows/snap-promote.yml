@@ -1,0 +1,54 @@
+name: Promote Snap
+
+on:
+  workflow_dispatch:
+    inputs:
+      snap:
+        description: Snap name to promtoe
+        required: true
+        default: testflinger-cli
+        type: choice
+        options:
+          - testflinger-cli
+      to-channel:
+        description: Channel to promote to
+        required: true
+        default: latest/stable
+        type: choice
+        options:
+          - latest/stable
+          - latest/candidate
+          - latest/beta
+      from-channel:
+        description: Channel to promote from
+        required: true
+        default: latest/beta
+        type: choice
+        options:
+          - latest/candidate
+          - latest/beta
+          - latest/edge
+
+jobs:
+  promote-snap:
+    name: Promote Snap
+    runs-on: ubuntu-latest
+    env:
+      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_LOGIN }}
+    steps:
+      - name: Validate inputs
+        run: |
+          echo "Snap: ${{ inputs.snap }}"
+          echo "To Channel: ${{ inputs.to-channel }}"
+          echo "From Channel: ${{ inputs.from-channel }}"
+          if [ "${{ inputs.to-channel }}" = "${{ inputs.from-channel }}" ]; then
+            echo "Error: To channel and from channel cannot be the same."
+            exit 1
+          fi
+      - name: Install Snapcraft
+        run: sudo snap install snapcraft --classic
+      - name: Promote Snap
+        run: |
+          snapcraft promote --yes ${{ inputs.snap }} \
+            --to-channel ${{ inputs.to-channel }} \
+            --from-channel ${{ inputs.from-channel }}
