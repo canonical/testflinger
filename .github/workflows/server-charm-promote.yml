@@ -1,0 +1,35 @@
+name: Promote testflinger-k8s charm
+
+on:
+  workflow_dispatch:
+    inputs:
+      destination-channel:
+        description: The channel to promote to
+        required: true
+        default: latest/stable
+        type: choice
+        options:
+          - latest/stable
+          - latest/beta
+      origin-channel:
+        description: The channel to promote from
+        required: true
+        default: latest/edge
+        type: choice
+        options:
+          - latest/edge
+          - latest/beta
+
+jobs:
+  promote-charm:
+    name: Promote testflinger-k8s charm to stable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release testflinger-k8s charm to stable
+        uses: canonical/charming-actions/promote-charm@2.7.0
+        with:
+          credentials: ${{ secrets.CHARMHUB_TOKEN }}
+          destination-channel: ${{ inputs.destination-channel }}
+          origin-channel: ${{ inputs.origin-channel }}
+          charm-path: server/charm
