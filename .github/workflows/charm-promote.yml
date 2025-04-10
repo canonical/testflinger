@@ -31,6 +31,7 @@ on:
 
 jobs:
   promote-charm:
+    name: Promote Charm
     runs-on: ubuntu-latest
     steps:
       - name: Validate inputs
