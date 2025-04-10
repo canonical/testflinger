@@ -1,4 +1,4 @@
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # Licensed under the Apache2.0. See LICENSE file in charm source for details.
 """Library for the nginx-route relation.
 
@@ -86,7 +86,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 3
+LIBPATCH = 7
 
 __all__ = ["require_nginx_route", "provide_nginx_route"]
 
@@ -119,7 +119,7 @@ class _NginxRouteCharmEvents(ops.charm.CharmEvents):
     nginx_route_broken = ops.framework.EventSource(_NginxRouteBrokenEvent)
 
 
-class _NginxRouteRequirer(ops.framework.Object):
+class NginxRouteRequirer(ops.framework.Object):
     """This class defines the functionality for the 'requires' side of the 'nginx-route' relation.
 
     Hook events observed:
@@ -148,7 +148,7 @@ class _NginxRouteRequirer(ops.framework.Object):
             self._config_reconciliation,
         )
         # Set default values.
-        self._config: typing.Dict[str, typing.Union[str, int, bool]] = {
+        self.config: typing.Dict[str, typing.Union[str, int, bool]] = {
             "service-namespace": self._charm.model.name,
             **config,
         }
@@ -163,16 +163,17 @@ class _NginxRouteRequirer(ops.framework.Object):
             delete_keys = {
                 relation_field
                 for relation_field in relation_app_data
-                if relation_field not in self._config
+                if relation_field not in self.config
             }
             for delete_key in delete_keys:
                 del relation_app_data[delete_key]
-            relation_app_data.update({k: str(v) for k, v in self._config.items()})
+            relation_app_data.update({k: str(v) for k, v in self.config.items()})
 
 
 # C901 is ignored since the method has too many ifs but wouldn't be
 # necessarily good to reduce to smaller methods.
-def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches # noqa: C901
+# E501: line too long
+def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches,too-many-arguments # noqa: C901,E501
     *,
     charm: ops.charm.CharmBase,
     service_hostname: str,
@@ -180,6 +181,7 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches # 
     service_port: int,
     additional_hostnames: typing.Optional[str] = None,
     backend_protocol: typing.Optional[str] = None,
+    enable_access_log: typing.Optional[bool] = None,
     limit_rps: typing.Optional[int] = None,
     limit_whitelist: typing.Optional[str] = None,
     max_body_size: typing.Optional[int] = None,
@@ -193,7 +195,7 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches # 
     session_cookie_max_age: typing.Optional[int] = None,
     tls_secret_name: typing.Optional[str] = None,
     nginx_route_relation_name: str = "nginx-route",
-) -> None:
+) -> NginxRouteRequirer:
     """Set up nginx-route relation handlers on the requirer side.
 
     This function must be invoked in the charm class constructor.
@@ -210,6 +212,8 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches # 
             additional-hostnames option via relation, optional.
         backend_protocol: configure Nginx ingress integrator
             backend-protocol option via relation, optional.
+        enable_access_log: configure Nginx ingress
+            nginx.ingress.kubernetes.io/enable-access-log option.
         limit_rps: configure Nginx ingress integrator limit-rps
             option via relation, optional.
         limit_whitelist: configure Nginx ingress integrator
@@ -238,6 +242,9 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches # 
         nginx_route_relation_name: Specifies the relation name of
             the relation handled by this requirer class. The relation
             must have the nginx-route interface.
+
+    Returns:
+        the NginxRouteRequirer.
     """
     config: typing.Dict[str, typing.Union[str, int, bool]] = {}
     if service_hostname is not None:
@@ -250,6 +257,8 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches # 
         config["additional-hostnames"] = additional_hostnames
     if backend_protocol is not None:
         config["backend-protocol"] = backend_protocol
+    if enable_access_log is not None:
+        config["enable-access-log"] = "true" if enable_access_log else "false"
     if limit_rps is not None:
         config["limit-rps"] = limit_rps
     if limit_whitelist is not None:
@@ -275,7 +284,7 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches # 
     if tls_secret_name is not None:
         config["tls-secret-name"] = tls_secret_name
 
-    _NginxRouteRequirer(
+    return NginxRouteRequirer(
         charm=charm, config=config, nginx_route_relation_name=nginx_route_relation_name
     )
 
@@ -403,7 +412,8 @@ def provide_nginx_route(
         RuntimeError: If provide_nginx_route was invoked twice with
             the same nginx-route relation name
     """
-    if __provider_references.get(charm, {}).get(nginx_route_relation_name) is not None:
+    ref_dict: typing.Dict[str, typing.Any] = __provider_references.get(charm, {})
+    if ref_dict.get(nginx_route_relation_name) is not None:
         raise RuntimeError(
             "provide_nginx_route was invoked twice with the same nginx-route relation name"
         )
