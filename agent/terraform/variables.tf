@@ -3,6 +3,19 @@ variable "juju_model" {
   description = "Name of the Juju model"
 }
 
+variable "channel" {
+  description = "Channel to use for the charm"
+  type        = string
+  default     = "latest/stable"
+}
+
+variable "revision" {
+  description = "Revision of the charm to use"
+  type        = number
+  nullable    = true
+  default     = null
+}
+
 variable "agent_host_name" {
   type        = string
   description = "Name of the agent host juju application"
