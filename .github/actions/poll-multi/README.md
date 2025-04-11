@@ -1,0 +1,35 @@
+# `poll-multi`
+
+If you need to poll a [job] submitted to a multi-device agent through a GitHub
+action rather than via the [CLI][cli], you can use the `poll-multi` action in a
+CI workflow.
+
+## Basic Usage
+
+Assuming you've submitted a multi-device job with the [`submit`][submit-action]
+action, you can poll a job with the following step:
+
+```yaml
+- name: Poll multi-device job
+  id: poll
+  uses: canonical/testflinger/.github/actions/poll-multi@v1
+  with:
+    job-id: ${{ steps.submit.outputs.id }}
+```
+
+## API
+
+### Inputs
+
+| Key              | Description                                                                                 | Required           |
+| ---------------- | ------------------------------------------------------------------------------------------- | ------------------ |
+| `job-id`         | Job ID of the parent multi-device job.                                                      | :white_check_mark: |
+| `sentinel-phase` | Phase that all child jobs must reach before this action terminates. Defaults to `complete`. |                    |
+
+### Outputs
+
+- `jobs`: A JSON string containing an arry of objects with machine IPs and child job IDs
+
+[job]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
+[cli]: ../../../cli/README.rst
+[submit-action]: ../submit/README.md
