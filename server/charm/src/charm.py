@@ -173,6 +173,10 @@ class TestflingerCharm(ops.CharmBase):
                 "--bind",
                 "0.0.0.0:5000",
                 "testflinger:app",
+                "--access-logfile",
+                "-",
+                "--error-logfile",
+                "-",
             ]
         )
         pebble_layer = {
@@ -185,7 +189,7 @@ class TestflingerCharm(ops.CharmBase):
                     "timeout": "3s",
                     "threshold": 5,
                     "http": {
-                        "url": "0.0.0.0:5000/v1/",
+                        "url": "http://0.0.0.0:5000/v1/",
                     },
                 }
             },
