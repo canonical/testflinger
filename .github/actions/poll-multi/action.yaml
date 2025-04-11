@@ -2,12 +2,10 @@ name: Poll a multi-device job for child job data
 inputs:
   job-id:
     description: The job ID of the parent multi-device job
-    type: string
     required: true
   sentinel-phase:
     description: >
       The phase that all child jobs must reach before this action terminates
-    type: string
     required: false
     default: complete
 outputs:
