@@ -1,8 +1,8 @@
 # `poll-multi`
 
 If you need to poll a [job] submitted to a multi-device agent through a GitHub
-action rather than via the [CLI][cli], you can use the `poll-multi` action in a
-CI workflow.
+action rather than via the [CLI][cli], you can use the
+[`poll-multi`][poll-multi-action] action in a CI workflow.
 
 ## Basic Usage
 
@@ -32,4 +32,5 @@ action, you can poll a job with the following step:
 
 [job]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
 [cli]: ../../../cli/README.rst
+[poll-multi-action]: action.yaml
 [submit-action]: ../submit/README.md
