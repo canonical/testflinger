@@ -38,10 +38,12 @@ apps:
 
 parts:
   testflinger-cli:
-    plugin: python
+    plugin: uv
     source: .
+    build-snaps:
+      - astral-uv
     build-environment:
-    - PIP_NO_BINARY: ":all:"
+      - UV_NO_BINARY: "true"
     override-pull: |
       set -e
       craftctl default
