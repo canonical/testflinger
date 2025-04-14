@@ -46,7 +46,7 @@ If you wish to define your job inline, you can use the following step:
 | ------------------------- | -------------------------------------------------------------------- | -------- |
 | `job`                     | Inline YAML contents of a job file.                                  |          |
 | `job-path`                | Path to a job file.                                                  |          |
-| `poll`[^1]                | Track submitted job to completion. Defaults to `false`.              |          |
+| `poll`[^1][^2]            | Track submitted job to completion. Defaults to `false`.              |          |
 | `dry-run`                 | Don't submit job. Defaults to `false`.                               |          |
 | `server`                  | Testflinger server address. Defaults to `testflinger.canonical.com`. |          |
 | `attachments-relative-to` | Reference directory for relative attachment paths.                   |          |
@@ -66,5 +66,8 @@ If you wish to define your job inline, you can use the following step:
     and idly occupying the runner. However, please do remember to manually
     cancel the job after you are done with the reserved device.
 
+[^2]: To poll a multi-device job, see the [`poll-multi`][poll-multi-action] action.
+
 [job]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
 [cli]: ../../../cli/README.rst
+[poll-multi-action]: ../poll-multi/README.md
