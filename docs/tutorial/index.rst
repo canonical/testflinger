@@ -91,6 +91,8 @@ Now all the Testflinger requests made from your current terminal session will be
 
 Access to a Testflinger server is usually secured behind a firewall or with additional authentication and authorisation measures. Make sure that you have been granted the right access through your system administrator.
 
+For more information please check: :doc:`Authentication using Testflinger CLI <../how-to/authentication>`. 
+
 Check available queues on the server
 -------------------------------------
 
