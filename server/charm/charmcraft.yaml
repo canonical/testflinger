@@ -32,6 +32,8 @@ requires:
 provides:
   metrics-endpoint:
     interface: prometheus_scrape
+  grafana-dashboard:
+    interface: grafana_dashboard
 
 charm-libs:
   - lib: data_platform_libs.data_interfaces
@@ -41,6 +43,8 @@ charm-libs:
   - lib: prometheus_k8s.prometheus_scrape
     version: "0"
   - lib: observability_libs.juju_topology
+    version: "0"
+  - lib: grafana_k8s.grafana_dashboard
     version: "0"
 
 base: ubuntu@22.04
