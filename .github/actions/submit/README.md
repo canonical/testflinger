@@ -42,14 +42,14 @@ If you wish to define your job inline, you can use the following step:
 
 ### Inputs
 
-| Key                       | Description                                                          | Required |
-| ------------------------- | -------------------------------------------------------------------- | -------- |
-| `job`                     | Inline YAML contents of a job file.                                  |          |
-| `job-path`                | Path to a job file.                                                  |          |
-| `poll`[^1][^2]            | Track submitted job to completion. Defaults to `false`.              |          |
-| `dry-run`                 | Don't submit job. Defaults to `false`.                               |          |
-| `server`                  | Testflinger server address. Defaults to `testflinger.canonical.com`. |          |
-| `attachments-relative-to` | Reference directory for relative attachment paths.                   |          |
+| Key                       | Description                                        | Required | Default                     |
+| ------------------------- | -------------------------------------------------- | -------- | --------------------------- |
+| `job`                     | Inline YAML contents of a job file.                |          |                             |
+| `job-path`                | Path to a job file.                                |          |                             |
+| `poll`[^1][^2]            | Track submitted job to completion.                 |          | `false`                     |
+| `dry-run`                 | Don't submit job.                                  |          | `false`                     |
+| `server`                  | Testflinger server address.                        |          | `testflinger.canonical.com` |
+| `attachments-relative-to` | Reference directory for relative attachment paths. |          |                             |
 
 ### Outputs
 

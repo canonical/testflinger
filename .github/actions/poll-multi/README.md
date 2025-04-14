@@ -21,10 +21,10 @@ action, you can poll a job with the following step:
 
 ### Inputs
 
-| Key              | Description                                                                                 | Required           |
-| ---------------- | ------------------------------------------------------------------------------------------- | ------------------ |
-| `job-id`         | Job ID of the parent multi-device job.                                                      | :white_check_mark: |
-| `sentinel-phase` | Phase that all child jobs must reach before this action terminates. Defaults to `complete`. |                    |
+| Key              | Description                                                         | Required           | Default    |
+| ---------------- | ------------------------------------------------------------------- | ------------------ | ---------- |
+| `job-id`         | Job ID of the parent multi-device job.                              | :white_check_mark: |            |
+| `sentinel-phase` | Phase that all child jobs must reach before this action terminates. |                    | `complete` |
 
 ### Outputs
 
