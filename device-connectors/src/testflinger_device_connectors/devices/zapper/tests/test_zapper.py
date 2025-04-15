@@ -13,9 +13,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for Zapper base device connector."""
 
-import subprocess
 import unittest
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import (
@@ -58,55 +57,45 @@ class ZapperConnectorTests(unittest.TestCase):
             **kwargs,
         )
 
-    @patch("subprocess.check_call")
-    def test_copy_ssh_id(self, mock_check):
+    def test_copy_ssh_id(self):
         """
-        Test whether the function copies the agent's SSH key
-        to the DUT.
+        Test the function collects the device info from
+        job and config and attempts to copy the agent SSH
+        key to the DUT.
         """
 
         connector = MockConnector()
-        connector.config = {"device_ip": "192.168.1.2"}
         connector.job_data = {
             "test_data": {
-                "test_username": "username",
-                "test_password": "password",
-            },
+                "test_username": "myuser",
+                "test_password": "mypassword",
+            }
         }
+        connector.config = {"device_ip": "192.168.1.2"}
+
+        connector.copy_ssh_key = Mock()
         connector._copy_ssh_id()
 
-        cmd = (
-            "sshpass -p password ssh-copy-id"
-            + " -o StrictHostKeyChecking=no"
-            + " -o UserKnownHostsFile=/dev/null username@192.168.1.2"
+        connector.copy_ssh_key.assert_called_once_with(
+            "192.168.1.2", "myuser", "mypassword"
         )
-        mock_check.assert_called_once_with(cmd.split(), timeout=60)
 
-    @patch("time.sleep", Mock())
-    @patch("subprocess.check_call")
-    def test_copy_ssh_id_raises(self, mock_check):
+    def test_copy_ssh_id_raises(self):
         """
-        Test whether the function raises a ProvisioningError
-        exception after 3 failed attempts.
+        Test the function raises a ProvisioningError exception
+        in case of failure.
         """
 
         connector = MockConnector()
-        connector.config = {"device_ip": "192.168.1.2"}
         connector.job_data = {
             "test_data": {
-                "test_username": "username",
-                "test_password": "password",
-            },
+                "test_username": "myuser",
+                "test_password": "mypassword",
+            }
         }
-        mock_check.side_effect = subprocess.CalledProcessError(1, "")
+        connector.config = {"device_ip": "192.168.1.2"}
 
+        connector.copy_ssh_key = Mock()
+        connector.copy_ssh_key.side_effect = RuntimeError
         with self.assertRaises(ProvisioningError):
             connector._copy_ssh_id()
-
-        cmd = (
-            "sshpass -p password ssh-copy-id"
-            + " -o StrictHostKeyChecking=no"
-            + " -o UserKnownHostsFile=/dev/null username@192.168.1.2"
-        )
-        expected = call(cmd.split(), timeout=60)
-        mock_check.assert_has_calls(3 * [expected])
