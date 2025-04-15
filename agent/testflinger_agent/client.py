@@ -291,8 +291,25 @@ class TestflingerClient:
             else:
                 shutil.rmtree(artifacts_dir)
 
-    def post_live_output(self, job_id, data):
+    def post_live_output(self, data, endpoint):
         """Post output data to the testflinger server for this job
+
+        :param data:
+            string with latest output data
+        :param endpoint:
+            server uri to send live output to
+        """
+        try:
+            job_request = self.session.post(
+                endpoint, data=data.encode("utf-8"), timeout=60
+            )
+        except RequestException as exc:
+            logger.error(exc)
+            return False
+        return bool(job_request)
+
+    def post_live_device_output(self, job_id, data):
+        """Post device output data to the testflinger server for this job
 
         :param job_id:
             id for the job on which we want to post results
@@ -302,14 +319,20 @@ class TestflingerClient:
         output_uri = urljoin(
             self.server, "/v1/result/{}/output".format(job_id)
         )
-        try:
-            job_request = self.session.post(
-                output_uri, data=data.encode("utf-8"), timeout=60
-            )
-        except RequestException as exc:
-            logger.error(exc)
-            return False
-        return bool(job_request)
+        return self.post_live_output(data, output_uri)
+
+    def post_live_serial_output(self, job_id, data):
+        """Post live serial log data to the testflinger server for this job
+
+        :param job_id:
+            id for the job on which we want to post results
+        :param data:
+            string with latest serial log data
+        """
+        output_uri = urljoin(
+            self.server, "/v1/result/{}/serial_output".format(job_id)
+        )
+        return self.post_live_output(data, output_uri)
 
     def post_advertised_queues(self):
         """Post the list of advertised queues to testflinger server"""

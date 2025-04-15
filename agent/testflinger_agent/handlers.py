@@ -12,16 +12,29 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+from abc import ABC, abstractmethod
+
 from .client import TestflingerClient
 
 
-class LiveOutputHandler:
+class LiveOutputHandler(ABC):
     def __init__(self, client: TestflingerClient, job_id: str):
         self.client = client
         self.job_id = job_id
 
+    @abstractmethod
     def __call__(self, data: str):
-        self.client.post_live_output(self.job_id, data)
+        pass
+
+
+class LiveDeviceOutputHandler(LiveOutputHandler):
+    def __call__(self, data: str):
+        self.client.post_live_device_output(self.job_id, data)
+
+
+class LiveSerialOutputHandler(LiveOutputHandler):
+    def __call__(self, data: str):
+        self.client.post_live_serial_output(self.job_id, data)
 
 
 class LogUpdateHandler:
