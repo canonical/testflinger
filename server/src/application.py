@@ -41,6 +41,10 @@ except ImportError:
 def create_flask_app(config=None):
     """Create the flask app"""
     tf_app = APIFlask(__name__)
+
+    # Globally disable strict slashes
+    tf_app.url_map.strict_slashes = False
+
     if config:
         tf_app.config.from_object(config)
     tf_log = create_logger(tf_app)
