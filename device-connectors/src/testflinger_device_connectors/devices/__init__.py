@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+import contextlib
 import json
 import logging
 import multiprocessing
@@ -22,7 +23,7 @@ import subprocess
 import time
 from datetime import datetime, timedelta
 from importlib import import_module
-from typing import Callable
+from typing import Callable, Optional
 
 import yaml
 
@@ -223,6 +224,59 @@ class DefaultDevice:
         with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
             devinfo_file.write(json.dumps(device_info))
 
+    def copy_ssh_key(
+        self,
+        device_ip: str,
+        username: str,
+        password: Optional[str] = None,
+        key: Optional[str] = None,
+    ):
+        """
+        If provided, copy the SSH `key` to the DUT,
+        otherwise copy the agent's using password authentication.
+
+        :raises RuntimeError in case it can't copy the SSH keys
+        """
+        if not key and not password:
+            raise ValueError("Cannot copy the agent's SSH key w/o password")
+
+        if password:
+            cmd = ["sshpass", "-p", password]
+        else:
+            cmd = []
+
+        cmd.extend(["ssh-copy-id", "-f"])
+
+        if key:
+            cmd.extend(["-i", key])
+
+        cmd.extend(
+            [
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "UserKnownHostsFile=/dev/null",
+                "{}@{}".format(username, device_ip),
+            ]
+        )
+
+        for retry in range(10):
+            # Retry ssh key copy just in case it's rebooting
+            try:
+                subprocess.check_call(cmd, timeout=30)
+                break
+            except (
+                subprocess.CalledProcessError,
+                subprocess.TimeoutExpired,
+            ):
+                logger.error("Error copying ssh key to device for: %s", key)
+                logger.info("Retrying...")
+                time.sleep(60)
+
+        else:
+            logger.error("Failed to copy ssh key: %s", key)
+            raise RuntimeError
+
     def reserve(self, args):
         """Default method for reserving systems"""
         with open(args.config) as configfile:
@@ -248,32 +302,10 @@ class DefaultDevice:
             if proc.returncode != 0:
                 logger.error("Unable to import ssh key from: %s", key)
                 continue
-            cmd = [
-                "ssh-copy-id",
-                "-f",
-                "-i",
-                "key.pub",
-                "-o",
-                "StrictHostKeyChecking=no",
-                "-o",
-                "UserKnownHostsFile=/dev/null",
-                "{}@{}".format(test_username, device_ip),
-            ]
-            for retry in range(10):
-                # Retry ssh key copy just in case it's rebooting
-                try:
-                    proc = subprocess.run(cmd, timeout=30)
-                    if proc.returncode == 0:
-                        break
-                except subprocess.TimeoutExpired:
-                    # Log an error for timeout or any other problem
-                    pass
-                logger.error("Error copying ssh key to device for: %s", key)
-                if retry != 9:
-                    logger.info("Retrying...")
-                    time.sleep(60)
-                else:
-                    logger.error("Failed to copy ssh key: %s", key)
+
+            with contextlib.suppress(RuntimeError):
+                self.copy_ssh_key(device_ip, test_username, key="key.pub")
+
         # default reservation timeout is 1 hour
         timeout = int(reserve_data.get("timeout", "3600"))
         serial_host = config.get("serial_host")
@@ -293,13 +325,14 @@ class DefaultDevice:
         print("Current time:           [{}]".format(now))
         print("Reservation expires at: [{}]".format(expire_time))
         print(
-            "Reservation will automatically timeout in {} "
-            "seconds".format(timeout)
+            "Reservation will automatically timeout in {} seconds".format(
+                timeout
+            )
         )
         job_id = job_data.get("job_id", "<job_id>")
         print(
-            "To end the reservation sooner use: testflinger-cli "
-            "cancel {}".format(job_id)
+            "To end the reservation sooner use: "
+            + "testflinger-cli cancel {}".format(job_id)
         )
         time.sleep(int(timeout))
 

@@ -13,9 +13,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for Zapper base device connector."""
 
-
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import (
     ZapperConnector,
     logger,
@@ -55,3 +56,46 @@ class ZapperConnectorTests(unittest.TestCase):
             logger=logger,
             **kwargs,
         )
+
+    def test_copy_ssh_id(self):
+        """
+        Test the function collects the device info from
+        job and config and attempts to copy the agent SSH
+        key to the DUT.
+        """
+
+        connector = MockConnector()
+        connector.job_data = {
+            "test_data": {
+                "test_username": "myuser",
+                "test_password": "mypassword",
+            }
+        }
+        connector.config = {"device_ip": "192.168.1.2"}
+
+        connector.copy_ssh_key = Mock()
+        connector._copy_ssh_id()
+
+        connector.copy_ssh_key.assert_called_once_with(
+            "192.168.1.2", "myuser", "mypassword"
+        )
+
+    def test_copy_ssh_id_raises(self):
+        """
+        Test the function raises a ProvisioningError exception
+        in case of failure.
+        """
+
+        connector = MockConnector()
+        connector.job_data = {
+            "test_data": {
+                "test_username": "myuser",
+                "test_password": "mypassword",
+            }
+        }
+        connector.config = {"device_ip": "192.168.1.2"}
+
+        connector.copy_ssh_key = Mock()
+        connector.copy_ssh_key.side_effect = RuntimeError
+        with self.assertRaises(ProvisioningError):
+            connector._copy_ssh_id()
