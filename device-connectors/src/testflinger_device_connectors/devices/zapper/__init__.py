@@ -24,6 +24,7 @@ validating the configuration and preparing the API arguments.
 import json
 import logging
 import subprocess
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
@@ -32,6 +33,7 @@ import yaml
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
+    ProvisioningError,
 )
 
 logger = logging.getLogger(__name__)
@@ -131,7 +133,20 @@ class ZapperConnector(ABC, DefaultDevice):
             "UserKnownHostsFile=/dev/null",
             f"{test_username}@{self.config['device_ip']}",
         ]
-        subprocess.check_call(cmd, timeout=60)
+
+        for _ in range(3):
+            try:
+                subprocess.check_call(cmd, timeout=60)
+                break
+            except (
+                subprocess.CalledProcessError,
+                subprocess.TimeoutExpired,
+            ):
+                time.sleep(30)
+        else:
+            raise ProvisioningError(
+                "Cannot copy the agent's SSH key to the DUT",
+            )
 
     @abstractmethod
     def _post_run_actions(self, args):
