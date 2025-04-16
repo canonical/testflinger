@@ -42,21 +42,23 @@ If you wish to define your job inline, you can use the following step:
 
 ### Inputs
 
-| Key                       | Description                                        | Required | Default                     |
-| ------------------------- | -------------------------------------------------- | -------- | --------------------------- |
-| `job`                     | Inline YAML contents of a job file.                |          |                             |
-| `job-path`                | Path to a job file.                                |          |                             |
-| `poll`[^1][^2]            | Track submitted job to completion.                 |          | `false`                     |
-| `dry-run`                 | Don't submit job.                                  |          | `false`                     |
-| `server`                  | Testflinger server address.                        |          | `testflinger.canonical.com` |
-| `attachments-relative-to` | Reference directory for relative attachment paths. |          |                             |
+| Key                                | Description                                        | Required | Default                     |
+| ---------------------------------- | -------------------------------------------------- | -------- | --------------------------- |
+| `job`                              | Inline YAML contents of a job file.                | [^job]   |                             |
+| `job-path`                         | Path to a job file.                                | [^job]   |                             |
+| `poll`[^reserve_data][^poll-multi] | Track submitted job to completion.                 |          | `false`                     |
+| `dry-run`                          | Don't submit job.                                  |          | `false`                     |
+| `server`                           | Testflinger server address.                        |          | `testflinger.canonical.com` |
+| `attachments-relative-to`          | Reference directory for relative attachment paths. |          |                             |
 
 ### Outputs
 
 - `id`: The ID of the submitted job
 - `device-ip`: The IP of the reserved device (if applicable)
 
-[^1]:
+[^job]: One of `job` or `job-path` required.
+
+[^reserve_data]:
     If the submitted job is a reservation job (i.e., includes `reserve_data`)
     then setting the `poll` input argument to `true` results in modified
     behaviour: the job is polled only until the reservation phase is complete,
@@ -66,7 +68,7 @@ If you wish to define your job inline, you can use the following step:
     and idly occupying the runner. However, please do remember to manually
     cancel the job after you are done with the reserved device.
 
-[^2]: To poll a multi-device job, see the [`poll-multi`][poll-multi-action] action.
+[^poll-multi]: To poll a multi-device job, see the [`poll-multi`][poll-multi-action] action.
 
 [job]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
 [cli]: ../../../cli/README.rst
