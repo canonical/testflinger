@@ -12,22 +12,55 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
-from .client import TestflingerClient
+from abc import ABC, abstractmethod
+from datetime import datetime, timezone
+
+from .client import TestflingerClient, LogEndpointInput
 
 
-class LiveOutputHandler:
-    def __init__(self, client: TestflingerClient, job_id: str):
-        self.client = client
-        self.job_id = job_id
-
+class LogHandler(ABC):
+    @abstractmethod
     def __call__(self, data: str):
-        self.client.post_live_output(self.job_id, data)
+        pass
 
 
-class LogUpdateHandler:
-    def __init__(self, log_file: str):
-        self.log_file = log_file
+class FileLogHandler(LogHandler):
+    def __init__(self, filename: str):
+        self.log_file = filename
 
     def __call__(self, data: str):
         with open(self.log_file, "a") as log:
             log.write(data)
+
+
+class EndpointLogHandler(LogHandler):
+    def __init__(self, client: TestflingerClient, job_id: str, phase: str):
+        self.fragment_number = 0
+        self.log_buffer = ""
+        self.client = client
+        self.phase = phase
+        self.job_id = job_id
+
+    @abstractmethod
+    def write_to_endpoint(self, data_dict: LogEndpointInput):
+        pass
+
+    def __call__(self, data: str):
+        data_dict: LogEndpointInput = {
+            "fragment_number": self.fragment_number,
+            "timestamp": str(datetime.now(timezone.utc)),
+            "phase": self.phase,
+            "log_data": data,
+        }
+        self.write_to_endpoint(data_dict)
+        self.fragment_number += 1
+
+
+class OutputLogHandler(EndpointLogHandler):
+    def write_to_endpoint(self, data_dict: LogEndpointInput):
+        self.client.post_output(self.job_id, data_dict)
+
+
+class SerialLogHandler(EndpointLogHandler):
+    def write_to_endpoint(self, data_dict: LogEndpointInput):
+        self.client.post_serial(self.job_id, data_dict)
