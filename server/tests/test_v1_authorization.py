@@ -18,9 +18,9 @@ Unit tests for Testflinger v1 API relating to job priority and
 restricted queues
 """
 
-from datetime import datetime, timedelta
-import os
 import base64
+import os
+from datetime import datetime, timedelta, timezone
 
 import jwt
 
@@ -144,8 +144,8 @@ def test_priority_expired_token(mongo_app_with_permissions):
     app, _, _, _, _ = mongo_app_with_permissions
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     expired_token_payload = {
-        "exp": datetime.utcnow() - timedelta(seconds=2),
-        "iat": datetime.utcnow() - timedelta(seconds=4),
+        "exp": datetime.now(timezone.utc) - timedelta(seconds=2),
+        "iat": datetime.now(timezone.utc) - timedelta(seconds=4),
         "sub": "access_token",
         "permissions": {
             "max_priority": {},
