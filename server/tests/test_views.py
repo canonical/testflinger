@@ -21,7 +21,7 @@ from datetime import datetime
 import re
 from unittest.mock import patch
 import mongomock
-from src.views import job_detail, queues_data, agent_detail
+from src.testflinger.views import job_detail, queues_data, agent_detail
 
 
 def test_queues():

@@ -22,7 +22,7 @@ from io import BytesIO
 import json
 import os
 
-from src.api import v1
+from src.testflinger.api import v1
 
 
 def test_home(mongo_app):

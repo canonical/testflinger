@@ -18,7 +18,7 @@ Unit tests for Testflinger flask app
 """
 
 import pytest
-from src.application import create_flask_app
+from src.testflinger.application import create_flask_app
 
 
 def test_default_config(testapp):
