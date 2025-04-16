@@ -21,12 +21,9 @@ jobs:
         python: ["3.10"]
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Install uv and set up Python
+      uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5
       with:
-        python-version: ${{ matrix.python }}
-    - name: Install tox
-      run: pip install tox
+        python-version: ${{ matrix.python-version }}
     - name: Run tests
-      run: |
-        tox
+      run: uvx --with tox-uv tox
