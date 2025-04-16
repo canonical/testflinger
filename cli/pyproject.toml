@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=78.1.0", "setuptools-scm>=8.2.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,13 +7,29 @@ name = "testflinger-cli"
 description = "Testflinger CLI"
 readme = "README.rst"
 license-files = ["COPYING"]
-dependencies = ["PyYAML", "requests", "xdg-base-dirs", "argcomplete"]
+dependencies = [
+  "argcomplete>=3.6.1",
+  "pyyaml>=6.0.2",
+  "requests>=2.32.3",
+  "xdg-base-dirs>=6.0.2",
+]
 dynamic = ["version"]
 requires-python = ">= 3.10"
 
 [project.scripts]
 testflinger-cli = "testflinger_cli:cli"
 testflinger = "testflinger_cli:cli"
+
+[dependency-groups]
+dev = [
+  "black>=25.1.0",
+  "flake8>=7.2.0",
+  "pylint>=3.3.6",
+  "pytest>=8.3.5",
+  "pytest-cov>=6.0.0",
+  "pytest-mock>=3.14.0",
+  "requests-mock>=1.12.1",
+]
 
 [tool.black]
 line-length = 79
@@ -23,3 +39,6 @@ good-names = ["k", "v"]
 
 [tool.pylint."messages control"]
 disable = ["C0209", "too-many-lines"]
+
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true } }]
