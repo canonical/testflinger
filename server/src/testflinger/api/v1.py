@@ -32,7 +32,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from werkzeug.exceptions import BadRequest
 
-from src import database
+from src.testflinger import database
 
 from . import schemas
 

@@ -25,10 +25,10 @@ from werkzeug.exceptions import NotFound
 from pymongo.errors import ConnectionFailure
 from apiflask import APIFlask
 
-from src.database import setup_mongodb
-from src.api.v1 import v1
-from src.providers import ISODatetimeProvider
-from src.views import views
+from src.testflinger.database import setup_mongodb
+from src.testflinger.api.v1 import v1
+from src.testflinger.providers import ISODatetimeProvider
+from src.testflinger.views import views
 from .extensions import metrics
 
 try:

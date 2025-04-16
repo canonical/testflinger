@@ -1,6 +1,6 @@
 [build-system]
-requires = ["wheel", "setuptools", "setuptools-scm"]
-build-backend = "setuptools.build_meta"
+requires = ["uv-build >=0.6"]
+build-backend = "uv_build"
 
 [project]
 name = "testflinger"
@@ -30,16 +30,18 @@ dependencies = [
 ]
 
 [project.scripts]
-client_credentials_admin = "src.tools.client_credentials_admin:main"
+client_credentials_admin = "src.testflinger.tools.client_credentials_admin:main"
 
 [dependency-groups]
+charm = [
+    "ops>=2.2.0",
+]
 dev = [
     "black >=24.8.0",
     "cosl>=0.0.57",
     "djlint>=1.36.4",
     "flake8 >=5.0.4",
     "mongomock>=4.3.0",
-    "ops>=2.2.0",
     "pylint >=3.2.7",
     "pytest >=8.3.5",
     "pytest-cov >=5.0.0",
