@@ -21,7 +21,7 @@ from typing import Optional
 
 from testflinger_agent.errors import TFServerError
 
-from .handlers import LiveOutputHandler, LogUpdateHandler
+from .handlers import FileLogHandler, OutputLogHandler
 from .runner import CommandRunner, RunnerEvents
 from .stop_condition_checkers import (
     GlobalTimeoutChecker,
@@ -88,9 +88,9 @@ class TestflingerJob:
 
         logger.info("Running %s_command: %s", phase, cmd)
         runner = CommandRunner(cwd=rundir, env=self.client.config)
-        output_log_handler = LogUpdateHandler(output_log)
-        live_output_handler = LiveOutputHandler(self.client, self.job_id)
-        runner.register_output_handler(output_log_handler)
+        output_file_handler = FileLogHandler(output_log)
+        live_output_handler = OutputLogHandler(self.client, self.job_id, phase)
+        runner.register_output_handler(output_file_handler)
         runner.register_output_handler(live_output_handler)
 
         # Reserve phase uses a separate timeout handler
