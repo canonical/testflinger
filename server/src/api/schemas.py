@@ -136,14 +136,19 @@ class JobId(Schema):
 class JobSearchRequest(Schema):
     """Job search request schema"""
 
-    tags = fields.List(fields.String, description="List of tags to search for")
+    tags = fields.List(
+        fields.String,
+        metadata={"description": "List of tags to search for"},
+    )
     match = fields.String(
-        description="Match mode - 'all' or 'any' (default 'any')",
         validate=OneOf(["any", "all"]),
+        metadata={
+            "description": "Match mode - 'all' or 'any' (default 'any')"
+        },
     )
     state = fields.List(
         fields.String(validate=OneOf(ValidJobStates)),
-        description="List of job states to include",
+        metadata={"description": "List of job states to include"},
     )
 
 
