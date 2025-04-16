@@ -19,7 +19,7 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, TypedDict
 from urllib.parse import urljoin
 
 import requests
@@ -31,6 +31,15 @@ from requests.packages.urllib3.util.retry import Retry
 from testflinger_agent.errors import TFServerError
 
 logger = logging.getLogger(__name__)
+
+
+class LogEndpointInput(TypedDict):
+    """Schema for Testflinger Log endpoints"""
+
+    fragment_number: int
+    timestamp: str
+    phase: str
+    log_data: str
 
 
 class TestflingerClient:
@@ -131,33 +140,6 @@ class TestflingerClient:
         job_data = self.get_result(job_id)
         if job_data:
             return job_data.get("job_state")
-
-    def repost_job(self, job_data):
-        """Resubmit the job to the testflinger server with the same id.
-
-        :param job_id:
-            id for the job on which we want to post results
-        """
-        job_uri = urljoin(self.server, "/v1/job")
-        job_id = job_data.get("job_id")
-        logger.info("Resubmitting job: %s", job_id)
-        job_output = """
-            There was an unrecoverable error while running this stage. Your job
-            will attempt to be automatically resubmitted back to the queue.
-            Resubmitting job: {}\n""".format(job_id)
-        self.post_live_output(job_id, job_output)
-        try:
-            job_request = self.session.post(job_uri, json=job_data)
-        except requests.exceptions.RequestException as exc:
-            logger.error(exc)
-            raise TFServerError("other exception") from exc
-        if not job_request:
-            logger.error(
-                "Unable to re-post job to: %s (error: %d)",
-                job_uri,
-                job_request.status_code,
-            )
-            raise TFServerError(job_request.status_code)
 
     def post_job_state(self, job_id, phase):
         """Update the job_state on the testflinger server."""
@@ -294,25 +276,48 @@ class TestflingerClient:
             else:
                 shutil.rmtree(artifacts_dir)
 
-    def post_live_output(self, job_id, data):
-        """Post output data to the testflinger server for this job.
+    def post_log(
+        self,
+        log_dict: LogEndpointInput,
+        endpoint: str,
+    ):
+        """Post log data to the testflinger server for this job.
 
-        :param job_id:
-            id for the job on which we want to post results
-        :param data:
-            string with latest output data
+        :param log_dict
+            Dict with all of the keys for the log endpoint
+        :param endpoint
+            Testflinger server endpoint to send logs to
         """
-        output_uri = urljoin(
-            self.server, "/v1/result/{}/output".format(job_id)
-        )
         try:
             job_request = self.session.post(
-                output_uri, data=data.encode("utf-8"), timeout=60
+                endpoint, json=log_dict, timeout=60
             )
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
             return False
         return bool(job_request)
+
+    def post_output(
+        self,
+        job_id: str,
+        log_dict: LogEndpointInput,
+    ):
+        """Post output data to the testflinger server for this job"""
+        output_uri = urljoin(
+            self.server, "/v1/result/{}/output".format(job_id)
+        )
+        return self.post_log(log_dict, output_uri)
+
+    def post_serial(
+        self,
+        job_id: str,
+        log_dict: LogEndpointInput,
+    ):
+        """Post output data to the testflinger server for this job"""
+        serial_uri = urljoin(
+            self.server, "/v1/result/{}/serial_output".format(job_id)
+        )
+        return self.post_log(log_dict, serial_uri)
 
     def post_advertised_queues(self):
         """Post the list of advertised queues to testflinger server."""

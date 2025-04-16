@@ -16,6 +16,7 @@ from testflinger_agent.job import (
 from testflinger_agent.job import (
     read_truncated,
 )
+from testflinger_agent.handlers import FileLogHandler
 from testflinger_agent.runner import CommandRunner
 from testflinger_agent.schema import validate
 from testflinger_agent.stop_condition_checkers import (
@@ -76,7 +77,7 @@ class TestJob:
         timeout_str = "ERROR: Global timeout reached! (1s)"
         logfile = tmp_path / "testlog"
         runner = CommandRunner(tmp_path, env={})
-        log_handler = LogUpdateHandler(logfile)
+        log_handler = FileLogHandler(logfile)
         runner.register_output_handler(log_handler)
         global_timeout_checker = GlobalTimeoutChecker(1)
         runner.register_stop_condition_checker(global_timeout_checker)
@@ -101,7 +102,7 @@ class TestJob:
         timeout_str = "ERROR: Output timeout reached! (1s)"
         logfile = tmp_path / "testlog"
         runner = CommandRunner(tmp_path, env={})
-        log_handler = LogUpdateHandler(logfile)
+        log_handler = FileLogHandler(logfile)
         runner.register_output_handler(log_handler)
         output_timeout_checker = OutputTimeoutChecker(1)
         runner.register_stop_condition_checker(output_timeout_checker)
