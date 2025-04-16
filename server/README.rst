@@ -17,22 +17,42 @@ available somewhere. The connection information for the database should be
 configured using either environment variables or a testflinger.conf file
 as described in the Configuration section.
 
-To create a virtual environment and install testflinger, please run
-the following commands in your testflinger directory:
+We use `uv`_ to manage our project and dependencies. You should install it  
+from the `Snap Store`_ by using the following command:
 
 .. code-block:: console
 
-  $ virtualenv -p python3 env
-  $ . env/bin/activate
-  $ pip install .
+  $ sudo snap install --classic astral-uv
+
+
+To create your development environment, run the following:
+
+.. code-block:: console
+
+  $ uv sync
+
+This will create a virtual environment under `.venv`, to activate it, you need
+to source the following file:
+
+.. code-block:: console
+
+  $ source .venv/bin/activate
 
 Testing
 -------
 
-To run all the tests, install tox from packages or pypi and just run:
+To run all our tests, run the `tox` tool. To run it with `uv`, use the following
+command:
 
 .. code-block:: console
 
+  $ uvx --with tox-uv tox
+
+
+You can also run `tox` on its own, and it should automatically pull in `tox-uv`
+as a dependency for running the tests with our `uv` lock file.
+
+.. code-block:: console
   $ tox
 
 Also, you can run just the unit tests directly by installing and running pytest
@@ -44,14 +64,14 @@ After installing testflinger, you can run a test server locally with:
 
 .. code-block:: console
 
-  $ gunicorn testflinger:app
+  $ uv run gunicorn testflinger:app
 
 This will only allow connections from localhost by default. If you wish to
 allow external connections, use the ''--bind'' option:
 
 .. code-block:: console
 
-  $ gunicorn --bind 0.0.0.0 testflinger:app
+  $ uv run gunicorn --bind 0.0.0.0 testflinger:app
 
 Configuration
 -------------
@@ -437,3 +457,6 @@ The job_status_webhook parameter is required for this endpoint. Other parameters
 
     $ curl http://localhost:8000/v1/oauth2/token \
            -X GET --header "Authorization: Basic ABCDEF12345"
+
+.. _uv: https://docs.astral.sh/uv/  
+.. _Snap Store: https://snapcraft.io/astral-uv/
