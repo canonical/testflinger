@@ -17,8 +17,8 @@ available somewhere. The connection information for the database should be
 configured using either environment variables or a testflinger.conf file
 as described in the Configuration section.
 
-We use `uv`_ to manage our project and dependencies. You should install it  
-from the `Snap Store`_ by using the following command:
+We use `uv <https://docs.astral.sh/uv/>`_ to manage our project and dependencies. You should install it
+from the `Snap Store <https://snapcraft.io/astral-uv/>`_ by using the following command:
 
 .. code-block:: console
 
@@ -53,6 +53,7 @@ You can also run `tox` on its own, and it should automatically pull in `tox-uv`
 as a dependency for running the tests with our `uv` lock file.
 
 .. code-block:: console
+
   $ tox
 
 Also, you can run just the unit tests directly by installing and running pytest
@@ -171,7 +172,7 @@ Example:
 
 .. code-block:: console
 
-$ curl 'http://localhost:8000/v1/job/search?tags=foo&tags=bar&match=all'
+  $ curl 'http://localhost:8000/v1/job/search?tags=foo&tags=bar&match=all'
 
 This will find jobs tagged with both "foo" and "bar".
 
@@ -457,6 +458,3 @@ The job_status_webhook parameter is required for this endpoint. Other parameters
 
     $ curl http://localhost:8000/v1/oauth2/token \
            -X GET --header "Authorization: Basic ABCDEF12345"
-
-.. _uv: https://docs.astral.sh/uv/  
-.. _Snap Store: https://snapcraft.io/astral-uv/
