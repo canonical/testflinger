@@ -1,11 +1,53 @@
-# Running tests
+# Testflinger Server 
 
-To run the unit tests, install tox (this can be on your native system, via
-pip, or in a virtual environment), and just run **tox**.
+## Manage Dependencies
 
-# Development/Demo environment
+### Add a dependency
 
-## Docker
+To add a new dependency to `testflinger-server`, please use `uv`, as
+it will automatically add it to both the `pyproject.toml` and `uv.lock` files:
+
+```shell
+uv add ...
+```
+
+If the dependency is only a development dependency, please add it to the `dev`
+dependency group by using the `--dev` flag.
+
+To learn more about the `uv add` command, refer to the
+[`uv` documentation][uv-add].
+
+### Remove a dependency
+
+```shell
+uv remove ...
+```
+
+If the dependency is only a development dependency, please remove it from the
+`dev` dependency group by using the `--dev` flag.
+
+To learn more about the `uv remove` command, refer to the
+[`uv` documentation][uv-remove].
+
+## Running tests
+
+To run all our tests, run the `tox` tool. To run it with `uv`, use the following
+command:
+
+```shell
+uvx --with tox-uv tox
+```
+
+You can also run `tox` on its own, and it should automatically pull in `tox-uv`
+as a dependency for running the tests with our `uv` lock file.
+
+```shell
+tox
+```
+
+## Development/Demo environment
+
+### Docker
 
 Testflinger server can be deployed using Docker, and it makes a nice setup
 for local development.  There's a Dockerfile for building the container and
@@ -50,7 +92,7 @@ the docker-compose setup above. So if this is what you want, you can just
 call it with no options.
 
 
-## Multipass
+### Multipass
 
 There is a **testflinger.yaml** file under the **devel** directory which can
 be used with multipass to create a complete environment for demonstrating,
@@ -101,3 +143,6 @@ To remove everything that has been deployed completely:
 ```
     $ multipass delete -p testflinger
 ```
+
+[uv-add]: https://docs.astral.sh/uv/reference/cli/#uv-add
+[uv-remove]: https://docs.astral.sh/uv/reference/cli/#uv-remove
