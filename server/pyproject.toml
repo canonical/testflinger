@@ -39,6 +39,7 @@ dev = [
     "djlint>=1.36.4",
     "flake8 >=5.0.4",
     "mongomock>=4.3.0",
+    "ops>=2.2.0",
     "pylint >=3.2.7",
     "pytest >=8.3.5",
     "pytest-cov >=5.0.0",
