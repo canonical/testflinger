@@ -12,7 +12,7 @@ from unittest.mock import patch
 import prometheus_client
 import pytest
 import requests_mock as rmock
-from testflinger_common.enums import AgentState, TestEvent, TestPhase
+from testflinger_common.enums import AgentState, LogType, TestEvent, TestPhase
 
 import testflinger_agent
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
@@ -463,7 +463,7 @@ class TestClient:
             m.get("http://127.0.0.1:8000/v1/result/" + job_id, text="{}")
             m.post("http://127.0.0.1:8000/v1/result/" + job_id, text="{}")
             m.post(
-                "http://127.0.0.1:8000/v1/result/" + job_id + "/output",
+                f"http://127.0.0.1:8000/v1/result/{job_id}/log/{LogType.STANDARD_OUTPUT}",
                 text="{}",
             )
             m.post(

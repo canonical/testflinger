@@ -22,7 +22,7 @@ from typing import Optional
 from testflinger_common.enums import TestPhase
 
 from testflinger_agent.errors import TFServerError
-from testflinger_agent.handlers import LiveOutputHandler, LogUpdateHandler
+from testflinger_agent.handlers import FileLogHandler, OutputLogHandler
 from testflinger_agent.masking import Masker
 from testflinger_agent.runner import (
     CommandRunner,
@@ -118,10 +118,10 @@ class TestflingerJob:
         serial_log = os.path.join(rundir, phase + "-serial.log")
 
         logger.info("Running %s_command: %s", phase, cmd)
-        runner = self.get_runner(rundir, phase)
-        output_log_handler = LogUpdateHandler(output_log)
-        live_output_handler = LiveOutputHandler(self.client, self.job_id)
-        runner.register_output_handler(output_log_handler)
+        runner = self.get_runner(rundir, phase) 
+        output_file_handler = FileLogHandler(output_log)
+        live_output_handler = OutputLogHandler(self.client, self.job_id, phase)
+        runner.register_output_handler(output_file_handler)
         runner.register_output_handler(live_output_handler)
 
         # Reserve phase uses a separate timeout handler
