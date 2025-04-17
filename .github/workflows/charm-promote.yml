@@ -1,5 +1,6 @@
 name: Promote Charm
-
+permissions:
+  contents: read
 on:
   workflow_dispatch:
     inputs:

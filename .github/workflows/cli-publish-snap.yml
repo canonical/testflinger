@@ -1,4 +1,6 @@
 name: Publish Testflinger CLI snap to edge and beta
+permissions:
+  contents: read
 on:
   push:
     branches: ["main"]
