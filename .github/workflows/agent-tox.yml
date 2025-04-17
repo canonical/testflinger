@@ -2,13 +2,13 @@ name: "[agent] Run unit tests"
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - common/**  # testflinger-agent depends on testflinger-common
       - agent/**
       - .github/workflows/agent-tox.yml
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
       - common/**  # testflinger-agent depends on testflinger-common
       - agent/**

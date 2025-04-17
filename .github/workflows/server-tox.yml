@@ -2,11 +2,11 @@ name: "[server] Run unit tests"
 
 on:
   push:
-    branches: [ main, try-self-hosted ]
+    branches: [main, try-self-hosted]
     paths:
       - server/**
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
       - server/**
 
@@ -17,8 +17,8 @@ jobs:
         working-directory: server
     runs-on: [self-hosted, linux, jammy, X64]
     steps:
-    - uses: actions/checkout@v4
-    - name: Install uv and set up Python
-      uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5
-    - name: Run tests
-      run: uvx --with tox-uv tox
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5
+      - name: Run tests
+        run: uvx --with tox-uv tox
