@@ -1,7 +1,6 @@
 name: Release testflinger-k8s charm to latest/edge
 permissions:
   contents: read
-  packages: write
 on:
   push:
     branches:

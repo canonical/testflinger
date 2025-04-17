@@ -1,7 +1,6 @@
 name: Check Agent Host Charm Libs on Pull Request
 permissions:
   contents: read
-  pull-requests: write
 on:
   pull_request:
     branches:
@@ -19,6 +18,9 @@ jobs:
   build:
     name: Check charm libraries
     runs-on: [self-hosted, linux, jammy, X64]
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
