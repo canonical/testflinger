@@ -63,20 +63,16 @@ runs:
       run: |
         echo "::group::Create job file (if required)"
         if [ -n "$JOB_PATH" ]; then
-        echo "job=$JOB_PATH" >> "$GITHUB_OUTPUT"
+          echo "job=$JOB_PATH" >> "$GITHUB_OUTPUT"
         else
-        # write the inline job text to a file
-        FILE=${{ github.workspace }}/tmp_job.yaml
-        # do not ever indent these lines; the here-doc is sensitive to that
-        cat > $FILE << EOF
-        $JOB
-        EOF
-        if [[ $(cat "$FILE" | wc -w) == 0 ]]; then
-          echo 'Neither of the `job` or `job-path` inputs have been specified'
-          exit 1
-        fi
-        # the `$JOB` environment variable points to the newly created job file
-        echo "job=$FILE" >> "$GITHUB_OUTPUT"
+          # write the inline job text to a file
+          FILE=${{ github.workspace }}/tmp_job.yaml
+          printf "%s" "$JOB" > "$FILE"
+          if [[ $(cat "$FILE" | wc -w) == 0 ]]; then
+            echo 'Neither of the `job` or `job-path` inputs have been specified'
+            exit 1
+          fi
+          echo "job=$FILE" >> "$GITHUB_OUTPUT"
         fi
         echo "::endgroup::"
 
