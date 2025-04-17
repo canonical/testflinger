@@ -34,13 +34,17 @@ jobs:
   promote-charm:
     name: Promote Charm
     runs-on: ubuntu-latest
+    env:
+      CHARM_PATH: ${{ inputs.charm-path }}
+      CHARMHUB_DESTINATION_CHANNEL: ${{ inputs.destination-channel }}
+      CHARMHUB_ORIGIN_CHANNEL: ${{ inputs.origin-channel }}
     steps:
       - name: Validate inputs
         run: |
-          echo "Charm Path: ${{ inputs.charm-path }}"
-          echo "Destination Channel: ${{ inputs.destination-channel }}"
-          echo "Origin Channel: ${{ inputs.origin-channel }}"
-          if [ "${{ inputs.destination-channel }}" = "${{ inputs.origin-channel }}" ]; then
+          echo "Charm Path: $CHARM_PATH"
+          echo "Destination Channel: $CHARMHUB_DESTINATION_CHANNEL"
+          echo "Origin Channel: $CHARMHUB_ORIGIN_CHANNEL"
+          if [ "$CHARMHUB_DESTINATION_CHANNEl" = "$CHARMHUB_ORIGIN_CHANNEl" ]; then
             echo "Error: Destination and origin channels cannot be the same."
             exit 1
           fi
