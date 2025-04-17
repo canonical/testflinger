@@ -326,7 +326,7 @@ def test_submit_with_attachments(tmp_path):
         with tarfile.open("attachments.tar.gz") as attachments:
             filenames = attachments.getnames()
             assert len(filenames) == 1
-            attachments.extract(filenames[0])
+            attachments.extract(filenames[0], filter="data")
         with open(filenames[0], "r", encoding="utf-8") as attachment:
             assert json.load(attachment) == job_data
 
