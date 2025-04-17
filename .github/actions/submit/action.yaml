@@ -57,29 +57,33 @@ runs:
     - name: Create job file, if required
       id: create-job-file
       shell: bash
+      env:
+        JOB: ${{ inputs.job }}
+        JOB_PATH: ${{ inputs.job-path }}
       run: |
         echo "::group::Create job file (if required)"
-        if [ -n "${{ inputs.job-path }}" ]; then
-        # the `$JOB` environment variable points to the job path provided as input
-        echo "JOB=${{ inputs.job-path }}" >> $GITHUB_ENV
+        if [ -n "$JOB_PATH" ]; then
+        echo "job=$JOB_PATH" >> "$GITHUB_OUTPUT"
         else
         # write the inline job text to a file
         FILE=${{ github.workspace }}/tmp_job.yaml
         # do not ever indent these lines; the here-doc is sensitive to that
         cat > $FILE << EOF
-        ${{ inputs.job }}
+        $JOB
         EOF
         if [[ $(cat "$FILE" | wc -w) == 0 ]]; then
           echo 'Neither of the `job` or `job-path` inputs have been specified'
           exit 1
         fi
         # the `$JOB` environment variable points to the newly created job file
-        echo "JOB=$FILE" >> $GITHUB_ENV
+        echo "job=$FILE" >> "$GITHUB_OUTPUT"
         fi
         echo "::endgroup::"
 
     - name: Display contents of job file (for verification)
       shell: bash
+      env:
+        JOB: ${{ steps.create-job-file.outputs.job }}
       run: |
         echo "::group::Display job file"
         cat "$JOB"
@@ -113,6 +117,7 @@ runs:
       env:
         SERVER: https://${{ inputs.server }}
         RELATIVE_TO: ${{ inputs.attachments-relative-to }}
+        JOB: ${{ steps.create-job-file.outputs.job }}
       run: |
         echo "::group::Submit job to the Testflinger server"
         if [ -n "$RELATIVE_TO" ]; then
@@ -130,7 +135,7 @@ runs:
         SERVER: https://${{ inputs.server }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
-        echo "::group::Track the status of job ${{ env.JOB_ID }}"
+        echo "::group::Track the status of job $JOB_ID"
         # poll
         PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
         echo "::endgroup::"
@@ -162,7 +167,7 @@ runs:
         JOB_ID: ${{ steps.submit.outputs.id }}
         TERMINATION: "TESTFLINGER SYSTEM RESERVED"
       run: |
-        echo "::group::Track the status of reservation job ${{ env.JOB_ID }}"
+        echo "::group::Track the status of reservation job $JOB_ID"
         # specify file for capturing output and clear it
         CAPTURED_OUTPUT=output
         > "$CAPTURED_OUTPUT"
