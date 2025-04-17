@@ -88,9 +88,11 @@ runs:
     - name: Determine if this is a reservation job
       id: check-reservation
       shell: bash
+      env:
+        JOB: ${{ steps.create-job-file.outputs.job }}
       run: |
         echo "::group::Determine if this is a reservation job"
-        if grep -q "^reserve_data:" $JOB; then
+        if grep -q "^reserve_data:" "$JOB"; then
           RESERVATION=true
         else
           RESERVATION=false
