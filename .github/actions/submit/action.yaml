@@ -10,11 +10,11 @@ inputs:
   poll:
     description: Specify if the submitted job should be tracked to completion
     required: false
-    default: false
+    default: "false"
   dry-run:
     description: Specify if the job should really be submitted
     required: false
-    default: false
+    default: "false"
   server:
     description: The Testflinger server to use
     required: false
