@@ -63,7 +63,6 @@ Alternatively, you can use the `job` argument (instead of `job-path`) to provide
         job: |
             ...  # inline YAML for Testflinger job
 ```
-In the latter case, do remember to use escapes for environment variables in the inline text, e.g. `\$DEVICE_IP`.
 
 The `id` of the submitted job is returned as an output of the `submit` action, so you can use it (if you need it)
 in any of the subsequent steps of the workflow:

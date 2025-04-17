@@ -1,12 +1,14 @@
 name: "[agent] Run unit tests"
-
+permissions:
+  contents: read
 on:
+  workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - agent/**
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
       - agent/**
 
@@ -20,13 +22,15 @@ jobs:
       matrix:
         python: ["3.10"]
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python }}
-    - name: Install tox
-      run: pip install tox
-    - name: Run tests
-      run: |
-        tox
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install tox
+        run: pip install tox
+      - name: Run tests
+        run: |
+          tox

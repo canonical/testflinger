@@ -1,16 +1,17 @@
 name: Documentation checks
-
-on:  
+permissions:
+  contents: read
+on:
   pull_request:
-    branches: 
+    branches:
       - main
     paths:
-      - 'docs/**'  
+      - "docs/**"
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true  
+  cancel-in-progress: true
 
 jobs:
   spellcheck:
@@ -21,7 +22,9 @@ jobs:
         working-directory: docs
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
 
       - name: Install Aspell
         run: |
@@ -45,7 +48,9 @@ jobs:
         working-directory: docs
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
 
       - name: Install the doc framework
         working-directory: docs/
@@ -65,7 +70,9 @@ jobs:
         working-directory: docs
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
 
       - name: Install the doc framework
         working-directory: docs/
@@ -76,4 +83,3 @@ jobs:
         working-directory: docs/
         run: |
           make linkcheck
-  
