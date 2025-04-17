@@ -19,7 +19,11 @@ jobs:
             git-branch: chore/auto-libs-agent
     name: Check libraries
     uses: canonical/observability/.github/workflows/charm-update-libs.yaml@136b5a184db3ced27d1c2dc20b886f5e6ba2039a # v1
-    secrets: inherit
+    secrets:
+      CHARMHUB_TOKEN: ${{ secrets.CHARMHUB_TOKEN }}
+      OBSERVABILITY_NOCTUA_TOKEN: ${{ secrets.OBSERVABILITY_NOCTUA_TOKEN }}
+      NOCTUA_GPG_PRIVATE: ${{ secrets.NOCTUA_GPG_PRIVATE }}
+      NOCTUA_GPG_PASSPHRASE: ${{ secrets.NOCTUA_GPG_PASSPHRASE }}
     with:
       charm-path: ${{ matrix.charm-path }}
       git-branch: ${{ matrix.git-branch }}
