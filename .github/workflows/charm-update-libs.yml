@@ -15,7 +15,7 @@ jobs:
           - charm-path: agent/charms/testflinger-agent-host-charm
             git-branch: chore/auto-libs-agent
     name: Check libraries
-    uses: canonical/observability/.github/workflows/charm-update-libs.yaml@v1
+    uses: canonical/observability/.github/workflows/charm-update-libs.yaml@136b5a184db3ced27d1c2dc20b886f5e6ba2039a # v1
     secrets: inherit
     with:
       charm-path: ${{ matrix.charm-path }}

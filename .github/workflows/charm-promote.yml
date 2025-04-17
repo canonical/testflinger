@@ -43,9 +43,9 @@ jobs:
             echo "Error: Destination and origin channels cannot be the same."
             exit 1
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - name: Promote Charm
-        uses: canonical/charming-actions/promote-charm@2.7.0
+        uses: canonical/charming-actions/promote-charm@19db2e9c9da186f64b38b95d8e7e57229f3362da # 2.7.0
         with:
           credentials: ${{ secrets.CHARMHUB_TOKEN }}
           destination-channel: ${{ inputs.destination-channel }}

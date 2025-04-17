@@ -1,6 +1,6 @@
 name: Check Server Charm Libs on Pull Request
 
-on: 
+on:
   pull_request:
     branches:
       - main
@@ -14,11 +14,11 @@ jobs:
     runs-on: [self-hosted, linux, jammy, X64]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          fetch-depth: 0  
+          fetch-depth: 0
       - name: Check libraries
-        uses: canonical/charming-actions/check-libraries@2.7.0
+        uses: canonical/charming-actions/check-libraries@bc8d4ee58ddf99c6f13fc80e8a14dfe1e68a8ea6 # 2.7.0
         with:
           charm-path: server/charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"

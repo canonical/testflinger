@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Upload charm to charmhub
-        uses: canonical/charming-actions/upload-charm@2.7.0
+        uses: canonical/charming-actions/upload-charm@bc8d4ee58ddf99c6f13fc80e8a14dfe1e68a8ea6 # 2.7.0
         with:
           charm-path: agent/charms/testflinger-agent-host-charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
