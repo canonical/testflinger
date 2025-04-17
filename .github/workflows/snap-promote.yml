@@ -36,13 +36,16 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_LOGIN }}
+      SNAP_NAME: ${{ inputs.snap }}
+      SNAPCRAFT_TO_CHANNEL: ${{ inputs.to-channel }}
+      SNAPCRAFT_FROM_CHANNEL: ${{ inputs.from-channel }}
     steps:
       - name: Validate inputs
         run: |
-          echo "Snap: ${{ inputs.snap }}"
-          echo "To Channel: ${{ inputs.to-channel }}"
-          echo "From Channel: ${{ inputs.from-channel }}"
-          if [ "${{ inputs.to-channel }}" = "${{ inputs.from-channel }}" ]; then
+          echo "Snap: $SNAP_NAME"
+          echo "To Channel: $SNAPCRAFT_TO_CHANNEL"
+          echo "From Channel: $SNAPCRAFT_FROM_CHANNEL"
+          if [ "$SNAPCRAFT_TO_CHANNEl" = "$SNAPCRAFT_FROM_CHANNEL" ]; then
             echo "Error: To channel and from channel cannot be the same."
             exit 1
           fi
@@ -50,6 +53,6 @@ jobs:
         run: sudo snap install snapcraft --classic
       - name: Promote Snap
         run: |
-          snapcraft promote --yes ${{ inputs.snap }} \
-            --to-channel ${{ inputs.to-channel }} \
-            --from-channel ${{ inputs.from-channel }}
+          snapcraft promote --yes "$SNAP_NAME" \
+            --to-channel "$SNAPCRAFT_TO_CHANNEL" \
+            --from-channel "$SNAPCRAFT_FROM_CHANNEL"
