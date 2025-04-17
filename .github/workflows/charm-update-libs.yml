@@ -1,7 +1,6 @@
 name: Auto-update Charm Libraries
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 on:
   workflow_dispatch:
   schedule:
@@ -10,6 +9,9 @@ on:
 
 jobs:
   update-lib:
+    permissions:
+      contents: write
+      pull-requests: write
     strategy:
       matrix:
         include:
