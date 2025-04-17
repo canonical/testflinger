@@ -15,18 +15,40 @@ service requests for tests.
 Installation
 ------------
 
-To create a virtual environment and install testflinger-agent:
+We use `uv <https://docs.astral.sh/uv/>`_ to manage our project and dependencies. You should install it
+from the `Snap Store <https://snapcraft.io/astral-uv/>`_ by using the following command:
 
 .. code-block:: console
 
-  $ virtualenv env
-  $ . env/bin/activate
-  $ pip install .
+  $ sudo snap install --classic astral-uv
+
+
+To create your development environment, run the following:
+
+.. code-block:: console
+
+  $ uv sync
+
+This will create a virtual environment under `.venv`, to activate it, you need
+to source the following file:
+
+.. code-block:: console
+
+  $ source .venv/bin/activate
 
 Testing
 -------
 
-To run the unit tests, first install (see above) then:
+To run all our tests, run the `tox` tool. To run it with `uv`, use the following
+command:
+
+.. code-block:: console
+
+  $ uvx --with tox-uv tox
+
+
+You can also run `tox` on its own, and it should automatically pull in `tox-uv`
+as a dependency for running the tests with our `uv` lock file.
 
 .. code-block:: console
 
