@@ -268,6 +268,25 @@ def remove_restricted_queue(db):
         print("Entry deleted successfully\n")
 
 
+def add_list_restricted_queues(db):
+    """Adds a comma separated list of restricted queues to the database"""
+    queue_list_str = input(
+        "Enter a comma separated list of restricted queues to add: "
+    )
+    queue_list = queue_list_str.split(",")
+    existing_queues = [q for q in queue_list if check_queue_exists(db, q)]
+    print(
+        "Some queues were already found.",
+        f"They will be skipped: {existing_queues}",
+    )
+    queue_entry = [
+        {"queue_name": q} for q in queue_list if not check_queue_exists(db, q)
+    ]
+    print(f"{len(queue_entry)} queues to add")
+    if confirm_dialogue(queue_entry):
+        db.restricted_queues.insert_many(queue_entry)
+
+
 def main():
     """
     Initial command line interface for adding client info and
@@ -280,6 +299,7 @@ def main():
         print("(r) Remove client")
         print("(aq) Add restricted queue")
         print("(rq) Remove restricted queue")
+        print("(al) Add comma separated list of restricted queues")
         print("(q) Quit")
 
         user_input = input("Enter your selection: ")
@@ -293,12 +313,14 @@ def main():
             add_restricted_queue(db)
         elif user_input == "rq":
             remove_restricted_queue(db)
+        elif user_input == "al":
+            add_list_restricted_queues(db)
         elif user_input == "q":
             sys.exit()
         else:
             print(
                 "Invalid selection. Please enter "
-                "'c', 'e', 'r', 'aq', 'rq', or 'q'\n"
+                "'c', 'e', 'r', 'aq', 'rq', 'al', or 'q'\n"
             )
 
 
