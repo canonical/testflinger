@@ -2,6 +2,7 @@ name: "[device-connectors] Run unit tests"
 permissions:
   contents: read
 on:
+  workflow_dispatch:
   push:
     branches: [main, try-self-hosted]
     paths:
