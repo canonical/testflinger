@@ -27,8 +27,8 @@ from flask import (
     url_for,
 )
 from prometheus_client import generate_latest
-from src import database
-from src.database import mongo
+from src.testflinger import database
+from src.testflinger.database import mongo
 
 views = Blueprint("testflinger", __name__)
 

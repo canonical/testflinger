@@ -25,7 +25,7 @@ import mongomock
 from mongomock.gridfs import enable_gridfs_integration
 import bcrypt
 
-from src import database, application
+from src.testflinger import database, application
 
 
 @dataclass

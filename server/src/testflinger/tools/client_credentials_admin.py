@@ -30,7 +30,7 @@ import getpass
 import bcrypt
 from pymongo import MongoClient, ReturnDocument
 
-from src import database
+from testflinger import database
 
 
 def setup_database():
