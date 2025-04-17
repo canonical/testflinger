@@ -45,6 +45,8 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
       - name: Promote Charm
         uses: canonical/charming-actions/promote-charm@19db2e9c9da186f64b38b95d8e7e57229f3362da # 2.7.0
         with:
