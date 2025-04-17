@@ -15,7 +15,7 @@ apiflask = "^2.1.1"
 flask = "^3.0.3"
 flask-pymongo = "^3.0.0"
 gunicorn = "^23.0.0"
-gevent = "^24.2.1"
+gevent = "^25.0.0"
 prometheus-client = "^0.21.0"
 pyyaml = "^6.0.1"
 sentry-sdk = { extras = ["flask"], version = "^2.0.1" }
