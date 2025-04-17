@@ -1,5 +1,7 @@
 name: Build testflinger-testenv container image
-
+permissions:
+  contents: read
+  packages: write
 on:
   push:
     branches:

@@ -1,5 +1,6 @@
 name: "[server] Run unit tests"
-
+permissions:
+  contents: read
 on:
   push:
     branches: [main, try-self-hosted]

@@ -1,5 +1,6 @@
 name: Promote Snap
-
+permissions:
+  contents: read
 on:
   workflow_dispatch:
     inputs:
