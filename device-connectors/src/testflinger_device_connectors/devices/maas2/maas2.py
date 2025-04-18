@@ -66,6 +66,8 @@ class Maas2:
         logger.critical("MAAS: {}".format(message))
 
     def recover(self):
+        if self.config.get("reset_efi"):
+            self.reset_efi()
         self._logger_info("Releasing node {}".format(self.agent_name))
         self.node_release()
         self._logger_info(
