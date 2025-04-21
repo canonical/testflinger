@@ -23,9 +23,9 @@ to enter new max_priority and allowed_queues data.
 
 """
 
-import sys
-import os
 import getpass
+import os
+import sys
 
 import bcrypt
 from pymongo import MongoClient, ReturnDocument

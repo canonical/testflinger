@@ -19,17 +19,17 @@ This sets up the Testflinger web application
 
 import logging
 
+from apiflask import APIFlask
 from flask import request
 from flask.logging import create_logger
-from werkzeug.exceptions import NotFound
 from pymongo.errors import ConnectionFailure
-from apiflask import APIFlask
+from werkzeug.exceptions import NotFound
 
-from src.testflinger.database import setup_mongodb
-from src.testflinger.api.v1 import v1
-from src.testflinger.providers import ISODatetimeProvider
-from src.testflinger.views import views
-from .extensions import metrics
+from testflinger.api.v1 import v1
+from testflinger.database import setup_mongodb
+from testflinger.extensions import metrics
+from testflinger.providers import ISODatetimeProvider
+from testflinger.views import views
 
 try:
     import sentry_sdk

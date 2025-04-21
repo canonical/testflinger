@@ -18,14 +18,14 @@ Fixtures for testing
 """
 
 import os
-
 from dataclasses import dataclass
-import pytest
-import mongomock
-from mongomock.gridfs import enable_gridfs_integration
-import bcrypt
 
-from src.testflinger import database, application
+import bcrypt
+import mongomock
+import pytest
+from mongomock.gridfs import enable_gridfs_integration
+
+from testflinger import application, database
 
 
 @dataclass

@@ -25,7 +25,6 @@ from typing import Any
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
 
-
 # Constants for TTL indexes
 DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours

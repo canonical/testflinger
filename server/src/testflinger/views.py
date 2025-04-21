@@ -18,17 +18,19 @@ Additional views not associated with the API
 """
 
 from datetime import datetime, timedelta
+
 from flask import (
     Blueprint,
     make_response,
-    render_template,
     redirect,
+    render_template,
     request,
     url_for,
 )
 from prometheus_client import generate_latest
-from src.testflinger import database
-from src.testflinger.database import mongo
+
+from testflinger import database
+from testflinger.database import mongo
 
 views = Blueprint("testflinger", __name__)
 
