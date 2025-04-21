@@ -16,10 +16,16 @@ import json
 import logging
 import os
 import time
+import signal
+import copy
 
 from testflinger_agent.errors import TFServerError
 from .runner import CommandRunner, RunnerEvents
-from .handlers import LiveOutputHandler, LogUpdateHandler
+from .handlers import (
+    LiveDeviceOutputHandler,
+    LogUpdateHandler,
+    LiveSerialOutputHandler,
+)
 from .stop_condition_checkers import (
     JobCancelledChecker,
     GlobalTimeoutChecker,
@@ -41,6 +47,18 @@ class TestflingerJob:
         self.job_data = job_data
         self.job_id = job_data.get("job_id")
         self.phase = "unknown"
+        self.conserver_runner = CommandRunner(cwd=None, env=self.client.config)
+        self.command_runner = CommandRunner(cwd=None, env=self.client.config)
+
+    def cleanup_runners(self):
+        """
+        Resets termination signal handler and runs cleanup function on a set of
+        runners.
+        """
+        # Resets termination signal behavior to default
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        self.conserver_runner.cleanup()
+        self.command_runner.cleanup()
 
     def run_test_phase(self, phase, rundir):
         """Run the specified test phase in rundir
@@ -81,11 +99,14 @@ class TestflingerJob:
         serial_log = os.path.join(rundir, phase + "-serial.log")
 
         logger.info("Running %s_command: %s", phase, cmd)
-        runner = CommandRunner(cwd=rundir, env=self.client.config)
+        self.command_runner = CommandRunner(cwd=rundir, env=self.client.config)
+        runner = self.command_runner
         output_log_handler = LogUpdateHandler(output_log)
-        live_output_handler = LiveOutputHandler(self.client, self.job_id)
+        live_device_output_handler = LiveDeviceOutputHandler(
+            self.client, self.job_id
+        )
         runner.register_output_handler(output_log_handler)
-        runner.register_output_handler(live_output_handler)
+        runner.register_output_handler(live_device_output_handler)
 
         # Reserve phase uses a separate timeout handler
         if phase != "reserve":
@@ -246,6 +267,36 @@ class TestflingerJob:
         yield "*" * (len(line) + 4)
         yield "* {} *".format(line)
         yield "*" * (len(line) + 4)
+
+    def start_serial_log_capture(self, rundir: str):
+        """
+        Start capturing serial logs from the conserver server
+        """
+        if "conserver_address" not in self.client.config:
+            return
+        full_serial_log = os.path.join(rundir, "full-serial.log")
+        serial_log_handler = LogUpdateHandler(full_serial_log)
+        live_serial_output_handler = LiveSerialOutputHandler(
+            copy.deepcopy(self.client), self.job_id
+        )
+        self.conserver_runner.register_output_handler(serial_log_handler)
+        self.conserver_runner.register_output_handler(
+            live_serial_output_handler
+        )
+        # Cleanup all running processes on sigterm
+        signal.signal(
+            signal.SIGTERM, lambda signum, frame: self.cleanup_runners()
+        )
+        self.conserver_runner.run_async(
+            (
+                f"console -M {self.client.config['conserver_address']} "
+                f"{self.client.config['agent_id']} -s"
+            )
+        )
+
+    def end_serial_log_capture(self):
+        """Stop capturing serial logs from conserver"""
+        self.conserver_runner.kill_async()
 
 
 def read_truncated(filename: str, size: int) -> str:
