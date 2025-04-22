@@ -17,6 +17,31 @@ action, you can poll a job with the following step:
     job-id: ${{ steps.submit.outputs.id }}
 ```
 
+### Poll Until Phase
+
+Assuming you've submitted a multi-device job with the [`submit`][submit-action]
+action, you can poll a job until all child jobs reach a phase (`sentinel-phase`)
+with the following step:
+
+```yaml
+- name: Poll multi-device job until reservation
+  id: poll
+  uses: canonical/testflinger/.github/actions/poll-multi@v1
+  with:
+    job-id: ${{ steps.submit.outputs.id }}
+    sentinel-phase: reserve
+
+- name: Verify job statuses
+  shell: bash
+  env:
+    JOBS: ${{ steps.poll.outputs.jobs }}
+  run: |
+    echo $JOBS | jq
+```
+
+Refer to the [Outputs](#outputs) section for more information on the `jobs`
+output of the action.
+
 ## API
 
 ### Inputs
@@ -28,7 +53,8 @@ action, you can poll a job with the following step:
 
 ### Outputs
 
-- `jobs`: A JSON string containing an arry of objects with machine IPs and child job IDs
+- `jobs`: A JSON string containing an array of objects with machine IPs
+  (`machine-ip`) and child job IDs (`id`).
 
 [job]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
 [cli]: ../../../cli/README.rst
