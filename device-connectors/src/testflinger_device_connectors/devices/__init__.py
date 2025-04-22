@@ -318,9 +318,9 @@ class DefaultDevice:
                     serial_host, serial_port
                 )
             )
-        now = datetime.utcnow().isoformat()
+        now = datetime.now().astimezone().isoformat()
         expire_time = (
-            datetime.utcnow() + timedelta(seconds=timeout)
+            datetime.now().astimezone() + timedelta(seconds=timeout)
         ).isoformat()
         print("Current time:           [{}]".format(now))
         print("Reservation expires at: [{}]".format(expire_time))
