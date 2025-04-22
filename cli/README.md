@@ -72,7 +72,7 @@ restricted queues), and much more:
 ## Community and Support
 
 You can report any issues, bugs, or feature requests on the project's
-[GitHub repository][issues].
+[GitHub repository][github].
 
 ## Contribute to Testflinger
 
@@ -95,4 +95,4 @@ Testflinger CLI is released under the [GPL-3.0 license](COPYING).
 [uv-site]: https://github.com/astral-sh/uv
 [job-schema]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
 [tutorial]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/tutorial/index.html
-[issues]: https://github.com/canonical/testflinger/issues
+[github]: https://github.com/canonical/testflinger
