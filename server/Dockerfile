@@ -31,4 +31,4 @@ COPY . /srv/testflinger
 # Install testflinger
 RUN uv sync --frozen
 
-CMD uv run gunicorn --bind 0.0.0.0:5000 testflinger:app
+CMD uv run gunicorn --bind 0.0.0.0:5000 app:app

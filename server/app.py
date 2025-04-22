@@ -17,6 +17,6 @@
 Create the flask app
 """
 
-from src.testflinger.application import create_flask_app
+from testflinger.application import create_flask_app
 
 app = create_flask_app()

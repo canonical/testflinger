@@ -32,9 +32,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from werkzeug.exceptions import BadRequest
 
-from src.testflinger import database
-
-from . import schemas
+from testflinger import database
+from testflinger.api import schemas
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"

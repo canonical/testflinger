@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv-build >=0.6"]
+requires = ["uv-build>=0.6,<0.7"]
 build-backend = "uv_build"
 
 [project]
@@ -54,9 +54,6 @@ exclude = "charm/lib"
 profile = "jinja"
 ignore = "H023,H021"
 indent = 2
-
-[tool.pytest.ini_options]
-pythonpath = ["charm/src", "charm/lib"]
 
 [tool.pylint."messages control"]
 disable = ["C0209"]

@@ -17,12 +17,12 @@
 Unit tests for Testflinger v1 API
 """
 
-from datetime import datetime
-from io import BytesIO
 import json
 import os
+from datetime import datetime
+from io import BytesIO
 
-from src.testflinger.api import v1
+from testflinger.api import v1
 
 
 def test_home(mongo_app):
