@@ -4,10 +4,12 @@ on:
   push:
     branches: [main, try-self-hosted]
     paths:
+      - .github/workflows/device-tox.yml
       - device-connectors/**
   pull_request:
     branches: [main]
     paths:
+      - .github/workflows/device-tox.yml
       - device-connectors/**
 
 jobs:
@@ -22,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install uv and set up Python
-        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Run tests
