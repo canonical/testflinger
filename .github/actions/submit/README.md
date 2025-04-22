@@ -35,9 +35,6 @@ If you wish to define your job inline, you can use the following step:
       # inline YAML for Testflinger job
 ```
 
-> [!NOTE]
-> Remember to use escapes for environment variables in the inline text, e.g., `\$DEVICE_IP`.
-
 ## API
 
 ### Inputs
