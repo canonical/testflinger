@@ -21,7 +21,7 @@ jobs:
     - name: Install uv and set up Python
       uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5
     - name: Install dependencies
-      runs: |
+      run: |
         snap install --classic charmcraft
         snap install juju
     - name: Run tests
