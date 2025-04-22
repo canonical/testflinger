@@ -20,9 +20,9 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install uv and set up Python
       uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5
-    - name: Install dependencies
-      run: |
-        sudo snap install --classic charmcraft
-        sudo snap install juju
+    - name: Install concierge
+      run: sudo snap install --classic concierge
+    - name: Prepare Juju
+      run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=3.x/stable -p machine
     - name: Run tests
       run: uvx --with tox-uv tox
