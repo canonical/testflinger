@@ -17,7 +17,7 @@ jobs:
     defaults:
       run:
         working-directory: agent
-    runs-on: [self-hosted, linux, jammy, X64]
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - name: Install uv and set up Python
