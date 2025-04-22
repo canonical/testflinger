@@ -23,7 +23,7 @@ jobs:
         working-directory: agent
     runs-on: [self-hosted, linux, jammy, X64]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       with:
         persist-credentials: false
     - name: Install uv and set up Python
