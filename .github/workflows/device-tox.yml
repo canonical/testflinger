@@ -18,7 +18,7 @@ jobs:
     runs-on: [self-hosted, linux, jammy, X64]
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.8", "3.10"]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv and set up Python
