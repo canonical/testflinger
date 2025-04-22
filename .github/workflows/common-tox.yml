@@ -1,0 +1,27 @@
+name: "[common] Run unit tests"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/common-tox.yml
+      - common/**
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/common-tox.yml
+      - common/**
+
+jobs:
+  test:
+    defaults:
+      run:
+        working-directory: common
+    runs-on: [self-hosted, linux, jammy, X64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5
+      - name: Run tests
+        run: uvx --with tox-uv tox
