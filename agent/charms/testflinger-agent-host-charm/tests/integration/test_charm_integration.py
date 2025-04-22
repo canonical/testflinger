@@ -8,12 +8,12 @@ APP_NAME = "testflinger-agent-host"
 TEST_CONFIG_01 = {
     "config-repo": "https://github.com/canonical/testflinger.git",
     "config-dir": "agent/charms/testflinger-agent-host-charm/tests/integration/data/test01",
-    "config-branch": "unified-agent-host-charm",
+    "config-branch": "main",
 }
 TEST_CONFIG_02 = {
     "config-repo": "https://github.com/canonical/testflinger.git",
     "config-dir": "agent/charms/testflinger-agent-host-charm/tests/integration/data/test02",
-    "config-branch": "unified-agent-host-charm",
+    "config-branch": "main",
 }
 
 
