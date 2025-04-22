@@ -22,7 +22,7 @@ jobs:
       uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5
     - name: Install dependencies
       run: |
-        snap install --classic charmcraft
-        snap install juju
+        sudo snap install --classic charmcraft
+        sudo snap install juju
     - name: Run tests
       run: uvx --with tox-uv tox
