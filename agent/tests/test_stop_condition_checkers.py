@@ -14,8 +14,8 @@
 
 import time
 
-from ..client import TestflingerClient
-from ..stop_condition_checkers import (
+from testflinger_agent.client import TestflingerClient
+from testflinger_agent.stop_condition_checkers import (
     JobCancelledChecker,
     GlobalTimeoutChecker,
     OutputTimeoutChecker,
