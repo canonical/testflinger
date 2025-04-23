@@ -29,6 +29,12 @@ On juju-ready systems, you can deploy the agent host on the command-line with:
 juju deploy testflinger-agent-host
 ```
 
+You can also install `testflinger-agent` as a Python package with `pip`:
+
+```shell
+pip install "testflinger-agent @ git+https://github.com/canonical/testflinger#subdirectory=agent"
+```
+
 ## Documentation
 
 To learn more about the Testflinger agent configuration, deployment, and
