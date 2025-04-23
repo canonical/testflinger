@@ -1,5 +1,9 @@
 # Testflinger Device Connectors
 
+This is the development guide for Testflinger Device Connectors. To see more
+general contribution and development recommendations, refer to the
+[contribution guide](../CONTRIBUTING.md)
+
 ## Generating pip-cache
 
 The `pip-cache` can be used for distributing this with all dependencies. To

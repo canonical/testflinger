@@ -76,7 +76,9 @@ You can report any issues, bugs, or feature requests on the project's
 
 Testflinger is open source. Contributions are welcome.
 
-If you're interested, start with the [contribution guide](../CONTRIBUTING.md).
+If you're interested, start with the
+[Device Connectors development guide](HACKING.md) and the
+[contribution guide](../CONTRIBUTING.md).
 
 ## License and Copyright
 
