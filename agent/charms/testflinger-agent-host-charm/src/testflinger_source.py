@@ -3,10 +3,10 @@
 
 import os
 import shutil
-from git import Repo
-from common import run_with_logged_errors
-from defaults import DEFAULT_TESTFLINGER_REPO, DEFAULT_BRANCH, VIRTUAL_ENV_PATH
 
+from common import run_with_logged_errors
+from defaults import DEFAULT_BRANCH, DEFAULT_TESTFLINGER_REPO, VIRTUAL_ENV_PATH
+from git import Repo
 
 # Only keep these directories from the repo in the sparse checkout
 CHECKOUT_DIRS = ("agent", "common", "device-connectors")
@@ -32,12 +32,9 @@ def clone_repo(
     )
 
     # do a sparse checkout of only the parts of the repo we need
-    repo.git.checkout(
-        f"origin/{branch}",
-        "--",
-        *CHECKOUT_DIRS,
-    )
-    for dir in (
+    repo.git.checkout(f"origin/{branch}", "--", *CHECKOUT_DIRS)
+    for directory in (
+        "common",
         "agent",
         "device-connectors",
     ):
@@ -46,7 +43,7 @@ def clone_repo(
                 f"{VIRTUAL_ENV_PATH}/bin/pip3",
                 "install",
                 "-I",
-                f"{local_path}/{dir}",
+                f"{local_path}/{directory}",
             ]
         )
 
@@ -56,21 +53,9 @@ def create_virtualenv():
     if os.path.exists(VIRTUAL_ENV_PATH):
         return
 
-    run_with_logged_errors(
-        [
-            "python3",
-            "-m",
-            "virtualenv",
-            VIRTUAL_ENV_PATH,
-        ]
-    )
+    run_with_logged_errors(["python3", "-m", "virtualenv", VIRTUAL_ENV_PATH])
 
     # Update pip in the virtualenv so that poetry works in focal
     run_with_logged_errors(
-        [
-            f"{VIRTUAL_ENV_PATH}/bin/pip3",
-            "install",
-            "-U",
-            "pip",
-        ]
+        [f"{VIRTUAL_ENV_PATH}/bin/pip3", "install", "-U", "pip"]
     )
