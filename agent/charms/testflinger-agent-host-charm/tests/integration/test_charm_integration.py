@@ -1,5 +1,7 @@
 from pathlib import Path
+
 import pytest
+from defaults import LOCAL_TESTFLINGER_PATH, VIRTUAL_ENV_PATH
 from pytest_operator.plugin import OpsTest
 
 # Root of the charm we need to build is two dirs up
@@ -36,6 +38,25 @@ async def test_action_update_testflinger(ops_test: OpsTest):
     await action.wait()
     assert action.status == "completed"
     assert action.results["return-code"] == 0
+
+    # Ensure that Testflinger packages are installed properly
+    unit_name = f"{APP_NAME}/0"
+    command = [
+        "exec",
+        "--unit",
+        unit_name,
+        "--",
+        f"{VIRTUAL_ENV_PATH}/bin/pip3",
+        "freeze",
+    ]
+    returncode, stdout, stderr = await ops_test.juju(*command)
+    assert returncode == 0, f"{stderr}\n{stdout}"
+    for package, path in (
+        ("testflinger-common", "common"),
+        ("testflinger-agent", "agent"),
+        ("testflinger-device-connectors", "device-connectors"),
+    ):
+        assert f"{package} @ file://{LOCAL_TESTFLINGER_PATH}/{path}" in stdout
 
 
 async def test_action_update_testflinger_with_branch(ops_test: OpsTest):
@@ -92,6 +113,7 @@ async def test_supervisord_files_written(ops_test: OpsTest):
     # check that agent001.conf was written in /etc/supervisor/conf.d/
     expected_contents = (
         "[program:agent001]\n"
+        "startsecs=0\n"
         "redirect_stderr=true\n"
         'environment=USER="ubuntu",HOME="/home/ubuntu",'
         "PYTHONIOENCODING=utf-8\n"
@@ -124,8 +146,8 @@ async def test_supervisord_num_agents_running(ops_test: OpsTest):
 
     unit_name = f"{APP_NAME}/0"
     command = ["exec", "--unit", unit_name, "--", "supervisorctl", "status"]
-    returncode, stdout, _ = await ops_test.juju(*command)
-    assert returncode == 0
+    returncode, stdout, stderr = await ops_test.juju(*command)
+    assert returncode == 0, f"{stderr}\n{stdout}"
     running_agents = [
         line for line in stdout.splitlines() if "RUNNING" in line
     ]
@@ -146,8 +168,8 @@ async def test_supervisord_num_agents_running(ops_test: OpsTest):
     # Check that the number of running agents is now 2
     unit_name = f"{APP_NAME}/0"
     command = ["exec", "--unit", unit_name, "--", "supervisorctl", "status"]
-    returncode, stdout, _ = await ops_test.juju(*command)
-    assert returncode == 0
+    returncode, stdout, stderr = await ops_test.juju(*command)
+    assert returncode == 0, f"{stderr}\n{stdout}"
     running_agents = [
         line for line in stdout.splitlines() if "RUNNING" in line
     ]
