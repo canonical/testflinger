@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from defaults import DEFAULT_TESTFLINGER_PATH, VIRTUAL_ENV_PATH
 from pytest_operator.plugin import OpsTest
 
 # Root of the charm we need to build is two dirs up
@@ -37,6 +38,31 @@ async def test_action_update_testflinger(ops_test: OpsTest):
     await action.wait()
     assert action.status == "completed"
     assert action.results["return-code"] == 0
+
+    # Ensure that Testflinger packages are installed properly
+    unit_name = f"{APP_NAME}/0"
+    command = [
+        "exec",
+        "--unit",
+        unit_name,
+        "--",
+        f"{VIRTUAL_ENV_PATH}/bin/pip3",
+        "freeze",
+    ]
+    returncode, stdout, stderr = await ops_test.juju(*command)
+    assert returncode == 0, stderr or stdout
+    assert (
+        f"testflinger-common @ file://{DEFAULT_TESTFLINGER_PATH}/common"
+        in stdout
+    )
+    assert (
+        f"testflinger-agent @ file://{DEFAULT_TESTFLINGER_PATH}/agent"
+        in stdout
+    )
+    assert (
+        f"testflinger-device-connectors @ file://{DEFAULT_TESTFLINGER_PATH}/device-connectors"
+        in stdout
+    )
 
 
 async def test_action_update_testflinger_with_branch(ops_test: OpsTest):
@@ -147,8 +173,8 @@ async def test_supervisord_num_agents_running(ops_test: OpsTest):
     # Check that the number of running agents is now 2
     unit_name = f"{APP_NAME}/0"
     command = ["exec", "--unit", unit_name, "--", "supervisorctl", "status"]
-    returncode, stdout, _ = await ops_test.juju(*command)
-    assert returncode == 0
+    returncode, stdout, stderr = await ops_test.juju(*command)
+    assert returncode == 0, stderr or stdout
     running_agents = [
         line for line in stdout.splitlines() if "RUNNING" in line
     ]
