@@ -5,7 +5,7 @@ build-backend = "uv_build"
 [project]
 name = "testflinger"
 description = "Testflinger Server"
-readme = "README.rst"
+readme = "README.md"
 version = "1.1.0"
 authors = []
 requires-python = ">=3.10"
@@ -30,9 +30,7 @@ dependencies = [
 client_credentials_admin = "testflinger.tools.client_credentials_admin:main"
 
 [dependency-groups]
-charm = [
-    "ops>=2.2.0",
-]
+charm = ["ops>=2.2.0"]
 dev = [
     "black>=24.8.0",
     "cosl>=0.0.57",
