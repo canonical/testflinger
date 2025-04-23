@@ -4,7 +4,7 @@ packages = ["testflinger_common"]
 [tool.poetry]
 name = "testflinger-common"
 description = "Testflinger common modules"
-readme = "README.rst"
+readme = "README.md"
 version = "1.1.0"
 authors = []
 
