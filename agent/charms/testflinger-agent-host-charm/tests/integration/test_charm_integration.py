@@ -51,18 +51,14 @@ async def test_action_update_testflinger(ops_test: OpsTest):
     ]
     returncode, stdout, stderr = await ops_test.juju(*command)
     assert returncode == 0, stderr or stdout
-    assert (
-        f"testflinger-common @ file://{DEFAULT_TESTFLINGER_PATH}/common"
-        in stdout
-    )
-    assert (
-        f"testflinger-agent @ file://{DEFAULT_TESTFLINGER_PATH}/agent"
-        in stdout
-    )
-    assert (
-        f"testflinger-device-connectors @ file://{DEFAULT_TESTFLINGER_PATH}/device-connectors"
-        in stdout
-    )
+    for package, path in (
+        ("testflinger-common", "common"),
+        ("testflinger-agent", "agent"),
+        ("testflinger-device-connectors", "device-connectors"),
+    ):
+        assert (
+            f"{package} @ file://{DEFAULT_TESTFLINGER_PATH}/{path}" in stdout
+        )
 
 
 async def test_action_update_testflinger_with_branch(ops_test: OpsTest):
