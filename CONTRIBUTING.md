@@ -6,8 +6,9 @@ its providers, and its documentation.
 ## Repository structure
 
 Testflinger is a monorepo with a subproject directory for each of the major
-components of Testflinger, such as `agent`, `cli`, `common`,
-`device-connectors`, and `server`.
+components of Testflinger, such as [`agent`](./agent/), [`cli`](./cli/),
+[`common`](./common/), [`device-connectors`](./device-connectors/), and
+[`server`](./server/).
 
 ## Package and Project Management
 
