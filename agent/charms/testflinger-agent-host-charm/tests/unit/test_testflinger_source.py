@@ -2,10 +2,11 @@
 # See LICENSE file for licensing details.
 
 from unittest.mock import patch
+
 import testflinger_source
 from defaults import (
-    DEFAULT_TESTFLINGER_REPO,
     DEFAULT_BRANCH,
+    DEFAULT_TESTFLINGER_REPO,
     LOCAL_TESTFLINGER_PATH,
     VIRTUAL_ENV_PATH,
 )
@@ -27,7 +28,7 @@ def test_clone_repo(mock_run_with_logged_errors, mock_clone_from):
         [
             f"{VIRTUAL_ENV_PATH}/bin/pip3",
             "install",
-            "-I",
+            "--force-reinstall",
             "/srv/testflinger/device-connectors",
         ]
     )
