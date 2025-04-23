@@ -42,7 +42,7 @@ def clone_repo(
             [
                 f"{VIRTUAL_ENV_PATH}/bin/pip3",
                 "install",
-                "-I",
+                "--force-reinstall",
                 f"{local_path}/{directory}",
             ]
         )
