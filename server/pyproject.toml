@@ -33,21 +33,56 @@ client_credentials_admin = "testflinger.tools.client_credentials_admin:main"
 [dependency-groups]
 charm = ["ops>=2.2.0"]
 dev = [
-    "black>=24.8.0",
     "cosl>=0.0.57",
     "djlint>=1.36.4",
-    "flake8>=5.0.4",
     "mongomock>=4.3.0",
     "pylint>=3.2.7",
     "pytest>=8.3.5",
     "pytest-cov>=5.0.0",
     "requests>=2.32.3",
     "requests-mock>=1.12.1",
+    "ruff>=0.11.6",
 ]
 
-[tool.black]
+[tool.ruff]
 line-length = 79
-exclude = "charm/lib"
+extend-exclude = ["charm/lib"]
+
+[tool.ruff.lint]
+select = [
+    "C", # comprenhension
+    "D", # docstrings
+    "E", # pycodestyle errors
+    "F", # pyflakes
+    "N", # naming
+    "W", # pycodestyle warnings
+    "I001" # Import order: Imported names are in the wrong order.
+]
+ignore = [
+    "C401", # comprenhension: Unnecessary generator - rewrite as a set comprehension.
+    "D102", # docstring: Missing doctring in public method
+    "D104", # docstring: Missing docstring in public package
+    "D107", # doctring: Missing docstring in __init__
+    "D200", # docstring: One-line docstring should fit on one line with quotes
+    "D202", # docstring: No black lines allowed after function doctring
+    "D203", # docstring: 1 black line required before class doctring
+    "D204", # docstring: 1 black line required after class doctring
+    "D205", # docstring: 1 black line required between summary line and description
+    "D212", # docstring: Multi-line doctring summary should start at the first line
+    "D213", # docstring: Multi-line docstring summary should start at the second line
+    "D215", # docstring: Section underline is over-indented
+    "D400", # docstring: First line should end with a period
+    "D401", # docstring: First line should be in imperative mood; try rephrasing
+    "D403", # docstring: First word of the first line should be properly capitalized
+    "D404", # docstring: First word of the docstring should not be 'This'
+    "D406", # docstring: Section name should end with a newline
+    "D407", # docstring: Missing dashed underline after section
+    "D408", # docstring: Section underline should be in the line following the section's name
+    "D409", # docstring: Section underline should match the lenght of its name
+    "D413", # docstring: Missing blank line after last section. 
+    "D415", # docstring: First line should end with a period, question mark, or exclamation point
+]
+
 
 [tool.djlint]
 profile = "jinja"
