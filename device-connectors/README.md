@@ -1,6 +1,7 @@
 # Testflinger Device Connectors
 
 [![Documentation status][rtd-badge]][rtd-latest]
+[![uv status][uv-badge]][uv-site]
 
 **Testflinger Device Connectors** provides a unified way for provisioning,
 maintaining, and running tests on devices with different provision types.
@@ -85,6 +86,8 @@ Testflinger Device Connectors is released under the [GPL-3.0 license](COPYING).
 
 [rtd-badge]: https://readthedocs.com/projects/canonical-testflinger/badge/?version=latest
 [rtd-latest]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/
+[uv-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json
+[uv-site]: https://github.com/astral-sh/uv
 [provision-types]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/device-connector-types.html
 [config-schema]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/device-connector-conf.html
 [job-schema]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html

@@ -1,6 +1,7 @@
 # Testflinger Common
 
 [![Documentation status][rtd-badge]][rtd-latest]
+[![uv status][uv-badge]][uv-site]
 
 **Testflinger Common** provides modules, enums, functions, etc. that are useful
 to multiple Testflinger projects.
@@ -47,4 +48,6 @@ If you're interested, start with the [contribution guide](../CONTRIBUTING.md).
 
 [rtd-badge]: https://readthedocs.com/projects/canonical-testflinger/badge/?version=latest
 [rtd-latest]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/
+[uv-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json
+[uv-site]: https://github.com/astral-sh/uv
 [github]: https://github.com/canonical/testflinger
