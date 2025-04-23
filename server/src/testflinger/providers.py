@@ -21,9 +21,7 @@ from datetime import datetime
 from flask.json.provider import DefaultJSONProvider
 
 
-class ISODatetimeProvider(
-    DefaultJSONProvider
-):  # pylint: disable=too-few-public-methods
+class ISODatetimeProvider(DefaultJSONProvider):  # pylint: disable=too-few-public-methods
     """Return datetime objects as RFC3339/ISO8601 strings with a 'Z' suffix."""
 
     def default(self, obj):
