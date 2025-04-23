@@ -10,8 +10,8 @@ build-backend = "setuptools.build_meta"
 name = "testflinger-device-connectors"
 version = "0.0.2"
 description = "Testflinger device connectors"
-license = {text = "GPLv3"}
-readme = "README.rst"
+license = { text = "GPLv3" }
+readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
     "PyYAML>=3.11",
