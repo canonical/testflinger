@@ -113,6 +113,7 @@ async def test_supervisord_files_written(ops_test: OpsTest):
     # check that agent001.conf was written in /etc/supervisor/conf.d/
     expected_contents = (
         "[program:agent001]\n"
+        "startsecs=0\n"
         "redirect_stderr=true\n"
         'environment=USER="ubuntu",HOME="/home/ubuntu",'
         "PYTHONIOENCODING=utf-8\n"
