@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import pytest
 from pytest_operator.plugin import OpsTest
 
@@ -124,8 +125,8 @@ async def test_supervisord_num_agents_running(ops_test: OpsTest):
 
     unit_name = f"{APP_NAME}/0"
     command = ["exec", "--unit", unit_name, "--", "supervisorctl", "status"]
-    returncode, stdout, _ = await ops_test.juju(*command)
-    assert returncode == 0
+    returncode, stdout, stderr = await ops_test.juju(*command)
+    assert returncode == 0, stderr or stdout
     running_agents = [
         line for line in stdout.splitlines() if "RUNNING" in line
     ]
