@@ -18,6 +18,7 @@ Custom JSON providers for when jsonify() doesn't do what we want
 """
 
 from datetime import datetime
+
 from flask.json.provider import DefaultJSONProvider
 
 

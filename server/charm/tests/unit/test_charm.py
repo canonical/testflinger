@@ -22,6 +22,7 @@ from pathlib import Path
 import ops
 import ops.testing
 import pytest
+
 from charm import TestflingerCharm
 
 CHARMDIR = Path(__file__).parent.parent.parent.resolve()

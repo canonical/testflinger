@@ -20,14 +20,16 @@ Testflinger Juju charm
 
 import logging
 import sys
-import ops
 
-from ops.pebble import Layer
-from ops.main import main
-from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent
-from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
+import ops
+from charms.data_platform_libs.v0.data_interfaces import (
+    DatabaseCreatedEvent,
+    DatabaseRequires,
+)
 from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
 from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+from ops.main import main
+from ops.pebble import Layer
 
 logger = logging.getLogger(__name__)
 
