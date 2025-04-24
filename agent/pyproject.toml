@@ -46,16 +46,23 @@ line-length = 79
 
 [tool.ruff.lint]
 select = [
-    "C", # comprenhension
+    "A", # flake8-builtins
+    "B", # flake8-bugbear
+    "C4", # comprenhension
     "D", # docstrings
+    "DTZ", # flake8-datetimez 
     "E", # pycodestyle errors
     "F", # pyflakes
+    #"G", # flake8-logging-format TODO
+    "I", # isort
+    "LOG", # flake8-logging
     "N", # naming
+    "PLE", # pylint errors
+    "PLW0", # pyling warnings
+    "S", # flake8-bandit 
     "W", # pycodestyle warnings
-    "I001" # Import order: Imported names are in the wrong order.
 ]
 ignore = [
-    "C901", # mccabe: Function is too complex 
     "D100", # docstring: Missing docstring in public module
     "D101", # docstring: Missing docstring in public class
     "D102", # docstring: Missing docstring in public method
@@ -78,6 +85,21 @@ ignore = [
     "D415", # docstring: First line should end with a period, question mark, or exclamation point
     "N803", # Naming: Argument '{name}' should be lowercase
     "N806", # Naming: Variable '{name}' in function should be lowercase
+    "S108", # bandit: hardcoded-temp-file
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/testflinger_agent/agent.py" = [
+    "S202" # bandit: tarfile-unsafe-members
+]
+"src/testflinger_agent/runner.py" = [
+    "S602" # bandit: subprocess-popen-with-shell-equals-true; Removing shell causes S603
+]
+[tool.ruff.lint.flake8-builtins]
+ignorelist = [
+    "ConnectionError", # import from requests.exceptions
+    "filter", # Needed for tarfile.extractall()
+    "open" # Needed for tarfile.open()
 ]
 
 [tool.uv.sources]

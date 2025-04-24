@@ -263,8 +263,8 @@ class TarFilePatched(TarFile):
             return
         try:
             os.chmod(targetpath, tarinfo.mode)
-        except OSError:
-            raise ExtractError("could not change mode")
+        except OSError as err:
+            raise ExtractError("could not change mode") from err
 
 
 # make sure `open` is available when this module is imported and it
