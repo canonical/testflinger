@@ -13,7 +13,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 import shutil
-import tempfile
 import os
 import uuid
 import requests_mock as rmock
@@ -32,22 +31,16 @@ from testflinger_agent.schema import validate
 
 class TestHandler:
     @pytest.fixture
-    def tmpdir(self):
-        tmpdir = tempfile.mkdtemp()
-        yield tmpdir
-        shutil.rmtree(tmpdir)
-
-    @pytest.fixture
-    def client(self, tmpdir, requests_mock):
+    def client(self, tmp_path, requests_mock):
         self.config = validate(
             {
                 "agent_id": "test01",
                 "polling_interval": 2,
                 "server_address": "127.0.0.1:8000",
                 "job_queues": ["test"],
-                "execution_basedir": tmpdir,
-                "logging_basedir": tmpdir,
-                "results_basedir": os.path.join(tmpdir, "results"),
+                "execution_basedir": str(tmp_path),
+                "logging_basedir": str(tmp_path),
+                "results_basedir": str(tmp_path / "results"),
             }
         )
         testflinger_agent.configure_logging(self.config)
@@ -55,8 +48,8 @@ class TestHandler:
         requests_mock.post(rmock.ANY)
         yield _TestflingerClient(self.config)
 
-    def test_file_log_handler(self, tmpdir):
-        filename = os.path.join(tmpdir, "output.log")
+    def test_file_log_handler(self, tmp_path):
+        filename = tmp_path / "output.log"
         file_log_handler = FileLogHandler(filename)
         file_log_handler("output1")
         with open(filename, "r") as log:
