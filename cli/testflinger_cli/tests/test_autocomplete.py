@@ -18,8 +18,8 @@ Unit tests for autocomplete helper functions.
 """
 
 from argparse import Namespace
-from unittest.mock import MagicMock
 from collections import OrderedDict
+from unittest.mock import MagicMock
 
 from testflinger_cli.autocomplete import job_ids_completer
 

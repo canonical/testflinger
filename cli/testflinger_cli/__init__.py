@@ -36,6 +36,7 @@ from typing import Optional
 import argcomplete
 import requests
 import yaml
+
 from testflinger_cli import autocomplete, client, config, history
 
 logger = logging.getLogger(__name__)

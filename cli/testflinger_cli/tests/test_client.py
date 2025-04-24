@@ -19,6 +19,7 @@ Unit tests for the Client class
 """
 
 import logging
+
 import pytest
 import requests
 
