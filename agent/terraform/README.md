@@ -60,6 +60,12 @@ multipass exec testflinger-agents-juju -- juju models
 
 Now that everything has been set up, you can initialize the project's terraform.
 
+Change your directory on your host machine to the terraform directory:
+
+```shell
+cd /path/to/testflinger/agent/terraform
+```
+
 In the terraform directory on your host machine, run:
 
 ```shell
