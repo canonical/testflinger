@@ -2,12 +2,14 @@ name: "[device-connectors] Run unit tests"
 
 on:
   push:
-    branches: [ main, try-self-hosted ]
+    branches: [main]
     paths:
+      - .github/workflows/device-tox.yml
       - device-connectors/**
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
+      - .github/workflows/device-tox.yml
       - device-connectors/**
 
 jobs:
@@ -18,15 +20,12 @@ jobs:
     runs-on: [self-hosted, linux, jammy, X64]
     strategy:
       matrix:
-        python: ["3.8", "3.10"]
+        python-version: ["3.8", "3.10"]
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python }}
-    - name: Install tox
-      run: pip install tox
-    - name: Run tests
-      run: |
-        tox
+      - uses: actions/checkout@v4
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run tests
+        run: uvx --with tox-uv tox
