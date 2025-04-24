@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 def secure_filter(member, path):
-    """Combine the `data` filter with custom attachment filtering
+    """Combine the `data` filter with custom attachment filtering.
 
     Makes sure that the starting folder for all attachments coincides
     with one of the supported phases, i.e. that the attachment archive
@@ -98,7 +98,7 @@ class TestflingerAgent:
         self._post_initial_agent_data()
 
     def _post_initial_agent_data(self):
-        """Post the initial agent data to the server once on agent startup"""
+        """Post the initial agent data to the server once on agent startup."""
         self.client.post_advertised_queues()
         self.client.post_advertised_images()
 
@@ -118,7 +118,7 @@ class TestflingerAgent:
         self.client.post_agent_data(agent_data)
 
     def set_agent_state(self, state):
-        """Send the agent state to the server"""
+        """Send the agent state to the server."""
         self.client.post_agent_data({"state": state})
         self.client.post_influx(state)
 
@@ -179,7 +179,7 @@ class TestflingerAgent:
         open(self.get_offline_files()[0], "w").close()
 
     def unpack_attachments(self, job_data: dict, cwd: Path):
-        """Download and unpack the attachments associated with a job"""
+        """Download and unpack the attachments associated with a job."""
         job_id = job_data["job_id"]
 
         with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive_tmp:
@@ -215,8 +215,8 @@ class TestflingerAgent:
                     del job_data[phase_str]
 
     def process_jobs(self):
-        """Coordinate checking for new jobs and handling them if they exists"""
-        TEST_PHASES = [
+        """Coordinate checks for new jobs and handling them if they exists."""
+        test_phases = [
             TestPhase.SETUP,
             TestPhase.PROVISION,
             TestPhase.FIRMWARE_UPDATE,
@@ -280,7 +280,7 @@ class TestflingerAgent:
                 # Clear  error log before starting
                 open(error_log_path, "w").close()
 
-                for phase in TEST_PHASES:
+                for phase in test_phases:
                     # First make sure the job hasn't been cancelled
                     if (
                         self.client.check_job_state(job.job_id)
@@ -352,7 +352,7 @@ class TestflingerAgent:
             job_data = self.client.check_jobs()
 
     def retry_old_results(self):
-        """Retry sending results that we previously failed to send"""
+        """Retry sending results that we previously failed to send."""
         results_dir = self.client.config.get("results_basedir")
         # List all the directories in 'results_basedir', where we store the
         # results that we couldn't transmit before
@@ -372,7 +372,7 @@ class TestflingerAgent:
     def restart_signal_handler(self, _, __):
         """
         If we receive the restart signal, tell the agent to restart safely when
-        it is not running a job
+        it is not running a job.
         """
         logger.info("Marked agent for restart")
         restart_file = self.get_restart_files()[0]

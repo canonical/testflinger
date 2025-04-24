@@ -11,7 +11,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Entrypoint for the testflinger-agent command"""
+"""Entrypoint for the testflinger-agent command."""
 
 import logging
 import sys
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    """Entrypoint for the testflinger-agent command"""
+    """Entrypoint for the testflinger-agent command."""
     try:
         start_agent()
     except KeyboardInterrupt:

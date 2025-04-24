@@ -62,11 +62,11 @@ class CommandRunner:
         self.output_handlers.append(handler)
 
     def subscribe_event(self, event_name: RunnerEvents, handler: Callable):
-        """Set a callback for an event that we want to be notified of"""
+        """Set a callback for an event that we want to be notified of."""
         self.events[event_name].append(handler)
 
     def post_event(self, event_name: RunnerEvents):
-        """Post an event for subscribers to be notified of"""
+        """Post an event for subscribers to be notified of."""
         for handler in self.events[event_name]:
             handler()
 
@@ -80,7 +80,7 @@ class CommandRunner:
     def check_stop_conditions(self) -> Tuple[Optional[TestEvent], str]:
         """
         Check stop conditions and return the reason if any are met. Otherwise,
-        return an empty string if none are met
+        return an empty string if none are met.
         """
         for checker in self.stop_condition_checkers:
             event, detail = checker()
@@ -162,7 +162,7 @@ def get_stop_reason(returncode: int, stop_reason: str) -> str:
 
 
 def set_nonblock(fd: int):
-    """Set the specified fd to nonblocking output
+    """Set the specified fd to nonblocking output.
 
     :param fd:
         File descriptor that should be set to nonblocking mode

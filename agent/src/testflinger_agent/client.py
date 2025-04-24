@@ -87,7 +87,7 @@ class TestflingerClient:
             return influx_client
 
     def check_jobs(self):
-        """Check for new jobs for on the Testflinger server
+        """Check for new jobs for on the Testflinger server.
 
         :return: Dict with job data, or None if no job found
         """
@@ -108,7 +108,7 @@ class TestflingerClient:
             time.sleep(60)
 
     def get_attachments(self, job_id: str, path: Path):
-        """Download the attachment archive associated with a job
+        """Download the attachment archive associated with a job.
 
         :param job_id:
             Id for the job
@@ -133,7 +133,7 @@ class TestflingerClient:
             return job_data.get("job_state")
 
     def repost_job(self, job_data):
-        """Resubmit the job to the testflinger server with the same id
+        """Resubmit the job to the testflinger server with the same id.
 
         :param job_id:
             id for the job on which we want to post results
@@ -159,14 +159,14 @@ class TestflingerClient:
             raise TFServerError(job_request.status_code)
 
     def post_job_state(self, job_id, phase):
-        """Update the job_state on the testflinger server"""
+        """Update the job_state on the testflinger server."""
         try:
             self.post_result(job_id, {"job_state": phase})
         except TFServerError:
             pass
 
     def post_result(self, job_id, data):
-        """Post data to the testflinger server result for this job
+        """Post data to the testflinger server result for this job.
 
         :param job_id:
             id for the job on which we want to post results
@@ -188,7 +188,7 @@ class TestflingerClient:
             raise TFServerError(job_request.status_code)
 
     def get_result(self, job_id):
-        """Get current results data to the testflinger server for this job
+        """Get current results data to the testflinger server for this job.
 
         :param job_id:
             id for the job on which we want to post results
@@ -215,7 +215,7 @@ class TestflingerClient:
             return {}
 
     def transmit_job_outcome(self, rundir):
-        """Post job outcome json data to the testflinger server
+        """Post job outcome json data to the testflinger server.
 
         :param rundir:
             Execution dir where the results can be found
@@ -252,7 +252,7 @@ class TestflingerClient:
         shutil.rmtree(rundir)
 
     def save_artifacts(self, rundir, job_id):
-        """Save artifacts to the testflinger server
+        """Save artifacts to the testflinger server.
 
         :param rundir:
             Execution dir where the results can be found
@@ -290,7 +290,7 @@ class TestflingerClient:
                 shutil.rmtree(artifacts_dir)
 
     def post_live_output(self, job_id, data):
-        """Post output data to the testflinger server for this job
+        """Post output data to the testflinger server for this job.
 
         :param job_id:
             id for the job on which we want to post results
@@ -310,7 +310,7 @@ class TestflingerClient:
         return bool(job_request)
 
     def post_advertised_queues(self):
-        """Post the list of advertised queues to testflinger server"""
+        """Post the list of advertised queues to testflinger server."""
         if "advertised_queues" not in self.config:
             return
         queues_uri = urljoin(self.server, "/v1/agents/queues")
@@ -322,7 +322,7 @@ class TestflingerClient:
             logger.error(exc)
 
     def post_advertised_images(self):
-        """Post the list of advertised images to testflinger server"""
+        """Post the list of advertised images to testflinger server."""
         if "advertised_images" not in self.config:
             return
         images_uri = urljoin(self.server, "/v1/agents/images")
@@ -334,7 +334,7 @@ class TestflingerClient:
             logger.error(exc)
 
     def post_agent_data(self, data):
-        """Post the relevant data points to testflinger server
+        """Post the relevant data points to testflinger server.
 
         :param data:
             dict of various agent data points to send to the api server
@@ -347,7 +347,7 @@ class TestflingerClient:
             logger.error(exc)
 
     def post_influx(self, phase, result=None):
-        """Post the relevant data points to testflinger server
+        """Post the relevant data points to testflinger server.
 
         :param data:
             dict of various agent data points to send to the api server
@@ -381,7 +381,7 @@ class TestflingerClient:
             logger.error(exc)
 
     def post_provision_log(self, job_id: str, exit_code: int, detail: str):
-        """Post the outcome of provisioning to the server
+        """Post the outcome of provisioning to the server.
 
         :param job_id:
             job_id of the job that was running
@@ -411,7 +411,7 @@ class TestflingerClient:
     ):
         """
         Post status updates about the running job as long as there is a
-        webhook
+        webhook.
 
         :param job_queue:
             TestFlinger queue the currently running job belongs to

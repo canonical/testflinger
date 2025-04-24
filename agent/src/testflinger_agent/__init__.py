@@ -34,16 +34,16 @@ logger = logging.getLogger(__name__)
 
 
 class ReqBufferTimer(Timer):
-    """Requests buffer flush"""
+    """Requests buffer flush."""
 
     def run(self):
-        """Loop timer"""
+        """Loop timer."""
         while not self.finished.wait(self.interval):
             self.function(*self.args, **self.kwargs)
 
 
 class ReqBufferHandler(logging.Handler):
-    """Requests logging handler"""
+    """Requests logging handler."""
 
     def __init__(self, agent, server):
         super().__init__()
@@ -60,7 +60,7 @@ class ReqBufferHandler(logging.Handler):
         self.session = self._requests_retry()
 
     def _requests_retry(self, retries=3):
-        """Retry api server"""
+        """Retry api server."""
         session = requests.Session()
         retry = Retry(
             total=retries,
@@ -76,21 +76,21 @@ class ReqBufferHandler(logging.Handler):
         return session
 
     def _start_reqbuff_timer(self):
-        """Periodically check and send buffer"""
+        """Periodically check and send buffer."""
         self.reqbuff_timer = ReqBufferTimer(self.reqbuff_interval, self.flush)
         # terminate timer on exit
         self.reqbuff_timer.daemon = True
         self.reqbuff_timer.start()
 
     def emit(self, record):
-        """Write logging events to buffer"""
+        """Write logging events to buffer."""
         if len(self.reqbuffer) >= self.qdepth:
             self.reqbuffer.popleft()
 
         self.reqbuffer.append(record)
 
     def flush(self):
-        """Flush and post buffer"""
+        """Flush and post buffer."""
         # list conversion for atomic iteration
         records = [record.getMessage() for record in list(self.reqbuffer)]
 
@@ -106,12 +106,12 @@ class ReqBufferHandler(logging.Handler):
         self.reqbuffer.clear()
 
     def close(self):
-        """Cleanup on handler close"""
+        """Cleanup on handler close."""
         self.reqbuff_timer.cancel()
 
 
 class ReqBufferFormatter(logging.Formatter):
-    """Format logging messages"""
+    """Format logging messages."""
 
     def format(self, records):
         return {"log": records}

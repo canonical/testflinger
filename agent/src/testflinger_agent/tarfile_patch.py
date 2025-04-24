@@ -1,5 +1,5 @@
 """
-Extends `TarFile` so that `extractall` supports filtering
+Extends `TarFile` so that `extractall` supports filtering.
 
 Uses a *minimal* subset of code from:
 github.com/python/cpython/blob/3.8/Lib/tarfile.py
@@ -169,7 +169,7 @@ def fully_trusted_filter(member, dest_path):
 
 class TarFilePatched(TarFile):
     def _get_extract_tarinfo(self, member, filter_function, path):
-        """Get filtered TarInfo (or None) from member, which might be a str"""
+        """Get filtered TarInfo (or None) from member, which might be a str."""
         if isinstance(member, str):
             tarinfo = self.getmember(member)
         else:
@@ -192,7 +192,7 @@ class TarFilePatched(TarFile):
         return tarinfo
 
     def _extract_one(self, tarinfo, path, set_attrs, numeric_owner):
-        """Extract from filtered tarinfo to disk"""
+        """Extract from filtered tarinfo to disk."""
         self._check("r")
 
         try:
