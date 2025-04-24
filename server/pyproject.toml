@@ -50,7 +50,7 @@ extend-exclude = ["charm/lib"]
 
 [tool.ruff.lint]
 select = [
-    "C", # comprenhension
+    "C4", # comprenhension
     "D", # docstrings
     "E", # pycodestyle errors
     "F", # pyflakes
@@ -59,7 +59,6 @@ select = [
     "I001" # Import order: Imported names are in the wrong order.
 ]
 ignore = [
-    "C401", # comprenhension: Unnecessary generator - rewrite as a set comprehension.
     "D102", # docstring: Missing doctring in public method
     "D104", # docstring: Missing docstring in public package
     "D107", # doctring: Missing docstring in __init__
