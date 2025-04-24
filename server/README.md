@@ -18,10 +18,12 @@ You can run it (for example) with `gunicorn`:
 gunicorn --bind: 0.0.0.0:5000 app:app
 ```
 
+To learn about the API endpoints, refer to the [API documentation](API.md).
+
 To interact with the server via the CLI, refer to the [Testflinger CLI](../cli/).
 
 To interact with the server via GitHub workflows, refer to the
-[Testflinger GitHub actions](../README.md#github-actions)
+[Testflinger GitHub actions](../README.md#github-actions).
 
 ## Installation
 
