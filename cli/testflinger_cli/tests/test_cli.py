@@ -294,7 +294,6 @@ def test_submit_with_attachments(tmp_path):
     tfcli = testflinger_cli.TestflingerCli()
 
     with Mocker() as mocker:
-
         # register responses for job and attachment submission endpoints
         mock_response = {"job_id": job_id}
         mocker.post(f"{URL}/v1/job", json=mock_response)
@@ -356,7 +355,6 @@ def test_submit_attachments_retries(tmp_path):
     tfcli.config.data["attachments_tries"] = 4
 
     with Mocker() as mocker:
-
         # register responses for job and attachment submission endpoints
         mock_response = {"job_id": job_id}
         mocker.post(f"{URL}/v1/job", json=mock_response)
@@ -410,7 +408,6 @@ def test_submit_attachments_no_retries(tmp_path):
     tfcli.config.data["attachments_tries"] = 2
 
     with Mocker() as mocker:
-
         # register responses for job and attachment submission endpoints
         mocker.post(f"{URL}/v1/job", json={"job_id": job_id})
         mocker.post(
@@ -464,7 +461,6 @@ def test_submit_attachments_timeout(tmp_path):
     tfcli.config.data["attachments_tries"] = 2
 
     with Mocker() as mocker:
-
         # register responses for job and attachment submission endpoints
         mock_response = {"job_id": job_id}
         mocker.post(f"{URL}/v1/job", json=mock_response)

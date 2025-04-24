@@ -19,7 +19,6 @@
 TestflingerCli module
 """
 
-
 import inspect
 import json
 import logging
@@ -163,8 +162,7 @@ class TestflingerCli:
 
         # Allow config subcommand without worrying about server or client
         if (
-            hasattr(self.args, "func")
-            and self.args.func == self.configure  # pylint: disable=W0143
+            hasattr(self.args, "func") and self.args.func == self.configure  # pylint: disable=W0143
         ):
             return
         if not server.startswith(("http://", "https://")):
@@ -949,8 +947,9 @@ class TestflingerCli:
         queue = self.args.queue or self._get_queue(queues)
         if queue not in queues.keys():
             print(
-                "WARNING: '{}' is not in the list of known "
-                "queues".format(queue)
+                "WARNING: '{}' is not in the list of known queues".format(
+                    queue
+                )
             )
         try:
             images = self.client.get_images(queue)
@@ -1012,8 +1011,9 @@ class TestflingerCli:
                 queue = self._get_queue(queues)
             if queue not in queues.keys():
                 print(
-                    "WARNING: '{}' is not in the list of known "
-                    "queues".format(queue)
+                    "WARNING: '{}' is not in the list of known queues".format(
+                        queue
+                    )
                 )
                 answer = input("Do you still want to use it? (y/N) ")
                 if answer.lower() != "y":
