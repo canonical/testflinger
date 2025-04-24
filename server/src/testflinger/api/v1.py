@@ -24,15 +24,19 @@ from http import HTTPStatus
 import requests
 from apiflask import APIBlueprint, abort
 from flask import g, jsonify, request, send_file
+from marshmallow import ValidationError
 from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
+from testflinger_common.enums import LogType, TestPhase
 from urllib3.util.retry import Retry
 from werkzeug.exceptions import BadRequest
+from werkzeug.routing import BaseConverter
 
 from testflinger import database
 from testflinger.api import auth, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.enums import ServerRoles
+from testflinger.logs import LogFragment, MongoLogHandler
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -340,85 +344,74 @@ def artifacts_get(job_id):
     return send_file(file, download_name="artifact.tar.gz")
 
 
-@v1.get("/result/<job_id>/output")
-def output_get(job_id):
-    """Get latest output for a specified job ID.
+class LogTypeConverter(BaseConverter):
+    """Class to validate log type route parameter."""
 
-    :param job_id:
-        UUID as a string for the job
-    :return:
-        Output lines
-    """
+    def to_python(self, value):
+        """Validate log type URL parameter."""
+        try:
+            return LogType(value)
+        except ValueError as err:
+            raise ValidationError("Invalid log type") from err
+
+    def to_url(self, obj):
+        """Get string representation of log type."""
+        return obj.value
+
+
+@v1.get("/result/<job_id>/log/<log_type:log_type>")
+@v1.output(schemas.LogGet)
+def log_get(job_id: str, log_type: LogType):
+    """Get logs for a specified job_id."""
+    args = request.args
     if not check_valid_uuid(job_id):
-        return "Invalid job id\n", 400
-    response = database.mongo.db.output.find_one_and_delete(
-        {"job_id": job_id}, {"_id": False}
-    )
-    output = response.get("output", []) if response else None
-    if output:
-        return "\n".join(output)
-    return "", 204
+        abort(400, message="Invalid job id\n")
+    query_schema = schemas.LogQueryParams()
+    try:
+        query_params = query_schema.load(args)
+    except ValidationError as err:
+        abort(400, message=err.messages)
+    start_fragment = query_params.get("start_fragment", 0)
+    start_timestamp = query_params.get("start_timestamp")
+    phase = query_params.get("phase")
+    log_handler = MongoLogHandler(database.mongo)
+
+    # Return logs for all phases if unspecified
+    if phase is None:
+        phases = TestPhase
+    else:
+        phases = [TestPhase(phase)]
+
+    return {
+        "phase_logs": {
+            phase.value: log_handler.retrieve_logs(
+                job_id,
+                log_type,
+                phase.value,
+                start_fragment,
+                start_timestamp,
+            )
+            for phase in phases
+        }
+    }
 
 
-@v1.post("/result/<job_id>/output")
-def output_post(job_id):
-    """Post output for a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    :param data:
-        A string containing the latest lines of output to post
-    """
-    if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
-    data = request.get_data().decode("utf-8")
-    timestamp = datetime.now(timezone.utc)
-    database.mongo.db.output.update_one(
-        {"job_id": job_id},
-        {"$set": {"updated_at": timestamp}, "$push": {"output": data}},
-        upsert=True,
-    )
-    return "OK"
-
-
-@v1.get("/result/<job_id>/serial_output")
-def serial_output_get(job_id):
-    """Get latest serial output for a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    :return:
-        Output lines
-    """
-    if not check_valid_uuid(job_id):
-        return "Invalid job id\n", 400
-    response = database.mongo.db.serial_output.find_one_and_delete(
-        {"job_id": job_id}, {"_id": False}
-    )
-    output = response.get("serial_output", []) if response else None
-    if output:
-        return "\n".join(output)
-    return "", 204
-
-
-@v1.post("/result/<job_id>/serial_output")
-def serial_output_post(job_id):
-    """Post output for a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    :param data:
-        A string containing the latest lines of output to post
-    """
+@v1.post("/result/<job_id>/log/<log_type:log_type>")
+@v1.input(schemas.LogPost, location="json")
+def log_post(job_id: str, log_type: LogType, json_data: dict):
+    """Post logs for a specified job ID."""
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
-    data = request.get_data().decode("utf-8")
-    timestamp = datetime.now(timezone.utc)
-    database.mongo.db.serial_output.update_one(
-        {"job_id": job_id},
-        {"$set": {"updated_at": timestamp}, "$push": {"serial_output": data}},
-        upsert=True,
+    log_fragment = LogFragment(
+        job_id,
+        log_type,
+        json_data["phase"],
+        json_data["fragment_number"],
+        json_data["timestamp"],
+        json_data["log_data"],
     )
+    log_handler = MongoLogHandler(database.mongo)
+    log_handler.store_log_fragment(log_fragment)
     return "OK"
 
 
