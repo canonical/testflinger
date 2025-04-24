@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""Unit tests for the Client class"""
+"""Unit tests for the Client class."""
 
 import logging
 
@@ -25,7 +25,7 @@ from testflinger_cli.client import Client
 
 
 def test_get_error_threshold(caplog, requests_mock):
-    """Test that a warning is logged when error_threshold is reached"""
+    """Test that a warning is logged when error_threshold is reached."""
     caplog.set_level(logging.WARNING)
     requests_mock.get(
         "http://testflinger/test", exc=requests.exceptions.ConnectionError

@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""Testflinger config module"""
+"""Testflinger config module."""
 
 import configparser
 from collections import OrderedDict
@@ -24,7 +24,7 @@ from xdg_base_dirs import xdg_config_home
 
 
 class TestflingerCliConfig:
-    """TestflingerCliConfig class load values from files, env, and params"""
+    """TestflingerCliConfig class load values from files, env, and params."""
 
     def __init__(self, configfile: Path | None = None):
         if configfile is None:
@@ -42,16 +42,16 @@ class TestflingerCliConfig:
             self.data = OrderedDict()
 
     def get(self, key, default=None):
-        """Get config item"""
+        """Get config item."""
         return self.data.get(key, default)
 
     def set(self, key, value):
-        """Set config item"""
+        """Set config item."""
         self.data[key] = value
         self._save()
 
     def _save(self):
-        """Save config back to the config file"""
+        """Save config back to the config file."""
         config = configparser.ConfigParser()
         config.read_dict({"testflinger-cli": self.data})
         with self.configfile.open(

@@ -57,29 +57,10 @@ select = [
     "W", # pycodestyle warnings
 ]
 ignore = [
-    "C901", # mccabe: Function is too complex 
-    "D100", # docstring: Missing docstring in public module
-    "D101", # docstring: Missing docstring in public class
-    "D102", # docstring: Missing docstring in public method
-    "D103", # docstring: Missing docstring in public function
     "D104", # docstring: Missing docstring in public package
-    "D105", # docstring: Missing docstring in magic method
     "D107", # docstring: Missing docstring in __init__
-    "D203", # docstring: 1 black line required before class docstring
-    "D204", # docstring: 1 black line required after class docstring
     "D205", # docstring: 1 black line required between summary line and description
-    "D212", # docstring: Multi-line docstring summary should start at the first line
-    "D213", # docstring: Multi-line docstring summary should start at the second line
-    "D215", # docstring: Section underline is over-indented
-    "D400", # docstring: First line should end with a period
-    "D406", # docstring: Section name should end with a newline
-    "D407", # docstring: Missing dashed underline after section
-    "D408", # docstring: Section underline should be in the line following the section's name
-    "D409", # docstring: Section underline should match the lenght of its name
-    "D413", # docstring: Missing blank line after last section. 
-    "D415", # docstring: First line should end with a period, question mark, or exclamation point
-    "N803", # Naming: Argument '{name}' should be lowercase
-    "N806", # Naming: Variable '{name}' in function should be lowercase
+
 ]
 
 [tool.ruff.lint.per-file-ignores]

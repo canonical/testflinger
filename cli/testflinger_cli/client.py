@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""Testflinger client module"""
+"""Testflinger client module."""
 
 import base64
 import json
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 class HTTPError(Exception):
-    """Exception class for HTTP error codes"""
+    """Exception class for HTTP error codes."""
 
     def __init__(self, status, msg=""):
         super().__init__(status)
@@ -38,7 +38,7 @@ class HTTPError(Exception):
 
 
 class Client:
-    """Testflinger connection client"""
+    """Testflinger connection client."""
 
     def __init__(self, server, error_threshold=3):
         self.server = server
@@ -50,7 +50,7 @@ class Client:
         :param uri_frag:
             endpoint for the GET request
         :return:
-            String containing the response from the server
+            String containing the response from the server.
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
@@ -75,7 +75,7 @@ class Client:
         :param uri_frag:
             endpoint for the POST request
         :return:
-            String containing the response from the server
+            String containing the response from the server.
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
@@ -95,7 +95,7 @@ class Client:
         return req.text
 
     def put_file(self, uri_frag: str, path: Path, timeout: float):
-        """Stream a file to the server using a POST request
+        """Stream a file to the server using a POST request.
 
         :param uri_frag:
             endpoint for the POST request
@@ -126,7 +126,7 @@ class Client:
             response.raise_for_status()
 
     def get_status(self, job_id):
-        """Get the status of a test job
+        """Get the status of a test job.
 
         :param job_id:
             ID for the test job
@@ -140,7 +140,7 @@ class Client:
         return data.get("job_state")
 
     def post_job_state(self, job_id, state):
-        """Post the status of a test job
+        """Post the status of a test job.
 
         :param job_id:
             ID for the test job
@@ -152,7 +152,7 @@ class Client:
         self.put(endpoint, data)
 
     def submit_job(self, data: dict, headers: dict = None) -> str:
-        """Submit a test job to the testflinger server
+        """Submit a test job to the testflinger server.
 
         :param job_data:
             Dictionary containing data for the job to submit
@@ -165,7 +165,7 @@ class Client:
 
     def authenticate(self, client_id: str, secret_key: str) -> dict:
         """Authenticate client id and secret key with the server
-        and returns JWT with allowed permissions
+        and returns JWT with allowed permissions.
 
         :param job_data:
             Dictionary containing data for the job to submit
@@ -182,7 +182,7 @@ class Client:
         return response
 
     def post_attachment(self, job_id: str, path: Path, timeout: int):
-        """Send a test job attachment to the testflinger server
+        """Send a test job attachment to the testflinger server.
 
         :param job_id:
             ID for the test job
@@ -195,7 +195,7 @@ class Client:
         self.put_file(endpoint, path, timeout=timeout)
 
     def show_job(self, job_id):
-        """Show the JSON job definition for the specified ID
+        """Show the JSON job definition for the specified ID.
 
         :param job_id:
             ID for the test job
@@ -206,7 +206,7 @@ class Client:
         return json.loads(self.get(endpoint))
 
     def get_results(self, job_id):
-        """Get results for a specified test job
+        """Get results for a specified test job.
 
         :param job_id:
             ID for the test job
@@ -217,7 +217,7 @@ class Client:
         return json.loads(self.get(endpoint))
 
     def get_artifact(self, job_id, path: Path):
-        """Get results for a specified test job
+        """Get results for a specified test job.
 
         :param job_id:
             ID for the test job
@@ -235,7 +235,7 @@ class Client:
                     artifact.write(chunk)
 
     def get_output(self, job_id):
-        """Get the latest output for a specified test job
+        """Get the latest output for a specified test job.
 
         :param job_id:
             ID for the test job
@@ -246,7 +246,7 @@ class Client:
         return self.get(endpoint)
 
     def get_serial_output(self, job_id):
-        """Get the latest serial output for a specified test job
+        """Get the latest serial output for a specified test job.
 
         :param job_id:
             ID for the test job
@@ -257,7 +257,7 @@ class Client:
         return self.get(endpoint)
 
     def get_job_position(self, job_id):
-        """Get the status of a test job
+        """Get the status of a test job.
 
         :param job_id:
             ID for the test job
@@ -269,7 +269,7 @@ class Client:
         return self.get(endpoint)
 
     def get_queues(self):
-        """Get the advertised queues from the testflinger server"""
+        """Get the advertised queues from the testflinger server."""
         endpoint = "/v1/agents/queues"
         data = self.get(endpoint)
         try:
@@ -278,7 +278,7 @@ class Client:
             return {}
 
     def get_images(self, queue):
-        """Get the advertised images from the testflinger server"""
+        """Get the advertised images from the testflinger server."""
         endpoint = "/v1/agents/images/" + queue
         data = self.get(endpoint)
         try:
@@ -287,7 +287,7 @@ class Client:
             return {}
 
     def get_agents_on_queue(self, queue):
-        """Get the list of all agents listening to a specified queue"""
+        """Get the list of all agents listening to a specified queue."""
         endpoint = f"/v1/queues/{queue}/agents"
         data = self.get(endpoint)
         return json.loads(data)
