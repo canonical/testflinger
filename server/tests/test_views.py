@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""Unit tests for Testflinger views"""
+"""Unit tests for Testflinger views."""
 
 import re
 from datetime import datetime, timezone
@@ -27,7 +27,7 @@ from testflinger.views import agent_detail, job_detail, queues_data
 def test_queues():
     """
     Test that the queues view gets the right data from both advertised and
-    unadvertised queues
+    unadvertised queues.
     """
     mongo = mongomock.MongoClient()
     mongo.db.queues.insert_many(
@@ -88,7 +88,7 @@ def test_queues():
 def test_agent_detail_no_provision_log(testapp):
     """
     Test that the agent detail page doesn't break when
-    there's no provision log
+    there's no provision log.
     """
     mongo = mongomock.MongoClient()
     mongo.db.agents.insert_one(
@@ -105,7 +105,7 @@ def test_agent_detail_no_provision_log(testapp):
 def test_agent_not_found(testapp):
     """
     Test that the agent_detail fails gracefully when
-    an agent is not found
+    an agent is not found.
     """
     mongo = mongomock.MongoClient()
     with patch("testflinger.views.mongo", mongo):
@@ -119,7 +119,7 @@ def test_agent_not_found(testapp):
 def test_job_not_found(testapp):
     """
     Test that the job_detail fails gracefully when
-    a job is not found
+    a job is not found.
     """
     mongo = mongomock.MongoClient()
     with patch("testflinger.views.mongo", mongo):

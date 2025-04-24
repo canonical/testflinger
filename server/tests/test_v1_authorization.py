@@ -15,7 +15,7 @@
 #
 """
 Unit tests for Testflinger v1 API relating to job priority and
-restricted queues
+restricted queues.
 """
 
 import base64
@@ -28,7 +28,7 @@ import jwt
 def create_auth_header(client_id: str, client_key: str) -> dict:
     """
     Create authorization header with base64 encoded client_id
-    and client key using the Basic scheme
+    and client key using the Basic scheme.
     """
     id_key_pair = f"{client_id}:{client_key}"
     base64_encoded_pair = base64.b64encode(id_key_pair.encode("utf-8")).decode(
@@ -38,7 +38,7 @@ def create_auth_header(client_id: str, client_key: str) -> dict:
 
 
 def test_retrieve_token(mongo_app_with_permissions):
-    """Tests authentication endpoint which returns JWT with permissions"""
+    """Tests authentication endpoint which returns JWT with permissions."""
     app, _, client_id, client_key, max_priority = mongo_app_with_permissions
     output = app.post(
         "/v1/oauth2/token",
@@ -58,7 +58,7 @@ def test_retrieve_token(mongo_app_with_permissions):
 def test_retrieve_token_invalid_client_id(mongo_app_with_permissions):
     """
     Tests that authentication endpoint returns 401 error code
-    when receiving invalid client key
+    when receiving invalid client key.
     """
     app, _, _, client_key, _ = mongo_app_with_permissions
     client_id = "my_wrong_id"
@@ -72,7 +72,7 @@ def test_retrieve_token_invalid_client_id(mongo_app_with_permissions):
 def test_retrieve_token_invalid_client_key(mongo_app_with_permissions):
     """
     Tests that authentication endpoint returns 401 error code
-    when receiving invalid client key
+    when receiving invalid client key.
     """
     app, _, client_id, _, _ = mongo_app_with_permissions
     client_key = "my_wrong_key"
@@ -84,7 +84,7 @@ def test_retrieve_token_invalid_client_key(mongo_app_with_permissions):
 
 
 def test_job_with_priority(mongo_app_with_permissions):
-    """Tests submission of priority job with valid token"""
+    """Tests submission of priority job with valid token."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     authenticate_output = app.post(
         "/v1/oauth2/token",
@@ -101,7 +101,7 @@ def test_job_with_priority(mongo_app_with_permissions):
 def test_star_priority(mongo_app_with_permissions):
     """
     Tests submission of priority job for a generic queue
-    with star priority permissions
+    with star priority permissions.
     """
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     authenticate_output = app.post(
@@ -117,7 +117,7 @@ def test_star_priority(mongo_app_with_permissions):
 
 
 def test_priority_no_token(mongo_app_with_permissions):
-    """Tests rejection of priority job with no token"""
+    """Tests rejection of priority job with no token."""
     app, _, _, _, _ = mongo_app_with_permissions
     job = {"job_queue": "myqueue2", "job_priority": 200}
     job_response = app.post("/v1/job", json=job)
@@ -125,7 +125,7 @@ def test_priority_no_token(mongo_app_with_permissions):
 
 
 def test_priority_invalid_queue(mongo_app_with_permissions):
-    """Tests rejection of priority job with invalid queue"""
+    """Tests rejection of priority job with invalid queue."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     authenticate_output = app.post(
         "/v1/oauth2/token",
@@ -140,7 +140,7 @@ def test_priority_invalid_queue(mongo_app_with_permissions):
 
 
 def test_priority_expired_token(mongo_app_with_permissions):
-    """Tests rejection of priority job with expired token"""
+    """Tests rejection of priority job with expired token."""
     app, _, _, _, _ = mongo_app_with_permissions
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     expired_token_payload = {
@@ -161,7 +161,7 @@ def test_priority_expired_token(mongo_app_with_permissions):
 
 
 def test_missing_fields_in_token(mongo_app_with_permissions):
-    """Tests rejection of priority job with token with missing fields"""
+    """Tests rejection of priority job with token with missing fields."""
     app, _, _, _, _ = mongo_app_with_permissions
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     incomplete_token_payload = {
@@ -179,7 +179,7 @@ def test_missing_fields_in_token(mongo_app_with_permissions):
 
 
 def test_job_get_with_priority(mongo_app_with_permissions):
-    """Tests job get returns job with highest job priority"""
+    """Tests job get returns job with highest job priority."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     authenticate_output = app.post(
         "/v1/oauth2/token",
@@ -211,7 +211,7 @@ def test_job_get_with_priority(mongo_app_with_permissions):
 def test_job_get_with_priority_multiple_queues(mongo_app_with_permissions):
     """
     Tests job get returns job with highest job priority when jobs are
-    submitted across different queues
+    submitted across different queues.
     """
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     authenticate_output = app.post(
@@ -244,7 +244,7 @@ def test_job_get_with_priority_multiple_queues(mongo_app_with_permissions):
 
 
 def test_job_position_get_with_priority(mongo_app_with_permissions):
-    """Tests job position get returns correct position with priority"""
+    """Tests job position get returns correct position with priority."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     authenticate_output = app.post(
         "/v1/oauth2/token",
@@ -276,7 +276,7 @@ def test_job_position_get_with_priority(mongo_app_with_permissions):
 def test_restricted_queue_allowed(mongo_app_with_permissions):
     """
     Tests that jobs that submit to a restricted queue are accepted
-    when the token allows that queue
+    when the token allows that queue.
     """
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     authenticate_output = app.post(
@@ -295,7 +295,7 @@ def test_restricted_queue_allowed(mongo_app_with_permissions):
 def test_restricted_queue_reject(mongo_app_with_permissions):
     """
     Tests that jobs that submit to a restricted queue are rejected
-    when the client is not allowed
+    when the client is not allowed.
     """
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     authenticate_output = app.post(
@@ -314,7 +314,7 @@ def test_restricted_queue_reject(mongo_app_with_permissions):
 def test_restricted_queue_reject_no_token(mongo_app_with_permissions):
     """
     Tests that jobs that submit to a restricted queue are rejected
-    when no token is included
+    when no token is included.
     """
     app, _, _, _, _ = mongo_app_with_permissions
     job = {"job_queue": "rqueue1"}
@@ -325,7 +325,7 @@ def test_restricted_queue_reject_no_token(mongo_app_with_permissions):
 def test_extended_reservation_allowed(mongo_app_with_permissions):
     """
     Tests that jobs that include extended reservation are accepted when
-    the token gives them permission
+    the token gives them permission.
     """
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     authenticate_output = app.post(
@@ -343,7 +343,7 @@ def test_extended_reservation_allowed(mongo_app_with_permissions):
 def test_extended_reservation_rejected(mongo_app_with_permissions):
     """
     Tests that jobs that include extended reservation are rejected when
-    the token does not give them permission
+    the token does not give them permission.
     """
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     authenticate_output = app.post(
@@ -361,7 +361,7 @@ def test_extended_reservation_rejected(mongo_app_with_permissions):
 def test_extended_reservation_reject_no_token(mongo_app_with_permissions):
     """
     Tests that jobs that included extended reservation are rejected
-    when no token is included
+    when no token is included.
     """
     app, _, _, _, _ = mongo_app_with_permissions
     job = {"job_queue": "myqueue", "reserve_data": {"timeout": 21601}}
@@ -372,7 +372,7 @@ def test_extended_reservation_reject_no_token(mongo_app_with_permissions):
 def test_normal_reservation_no_token(mongo_app):
     """
     Tests that jobs that include reservation times less than the maximum
-    are accepted when no token is included
+    are accepted when no token is included.
     """
     app, _ = mongo_app
     job = {"job_queue": "myqueue", "reserve_data": {"timeout": 21600}}
@@ -383,7 +383,7 @@ def test_normal_reservation_no_token(mongo_app):
 def test_star_extended_reservation(mongo_app_with_permissions):
     """
     Tests submission to generic queue with extended reservation
-    when client has star permissions
+    when client has star permissions.
     """
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
     mongo.client_permissions.find_one_and_update(

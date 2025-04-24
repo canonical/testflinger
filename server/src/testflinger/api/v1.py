@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""Testflinger v1 API"""
+"""Testflinger v1 API."""
 
 import importlib.metadata
 import os
@@ -49,12 +49,12 @@ v1 = APIBlueprint("v1", __name__)
 
 @v1.get("/")
 def home():
-    """Identify ourselves"""
+    """Identify ourselves."""
     return get_version()
 
 
 def get_version():
-    """Return the Testflinger version"""
+    """Return the Testflinger version."""
     try:
         version = importlib.metadata.version("testflinger")
     except importlib.metadata.PackageNotFoundError:
@@ -66,7 +66,7 @@ def get_version():
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
 def job_post(json_data: dict):
-    """Add a job to the queue"""
+    """Add a job to the queue."""
     try:
         job_queue = json_data.get("job_queue")
     except (AttributeError, BadRequest):
@@ -91,7 +91,7 @@ def job_post(json_data: dict):
 
 
 def has_attachments(data: dict) -> bool:
-    """Predicate if the job described by `data` involves attachments"""
+    """Predicate if the job described by `data` involves attachments."""
     return any(
         nested_field == "attachments"
         for field, nested_dict in data.items()
@@ -103,7 +103,7 @@ def has_attachments(data: dict) -> bool:
 def decode_jwt_token(auth_token: str, secret_key: str) -> dict:
     """
     Decode authorization token using the secret key. Aborts with
-    an HTTP error if it does not exist or if it fails to decode
+    an HTTP error if it does not exist or if it fails to decode.
     """
     if auth_token is None:
         abort(401, "Unauthorized")
@@ -127,7 +127,7 @@ def check_token_priority(
 ) -> bool:
     """
     Check if the requested priority is less than the max priority
-    specified in the authorization token if it exists
+    specified in the authorization token if it exists.
     """
     if priority == 0:
         return
@@ -173,7 +173,7 @@ def check_token_reservation_timeout(
 ):
     """
     Check if the requested reservation is either less than the max
-    or that their token gives them the permission to use a higher one
+    or that their token gives them the permission to use a higher one.
     """
     # Max reservation time defaults to 6 hours
     max_reservation_time = 6 * 60 * 60
@@ -202,7 +202,7 @@ def check_token_permissions(
 ):
     """
     Validate token received from client and checks if it can
-    push a job to the queue with the requested priority
+    push a job to the queue with the requested priority.
     """
     priority_level = job_data.get("job_priority", 0)
     job_queue = job_data["job_queue"]
@@ -218,7 +218,7 @@ def check_token_permissions(
 
 
 def job_builder(data: dict, auth_token: str):
-    """Build a job from a dictionary of data"""
+    """Build a job from a dictionary of data."""
     job = {
         "created_at": datetime.now(timezone.utc),
         "result_data": {
@@ -257,7 +257,7 @@ def job_builder(data: dict, auth_token: str):
 @v1.output(schemas.Job)
 @v1.doc(responses=schemas.job_empty)
 def job_get():
-    """Request a job to run from supported queues"""
+    """Request a job to run from supported queues."""
     queue_list = request.args.getlist("queue")
     if not queue_list:
         return "No queue(s) specified in request", 400
@@ -272,7 +272,7 @@ def job_get():
 @v1.output(schemas.Job)
 def job_get_id(job_id):
     """Request the json job definition for a specified job, even if it has
-       already run
+       already run.
 
     :param job_id:
         UUID as a string for the job
@@ -293,7 +293,7 @@ def job_get_id(job_id):
 
 @v1.get("/job/<job_id>/attachments")
 def attachment_get(job_id):
-    """Return the attachments bundle for a specified job_id
+    """Return the attachments bundle for a specified job_id.
 
     :param job_id:
         UUID as a string for the job
@@ -311,7 +311,7 @@ def attachment_get(job_id):
 
 @v1.post("/job/<job_id>/attachments")
 def attachments_post(job_id):
-    """Post attachment bundle for a specified job_id
+    """Post attachment bundle for a specified job_id.
 
     :param job_id:
         UUID as a string for the job
@@ -343,7 +343,7 @@ def attachments_post(job_id):
 @v1.input(schemas.JobSearchRequest, location="query")
 @v1.output(schemas.JobSearchResponse)
 def search_jobs(query_data):
-    """Search for jobs by tags"""
+    """Search for jobs by tags."""
     tags = query_data.get("tags")
     match = request.args.get("match", "any")
     states = request.args.getlist("state")
@@ -381,7 +381,7 @@ def search_jobs(query_data):
 @v1.post("/result/<job_id>")
 @v1.input(schemas.Result, location="json")
 def result_post(job_id, json_data):
-    """Post a result for a specified job_id
+    """Post a result for a specified job_id.
 
     :param job_id:
         UUID as a string for the job
@@ -406,7 +406,7 @@ def result_post(job_id, json_data):
 @v1.get("/result/<job_id>")
 @v1.output(schemas.Result)
 def result_get(job_id):
-    """Return results for a specified job_id
+    """Return results for a specified job_id.
 
     :param job_id:
         UUID as a string for the job
@@ -425,7 +425,7 @@ def result_get(job_id):
 
 @v1.post("/result/<job_id>/artifact")
 def artifacts_post(job_id):
-    """Post artifact bundle for a specified job_id
+    """Post artifact bundle for a specified job_id.
 
     :param job_id:
         UUID as a string for the job
@@ -441,7 +441,7 @@ def artifacts_post(job_id):
 
 @v1.get("/result/<job_id>/artifact")
 def artifacts_get(job_id):
-    """Return artifact bundle for a specified job_id
+    """Return artifact bundle for a specified job_id.
 
     :param job_id:
         UUID as a string for the job
@@ -459,7 +459,7 @@ def artifacts_get(job_id):
 
 @v1.get("/result/<job_id>/output")
 def output_get(job_id):
-    """Get latest output for a specified job ID
+    """Get latest output for a specified job ID.
 
     :param job_id:
         UUID as a string for the job
@@ -479,7 +479,7 @@ def output_get(job_id):
 
 @v1.post("/result/<job_id>/output")
 def output_post(job_id):
-    """Post output for a specified job ID
+    """Post output for a specified job ID.
 
     :param job_id:
         UUID as a string for the job
@@ -500,7 +500,7 @@ def output_post(job_id):
 
 @v1.get("/result/<job_id>/serial_output")
 def serial_output_get(job_id):
-    """Get latest serial output for a specified job ID
+    """Get latest serial output for a specified job ID.
 
     :param job_id:
         UUID as a string for the job
@@ -520,7 +520,7 @@ def serial_output_get(job_id):
 
 @v1.post("/result/<job_id>/serial_output")
 def serial_output_post(job_id):
-    """Post output for a specified job ID
+    """Post output for a specified job ID.
 
     :param job_id:
         UUID as a string for the job
@@ -542,7 +542,7 @@ def serial_output_post(job_id):
 @v1.post("/job/<job_id>/action")
 @v1.input(schemas.ActionIn, location="json")
 def action_post(job_id, json_data):
-    """Take action on the job status for a specified job ID
+    """Take action on the job status for a specified job ID.
 
     :param job_id:
         UUID as a string for the job
@@ -560,7 +560,7 @@ def action_post(job_id, json_data):
 @v1.get("/agents/queues")
 @v1.doc(responses=schemas.queues_out)
 def queues_get():
-    """Get all advertised queues from this server
+    """Get all advertised queues from this server.
 
     Returns a dict of queue names and descriptions, ex:
     {
@@ -580,7 +580,7 @@ def queues_get():
 
 @v1.post("/agents/queues")
 def queues_post():
-    """Tell testflinger the queue names that are being serviced
+    """Tell testflinger the queue names that are being serviced.
 
     Some agents may want to advertise some of the queues they listen on so that
     the user can check which queues are valid to use.
@@ -599,7 +599,7 @@ def queues_post():
 @v1.get("/agents/images/<queue>")
 @v1.doc(responses=schemas.images_out)
 def images_get(queue):
-    """Get a dict of known images for a given queue"""
+    """Get a dict of known images for a given queue."""
     queue_data = database.mongo.db.queues.find_one(
         {"name": queue}, {"_id": False, "images": True}
     )
@@ -622,7 +622,7 @@ def images_post():
         "other_queue": {
             ...
         }
-    }
+    }.
     """
     image_dict = request.get_json()
     # We need to delete and recreate the images in case some were removed
@@ -638,7 +638,7 @@ def images_post():
 @v1.get("/agents/data")
 @v1.output(schemas.AgentOut(many=True))
 def agents_get_all():
-    """Get all agent data"""
+    """Get all agent data."""
     agents = database.mongo.db.agents.find({}, {"_id": False, "log": False})
     return jsonify(list(agents))
 
@@ -646,7 +646,7 @@ def agents_get_all():
 @v1.post("/agents/data/<agent_name>")
 @v1.input(schemas.AgentIn, location="json")
 def agents_post(agent_name, json_data):
-    """Post information about the agent to the server
+    """Post information about the agent to the server.
 
     The json sent to this endpoint may contain data such as the following:
     {
@@ -673,7 +673,7 @@ def agents_post(agent_name, json_data):
 @v1.post("/agents/provision_logs/<agent_name>")
 @v1.input(schemas.ProvisionLogsIn, location="json")
 def agents_provision_logs_post(agent_name, json_data):
-    """Post provision logs for the agent to the server"""
+    """Post provision logs for the agent to the server."""
     agent_record = {}
 
     # timestamp this agent record and provision log entry
@@ -715,7 +715,7 @@ def agents_provision_logs_post(agent_name, json_data):
 @v1.input(schemas.StatusUpdate, location="json")
 def agents_status_post(job_id, json_data):
     """Post status updates from the agent to the server to be forwarded
-    to TestObserver
+    to TestObserver.
 
     The json sent to this endpoint may contain data such as the following:
     {
@@ -755,7 +755,7 @@ def agents_status_post(job_id, json_data):
 
 
 def check_valid_uuid(job_id):
-    """Check that the specified job_id is a valid UUID only
+    """Check that the specified job_id is a valid UUID only.
 
     :param job_id:
         UUID as a string for the job
@@ -771,7 +771,7 @@ def check_valid_uuid(job_id):
 
 @v1.get("/job/<job_id>/position")
 def job_position_get(job_id):
-    """Return the position of the specified jobid in the queue"""
+    """Return the position of the specified jobid in the queue."""
     job_data, status = job_get_id(job_id)
     if status == 204:
         return "Job not found or already started\n", 410
@@ -795,7 +795,7 @@ def job_position_get(job_id):
 
 
 def cancel_job(job_id):
-    """Cancel a specified job ID
+    """Cancel a specified job ID.
 
     :param job_id:
         UUID as a string for the job
@@ -817,7 +817,7 @@ def cancel_job(job_id):
 
 @v1.get("/queues/wait_times")
 def queue_wait_time_percentiles_get():
-    """Get wait time metrics - optionally take a list of queues"""
+    """Get wait time metrics - optionally take a list of queues."""
     queues = request.args.getlist("queue")
     wait_times = database.get_queue_wait_times(queues)
     queue_percentile_data = {}
@@ -831,7 +831,7 @@ def queue_wait_time_percentiles_get():
 @v1.get("/queues/<queue_name>/agents")
 @v1.output(schemas.AgentOut(many=True))
 def get_agents_on_queue(queue_name):
-    """Get the list of all data for agents listening to a specified queue"""
+    """Get the list of all data for agents listening to a specified queue."""
     return database.get_agents_on_queue(queue_name)
 
 
@@ -839,7 +839,7 @@ def generate_token(allowed_resources, secret_key):
     """
     Generate JWT token with queue permission given a secret key
     See retrieve_token for more information on the contents of
-    the token payload
+    the token payload.
     """
     expiration_time = datetime.now(timezone.utc) + timedelta(seconds=30)
     token_payload = {
@@ -855,7 +855,7 @@ def generate_token(allowed_resources, secret_key):
 def validate_client_key_pair(client_id: str, client_key: str):
     """
     Check client_id and key pair for validity and
-    returns their permissions
+    returns their permissions.
     """
     if client_key is None:
         return None
@@ -879,7 +879,7 @@ def validate_client_key_pair(client_id: str, client_key: str):
 @v1.post("/oauth2/token")
 def retrieve_token():
     """
-    Get JWT with priority and queue permissions
+    Get JWT with priority and queue permissions.
 
     Before being encrypted, the JWT can contain fields like:
     {

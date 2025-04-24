@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""Fixtures for testing"""
+"""Fixtures for testing."""
 
 import os
 from dataclasses import dataclass
@@ -28,26 +28,28 @@ from testflinger import application, database
 
 @dataclass
 class TestingConfig:
-    """Config for Testing"""
+    """Config for Testing."""
 
     TESTING = True
 
 
 class MongoClientMock(mongomock.MongoClient):
-    """Mock MongoClient and allow GridFS"""
+    """Mock MongoClient and allow GridFS."""
 
     def __init__(self, *args, **kwargs):
+        """Initialize the MongoClientMock instance."""
         super().__init__(*args, **kwargs)
         enable_gridfs_integration()
 
     def start_session(self, *args, **kwargs):
+        """Start a client session."""
         # Reimplemented to avoid pylint issues
         return super().start_session(*args, **kwargs)
 
 
 @pytest.fixture(name="mongo_app")
 def mongo_app_fixture():
-    """Create a pytest fixture for database and app"""
+    """Create a pytest fixture for database and app."""
     mock_mongo = MongoClientMock()
     database.mongo = mock_mongo
     app = application.create_flask_app(TestingConfig)
@@ -56,7 +58,7 @@ def mongo_app_fixture():
 
 @pytest.fixture
 def testapp():
-    """Pytest fixture for just the app"""
+    """Pytest fixture for just the app."""
     app = application.create_flask_app(TestingConfig)
     yield app
 
@@ -65,7 +67,7 @@ def testapp():
 def mongo_app_with_permissions(mongo_app):
     """
     Pytest fixture that adds permissions
-    to the mock db for priority
+    to the mock db for priority.
     """
     os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
     app, mongo = mongo_app

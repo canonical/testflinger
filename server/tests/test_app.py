@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""Unit tests for Testflinger flask app"""
+"""Unit tests for Testflinger flask app."""
 
 import pytest
 
@@ -21,13 +21,13 @@ from testflinger.application import create_flask_app
 
 
 def test_default_config(testapp):
-    """Test default config settings"""
+    """Test default config settings."""
     app = testapp
     assert app.config.get("PROPAGATE_EXCEPTIONS") is True
 
 
 def test_setup_mongo_fails_without_config():
-    """Ensure setup_mongo fails without config"""
+    """Ensure setup_mongo fails without config."""
     with pytest.raises(SystemExit) as exc:
         create_flask_app()
     assert exc.value.code == "No MongoDB URI configured!"

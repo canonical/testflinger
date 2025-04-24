@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""Additional views not associated with the API"""
+"""Additional views not associated with the API."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -35,26 +35,26 @@ views = Blueprint("testflinger", __name__)
 
 @views.route("/")
 def home():
-    """Home view"""
+    """Home view."""
     return redirect(url_for("testflinger.agents"))
 
 
 @views.route("/metrics")
 def metrics():
-    """Return Prometheus metrics"""
+    """Return Prometheus metrics."""
     return generate_latest()
 
 
 @views.route("/agents")
 def agents():
-    """Agents view"""
+    """Agents view."""
     agent_info = mongo.db.agents.find()
     return render_template("agents.html", agents=agent_info)
 
 
 @views.route("/agents/<agent_id>")
 def agent_detail(agent_id):
-    """Agent detail view"""
+    """Agent detail view."""
     default_start_date = (
         datetime.now(tz=timezone.utc) - timedelta(days=2)
     ).strftime("%Y-%m-%d")
@@ -111,14 +111,14 @@ def agent_detail(agent_id):
 
 @views.route("/jobs")
 def jobs():
-    """Jobs view"""
+    """Jobs view."""
     jobs_data = mongo.db.jobs.find(sort=[("created_at", -1)])
     return render_template("jobs.html", jobs=jobs_data)
 
 
 @views.route("/jobs/<job_id>")
 def job_detail(job_id):
-    """Job detail view"""
+    """Job detail view."""
     job_data = mongo.db.jobs.find_one({"job_id": job_id})
     if not job_data:
         response = make_response(
@@ -131,7 +131,7 @@ def job_detail(job_id):
 @views.route("/queues")
 def queues():
     """
-    Queues view
+    Queues view.
 
     Render a view with all known queues, descriptions if known, and the number
     of jobs in each.
@@ -141,7 +141,7 @@ def queues():
 
 
 def queues_data():
-    """Generate data for the queues view, this makes testing easier"""
+    """Generate data for the queues view, this makes testing easier."""
     # First, get all the advertised queues with descriptions
     queue_data = list(
         mongo.db.queues.find(
@@ -179,7 +179,7 @@ def queues_data():
 
 @views.route("/queues/<queue_name>")
 def queue_detail(queue_name):
-    """Queue detailed view"""
+    """Queue detailed view."""
     queue_data = mongo.db.queues.find_one({"name": queue_name})
     if not queue_data:
         # If it's not an advertised queue, create some dummy data
@@ -219,7 +219,7 @@ def queue_detail(queue_name):
 
 
 def seconds_to_hms(seconds: float) -> str:
-    """Convert seconds to a human-readable string"""
+    """Convert seconds to a human-readable string."""
     seconds = int(seconds)
     hours = seconds // 3600
     minutes = (seconds % 3600) // 60

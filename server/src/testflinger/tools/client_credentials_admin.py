@@ -36,7 +36,7 @@ from testflinger import database
 def setup_database():
     """
     Get mongo db credentials from environment variables and use them to
-    setup a connection to the database
+    setup a connection to the database.
     """
     mongo_uri = database.get_mongo_uri()
     mongo_db = os.environ.get("MONGODB_DATABASE")
@@ -48,7 +48,7 @@ def setup_database():
 
 
 def handle_max_priority_input() -> dict:
-    """Get a user inputted max_priority dict"""
+    """Get a user inputted max_priority dict."""
     max_priority = {}
     while True:
         max_priority_input = input(
@@ -70,7 +70,7 @@ def handle_max_priority_input() -> dict:
 
 
 def handle_allowed_queues_input() -> list:
-    """Get a user inputted allowed_queues list"""
+    """Get a user inputted allowed_queues list."""
     allowed_queues = []
     while True:
         allowed_queues_input = input(
@@ -88,7 +88,7 @@ def handle_allowed_queues_input() -> list:
 
 
 def handle_max_reservation_input() -> list:
-    """Get a user inputted max_reservation_time dict"""
+    """Get a user inputted max_reservation_time dict."""
     max_reservation = {}
     while True:
         max_reservation_input = input(
@@ -119,7 +119,7 @@ def handle_max_reservation_input() -> list:
 
 
 def confirm_dialogue(entry: dict) -> bool:
-    """Prompt the user to confirm their changes"""
+    """Prompt the user to confirm their changes."""
     print(entry)
     while True:
         confirm = input("Confirm that this entry looks correct (y/n): ")
@@ -134,7 +134,7 @@ def confirm_dialogue(entry: dict) -> bool:
 
 
 def check_client_exists(db, client_id: str) -> bool:
-    """Check if client id exists in client_permissions"""
+    """Check if client id exists in client_permissions."""
     return (
         db.client_permissions.count_documents(
             {"client_id": client_id}, limit=1
@@ -146,7 +146,7 @@ def check_client_exists(db, client_id: str) -> bool:
 def create_client_credential(db):
     """
     Create new client_id, client_secret pair with max_priority
-    and allowed_queues
+    and allowed_queues.
     """
     client_id = input("Enter the new client_id: ")
     if check_client_exists(db, client_id):
@@ -218,7 +218,7 @@ def edit_client_credential(db):
 
 
 def remove_client_credential(db):
-    """Remove a client_id and client_secret pair from the database"""
+    """Remove a client_id and client_secret pair from the database."""
     client_id = input("Enter the client_id you wish to delete: ")
     if not check_client_exists(db, client_id):
         print("Client id not in database!\n")
@@ -230,7 +230,7 @@ def remove_client_credential(db):
 
 
 def check_queue_exists(db, queue_name: str) -> bool:
-    """Check if queue is in the restricted_queues collection"""
+    """Check if queue is in the restricted_queues collection."""
     return (
         db.restricted_queues.count_documents(
             {"queue_name": queue_name}, limit=1
@@ -240,7 +240,7 @@ def check_queue_exists(db, queue_name: str) -> bool:
 
 
 def add_restricted_queue(db):
-    """Add a restricted queue to the database"""
+    """Add a restricted queue to the database."""
     queue_name = input("Enter the name of the restricted queue to add: ")
     if check_queue_exists(db, queue_name):
         print("Restricted queue already exists!\n")
@@ -253,7 +253,7 @@ def add_restricted_queue(db):
 
 
 def remove_restricted_queue(db):
-    """Remove a restricted queue from the database"""
+    """Remove a restricted queue from the database."""
     queue_name = input(
         "Enter the name of the restricted queue you wish to delete: "
     )
@@ -268,7 +268,7 @@ def remove_restricted_queue(db):
 
 
 def add_list_restricted_queues(db):
-    """Add a comma separated list of restricted queues to the database"""
+    """Add a comma separated list of restricted queues to the database."""
     queue_list_str = input(
         "Enter a comma separated list of restricted queues to add: "
     )
@@ -289,7 +289,7 @@ def add_list_restricted_queues(db):
 def main():
     """
     Command line interface for adding client info and
-    restricted queues
+    restricted queues.
     """
     db = setup_database()
     while True:
