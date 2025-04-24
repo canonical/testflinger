@@ -19,7 +19,7 @@
 import json
 import logging
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timezone
 
 from xdg_base_dirs import xdg_config_home
 
@@ -38,7 +38,7 @@ class TestflingerCliHistory:
 
     def new(self, job_id, queue):
         """Add a new job to the history"""
-        submission_time = datetime.now().timestamp()
+        submission_time = datetime.now(tz=timezone.utc).timestamp()
         self.history[job_id] = {
             "queue": queue,
             "submission_time": submission_time,
@@ -61,7 +61,7 @@ class TestflingerCliHistory:
             pass
         except (OSError, ValueError) as e:
             # If there's any error loading the history, ignore it
-            logging.exception(e)
+            logger.exception(e)
             logger.error(
                 "Error loading history file from %s", self.historyfile
             )

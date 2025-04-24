@@ -41,13 +41,21 @@ line-length = 79
 
 [tool.ruff.lint]
 select = [
-    "C", # comprenhension
+    "A", # flake8-builtins
+    "B", # flake8-bugbear
+    "C4", # comprenhension
     "D", # docstrings
+    "DTZ", # flake8-datetimez 
     "E", # pycodestyle errors
     "F", # pyflakes
+    "G", # flake8-logging-format TODO
+    "I", # isort
+    "LOG", # flake8-logging
     "N", # naming
+    "PLE", # pylint errors
+    "PLW0", # pyling warnings
+    "S", # flake8-bandit 
     "W", # pycodestyle warnings
-    "I001" # Import order: Imported names are in the wrong order.
 ]
 ignore = [
     "C901", # mccabe: Function is too complex 
@@ -74,6 +82,15 @@ ignore = [
     "N803", # Naming: Argument '{name}' should be lowercase
     "N806", # Naming: Variable '{name}' in function should be lowercase
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"testflinger_cli/tests/*" = [
+  "S101", # use of assert
+  "S105", # use of harcoded passwords for mock
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
 
 [tool.uv]
 cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true } }]

@@ -26,7 +26,7 @@ import tarfile
 import tempfile
 import time
 from argparse import ArgumentParser
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 from typing import Optional
@@ -853,7 +853,7 @@ class TestflingerCli:
             except (IOError, client.HTTPError):
                 # Ignore/retry or debug any connection errors or timeouts
                 if self.args.debug:
-                    logging.exception("Error polling for job output")
+                    logger.exception("Error polling for job output")
             except KeyboardInterrupt:
                 choice = input(
                     "\nCancel job {} before exiting "
@@ -884,7 +884,7 @@ class TestflingerCli:
             except (IOError, client.HTTPError):
                 # Ignore/retry or debug any connection errors or timeouts
                 if self.args.debug:
-                    logging.exception("Error polling for serial output")
+                    logger.exception("Error polling for serial output")
 
     def jobs(self):
         """List the previously started test jobs"""
@@ -912,7 +912,7 @@ class TestflingerCli:
                     job_id,
                     job_state,
                     datetime.fromtimestamp(
-                        jobdata.get("submission_time")
+                        jobdata.get("submission_time"), tz=timezone.utc
                     ).strftime("%a %b %d %H:%M"),
                     jobdata.get("queue"),
                 )
