@@ -194,7 +194,6 @@ class TestflingerJob:
 
     def wait_for_completion(self):
         """Monitor the parent job and exit when it completes"""
-
         while True:
             try:
                 this_job_state = self.client.check_job_state(self.job_id)

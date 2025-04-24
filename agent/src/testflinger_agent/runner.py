@@ -33,9 +33,7 @@ StopConditionType = Callable[[], Optional[str]]
 
 
 class RunnerEvents(Enum):
-    """
-    Runner events that can be subscribed to.
-    """
+    """Runner events that can be subscribed to."""
 
     OUTPUT_RECEIVED = "output_received"
 
@@ -157,9 +155,7 @@ class CommandRunner:
 
 
 def get_stop_reason(returncode: int, stop_reason: str) -> str:
-    """
-    Try to give some reason for the job stopping based on what we know.
-    """
+    """Try to give some reason for the job stopping based on what we know."""
     if returncode == 0:
         return "Normal exit"
     return f"Unknown error rc={returncode}"
@@ -171,6 +167,5 @@ def set_nonblock(fd: int):
     :param fd:
         File descriptor that should be set to nonblocking mode
     """
-
     fl = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)

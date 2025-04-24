@@ -410,7 +410,7 @@ class TestflingerClient:
         job_id: str,
     ):
         """
-        Posts status updates about the running job as long as there is a
+        Post status updates about the running job as long as there is a
         webhook
 
         :param job_queue:

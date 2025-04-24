@@ -99,7 +99,6 @@ class TestflingerAgent:
 
     def _post_initial_agent_data(self):
         """Post the initial agent data to the server once on agent startup"""
-
         self.client.post_advertised_queues()
         self.client.post_advertised_images()
 
@@ -217,7 +216,6 @@ class TestflingerAgent:
 
     def process_jobs(self):
         """Coordinate checking for new jobs and handling them if they exists"""
-
         TEST_PHASES = [
             TestPhase.SETUP,
             TestPhase.PROVISION,
@@ -355,7 +353,6 @@ class TestflingerAgent:
 
     def retry_old_results(self):
         """Retry sending results that we previously failed to send"""
-
         results_dir = self.client.config.get("results_basedir")
         # List all the directories in 'results_basedir', where we store the
         # results that we couldn't transmit before
