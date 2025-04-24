@@ -17,6 +17,7 @@
 
 import json
 import os
+import urllib.parse
 from datetime import datetime, timezone
 from http import HTTPStatus
 from io import BytesIO
@@ -656,12 +657,65 @@ def test_result_get_artifact_not_exists(mongo_app):
 def test_output_post_get(mongo_app):
     """Test posting output data for a job then reading it back."""
     app, _ = mongo_app
-    output_url = "/v1/result/00000000-0000-0000-0000-000000000000/output"
-    data = "line1\nline2\nline3"
-    output = app.post(output_url, data=data)
+    job_id = "00000000-0000-0000-0000-000000000000"
+    output_url = f"/v1/result/{job_id}/log/output"
+    log_data = "line1\nline2\nline3"
+    timestamp = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
+    phase = "phase1"
+    log_json = {
+        "fragment_number": 0,
+        "timestamp": timestamp,
+        "phase": phase,
+        "log_data": log_data,
+    }
+    output = app.post(output_url, json=log_json)
     assert "OK" == output.text
     output = app.get(output_url)
-    assert output.text == data
+    assert output.json["last_fragment_number"] == 0
+    assert output.json["log_data"] == log_data
+
+
+def test_output_post_get_query(mongo_app):
+    """Test output endpoints with timestamp querying."""
+    app, _ = mongo_app
+    job_id = "00000000-0000-0000-0000-000000000000"
+    output_url = f"/v1/result/{job_id}/log/output"
+    for i in range(10):
+        log_data = f"line{i}\n"
+        timestamp = datetime(
+            2025, 4, 24, 10, 5 * i, 0, tzinfo=timezone.utc
+        ).isoformat()
+        log_json = {
+            "fragment_number": i,
+            "timestamp": timestamp,
+            "phase": "phase1",
+            "log_data": log_data,
+        }
+        output = app.post(output_url, json=log_json)
+        assert "OK" == output.text
+    query_timestamp = datetime(
+        2025, 4, 24, 10, 32, 0, tzinfo=timezone.utc
+    ).isoformat()
+    params = {"start_timestamp": query_timestamp}
+    encoded_params = urllib.parse.urlencode(params)
+    url_with_timestamp = f"{output_url}?{encoded_params}"
+    output = app.get(url_with_timestamp)
+    combined_log_expected = "".join([f"line{i}\n" for i in range(7, 10)])
+    assert output.status_code == 200
+    assert output.json["log_data"] == combined_log_expected
+    assert output.json["last_fragment_number"] == 9
+
+
+def test_output_get_invalid_query(mongo_app):
+    """Test output endpoint fails when given invalid timestamp."""
+    app, _ = mongo_app
+    job_id = "00000000-0000-0000-0000-000000000000"
+    output_url = f"/v1/result/{job_id}/log/output"
+    params = {"start_timestamp": "my wrong timestamp"}
+    encoded_params = urllib.parse.urlencode(params)
+    url_with_timestamp = f"{output_url}?{encoded_params}"
+    output = app.get(url_with_timestamp)
+    assert output.status_code == 400
 
 
 def test_job_get_result_invalid(mongo_app):
@@ -1096,16 +1150,22 @@ def test_get_agents_on_queue(mongo_app):
 def test_serial_output(mongo_app):
     """Test api endpoint to get serial log output."""
     app, _ = mongo_app
-    output_url = (
-        "/v1/result/00000000-0000-0000-0000-000000000000/serial_output"
-    )
-    data = "line1\nline2\nline3"
-    output = app.post(output_url, data=data)
+    job_id = "00000000-0000-0000-0000-000000000000"
+    output_url = f"/v1/result/{job_id}/log/serial_output"
+    log_data = "line1\nline2\nline3"
+    timestamp = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
+    phase = "phase1"
+    log_json = {
+        "fragment_number": 0,
+        "timestamp": timestamp,
+        "phase": phase,
+        "log_data": log_data,
+    }
+    output = app.post(output_url, json=log_json)
     assert "OK" == output.text
     output = app.get(output_url)
-    assert output.text == data
-    empty_output = app.get(output_url)
-    assert empty_output.text == ""
+    assert output.json["last_fragment_number"] == 0
+    assert output.json["log_data"] == log_data
 
 
 def test_result_post_large_payload(mongo_app):
