@@ -31,6 +31,7 @@ A full deployment of Testflinger consists of the following components:
 - [Testflinger Device Connectors](./device-connectors/): Handles provisioning and
   other device-specific details for each type of device.
 - [Testflinger CLI](./cli/): The command-line tool for submitting jobs, checking
+  status of jobs, and retreiving results
 - [Testflinger Common](./common/): Common modules, functions, enums, etc. shared
   across the Testflinger projects.
 
