@@ -50,13 +50,21 @@ extend-exclude = ["charm/lib"]
 
 [tool.ruff.lint]
 select = [
+    "A", # flake8-builtins
+    "B", # flake8-bugbear
     "C4", # comprenhension
     "D", # docstrings
+    "DTZ", # flake8-datetimez 
     "E", # pycodestyle errors
     "F", # pyflakes
+    "G", # flake8-logging-format 
+    "I", # isort
+    "LOG", # flake8-logging
     "N", # naming
+    "PLE", # pylint errors
+    "PLW0", # pyling warnings
+    "S", # flake8-bandit 
     "W", # pycodestyle warnings
-    "I001" # Import order: Imported names are in the wrong order.
 ]
 ignore = [
     "D102", # docstring: Missing doctring in public method
@@ -75,6 +83,14 @@ ignore = [
     "D409", # docstring: Section underline should match the lenght of its name
     "D413", # docstring: Missing blank line after last section. 
     "D415", # docstring: First line should end with a period, question mark, or exclamation point
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+  "S101", # use of assert
+]
+"charm/tests/*" = [
+    "S101", # use of assert
 ]
 
 
