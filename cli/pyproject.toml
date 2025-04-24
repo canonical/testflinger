@@ -22,7 +22,6 @@ testflinger = "testflinger_cli:cli"
 
 [dependency-groups]
 dev = [
-  "pylint>=3.3.6",
   "pytest>=8.3.5",
   "pytest-cov>=6.0.0",
   "pytest-mock>=3.14.0",
