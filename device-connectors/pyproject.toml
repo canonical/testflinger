@@ -1,9 +1,5 @@
 [build-system]
-requires = [
-    "wheel",
-    "setuptools",
-    "setuptools-scm",
-]
+requires = ["wheel", "setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -14,16 +10,26 @@ license = { text = "GPLv3" }
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "PyYAML>=3.11",
-    "requests",
-    "rpyc~=5.3.1",
-    "validators",
-    "jsonschema",
+    "jsonschema>=4.23.0",
+    "pyyaml>=6.0.2",
+    "requests>=2.32.3",
+    "rpyc<6",
+    "validators>=0.34.0",
 ]
 
 [project.scripts]
 snappy-device-agent = "testflinger_device_connectors.cmd:main"
 testflinger-device-connector = "testflinger_device_connectors.cmd:main"
+
+[dependency-groups]
+dev = [
+    "black>=24.8.0",
+    "flake8>=5.0.4",
+    "pylint>=3.2.7",
+    "pytest>=8.3.5",
+    "pytest-cov>=5.0.0",
+    "pytest-mock>=3.14.0",
+]
 
 [tool.setuptools.package-data]
 testflinger_device_connectors = ["data/**"]
