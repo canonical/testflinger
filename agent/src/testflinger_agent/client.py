@@ -144,9 +144,7 @@ class TestflingerClient:
         job_output = """
             There was an unrecoverable error while running this stage. Your job
             will attempt to be automatically resubmitted back to the queue.
-            Resubmitting job: {}\n""".format(
-            job_id
-        )
+            Resubmitting job: {}\n""".format(job_id)
         self.post_live_output(job_id, job_output)
         try:
             job_request = self.session.post(job_uri, json=job_data)

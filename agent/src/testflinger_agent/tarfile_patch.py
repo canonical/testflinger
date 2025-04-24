@@ -168,7 +168,6 @@ def fully_trusted_filter(member, dest_path):
 
 
 class TarFilePatched(TarFile):
-
     def _get_extract_tarinfo(self, member, filter_function, path):
         """Get filtered TarInfo (or None) from member, which might be a str"""
         if isinstance(member, str):
