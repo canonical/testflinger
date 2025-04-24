@@ -14,7 +14,9 @@
 
 import time
 from typing import Optional, Tuple
+
 from testflinger_common.enums import JobState, TestEvent
+
 from .client import TestflingerClient
 
 

@@ -13,10 +13,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 
-from datetime import timezone, datetime
+from datetime import datetime, timezone
+
+from testflinger_common.enums import TestEvent
 
 from testflinger_agent.client import TestflingerClient
-from testflinger_common.enums import TestEvent
 
 
 class EventEmitter:

@@ -12,15 +12,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+import fcntl
 import logging
 import os
-import fcntl
-import sys
 import signal
 import subprocess
+import sys
 import threading
 import time
-
 from collections import defaultdict
 from enum import Enum
 from typing import Callable, List, Optional, Tuple

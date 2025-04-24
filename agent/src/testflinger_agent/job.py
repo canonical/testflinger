@@ -18,11 +18,12 @@ import os
 import time
 
 from testflinger_agent.errors import TFServerError
-from .runner import CommandRunner, RunnerEvents
+
 from .handlers import LiveOutputHandler, LogUpdateHandler
+from .runner import CommandRunner, RunnerEvents
 from .stop_condition_checkers import (
-    JobCancelledChecker,
     GlobalTimeoutChecker,
+    JobCancelledChecker,
     OutputTimeoutChecker,
 )
 

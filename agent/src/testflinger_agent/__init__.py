@@ -16,18 +16,19 @@ import argparse
 import logging
 import os
 import time
-import yaml
+from collections import deque
+from logging.handlers import TimedRotatingFileHandler
+from threading import Timer
+from urllib.parse import urljoin
+
 import requests
+import yaml
 from requests.adapters import HTTPAdapter, Retry
 from urllib3.exceptions import HTTPError
-from urllib.parse import urljoin
-from collections import deque
-from threading import Timer
 
 from testflinger_agent import schema
 from testflinger_agent.agent import TestflingerAgent
 from testflinger_agent.client import TestflingerClient
-from logging.handlers import TimedRotatingFileHandler
 
 logger = logging.getLogger(__name__)
 

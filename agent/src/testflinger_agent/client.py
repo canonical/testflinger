@@ -12,22 +12,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
 import json
+import logging
 import os
-from pathlib import Path
-import requests
 import shutil
 import tempfile
 import time
-
-from typing import List, Dict
+from pathlib import Path
+from typing import Dict, List
 from urllib.parse import urljoin
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
-from requests.exceptions import RequestException, ConnectionError
+
+import requests
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
+from requests.adapters import HTTPAdapter
+from requests.exceptions import ConnectionError, RequestException
+from requests.packages.urllib3.util.retry import Retry
 
 from testflinger_agent.errors import TFServerError
 

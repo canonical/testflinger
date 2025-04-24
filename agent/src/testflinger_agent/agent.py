@@ -15,18 +15,18 @@
 import json
 import logging
 import os
-from pathlib import Path
 import shutil
 import signal
 import sys
 import tempfile
+from pathlib import Path
 
-from testflinger_agent.job import TestflingerJob
-from testflinger_agent.errors import TFServerError
+from testflinger_common.enums import JobState, TestEvent, TestPhase
+
 from testflinger_agent.config import ATTACHMENTS_DIR
+from testflinger_agent.errors import TFServerError
 from testflinger_agent.event_emitter import EventEmitter
-from testflinger_common.enums import JobState, TestPhase, TestEvent
-
+from testflinger_agent.job import TestflingerJob
 
 try:
     # attempt importing a tarfile filter, to check if filtering is supported
