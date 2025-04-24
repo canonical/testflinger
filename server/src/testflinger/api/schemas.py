@@ -120,7 +120,7 @@ class MuxPiProvisionData(Schema):
     @validates_schema
     def validate_image(self, data, **_):
         """Validate that either `url` or `use_attachment` is provided."""
-        if not data.get("url") and not data.get("use_attachment"):
+        if "url" not in data and "use_attachment" not in data:
             raise ValidationError(
                 "Either 'url' or 'use_attachment' must be provided."
             )
