@@ -13,9 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""
-This returns a db object for talking to MongoDB
-"""
+"""Return a db object for talking to MongoDB"""
 
 import os
 import urllib
@@ -33,7 +31,7 @@ mongo = PyMongo()
 
 
 def get_mongo_uri():
-    """Creates mongodb uri from environment variables"""
+    """Create mongodb uri from environment variables"""
     mongo_user = os.environ.get("MONGODB_USERNAME")
     mongo_pass = os.environ.get("MONGODB_PASSWORD")
     if mongo_pass:
@@ -62,7 +60,7 @@ def get_mongo_uri():
 
 def setup_mongodb(application):
     """
-    Setup mongodb connection if we have valid config data
+    Setups mongodb connection if we have valid config data
     Otherwise leave it empty, which means we are probably running unit tests
     """
     mongo_uri = get_mongo_uri()
@@ -79,7 +77,6 @@ def setup_mongodb(application):
 
 def create_indexes():
     """Initialize collections and indexes in case they don't exist already"""
-
     # Automatically expire jobs after 7 days if nothing runs them
     mongo.db.jobs.create_index(
         "created_at", expireAfterSeconds=DEFAULT_EXPIRATION
@@ -338,7 +335,7 @@ def get_provision_log(
 
 
 def check_queue_restricted(queue: str) -> bool:
-    """Checks if queue is restricted"""
+    """Check if queue is restricted"""
     queue_count = mongo.db.restricted_queues.count_documents(
         {"queue_name": queue}
     )

@@ -13,9 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""
-Fixtures for testing
-"""
+"""Fixtures for testing"""
 
 import os
 from dataclasses import dataclass
@@ -58,7 +56,7 @@ def mongo_app_fixture():
 
 @pytest.fixture
 def testapp():
-    """pytest fixture for just the app"""
+    """Pytest fixture for just the app"""
     app = application.create_flask_app(TestingConfig)
     yield app
 

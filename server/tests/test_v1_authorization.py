@@ -27,7 +27,7 @@ import jwt
 
 def create_auth_header(client_id: str, client_key: str) -> dict:
     """
-    Creates authorization header with base64 encoded client_id
+    Create authorization header with base64 encoded client_id
     and client key using the Basic scheme
     """
     id_key_pair = f"{client_id}:{client_key}"

@@ -13,9 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""
-Testflinger v1 API
-"""
+"""Testflinger v1 API"""
 
 import importlib.metadata
 import os
@@ -104,7 +102,7 @@ def has_attachments(data: dict) -> bool:
 
 def decode_jwt_token(auth_token: str, secret_key: str) -> dict:
     """
-    Decodes authorization token using the secret key. Aborts with
+    Decode authorization token using the secret key. Aborts with
     an HTTP error if it does not exist or if it fails to decode
     """
     if auth_token is None:
@@ -128,7 +126,7 @@ def check_token_priority(
     auth_token: str, secret_key: str, queue: str, priority: int
 ) -> bool:
     """
-    Checks if the requested priority is less than the max priority
+    Check if the requested priority is less than the max priority
     specified in the authorization token if it exists
     """
     if priority == 0:
@@ -151,7 +149,7 @@ def check_token_priority(
 
 def check_token_queue(auth_token: str, secret_key: str, queue: str):
     """
-    Checks if the queue is in the restricted list. If it is, then it
+    Check if the queue is in the restricted list. If it is, then it
     checks the authorization token for restricted queues the user is
     allowed to use.
     """
@@ -174,7 +172,7 @@ def check_token_reservation_timeout(
     auth_token: str, secret_key: str, reservation_timeout: int, queue: str
 ):
     """
-    Checks if the requested reservation is either less than the max
+    Check if the requested reservation is either less than the max
     or that their token gives them the permission to use a higher one
     """
     # Max reservation time defaults to 6 hours
@@ -203,7 +201,7 @@ def check_token_permissions(
     job_data: dict,
 ):
     """
-    Validates token received from client and checks if it can
+    Validate token received from client and checks if it can
     push a job to the queue with the requested priority
     """
     priority_level = job_data.get("job_priority", 0)
@@ -659,7 +657,6 @@ def agents_post(agent_name, json_data):
         "log": array[string], # push and keep only the last 100 lines
     }
     """
-
     json_data["name"] = agent_name
     json_data["updated_at"] = datetime.now(timezone.utc)
     # extract log from data so we can push it instead of setting it
@@ -717,7 +714,7 @@ def agents_provision_logs_post(agent_name, json_data):
 @v1.post("/job/<job_id>/events")
 @v1.input(schemas.StatusUpdate, location="json")
 def agents_status_post(job_id, json_data):
-    """Posts status updates from the agent to the server to be forwarded
+    """Post status updates from the agent to the server to be forwarded
     to TestObserver
 
     The json sent to this endpoint may contain data such as the following:
@@ -765,7 +762,6 @@ def check_valid_uuid(job_id):
     :return:
         True if job_id is valid, False if not
     """
-
     try:
         uuid.UUID(job_id)
     except ValueError:
@@ -799,7 +795,7 @@ def job_position_get(job_id):
 
 
 def cancel_job(job_id):
-    """Cancellation for a specified job ID
+    """Cancel a specified job ID
 
     :param job_id:
         UUID as a string for the job
@@ -841,7 +837,7 @@ def get_agents_on_queue(queue_name):
 
 def generate_token(allowed_resources, secret_key):
     """
-    Generates JWT token with queue permission given a secret key
+    Generate JWT token with queue permission given a secret key
     See retrieve_token for more information on the contents of
     the token payload
     """
@@ -858,7 +854,8 @@ def generate_token(allowed_resources, secret_key):
 
 def validate_client_key_pair(client_id: str, client_key: str):
     """
-    Checks client_id and key pair for validity and returns their permissions
+    Check client_id and key pair for validity and
+    returns their permissions
     """
     if client_key is None:
         return None

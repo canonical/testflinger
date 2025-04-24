@@ -13,9 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""
-Additional views not associated with the API
-"""
+"""Additional views not associated with the API"""
 
 from datetime import datetime, timedelta
 
@@ -141,10 +139,7 @@ def queues():
 
 
 def queues_data():
-    """
-    Generate data for the queues view, this makes testing easier
-    """
-
+    """Generate data for the queues view, this makes testing easier"""
     # First, get all the advertised queues with descriptions
     queue_data = list(
         mongo.db.queues.find(
