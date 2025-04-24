@@ -12,6 +12,17 @@ handling the test.
 
 Testflinger is a basic [Flask][flask] application.
 
+You can run it (for example) with `gunicorn`:
+
+```shell
+gunicorn --bind: 0.0.0.0:5000 app:app
+```
+
+To interact with the server via the CLI, refer to the [Testflinger CLI](../cli/).
+
+To interact with the server via GitHub workflows, refer to the
+[Testflinger GitHub actions](../README.md#github-actions)
+
 ## Installation
 
 Testflinger is available on all major Linux distributions.
