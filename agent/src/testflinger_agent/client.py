@@ -133,7 +133,7 @@ class TestflingerClient:
             return job_data.get("job_state")
 
     def repost_job(self, job_data):
-        """ "Resubmit the job to the testflinger server with the same id
+        """Resubmit the job to the testflinger server with the same id
 
         :param job_id:
             id for the job on which we want to post results

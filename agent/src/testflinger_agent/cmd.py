@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    """main() entrypoint for the testflinger-agent command"""
+    """Entrypoint for the testflinger-agent command"""
     try:
         start_agent()
     except KeyboardInterrupt:
