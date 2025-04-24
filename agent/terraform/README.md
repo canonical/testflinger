@@ -11,9 +11,9 @@ these can be placed in a `terraform.tfvars` file:
 juju_model = "testflinger-agents"
 agent_host_name = "agent-host"
 
-config_repo = "https://..."
+config_repo = "https://github.com/canonical/testflinger.git"
 config_branch = "main"
-config_dir = "lab/agent-host"
+config_dir = "agent/charms/testflinger-agent-host-charm/tests/integration/data/test01"
 
 ssh_public_key <<-EOT
 (sensitive value)
