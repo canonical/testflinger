@@ -15,7 +15,7 @@
 #
 """Testflinger v1 OpenAPI schemas."""
 
-from apiflask import Schema, fields
+from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
 from marshmallow import ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
@@ -364,6 +364,31 @@ class StatusUpdate(Schema):
     job_queue = fields.String(required=False)
     job_status_webhook = fields.URL(required=True)
     events = fields.List(fields.Nested(JobEvent), required=False)
+
+
+class LogPost(Schema):
+    """Output Post and Serial Output Post Schema."""
+
+    fragment_number = fields.Integer(required=True)
+    timestamp = fields.DateTime(required=True)
+    phase = fields.String(required=True)
+    log_data = fields.String(required=True)
+
+
+class LogGet(Schema):
+    """Output and Serial Output Get response schema."""
+
+    last_fragment_number = fields.Integer(required=True)
+    log_data = fields.String(required=True)
+
+
+class LogQueryParams(Schema):
+    """Schema for Output Get Query parameters."""
+
+    start_fragment = fields.Integer(
+        required=False, validate=validators.Range(min=0)
+    )
+    start_timestamp = fields.DateTime(required=False)
 
 
 job_empty = {
