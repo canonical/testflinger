@@ -14,9 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""
-Unit tests for the Client class
-"""
+"""Unit tests for the Client class"""
 
 import logging
 

@@ -14,9 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""
-Unit tests for testflinger-cli
-"""
+"""Unit tests for testflinger-cli"""
 
 import io
 import json
@@ -137,7 +135,6 @@ def test_submit_bad_data(tmp_path, requests_mock):
 
 def test_pack_attachments(tmp_path):
     """Make sure attachments are packed correctly"""
-
     attachments = [
         Path() / "file_0.bin",
         Path() / "folder" / "file_1.bin",
@@ -197,7 +194,6 @@ def test_pack_attachments(tmp_path):
 
 def test_pack_attachments_with_reference(tmp_path):
     """Make sure attachments are packed correctly when using a reference"""
-
     attachments = [
         Path() / "file_0.bin",
         Path() / "folder" / "file_1.bin",
@@ -274,7 +270,6 @@ def test_pack_attachments_with_reference(tmp_path):
 
 def test_submit_with_attachments(tmp_path):
     """Make sure jobs with attachments are submitted correctly"""
-
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
@@ -332,7 +327,6 @@ def test_submit_with_attachments(tmp_path):
 
 def test_submit_attachments_retries(tmp_path):
     """Check retries after unsuccessful attachment submissions"""
-
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
@@ -387,7 +381,6 @@ def test_submit_attachments_retries(tmp_path):
 
 def test_submit_attachments_no_retries(tmp_path):
     """Check no retries after attachment submission fails unrecoverably"""
-
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
@@ -438,7 +431,6 @@ def test_submit_attachments_no_retries(tmp_path):
 
 def test_submit_attachments_timeout(tmp_path):
     """Make timeout after repeated attachment submission timeouts"""
-
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
@@ -574,7 +566,7 @@ def test_show(capsys, requests_mock):
 
 
 def test_results(capsys, requests_mock):
-    """results should report job_state data"""
+    """Results should report job_state data"""
     jobid = str(uuid.uuid1())
     fake_return = {"job_state": "completed"}
     requests_mock.get(URL + "/v1/result/" + jobid, json=fake_return)
@@ -649,7 +641,7 @@ def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
 
 
 def test_reserve(capsys, requests_mock):
-    """ensure reserve command generates correct yaml"""
+    """Ensure reserve command generates correct yaml"""
     requests_mock.get(URL + "/v1/agents/queues", json={})
     requests_mock.get(URL + "/v1/agents/images/fake", json={})
     expected_yaml = (

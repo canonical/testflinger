@@ -14,9 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""
-Testflinger history module
-"""
+"""Testflinger history module"""
 
 import json
 import logging

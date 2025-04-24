@@ -15,9 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""
-TestflingerCli module
-"""
+"""TestflingerCli module"""
 
 import inspect
 import json
@@ -508,7 +506,8 @@ class TestflingerCli:
 
     def build_auth_headers(self):
         """
-        Gets a JWT from the server and creates an authorization header from it
+        Get a JWT from the server and
+        creates an authorization header from it
         """
         jwt = self.authenticate_with_server()
         if jwt is not None:

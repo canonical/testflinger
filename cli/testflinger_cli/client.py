@@ -14,9 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""
-Testflinger client module
-"""
+"""Testflinger client module"""
 
 import base64
 import json
@@ -166,7 +164,7 @@ class Client:
         return json.loads(response).get("job_id")
 
     def authenticate(self, client_id: str, secret_key: str) -> dict:
-        """Authenticates client id and secret key with the server
+        """Authenticate client id and secret key with the server
         and returns JWT with allowed permissions
 
         :param job_data:
