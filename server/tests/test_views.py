@@ -16,7 +16,7 @@
 """Unit tests for Testflinger views"""
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import mongomock
@@ -92,7 +92,7 @@ def test_agent_detail_no_provision_log(testapp):
     """
     mongo = mongomock.MongoClient()
     mongo.db.agents.insert_one(
-        {"name": "agent1", "updated_at": datetime.now()}
+        {"name": "agent1", "updated_at": datetime.now(tz=timezone.utc)}
     )
     with patch("testflinger.views.mongo", mongo):
         with testapp.test_request_context():

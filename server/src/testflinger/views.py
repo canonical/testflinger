@@ -15,7 +15,7 @@
 #
 """Additional views not associated with the API"""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import (
     Blueprint,
@@ -55,19 +55,21 @@ def agents():
 @views.route("/agents/<agent_id>")
 def agent_detail(agent_id):
     """Agent detail view"""
-    default_start_date = (datetime.now() - timedelta(days=2)).strftime(
-        "%Y-%m-%d"
-    )
-    default_stop_date = datetime.now().strftime("%Y-%m-%d")
+    default_start_date = (
+        datetime.now(tz=timezone.utc) - timedelta(days=2)
+    ).strftime("%Y-%m-%d")
+    default_stop_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
 
     start_date = request.args.get("start", default_start_date)
     stop_date = request.args.get("stop", default_stop_date)
 
     # Convert start and stop dates to datetime objects for the query
-    start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
-    stop_datetime = datetime.strptime(stop_date, "%Y-%m-%d") + timedelta(
-        days=1
+    start_datetime = datetime.strptime(start_date, "%Y-%m-%d").replace(
+        tzinfo=timezone.utc
     )
+    stop_datetime = datetime.strptime(stop_date, "%Y-%m-%d").replace(
+        tzinfo=timezone.utc
+    ) + timedelta(days=1)
 
     agent_info = mongo.db.agents.find_one({"name": agent_id})
     if not agent_info:

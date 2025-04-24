@@ -20,7 +20,7 @@ Unit tests for Testflinger v1 API
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from http import HTTPStatus
 from io import BytesIO
 
@@ -1044,7 +1044,7 @@ def test_search_jobs_datetime_iso8601(mongo_app):
     job_id = job_response.json.get("job_id")
     mongo.jobs.update_one(
         {"job_id": job_id},
-        {"$set": {"created_at": datetime(2020, 1, 1)}},
+        {"$set": {"created_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}},
     )
     output = app.get("/v1/job/search?tags=foo")
     assert 200 == output.status_code
