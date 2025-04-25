@@ -31,7 +31,7 @@ A full deployment of Testflinger consists of the following components:
 - [Testflinger Device Connectors](./device-connectors/): Handles provisioning and
   other device-specific details for each type of device.
 - [Testflinger CLI](./cli/): The command-line tool for submitting jobs, checking
-  status of jobs, and retreiving results
+  status of jobs, and retreiving results.
 - [Testflinger Common](./common/): Common modules, functions, enums, etc. shared
   across the Testflinger projects.
 
@@ -51,7 +51,7 @@ Testflinger is open source. Contributions are welcome.
 
 If you're interested, start with the [contribution guide](CONTRIBUTING.md).
 
-## Github Actions
+## GitHub Actions
 
 If you need to submit a job to a testflinger server through a Github action (instead, for example, of using the command-line tool), you can use the [`submit` action](https://github.com/canonical/testflinger/blob/main/.github/actions/submit/action.yaml) in a CI workflow. Please refer to the `inputs` field of the action for a complete list of the arguments that the action can receive.
 
