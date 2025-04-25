@@ -331,7 +331,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 45
+LIBPATCH = 46
 
 PYDEPS = ["ops>=2.0.0"]
 
@@ -989,11 +989,7 @@ class Data(ABC):
     @property
     def relations(self) -> List[Relation]:
         """The list of Relation instances associated with this relation_name."""
-        return [
-            relation
-            for relation in self._model.relations[self.relation_name]
-            if self._is_relation_active(relation)
-        ]
+        return self._model.relations[self.relation_name]
 
     @property
     def secrets_enabled(self):
@@ -1270,15 +1266,6 @@ class Data(ABC):
         pass
 
     # Internal helper methods
-
-    @staticmethod
-    def _is_relation_active(relation: Relation):
-        """Whether the relation is active based on contained data."""
-        try:
-            _ = repr(relation.data)
-            return True
-        except (RuntimeError, ModelError):
-            return False
 
     @staticmethod
     def _is_secret_field(field: str) -> bool:

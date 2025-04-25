@@ -2,10 +2,11 @@
 # See LICENSE file for licensing details.
 
 from unittest.mock import patch
+
 import testflinger_source
 from defaults import (
-    DEFAULT_TESTFLINGER_REPO,
     DEFAULT_BRANCH,
+    DEFAULT_TESTFLINGER_REPO,
     LOCAL_TESTFLINGER_PATH,
     VIRTUAL_ENV_PATH,
 )
@@ -27,8 +28,8 @@ def test_clone_repo(mock_run_with_logged_errors, mock_clone_from):
         [
             f"{VIRTUAL_ENV_PATH}/bin/pip3",
             "install",
-            "-I",
-            "/srv/testflinger/device-connectors",
+            "-U",
+            f"{LOCAL_TESTFLINGER_PATH}/device-connectors",
         ]
     )
 
@@ -38,18 +39,8 @@ def test_create_virtualenv(mock_run_with_logged_errors):
     """Test the create_virtualenv method"""
     testflinger_source.create_virtualenv()
     mock_run_with_logged_errors.assert_any_call(
-        [
-            "python3",
-            "-m",
-            "virtualenv",
-            VIRTUAL_ENV_PATH,
-        ]
+        ["python3", "-m", "virtualenv", VIRTUAL_ENV_PATH]
     )
     mock_run_with_logged_errors.assert_any_call(
-        [
-            f"{VIRTUAL_ENV_PATH}/bin/pip3",
-            "install",
-            "-U",
-            "pip",
-        ]
+        [f"{VIRTUAL_ENV_PATH}/bin/pip3", "install", "-U", "pip"]
     )

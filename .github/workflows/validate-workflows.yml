@@ -1,0 +1,29 @@
+name: Workflow validation
+permissions:
+  contents: read
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/*
+      - .github/actions/**
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/*
+      - .github/actions/**
+
+jobs:
+  workflow_vulnerability_scan:
+    name: Workflow vulnerability scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+      - name: Run zizmor
+        run: uvx zizmor --pedantic .
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

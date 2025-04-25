@@ -1,23 +1,17 @@
-[tool.setuptools]
-packages = ["testflinger_common"]
+[build-system]
+requires = ["uv-build>=0.6,<0.7"]
+build-backend = "uv_build"
 
-[tool.poetry]
+[project]
 name = "testflinger-common"
 description = "Testflinger common modules"
-readme = "README.rst"
+readme = "README.md"
 version = "1.1.0"
-authors = []
+requires-python = ">=3.8"
+dependencies = ["strenum>=0.4.15"]
 
-[tool.poetry.dependencies]
-python = "^3.8"        # specify your Python version requirement here
-strenum = "^0.4.15"
+[dependency-groups]
+dev = ["pytest>=8.3.5", "ruff>=0.11.6"]
 
-[tool.poetry.dev-dependencies]
-pytest = "^8.1.2"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.black]
+[tool.ruff]
 line-length = 79

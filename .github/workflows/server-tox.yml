@@ -1,12 +1,14 @@
 name: "[server] Run unit tests"
-
+permissions:
+  contents: read
 on:
+  workflow_dispatch:
   push:
-    branches: [ main, try-self-hosted ]
+    branches: [main, try-self-hosted]
     paths:
       - server/**
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
       - server/**
 
@@ -16,17 +18,11 @@ jobs:
       run:
         working-directory: server
     runs-on: [self-hosted, linux, jammy, X64]
-    strategy:
-      matrix:
-        python: ["3.10"]
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python }}
-    - name: Install tox
-      run: pip install tox
-    - name: Run tests
-      run: |
-        tox
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+      - name: Run tests
+        run: uvx --with tox-uv tox

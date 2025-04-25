@@ -4,7 +4,7 @@ package_upgrade: true
 package_reboot_if_required: true
 snap:
   commands:
-    - snap install lxd --channel=6.1/stable
+    - snap install lxd --channel=6/stable
     - snap install juju --channel=3.6/stable
     - snap install charmcraft --channel=3.x/stable --classic
     - snap install terraform --classic

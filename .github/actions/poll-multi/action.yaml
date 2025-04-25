@@ -32,7 +32,7 @@ runs:
       env:
         JOB_ID: ${{ inputs.job-id }}
       run: |
-        echo "::group::Wait for parent job ${{ env.JOB_ID }} to complete"
+        echo "::group::Wait for parent job $JOB_ID to complete"
         while true; do
           STATUS=$(testflinger status $JOB_ID)
           echo "Parent job status: $STATUS"

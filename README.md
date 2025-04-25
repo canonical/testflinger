@@ -21,36 +21,47 @@ between different consumers in a predictable fashion.
 Typically this has been used for managing a test lab where CI/CD test runs and
 also exploratory testing by human operators is desired.
 
-## Documentation
-
-You can find more information and documentation on the
-[Testflinger Documentation Page][rtd-latest].
-
 ## Contents of this Repository
 
 A full deployment of Testflinger consists of the following components:
 
-- [Testflinger Server][server]: The server hosting the API and Web UI.
-- [Testflinger Agent][agent]: Requests and processes jobs from associated
+- [Testflinger Server](./server/): The server hosting the API and Web UI.
+- [Testflinger Agent](./agent/): Requests and processes jobs from associated
   queues on the server on behalf of a device.
-- [Testflinger Device Connectors][device-connectors]: Handles provisioning and
+- [Testflinger Device Connectors](./device-connectors/): Handles provisioning and
   other device-specific details for each type of device.
-- [Testflinger CLI][cli]: The command-line tool for submitting jobs, checking
-  status of jobs, and retrieving results.
+- [Testflinger CLI](./cli/): The command-line tool for submitting jobs, checking
+  status of jobs, and retreiving results.
+- [Testflinger Common](./common/): Common modules, functions, enums, etc. shared
+  across the Testflinger projects.
 
-## GitHub Actions
+### GitHub Actions
 
 You can use the following GitHub actions to use Testflinger in your GitHub
 workflows:
 
 - [`submit`][submit-action]: Submit a job
-- [`poll-multi`][poll-multi-action]: Poll a multi-device agent job
+- [`poll-multi`][poll-multi-action]: Poll
+  a multi-device agent job
+
+## Documentation
+
+You can find more information and documentation on the
+[Testflinger Documentation Page][rtd-latest].
+
+## Community and Support
+
+You can report any issues, bugs, or feature requests on the project's
+[GitHub repository][github].
+
+## Contribute to Testflinger
+
+Testflinger is open source. Contributions are welcome.
+
+If you're interested, start with the [contribution guide](CONTRIBUTING.md).
 
 [rtd-badge]: https://readthedocs.com/projects/canonical-testflinger/badge/?version=latest
 [rtd-latest]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/
-[server]: server/README.rst
-[agent]: agent/README.rst
-[device-connectors]: device-connectors/README.rst
-[cli]: cli/README.rst
+[github]: https://github.com/canonical/testflinger
 [submit-action]: .github/actions/submit/README.md
 [poll-multi-action]: .github/actions/poll-multi/README.md

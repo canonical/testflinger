@@ -17,26 +17,23 @@
 Testflinger v1 API
 """
 
+import importlib.metadata
 import os
 import uuid
-from datetime import datetime, timezone, timedelta
-import pkg_resources
+from datetime import datetime, timedelta, timezone
+
+import bcrypt
+import jwt
+import requests
 from apiflask import APIBlueprint, abort
 from flask import jsonify, request, send_file
 from prometheus_client import Counter
-
-from werkzeug.exceptions import BadRequest
-
-import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from werkzeug.exceptions import BadRequest
 
-import jwt
-import bcrypt
-
-from src import database
-from . import schemas
-
+from testflinger import database
+from testflinger.api import schemas
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -61,8 +58,8 @@ def home():
 def get_version():
     """Return the Testflinger version"""
     try:
-        version = pkg_resources.get_distribution("testflinger").version
-    except pkg_resources.DistributionNotFound:
+        version = importlib.metadata.version("testflinger")
+    except importlib.metadata.PackageNotFoundError:
         version = "devel"
     return f"Testflinger Server v{version}"
 
@@ -494,7 +491,7 @@ def output_post(job_id):
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
     data = request.get_data().decode("utf-8")
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(timezone.utc)
     database.mongo.db.output.update_one(
         {"job_id": job_id},
         {"$set": {"updated_at": timestamp}, "$push": {"output": data}},
@@ -535,7 +532,7 @@ def serial_output_post(job_id):
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
     data = request.get_data().decode("utf-8")
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(timezone.utc)
     database.mongo.db.serial_output.update_one(
         {"job_id": job_id},
         {"$set": {"updated_at": timestamp}, "$push": {"serial_output": data}},
@@ -664,7 +661,7 @@ def agents_post(agent_name, json_data):
     """
 
     json_data["name"] = agent_name
-    json_data["updated_at"] = datetime.utcnow()
+    json_data["updated_at"] = datetime.now(timezone.utc)
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
@@ -848,7 +845,7 @@ def generate_token(allowed_resources, secret_key):
     See retrieve_token for more information on the contents of
     the token payload
     """
-    expiration_time = datetime.utcnow() + timedelta(seconds=30)
+    expiration_time = datetime.now(timezone.utc) + timedelta(seconds=30)
     token_payload = {
         "exp": expiration_time,
         "iat": datetime.now(timezone.utc),  # Issued at time

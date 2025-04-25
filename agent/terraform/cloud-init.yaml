@@ -1,0 +1,14 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+snap:
+  commands:
+    - snap install lxd --channel=6/stable
+    - snap install juju --channel=3.6/stable
+    - snap install --classic charmcraft --channel=3.x/stable
+    - snap install --classic terraform
+runcmd:
+  - lxd init --auto
+  - sudo -i -u ubuntu snap run juju bootstrap localhost localhost-controller
+  - sudo -i -u ubuntu snap run juju add-model testflinger-agents localhost

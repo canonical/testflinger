@@ -13,16 +13,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+# pylint: disable=C0302
 """
 Unit tests for Testflinger v1 API
 """
 
-from datetime import datetime
-from io import BytesIO
 import json
 import os
+from datetime import datetime
+from http import HTTPStatus
+from io import BytesIO
 
-from src.api import v1
+from testflinger.api import v1
 
 
 def test_home(mongo_app):
@@ -111,6 +113,271 @@ def test_add_job_valid_reserve_data(mongo_app):
     app, _ = mongo_app
     output = app.post("/v1/job", json=job_data)
     assert 200 == output.status_code
+
+
+def test_add_job_cm3_provision_data(mongo_app):
+    """Test that a job with cm3 provision_data works"""
+
+    # Invalid URL fails
+    provision_data = {"url": "invalid"}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # Valid URL works
+    provision_data = {"url": "http://example.com/image.img.xz"}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_maas_provision_data(mongo_app):
+    """Test that a job with maas provision_data works."""
+    # Empty provision_data works
+    provision_data = {}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+    # distro field works
+    provision_data = {"distro": "noble"}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+    # kernel field works
+    provision_data = {"kernel": "test"}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+    # user_data field works
+    provision_data = {
+        "kernel": "#cloud-config\npackages:\n- python3-pip\n- jq"
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+    # disks field works
+    provision_data = {
+        "disks": [
+            {"id": "disk0", "disk": 0, "type": "disk", "ptable": "gpt"},
+            {
+                "id": "disk0-part1",
+                "device": "disk0",
+                "type": "partition",
+                "number": 1,
+                "size": "2G",
+                "alloc_pct": 80,
+            },
+            {
+                "id": "disk0-part1-format",
+                "type": "format",
+                "volume": "disk0-part1",
+                "fstype": "ext4",
+                "label": "nova-ephemeral",
+            },
+            {
+                "id": "disk0-part1-mount",
+                "device": "disk0-part1-format",
+                "path": "/",
+                "type": "mount",
+            },
+        ],
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_multi_provision_data(mongo_app):
+    """Test that a job with multi provision_data works."""
+    # Empty jobs fails
+    provision_data = {"jobs": []}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # [TODO] Once jobs nested schema is defined, add validation here
+
+
+def test_add_job_muxpi_provision_data(mongo_app):
+    """Test that a job with muxpi provision_data works."""
+    # Either url or use_attachment required
+    provision_data = {"url": "", "use_attachment": "", "create_user": False}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # Valid URL works
+    provision_data = {
+        "url": "http://example.com/image.img.xz",
+        "create_user": False,
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_oem_autoinstall_provision_data(mongo_app):
+    """Test that a job with oem_autoinstall provision_data works."""
+    # Invalid URL fails
+    provision_data = {"url": "invalid", "token_file": "file"}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # Valid URL fails
+    provision_data = {
+        "url": "http://example.com/image.img.xz",
+        "token_file": "file",
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_oem_script_provision_data(mongo_app):
+    """Test that a job with oem_script provision_data works."""
+    # Invalid URL fails
+    provision_data = {"url": "invalid"}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # Valid URL fails
+    provision_data = {"url": "http://example.com/image.img.xz"}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_zapper_iot_preset_provision_data(mongo_app):
+    """Test that a job with zapper_iot_preset provision_data works."""
+    # Empty URLs fails
+    provision_data = {"urls": [], "preset": ""}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # Invalid URLs fails
+    provision_data = {"urls": ["invalid"], "preset": ""}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # Valid provision_data works
+    provision_data = {
+        "urls": ["http://example.com/image.img.xz"],
+        "preset": "fake",
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_zapper_iot_custom_provision_data(mongo_app):
+    """Test that a job with zapper_iot_custom provision_data works."""
+    # Empty URLs fails
+    provision_data = {
+        "urls": [],
+        "provision_plan": {},
+        "ubuntu_sso_email": "test@example.com",
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # [TODO] Add validation for provision_plan
+    # Valid job works
+    provision_data = {
+        "urls": ["http://example.com/image.img.xz"],
+        "provision_plan": {},
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_zapper_kvm_autoinstall_provision_data(mongo_app):
+    """Test that a job with zapper_kvm_autoinstall provision_data works."""
+    # Invalid URL fails
+    provision_data = {
+        "url": "invalid",
+        "robot_tasks": ["task"],
+        "autoinstall_storage_layout": "lvm",
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # Valid provision_data works
+    provision_data = {
+        "url": "http://example.com/image.img.xz",
+        "robot_tasks": ["task"],
+        "autoinstall_storage_layout": "lvm",
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_zapper_kvm_oem_2204_provision_data(mongo_app):
+    """Test that a job with zapper_kvm_oem_2204 provision_data works."""
+    # Invalid URL fails
+    provision_data = {
+        "alloem_url": "invalid",
+        "robot_tasks": ["task"],
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # oem field works
+    provision_data = {
+        "alloem_url": "http://example.com/image.img.xz",
+        "robot_tasks": ["task"],
+        "oem": "dell",
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_zapper_kvm_generic_provision_data(mongo_app):
+    """Test that a job with zapper_kvm_generic provision_data works."""
+    # Invalid URL fails
+    provision_data = {
+        "url": "invalid",
+        "robot_tasks": ["task"],
+        "live_image": False,
+        "wait_until_ssh": False,
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+    # Valid provision_data works
+    provision_data = {
+        "url": "http://example.com/image.img.xz",
+        "robot_tasks": ["task"],
+        "live_image": False,
+        "wait_until_ssh": False,
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
 
 
 def test_add_job_good(mongo_app):
@@ -421,7 +688,10 @@ def test_job_get_result_no_data(mongo_app):
 def test_job_get_id_with_data(mongo_app):
     """Test getting the json for a job that has been submitted"""
     app, _ = mongo_app
-    job_data = {"job_queue": "test", "provision_data": {"url": "test"}}
+    job_data = {
+        "job_queue": "test",
+        "provision_data": {"url": "https://example.com/image.img.xz"},
+    }
     # Place a job on the queue
     output = app.post("/v1/job", json=job_data)
     job_id = output.json.get("job_id")

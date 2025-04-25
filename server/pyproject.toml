@@ -1,40 +1,49 @@
-[tool.poetry]
+[build-system]
+requires = ["uv-build>=0.6,<0.7"]
+build-backend = "uv_build"
+
+[project]
 name = "testflinger"
 description = "Testflinger Server"
-readme = "README.rst"
-version = "1.1.0"                  # specify your version here
+readme = "README.md"
+version = "1.1.0"
 authors = []
-packages = [
-    { include = "src" },
+requires-python = ">=3.10"
+dependencies = [
+    "apiflask>=2.1.1",
+    "bcrypt>=4.2.0",
+    "flask>=3.0.3",
+    "flask-pymongo>=3.0.0",
+    "gunicorn>=23.0.0",
+    "gevent>=24.2.1",
+    "prometheus-client>=0.21.0",
+    "prometheus-flask-exporter>=0.23.1",
+    "pyjwt>=2.8.0",
+    "pymongo<4.9.0",
+    "pyyaml>=6.0.1",
+    "requests>=2.31.0",
+    "sentry-sdk>= 2.0.1",
+    "urllib3>=2.2.1",
+    "marshmallow-oneofschema>=3.1.1",
 ]
 
+[project.scripts]
+client_credentials_admin = "testflinger.tools.client_credentials_admin:main"
 
-[tool.poetry.dependencies]
-python = "^3.10"                                        # specify your Python version requirement here
-apiflask = "^2.1.1"
-flask = "^3.0.3"
-flask-pymongo = "^3.0.0"
-gunicorn = "^23.0.0"
-gevent = "^24.2.1"
-prometheus-client = "^0.21.0"
-pyyaml = "^6.0.1"
-sentry-sdk = { extras = ["flask"], version = "^2.0.1" }
-requests = "^2.31.0"
-urllib3 = "^2.2.1"
-pymongo = "<4.9.0"
-pyjwt = "^2.8.0"
-bcrypt = "^4.2.0"
-prometheus-flask-exporter = "^0.23.1"
-
-[tool.poetry.dev-dependencies]
-pytest = "^8.1.2"
-
-[tool.poetry.scripts]
-client_credentials_admin = "src.tools.client_credentials_admin:main"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[dependency-groups]
+charm = ["ops>=2.2.0"]
+dev = [
+    "black>=24.8.0",
+    "cosl>=0.0.57",
+    "djlint>=1.36.4",
+    "flake8>=5.0.4",
+    "mongomock>=4.3.0",
+    "pylint>=3.2.7",
+    "pytest>=8.3.5",
+    "pytest-cov>=5.0.0",
+    "requests>=2.32.3",
+    "requests-mock>=1.12.1",
+]
 
 [tool.black]
 line-length = 79
@@ -44,9 +53,6 @@ exclude = "charm/lib"
 profile = "jinja"
 ignore = "H023,H021"
 indent = 2
-
-[tool.pytest.ini_options]
-pythonpath = ["charm/src", "charm/lib"]
 
 [tool.pylint."messages control"]
 disable = ["C0209"]

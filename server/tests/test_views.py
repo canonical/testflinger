@@ -17,11 +17,13 @@
 Unit tests for Testflinger views
 """
 
-from datetime import datetime
 import re
+from datetime import datetime
 from unittest.mock import patch
+
 import mongomock
-from src.views import job_detail, queues_data, agent_detail
+
+from testflinger.views import agent_detail, job_detail, queues_data
 
 
 def test_queues():
@@ -64,7 +66,7 @@ def test_queues():
     )
 
     # Get the data from the function we use to generate the view
-    with patch("src.views.mongo", mongo):
+    with patch("testflinger.views.mongo", mongo):
         data = queues_data()
 
     # Make sure we found all the queues, not just advertised ones
@@ -95,7 +97,7 @@ def test_agent_detail_no_provision_log(testapp):
     mongo.db.agents.insert_one(
         {"name": "agent1", "updated_at": datetime.now()}
     )
-    with patch("src.views.mongo", mongo):
+    with patch("testflinger.views.mongo", mongo):
         with testapp.test_request_context():
             response = agent_detail("agent1")
 
@@ -109,7 +111,7 @@ def test_agent_not_found(testapp):
     """
 
     mongo = mongomock.MongoClient()
-    with patch("src.views.mongo", mongo):
+    with patch("testflinger.views.mongo", mongo):
         with testapp.test_request_context():
             response = agent_detail("agent1")
 
@@ -123,7 +125,7 @@ def test_job_not_found(testapp):
     """
 
     mongo = mongomock.MongoClient()
-    with patch("src.views.mongo", mongo):
+    with patch("testflinger.views.mongo", mongo):
         with testapp.test_request_context():
             response = job_detail("job1")
 

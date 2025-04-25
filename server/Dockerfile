@@ -1,4 +1,5 @@
 FROM ubuntu:22.04
+COPY --from=ghcr.io/astral-sh/uv:0.6.16 /uv /uvx /bin/
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV HOME /root
@@ -6,6 +7,7 @@ ENV LC_ALL C.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 ENV PATH /srv/testflinger:$PATH
+ENV UV_SYSTEM_PYTHON=true
 # Enable this if you prefer to use testflinger.conf
 # ENV TESTFLINGER_CONFIG=/srv/testflinger/testflinger.conf
 
@@ -16,10 +18,7 @@ RUN apt-get update \
   curl \
   git \
   procps \
-  wget \
-  python3 \
-  python3-dev \
-  python3-pip
+  wget
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN mkdir -p /var/log/testflinger \
@@ -30,6 +29,6 @@ WORKDIR /srv/testflinger
 COPY . /srv/testflinger
 
 # Install testflinger
-RUN pip3 install -I /srv/testflinger
+RUN uv sync --frozen
 
-CMD gunicorn --bind 0.0.0.0:5000 testflinger:app
+CMD uv run gunicorn --bind 0.0.0.0:5000 app:app
