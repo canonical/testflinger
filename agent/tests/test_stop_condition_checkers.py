@@ -14,19 +14,19 @@
 
 import time
 
+from testflinger_common.enums import TestEvent
+
 from testflinger_agent.client import TestflingerClient
 from testflinger_agent.stop_condition_checkers import (
-    JobCancelledChecker,
     GlobalTimeoutChecker,
+    JobCancelledChecker,
     OutputTimeoutChecker,
 )
-
-from testflinger_common.enums import TestEvent
 
 
 class TestStopConditionCheckers:
     def test_job_cancelled_checker(self, mocker):
-        """Test that the job cancelled checker detects cancelled state"""
+        """Test that the job cancelled checker detects cancelled state."""
         client = TestflingerClient({"server_address": "http://localhost"})
         checker = JobCancelledChecker(client, "job_id")
 

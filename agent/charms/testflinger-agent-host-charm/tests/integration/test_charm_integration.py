@@ -9,12 +9,12 @@ CHARM_PATH = Path(__file__).parent.parent.parent
 APP_NAME = "testflinger-agent-host"
 TEST_CONFIG_01 = {
     "config-repo": "https://github.com/canonical/testflinger.git",
-    "config-dir": "agent/charms/testflinger-agent-host-charm/tests/integration/data/test01",
+    "config-dir": "agent/charms/testflinger-agent-host-charm/tests/integration/data/test01",  # noqa: E501
     "config-branch": "main",
 }
 TEST_CONFIG_02 = {
     "config-repo": "https://github.com/canonical/testflinger.git",
-    "config-dir": "agent/charms/testflinger-agent-host-charm/tests/integration/data/test02",
+    "config-dir": "agent/charms/testflinger-agent-host-charm/tests/integration/data/test02",  # noqa: E501
     "config-branch": "main",
 }
 

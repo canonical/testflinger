@@ -208,7 +208,12 @@ class TarFilePatched(TarFile):
             self._handle_nonfatal_error(e)
 
     def extractall(
-        self, path=".", members=None, *, numeric_owner=False, filter=None
+        self,
+        path=".",
+        members=None,
+        *,
+        numeric_owner=False,
+        filter=None,  # noqa: A002
     ):
         """Extract all members from the archive to the current working
         directory and set owner, modification time and permissions on
@@ -270,4 +275,4 @@ class TarFilePatched(TarFile):
 # make sure `open` is available when this module is imported and it
 # returns a `TarFilePatched` object instead of a `TarFile` one
 # (`open` is "exported" in the same manner in the original source)
-open = TarFilePatched.open
+open = TarFilePatched.open  # noqa: A001

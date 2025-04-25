@@ -26,7 +26,6 @@ import requests
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
 from requests.adapters import HTTPAdapter
-from requests.exceptions import ConnectionError, RequestException
 from requests.packages.urllib3.util.retry import Retry
 
 from testflinger_agent.errors import TFServerError
@@ -81,7 +80,7 @@ class TestflingerClient:
         # ensure we can connect to influxdb
         try:
             influx_client.create_database(self.influx_agent_db)
-        except ConnectionError as exc:
+        except requests.exceptions.ConnectionError as exc:
             logger.error(exc)
         else:
             return influx_client
@@ -102,7 +101,7 @@ class TestflingerClient:
                 return job_request.json()
             else:
                 return None
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
             # Wait a little extra before trying again
             time.sleep(60)
@@ -148,7 +147,7 @@ class TestflingerClient:
         self.post_live_output(job_id, job_output)
         try:
             job_request = self.session.post(job_uri, json=job_data)
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
             raise TFServerError("other exception") from exc
         if not job_request:
@@ -177,7 +176,7 @@ class TestflingerClient:
         result_uri = urljoin(result_uri, job_id)
         try:
             job_request = self.session.post(result_uri, json=data, timeout=30)
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
             raise TFServerError("other exception") from exc
         if not job_request:
@@ -200,7 +199,7 @@ class TestflingerClient:
         result_uri = urljoin(result_uri, job_id)
         try:
             job_request = self.session.get(result_uri, timeout=30)
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
             return {}
         if not job_request:
@@ -304,7 +303,7 @@ class TestflingerClient:
             job_request = self.session.post(
                 output_uri, data=data.encode("utf-8"), timeout=60
             )
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
             return False
         return bool(job_request)
@@ -318,7 +317,7 @@ class TestflingerClient:
             self.session.post(
                 queues_uri, json=self.config["advertised_queues"], timeout=30
             )
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
 
     def post_advertised_images(self):
@@ -330,7 +329,7 @@ class TestflingerClient:
             self.session.post(
                 images_uri, json=self.config["advertised_images"], timeout=30
             )
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
 
     def post_agent_data(self, data):
@@ -343,7 +342,7 @@ class TestflingerClient:
         agent_data_url = urljoin(agent_data_uri, self.config.get("agent_id"))
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
 
     def post_influx(self, phase, result=None):
@@ -399,7 +398,7 @@ class TestflingerClient:
         agent_data_url = urljoin(agent_data_uri, self.config.get("agent_id"))
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.warning("Unable to post provision log to server: %s", exc)
 
     def post_status_update(
@@ -444,7 +443,7 @@ class TestflingerClient:
                     status_update_uri,
                     job_request.status_code,
                 )
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(
                 "Unable to post status updates to: %s (error: %s)",
                 status_update_uri,

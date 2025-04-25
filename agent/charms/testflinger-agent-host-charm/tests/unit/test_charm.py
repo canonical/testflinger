@@ -3,9 +3,10 @@
 #
 # Learn more about testing at: https://juju.is/docs/sdk/testing
 
-import unittest
 import base64
-from unittest.mock import patch, mock_open
+import unittest
+from unittest.mock import mock_open, patch
+
 from charm import TestflingerAgentHostCharm
 from ops.testing import Harness
 
@@ -36,13 +37,12 @@ class TestCharm(unittest.TestCase):
         mock_chown,
     ):
         """
-        Test the copy_ssh_keys method
+        Test the copy_ssh_keys method.
 
         The commands like supervisorctl in write_supervisor_files,
         restart_agents, and supervisor_update won't work here and
         are mocked out, but are tested in the integration tests.
         """
-
         mock_clone_from.return_value = None
         mock_move.return_value = None
         self.harness.update_config(
@@ -76,7 +76,7 @@ class TestCharm(unittest.TestCase):
         mock_open,
         mock_listdir,
     ):
-        """Test the update_tf_cmd_scripts method"""
+        """Test the update_tf_cmd_scripts method."""
         charm = self.harness.charm
         tf_cmd_scripts_files = ["tf-setup"]
 
@@ -88,14 +88,14 @@ class TestCharm(unittest.TestCase):
         mock_write_text.assert_any_call("test data")
 
     def test_blocked_on_no_config_repo(self):
-        """Test the on_config_changed method with no config-repo"""
+        """Test the on_config_changed method with no config-repo."""
         self.harness.update_config(
             {"config-repo": "", "config-dir": "agent-configs"}
         )
         self.assertEqual(self.harness.charm.unit.status.name, "blocked")
 
     def test_blocked_on_no_config_dir(self):
-        """Test the on_config_changed method with no config-dir"""
+        """Test the on_config_changed method with no config-dir."""
         self.harness.update_config(
             {
                 "config-repo": "https://github.com/canonical/testflinger.git",

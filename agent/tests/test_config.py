@@ -14,10 +14,11 @@
 
 import os
 import tempfile
-import testflinger_agent
+from unittest import TestCase
+
 import voluptuous
 
-from unittest import TestCase
+import testflinger_agent
 
 GOOD_CONFIG = """
 agent_id: test01

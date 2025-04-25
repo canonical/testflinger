@@ -80,12 +80,11 @@ ignore = [
 "src/testflinger_agent/runner.py" = [
     "S602" # bandit: subprocess-popen-with-shell-equals-true; Removing shell causes S603
 ]
-
-[tool.ruff.lint.flake8-builtins]
-ignorelist = [
-    "ConnectionError", # import from requests.exceptions
-    "filter",          # Needed for tarfile.extractall()
-    "open"             # Needed for tarfile.open()
+"tests/*" = [
+    "S101", # use of assert
+]
+"charms/testflinger-agent-host-charm/tests/*" = [
+    "S101", # use of assert
 ]
 
 [tool.ruff.lint.pydocstyle]
