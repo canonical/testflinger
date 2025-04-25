@@ -99,7 +99,7 @@ def delayretry(func, args, max_retries=3, delay=0):
     for retry_count in range(max_retries):
         try:
             ret = func(*args)
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             time.sleep(delay)
             if retry_count == max_retries - 1:
                 raise
