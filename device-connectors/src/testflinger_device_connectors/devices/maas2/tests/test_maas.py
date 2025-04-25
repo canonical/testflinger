@@ -14,7 +14,6 @@
 
 """Maas2 agent module unit tests."""
 
-
 import json
 from collections import namedtuple
 from unittest.mock import patch

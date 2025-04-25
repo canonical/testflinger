@@ -115,7 +115,7 @@ class CM3:
             return
         agent_name = self.config.get("agent_name")
         logger.error(
-            "Device %s unreachable after provisioning, deployment " "failed!",
+            "Device %s unreachable after provisioning, deployment failed!",
             agent_name,
         )
         raise ProvisioningError("Provisioning failed!")

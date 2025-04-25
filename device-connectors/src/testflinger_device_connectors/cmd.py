@@ -14,7 +14,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Main testflinger-device-connectors command module."""
 
-
 import argparse
 import json
 import logging

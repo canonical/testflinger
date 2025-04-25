@@ -172,7 +172,7 @@ class DefaultDevice:
                     if not update_succeeded:
                         exitcode = 1
             except Exception as err:
-                logger.error("Firmware Update failed: ", str(err))
+                logger.error("Firmware Update failed: %s", str(err))
                 exitcode = 1
             finally:
                 logger.info("END firmware_update")
@@ -257,7 +257,7 @@ class DefaultDevice:
             ]
         )
 
-        for retry in range(10):
+        for _retry in range(10):
             # Retry ssh key copy just in case it's rebooting
             try:
                 subprocess.check_call(cmd, timeout=30)

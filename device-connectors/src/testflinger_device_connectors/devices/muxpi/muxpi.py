@@ -328,7 +328,7 @@ class MuxPi:
             self._run_control("sync")
         except Exception:
             # Nothing should go wrong here, but let's sleep if it does
-            logger.warn("Something went wrong with the sync, sleeping...")
+            logger.warning("Something went wrong with the sync, sleeping...")
             time.sleep(30)
         try:
             self._run_control(
@@ -337,7 +337,7 @@ class MuxPi:
             )
         except Exception as error:
             raise ProvisioningError(
-                "Unable to run hdparm to rescan " "partitions"
+                "Unable to run hdparm to rescan partitions"
             ) from error
 
     def _get_part_labels(self):
@@ -406,8 +406,8 @@ class MuxPi:
             image type as a string
         """
 
-        def check_path(dir):
-            self._run_control("test -e {}".format(dir))
+        def check_path(dir_path):
+            self._run_control("test -e {}".format(dir_path))
 
         # First check if this is a ce-oem-iot image and type
         res = self.check_ce_oem_iot_image()
@@ -637,7 +637,6 @@ class MuxPi:
             time.sleep(10)
 
             if boot_check_url is not None:
-
                 logger.info(
                     "Checking %s to confirm boot success ...", boot_check_url
                 )
@@ -654,7 +653,6 @@ class MuxPi:
                     logger.info("Boot check failed with %s", e)
 
             else:
-
                 device_ip = self.config["device_ip"]
                 cmd = [
                     "sshpass",
@@ -683,4 +681,4 @@ class MuxPi:
             try:
                 self._run_control(cmd)
             except Exception:
-                logger.warn("Error running %s", cmd)
+                logger.warning("Error running %s", cmd)

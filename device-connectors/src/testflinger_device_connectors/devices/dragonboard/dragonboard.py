@@ -229,7 +229,7 @@ class Dragonboard:
 
         master_booted = self.is_master_image_booted()
         if not master_booted:
-            logging.warn(
+            logger.warning(
                 "Device is in an unknown state, attempting to recover"
             )
             self.hardreset()
@@ -281,7 +281,7 @@ class Dragonboard:
             self._run_control("sync")
         except subprocess.SubprocessError:
             # Nothing should go wrong here, but let's sleep if it does
-            logger.warn("Something went wrong with the sync, sleeping...")
+            logger.warning("Something went wrong with the sync, sleeping...")
             time.sleep(30)
         try:
             self._run_control(
@@ -290,8 +290,9 @@ class Dragonboard:
             )
         except subprocess.CalledProcessError as exc:
             raise ProvisioningError(
-                "Unable to run hdparm to rescan"
-                "partitions: {}".format(exc.output)
+                "Unable to run hdparm to rescan partitions: {}".format(
+                    exc.output
+                )
             )
 
     def mount_writable_partition(self):
