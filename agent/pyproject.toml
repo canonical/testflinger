@@ -46,21 +46,21 @@ line-length = 79
 
 [tool.ruff.lint]
 select = [
-    "A", # flake8-builtins
-    "B", # flake8-bugbear
-    "C4", # comprenhension
-    "D", # docstrings
+    "A",   # flake8-builtins
+    "B",   # flake8-bugbear
+    "C4",  # comprenhension
+    "D",   # docstrings
     "DTZ", # flake8-datetimez 
-    "E", # pycodestyle errors
-    "F", # pyflakes
-    #"G", # flake8-logging-format TODO
-    "I", # isort
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    #"G",  # flake8-logging-format TODO
+    "I",   # isort
     "LOG", # flake8-logging
-    "N", # naming
+    "N",   # naming
     "PLE", # pylint errors
-    "PLW0", # pyling warnings
-    "S", # flake8-bandit 
-    "W", # pycodestyle warnings
+    "PLW", # pyling warnings
+    "S",   # flake8-bandit 
+    "W",   # pycodestyle warnings
 ]
 ignore = [
     "D100", # docstring: Missing docstring in public module
@@ -85,8 +85,8 @@ ignore = [
 [tool.ruff.lint.flake8-builtins]
 ignorelist = [
     "ConnectionError", # import from requests.exceptions
-    "filter", # Needed for tarfile.extractall()
-    "open" # Needed for tarfile.open()
+    "filter",          # Needed for tarfile.extractall()
+    "open"             # Needed for tarfile.open()
 ]
 
 [tool.ruff.lint.pydocstyle]

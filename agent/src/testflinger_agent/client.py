@@ -70,7 +70,7 @@ class TestflingerClient:
         if not host:
             logger.error("InfluxDB host undefined")
             return None
-        port = int(os.environ.get("INFLUX_PORT", 8086))
+        port = int(os.environ.get("INFLUX_PORT", "8086"))
         user = os.environ.get("INFLUX_USER", "")
         password = os.environ.get("INFLUX_PW", "")
 
