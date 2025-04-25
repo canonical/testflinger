@@ -13,9 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""
-This sets up the Testflinger web application
-"""
+"""Setup the Testflinger web application."""
 
 import logging
 
@@ -39,7 +37,7 @@ except ImportError:
 
 
 def create_flask_app(config=None):
-    """Create the flask app"""
+    """Create the flask app."""
     tf_app = APIFlask(__name__)
 
     # Globally disable strict slashes

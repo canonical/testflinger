@@ -13,15 +13,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""
-Unit tests for Testflinger Juju charm
-"""
+"""Unit tests for Testflinger Juju charm."""
 
 from pathlib import Path
 
 import ops
 import ops.testing
 import pytest
+
 from charm import TestflingerCharm
 
 CHARMDIR = Path(__file__).parent.parent.parent.resolve()
@@ -29,13 +28,13 @@ CHARMDIR = Path(__file__).parent.parent.parent.resolve()
 
 @pytest.fixture(name="harness")
 def fixture_harness():
-    """Pytest fixture for getting the harness"""
+    """Pytest fixture for getting the harness."""
     harness = ops.testing.Harness(TestflingerCharm)
     return harness
 
 
 def test_waiting_for_relation(harness):
-    """Test that the status is set to waiting when relation is not present"""
+    """Test that the status is set to waiting when relation is not present."""
     harness.begin()
     with pytest.raises(SystemExit):
         assert harness.container_pebble_ready("testflinger")
@@ -43,7 +42,7 @@ def test_waiting_for_relation(harness):
 
 
 def test_good_relation_active_status(harness):
-    """status should be active when the relation is present"""
+    """Status should be active when the relation is present."""
     harness.container_pebble_ready("testflinger")
     harness.set_can_connect("testflinger", True)
     harness.begin()
@@ -64,7 +63,7 @@ def test_good_relation_active_status(harness):
 
 
 def test_remove_relation_waiting_status(harness):
-    """status should be waiting when the relation is present"""
+    """Status should be waiting when the relation is present."""
     harness.container_pebble_ready("testflinger")
     harness.set_can_connect("testflinger", True)
     harness.begin()
@@ -88,7 +87,7 @@ def test_remove_relation_waiting_status(harness):
 
 
 def test_container_cant_connect_waiting_status(harness):
-    """status should be waiting container can't connect"""
+    """Status should be waiting container can't connect."""
     harness.container_pebble_ready("testflinger")
     harness.set_can_connect("testflinger", False)
     harness.begin()
@@ -109,7 +108,7 @@ def test_container_cant_connect_waiting_status(harness):
 
 
 def test_incomplete_relation_maintenance_status(harness):
-    """status should be maintenance when relation data is incomplete"""
+    """Status should be maintenance when relation data is incomplete."""
     harness.container_pebble_ready("testflinger")
     harness.set_can_connect("testflinger", False)
     harness.begin()

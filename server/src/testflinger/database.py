@@ -13,9 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""
-This returns a db object for talking to MongoDB
-"""
+"""Return a db object for talking to MongoDB."""
 
 import os
 import urllib
@@ -33,7 +31,7 @@ mongo = PyMongo()
 
 
 def get_mongo_uri():
-    """Creates mongodb uri from environment variables"""
+    """Create mongodb uri from environment variables."""
     mongo_user = os.environ.get("MONGODB_USERNAME")
     mongo_pass = os.environ.get("MONGODB_PASSWORD")
     if mongo_pass:
@@ -62,8 +60,8 @@ def get_mongo_uri():
 
 def setup_mongodb(application):
     """
-    Setup mongodb connection if we have valid config data
-    Otherwise leave it empty, which means we are probably running unit tests
+    Setups mongodb connection if we have valid config data
+    Otherwise leave it empty, which means we are probably running unit tests.
     """
     mongo_uri = get_mongo_uri()
     mongo.init_app(
@@ -71,15 +69,14 @@ def setup_mongodb(application):
         uri=mongo_uri,
         uuidRepresentation="standard",
         serverSelectionTimeoutMS=2000,
-        maxPoolSize=os.environ.get("MONGODB_MAX_POOL_SIZE", 100),
+        maxPoolSize=int(os.environ.get("MONGODB_MAX_POOL_SIZE", "100")),
     )
 
     create_indexes()
 
 
 def create_indexes():
-    """Initialize collections and indexes in case they don't exist already"""
-
+    """Initialize collections and indexes in case they don't exist already."""
     # Automatically expire jobs after 7 days if nothing runs them
     mongo.db.jobs.create_index(
         "created_at", expireAfterSeconds=DEFAULT_EXPIRATION
@@ -114,7 +111,7 @@ def create_indexes():
 
 
 def save_file(data: Any, filename: str):
-    """Store a file in the database (using GridFS)"""
+    """Store a file in the database (using GridFS)."""
     # Normally we would use flask-pymongo save_file but it doesn't seem to
     # work nicely for me with mongomock
     storage = GridFS(mongo.db)
@@ -127,7 +124,7 @@ def save_file(data: Any, filename: str):
 
 
 def retrieve_file(filename):
-    """Retrieve a file from the database (using GridFS)"""
+    """Retrieve a file from the database (using GridFS)."""
     # Normally we would use flask-pymongo send_file but it doesn't seem to
     # work nicely for me with mongomock
     storage = GridFS(mongo.db)
@@ -138,7 +135,7 @@ def retrieve_file(filename):
 
 
 def get_attachments_status(job_id: str) -> str:
-    """Return the attachments status of a job with `job_id`
+    """Return the attachments status of a job with `job_id`.
 
     :raises:
         `ValueError` if no such job exists
@@ -160,7 +157,7 @@ def get_attachments_status(job_id: str) -> str:
 
 
 def attachments_received(job_id):
-    """Inform the database that a job attachment archive has been stored"""
+    """Inform the database that a job attachment archive has been stored."""
     mongo.db.jobs.find_one_and_update(
         {
             "job_id": job_id,
@@ -172,12 +169,12 @@ def attachments_received(job_id):
 
 
 def add_job(job: dict):
-    """Add the `job` to the database"""
+    """Add the `job` to the database."""
     mongo.db.jobs.insert_one(job)
 
 
 def pop_job(queue_list):
-    """Get the next job in the queue"""
+    """Get the next job in the queue."""
     # The queue name and the job are returned, but we don't need the queue now
     try:
         response = mongo.db.jobs.find_one_and_update(
@@ -223,7 +220,7 @@ def pop_job(queue_list):
 def save_queue_wait_time(
     queue: str, started_at: datetime, created_at: datetime
 ):
-    """Save data about the wait time in seconds for the specified queue"""
+    """Save data about the wait time in seconds for the specified queue."""
     # Ensure that python knows both datestamps are in UTC
     started_at = started_at.replace(tzinfo=timezone.utc)
     created_at = created_at.replace(tzinfo=timezone.utc)
@@ -240,7 +237,7 @@ def save_queue_wait_time(
 
 
 def get_queue_wait_times(queues: list[str] | None = None) -> list[dict]:
-    """Get the percentiles of wait times for specified queues or all queues"""
+    """Get the percentiles of wait times for specified queues or all queues."""
     if not queues:
         wait_times = mongo.db.queue_wait_times.find({}, {"_id": False})
     else:
@@ -251,7 +248,7 @@ def get_queue_wait_times(queues: list[str] | None = None) -> list[dict]:
 
 
 def get_agents_on_queue(queue: str) -> list[dict]:
-    """Get the agents that are listening on the specified queue"""
+    """Get the agents that are listening on the specified queue."""
     agents = mongo.db.agents.find(
         {"queues": {"$in": [queue]}},
         {"_id": 0},
@@ -261,7 +258,7 @@ def get_agents_on_queue(queue: str) -> list[dict]:
 
 def calculate_percentiles(data: list) -> dict:
     """
-    Calculate the percentiles of the wait times for each queue
+    Calculate the percentiles of the wait times for each queue.
 
     This uses the nearest rank with interpolation method, which can help in
     cases where the data is not evenly distributed, such as when we might
@@ -295,7 +292,7 @@ def calculate_percentiles(data: list) -> dict:
 def get_provision_log(
     agent_id: str, start_datetime: datetime, stop_datetime: datetime
 ) -> list:
-    """Get the provision log for an agent between two dates"""
+    """Get the provision log for an agent between two dates."""
     provision_log_entries = mongo.db.provision_logs.aggregate(
         [
             {"$match": {"name": agent_id}},
@@ -338,7 +335,7 @@ def get_provision_log(
 
 
 def check_queue_restricted(queue: str) -> bool:
-    """Checks if queue is restricted"""
+    """Check if queue is restricted."""
     queue_count = mongo.db.restricted_queues.count_documents(
         {"queue_name": queue}
     )

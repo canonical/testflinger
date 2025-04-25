@@ -13,9 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""
-Testflinger v1 OpenAPI schemas
-"""
+"""Testflinger v1 OpenAPI schemas."""
 
 from apiflask import Schema, fields
 from apiflask.validators import Length, OneOf, Regexp
@@ -38,7 +36,7 @@ ValidJobStates = (
 
 
 class ProvisionLogsIn(Schema):
-    """Provision logs input schema"""
+    """Provision logs input schema."""
 
     job_id = fields.String(required=True)
     exit_code = fields.Integer(required=True)
@@ -46,7 +44,7 @@ class ProvisionLogsIn(Schema):
 
 
 class AgentIn(Schema):
-    """Agent data input schema"""
+    """Agent data input schema."""
 
     identifier = fields.String(required=False)
     job_id = fields.String(required=False)
@@ -58,7 +56,7 @@ class AgentIn(Schema):
 
 
 class AgentOut(Schema):
-    """Agent data output schema"""
+    """Agent data output schema."""
 
     name = fields.String(required=True)
     state = fields.String(required=False)
@@ -69,13 +67,13 @@ class AgentOut(Schema):
 
 
 class ActionIn(Schema):
-    """Action data input schema"""
+    """Action data input schema."""
 
     action = fields.String(required=True, validate=OneOf(["cancel"]))
 
 
 class Attachment(Schema):
-    """Attachment pathnames schema
+    """Attachment pathnames schema.
 
     - `agent`: path to copy the attachment in the testflinger agent (optional)
     - `device`: path to copy the attachment in the device under test (optional)
@@ -251,7 +249,7 @@ class ProvisionData(OneOfSchema):
 
 
 class TestData(Schema):
-    """Schema for the `test_data` section of a testflinger job"""
+    """Schema for the `test_data` section of a testflinger job."""
 
     test_cmds = fields.String(required=False)
     attachments = fields.List(fields.Nested(Attachment), required=False)
@@ -271,7 +269,7 @@ class ReserveData(Schema):
 
 
 class Job(Schema):
-    """Job schema"""
+    """Job schema."""
 
     job_id = fields.String(required=False)
     parent_job_id = fields.String(required=False)
@@ -293,13 +291,13 @@ class Job(Schema):
 
 
 class JobId(Schema):
-    """Job ID schema"""
+    """Job ID schema."""
 
     job_id = fields.String(required=True)
 
 
 class JobSearchRequest(Schema):
-    """Job search request schema"""
+    """Job search request schema."""
 
     tags = fields.List(
         fields.String,
@@ -318,13 +316,13 @@ class JobSearchRequest(Schema):
 
 
 class JobSearchResponse(Schema):
-    """Job search response schema"""
+    """Job search response schema."""
 
     jobs = fields.List(fields.Nested(Job), required=True)
 
 
 class Result(Schema):
-    """Result schema"""
+    """Result schema."""
 
     setup_status = fields.Integer(required=False)
     setup_output = fields.String(required=False)
@@ -352,7 +350,7 @@ class Result(Schema):
 
 
 class JobEvent(Schema):
-    """Job Event schema"""
+    """Job Event schema."""
 
     event_name = fields.String(required=True)
     timestamp = fields.String(required=True)
@@ -360,7 +358,7 @@ class JobEvent(Schema):
 
 
 class StatusUpdate(Schema):
-    """Status Update schema"""
+    """Status Update schema."""
 
     agent_id = fields.String(required=False)
     job_queue = fields.String(required=False)

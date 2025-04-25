@@ -33,26 +33,55 @@ client_credentials_admin = "testflinger.tools.client_credentials_admin:main"
 [dependency-groups]
 charm = ["ops>=2.2.0"]
 dev = [
-    "black>=24.8.0",
     "cosl>=0.0.57",
     "djlint>=1.36.4",
-    "flake8>=5.0.4",
     "mongomock>=4.3.0",
-    "pylint>=3.2.7",
     "pytest>=8.3.5",
     "pytest-cov>=5.0.0",
     "requests>=2.32.3",
     "requests-mock>=1.12.1",
+    "ruff>=0.11.6",
 ]
 
-[tool.black]
+[tool.ruff]
 line-length = 79
-exclude = "charm/lib"
+extend-exclude = ["charm/lib"]
+
+[tool.ruff.lint]
+select = [
+    "A",   # flake8-builtins
+    "B",   # flake8-bugbear
+    "C4",  # comprenhension
+    "D",   # docstrings
+    "DTZ", # flake8-datetimez 
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "G",   # flake8-logging-format 
+    "I",   # isort
+    "LOG", # flake8-logging
+    "N",   # naming
+    "PLE", # pylint errors
+    "PLW", # pyling warnings
+    "S",   # flake8-bandit 
+    "W",   # pycodestyle warnings
+]
+ignore = [
+    "D104", # docstring: Missing docstring in public package
+    "D205", # docstring: missing-blank-line-after-summary
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101", # use of assert
+]
+"charm/tests/*" = [
+    "S101", # use of assert
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
 
 [tool.djlint]
 profile = "jinja"
 ignore = "H023,H021"
 indent = 2
-
-[tool.pylint."messages control"]
-disable = ["C0209"]

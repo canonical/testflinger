@@ -14,31 +14,31 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""
-Testflinger Juju charm
-"""
+"""Testflinger Juju charm."""
 
 import logging
 import sys
-import ops
 
-from ops.pebble import Layer
-from ops.main import main
-from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent
-from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
+import ops
+from charms.data_platform_libs.v0.data_interfaces import (
+    DatabaseCreatedEvent,
+    DatabaseRequires,
+)
 from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
 from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+from ops.main import main
+from ops.pebble import Layer
 
 logger = logging.getLogger(__name__)
 
 
 class TestflingerCharm(ops.CharmBase):
-    """Testflinger charm"""
+    """Testflinger charm."""
 
     _stored = ops.framework.StoredState()
 
     def __init__(self, *args):
-        """Initialize the charm"""
+        """Initialize the charm."""
         super().__init__(*args)
         self.pebble_service_name = "testflinger"
         self.pebble_check_name = "v1_up"
@@ -81,7 +81,7 @@ class TestflingerCharm(ops.CharmBase):
 
     @property
     def version(self) -> str:
-        """Report the current version of the app"""
+        """Report the current version of the app."""
         return "Version ?"
 
     def _require_nginx_route(self):
@@ -116,7 +116,7 @@ class TestflingerCharm(ops.CharmBase):
             self._update_layer_and_restart()
 
     def _update_layer_and_restart(self) -> None:
-        """Define and start layer for testflinger using Pebble"""
+        """Define and start layer for testflinger using Pebble."""
         if not self.container.can_connect():
             self.unit.status = ops.WaitingStatus(
                 "Waiting for Pebble in workload container"
@@ -147,7 +147,7 @@ class TestflingerCharm(ops.CharmBase):
     ) -> None:
         """
         Event is fired when relation with mongodb is broken.
-        We need to accept the event as an argument, but we don't use it
+        We need to accept the event as an argument, but we don't use it.
         """
         self.unit.status = ops.WaitingStatus("Waiting for database relation")
         sys.exit()
@@ -155,7 +155,7 @@ class TestflingerCharm(ops.CharmBase):
     def _on_config_changed(self, _: ops.framework.EventBase) -> None:
         """
         Handle config changed event
-        We need to accept the event as an argument, but we don't use it
+        We need to accept the event as an argument, but we don't use it.
         """
         self._update_layer_and_restart()
 
@@ -212,7 +212,7 @@ class TestflingerCharm(ops.CharmBase):
     def app_environment(self) -> dict:
         """
         Get dict of env data for the mongodb credentials
-        and other config variables
+        and other config variables.
         """
         db_data = self.fetch_mongodb_relation_data()
         env = {
@@ -227,7 +227,7 @@ class TestflingerCharm(ops.CharmBase):
         return env
 
     def fetch_mongodb_relation_data(self) -> dict:
-        """Get relation data from the mongodb charm"""
+        """Get relation data from the mongodb charm."""
         data = self.mongodb.fetch_relation_data()
         logger.debug("Got following database data: %s", data)
         if not data:

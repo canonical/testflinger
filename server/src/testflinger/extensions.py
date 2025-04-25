@@ -1,6 +1,4 @@
-"""
-Flask extensions that may be imported by other modules
-"""
+"""Flask extensions that may be imported by other modules."""
 
 from prometheus_flask_exporter import PrometheusMetrics
 

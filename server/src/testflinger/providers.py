@@ -13,17 +13,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""
-Custom JSON providers for when jsonify() doesn't do what we want
-"""
+"""Custom JSON providers for when jsonify() doesn't do what we want."""
 
 from datetime import datetime
+
 from flask.json.provider import DefaultJSONProvider
 
 
-class ISODatetimeProvider(
-    DefaultJSONProvider
-):  # pylint: disable=too-few-public-methods
+class ISODatetimeProvider(DefaultJSONProvider):  # pylint: disable=too-few-public-methods
     """Return datetime objects as RFC3339/ISO8601 strings with a 'Z' suffix."""
 
     def default(self, obj):

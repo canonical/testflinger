@@ -13,14 +13,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# pylint: disable=C0302
-"""
-Unit tests for Testflinger v1 API
-"""
+"""Unit tests for Testflinger v1 API."""
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from http import HTTPStatus
 from io import BytesIO
 
@@ -28,7 +25,7 @@ from testflinger.api import v1
 
 
 def test_home(mongo_app):
-    """Test that queries to / are redirected to /agents"""
+    """Test that queries to / are redirected to /agents."""
     app, _ = mongo_app
     response = app.get("/")
     assert 302 == response.status_code
@@ -36,7 +33,7 @@ def test_home(mongo_app):
 
 
 def test_add_job_invalid_reserve_data(mongo_app):
-    """Test that a job with an invalid reserve_data field fails"""
+    """Test that a job with an invalid reserve_data field fails."""
     # Invalid ssh_keys field
     job_data = {
         "job_queue": "test",
@@ -80,7 +77,7 @@ def test_add_job_invalid_reserve_data(mongo_app):
 
 
 def test_add_job_valid_reserve_data(mongo_app):
-    """Test that a job with valid reserve_data field works"""
+    """Test that a job with valid reserve_data field works."""
     # Valid ssh_keys
     job_data = {
         "job_queue": "test",
@@ -116,8 +113,7 @@ def test_add_job_valid_reserve_data(mongo_app):
 
 
 def test_add_job_cm3_provision_data(mongo_app):
-    """Test that a job with cm3 provision_data works"""
-
+    """Test that a job with cm3 provision_data works."""
     # Invalid URL fails
     provision_data = {"url": "invalid"}
     job_data = {"job_queue": "test", "provision_data": provision_data}
@@ -381,7 +377,7 @@ def test_add_job_zapper_kvm_generic_provision_data(mongo_app):
 
 
 def test_add_job_good(mongo_app):
-    """Test that adding a new job works"""
+    """Test that adding a new job works."""
     job_data = {"job_queue": "test", "tags": ["foo", "bar"]}
     # Place a job on the queue
     app, _ = mongo_app
@@ -397,7 +393,7 @@ def test_add_job_good(mongo_app):
 
 
 def test_add_job_good_with_attachments(mongo_app, tmp_path):
-    """Test that adding a new job with attachments works"""
+    """Test that adding a new job with attachments works."""
     job_data = {
         "job_queue": "test",
         "test_data": {"attachments": [{"agent": "filename"}]},
@@ -442,7 +438,7 @@ def test_add_job_good_with_attachments(mongo_app, tmp_path):
 
 
 def test_submit_attachment_without_job(mongo_app, tmp_path):
-    """Test for error when submitting attachments for a non-job"""
+    """Test for error when submitting attachments for a non-job."""
     app, _ = mongo_app
     nonexistent_id = "77777777-7777-7777-7777-777777777777"
 
@@ -464,7 +460,7 @@ def test_submit_attachment_without_job(mongo_app, tmp_path):
 
 
 def test_retrieve_attachments_nonexistent_job(mongo_app):
-    """Test for error when requesting non-existent attachments"""
+    """Test for error when requesting non-existent attachments."""
     app, _ = mongo_app
     nonexistent_id = "77777777-7777-7777-7777-777777777777"
 
@@ -475,7 +471,7 @@ def test_retrieve_attachments_nonexistent_job(mongo_app):
 
 
 def test_retrieve_attachments_nonexistent_attachment(mongo_app):
-    """Test for error when requesting non-existent attachments"""
+    """Test for error when requesting non-existent attachments."""
     job_data = {"job_queue": "test", "tags": ["foo", "bar"]}
     # place a job on the queue
     app, _ = mongo_app
@@ -490,7 +486,7 @@ def test_retrieve_attachments_nonexistent_attachment(mongo_app):
 
 
 def test_add_job_good_with_jobid(mongo_app):
-    """Test that adding a job with job ID works"""
+    """Test that adding a job with job ID works."""
     my_id = "77777777-7777-7777-7777-777777777777"
     job_data = {"job_id": my_id, "job_queue": "test"}
     # Place a job on the queue
@@ -501,7 +497,7 @@ def test_add_job_good_with_jobid(mongo_app):
 
 
 def test_initial_job_state(mongo_app):
-    """Ensure initial job state is set to 'waiting'"""
+    """Ensure initial job state is set to 'waiting'."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
     # Place a job on the queue
@@ -513,7 +509,7 @@ def test_initial_job_state(mongo_app):
 
 
 def test_resubmit_job_state(mongo_app):
-    """Ensure initial job state is set to 'waiting'"""
+    """Ensure initial job state is set to 'waiting'."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
     # Place a job on the queue
@@ -528,28 +524,28 @@ def test_resubmit_job_state(mongo_app):
 
 
 def test_get_nonexistant_job(mongo_app):
-    """Test for 204 when getting from a nonexistent queue"""
+    """Test for 204 when getting from a nonexistent queue."""
     app, _ = mongo_app
     output = app.get("/v1/job?queue=BAD_QUEUE_NAME")
     assert 204 == output.status_code
 
 
 def test_get_job_no_queue(mongo_app):
-    """Test for error when getting a job without the ID"""
+    """Test for error when getting a job without the ID."""
     app, _ = mongo_app
     output = app.get("/v1/job")
     assert 400 == output.status_code
 
 
 def test_add_job_bad(mongo_app):
-    """Test for error when posting an empty job"""
+    """Test for error when posting an empty job."""
     app, _ = mongo_app
     output = app.post("/v1/job", json={})
     assert 422 == output.status_code
 
 
 def test_add_job_bad_job_id(mongo_app):
-    """Test for error when posting a job with a bad ID"""
+    """Test for error when posting a job with a bad ID."""
     app, _ = mongo_app
     output = app.post("/v1/job", json={"job_id": "bad", "job_queue": "test"})
     assert "Invalid job_id specified" in output.text
@@ -557,7 +553,7 @@ def test_add_job_bad_job_id(mongo_app):
 
 
 def test_add_job_bad_job_queue(mongo_app):
-    """Test for error when adding a job without a queue"""
+    """Test for error when adding a job without a queue."""
     app, _ = mongo_app
     output = app.post("/v1/job", json={"foo": "test"})
     assert "Validation error" in output.text
@@ -565,7 +561,7 @@ def test_add_job_bad_job_queue(mongo_app):
 
 
 def test_add_job_empty_queue(mongo_app):
-    """Test for error when adding a job with an empty queue"""
+    """Test for error when adding a job with an empty queue."""
     app, _ = mongo_app
     output = app.post("/v1/job", json={"job_queue": ""})
     assert "Invalid data or no job_queue specified" in output.text
@@ -573,14 +569,14 @@ def test_add_job_empty_queue(mongo_app):
 
 
 def test_result_get_result_not_exists(mongo_app):
-    """Test for 204 when getting a nonexistent result"""
+    """Test for 204 when getting a nonexistent result."""
     app, _ = mongo_app
     output = app.get("/v1/result/11111111-1111-1111-1111-111111111111")
     assert 204 == output.status_code
 
 
 def test_result_get_bad(mongo_app):
-    """Test for error when getting results from a bad job ID"""
+    """Test for error when getting results from a bad job ID."""
     app, _ = mongo_app
     output = app.get("/v1/result/BAD_JOB_ID")
     assert "Invalid job_id specified" in output.text
@@ -588,7 +584,7 @@ def test_result_get_bad(mongo_app):
 
 
 def test_result_post_good(mongo_app):
-    """Test that posting results correctly works"""
+    """Test that posting results correctly works."""
     app, _ = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
@@ -601,7 +597,7 @@ def test_result_post_good(mongo_app):
 
 
 def test_result_post_bad(mongo_app):
-    """Test for error when posting to a bad job ID"""
+    """Test for error when posting to a bad job ID."""
     app, _ = mongo_app
     response = app.post("/v1/result/BAD_JOB_ID")
     assert "Invalid job_id specified" in response.text
@@ -609,7 +605,7 @@ def test_result_post_bad(mongo_app):
 
 
 def test_result_post_baddata(mongo_app):
-    """Test that we get an error for posting results with no data"""
+    """Test that we get an error for posting results with no data."""
     app, _ = mongo_app
     result_url = "/v1/result/00000000-0000-0000-0000-000000000000"
     response = app.post(result_url, json={"foo": "bar"})
@@ -618,7 +614,7 @@ def test_result_post_baddata(mongo_app):
 
 
 def test_state_update_keeps_results(mongo_app):
-    """Update job_state shouldn't lose old results"""
+    """Update job_state shouldn't lose old results."""
     app, _ = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
@@ -633,7 +629,7 @@ def test_state_update_keeps_results(mongo_app):
 
 
 def test_artifact_post_good(mongo_app):
-    """Test both get and put of a result artifact"""
+    """Test both get and put of a result artifact."""
     app, _ = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
@@ -649,7 +645,7 @@ def test_artifact_post_good(mongo_app):
 
 
 def test_result_get_artifact_not_exists(mongo_app):
-    """Get artifacts for a nonexistent job and confirm we get 204"""
+    """Get artifacts for a nonexistent job and confirm we get 204."""
     app, _ = mongo_app
     output = app.get(
         "/v1/result/11111111-1111-1111-1111-111111111111/artifact"
@@ -658,7 +654,7 @@ def test_result_get_artifact_not_exists(mongo_app):
 
 
 def test_output_post_get(mongo_app):
-    """Test posting output data for a job then reading it back"""
+    """Test posting output data for a job then reading it back."""
     app, _ = mongo_app
     output_url = "/v1/result/00000000-0000-0000-0000-000000000000/output"
     data = "line1\nline2\nline3"
@@ -669,7 +665,7 @@ def test_output_post_get(mongo_app):
 
 
 def test_job_get_result_invalid(mongo_app):
-    """Test getting results with bad job UUID fails"""
+    """Test getting results with bad job UUID fails."""
     app, _ = mongo_app
     job_url = "/v1/result/00000000-0000-0000-0000-00000000000X"
     output = app.get(job_url)
@@ -677,7 +673,7 @@ def test_job_get_result_invalid(mongo_app):
 
 
 def test_job_get_result_no_data(mongo_app):
-    """Test getting results for a nonexistent job"""
+    """Test getting results for a nonexistent job."""
     app, _ = mongo_app
     job_url = "/v1/result/00000000-0000-0000-0000-000000000000"
     output = app.get(job_url)
@@ -686,7 +682,7 @@ def test_job_get_result_no_data(mongo_app):
 
 
 def test_job_get_id_with_data(mongo_app):
-    """Test getting the json for a job that has been submitted"""
+    """Test getting the json for a job that has been submitted."""
     app, _ = mongo_app
     job_data = {
         "job_queue": "test",
@@ -707,7 +703,7 @@ def test_job_get_id_with_data(mongo_app):
 
 
 def test_job_position(mongo_app):
-    """Ensure initial job state is set to 'waiting'"""
+    """Ensure initial job state is set to 'waiting'."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
     # Place 3 jobs on the queue
@@ -732,7 +728,7 @@ def test_job_position(mongo_app):
 
 
 def test_action_post(mongo_app):
-    """Test getting 422 code for an unsupported action"""
+    """Test getting 422 code for an unsupported action."""
     app, _ = mongo_app
     action_url = "/v1/job/00000000-0000-0000-0000-000000000000/action"
     action_data = {"action": "foo"}
@@ -741,7 +737,7 @@ def test_action_post(mongo_app):
 
 
 def test_queues_post(mongo_app):
-    """Test posting advertised queues"""
+    """Test posting advertised queues."""
     app, _ = mongo_app
     queue_data = {"qfoo": "this is a test queue"}
     app.post("/v1/agents/queues", json=queue_data)
@@ -750,7 +746,7 @@ def test_queues_post(mongo_app):
 
 
 def test_images_post(mongo_app):
-    """Test posting advertised images for a queue"""
+    """Test posting advertised images for a queue."""
     app, _ = mongo_app
     image_data = {
         "myqueue": {
@@ -764,14 +760,14 @@ def test_images_post(mongo_app):
 
 
 def test_get_invalid(mongo_app):
-    """Get a nonexistent URL and confirm we get 404"""
+    """Get a nonexistent URL and confirm we get 404."""
     app, _ = mongo_app
     output = app.get("/v1/something")
     assert 404 == output.status_code
 
 
 def test_cancel_job_completed(mongo_app):
-    """Test that a job can't be cancelled if completed or cancelled already"""
+    """Test that a job can't be cancelled if completed or cancelled already."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
     job_output = app.post("/v1/job", json=job_data)
@@ -791,7 +787,7 @@ def test_cancel_job_completed(mongo_app):
 
 
 def test_cancel_job_good(mongo_app):
-    """Test if a valid job with waiting status can be cancelled"""
+    """Test if a valid job with waiting status can be cancelled."""
     app, mongo = mongo_app
     job_data = {"job_queue": "test"}
     job_output = app.post("/v1/job", json=job_data)
@@ -810,7 +806,7 @@ def test_cancel_job_good(mongo_app):
 
 
 def test_agents_post(mongo_app):
-    """Test posting agent data and updating it"""
+    """Test posting agent data and updating it."""
     app, mongo = mongo_app
     agent_name = "agent1"
     logdata = [f"Log line {i}" for i in range(60)]
@@ -838,7 +834,7 @@ def test_agents_post(mongo_app):
 
 
 def test_agents_post_bad(mongo_app):
-    """Test posting agent data with bad data"""
+    """Test posting agent data with bad data."""
     app, _ = mongo_app
     agent_name = "agent1"
     agent_data = "BAD_DATA_SHOULD_BE_JSON"
@@ -849,7 +845,7 @@ def test_agents_post_bad(mongo_app):
 
 
 def test_agents_provision_logs_post(mongo_app):
-    """Test posting provision logs for an agent"""
+    """Test posting provision logs for an agent."""
     app, mongo = mongo_app
     agent_name = "agent1"
     provision_log = {
@@ -895,7 +891,7 @@ def test_agents_provision_logs_post(mongo_app):
 
 
 def test_agents_status_put(mongo_app, requests_mock):
-    """Test api to receive agent status requests"""
+    """Test api to receive agent status requests."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
     job_output = app.post("/v1/job", json=job_data)
@@ -921,7 +917,7 @@ def test_agents_status_put(mongo_app, requests_mock):
 
 
 def test_get_agents_data(mongo_app):
-    """Test api to retrieve agent data"""
+    """Test api to retrieve agent data."""
     app, _ = mongo_app
     agent_name = "agent1"
     agent_data = {
@@ -941,7 +937,7 @@ def test_get_agents_data(mongo_app):
 
 
 def test_search_jobs_by_tags(mongo_app):
-    """Test search_jobs by tags"""
+    """Test search_jobs by tags."""
     app, _ = mongo_app
 
     # Create some test jobs
@@ -973,7 +969,7 @@ def test_search_jobs_by_tags(mongo_app):
 
 
 def test_search_jobs_invalid_match(mongo_app):
-    """Test search_jobs with invalid match"""
+    """Test search_jobs with invalid match."""
     app, _ = mongo_app
 
     output = app.get("/v1/job/search?match=foo")
@@ -982,7 +978,7 @@ def test_search_jobs_invalid_match(mongo_app):
 
 
 def test_search_jobs_by_state(mongo_app):
-    """Test search jobs by state"""
+    """Test search jobs by state."""
     app, _ = mongo_app
 
     job = {
@@ -1024,7 +1020,7 @@ def test_search_jobs_by_state(mongo_app):
 
 
 def test_search_jobs_invalid_state(mongo_app):
-    """Test search jobs with invalid state"""
+    """Test search jobs with invalid state."""
     app, _ = mongo_app
 
     output = app.get("/v1/job/search?state=foo")
@@ -1033,7 +1029,7 @@ def test_search_jobs_invalid_state(mongo_app):
 
 
 def test_search_jobs_datetime_iso8601(mongo_app):
-    """Test that the created_at field is returned in ISO8601 format"""
+    """Test that the created_at field is returned in ISO8601 format."""
     app, mongo = mongo_app
 
     job = {
@@ -1044,7 +1040,7 @@ def test_search_jobs_datetime_iso8601(mongo_app):
     job_id = job_response.json.get("job_id")
     mongo.jobs.update_one(
         {"job_id": job_id},
-        {"$set": {"created_at": datetime(2020, 1, 1)}},
+        {"$set": {"created_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}},
     )
     output = app.get("/v1/job/search?tags=foo")
     assert 200 == output.status_code
@@ -1052,7 +1048,7 @@ def test_search_jobs_datetime_iso8601(mongo_app):
 
 
 def test_get_queue_wait_times(mongo_app):
-    """Test that the wait times for a queue are returned"""
+    """Test that the wait times for a queue are returned."""
     app, mongo = mongo_app
 
     # Add some fake wait times to the queue_wait_times collection
@@ -1078,7 +1074,7 @@ def test_get_queue_wait_times(mongo_app):
 
 
 def test_get_agents_on_queue(mongo_app):
-    """Test api to get agents on a queue"""
+    """Test api to get agents on a queue."""
     app, _ = mongo_app
     agent_name = "agent1"
     agent_data = {"state": "provision", "queues": ["q1", "q2"]}
@@ -1098,7 +1094,7 @@ def test_get_agents_on_queue(mongo_app):
 
 
 def test_serial_output(mongo_app):
-    """Test api endpoint to get serial log output"""
+    """Test api endpoint to get serial log output."""
     app, _ = mongo_app
     output_url = (
         "/v1/result/00000000-0000-0000-0000-000000000000/serial_output"
@@ -1113,7 +1109,7 @@ def test_serial_output(mongo_app):
 
 
 def test_result_post_large_payload(mongo_app):
-    """Test that posting a result with a payload size of 16MB or more fails"""
+    """Test that posting a result with a payload size of 16MB or more fails."""
     app, _ = mongo_app
     job_id = "00000000-0000-0000-0000-000000000000"
     result_url = f"/v1/result/{job_id}"
