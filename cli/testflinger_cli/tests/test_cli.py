@@ -142,8 +142,8 @@ def test_pack_attachments(tmp_path):
     attachment_path = tmp_path / "attachments"
 
     # create attachment files in the attachment path
-    for attachment in attachments:
-        attachment = attachment_path / attachment
+    for file in attachments:
+        attachment = attachment_path / file
         attachment.parent.mkdir(parents=True)
         attachment.write_bytes(os.urandom(128))
 
@@ -201,8 +201,8 @@ def test_pack_attachments_with_reference(tmp_path):
     attachment_path = tmp_path / "attachments"
 
     # create attachment files
-    for attachment in attachments:
-        attachment = attachment_path / attachment
+    for file in attachments:
+        attachment = attachment_path / file
         attachment.parent.mkdir(parents=True)
         attachment.write_bytes(os.urandom(128))
 

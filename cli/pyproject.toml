@@ -29,37 +29,31 @@ dev = [
   "ruff>=0.11.6",
 ]
 
-[tool.pylint.basic]
-good-names = ["k", "v"]
-
-[tool.pylint."messages control"]
-disable = ["C0209", "too-many-lines"]
-
 [tool.ruff]
 line-length = 79
 
 [tool.ruff.lint]
 select = [
-    "A", # flake8-builtins
-    "B", # flake8-bugbear
-    "C4", # comprenhension
-    "D", # docstrings
-    "DTZ", # flake8-datetimez 
-    "E", # pycodestyle errors
-    "F", # pyflakes
-    "G", # flake8-logging-format TODO
-    "I", # isort
-    "LOG", # flake8-logging
-    "N", # naming
-    "PLE", # pylint errors
-    "PLW0", # pyling warnings
-    "S", # flake8-bandit 
-    "W", # pycodestyle warnings
+  "A",   # flake8-builtins
+  "B",   # flake8-bugbear
+  "C4",  # comprenhension
+  "D",   # docstrings
+  "DTZ", # flake8-datetimez 
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "G",   # flake8-logging-format TODO
+  "I",   # isort
+  "LOG", # flake8-logging
+  "N",   # naming
+  "PLE", # pylint errors
+  "PLW", # pyling warnings
+  "S",   # flake8-bandit 
+  "W",   # pycodestyle warnings
 ]
 ignore = [
-    "D104", # docstring: Missing docstring in public package
-    "D107", # docstring: Missing docstring in __init__
-    "D205", # docstring: 1 black line required between summary line and description
+  "D104", # docstring: Missing docstring in public package
+  "D107", # docstring: Missing docstring in __init__
+  "D205", # docstring: 1 black line required between summary line and description
 
 ]
 
