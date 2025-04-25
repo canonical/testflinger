@@ -63,24 +63,7 @@ ignore = [
     "D103", # docstring: Missing docstring in public function
     "D104", # docstring: Missing docstring in public package
     "D107", # docstring: Missing docstring in __init__
-    "D200", # docstring: One-line docstring should fit on one line with quotes
-    "D202", # docstring: No black lines allowed after function docstring
-    "D203", # docstring: 1 black line required before class docstring
-    "D204", # docstring: 1 black line required after class docstring
     "D205", # docstring: 1 black line required between summary line and description
-    "D212", # docstring: Multi-line docstring summary should start at the first line
-    "D213", # docstring: Multi-line docstring summary should start at the second line
-    "D215", # docstring: Section underline is over-indented
-    "D400", # docstring: First line should end with a period
-    "D401", # docstring: First line should be in imperative mood; try rephrasing
-    "D403", # docstring: First word of the first line should be properly capitalized
-    "D404", # docstring: First word of the docstring should not be 'This'
-    "D406", # docstring: Section name should end with a newline
-    "D407", # docstring: Missing dashed underline after section
-    "D408", # docstring: Section underline should be in the line following the section's name
-    "D409", # docstring: Section underline should match the lenght of its name
-    "D413", # docstring: Missing blank line after last section. 
-    "D415", # docstring: First line should end with a period, question mark, or exclamation point
 ]
 
 [tool.ruff.lint.pep8-naming]

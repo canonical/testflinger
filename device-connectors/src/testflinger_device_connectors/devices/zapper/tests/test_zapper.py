@@ -38,11 +38,9 @@ class ZapperConnectorTests(unittest.TestCase):
 
     @patch("rpyc.connect")
     def test_run(self, mock_connect):
-        """
-        Test the `run` function connects to a Zapper via RPyC
+        """Test the `run` function connects to a Zapper via RPyC
         and runs the `provision` API.
         """
-
         args = (1, 2, 3)
         kwargs = {"key1": 1, "key2": 2}
 
@@ -58,12 +56,10 @@ class ZapperConnectorTests(unittest.TestCase):
         )
 
     def test_copy_ssh_id(self):
-        """
-        Test the function collects the device info from
+        """Test the function collects the device info from
         job and config and attempts to copy the agent SSH
         key to the DUT.
         """
-
         connector = MockConnector()
         connector.job_data = {
             "test_data": {
@@ -81,11 +77,9 @@ class ZapperConnectorTests(unittest.TestCase):
         )
 
     def test_copy_ssh_id_raises(self):
-        """
-        Test the function raises a ProvisioningError exception
+        """Test the function raises a ProvisioningError exception
         in case of failure.
         """
-
         connector = MockConnector()
         connector.job_data = {
             "test_data": {

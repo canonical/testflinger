@@ -47,8 +47,7 @@ class CM3:
             self.job_data = json.load(j)
 
     def _run_control(self, cmd, timeout=60):
-        """
-        Run a command on the control host over ssh
+        """Run a command on the control host over ssh.
 
         :param cmd:
             Command to run
@@ -132,8 +131,7 @@ class CM3:
             self._run_control("sudo umount {}".format(mount_point))
 
     def get_image_type(self):
-        """
-        Figure out which kind of image is on the configured block device
+        """Figure out which kind of image is on the configured block device.
 
         :returns:
             tuple of image type and device as strings
@@ -193,7 +191,7 @@ class CM3:
         raise ProvisioningError("Failed to boot test image!")
 
     def create_user(self, image_type):
-        """Create user account for default ubuntu user"""
+        """Create user account for default ubuntu user."""
         metadata = "instance_id: cloud-image"
         userdata = (
             "#cloud-config\n"
@@ -257,8 +255,7 @@ class CM3:
             raise ProvisioningError("Error creating user files")
 
     def hardreset(self):
-        """
-        Reboot the device.
+        """Reboot the device.
 
         :raises RecoveryError:
             If the command times out or anything else fails.

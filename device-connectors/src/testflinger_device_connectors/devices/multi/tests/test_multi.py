@@ -23,15 +23,15 @@ from testflinger_device_connectors.devices.multi.tfclient import TFClient
 
 
 class MockTFClient(TFClient):
-    """Mock TFClient object"""
+    """Mock TFClient object."""
 
     def submit_job(self, job_data):
-        """Return a fake job id"""
+        """Return a fake job id."""
         return str(uuid4())
 
 
 def test_bad_tfclient_url():
-    """Test that Multi raises an exception when TFClient URL is bad"""
+    """Test that Multi raises an exception when TFClient URL is bad."""
     with pytest.raises(ValueError):
         TFClient(None)
     with pytest.raises(ValueError):
@@ -39,7 +39,7 @@ def test_bad_tfclient_url():
 
 
 def test_inject_allocate_data():
-    """Test that allocate_data section is injected into job"""
+    """Test that allocate_data section is injected into job."""
     test_config = {"agent_name": "test_agent"}
     job_data = {
         "provision_data": {
@@ -56,7 +56,7 @@ def test_inject_allocate_data():
 
 
 def test_inject_parent_jobid():
-    """Test that parent_jobid is injected into job"""
+    """Test that parent_jobid is injected into job."""
     test_config = {"agent_name": "test_agent"}
     parent_job_id = "11111111-1111-1111-1111-111111111111"
     job_data = {
@@ -75,7 +75,7 @@ def test_inject_parent_jobid():
 
 
 def test_this_job_completed():
-    """Test this_job_completed() returns True only when the job is completed"""
+    """Test this_job_completed returns True only when the job is completed."""
     test_config = {"agent_name": "test_agent"}
     job_data = {
         "job_id": "11111111-1111-1111-1111-111111111111",

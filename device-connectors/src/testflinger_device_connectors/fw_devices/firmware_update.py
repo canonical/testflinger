@@ -1,4 +1,4 @@
-"""Detecting device types"""
+"""Detecting device types."""
 
 import logging
 import subprocess
@@ -25,8 +25,7 @@ def all_subclasses(cls):
 def detect_device(
     ip: str, user: str, password: str = "", **options
 ) -> AbstractDevice:
-    """
-    Detect device's firmware upgrade type by checking on DMI data
+    """Detect device's firmware upgrade type by checking on DMI data.
 
     :param ip:        DUT IP
     :param user:      DUT user

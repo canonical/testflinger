@@ -48,8 +48,7 @@ class Dragonboard:
         )
 
     def _run_control(self, cmd, timeout=60):
-        """
-        Run a command on the control host over ssh
+        """Run a command on the control host over ssh.
 
         :param cmd:
             Command to run
@@ -73,8 +72,7 @@ class Dragonboard:
         return output
 
     def setboot(self, mode):
-        """
-        Set the boot mode of the device.
+        """Set the boot mode of the device.
 
         :param mode:
             One of 'master' or 'test'
@@ -99,8 +97,7 @@ class Dragonboard:
                 raise ProvisioningError("timeout reaching control host!")
 
     def hardreset(self):
-        """
-        Reboot the device.
+        """Reboot the device.
 
         :raises RecoveryError:
             If the command times out or anything else fails.
@@ -117,9 +114,7 @@ class Dragonboard:
                 raise RecoveryError("timeout reaching control host!")
 
     def copy_ssh_id(self):
-        """
-        Copy the ssh key to the device.
-        """
+        """Copy the ssh key to the device."""
         cmd = [
             "sshpass",
             "-p",
@@ -137,8 +132,7 @@ class Dragonboard:
             pass
 
     def ensure_test_image(self):
-        """
-        Actively switch the device to boot the test image.
+        """Actively switch the device to boot the test image.
 
         :raises ProvisioningError:
             If the command times out or anything else fails.
@@ -165,8 +159,7 @@ class Dragonboard:
             raise ProvisioningError("Failed to boot test image!")
 
     def is_test_image_booted(self):
-        """
-        Check if the master image is booted.
+        """Check if the master image is booted.
 
         :returns:
             True if the test image is currently booted, False otherwise.
@@ -189,8 +182,7 @@ class Dragonboard:
         return True
 
     def is_master_image_booted(self):
-        """
-        Check if the master image is booted.
+        """Check if the master image is booted.
 
         :returns:
             True if the master image is currently booted, False otherwise.
@@ -210,8 +202,7 @@ class Dragonboard:
         return False
 
     def ensure_master_image(self):
-        """
-        Actively switch the device to boot the test image.
+        """Actively switch the device to boot the test image.
 
         :raises RecoveryError:
             If the command times out or anything else fails.
@@ -258,8 +249,7 @@ class Dragonboard:
         # If we get here, the master image was already booted, so just return
 
     def flash_test_image(self, server_ip, server_port):
-        """
-        Flash the image at :image_url to the sd card.
+        """Flash the image at :image_url to the sd card.
 
         :param server_ip:
             IP address of the image server. The image will be downloaded and
@@ -323,7 +313,7 @@ class Dragonboard:
             raise ProvisioningError(err)
 
     def create_user(self):
-        """Create user account for default ubuntu user"""
+        """Create user account for default ubuntu user."""
         self.mount_writable_partition()
         metadata = "instance_id: cloud-image"
         userdata = (
@@ -370,7 +360,7 @@ class Dragonboard:
         )
 
     def wipe_test_device(self):
-        """Safety check - wipe the test drive if things go wrong
+        """Safety check - wipe the test drive if things go wrong.
 
         This way if we reboot the sytem after a failed provision, it goes
         back to the control boot image which we could use to provision
@@ -386,7 +376,7 @@ class Dragonboard:
             pass
 
     def provision(self):
-        """Provision the device"""
+        """Provision the device."""
         url = self.job_data["provision_data"].get("url")
         self.copy_ssh_id()
         self.ensure_master_image()

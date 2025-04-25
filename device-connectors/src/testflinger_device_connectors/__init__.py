@@ -11,7 +11,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""General functions used by device connectors"""
+"""General functions used by device connectors."""
 
 import bz2
 import gzip
@@ -33,12 +33,11 @@ logger = logging.getLogger(__name__)
 
 
 class CmdTimeoutError(Exception):
-    """Exception for timeout running running commands"""
+    """Exception for timeout running running commands."""
 
 
 def get_test_opportunity(job_data="testflinger.json"):
-    """
-    Read the json test opportunity data from testflinger.json.
+    """Read the json test opportunity data from testflinger.json.
 
     :param job_data:
         Filename and path of the json data if not the default
@@ -51,7 +50,7 @@ def get_test_opportunity(job_data="testflinger.json"):
 
 
 def filetype(filename):
-    """Attempt to determine the compression type of a specified file"""
+    """Attempt to determine the compression type of a specified file."""
     magic_headers = {
         b"\x1f\x8b\x08": "gz",
         b"\x42\x5a\x68": "bz2",
@@ -69,8 +68,7 @@ def filetype(filename):
 
 
 def download(url, filename=None):
-    """
-    Download the at the specified URL
+    """Download the at the specified URL.
 
     :param url:
         URL of the file to download
@@ -87,8 +85,7 @@ def download(url, filename=None):
 
 
 def delayretry(func, args, max_retries=3, delay=0):
-    """
-    Retry the called function with a delay inserted between attempts
+    """Retry the called function with a delay inserted between attempts.
 
     :param func:
         Function to retry
@@ -111,9 +108,8 @@ def delayretry(func, args, max_retries=3, delay=0):
 
 
 def get_test_username(job_data="testflinger.json", default="ubuntu"):
-    """
-    If the test_data specifies a default username, use it. Otherwise
-    allow the provisioning method pick a default, or use ubuntu as a safe bet
+    """If the test_data specifies a default username, use it. Otherwise
+    allow the provisioning method pick a default, or use ubuntu as a safe bet.
 
     :return username:
         Returns the test image username
@@ -127,9 +123,8 @@ def get_test_username(job_data="testflinger.json", default="ubuntu"):
 
 
 def get_test_password(job_data="testflinger.json", default="ubuntu"):
-    """
-    If the test_data specifies a default password, use it. Otherwise
-    allow the provisioning method pick a default, or use ubuntu as a safe bet
+    """If the test_data specifies a default password, use it. Otherwise
+    allow the provisioning method pick a default, or use ubuntu as a safe bet.
 
     :return password:
         Returns the test image password
@@ -143,8 +138,7 @@ def get_test_password(job_data="testflinger.json", default="ubuntu"):
 
 
 def get_image(job_data="testflinger.json"):
-    """
-    Read the json data for a test opportunity from SPI and retrieve or
+    """Read the json data for a test opportunity from SPI and retrieve or
     create the requested image.
 
     :return compressed_filename:
@@ -166,8 +160,7 @@ def get_image(job_data="testflinger.json"):
 
 
 def get_local_ip_addr():
-    """
-    Return our default IP address for another system to connect to
+    """Return our default IP address for another system to connect to.
 
     :return ipaddr:
         Returns the ip address of this system
@@ -180,8 +173,7 @@ def get_local_ip_addr():
 
 
 def serve_file(queue, filename):
-    """
-    Wait for a connection, then send the specified file one time
+    """Wait for a connection, then send the specified file one time.
 
     :param queue:
         multiprocessing queue used to send the port number back
@@ -205,8 +197,7 @@ def serve_file(queue, filename):
 
 
 def compress_file(filename):
-    """
-    Gzip the specified file, return the filename of the compressed image
+    """Gzip the specified file, return the filename of the compressed image.
 
     :param filename:
         The file to compress
@@ -261,10 +252,10 @@ def compress_file(filename):
 
 
 def configure_logging(config):
-    """Setup logging"""
+    """Setups logging."""
 
     class AgentFormatter(logging.Formatter):
-        """Add agent_name to log records"""
+        """Add agent_name to log records."""
 
         def __init__(self, fmt, agent_name):
             super().__init__(fmt)
@@ -289,8 +280,7 @@ def configure_logging(config):
 
 
 def runcmd(cmd, env=None, timeout=None):
-    """
-    Run a command and stream the output to stdout
+    """Run a command and stream the output to stdout.
 
     :param cmd:
         Command to run
@@ -301,7 +291,6 @@ def runcmd(cmd, env=None, timeout=None):
     :return returncode:
         Return value from running the command
     """
-
     # Sanitize the environment, eliminate null values or Popen may choke
     if not env:
         env = {}
@@ -332,10 +321,9 @@ def runcmd(cmd, env=None, timeout=None):
 
 
 def run_test_cmds(cmds, config=None, env=None):
-    """
-    Run the test commands provided
+    """Run the test commands provided
     This is just a frontend to determine the type of cmds we
-    were passed and do the right thing with it
+    were passed and do the right thing with it.
 
     :param cmds:
         Commands to run as a string or list of strings
@@ -344,7 +332,6 @@ def run_test_cmds(cmds, config=None, env=None):
     :param env:
         Environment to pass when running the commands
     """
-
     if not env:
         env = os.environ.copy()
     config_env = config.get("env", {})
@@ -358,8 +345,7 @@ def run_test_cmds(cmds, config=None, env=None):
 
 
 def _process_cmds_template_vars(cmds, config=None):
-    """
-    Fill in templated values for test command string. Ignore any values
+    """Fill in templated values for test command string. Ignore any values
     in braces for which we don't have a config item.
 
     :param cmds:
@@ -367,11 +353,10 @@ def _process_cmds_template_vars(cmds, config=None):
     :param config:
         Config data for the device which can be used for filling templates
     """
-
     logger.warning("DEPRECATED - Detected use of double-braces in test_cmds")
 
     class IgnoreUnknownFormatter(string.Formatter):
-        """Try to allow both double and single curly braces"""
+        """Try to allow both double and single curly braces."""
 
         def vformat(self, format_string, args, kwargs):
             tokens = []
@@ -410,8 +395,7 @@ def _process_cmds_template_vars(cmds, config=None):
 
 
 def _run_test_cmds_list(cmds, config=None, env=None):
-    """
-    Run the test commands provided
+    """Run the test commands provided.
 
     :param cmds:
         Commands to run as a list of strings
@@ -422,7 +406,6 @@ def _run_test_cmds_list(cmds, config=None, env=None):
     :return returncode:
         Return 0 if everything succeeded, or exit code from failed command
     """
-
     if not env:
         env = {}
     for cmd in cmds:
@@ -439,8 +422,7 @@ def _run_test_cmds_list(cmds, config=None, env=None):
 
 
 def _run_test_cmds_str(cmds, config=None, env=None):
-    """
-    Run the test commands provided
+    """Run the test commands provided.
 
     :param cmds:
         Commands to run as a string
@@ -451,7 +433,6 @@ def _run_test_cmds_str(cmds, config=None, env=None):
     :return returncode:
         Return the value of the return code from the script
     """
-
     if not env:
         env = {}
     # If cmds doesn't specify an interpreter, pick a safe default

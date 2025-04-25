@@ -34,11 +34,9 @@ class DeviceConnector(ZapperConnector):
     def _validate_configuration(
         self,
     ) -> Tuple[Tuple, Dict[str, Any]]:
-        """
-        Validate the job config and data and prepare the arguments
+        """Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
-
         username = self.job_data.get("test_data", {}).get(
             "test_username", "ubuntu"
         )

@@ -38,7 +38,6 @@ class MockMaasStorage(MaasStorage):
         """Mock method to simulate the call_cmd method in the
         parent MaasStorage class.
         """
-
         if output_json:
             return json.loads(TestMaasStorage.node_info)
         else:
@@ -110,7 +109,7 @@ class TestMaasStorage:
 
     @pytest.fixture
     def maas_storage(self):
-        """Provides a MockMaasStorage instance for testing."""
+        """Provide a MockMaasStorage instance for testing."""
         maas_user = "maas_user"
         node_id = "node_id"
         yield MockMaasStorage(maas_user, node_id)
@@ -609,7 +608,7 @@ class TestMaasStorageCallCmd:
 
     @pytest.fixture
     def maas_storage(self):
-        """Provides a MockMaasStorage instance for testing."""
+        """Provide a MockMaasStorage instance for testing."""
         maas_user = "maas_user"
         node_id = "node_id"
         yield MockMaasStorageWithCallCmd(maas_user, node_id, self.node_info)

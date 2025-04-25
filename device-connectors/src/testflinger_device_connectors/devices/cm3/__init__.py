@@ -31,7 +31,7 @@ class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""
 
     def provision(self, args):
-        """Method called when the command is invoked."""
+        """Provision device when the command is invoked."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         device = CM3(args.config, args.job_data)

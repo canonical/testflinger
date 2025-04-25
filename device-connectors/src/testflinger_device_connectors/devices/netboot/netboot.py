@@ -38,8 +38,7 @@ class Netboot:
             self.config = yaml.safe_load(configfile)
 
     def setboot(self, mode):
-        """
-        Set the boot mode of the device.
+        """Set the boot mode of the device.
 
         :param mode:
             One of 'master' or 'test'
@@ -61,8 +60,7 @@ class Netboot:
         self._run_cmd_list(setboot_script)
 
     def _run_cmd_list(self, cmdlist):
-        """
-        Run a list of commands
+        """Run a list of commands.
 
         :param cmdlist:
             List of commands to run
@@ -81,8 +79,7 @@ class Netboot:
                 )
 
     def hardreset(self):
-        """
-        Reboot the device.
+        """Reboot the device.
 
         :raises RecoveryError:
             If the command times out or anything else fails.
@@ -99,8 +96,7 @@ class Netboot:
                 raise RecoveryError("timeout reaching control host!")
 
     def ensure_test_image(self, test_username, test_password):
-        """
-        Actively switch the device to boot the test image.
+        """Actively switch the device to boot the test image.
 
         :param test_username:
             Username of the default user in the test image
@@ -138,8 +134,7 @@ class Netboot:
         raise ProvisioningError("Failed to boot test image!")
 
     def is_test_image_booted(self, test_username, test_password):
-        """
-        Check if the test image is booted.
+        """Check if the test image is booted.
 
         :returns:
             True if the test image is currently booted, False otherwise.
@@ -170,8 +165,7 @@ class Netboot:
         return True
 
     def is_master_image_booted(self):
-        """
-        Check if the master image is booted.
+        """Check if the master image is booted.
 
         :returns:
             True if the master image is currently booted, False otherwise.
@@ -194,8 +188,7 @@ class Netboot:
             return False
 
     def ensure_master_image(self):
-        """
-        Actively switch the device to boot the test image.
+        """Actively switch the device to boot the test image.
 
         :raises RecoveryError:
             If the command times out or anything else fails.
@@ -218,8 +211,7 @@ class Netboot:
             raise RecoveryError("Could not reboot to master image!")
 
     def flash_test_image(self, server_ip, server_port):
-        """
-        Flash the image at :image_url to the sd card.
+        """Flash the image at :image_url to the sd card.
 
         :param server_ip:
             IP address of the image server. The image will be downloaded and

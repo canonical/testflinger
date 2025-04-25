@@ -1,4 +1,4 @@
-"""Test LVFSDevice"""
+"""Test LVFSDevice."""
 
 import json
 import unittest
@@ -15,14 +15,13 @@ device_results = json.loads(fwupd_data.GET_RESULTS_RESPONSE_DATA)
 
 class TestLVFSDevice(unittest.TestCase):
     def mock_run_cmd(*args, **kwargs):
-        """Mock run_cmd"""
+        """Mock run_cmd."""
         if "sudo fwupdmgr get-results" in args[1]:
             return 0, json.dumps(device_results), ""
         return 0, "", ""
 
     def test_upgradable(self):
-        """
-        Given fwupd data with only newer System Firmware releases available.
+        """Given fwupd data with only newer System Firmware releases available.
         Test if upgrade function returns True. And test if downgrade function
         returns False.
         """
@@ -36,8 +35,7 @@ class TestLVFSDevice(unittest.TestCase):
             self.assertFalse(device.downgrade())
 
     def test_downgradable(self):
-        """
-        Given fwupd data with only older System Firmware releases available.
+        """Given fwupd data with only older System Firmware releases available.
         Test if upgrade function returns False. And test if downgrade function
         returns True.
         """
@@ -58,7 +56,7 @@ class TestLVFSDevice(unittest.TestCase):
             self.assertTrue(device.downgrade())
 
     def test_check_results_failed_state(self):
-        """Validate UpdateState check in check_results"""
+        """Validate UpdateState check in check_results."""
         global device_results
         with patch(
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
@@ -72,7 +70,7 @@ class TestLVFSDevice(unittest.TestCase):
             self.assertFalse(device.check_results())
 
     def test_check_results_mismatched_version(self):
-        """Validate version check in check_results"""
+        """Validate version check in check_results."""
         with patch(
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
@@ -83,7 +81,7 @@ class TestLVFSDevice(unittest.TestCase):
             self.assertFalse(device.check_results())
 
     def test_check_results_good(self):
-        """Test if check_results works with a valid case"""
+        """Test if check_results works with a valid case."""
         global device_results
         with patch(
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
@@ -100,9 +98,8 @@ class TestLVFSDevice(unittest.TestCase):
             self.assertTrue(device.check_results())
 
     def test_check_results_error(self):
-        """
-        Test error in check_results with an error return from ```$ fwupdmgr
-        get-results```
+        """Test error in check_results with an error return from ```$ fwupdmgr
+        get-results```.
         """
         global device_results
         with patch(

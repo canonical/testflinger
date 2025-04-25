@@ -80,8 +80,7 @@ class MuxPi:
         )
 
     def _run_control(self, cmd, timeout=60):
-        """
-        Run a command on the control host over ssh
+        """Run a command on the control host over ssh.
 
         :param cmd:
             Command to run
@@ -106,8 +105,7 @@ class MuxPi:
         return output
 
     def _copy_to_control(self, local_file, remote_file):
-        """
-        Copy a file to the control host over ssh
+        """Copy a file to the control host over ssh.
 
         :param local_file:
             Local filename
@@ -128,8 +126,7 @@ class MuxPi:
         return output
 
     def reboot_sdwire(self):
-        """
-        Reboot both control host and DUT to ensure SDwire be in a good state
+        """Reboot both control host and DUT to ensure SDwire be in a good state
         before provisioning.
         """
         if not self.config.get("control_host_reboot_script"):
@@ -300,8 +297,7 @@ class MuxPi:
             ) from error
 
     def flash_test_image(self, source: Union[str, Path]):
-        """
-        Flash the image at :source to the sd card.
+        """Flash the image at :source to the sd card.
 
         :param source:
             URL or Path to retrieve the image from
@@ -387,8 +383,7 @@ class MuxPi:
                 )
 
     def hardreset(self):
-        """
-        Reboot the device.
+        """Reboot the device.
 
         :raises RecoveryError:
             If the command times out or anything else fails.
@@ -405,8 +400,7 @@ class MuxPi:
                 raise RecoveryError("timeout reaching control host!")
 
     def get_image_type(self):
-        """
-        Figure out which kind of image is on the configured block device
+        """Figure out which kind of image is on the configured block device.
 
         :returns:
             image type as a string
@@ -442,8 +436,7 @@ class MuxPi:
         return "unknown"
 
     def check_ce_oem_iot_image(self) -> bool:
-        """
-        Determine if this is a ce-oem-iot image
+        """Determine if this is a ce-oem-iot image.
 
         These images will have a .disk/info file with a buildstamp in it
         that looks like:
@@ -485,7 +478,7 @@ class MuxPi:
             pass
 
     def create_user(self, image_type):
-        """Create user account for default ubuntu user"""
+        """Create user account for default ubuntu user."""
         base = self.mount_point
         remote_tmp = Path("/tmp") / self.agent_name
         try:
