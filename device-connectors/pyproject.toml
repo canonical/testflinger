@@ -40,23 +40,25 @@ line-length = 79
 
 [tool.ruff.lint]
 select = [
-    #"A", # flake8-builtins
-    #"B", # flake8-bugbear
+    "A", # flake8-builtins
+    "B", # flake8-bugbear
     "C4", # comprenhension
     "D", # docstrings
     "DTZ", # flake8-datetimez 
     "E", # pycodestyle errors
     "F", # pyflakes
-    #"G", # flake8-logging-format
+    "G", # flake8-logging-format
     "I", # isort
-    #"LOG", # flake8-logging
+    "LOG", # flake8-logging
     "N", # naming
-    #"PLE", # pylint errors
-    #"PLW0", # pyling warnings
+    "PLE", # pylint errors
+    "PLW0", # pyling warnings
     #"S", # flake8-bandit 
     "W", # pycodestyle warnings
 ]
 ignore = [
+    "B009", # flake8-bugbear; get attr with constant
+    "B904", # flake8-bugbear: raise without from inside except
     "D100", # docstring: Missing docstring in public module
     "D101", # docstring: Missing docstring in public class
     "D102", # docstring: Missing docstring in public method
@@ -64,6 +66,10 @@ ignore = [
     "D104", # docstring: Missing docstring in public package
     "D107", # docstring: Missing docstring in __init__
     "D205", # docstring: 1 black line required between summary line and description
+    "G001", # flake8-logging-format: logging string format
+    "G003", # flake8-logging-format: logging string concat
+    "G004", # flake8-logging-format: loggin f-string
+    "PLW0603", # pylint warnings: global statement
 ]
 
 [tool.ruff.lint.pep8-naming]

@@ -56,15 +56,13 @@ class TestFirmwareUpdate(unittest.TestCase):
             return (
                 255,
                 "",
-                "ssh: connect to host 10.10.10.10 port 22: "
-                "No route to host",
+                "ssh: connect to host 10.10.10.10 port 22: No route to host",
             )
         elif args[1] == type_cmd:
             return (
                 255,
                 "",
-                "ssh: connect to host 10.10.10.10 port 22: "
-                "No route to host",
+                "ssh: connect to host 10.10.10.10 port 22: No route to host",
             )
 
     def test_detect_device_supported(self):

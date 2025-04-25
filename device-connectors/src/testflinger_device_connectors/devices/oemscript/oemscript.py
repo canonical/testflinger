@@ -169,7 +169,7 @@ class OemScript:
         # If we get here, then we didn't boot in time
         agent_name = self.config.get("agent_name")
         logger.error(
-            "Device %s unreachable,  provisioning" "failed!", agent_name
+            "Device %s unreachable,  provisioning failed!", agent_name
         )
         raise ProvisioningError("Failed to boot test image!")
 

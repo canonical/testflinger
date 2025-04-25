@@ -14,7 +14,6 @@
 
 """Maas2 agent storage module unit tests."""
 
-
 import json
 import subprocess
 from unittest.mock import MagicMock, Mock, call
@@ -392,7 +391,7 @@ class TestMaasStorage:
         }
 
         for dev_type, devices in devs_by_type.items():
-            for device in devices:
+            for _device in devices:
                 setattr(maas_storage, mock_methods[dev_type], MagicMock())
 
             setattr(

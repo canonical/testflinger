@@ -175,8 +175,9 @@ class Maas2:
         )
         if p.returncode:
             self._logger_error(
-                'Failed to set efi boot order to "{}":\n'
-                "{}".format(boot_order, p.stdout.decode())
+                'Failed to set efi boot order to "{}":\n{}'.format(
+                    boot_order, p.stdout.decode()
+                )
             )
 
     def reset_efi(self):
@@ -328,8 +329,7 @@ class Maas2:
         # Do not use runcmd for this - we need the output, not the end user
         proc = self.run_maas_cmd_with_retry(cmd)
         self._logger_info(
-            "Starting node {} "
-            "with distro {}".format(self.agent_name, distro)
+            "Starting node {} with distro {}".format(self.agent_name, distro)
         )
         cmd = [
             "maas",
@@ -355,7 +355,7 @@ class Maas2:
             time.sleep(60)
             minutes_spent += 1
             self._logger_info(
-                "{} minutes passed " "since deployment.".format(minutes_spent)
+                "{} minutes passed since deployment.".format(minutes_spent)
             )
             status = self.node_status()
 
@@ -374,8 +374,9 @@ class Maas2:
                     return
 
         self._logger_error(
-            'Device {} still in "{}" state, deployment '
-            "failed!".format(self.agent_name, status)
+            'Device {} still in "{}" state, deployment failed!'.format(
+                self.agent_name, status
+            )
         )
         self._logger_error(proc.stdout.decode())
         exception_msg = (
@@ -430,8 +431,9 @@ class Maas2:
             if status == "Ready":
                 return
         self._logger_error(
-            'Device {} still in "{}" state, could not '
-            "recover!".format(self.agent_name, status)
+            'Device {} still in "{}" state, could not recover!'.format(
+                self.agent_name, status
+            )
         )
         raise RecoveryError("Device recovery failed!")
 
