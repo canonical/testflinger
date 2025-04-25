@@ -12,9 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-Main testflinger-device-connectors command module
-"""
+"""Main testflinger-device-connectors command module."""
 
 
 import argparse
@@ -46,7 +44,7 @@ STAGES = (
 
 
 def get_args(argv=None):
-    """main command function for testflinger-device-connectors"""
+    """Command function for testflinger-device-connectors."""
     parser = argparse.ArgumentParser()
 
     # First add a subcommand for each supported device type
@@ -75,7 +73,9 @@ def get_args(argv=None):
 
 
 def add_exception_logging_to_file(func: Callable, stage: str):
-    """Decorator function to add logging of exceptions to a json file"""
+    """Add logging of exceptions to a json file,
+    used as a decorator function.
+    """
 
     def _wrapper(*args, **kwargs):
         try:
@@ -105,9 +105,7 @@ def add_exception_logging_to_file(func: Callable, stage: str):
 
 
 def main():
-    """
-    Dynamically load the selected module and call the selected method
-    """
+    """Dynamically load the selected module and call the selected method."""
     args = get_args()
     with open(args.config) as configfile:
         config = yaml.safe_load(configfile)

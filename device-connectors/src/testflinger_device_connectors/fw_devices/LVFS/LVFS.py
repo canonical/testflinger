@@ -1,4 +1,4 @@
-"""Device class for flashing firmware on device supported by LVFS-fwupd"""
+"""Device class for flashing firmware on device supported by LVFS-fwupd."""
 
 import json
 import logging
@@ -16,7 +16,7 @@ SSH_OPTS = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 
 class LVFSDevice(AbstractDevice):
-    """Device class for devices supported by LVFS-fwupd"""
+    """Device class for devices supported by LVFS-fwupd."""
 
     fw_update_type = "LVFS"
     vendor = ["HP", "Dell Inc.", "LENOVO"]
@@ -25,8 +25,7 @@ class LVFSDevice(AbstractDevice):
     def run_cmd(
         self, cmd: str, raise_stderr: bool = True, timeout: int = 30
     ) -> Tuple[int, str, str]:
-        """
-        Execute command on the DUT via SSH
+        """Execute command on the DUT via SSH.
 
         :param cmd:          command to run on the DUT
         :param raise_stderr: when set to `True`, raise RuntimeError if return
@@ -64,9 +63,8 @@ class LVFSDevice(AbstractDevice):
         return rc, stdout, stderr
 
     def get_fw_info(self):
-        """
-        Get current firmware version of all updatable devices on DUT, and
-        print out devices with upgradable/downgradable versions
+        """Get current firmware version of all updatable devices on DUT, and
+        print out devices with upgradable/downgradable versions.
         """
         self._install_fwupd()
         logger.info("collect firmware info")
@@ -82,8 +80,7 @@ class LVFSDevice(AbstractDevice):
         logger.info("fwupd version\n%s", stdout)
 
     def _parse_fwupd_raw(self, fwupd_raw: str) -> bool:
-        """
-        Parse the output of ```$ fwupdmgr get-devices```
+        """Parse the output of ```$ fwupdmgr get-devices```.
 
         :param fwupd_raw: output string of ```$ fwupdmgr get-devices```
         """
@@ -127,8 +124,7 @@ class LVFSDevice(AbstractDevice):
                 logger.info(msg)
 
     def upgrade(self) -> bool:
-        """
-        Upgrade all devices firmware to latest version if available on LVFS
+        """Upgrade all devices firmware to latest version if available on LVFS.
 
         :return: `True` if upgrading is done and reboot is required, `False`
                  otherwise
@@ -173,8 +169,8 @@ class LVFSDevice(AbstractDevice):
         return reboot
 
     def downgrade(self) -> bool:
-        """
-        Downgrade all devices firmware to 2nd new version if available on LVFS
+        """Downgrade all devices firmware to 2nd new version
+        if available on LVFS.
 
         :return: `True` if downgrading is done and reboot is required, `False`
                  otherwise
@@ -227,8 +223,7 @@ class LVFSDevice(AbstractDevice):
         return reboot
 
     def check_results(self) -> bool:
-        """
-        Get upgrade/downgrade result and validate if it succeeds
+        """Get upgrade/downgrade result and validate if it succeeds.
 
         :return: `True` if overall upgrade status is success, `False` otherwise
         """
@@ -284,9 +279,8 @@ class LVFSDevice(AbstractDevice):
         return fwupd_result
 
     def check_connectable(self, timeout: int):
-        """
-        After DUT reboot, check if SSH to DUT works within a given timeout
-        period
+        """After DUT reboot, check if SSH to DUT works within a given timeout
+        period.
 
         :param timeout: wait time for regaining DUT access
         """
@@ -318,7 +312,7 @@ class LVFSDevice(AbstractDevice):
         logger.info("%s is SSHable after %ds", self.ipaddr, int(delta))
 
     def reboot(self):
-        """Reboot the DUT from OS"""
+        """Reboot the DUT from OS."""
         logger.info("reboot DUT")
         self.run_cmd("sudo reboot", raise_stderr=False)
         time.sleep(10)

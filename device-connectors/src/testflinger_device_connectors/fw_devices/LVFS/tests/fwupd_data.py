@@ -1,4 +1,4 @@
-"""This file provides fwupdmgr outputs for unit tests"""
+"""Provide fwupdmgr outputs for unit tests."""
 
 """normal output of `fwupdmgr get-results <DeviceId> --json`"""
 GET_RESULTS_RESPONSE_DATA = """{

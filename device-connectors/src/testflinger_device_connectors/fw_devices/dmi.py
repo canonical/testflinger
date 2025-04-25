@@ -1,5 +1,4 @@
-"""This maps DMI chassis type to readable name"""
-
+"""Map DMI chassis type to readable name."""
 
 class Dmi:
     chassis = (

@@ -64,16 +64,14 @@ class RecoveryError(Exception):
 
 
 def SerialLogger(host=None, port=None, filename=None):
-    """
-    Factory to generate real or fake SerialLogger object based on params
-    """
+    """Generate real or fake SerialLogger object based on params."""
     if host and port and filename:
         return RealSerialLogger(host, port, filename)
     return StubSerialLogger(host, port, filename)
 
 
 class StubSerialLogger:
-    """Fake SerialLogger when we don't have Serial Logger data defined"""
+    """Fake SerialLogger when we don't have Serial Logger data defined."""
 
     def __init__(self, host, port, filename):
         pass
@@ -86,19 +84,19 @@ class StubSerialLogger:
 
 
 class RealSerialLogger:
-    """Real SerialLogger for when we have a serial logging service"""
+    """Real SerialLogger for when we have a serial logging service."""
 
     def __init__(self, host, port, filename):
-        """Set up a subprocess to connect to an ip and collect serial logs"""
+        """Set up a subprocess to connect to an ip and collect serial logs."""
         self.host = host
         self.port = int(port)
         self.filename = filename
 
     def start(self):
-        """Start the serial logger connection"""
+        """Start the serial logger connection."""
 
         def reconnector():
-            """Reconnect when needed"""
+            """Reconnect when needed."""
             while True:
                 try:
                     self._log_serial()
@@ -112,7 +110,7 @@ class RealSerialLogger:
         self.proc.start()
 
     def _log_serial(self):
-        """Log data to the serial data to the output file"""
+        """Log data to the serial data to the output file."""
         with open(self.filename, "ab+") as f:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((self.host, self.port))
@@ -132,13 +130,13 @@ class RealSerialLogger:
                             return
 
     def stop(self):
-        """Stop the serial logger"""
+        """Stop the serial logger."""
         self.proc.terminate()
 
 
 class DefaultDevice:
     def firmware_update(self, args):
-        """Default method for processing firmware update commands"""
+        """Process firmware update commands (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         logger.info("BEGIN firmware_update")
@@ -183,7 +181,7 @@ class DefaultDevice:
         return exitcode
 
     def runtest(self, args):
-        """Default method for processing test commands"""
+        """Process test commands (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         logger.info("BEGIN testrun")
@@ -215,7 +213,7 @@ class DefaultDevice:
         return exitcode
 
     def allocate(self, args):
-        """Default method for allocating devices for multi-agent jobs"""
+        """Allocate devices for multi-agent jobs (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         device_ip = config["device_ip"]
@@ -231,8 +229,7 @@ class DefaultDevice:
         password: Optional[str] = None,
         key: Optional[str] = None,
     ):
-        """
-        If provided, copy the SSH `key` to the DUT,
+        """If provided, copy the SSH `key` to the DUT,
         otherwise copy the agent's using password authentication.
 
         :raises RuntimeError in case it can't copy the SSH keys
@@ -278,7 +275,7 @@ class DefaultDevice:
             raise RuntimeError
 
     def reserve(self, args):
-        """Default method for reserving systems"""
+        """Reserve systems (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         logger.info("BEGIN reservation")
@@ -337,13 +334,13 @@ class DefaultDevice:
         time.sleep(int(timeout))
 
     def cleanup(self, _):
-        """Default method for cleaning up devices"""
+        """Clean up devices (default method)."""
         pass
 
 
 def get_device_stage_func(device: str, stage: str) -> Callable:
-    """
-    Load the selected device connector and return the selected stage method
+    """Load the selected device connector and
+    return the selected stage method.
     """
     module = import_module(f".{device}", package=__package__)
     device_class = getattr(module, "DeviceConnector")

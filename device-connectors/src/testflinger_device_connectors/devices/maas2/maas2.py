@@ -241,8 +241,7 @@ class Maas2:
         return False
 
     def run_maas_cmd_with_retry(self, cmd, max_retries=5, backoff_start=60):
-        """
-        Run maas command with retries on failure
+        """Run maas command with retries on failure.
 
         :param cmd:
             MAAS command to be run
@@ -407,7 +406,7 @@ class Maas2:
         return True
 
     def node_status(self):
-        """Return status of the node according to maas:
+        """Return status of the node according to maas.
 
         Ready: Node is unused
         Allocated: Node is allocated
@@ -421,7 +420,7 @@ class Maas2:
         return data.get("status_name")
 
     def node_release(self):
-        """Release the node to make it available again"""
+        """Release the node to make it available again."""
         cmd = ["maas", self.maas_user, "machine", "release", self.node_id]
         subprocess.run(cmd, check=False)
         # Make sure the device is available before returning
@@ -437,7 +436,7 @@ class Maas2:
         raise RecoveryError("Device recovery failed!")
 
     def set_flat_storage_layout(self):
-        """Reset to default flat storage layout"""
+        """Reset to default flat storage layout."""
         cmd = [
             "maas",
             self.maas_user,

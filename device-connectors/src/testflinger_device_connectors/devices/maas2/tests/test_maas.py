@@ -30,7 +30,7 @@ from testflinger_device_connectors.devices.maas2.maas_storage import (
 
 
 def test_maas2_agent_invalid_storage(tmp_path):
-    """Test that the maas2 agent raises an exception when storage init fails"""
+    """Test maas2 agent raises an exception when storage init fails."""
     config_yaml = tmp_path / "config.yaml"
     config = {"maas_user": "user", "node_id": "abc", "agent_name": "agent001"}
     config_yaml.write_text(yaml.safe_dump(config))
@@ -47,9 +47,8 @@ def test_maas2_agent_invalid_storage(tmp_path):
 
 
 def test_maas_cmd_retry(tmp_path):
-    """
-    Test that maas commands get retried when the command returns an
-    exit code
+    """Test that maas commands get retried when the command returns an
+    exit code.
     """
     Process = namedtuple("Process", ["returncode", "stdout"])
     with patch(

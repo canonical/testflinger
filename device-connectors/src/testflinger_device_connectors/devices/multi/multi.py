@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class Multi:
-    """Device Connector for multi-device"""
+    """Device Connector for multi-device."""
 
     def __init__(self, config, job_data, client):
         """Initialize the multi-device connector.
@@ -44,7 +44,7 @@ class Multi:
         self.jobs = []
 
     def provision(self):
-        """Provision multi-device connector by creating the specified jobs"""
+        """Provision multi-device connector by creating the specified jobs."""
         self.create_jobs()
 
         # Wait for all jobs to reach the "allocated" state
@@ -81,17 +81,15 @@ class Multi:
         self.save_job_list_file()
 
     def terminate_if_parent_completed(self):
-        """If parent job is completed or cancelled, cancel sub jobs"""
+        """If parent job is completed or cancelled, cancel sub jobs."""
         if self.this_job_completed():
             self.cancel_jobs(self.jobs)
             raise ProvisioningError("Job cancelled or completed")
 
     def this_job_completed(self):
+        """If the job is completed, or cancelled, then we need to exit the
+        provision phase, and cleanup the subordinate jobs.
         """
-        If the job is completed, or cancelled, then we need to exit the
-        provision phase, and cleanup the subordinate jobs
-        """
-
         job_id = self.job_data.get("job_id")
         status = self.client.get_status(job_id)
         if status in ("cancelled", "completed"):
@@ -99,8 +97,7 @@ class Multi:
         return False
 
     def save_job_list_file(self):
-        """
-        Retrieve results for each job from the server, and look at the
+        """Retrieve results for each job from the server, and look at the
         "device_info" in each one to get the IP of the device, then
         create a job_list.json file with a list of jobs that looks like:
         [
@@ -112,7 +109,7 @@ class Multi:
             },
             ...
         ]
-        This file gets used by other steps that also need this information
+        This file gets used by other steps that also need this information.
         """
         job_list = []
         for job in self.jobs:
@@ -127,7 +124,7 @@ class Multi:
             json.dump(job_list, json_file)
 
     def create_jobs(self):
-        """Create the jobs for the multi-device connector"""
+        """Create the jobs for the multi-device connector."""
         jobs_list = self.job_data.get("provision_data", {}).get("jobs")
         if not jobs_list:
             raise ProvisioningError(
@@ -165,7 +162,7 @@ class Multi:
             self.jobs.append(job_id)
 
     def inject_allocate_data(self, job):
-        """Inject the allocate_data section into the job
+        """Inject the allocate_data section into the job.
 
         :param job: the job to inject the allocate data into
         :returns: the job with the allocate_data injected
@@ -175,7 +172,7 @@ class Multi:
         return job
 
     def inject_parent_jobid(self, job):
-        """Inject the parent job_id into the job
+        """Inject the parent job_id into the job.
 
         :param job: the job to inject the parent job_id into
         :returns: the job with parent_job_id added to it
@@ -185,7 +182,7 @@ class Multi:
         return job
 
     def cancel_jobs(self, jobs):
-        """Cancel all jobs in the specified list of job_ids"""
+        """Cancel all jobs in the specified list of job_ids."""
         for job in jobs:
             try:
                 self.client.cancel_job(job)

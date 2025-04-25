@@ -1,4 +1,4 @@
-"""Base class for flashing firmware on devices"""
+"""Base class for flashing firmware on devices."""
 
 from abc import ABC, abstractmethod
 

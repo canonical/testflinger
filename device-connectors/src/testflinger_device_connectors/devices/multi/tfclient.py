@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Client for talking to Testflinger Server"""
+"""Client for talking to Testflinger Server."""
 
 import json
 import logging
@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 
 
 class TFClient:
-    """Testflinger connection class"""
+    """Testflinger connection class."""
 
     def __init__(self, url):
-        """Initialize the client with the url of the server
+        """Initialize the client with the url of the server.
 
         :param url: URL of the Testflinger server
         """
@@ -44,7 +44,7 @@ class TFClient:
         :param uri_frag:
             endpoint for the GET request
         :return:
-            String containing the response from the server
+            String containing the response from the server.
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
@@ -74,7 +74,7 @@ class TFClient:
         :param uri_frag:
             endpoint for the POST request
         :return:
-            String containing the response from the server
+            String containing the response from the server.
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
@@ -99,7 +99,7 @@ class TFClient:
         return req.text
 
     def get_status(self, job_id):
-        """Get the status of a test job
+        """Get the status of a test job.
 
         :param job_id:
             ID for the test job
@@ -118,7 +118,7 @@ class TFClient:
         return state
 
     def get_results(self, job_id):
-        """Get the results of a test job
+        """Get the results of a test job.
 
         :param job_id:
             ID for the test job
@@ -134,7 +134,7 @@ class TFClient:
         return data
 
     def submit_job(self, job_data):
-        """Submit a test job to the testflinger server
+        """Submit a test job to the testflinger server.
 
         :param job_data:
             dict of data for the job to submit
@@ -146,7 +146,7 @@ class TFClient:
         return json.loads(response).get("job_id")
 
     def cancel_job(self, job_id):
-        """Tell the server to cancel a specified job_id"""
+        """Tell the server to cancel a specified job_id."""
         try:
             self.post(f"/v1/job/{job_id}/action", {"action": "cancel"})
         except requests.exceptions.HTTPError as exc:
