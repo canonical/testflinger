@@ -118,8 +118,9 @@ class TestflingerClient:
         with requests.get(uri, stream=True, timeout=600) as response:
             if not response:
                 logger.error(
-                    f"Unable to retrieve attachments for job {job_id} "
-                    f"(error: {response.status_code})"
+                    "Unable to retrieve attachments for job: %s (error: %s)",
+                    job_id,
+                    response.status_code,
                 )
                 raise TFServerError(response.status_code)
             with open(path, "wb") as attachments:
@@ -152,8 +153,9 @@ class TestflingerClient:
             raise TFServerError("other exception") from exc
         if not job_request:
             logger.error(
-                "Unable to re-post job to: %s (error: %s)"
-                % (job_uri, job_request.status_code)
+                "Unable to re-post job to: %s (error: %s)",
+                job_uri,
+                job_request.status_code,
             )
             raise TFServerError(job_request.status_code)
 
@@ -181,8 +183,9 @@ class TestflingerClient:
             raise TFServerError("other exception") from exc
         if not job_request:
             logger.error(
-                "Unable to post results to: %s (error: %s)"
-                % (result_uri, job_request.status_code)
+                "Unable to post results to: %s (error: %s)",
+                result_uri,
+                job_request.status_code,
             )
             raise TFServerError(job_request.status_code)
 
@@ -204,8 +207,9 @@ class TestflingerClient:
             return {}
         if not job_request:
             logger.error(
-                "Unable to get results from: %s (error: %s)"
-                % (result_uri, job_request.status_code)
+                "Unable to get results from: %s (error: %s)",
+                result_uri,
+                job_request.status_code,
             )
             return {}
         if job_request.content:
@@ -224,9 +228,10 @@ class TestflingerClient:
                 job_data = json.load(f)
         except OSError:
             logger.error(
-                f"Unable to read job ID from {rundir}/testflinger.json. "
+                "Unable to read job ID from %s/testflinger.json. "
                 "This may be a job that was already transmitted, but "
-                "couldn't be removed."
+                "couldn't be removed.",
+                rundir,
             )
             return
         job_id = job_data.get("job_id")
@@ -241,7 +246,7 @@ class TestflingerClient:
         # Do not retransmit outcome if it's already been done and removed
         outcome_file = os.path.join(rundir, "testflinger-outcome.json")
         if os.path.isfile(outcome_file):
-            logger.info("Submitting job outcome for job: %s" % job_id)
+            logger.info("Submitting job outcome for job: %s", job_id)
             with open(outcome_file) as f:
                 data = json.load(f)
                 data["job_state"] = "complete"
@@ -281,8 +286,9 @@ class TestflingerClient:
                 )
             if not artifact_request:
                 logger.error(
-                    "Unable to post results to: %s (error: %s)"
-                    % (artifact_uri, artifact_request.status_code)
+                    "Unable to post results to: %s (error: %s)",
+                    artifact_uri,
+                    artifact_request.status_code,
                 )
                 raise TFServerError(artifact_request.status_code)
             else:

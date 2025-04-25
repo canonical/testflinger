@@ -52,7 +52,7 @@ select = [
     "DTZ", # flake8-datetimez 
     "E",   # pycodestyle errors
     "F",   # pyflakes
-    #"G",  # flake8-logging-format TODO
+    "G",   # flake8-logging-format
     "I",   # isort
     "LOG", # flake8-logging
     "N",   # naming

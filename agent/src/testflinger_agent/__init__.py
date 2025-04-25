@@ -129,8 +129,9 @@ def start_agent():
         if offline_file:
             logger.error(
                 "Agent %s is offline, not processing jobs! "
-                "Remove %s to resume processing"
-                % (config.get("agent_id"), offline_file)
+                "Remove %s to resume processing",
+                config.get("agent_id"),
+                offline_file,
             )
             while agent.check_offline():
                 time.sleep(check_interval)
@@ -138,7 +139,7 @@ def start_agent():
         client.post_advertised_queues()
         logger.info("Checking jobs")
         agent.process_jobs()
-        logger.info("Sleeping for {}".format(check_interval))
+        logger.info("Sleeping for %s", check_interval)
         time.sleep(check_interval)
 
 

@@ -185,10 +185,10 @@ class TestflingerAgent:
         with tempfile.NamedTemporaryFile(suffix="tar.gz") as archive_tmp:
             archive_path = Path(archive_tmp.name)
             # download attachment archive
-            logger.info(f"Downloading attachments for {job_id}")
+            logger.info("Downloading attachments for %s", job_id)
             self.client.get_attachments(job_id, path=archive_path)
             # extract archive into the attachments folder
-            logger.info(f"Unpacking attachments for {job_id}")
+            logger.info("Unpacking attachments for %s", job_id)
             with tarfile.open(archive_path, "r:gz") as tar:
                 tar.extractall(cwd / ATTACHMENTS_DIR, filter=secure_filter)
 
@@ -316,7 +316,7 @@ class TestflingerAgent:
                             job.job_id, exit_code, exit_event
                         )
                     if exit_code and phase != TestPhase.TEST:
-                        logger.debug("Phase %s failed, aborting job" % phase)
+                        logger.debug("Phase %s failed, aborting job", phase)
                         job_end_reason = exit_event
                         break
             except Exception as e:
@@ -363,7 +363,7 @@ class TestflingerAgent:
         ]
         for result in old_results:
             try:
-                logger.info("Attempting to send result: %s" % result)
+                logger.info("Attempting to send result: %s", result)
                 self.client.transmit_job_outcome(result)
             except TFServerError:
                 # Problems still, better luck next time?
