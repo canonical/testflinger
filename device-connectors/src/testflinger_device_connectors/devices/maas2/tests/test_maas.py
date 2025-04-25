@@ -16,12 +16,14 @@
 
 
 import json
+from collections import namedtuple
+from unittest.mock import patch
+
 import pytest
 import yaml
-from unittest.mock import patch
-from collections import namedtuple
-from testflinger_device_connectors.devices.maas2 import Maas2
+
 from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices.maas2 import Maas2
 from testflinger_device_connectors.devices.maas2.maas_storage import (
     MaasStorageError,
 )

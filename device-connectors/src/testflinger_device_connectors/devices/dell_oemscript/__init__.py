@@ -24,6 +24,7 @@ import logging
 from testflinger_device_connectors.devices import (
     DefaultDevice,
 )
+
 from .dell_oemscript import DellOemScript
 
 logger = logging.getLogger(__name__)

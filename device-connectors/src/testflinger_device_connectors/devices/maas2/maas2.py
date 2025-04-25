@@ -32,7 +32,6 @@ from testflinger_device_connectors.devices.maas2.maas_storage import (
     MaasStorageError,
 )
 
-
 logger = logging.getLogger(__name__)
 
 

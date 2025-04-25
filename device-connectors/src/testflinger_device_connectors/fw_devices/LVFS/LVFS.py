@@ -1,12 +1,13 @@
 """Device class for flashing firmware on device supported by LVFS-fwupd"""
 
-import subprocess
 import json
-import time
 import logging
-from typing import Tuple
-from testflinger_device_connectors.fw_devices.base import AbstractDevice
+import subprocess
+import time
 from enum import Enum, auto
+from typing import Tuple
+
+from testflinger_device_connectors.fw_devices.base import AbstractDevice
 
 logger = logging.getLogger()
 

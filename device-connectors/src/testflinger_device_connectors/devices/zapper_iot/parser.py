@@ -1,8 +1,9 @@
 """provision yaml verify"""
 
 import logging
-import validators
 from typing import List
+
+import validators
 
 logger = logging.getLogger(__name__)
 

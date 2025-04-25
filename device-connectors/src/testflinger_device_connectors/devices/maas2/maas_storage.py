@@ -14,13 +14,13 @@
 
 """Ubuntu MAAS 2.x storage provisioning code."""
 
-import logging
-import subprocess
 import collections
 import json
+import logging
 import math
-from testflinger_device_connectors.devices import ProvisioningError
+import subprocess
 
+from testflinger_device_connectors.devices import ProvisioningError
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +204,8 @@ class MaasStorage:
 
     def assign_parent_disk(self):
         """Transverse device hierarchy to determine each device's parent
-        disk."""
+        disk.
+        """
         dev_dict = {dev["id"]: dev for dev in self.device_list}
         for dev in self.device_list:
             parent_id = dev.get("device") or dev.get("volume")

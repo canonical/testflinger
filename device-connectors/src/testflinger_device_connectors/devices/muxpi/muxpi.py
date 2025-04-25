@@ -14,18 +14,18 @@
 
 """Ubuntu Raspberry PI muxpi support code."""
 
-from contextlib import contextmanager
 import json
 import logging
-from pathlib import Path
-import requests
 import shlex
 import subprocess
 import tempfile
 import time
-from typing import Optional, Union
 import urllib
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Optional, Union
 
+import requests
 import yaml
 
 from testflinger_device_connectors.devices import (

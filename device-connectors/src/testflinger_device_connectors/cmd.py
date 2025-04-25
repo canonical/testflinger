@@ -18,11 +18,12 @@ Main testflinger-device-connectors command module
 
 
 import argparse
+import json
 import logging
-import yaml
 import sys
 from typing import Callable
-import json
+
+import yaml
 
 from testflinger_device_connectors import configure_logging
 from testflinger_device_connectors.devices import (

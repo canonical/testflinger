@@ -1,13 +1,14 @@
 """Detecting device types"""
 
-import subprocess
 import logging
-from testflinger_device_connectors.fw_devices.dmi import Dmi
+import subprocess
+
 from testflinger_device_connectors.fw_devices import (
     AbstractDevice,
     LVFSDevice,
     OEMDevice,
 )
+from testflinger_device_connectors.fw_devices.dmi import Dmi
 
 logger = logging.getLogger()
 

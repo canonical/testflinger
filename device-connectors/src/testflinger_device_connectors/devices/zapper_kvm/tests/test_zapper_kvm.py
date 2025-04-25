@@ -16,8 +16,10 @@
 import base64
 import subprocess
 import unittest
+from unittest.mock import Mock, mock_open, patch
+
 import yaml
-from unittest.mock import Mock, patch, mock_open
+
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
 

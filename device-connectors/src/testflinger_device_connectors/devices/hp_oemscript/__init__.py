@@ -24,6 +24,7 @@ import logging
 from testflinger_device_connectors.devices import (
     DefaultDevice,
 )
+
 from .hp_oemscript import HPOemScript
 
 logger = logging.getLogger(__name__)

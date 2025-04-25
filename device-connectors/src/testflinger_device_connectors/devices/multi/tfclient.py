@@ -17,6 +17,7 @@
 import json
 import logging
 import urllib.parse
+
 import requests
 
 logger = logging.getLogger(__name__)

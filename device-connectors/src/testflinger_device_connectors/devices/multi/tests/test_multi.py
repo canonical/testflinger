@@ -17,6 +17,7 @@
 from uuid import uuid4
 
 import pytest
+
 from testflinger_device_connectors.devices.multi.multi import Multi
 from testflinger_device_connectors.devices.multi.tfclient import TFClient
 
