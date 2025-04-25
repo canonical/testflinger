@@ -49,21 +49,21 @@ extend-exclude = ["charm/lib"]
 
 [tool.ruff.lint]
 select = [
-    "A", # flake8-builtins
-    "B", # flake8-bugbear
-    "C4", # comprenhension
-    "D", # docstrings
+    "A",   # flake8-builtins
+    "B",   # flake8-bugbear
+    "C4",  # comprenhension
+    "D",   # docstrings
     "DTZ", # flake8-datetimez 
-    "E", # pycodestyle errors
-    "F", # pyflakes
-    "G", # flake8-logging-format 
-    "I", # isort
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "G",   # flake8-logging-format 
+    "I",   # isort
     "LOG", # flake8-logging
-    "N", # naming
+    "N",   # naming
     "PLE", # pylint errors
-    "PLW0", # pyling warnings
-    "S", # flake8-bandit 
-    "W", # pycodestyle warnings
+    "PLW", # pyling warnings
+    "S",   # flake8-bandit 
+    "W",   # pycodestyle warnings
 ]
 ignore = [
     "D104", # docstring: Missing docstring in public package
@@ -72,7 +72,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
-  "S101", # use of assert
+    "S101", # use of assert
 ]
 "charm/tests/*" = [
     "S101", # use of assert

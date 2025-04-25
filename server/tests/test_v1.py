@@ -113,8 +113,7 @@ def test_add_job_valid_reserve_data(mongo_app):
 
 
 def test_add_job_cm3_provision_data(mongo_app):
-    """Test that a job with cm3 provision_data works"""
-
+    """Test that a job with cm3 provision_data works."""
     # Invalid URL fails
     provision_data = {"url": "invalid"}
     job_data = {"job_queue": "test", "provision_data": provision_data}

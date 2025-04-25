@@ -69,7 +69,7 @@ def setup_mongodb(application):
         uri=mongo_uri,
         uuidRepresentation="standard",
         serverSelectionTimeoutMS=2000,
-        maxPoolSize=os.environ.get("MONGODB_MAX_POOL_SIZE", 100),
+        maxPoolSize=int(os.environ.get("MONGODB_MAX_POOL_SIZE", "100")),
     )
 
     create_indexes()
