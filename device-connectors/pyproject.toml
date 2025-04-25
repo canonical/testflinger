@@ -25,7 +25,6 @@ testflinger-device-connector = "testflinger_device_connectors.cmd:main"
 dev = [
     "black>=24.8.0",
     "flake8>=5.0.4",
-    "pylint>=3.2.7",
     "pytest>=8.3.5",
     "pytest-cov>=5.0.0",
     "pytest-mock>=3.14.0",
@@ -40,35 +39,35 @@ line-length = 79
 
 [tool.ruff.lint]
 select = [
-    "A", # flake8-builtins
-    "B", # flake8-bugbear
-    "C4", # comprenhension
-    "D", # docstrings
+    "A",   # flake8-builtins
+    "B",   # flake8-bugbear
+    "C4",  # comprenhension
+    "D",   # docstrings
     "DTZ", # flake8-datetimez 
-    "E", # pycodestyle errors
-    "F", # pyflakes
-    "G", # flake8-logging-format
-    "I", # isort
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "G",   # flake8-logging-format
+    "I",   # isort
     "LOG", # flake8-logging
-    "N", # naming
+    "N",   # naming
     "PLE", # pylint errors
     "PLW0", # pyling warnings
-    #"S", # flake8-bandit 
-    "W", # pycodestyle warnings
+    #"S",  # flake8-bandit 
+    "W",   # pycodestyle warnings
 ]
 ignore = [
-    "B009", # flake8-bugbear; get attr with constant
-    "B904", # flake8-bugbear: raise without from inside except
-    "D100", # docstring: Missing docstring in public module
-    "D101", # docstring: Missing docstring in public class
-    "D102", # docstring: Missing docstring in public method
-    "D103", # docstring: Missing docstring in public function
-    "D104", # docstring: Missing docstring in public package
-    "D107", # docstring: Missing docstring in __init__
-    "D205", # docstring: 1 black line required between summary line and description
-    "G001", # flake8-logging-format: logging string format
-    "G003", # flake8-logging-format: logging string concat
-    "G004", # flake8-logging-format: loggin f-string
+    "B009",    # flake8-bugbear; get attr with constant
+    "B904",    # flake8-bugbear: raise without from inside except
+    "D100",    # docstring: Missing docstring in public module
+    "D101",    # docstring: Missing docstring in public class
+    "D102",    # docstring: Missing docstring in public method
+    "D103",    # docstring: Missing docstring in public function
+    "D104",    # docstring: Missing docstring in public package
+    "D107",    # docstring: Missing docstring in __init__
+    "D205",    # docstring: 1 black line required between summary line and description
+    "G001",    # flake8-logging-format: logging string format
+    "G003",    # flake8-logging-format: logging string concat
+    "G004",    # flake8-logging-format: loggin f-string
     "PLW0603", # pylint warnings: global statement
 ]
 
@@ -76,3 +75,6 @@ ignore = [
 ignore-names = [
     "SerialLogger" # Function needs to follow snake_case, excluded to prevail style
 ]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
