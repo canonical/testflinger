@@ -1,43 +1,57 @@
-# What is Testflinger?
+# Testflinger
 
-Testflinger is a system for orchestrating the time-sharing of access to a pool of target machines.
+[![Documentation status][rtd-badge]][rtd-latest]
+
+**Testflinger** is a system for orchestrating the time-sharing of access to a
+pool of target machines.
 
 Each Testflinger system consists of:
 
-- a web service (called just Testflinger) that provides an API to request jobs by placing them on a queue
-- per machine agents that wait for jobs to placed on queues they can service and then process them
+- A web service (called just Testflinger) that provides an API to request jobs
+  by placing them on a queue.
+- Per machine agents that wait for jobs to placed on queues they can service and
+  then process them.
 
-Jobs can be either fully automated scripts that can attempt to complete within the allocated time or interactive shell sessions.
+Jobs can be either fully automated scripts that can attempt to complete within
+the allocated time or interactive shell sessions.
 
-The Testflinger system is particular useful for sharing finite machine resources between different consumers in a predictable fashion.
+The Testflinger system is particular useful for sharing finite machine resources
+between different consumers in a predictable fashion.
 
-Typically this has been used for managing a test lab where CI/CD test runs and also exploratory testing by human operators is desired.
+Typically this has been used for managing a test lab where CI/CD test runs and
+also exploratory testing by human operators is desired.
 
-# Documentation
+## Contents of this Repository
 
-You can find more information and documentation on the [Testflinger Documentation Page](https://testflinger.readthedocs.io/en/latest/).
+A full deployment of Testflinger consists of the following components:
 
-# Content of this repository
+- [Testflinger Server](./server/): The server hosting the API and Web UI.
+- [Testflinger Agent](./agent/): Requests and processes jobs from associated
+  queues on the server on behalf of a device.
+- [Testflinger Device Connectors](./device-connectors/): Handles provisioning and
+  other device-specific details for each type of device.
+- [Testflinger CLI](./cli/): The command-line tool for submitting jobs, checking
+  status of jobs, and retreiving results.
+- [Testflinger Common](./common/): Common modules, functions, enums, etc. shared
+  across the Testflinger projects.
 
-A full deployment of testflinger consists of the following components:
+## Documentation
 
-- `Testflinger Server`: The API server, and Web UI
-- `Testflinger Agent`: Requests and processes jobs from associated queues on the server on behalf of a device
-- `Testflinger Device Connectors`: Handles provisioning and other device-specific details for each type of device
-- `Testflinger CLI`: The command-line tool for submitting jobs, checking status of jobs, and retreiving results
+You can find more information and documentation on the
+[Testflinger Documentation Page][rtd-latest].
 
-This monorepo is organized in a way that is consistant with the components described above:
+## Community and Support
 
-```bash                                                                   
-└── providers
-    ├── server
-    ├── agent
-    ├── device-connectors
-    ├── cli
-    └── docs
-```
+You can report any issues, bugs, or feature requests on the project's
+[GitHub repository][github].
 
-# Github actions
+## Contribute to Testflinger
+
+Testflinger is open source. Contributions are welcome.
+
+If you're interested, start with the [contribution guide](CONTRIBUTING.md).
+
+## GitHub Actions
 
 If you need to submit a job to a testflinger server through a Github action (instead, for example, of using the command-line tool), you can use the [`submit` action](https://github.com/canonical/testflinger/blob/main/.github/actions/submit/action.yaml) in a CI workflow. Please refer to the `inputs` field of the action for a complete list of the arguments that the action can receive.
 
@@ -82,3 +96,7 @@ expires or the job is cancelled). There will be no output to record after the
 reservation so there is little point in polling and idly occupying the runner.
 However, please do remember to manually cancel the job after you are done with
 the reserved device.
+
+[rtd-badge]: https://readthedocs.com/projects/canonical-testflinger/badge/?version=latest
+[rtd-latest]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/
+[github]: https://github.com/canonical/testflinger

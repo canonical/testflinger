@@ -5,7 +5,7 @@ build-backend = "uv_build"
 [project]
 name = "testflinger"
 description = "Testflinger Server"
-readme = "README.rst"
+readme = "README.md"
 version = "1.1.0"
 authors = []
 requires-python = ">=3.10"

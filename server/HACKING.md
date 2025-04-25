@@ -1,75 +1,36 @@
-# Testflinger Server 
+# Testflinger Server
 
-## Manage Dependencies
-
-### Add a dependency
-
-To add a new dependency to `testflinger-server`, please use `uv`, as
-it will automatically add it to both the `pyproject.toml` and `uv.lock` files:
-
-```shell
-uv add ...
-```
-
-If the dependency is only a development dependency, please add it to the `dev`
-dependency group by using the `--dev` flag.
-
-To learn more about the `uv add` command, refer to the
-[`uv` documentation][uv-add].
-
-### Remove a dependency
-
-```shell
-uv remove ...
-```
-
-If the dependency is only a development dependency, please remove it from the
-`dev` dependency group by using the `--dev` flag.
-
-To learn more about the `uv remove` command, refer to the
-[`uv` documentation][uv-remove].
-
-## Running tests
-
-To run all our tests, run the `tox` tool. To run it with `uv`, use the following
-command:
-
-```shell
-uvx --with tox-uv tox
-```
-
-You can also run `tox` on its own, and it should automatically pull in `tox-uv`
-as a dependency for running the tests with our `uv` lock file.
-
-```shell
-tox
-```
+This is the development guide for Testflinger Server. To see more general
+contribution and development recommendations, refer to the
+[contribution guide](../CONTRIBUTING.md)
 
 ## Development/Demo environment
 
 ### Docker
 
 Testflinger server can be deployed using Docker, and it makes a nice setup
-for local development.  There's a Dockerfile for building the container and
-a **docker-compose.yml** which can be used as a basis for any kind of
-deployment. For development purposes, there's a **docker-compose.override.yml**
-under the **devel** directory. This will setup Testflinger running on port
+for local development. There's a Dockerfile for building the container and
+a `docker-compose.yml` which can be used as a basis for any kind of
+deployment. For development purposes, there's a `docker-compose.override.yml`
+under the `devel/` directory. This will setup Testflinger running on port
 5000, along with MongoDB, and a tool called "Express" on port 8081 for
 inspecting and modifying values directly in MongoDB. If you use the override
 file, then it will also point the code directory for Testflinger to the local
-code in this directory, and it runs gunicorn with --reload so that any changes
-you make locally will be immediately reflected in what's running.  To get all
+code in this directory, and it runs gunicorn with `--reload` so that any changes
+you make locally will be immediately reflected in what's running. To get all
 this running on your system:
-```
-    $ cp devel/docker-compose.override.yml .
-    $ docker-compose build
-    $ docker-compose up -d
+
+```shell
+cp devel/docker-compose.override.yml .
+docker-compose build
+docker-compose up -d
 ```
 
 If you want to add some sample data to your local dev environment created
 using the commands above, there's a helper script for this.
-```
-    $ devel/create_sample_data.py -h
+
+```console
+$ devel/create_sample_data.py -h
 
     usage: create_sample_data.py [-h] [-a AGENTS] [-j JOBS] [-q QUEUES] [-s SERVER]
 
@@ -87,14 +48,13 @@ using the commands above, there's a helper script for this.
 ```
 
 The defaults are intended to be used with a server running on
-http://localhost:5000 which is what will be deployed by default if you use
+`http://localhost:5000` which is what will be deployed by default if you use
 the docker-compose setup above. So if this is what you want, you can just
 call it with no options.
 
-
 ### Multipass
 
-There is a **testflinger.yaml** file under the **devel** directory which can
+There is a `testflinger.yaml` file under the `devel/` directory which can
 be used with multipass to create a complete environment for demonstrating,
 testing, and developing on all parts of testflinger. This environment is
 self-contained, and automatically set up to point the command-line tools
@@ -107,13 +67,15 @@ It is recommended to have at least 8GB of RAM free and 32GB of disk space for
 creating this container.
 
 To get this running, first install multipass:
-```
-    $ sudo snap install multipass
+
+```shell
+sudo snap install multipass
 ```
 
 Next run the following command (this will take a while):
-```
-    $ cat devel/testflinger.yaml |multipass launch --name testflinger -c4 -m8GB -d32GB --timeout 600 focal --cloud-init -
+
+```shell
+cat devel/testflinger.yaml |multipass launch --name testflinger -c4 -m8GB -d32GB --timeout 600 focal --cloud-init -
 ```
 
 Due to the complexity of the environment being setup, this command may
@@ -122,8 +84,9 @@ still reach the final state successfully, but you will need to wait a
 few minutes before trying to connect.
 
 To open a shell to the container, run:
-```
-    $ multipass exec testflinger bash
+
+```shell
+multipass exec testflinger bash
 ```
 
 From there, you can look at the README file for more information
@@ -133,16 +96,15 @@ From there, you can look at the README file for more information
 If you wish to connect to the Web UI for MAAS to watch or debug deployment
 of the test container, you can get the ip address of the container using
 'multipass list' and open a browser on your host system to:
-```
-    http://<MAAS_IP>:5240/MAAS    
+
+```shell
+http://<MAAS_IP>:5240/MAAS
 ```
 
 ### Cleanup and Removal
 
 To remove everything that has been deployed completely:
-```
-    $ multipass delete -p testflinger
-```
 
-[uv-add]: https://docs.astral.sh/uv/reference/cli/#uv-add
-[uv-remove]: https://docs.astral.sh/uv/reference/cli/#uv-remove
+```shell
+multipass delete -p testflinger
+```
