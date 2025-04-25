@@ -1,14 +1,16 @@
 name: "[agent] Run unit tests"
-
+permissions:
+  contents: read
 on:
+  workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - common/**  # testflinger-agent depends on testflinger-common
       - agent/**
       - .github/workflows/agent-tox.yml
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
       - common/**  # testflinger-agent depends on testflinger-common
       - agent/**
@@ -21,7 +23,9 @@ jobs:
         working-directory: agent
     runs-on: [self-hosted, linux, jammy, X64]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      with:
+        persist-credentials: false
     - name: Install uv and set up Python
       uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5
     - name: Install concierge
