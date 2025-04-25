@@ -57,6 +57,6 @@ output of the action.
   (`machine-ip`) and child job IDs (`id`).
 
 [job]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
-[cli]: ../../../cli/README.rst
+[cli]: ../../../cli/
 [poll-multi-action]: action.yaml
-[submit-action]: ../submit/README.md
+[submit-action]: ../submit/

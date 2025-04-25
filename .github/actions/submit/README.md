@@ -68,5 +68,5 @@ If you wish to define your job inline, you can use the following step:
 [^poll-multi]: To poll a multi-device job, see the [`poll-multi`][poll-multi-action] action.
 
 [job]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
-[cli]: ../../../cli/README.rst
-[poll-multi-action]: ../poll-multi/README.md
+[cli]: ../../../cli/
+[poll-multi-action]: ../poll-multi/
