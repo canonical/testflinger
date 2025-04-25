@@ -131,7 +131,6 @@ class AttachmentError(Exception):
     """Exception thrown when attachments fail to be submitted."""
 
 
-# pylint: disable=R0904
 class TestflingerCli:
     """Class for handling the Testflinger CLI."""
 
@@ -162,9 +161,7 @@ class TestflingerCli:
         )
 
         # Allow config subcommand without worrying about server or client
-        if (
-            hasattr(self.args, "func") and self.args.func == self.configure  # pylint: disable=W0143
-        ):
+        if hasattr(self.args, "func") and self.args.func == self.configure:
             return
         if not server.startswith(("http://", "https://")):
             sys.exit(
