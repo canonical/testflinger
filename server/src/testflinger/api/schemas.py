@@ -113,6 +113,7 @@ class MuxPiProvisionData(Schema):
 
     url = fields.URL(required=False)
     use_attachment = fields.String(required=False)
+    attachments = fields.List(fields.Nested(Attachment), required=False)
     create_user = fields.Boolean(required=False)
     boot_check_url = fields.String(required=False)
     media = fields.String(validate=OneOf(["sd", "usb"]), required=False)
