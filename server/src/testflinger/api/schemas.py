@@ -240,9 +240,11 @@ class ProvisionData(OneOfSchema):
                 continue
         raise ValidationError("Invalid provision data schema.")
 
-    def _dump(self, obj, *, update_fields=True, **kwargs):
-        """Removes the type field from the result."""
-        result = super()._dump(obj, update_fields=update_fields, **kwargs)
+    def _dump(self, obj, **kwargs):
+        result = super()._dump(obj, **kwargs)
+        # Parent dump injects the type field:
+        #   result[self.type_field] = self.get_obj_type(obj)
+        # So we need to remove it
         result.pop(self.type_field)
         return result
 
