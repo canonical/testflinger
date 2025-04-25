@@ -21,12 +21,13 @@ with provision-image.sh script
 
 import json
 import logging
-from pathlib import Path
-import subprocess
-import yaml
-import shutil
-import time
 import os
+import shutil
+import subprocess
+import time
+from pathlib import Path
+
+import yaml
 
 from testflinger_device_connectors.devices import (
     ProvisioningError,

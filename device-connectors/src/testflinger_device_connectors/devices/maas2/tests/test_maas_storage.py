@@ -15,10 +15,12 @@
 """Maas2 agent storage module unit tests."""
 
 
-import pytest
 import json
 import subprocess
-from unittest.mock import Mock, MagicMock, call
+from unittest.mock import MagicMock, Mock, call
+
+import pytest
+
 from testflinger_device_connectors.devices.maas2.maas_storage import (
     MaasStorage,
     MaasStorageError,

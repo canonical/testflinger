@@ -1,11 +1,12 @@
 """Test LVFSDevice"""
 
-import unittest
 import json
+import unittest
 from unittest.mock import patch
+
 from testflinger_device_connectors.fw_devices import (
-    LVFSDevice,
     FwupdUpdateState,
+    LVFSDevice,
 )
 from testflinger_device_connectors.fw_devices.LVFS.tests import fwupd_data
 

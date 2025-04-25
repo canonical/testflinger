@@ -23,14 +23,15 @@ import subprocess
 from typing import Any, Dict, Optional, Tuple
 
 import yaml
+
 from testflinger_device_connectors.devices import ProvisioningError
-from testflinger_device_connectors.devices.zapper import ZapperConnector
-from testflinger_device_connectors.devices.oemscript import OemScript
+from testflinger_device_connectors.devices.dell_oemscript import DellOemScript
+from testflinger_device_connectors.devices.hp_oemscript import HPOemScript
 from testflinger_device_connectors.devices.lenovo_oemscript import (
     LenovoOemScript,
 )
-from testflinger_device_connectors.devices.dell_oemscript import DellOemScript
-from testflinger_device_connectors.devices.hp_oemscript import HPOemScript
+from testflinger_device_connectors.devices.oemscript import OemScript
+from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 

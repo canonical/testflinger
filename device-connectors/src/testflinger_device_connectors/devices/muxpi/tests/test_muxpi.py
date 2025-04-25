@@ -14,6 +14,7 @@
 """Unit tests for muxpi device connector"""
 
 from subprocess import CalledProcessError
+
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
 
 

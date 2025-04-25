@@ -17,6 +17,7 @@
 import json
 import logging
 import os
+
 import yaml
 
 import testflinger_device_connectors

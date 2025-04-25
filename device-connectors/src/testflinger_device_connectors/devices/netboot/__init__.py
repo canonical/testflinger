@@ -18,14 +18,14 @@ import logging
 import multiprocessing
 
 import yaml
+
+import testflinger_device_connectors
 from testflinger_device_connectors.devices import (
     DefaultDevice,
     ProvisioningError,
     RecoveryError,
     SerialLogger,
 )
-
-import testflinger_device_connectors
 from testflinger_device_connectors.devices.netboot.netboot import Netboot
 
 logger = logging.getLogger(__name__)

@@ -17,9 +17,10 @@
 import json
 import logging
 import os
-from pathlib import Path
 import subprocess
 import time
+from pathlib import Path
+
 import yaml
 
 from testflinger_device_connectors.devices import (

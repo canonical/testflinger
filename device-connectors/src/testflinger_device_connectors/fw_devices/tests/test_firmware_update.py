@@ -1,13 +1,14 @@
 """Test detect_device in firmware_update.py"""
 
 import unittest
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from testflinger_device_connectors.fw_devices import LVFSDevice
 from testflinger_device_connectors.fw_devices.firmware_update import (
     detect_device,
 )
-
 
 vendor_cmd = "sudo cat /sys/class/dmi/id/chassis_vendor"
 type_cmd = "sudo cat /sys/class/dmi/id/chassis_type"

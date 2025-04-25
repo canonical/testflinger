@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import time
+
 import requests
 
 from testflinger_device_connectors.devices import ProvisioningError

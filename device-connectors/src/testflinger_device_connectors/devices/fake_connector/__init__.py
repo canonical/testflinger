@@ -25,7 +25,6 @@ from testflinger_device_connectors.devices import (
     DefaultDevice,
 )
 
-
 logger = logging.getLogger(__name__)
 
 

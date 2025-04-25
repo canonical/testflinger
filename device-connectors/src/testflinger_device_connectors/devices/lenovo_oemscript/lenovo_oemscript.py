@@ -19,6 +19,7 @@ for provisioning, but require the --ubr flag in order to use the
 """
 
 import logging
+
 from testflinger_device_connectors.devices.oemscript.oemscript import OemScript
 
 logger = logging.getLogger(__name__)

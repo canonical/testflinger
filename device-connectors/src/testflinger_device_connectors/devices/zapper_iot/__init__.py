@@ -13,11 +13,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Zapper Connector for IOT provisioning."""
-import logging
 import contextlib
+import logging
 from typing import Any, Dict, Tuple
-from testflinger_device_connectors.devices.zapper import ZapperConnector
+
 from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices.zapper_iot.parser import (
     validate_urls,
 )
