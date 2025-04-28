@@ -8,7 +8,7 @@ version = "0.0.2"
 description = "Testflinger device connectors"
 license = { text = "GPLv3" }
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "jsonschema>=4.23.0",
     "pyyaml>=6.0.2",
