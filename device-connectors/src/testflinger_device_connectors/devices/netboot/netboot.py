@@ -71,8 +71,10 @@ class Netboot:
             logger.info("Running %s", cmd)
             try:
                 rc = runcmd(cmd, timeout=60)
-            except CmdTimeoutError:
-                raise ProvisioningError("timeout reaching control host!")
+            except CmdTimeoutError as err:
+                raise ProvisioningError(
+                    "timeout reaching control host!"
+                ) from err
             if rc:
                 raise ProvisioningError(
                     "Error running {} (rc={})".format(cmd, rc)
@@ -92,8 +94,8 @@ class Netboot:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
-            except Exception:
-                raise RecoveryError("timeout reaching control host!")
+            except Exception as e:
+                raise RecoveryError("timeout reaching control host!") from e
 
     def ensure_test_image(self, test_username, test_password):
         """Actively switch the device to boot the test image.
@@ -233,8 +235,8 @@ class Netboot:
             req = urllib.request.urlopen(url, timeout=1800)
             logger.info("Image write output:")
             logger.info(str(req.read()))
-        except Exception:
-            raise ProvisioningError("Error while flashing image!")
+        except Exception as e:
+            raise ProvisioningError("Error while flashing image!") from e
 
         # Run post-flash hooks
         post_flash_cmds = self.config.get("post_flash_cmds")

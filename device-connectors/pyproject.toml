@@ -54,8 +54,6 @@ select = [
     "W",   # pycodestyle warnings
 ]
 ignore = [
-    "B009",    # flake8-bugbear; get attr with constant
-    "B904",    # flake8-bugbear: raise without from inside except
     "D100",    # docstring: Missing docstring in public module
     "D101",    # docstring: Missing docstring in public class
     "D102",    # docstring: Missing docstring in public method
@@ -66,7 +64,6 @@ ignore = [
     "G001",    # flake8-logging-format: logging string format
     "G003",    # flake8-logging-format: logging string concat
     "G004",    # flake8-logging-format: loggin f-string
-    "PLW0603", # pylint warnings: global statement
 ]
 
 [tool.ruff.lint.pep8-naming]

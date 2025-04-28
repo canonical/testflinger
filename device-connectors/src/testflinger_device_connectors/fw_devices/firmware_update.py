@@ -48,7 +48,7 @@ def detect_device(
         )
     except subprocess.CalledProcessError as err:
         logger.error(err.output)
-        raise RuntimeError(err.output)
+        raise RuntimeError(err.output) from err
 
     err_msg = ""
     if rc1 != 0:
@@ -79,9 +79,9 @@ def detect_device(
             and any(x == vendor_string for x in dev.vendor)
         ][0]
         logger.info("%s is a %s %s", ip, vendor_string, dev.__name__)
-    except IndexError:
+    except IndexError as err:
         logger.error(err_msg)
-        raise RuntimeError(err_msg)
+        raise RuntimeError(err_msg) from err
 
     if issubclass(dev, LVFSDevice):
         return dev(ip, user, password)

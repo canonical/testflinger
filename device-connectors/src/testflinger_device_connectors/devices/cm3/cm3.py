@@ -72,18 +72,18 @@ class CM3:
                 ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout
             )
         except subprocess.CalledProcessError as e:
-            raise ProvisioningError(e.output)
+            raise ProvisioningError(e.output) from e
         return output
 
     def provision(self):
         try:
             url = self.job_data["provision_data"]["url"]
-        except KeyError:
+        except KeyError as err:
             raise ProvisioningError(
                 'You must specify a "url" value in '
                 'the "provision_data" section of '
                 "your job_data"
-            )
+            ) from err
         # Remove /dev/sda if somehow it's a normal file
         try:
             self._run_control("test -f /dev/sda")
@@ -251,8 +251,8 @@ class CM3:
                         )
                     )
                     self._run_control(rm_cmd)
-        except Exception:
-            raise ProvisioningError("Error creating user files")
+        except Exception as e:
+            raise ProvisioningError("Error creating user files") from e
 
     def hardreset(self):
         """Reboot the device.
@@ -268,5 +268,5 @@ class CM3:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
-            except Exception:
-                raise RecoveryError("timeout reaching control host!")
+            except Exception as e:
+                raise RecoveryError("timeout reaching control host!") from e

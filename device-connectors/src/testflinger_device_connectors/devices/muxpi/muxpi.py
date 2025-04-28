@@ -101,7 +101,7 @@ class MuxPi:
                 ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout
             )
         except subprocess.SubprocessError as e:
-            raise ProvisioningError(e.output)
+            raise ProvisioningError(e.output) from e
         return output
 
     def _copy_to_control(self, local_file, remote_file):
@@ -122,7 +122,7 @@ class MuxPi:
         try:
             output = subprocess.check_output(ssh_cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            raise ProvisioningError(e.output)
+            raise ProvisioningError(e.output) from e
         return output
 
     def reboot_sdwire(self):
@@ -140,8 +140,8 @@ class MuxPi:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=60)
-            except Exception:
-                raise ProvisioningError("fail to reboot control host")
+            except Exception as e:
+                raise ProvisioningError("fail to reboot control host") from e
 
         logger.info("Rebooting DUT")
         self.hardreset()
@@ -396,8 +396,8 @@ class MuxPi:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
-            except Exception:
-                raise RecoveryError("timeout reaching control host!")
+            except Exception as e:
+                raise RecoveryError("timeout reaching control host!") from e
 
     def get_image_type(self):
         """Figure out which kind of image is on the configured block device.
@@ -471,8 +471,8 @@ class MuxPi:
                 "sudo umount {}*".format(self.test_device),
                 timeout=30,
             )
-        except KeyError:
-            raise RecoveryError("Device config missing test_device")
+        except KeyError as err:
+            raise RecoveryError("Device config missing test_device") from err
         except Exception:
             # We might not be mounted, so expect this to fail sometimes
             pass
@@ -601,8 +601,8 @@ class MuxPi:
                         base / "etc/cloud/cloud.cfg.d/99-fake?cloud.cfg"
                     )
                     self._run_control(rm_cmd)
-        except Exception:
-            raise ProvisioningError("Error creating user files")
+        except Exception as e:
+            raise ProvisioningError("Error creating user files") from e
 
     def _configure_sudo(self):
         # Setup sudoers data

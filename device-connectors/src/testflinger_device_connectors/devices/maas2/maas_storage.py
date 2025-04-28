@@ -129,11 +129,11 @@ class MaasStorage:
             try:
                 # attempt to convert the size string to an integer
                 return int(size_str)
-            except ValueError:
+            except ValueError as err:
                 raise MaasStorageError(
                     "Sizes must end in T, G, M, K, B, or be an integer "
                     "when no unit is provided."
-                )
+                ) from err
 
     def configure_node_storage(self, storage_data, reset=False):
         """Configure the node's storage layout, from provisioning data."""
