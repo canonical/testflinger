@@ -426,8 +426,8 @@ class MuxPi:
 
         for path, img_type in self.IMAGE_PATH_IDS.items():
             try:
-                path = self.mount_point / path
-                check_path(path)
+                full_path = self.mount_point / path
+                check_path(full_path)
                 return img_type
             except Exception:
                 # Path was not found, continue trying others
