@@ -89,8 +89,9 @@ class CM3:
             self._run_control("test -f /dev/sda")
             # paranoid, but be really certain we're not running locally
             self._run_control("sudo rm -f /dev/sda")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Exception found while removing /dev/sda: %s", e)
+
         self._run_control("sudo pi3gpio set high 16")
         time.sleep(5)
         self.hardreset()
@@ -151,8 +152,13 @@ class CM3:
                     for path, img_type in self.IMAGE_PATH_IDS.items():
                         if path in dirs.decode().split():
                             return img_type, dev
-            except Exception:
+            except Exception as e:
                 # If unmountable or any other error, go on to the next one
+                logger.warning(
+                    "Error %s found while processing device: %s.",
+                    e,
+                    dev,
+                )
                 continue
         # We have no idea what kind of image this is
         return "unknown", dev
@@ -185,8 +191,10 @@ class CM3:
                     cmd, stderr=subprocess.STDOUT, timeout=60
                 )
                 return True
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    "Exception %s encountered while running: %s", e, cmd
+                )
         # If we get here, then we didn't boot in time
         raise ProvisioningError("Failed to boot test image!")
 

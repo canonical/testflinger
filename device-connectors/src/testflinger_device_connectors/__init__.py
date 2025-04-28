@@ -181,7 +181,7 @@ def serve_file(queue, filename):
         The file to transmit
     """
     server = socket.socket()
-    server.bind(("0.0.0.0", 0))
+    server.bind(("0.0.0.0", 0))  # noqa: S104
     port = server.getsockname()[1]
     queue.put(port)
     server.listen(1)
@@ -445,7 +445,7 @@ def _run_test_cmds_str(cmds, config=None, env=None):
         cmds = _process_cmds_template_vars(cmds, config)
     with open("tf_cmd_script", mode="w", encoding="utf-8") as tf_cmd_script:
         tf_cmd_script.write(cmds)
-    os.chmod("tf_cmd_script", 0o775)
+    os.chmod("tf_cmd_script", 0o775)  # noqa: S103
     result = runcmd("./tf_cmd_script", env)
     if result:
         logger.warning("Tests failed, rc=%d", result)
