@@ -11,7 +11,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
-"""Tests for the devices module"""
+"""Tests for the devices module."""
 
 from importlib import import_module
 from itertools import product
@@ -29,7 +29,7 @@ STAGES_CONNECTORS_PRODUCT = tuple(product(STAGES, DEVICE_CONNECTORS))
 
 @pytest.mark.parametrize("stage,device", STAGES_CONNECTORS_PRODUCT)
 def test_get_device_stage_func(stage, device):
-    """Check that we can load all stages from all device connectors"""
+    """Check that we can load all stages from all device connectors."""
     connector_instance = import_module(
         f"testflinger_device_connectors.devices.{device}"
     ).DeviceConnector()

@@ -11,20 +11,21 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
-"""Tests for the cmd argument parser"""
+"""Tests for the cmd argument parser."""
 
-import pytest
 import json
 
-from testflinger_device_connectors.devices import RecoveryError
+import pytest
+
 from testflinger_device_connectors.cmd import (
-    get_args,
     add_exception_logging_to_file,
+    get_args,
 )
+from testflinger_device_connectors.devices import RecoveryError
 
 
 def test_good_args():
-    """Test that we can parse good arguments"""
+    """Test that we can parse good arguments."""
     argv = ["noprovision", "reserve", "-c", "config.cfg", "job_data.json"]
 
     args = get_args(argv)
@@ -36,7 +37,7 @@ def test_good_args():
 
 
 def test_invalid_device():
-    """Test that an invalid device raises an exception"""
+    """Test that an invalid device raises an exception."""
     argv = ["INVALID", "provision", "-c", "config.cfg", "job_data.json"]
 
     with pytest.raises(SystemExit) as err:
@@ -45,7 +46,7 @@ def test_invalid_device():
 
 
 def test_invalid_stage():
-    """Test that an invalid stage raises an exception"""
+    """Test that an invalid stage raises an exception."""
     argv = ["INVALID", "provision", "-c", "config.cfg", "job_data.json"]
 
     with pytest.raises(SystemExit) as err:
@@ -54,7 +55,7 @@ def test_invalid_stage():
 
 
 def test_exception_logging(tmp_path):
-    """Tests exception logging decorator that adds file logging"""
+    """Tests exception logging decorator that adds file logging."""
     open("device-connector-error.json", "w").close()
 
     exception_info = {
@@ -76,7 +77,7 @@ def test_exception_logging(tmp_path):
 
 
 def test_exception_logging_no_cause(tmp_path):
-    """Tests exception logging for causeless exceptions"""
+    """Tests exception logging for causeless exceptions."""
     open("device-connector-error.json", "w").close()
 
     exception_info = {
@@ -100,7 +101,7 @@ def test_exception_logging_no_cause(tmp_path):
 def test_recovery_error_return_value():
     """
     Tests that exception logging function return exit code 46
-    on RecoveryError
+    on RecoveryError.
     """
 
     def test_func():
