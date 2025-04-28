@@ -181,9 +181,9 @@ class Netboot:
             logger.info("Checking if master image booted: %s", check_url)
             with urllib.request.urlopen(check_url) as url:
                 data = url.read()
-        except Exception:
+        except Exception as e:
             # Any connection error will fail through the normal path
-            pass
+            logger.warning("An exception occurred: %s", e)
         if "Snappy Test Device Imager" in str(data):
             return True
         else:
@@ -247,6 +247,6 @@ class Netboot:
         try:
             logger.info("Rebooting target device: %s", url)
             urllib.request.urlopen(url, timeout=10)
-        except Exception:
+        except Exception as e:
             # FIXME: This could fail to return right now due to a bug
-            pass
+            logger.warning("Known bug exception: %s", e)

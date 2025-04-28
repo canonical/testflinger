@@ -186,13 +186,17 @@ class MuxPi:
             try:
                 cmd = "zapper sdwire plug_to_self"
                 sd_node = self._run_control(cmd)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    "Exception %s encountered while running: %s", e, cmd
+                )
             try:
                 cmd = "zapper typecmux plug_to_self"
                 usb_node = self._run_control(cmd)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    "Exception %s encountered while running: %s", e, cmd
+                )
 
             if media == "sd":
                 try:
@@ -430,7 +434,9 @@ class MuxPi:
                 check_path(full_path)
                 return img_type
             except Exception:
-                # Path was not found, continue trying others
+                logger.warning(
+                    "Path %s was not found, continue trying others", full_path
+                )
                 continue
         # We have no idea what kind of image this is
         return "unknown"
@@ -475,12 +481,12 @@ class MuxPi:
             raise RecoveryError("Device config missing test_device") from err
         except Exception:
             # We might not be mounted, so expect this to fail sometimes
-            pass
+            logger.warning("Device %s might not be mounted", self.test_device)
 
     def create_user(self, image_type):
         """Create user account for default ubuntu user."""
         base = self.mount_point
-        remote_tmp = Path("/tmp") / self.agent_name
+        remote_tmp = Path("/tmp") / self.agent_name  # noqa: S108
         try:
             data_path = Path(__file__).parent / "../../data/muxpi"
             if image_type == "ce-oem-iot-before-24":

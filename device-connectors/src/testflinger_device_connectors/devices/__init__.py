@@ -101,9 +101,12 @@ class RealSerialLogger:
                 try:
                     self._log_serial()
                 except Exception:
-                    pass
+                    logger.error("Error connecting to serial logging server")
+
                 # Keep trying if we can't connect, but sleep between attempts
-                logger.error("Error connecting to serial logging server")
+                logger.info(
+                    "Sleeping for 30 seconds before reattemting to reconnect"
+                )
                 time.sleep(30)
 
         self.proc = multiprocessing.Process(target=reconnector, daemon=True)
