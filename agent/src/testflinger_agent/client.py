@@ -12,22 +12,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
 import json
+import logging
 import os
-from pathlib import Path
-import requests
 import shutil
 import tempfile
 import time
-
-from typing import List, Dict
+from pathlib import Path
+from typing import Dict, List
 from urllib.parse import urljoin
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
-from requests.exceptions import RequestException, ConnectionError
+
+import requests
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 from testflinger_agent.errors import TFServerError
 
@@ -70,7 +69,7 @@ class TestflingerClient:
         if not host:
             logger.error("InfluxDB host undefined")
             return None
-        port = int(os.environ.get("INFLUX_PORT", 8086))
+        port = int(os.environ.get("INFLUX_PORT", "8086"))
         user = os.environ.get("INFLUX_USER", "")
         password = os.environ.get("INFLUX_PW", "")
 
@@ -81,13 +80,13 @@ class TestflingerClient:
         # ensure we can connect to influxdb
         try:
             influx_client.create_database(self.influx_agent_db)
-        except ConnectionError as exc:
+        except requests.exceptions.ConnectionError as exc:
             logger.error(exc)
         else:
             return influx_client
 
     def check_jobs(self):
-        """Check for new jobs for on the Testflinger server
+        """Check for new jobs for on the Testflinger server.
 
         :return: Dict with job data, or None if no job found
         """
@@ -102,13 +101,13 @@ class TestflingerClient:
                 return job_request.json()
             else:
                 return None
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
             # Wait a little extra before trying again
             time.sleep(60)
 
     def get_attachments(self, job_id: str, path: Path):
-        """Download the attachment archive associated with a job
+        """Download the attachment archive associated with a job.
 
         :param job_id:
             Id for the job
@@ -119,8 +118,9 @@ class TestflingerClient:
         with requests.get(uri, stream=True, timeout=600) as response:
             if not response:
                 logger.error(
-                    f"Unable to retrieve attachments for job {job_id} "
-                    f"(error: {response.status_code})"
+                    "Unable to retrieve attachments for job: %s (error: %d)",
+                    job_id,
+                    response.status_code,
                 )
                 raise TFServerError(response.status_code)
             with open(path, "wb") as attachments:
@@ -133,7 +133,7 @@ class TestflingerClient:
             return job_data.get("job_state")
 
     def repost_job(self, job_data):
-        """ "Resubmit the job to the testflinger server with the same id
+        """Resubmit the job to the testflinger server with the same id.
 
         :param job_id:
             id for the job on which we want to post results
@@ -144,31 +144,30 @@ class TestflingerClient:
         job_output = """
             There was an unrecoverable error while running this stage. Your job
             will attempt to be automatically resubmitted back to the queue.
-            Resubmitting job: {}\n""".format(
-            job_id
-        )
+            Resubmitting job: {}\n""".format(job_id)
         self.post_live_output(job_id, job_output)
         try:
             job_request = self.session.post(job_uri, json=job_data)
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
             raise TFServerError("other exception") from exc
         if not job_request:
             logger.error(
-                "Unable to re-post job to: %s (error: %s)"
-                % (job_uri, job_request.status_code)
+                "Unable to re-post job to: %s (error: %d)",
+                job_uri,
+                job_request.status_code,
             )
             raise TFServerError(job_request.status_code)
 
     def post_job_state(self, job_id, phase):
-        """Update the job_state on the testflinger server"""
+        """Update the job_state on the testflinger server."""
         try:
             self.post_result(job_id, {"job_state": phase})
         except TFServerError:
             pass
 
     def post_result(self, job_id, data):
-        """Post data to the testflinger server result for this job
+        """Post data to the testflinger server result for this job.
 
         :param job_id:
             id for the job on which we want to post results
@@ -179,18 +178,19 @@ class TestflingerClient:
         result_uri = urljoin(result_uri, job_id)
         try:
             job_request = self.session.post(result_uri, json=data, timeout=30)
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
             raise TFServerError("other exception") from exc
         if not job_request:
             logger.error(
-                "Unable to post results to: %s (error: %s)"
-                % (result_uri, job_request.status_code)
+                "Unable to post results to: %s (error: %d)",
+                result_uri,
+                job_request.status_code,
             )
             raise TFServerError(job_request.status_code)
 
     def get_result(self, job_id):
-        """Get current results data to the testflinger server for this job
+        """Get current results data to the testflinger server for this job.
 
         :param job_id:
             id for the job on which we want to post results
@@ -202,13 +202,14 @@ class TestflingerClient:
         result_uri = urljoin(result_uri, job_id)
         try:
             job_request = self.session.get(result_uri, timeout=30)
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
             return {}
         if not job_request:
             logger.error(
-                "Unable to get results from: %s (error: %s)"
-                % (result_uri, job_request.status_code)
+                "Unable to get results from: %s (error: %d)",
+                result_uri,
+                job_request.status_code,
             )
             return {}
         if job_request.content:
@@ -217,7 +218,7 @@ class TestflingerClient:
             return {}
 
     def transmit_job_outcome(self, rundir):
-        """Post job outcome json data to the testflinger server
+        """Post job outcome json data to the testflinger server.
 
         :param rundir:
             Execution dir where the results can be found
@@ -227,9 +228,10 @@ class TestflingerClient:
                 job_data = json.load(f)
         except OSError:
             logger.error(
-                f"Unable to read job ID from {rundir}/testflinger.json. "
+                "Unable to read job ID from %s/testflinger.json. "
                 "This may be a job that was already transmitted, but "
-                "couldn't be removed."
+                "couldn't be removed.",
+                rundir,
             )
             return
         job_id = job_data.get("job_id")
@@ -244,7 +246,7 @@ class TestflingerClient:
         # Do not retransmit outcome if it's already been done and removed
         outcome_file = os.path.join(rundir, "testflinger-outcome.json")
         if os.path.isfile(outcome_file):
-            logger.info("Submitting job outcome for job: %s" % job_id)
+            logger.info("Submitting job outcome for job: %s", job_id)
             with open(outcome_file) as f:
                 data = json.load(f)
                 data["job_state"] = "complete"
@@ -254,7 +256,7 @@ class TestflingerClient:
         shutil.rmtree(rundir)
 
     def save_artifacts(self, rundir, job_id):
-        """Save artifacts to the testflinger server
+        """Save artifacts to the testflinger server.
 
         :param rundir:
             Execution dir where the results can be found
@@ -284,15 +286,16 @@ class TestflingerClient:
                 )
             if not artifact_request:
                 logger.error(
-                    "Unable to post results to: %s (error: %s)"
-                    % (artifact_uri, artifact_request.status_code)
+                    "Unable to post results to: %s (error: %d)",
+                    artifact_uri,
+                    artifact_request.status_code,
                 )
                 raise TFServerError(artifact_request.status_code)
             else:
                 shutil.rmtree(artifacts_dir)
 
     def post_live_output(self, job_id, data):
-        """Post output data to the testflinger server for this job
+        """Post output data to the testflinger server for this job.
 
         :param job_id:
             id for the job on which we want to post results
@@ -306,13 +309,13 @@ class TestflingerClient:
             job_request = self.session.post(
                 output_uri, data=data.encode("utf-8"), timeout=60
             )
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
             return False
         return bool(job_request)
 
     def post_advertised_queues(self):
-        """Post the list of advertised queues to testflinger server"""
+        """Post the list of advertised queues to testflinger server."""
         if "advertised_queues" not in self.config:
             return
         queues_uri = urljoin(self.server, "/v1/agents/queues")
@@ -320,11 +323,11 @@ class TestflingerClient:
             self.session.post(
                 queues_uri, json=self.config["advertised_queues"], timeout=30
             )
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
 
     def post_advertised_images(self):
-        """Post the list of advertised images to testflinger server"""
+        """Post the list of advertised images to testflinger server."""
         if "advertised_images" not in self.config:
             return
         images_uri = urljoin(self.server, "/v1/agents/images")
@@ -332,11 +335,11 @@ class TestflingerClient:
             self.session.post(
                 images_uri, json=self.config["advertised_images"], timeout=30
             )
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
 
     def post_agent_data(self, data):
-        """Post the relevant data points to testflinger server
+        """Post the relevant data points to testflinger server.
 
         :param data:
             dict of various agent data points to send to the api server
@@ -345,11 +348,11 @@ class TestflingerClient:
         agent_data_url = urljoin(agent_data_uri, self.config.get("agent_id"))
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
 
     def post_influx(self, phase, result=None):
-        """Post the relevant data points to testflinger server
+        """Post the relevant data points to testflinger server.
 
         :param data:
             dict of various agent data points to send to the api server
@@ -383,7 +386,7 @@ class TestflingerClient:
             logger.error(exc)
 
     def post_provision_log(self, job_id: str, exit_code: int, detail: str):
-        """Post the outcome of provisioning to the server
+        """Post the outcome of provisioning to the server.
 
         :param job_id:
             job_id of the job that was running
@@ -401,7 +404,7 @@ class TestflingerClient:
         agent_data_url = urljoin(agent_data_uri, self.config.get("agent_id"))
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.warning("Unable to post provision log to server: %s", exc)
 
     def post_status_update(
@@ -412,8 +415,8 @@ class TestflingerClient:
         job_id: str,
     ):
         """
-        Posts status updates about the running job as long as there is a
-        webhook
+        Post status updates about the running job as long as there is a
+        webhook.
 
         :param job_queue:
             TestFlinger queue the currently running job belongs to
@@ -442,11 +445,11 @@ class TestflingerClient:
             # Response code is greater than 399
             if not job_request:
                 logger.error(
-                    "Unable to post status updates to: %s (error: %s)",
+                    "Unable to post status updates to: %s (error: %d)",
                     status_update_uri,
                     job_request.status_code,
                 )
-        except RequestException as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(
                 "Unable to post status updates to: %s (error: %s)",
                 status_update_uri,

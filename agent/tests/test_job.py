@@ -1,25 +1,27 @@
 import os
-import pytest
 import shutil
 import tempfile
-
-import requests_mock as rmock
 from unittest.mock import patch
+
+import pytest
+import requests_mock as rmock
+from testflinger_common.enums import TestEvent
 
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
+from testflinger_agent.handlers import LogUpdateHandler
 from testflinger_agent.job import (
     TestflingerJob as _TestflingerJob,
+)
+from testflinger_agent.job import (
     read_truncated,
 )
 from testflinger_agent.runner import CommandRunner
-from testflinger_agent.handlers import LogUpdateHandler
 from testflinger_agent.schema import validate
 from testflinger_agent.stop_condition_checkers import (
     GlobalTimeoutChecker,
     OutputTimeoutChecker,
 )
-from testflinger_common.enums import TestEvent
 
 
 class TestJob:
@@ -46,9 +48,7 @@ class TestJob:
         ["provision", "firmware_update", "test", "allocate", "reserve"],
     )
     def test_skip_missing_data(self, client, phase):
-        """
-        Test that optional phases are skipped when the data is missing
-        """
+        """Test that optional phases are skipped when the data is missing."""
         fake_job_data = {"global_timeout": 1, "provision_data": ""}
         job = _TestflingerJob(fake_job_data, client)
 
@@ -62,9 +62,7 @@ class TestJob:
         "phase", ["setup", "provision", "test", "allocate", "reserve"]
     )
     def test_skip_empty_provision_data(self, client, phase):
-        """
-        Test that phases are skipped when there is no command configured
-        """
+        """Test that phases are skipped when there is no command configured."""
         self.config[f"{phase}_command"] = ""
         fake_job_data = {"global_timeout": 1, f"{phase}_data": "foo"}
         job = _TestflingerJob(fake_job_data, client)
@@ -74,7 +72,7 @@ class TestJob:
         assert exit_reason is None
 
     def test_job_global_timeout(self, tmp_path):
-        """Test that timeout from job_data is respected"""
+        """Test that timeout from job_data is respected."""
         timeout_str = "ERROR: Global timeout reached! (1s)"
         logfile = tmp_path / "testlog"
         runner = CommandRunner(tmp_path, env={})
@@ -91,7 +89,7 @@ class TestJob:
         assert exit_event == TestEvent.GLOBAL_TIMEOUT
 
     def test_config_global_timeout(self, client):
-        """Test that timeout from device config is preferred"""
+        """Test that timeout from device config is preferred."""
         self.config["global_timeout"] = 1
         fake_job_data = {"global_timeout": 3}
         job = _TestflingerJob(fake_job_data, client)
@@ -99,7 +97,7 @@ class TestJob:
         assert timeout == 1
 
     def test_job_output_timeout(self, tmp_path):
-        """Test that output timeout from job_data is respected"""
+        """Test that output timeout from job_data is respected."""
         timeout_str = "ERROR: Output timeout reached! (1s)"
         logfile = tmp_path / "testlog"
         runner = CommandRunner(tmp_path, env={})
@@ -118,7 +116,7 @@ class TestJob:
         assert exit_event == TestEvent.OUTPUT_TIMEOUT
 
     def test_config_output_timeout(self, client):
-        """Test that output timeout from device config is preferred"""
+        """Test that output timeout from device config is preferred."""
         self.config["output_timeout"] = 1
         fake_job_data = {"output_timeout": 3}
         job = _TestflingerJob(fake_job_data, client)
@@ -128,7 +126,7 @@ class TestJob:
     def test_no_output_timeout_in_provision(
         self, client, tmp_path, requests_mock
     ):
-        """Test that output timeout is ignored when not in test phase"""
+        """Test that output timeout is ignored when not in test phase."""
         timeout_str = "complete\n"
         logfile = tmp_path / "provision.log"
         fake_job_data = {"output_timeout": 1, "provision_data": {"url": "foo"}}
@@ -156,9 +154,8 @@ class TestJob:
     ):
         """
         Test that job.run_test_phase() exits with 100 so that it has some
-        non-zero value if CommandRunner.run() raises an exception
+        non-zero value if CommandRunner.run() raises an exception.
         """
-
         # create the outcome file since we bypassed that
         with open(tmp_path / "testflinger-outcome.json", "w") as outcome_file:
             outcome_file.write("{}")
@@ -180,8 +177,7 @@ class TestJob:
         assert exit_reason == "failed"
 
     def test_read_truncated(self, client, tmp_path):
-        """Test the read_truncated function"""
-
+        """Test the read_truncated function."""
         # First check that a small file doesn't get truncated
         short_file = tmp_path / "short"
         short_file.write_text("x" * 100)
@@ -202,8 +198,7 @@ class TestJob:
 
     @pytest.mark.timeout(1)
     def test_wait_for_completion(self, client):
-        """Test that wait_for_completion works"""
-
+        """Test that wait_for_completion works."""
         # Make sure we return "completed" for the parent job state
         client.check_job_state = lambda _: "completed"
 

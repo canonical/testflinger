@@ -11,7 +11,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Schema validation for testflinger-agent config files"""
+"""Schema validation for testflinger-agent config files."""
 
 import voluptuous
 
@@ -52,7 +52,7 @@ SCHEMA_V1 = {
 
 
 def validate(data):
-    """Validate data according to known schemas
+    """Validate data according to known schemas.
 
     :param data:
         Data to validate

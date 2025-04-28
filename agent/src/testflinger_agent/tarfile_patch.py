@@ -1,5 +1,5 @@
 """
-Extends `TarFile` so that `extractall` supports filtering
+Extends `TarFile` so that `extractall` supports filtering.
 
 Uses a *minimal* subset of code from:
 github.com/python/cpython/blob/3.8/Lib/tarfile.py
@@ -130,7 +130,7 @@ def replace(
     uname=_KEEP,
     gname=_KEEP,
     deep=True,
-    _KEEP=_KEEP,
+    _KEEP=_KEEP,  # noqa: N803
 ):
     """Return a deep copy of self with the given attributes replaced."""
     if deep:
@@ -168,9 +168,8 @@ def fully_trusted_filter(member, dest_path):
 
 
 class TarFilePatched(TarFile):
-
     def _get_extract_tarinfo(self, member, filter_function, path):
-        """Get filtered TarInfo (or None) from member, which might be a str"""
+        """Get filtered TarInfo (or None) from member, which might be a str."""
         if isinstance(member, str):
             tarinfo = self.getmember(member)
         else:
@@ -193,7 +192,7 @@ class TarFilePatched(TarFile):
         return tarinfo
 
     def _extract_one(self, tarinfo, path, set_attrs, numeric_owner):
-        """Extract from filtered tarinfo to disk"""
+        """Extract from filtered tarinfo to disk."""
         self._check("r")
 
         try:
@@ -209,7 +208,12 @@ class TarFilePatched(TarFile):
             self._handle_nonfatal_error(e)
 
     def extractall(
-        self, path=".", members=None, *, numeric_owner=False, filter=None
+        self,
+        path=".",
+        members=None,
+        *,
+        numeric_owner=False,
+        filter=None,  # noqa: A002
     ):
         """Extract all members from the archive to the current working
         directory and set owner, modification time and permissions on
@@ -264,11 +268,11 @@ class TarFilePatched(TarFile):
             return
         try:
             os.chmod(targetpath, tarinfo.mode)
-        except OSError:
-            raise ExtractError("could not change mode")
+        except OSError as err:
+            raise ExtractError("could not change mode") from err
 
 
 # make sure `open` is available when this module is imported and it
 # returns a `TarFilePatched` object instead of a `TarFile` one
 # (`open` is "exported" in the same manner in the original source)
-open = TarFilePatched.open
+open = TarFilePatched.open  # noqa: A001

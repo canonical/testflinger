@@ -1,23 +1,23 @@
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import tarfile
 import tempfile
 import uuid
+from pathlib import Path
 from unittest.mock import patch
 
-import requests_mock as rmock
 import pytest
+import requests_mock as rmock
+from testflinger_common.enums import TestEvent, TestPhase
 
 import testflinger_agent
+from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
+from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
-from testflinger_agent.client import TestflingerClient as _TestflingerClient
-from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
 from testflinger_agent.schema import validate
-from testflinger_common.enums import TestPhase, TestEvent
 
 
 class TestClient:
@@ -376,9 +376,9 @@ class TestClient:
 
     def test_recovery_failed(self, agent, requests_mock):
         # Make sure we stop processing jobs after a device recovery error
-        OFFLINE_FILE = "/tmp/TESTFLINGER-DEVICE-OFFLINE-test001"
-        if os.path.exists(OFFLINE_FILE):
-            os.unlink(OFFLINE_FILE)
+        offline_file = "/tmp/TESTFLINGER-DEVICE-OFFLINE-test001"
+        if os.path.exists(offline_file):
+            os.unlink(offline_file)
         self.config["agent_id"] = "test001"
         self.config["provision_command"] = "bash -c 'exit 46'"
         self.config["test_command"] = "echo test1"
@@ -409,8 +409,8 @@ class TestClient:
 
             agent.process_jobs()
             assert agent.check_offline()
-        if os.path.exists(OFFLINE_FILE):
-            os.unlink(OFFLINE_FILE)
+        if os.path.exists(offline_file):
+            os.unlink(offline_file)
 
     def test_post_agent_data(self, agent):
         # Make sure we post the initial agent data
@@ -612,7 +612,7 @@ class TestClient:
             mock_post_provision_log.assert_called_with(*expected_log_params)
 
     def test_provision_error_in_event_detail(self, agent, requests_mock):
-        """Tests provision log error messages in event log detail field"""
+        """Tests provision log error messages in event log detail field."""
         self.config["test_command"] = "echo test1"
         job_id = str(uuid.uuid1())
         fake_job_data = {
@@ -681,7 +681,7 @@ class TestClient:
         )
 
     def test_provision_error_no_cause(self, agent, requests_mock):
-        """Tests provision log error messages for exceptions with no cause"""
+        """Tests provision log error messages for exceptions with no cause."""
         self.config["test_command"] = "echo test1"
         job_id = str(uuid.uuid1())
         fake_job_data = {

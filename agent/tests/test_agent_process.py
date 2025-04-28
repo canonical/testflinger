@@ -12,10 +12,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+import os
 import signal
 import subprocess
 import time
-import os
 
 
 def test_restart_signal_handler(tmp_path):
@@ -29,8 +29,8 @@ def test_restart_signal_handler(tmp_path):
         "  - test\n"
     )
 
-    agent_process = subprocess.Popen(
-        [
+    agent_process = subprocess.Popen(  # noqa: S603
+        [  # noqa: S607
             "testflinger-agent",
             "-c",
             str(agent_config_file),

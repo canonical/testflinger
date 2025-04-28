@@ -13,10 +13,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-import pytest
 import uuid
 from unittest.mock import patch
 
+import pytest
 import requests_mock as rmock
 
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
@@ -52,8 +52,8 @@ class TestClient:
 
     def test_post_advertised_queues(self, client, requests_mock):
         """
-        ensure that the server api /v1/agents/queues was called with
-        the correct queue data
+        Ensure that the server api /v1/agents/queues was called with
+        the correct queue data.
         """
         requests_mock.post(rmock.ANY, status_code=200)
         client.post_advertised_queues()
@@ -63,8 +63,8 @@ class TestClient:
 
     def test_post_advertised_images(self, client, requests_mock):
         """
-        ensure that the server api /v1/agents/images was called with
-        the correct image data
+        Ensure that the server api /v1/agents/images was called with
+        the correct image data.
         """
         requests_mock.post(rmock.ANY, status_code=200)
         client.post_advertised_images()
@@ -73,7 +73,9 @@ class TestClient:
         }
 
     def test_post_provision_logs(self, client, requests_mock):
-        """Test that /v1/agents/provision_logs is called with the right data"""
+        """Test that /v1/agents/provision_logs is called
+        with the right data.
+        """
         job_id = "00000000-0000-0000-0000-00000000000"
         exit_code = 1
         detail = "provision_failed"
@@ -89,9 +91,7 @@ class TestClient:
         assert last_request["detail"] == detail
 
     def test_transmit_job_outcome(self, client, requests_mock, tmp_path):
-        """
-        Test that transmit_job_outcome sends results to the server
-        """
+        """Test that transmit_job_outcome sends results to the server."""
         job_id = str(uuid.uuid1())
         testflinger_data = {"job_id": job_id}
         testflinger_json = tmp_path / "testflinger.json"
@@ -110,7 +110,7 @@ class TestClient:
         """
         Test that OSError during save_artifacts results in removing the job
         directory and logging an error so that we don't crash and keep
-        filling up the disk
+        filling up the disk.
         """
         job_id = str(uuid.uuid1())
         testflinger_data = {"job_id": job_id}
@@ -170,9 +170,7 @@ class TestClient:
             assert "Unable to retrieve attachments for job" in caplog.text
 
     def test_transmit_job_artifact(self, client, requests_mock, tmp_path):
-        """
-        Test that transmit_job_outcome sends artifacts if they exist
-        """
+        """Test that transmit_job_outcome sends artifacts if they exist."""
         artifacts_dir = tmp_path / "artifacts"
         artifacts_dir.mkdir()
         job_id = str(uuid.uuid1())
@@ -189,7 +187,7 @@ class TestClient:
     def test_transmit_job_outcome_missing_json(self, client, tmp_path, caplog):
         """
         Test that transmit_job_outcome logs an error and exits if
-        testflinger.json is missing
+        testflinger.json is missing.
         """
         client.transmit_job_outcome(tmp_path)
         assert "Unable to read job ID" in caplog.text
@@ -197,10 +195,10 @@ class TestClient:
     def test_post_status_update(self, client, requests_mock):
         """
         Test that the agent sends a status update to the status endpoint
-        if there is a valid webhook
+        if there is a valid webhook.
         """
         webhook = "http://foo"
-        job_id = job_id = str(uuid.uuid1())
+        job_id = str(uuid.uuid1())
         requests_mock.post(
             f"http://127.0.0.1:8000/v1/job/{job_id}/events", status_code=200
         )

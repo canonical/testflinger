@@ -20,8 +20,7 @@ def clone_repo(
     testflinger_repo=DEFAULT_TESTFLINGER_REPO,
     branch=DEFAULT_BRANCH,
 ):
-    """Recreate the git repos and reinstall everything needed"""
-
+    """Recreate the git repos and reinstall everything needed."""
     # First, remove the old repo
     shutil.rmtree(local_path, ignore_errors=True)
 
@@ -50,7 +49,7 @@ def clone_repo(
 
 
 def create_virtualenv():
-    """Create a virtualenv for the agent unless one already exists"""
+    """Create a virtualenv for the agent unless one already exists."""
     if os.path.exists(VIRTUAL_ENV_PATH):
         return
 

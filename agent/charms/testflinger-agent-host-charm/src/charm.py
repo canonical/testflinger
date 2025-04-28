@@ -11,31 +11,31 @@ import shutil
 import sys
 from base64 import b64decode
 from pathlib import Path
-from common import run_with_logged_errors
-from git import Repo, GitCommandError
-from jinja2 import Template
 
-from charms.operator_libs_linux.v0 import apt
+import testflinger_source
+from common import run_with_logged_errors
+from defaults import (
+    AGENT_CONFIGS_PATH,
+    LOCAL_TESTFLINGER_PATH,
+    VIRTUAL_ENV_PATH,
+)
+from git import GitCommandError, Repo
+from jinja2 import Template
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import (
     ActiveStatus,
     BlockedStatus,
     MaintenanceStatus,
-    ModelError,
 )
-import testflinger_source
-from defaults import (
-    AGENT_CONFIGS_PATH,
-    LOCAL_TESTFLINGER_PATH,
-    VIRTUAL_ENV_PATH,
-)
+
+from charms.operator_libs_linux.v0 import apt
 
 logger = logging.getLogger(__name__)
 
 
 class TestflingerAgentHostCharm(CharmBase):
-    """Base charm for testflinger agent host systems"""
+    """Base charm for testflinger agent host systems."""
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -53,7 +53,7 @@ class TestflingerAgentHostCharm(CharmBase):
         )
 
     def on_install(self, _):
-        """Install hook"""
+        """Install hook."""
         self.install_dependencies()
         self.setup_docker()
         self.update_tf_cmd_scripts()
@@ -67,7 +67,7 @@ class TestflingerAgentHostCharm(CharmBase):
             return
 
     def install_dependencies(self):
-        """Install the packages needed for the agent"""
+        """Install the packages needed for the agent."""
         self.unit.status = MaintenanceStatus("Installing dependencies")
         # maas cli comes from maas snap now
         run_with_logged_errors(["snap", "install", "maas"])
@@ -86,7 +86,7 @@ class TestflingerAgentHostCharm(CharmBase):
         )
 
     def update_testflinger_repo(self, branch=None):
-        """Update the testflinger repo"""
+        """Update the testflinger repo."""
         self.unit.status = MaintenanceStatus("Creating virtualenv")
         testflinger_source.create_virtualenv()
         self.unit.status = MaintenanceStatus("Cloning testflinger repo")
@@ -100,7 +100,7 @@ class TestflingerAgentHostCharm(CharmBase):
     def update_config_files(self):
         """
         Clone the config files from the repo and swap it in for whatever is
-        in AGENT_CONFIGS_PATH
+        in AGENT_CONFIGS_PATH.
         """
         config_repo = self.config.get("config-repo")
         config_dir = self.config.get("config-dir")
@@ -132,13 +132,12 @@ class TestflingerAgentHostCharm(CharmBase):
 
     def write_supervisor_service_files(self):
         """
-        Generate supervisord service files for all agents
+        Generate supervisord service files for all agents.
 
         We assume that the path pointed to by the config-dir config option
         contains a directory for each agent that needs to run from this host.
         The agent directory name will be used as the service name.
         """
-
         config_dirs = Path(AGENT_CONFIGS_PATH) / self.config.get("config-dir")
 
         if not config_dirs.is_dir():
@@ -148,7 +147,11 @@ class TestflingerAgentHostCharm(CharmBase):
             )
             sys.exit(1)
 
-        agent_dirs = [dir for dir in config_dirs.iterdir() if dir.is_dir()]
+        agent_dirs = [
+            directory
+            for directory in config_dirs.iterdir()
+            if directory.is_dir()
+        ]
         if not agent_dirs:
             logger.error("No agent directories found in config-dirs")
             self.unit.status = BlockedStatus(
@@ -230,7 +233,7 @@ class TestflingerAgentHostCharm(CharmBase):
             raise
 
     def update_tf_cmd_scripts(self):
-        """Update tf-cmd-scripts"""
+        """Update tf-cmd-scripts."""
         self.unit.status = MaintenanceStatus("Installing tf-cmd-scripts")
         tf_cmd_dir = "src/tf-cmd-scripts/"
         usr_local_bin = Path("/usr/local/bin")
@@ -249,13 +252,13 @@ class TestflingerAgentHostCharm(CharmBase):
             agent_file.chmod(0o775)
 
     def on_upgrade_charm(self, _):
-        """Upgrade hook"""
+        """Upgrade hook."""
         self.unit.status = MaintenanceStatus("Handling upgrade_charm hook")
         self.update_tf_cmd_scripts()
         self.unit.status = ActiveStatus()
 
     def on_start(self, _):
-        """Start the service"""
+        """Start the service."""
         self.unit.status = ActiveStatus()
 
     def on_config_changed(self, _):
@@ -274,7 +277,7 @@ class TestflingerAgentHostCharm(CharmBase):
         self.unit.status = ActiveStatus()
 
     def install_apt_packages(self, packages: list):
-        """Simple wrapper around 'apt-get install -y"""
+        """Wrap 'apt-get install -y."""
         try:
             apt.update()
             apt.add_package(packages)
@@ -288,7 +291,7 @@ class TestflingerAgentHostCharm(CharmBase):
             self.unit.status = BlockedStatus("Failed to install packages")
 
     def on_update_testflinger_action(self, event):
-        """Update Testflinger agent code"""
+        """Update Testflinger agent code."""
         self.unit.status = MaintenanceStatus("Updating Testflinger Agent Code")
         branch = event.params.get("branch")
         self.update_testflinger_repo(branch)
@@ -296,7 +299,7 @@ class TestflingerAgentHostCharm(CharmBase):
         self.unit.status = ActiveStatus()
 
     def on_update_configs_action(self, event):
-        """Update agent configs"""
+        """Update agent configs."""
         self.unit.status = MaintenanceStatus(
             "Updating Testflinger Agent Configs"
         )

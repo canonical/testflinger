@@ -31,19 +31,63 @@ charm = [
     "pytest-operator>=0.42.0",
 ]
 dev = [
-    "black>=24.8.0",
-    "flake8>=5.0.4",
-    "pylint>=3.2.7",
     "pytest>=8.1.2",
     "pytest-cov>=5.0.0",
     "pytest-mock>=3.14.0",
     "pytest-timeout>=2.3.1",
     "pytest-xdist>=3.6.1",
     "requests-mock>=1.12.1",
+    "ruff>=0.11.6",
 ]
 
-[tool.black]
+[tool.ruff]
 line-length = 79
+
+[tool.ruff.lint]
+select = [
+    "A",   # flake8-builtins
+    "B",   # flake8-bugbear
+    "C4",  # comprenhension
+    "D",   # docstrings
+    "DTZ", # flake8-datetimez 
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "G",   # flake8-logging-format
+    "I",   # isort
+    "LOG", # flake8-logging
+    "N",   # naming
+    "PLE", # pylint errors
+    "PLW", # pyling warnings
+    "S",   # flake8-bandit 
+    "W",   # pycodestyle warnings
+]
+ignore = [
+    "D100", # docstring: Missing docstring in public module
+    "D101", # docstring: Missing docstring in public class
+    "D102", # docstring: Missing docstring in public method
+    "D103", # docstring: Missing docstring in public function
+    "D104", # docstring: Missing docstring in public package
+    "D107", # docstring: Missing docstring in __init__
+    "D205", # docstring: 1 blank line required between summary line and description
+    "S108", # bandit: hardcoded-temp-file
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/testflinger_agent/agent.py" = [
+    "S202" # bandit: tarfile-unsafe-members
+]
+"src/testflinger_agent/runner.py" = [
+    "S602" # bandit: subprocess-popen-with-shell-equals-true; Removing shell causes S603
+]
+"tests/*" = [
+    "S101", # use of assert
+]
+"charms/testflinger-agent-host-charm/tests/*" = [
+    "S101", # use of assert
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
 
 [tool.uv.sources]
 testflinger-common = { path = "../common" }

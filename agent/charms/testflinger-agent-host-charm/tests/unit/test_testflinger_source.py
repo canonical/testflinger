@@ -15,7 +15,7 @@ from defaults import (
 @patch("git.Repo.clone_from")
 @patch("testflinger_source.run_with_logged_errors")
 def test_clone_repo(mock_run_with_logged_errors, mock_clone_from):
-    """Test the clone_repo method"""
+    """Test the clone_repo method."""
     testflinger_source.clone_repo(LOCAL_TESTFLINGER_PATH)
     mock_clone_from.assert_called_once_with(
         url=DEFAULT_TESTFLINGER_REPO,
@@ -36,7 +36,7 @@ def test_clone_repo(mock_run_with_logged_errors, mock_clone_from):
 
 @patch("testflinger_source.run_with_logged_errors")
 def test_create_virtualenv(mock_run_with_logged_errors):
-    """Test the create_virtualenv method"""
+    """Test the create_virtualenv method."""
     testflinger_source.create_virtualenv()
     mock_run_with_logged_errors.assert_any_call(
         ["python3", "-m", "virtualenv", VIRTUAL_ENV_PATH]

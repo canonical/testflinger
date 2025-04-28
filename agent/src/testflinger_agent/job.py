@@ -18,11 +18,12 @@ import os
 import time
 
 from testflinger_agent.errors import TFServerError
-from .runner import CommandRunner, RunnerEvents
+
 from .handlers import LiveOutputHandler, LogUpdateHandler
+from .runner import CommandRunner, RunnerEvents
 from .stop_condition_checkers import (
-    JobCancelledChecker,
     GlobalTimeoutChecker,
+    JobCancelledChecker,
     OutputTimeoutChecker,
 )
 
@@ -43,7 +44,7 @@ class TestflingerJob:
         self.phase = "unknown"
 
     def run_test_phase(self, phase, rundir):
-        """Run the specified test phase in rundir
+        """Run the specified test phase in rundir.
 
         :param phase:
             Name of the test phase (setup, provision, test, ...)
@@ -137,7 +138,7 @@ class TestflingerJob:
     def _update_phase_results(
         self, results_file, phase, exitcode, output_log, serial_log
     ):
-        """Update the results file with the results of the specified phase
+        """Update the results file with the results of the specified phase.
 
         :param results_file:
             Path to the results file
@@ -171,7 +172,7 @@ class TestflingerJob:
         """
         Read the json dict from "device-info.json" and send it to the server
         so that the multi-device agent can find the IP addresses of all
-        subordinate jobs
+        subordinate jobs.
         """
         device_info_file = os.path.join(rundir, "device-info.json")
         with open(device_info_file, "r") as f:
@@ -192,8 +193,7 @@ class TestflingerJob:
         self.wait_for_completion()
 
     def wait_for_completion(self):
-        """Monitor the parent job and exit when it completes"""
-
+        """Monitor the parent job and exit when it completes."""
         while True:
             try:
                 this_job_state = self.client.check_job_state(self.job_id)
@@ -216,7 +216,7 @@ class TestflingerJob:
             time.sleep(60)
 
     def get_global_timeout(self):
-        """Get the global timeout for the test run in seconds"""
+        """Get the global timeout for the test run in seconds."""
         # Default timeout is 4 hours
         default_timeout = 4 * 60 * 60
 
@@ -227,7 +227,7 @@ class TestflingerJob:
         )
 
     def get_output_timeout(self):
-        """Get the output timeout for the test run in seconds"""
+        """Get the output timeout for the test run in seconds."""
         # Default timeout is 15 minutes
         default_timeout = 15 * 60
 
@@ -238,7 +238,7 @@ class TestflingerJob:
         )
 
     def banner(self, line):
-        """Yield text lines to print a banner around a sting
+        """Yield text lines to print a banner around a sting.
 
         :param line:
             Line of text to print a banner around
