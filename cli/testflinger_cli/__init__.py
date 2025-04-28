@@ -15,10 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""
-TestflingerCli module
-"""
-
+"""TestflingerCli module."""
 
 import inspect
 import json
@@ -29,7 +26,7 @@ import tarfile
 import tempfile
 import time
 from argparse import ArgumentParser
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 from typing import Optional
@@ -37,6 +34,7 @@ from typing import Optional
 import argcomplete
 import requests
 import yaml
+
 from testflinger_cli import autocomplete, client, config, history
 
 logger = logging.getLogger(__name__)
@@ -48,7 +46,7 @@ if os.path.exists(os.path.join(basedir, "setup.py")):
 
 
 def cli():
-    """Generate the TestflingerCli instance and run it"""
+    """Generate the TestflingerCli instance and run it."""
     try:
         tfcli = TestflingerCli()
         configure_logging()
@@ -58,7 +56,7 @@ def cli():
 
 
 def configure_logging():
-    """Configure default logging"""
+    """Configure default logging."""
     logging.basicConfig(
         level=logging.WARNING,
         format=(
@@ -69,7 +67,7 @@ def configure_logging():
 
 
 def _get_image(images):
-    """Ask the user to select an image from a list"""
+    """Ask the user to select an image from a list."""
     image = ""
     flex_url = ""
     if images and images[list(images.keys())[0]].startswith("url:"):
@@ -105,6 +103,7 @@ def _get_image(images):
 
 
 def _get_ssh_keys():
+    """Retrieve the launchpad or github ssh key to be used."""
     ssh_keys = ""
     while not ssh_keys.strip():
         ssh_keys = input(
@@ -120,6 +119,7 @@ def _get_ssh_keys():
 
 
 def _print_queue_message():
+    """Print message for queues."""
     print(
         "ATTENTION: This only shows a curated list of queues with "
         "descriptions, not ALL queues. If you can't find the queue you want "
@@ -128,12 +128,11 @@ def _print_queue_message():
 
 
 class AttachmentError(Exception):
-    """Exception thrown when attachments fail to be submitted"""
+    """Exception thrown when attachments fail to be submitted."""
 
 
-# pylint: disable=R0904
 class TestflingerCli:
-    """Class for handling the Testflinger CLI"""
+    """Class for handling the Testflinger CLI."""
 
     def __init__(self):
         self.history = history.TestflingerCliHistory()
@@ -162,10 +161,7 @@ class TestflingerCli:
         )
 
         # Allow config subcommand without worrying about server or client
-        if (
-            hasattr(self.args, "func")
-            and self.args.func == self.configure  # pylint: disable=W0143
-        ):
+        if hasattr(self.args, "func") and self.args.func == self.configure:
             return
         if not server.startswith(("http://", "https://")):
             sys.exit(
@@ -175,13 +171,13 @@ class TestflingerCli:
         self.client = client.Client(server, error_threshold=error_threshold)
 
     def run(self):
-        """Run the subcommand specified in command line arguments"""
+        """Run the subcommand specified in command line arguments."""
         if hasattr(self.args, "func"):
             sys.exit(self.args.func())
         print(self.help)
 
     def get_args(self):
-        """Handle command line arguments"""
+        """Handle command line arguments."""
         parser = ArgumentParser()
         parser.add_argument(
             "-c",
@@ -215,7 +211,7 @@ class TestflingerCli:
         self.help = parser.format_help()
 
     def _add_artifacts_args(self, subparsers):
-        """Command line arguments for artifacts"""
+        """Command line arguments for artifacts."""
         parser = subparsers.add_parser(
             "artifacts",
             help="Download a tarball of artifacts saved for a specified job",
@@ -227,7 +223,7 @@ class TestflingerCli:
         )
 
     def _add_cancel_args(self, subparsers):
-        """Command line arguments for cancel"""
+        """Command line arguments for cancel."""
         parser = subparsers.add_parser(
             "cancel", help="Tell the server to cancel a specified JOB_ID"
         )
@@ -237,7 +233,7 @@ class TestflingerCli:
         )
 
     def _add_config_args(self, subparsers):
-        """Command line arguments for config"""
+        """Command line arguments for config."""
         parser = subparsers.add_parser(
             "config", help="Get or set configuration options"
         )
@@ -245,7 +241,7 @@ class TestflingerCli:
         parser.add_argument("setting", nargs="?", help="setting=value")
 
     def _add_jobs_args(self, subparsers):
-        """Command line arguments for jobs"""
+        """Command line arguments for jobs."""
         parser = subparsers.add_parser(
             "jobs", help="List the previously started test jobs"
         )
@@ -258,7 +254,7 @@ class TestflingerCli:
         )
 
     def _add_list_queues_args(self, subparsers):
-        """Command line arguments for list-queues"""
+        """Command line arguments for list-queues."""
         parser = subparsers.add_parser(
             "list-queues",
             help="List the advertised queues on the Testflinger server",
@@ -266,7 +262,7 @@ class TestflingerCli:
         parser.set_defaults(func=self.list_queues)
 
     def _add_poll_args(self, subparsers):
-        """Command line arguments for poll"""
+        """Command line arguments for poll."""
         parser = subparsers.add_parser(
             "poll", help="Poll for output from a job until it is completed"
         )
@@ -282,7 +278,7 @@ class TestflingerCli:
         )
 
     def _add_poll_serial_args(self, subparsers):
-        """Command line arguments for poll-serial"""
+        """Command line arguments for poll-serial."""
         parser = subparsers.add_parser(
             "poll-serial",
             help="Poll for output from a job until it is completed",
@@ -299,7 +295,7 @@ class TestflingerCli:
         )
 
     def _add_reserve_args(self, subparsers):
-        """Command line arguments for reserve"""
+        """Command line arguments for reserve."""
         parser = subparsers.add_parser(
             "reserve", help="Install and reserve a system"
         )
@@ -325,7 +321,7 @@ class TestflingerCli:
         )
 
     def _add_status_args(self, subparsers):
-        """Command line arguments for status"""
+        """Command line arguments for status."""
         parser = subparsers.add_parser(
             "status", help="Show the status of a specified JOB_ID"
         )
@@ -335,7 +331,7 @@ class TestflingerCli:
         )
 
     def _add_results_args(self, subparsers):
-        """Command line arguments for results"""
+        """Command line arguments for results."""
         parser = subparsers.add_parser(
             "results", help="Get results JSON for a completed JOB_ID"
         )
@@ -345,7 +341,7 @@ class TestflingerCli:
         )
 
     def _add_show_args(self, subparsers):
-        """Command line arguments for show"""
+        """Command line arguments for show."""
         parser = subparsers.add_parser(
             "show", help="Show the requested job JSON for a specified JOB_ID"
         )
@@ -355,7 +351,7 @@ class TestflingerCli:
         )
 
     def _add_submit_args(self, subparsers):
-        """Command line arguments for submit"""
+        """Command line arguments for submit."""
         parser = subparsers.add_parser(
             "submit", help="Submit a new test job to the server"
         )
@@ -388,7 +384,7 @@ class TestflingerCli:
         )
 
     def status(self):
-        """Show the status of a specified JOB_ID"""
+        """Show the status of a specified JOB_ID."""
         job_state = self.get_job_state(self.args.job_id)
         if job_state != "unknown":
             self.history.update(self.args.job_id, job_state)
@@ -400,7 +396,7 @@ class TestflingerCli:
             )
 
     def cancel(self, job_id=None):
-        """Tell the server to cancel a specified JOB_ID"""
+        """Tell the server to cancel a specified JOB_ID."""
         if not job_id:
             try:
                 job_id = self.args.job_id
@@ -423,7 +419,7 @@ class TestflingerCli:
             raise
 
     def configure(self):
-        """Print or set configuration values"""
+        """Print or set configuration values."""
         if self.args.setting:
             setting = self.args.setting.split("=")
             if len(setting) == 2:
@@ -442,7 +438,7 @@ class TestflingerCli:
 
     @staticmethod
     def extract_attachment_data(job_data: dict) -> Optional[dict]:
-        """Pull together the attachment data per phase from the `job_data`"""
+        """Pull together the attachment data per phase from the `job_data`."""
         attachments = {}
         for phase in ("provision", "firmware_update", "test"):
             try:
@@ -456,7 +452,7 @@ class TestflingerCli:
         return attachments or None
 
     def pack_attachments(self, archive: str, attachment_data: dict):
-        """Pack the attachments specifed by `attachment_data` into `archive`
+        """Pack the attachments specifed by `attachment_data` into `archive`.
 
         Use `tarfile` instead of `shutil` because:
         > [it] handles directories, regular files, hardlinks, symbolic links,
@@ -509,7 +505,8 @@ class TestflingerCli:
 
     def build_auth_headers(self):
         """
-        Gets a JWT from the server and creates an authorization header from it
+        Get a JWT from the server and
+        creates an authorization header from it.
         """
         jwt = self.authenticate_with_server()
         if jwt is not None:
@@ -519,7 +516,7 @@ class TestflingerCli:
         return auth_headers
 
     def submit(self):
-        """Submit a new test job to the server"""
+        """Submit a new test job to the server."""
         if self.args.filename.name == "-":
             data = sys.stdin.read()
         else:
@@ -569,7 +566,7 @@ class TestflingerCli:
             self.do_poll(job_id)
 
     def check_online_agents_available(self, queue: str):
-        """Exit or warn if no online agents available for a specified queue"""
+        """Exit or warn if no online agents available for a specified queue."""
         try:
             agents = self.client.get_agents_on_queue(queue)
         except client.HTTPError:
@@ -593,7 +590,7 @@ class TestflingerCli:
         )
 
     def submit_job_data(self, data: dict):
-        """Submit data that was generated or read from a file as a test job"""
+        """Submit data that was generated or read from a file as a test job."""
         retry_count = 0
         while True:
             try:
@@ -648,7 +645,7 @@ class TestflingerCli:
         return job_id
 
     def submit_job_attachments(self, job_id: str, path: Path):
-        """Submit attachments archive for a job to the server
+        """Submit attachments archive for a job to the server.
 
         :param job_id:
             ID for the test job
@@ -703,7 +700,7 @@ class TestflingerCli:
     def authenticate_with_server(self):
         """
         Authenticate client id and secret key with server
-        and return JWT with permissions
+        and return JWT with permissions.
         """
         if self.client_id is None or self.secret_key is None:
             return None
@@ -730,7 +727,7 @@ class TestflingerCli:
         return jwt
 
     def show(self):
-        """Show the requested job JSON for a specified JOB_ID"""
+        """Show the requested job JSON for a specified JOB_ID."""
         try:
             results = self.client.show_job(self.args.job_id)
         except client.HTTPError as exc:
@@ -755,7 +752,7 @@ class TestflingerCli:
         print(json.dumps(results, sort_keys=True, indent=4))
 
     def results(self):
-        """Get results JSON for a completed JOB_ID"""
+        """Get results JSON for a completed JOB_ID."""
         try:
             results = self.client.get_results(self.args.job_id)
         except client.HTTPError as exc:
@@ -781,7 +778,7 @@ class TestflingerCli:
         print(json.dumps(results, sort_keys=True, indent=4))
 
     def artifacts(self):
-        """Download a tarball of artifacts saved for a specified job"""
+        """Download a tarball of artifacts saved for a specified job."""
         print("Downloading artifacts tarball...")
         try:
             self.client.get_artifact(self.args.job_id, self.args.filename)
@@ -807,7 +804,7 @@ class TestflingerCli:
         print(f"Artifacts downloaded to {self.args.filename}")
 
     def poll(self):
-        """Poll for output from a job until it is completed"""
+        """Poll for output from a job until it is completed."""
         if self.args.oneshot:
             # This could get an IOError for connection errors or timeouts
             # Raise it since it's not running continuously in this mode
@@ -818,7 +815,7 @@ class TestflingerCli:
         self.do_poll(self.args.job_id)
 
     def poll_serial(self):
-        """Poll for serial output from a job until it is completed"""
+        """Poll for serial output from a job until it is completed."""
         if self.args.oneshot:
             output = self.get_latest_serial_output(self.args.job_id)
             if output:
@@ -827,7 +824,7 @@ class TestflingerCli:
         self.do_poll_serial(self.args.job_id)
 
     def do_poll(self, job_id):
-        """Poll for output from a running job and print it while it runs
+        """Poll for output from a running job and print it while it runs.
 
         :param str job_id: Job ID
         """
@@ -855,7 +852,7 @@ class TestflingerCli:
             except (IOError, client.HTTPError):
                 # Ignore/retry or debug any connection errors or timeouts
                 if self.args.debug:
-                    logging.exception("Error polling for job output")
+                    logger.exception("Error polling for job output")
             except KeyboardInterrupt:
                 choice = input(
                     "\nCancel job {} before exiting "
@@ -873,7 +870,8 @@ class TestflingerCli:
         print(job_state)
 
     def do_poll_serial(self, job_id):
-        """Poll for serial output from a running job and print it while it runs
+        """
+        Poll for serial output from a running job and print it while it runs.
 
         :param str job_id: Job ID
         """
@@ -886,10 +884,10 @@ class TestflingerCli:
             except (IOError, client.HTTPError):
                 # Ignore/retry or debug any connection errors or timeouts
                 if self.args.debug:
-                    logging.exception("Error polling for serial output")
+                    logger.exception("Error polling for serial output")
 
     def jobs(self):
-        """List the previously started test jobs"""
+        """List the previously started test jobs."""
         if self.args.status:
             # Getting job state may be slow, only include if requested
             status_text = "Status"
@@ -914,7 +912,7 @@ class TestflingerCli:
                     job_id,
                     job_state,
                     datetime.fromtimestamp(
-                        jobdata.get("submission_time")
+                        jobdata.get("submission_time"), tz=timezone.utc
                     ).strftime("%a %b %d %H:%M"),
                     jobdata.get("queue"),
                 )
@@ -922,7 +920,7 @@ class TestflingerCli:
         print()
 
     def list_queues(self):
-        """List the advertised queues on the current Testflinger server"""
+        """List the advertised queues on the current Testflinger server."""
         _print_queue_message()
         try:
             queues = self.client.get_queues()
@@ -939,7 +937,7 @@ class TestflingerCli:
             print(" {} - {}".format(name, description))
 
     def reserve(self):
-        """Install and reserve a system"""
+        """Install and reserve a system."""
         _print_queue_message()
         try:
             queues = self.client.get_queues()
@@ -949,8 +947,9 @@ class TestflingerCli:
         queue = self.args.queue or self._get_queue(queues)
         if queue not in queues.keys():
             print(
-                "WARNING: '{}' is not in the list of known "
-                "queues".format(queue)
+                "WARNING: '{}' is not in the list of known queues".format(
+                    queue
+                )
             )
         try:
             images = self.client.get_images(queue)
@@ -999,7 +998,7 @@ class TestflingerCli:
             self.do_poll(job_id)
 
     def _get_queue(self, queues):
-        """Ask the user which queue to use from a list"""
+        """Ask the user which queue to use from a list."""
         queue = ""
         while not queue or queue == "?":
             queue = input("\nWhich queue do you want to use? ('?' to list) ")
@@ -1012,8 +1011,9 @@ class TestflingerCli:
                 queue = self._get_queue(queues)
             if queue not in queues.keys():
                 print(
-                    "WARNING: '{}' is not in the list of known "
-                    "queues".format(queue)
+                    "WARNING: '{}' is not in the list of known queues".format(
+                        queue
+                    )
                 )
                 answer = input("Do you still want to use it? (y/N) ")
                 if answer.lower() != "y":
@@ -1021,7 +1021,7 @@ class TestflingerCli:
         return queue
 
     def get_latest_output(self, job_id):
-        """Get the latest output from a running job
+        """Get the latest output from a running job.
 
         :param str job_id: Job ID
         :return str: New output from the running job
@@ -1036,7 +1036,7 @@ class TestflingerCli:
         return output
 
     def get_latest_serial_output(self, job_id):
-        """Get the latest serial output from a running job
+        """Get the latest serial output from a running job.
 
         :param str job_id: Job ID
         :return str: New serial output from the running job
@@ -1051,7 +1051,7 @@ class TestflingerCli:
         return output
 
     def get_job_state(self, job_id):
-        """Return the job state for the specified job_id
+        """Return the job state for the specified job_id.
 
         :param str job_id: Job ID
         :raises SystemExit: Exit with HTTP error code

@@ -13,13 +13,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""
-Unit tests for autocomplete helper functions.
-"""
+"""Unit tests for autocomplete helper functions."""
 
 from argparse import Namespace
-from unittest.mock import MagicMock
 from collections import OrderedDict
+from unittest.mock import MagicMock
 
 from testflinger_cli.autocomplete import job_ids_completer
 

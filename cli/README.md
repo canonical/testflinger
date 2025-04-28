@@ -3,6 +3,7 @@
 [![Snapcraft][snapcraft-badge]][snapcraft-site]
 [![Documentation status][rtd-badge]][rtd-latest]
 [![uv status][uv-badge]][uv-site]
+[![Ruff status][ruff-badge]][ruff-site]
 
 **Testflinger CLI** is the tool for interacting with a Testflinger server. It
 can be used to submit jobs, check the status of jobs, and get the job results.
@@ -96,3 +97,5 @@ Testflinger CLI is released under the [GPL-3.0 license](COPYING).
 [job-schema]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
 [tutorial]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/tutorial/index.html
 [github]: https://github.com/canonical/testflinger
+[ruff-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
+[ruff-site]: https://github.com/astral-sh/ruff

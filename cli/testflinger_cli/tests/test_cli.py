@@ -14,9 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""
-Unit tests for testflinger-cli
-"""
+"""Unit tests for testflinger-cli."""
 
 import io
 import json
@@ -38,7 +36,7 @@ URL = "https://testflinger.canonical.com"
 
 
 def test_status(capsys, requests_mock):
-    """Status should report job_state data"""
+    """Status should report job_state data."""
     jobid = str(uuid.uuid1())
     fake_return = {"job_state": "completed"}
     requests_mock.get(URL + "/v1/result/" + jobid, json=fake_return)
@@ -50,7 +48,7 @@ def test_status(capsys, requests_mock):
 
 
 def test_cancel_503(requests_mock):
-    """Cancel should fail loudly if cancel action returns 503"""
+    """Cancel should fail loudly if cancel action returns 503."""
     jobid = str(uuid.uuid1())
     requests_mock.post(
         URL + "/v1/job/" + jobid + "/action",
@@ -64,7 +62,7 @@ def test_cancel_503(requests_mock):
 
 
 def test_cancel(requests_mock):
-    """Cancel should fail if /v1/job/<job_id>/action URL returns 400 code"""
+    """Cancel should fail if /v1/job/<job_id>/action URL returns 400 code."""
     jobid = str(uuid.uuid1())
     requests_mock.post(
         URL + "/v1/job/" + jobid + "/action",
@@ -78,7 +76,7 @@ def test_cancel(requests_mock):
 
 
 def test_submit(capsys, tmp_path, requests_mock):
-    """Make sure jobid is read back from submitted job"""
+    """Make sure jobid is read back from submitted job."""
     jobid = str(uuid.uuid1())
     fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
     testfile = tmp_path / "test.json"
@@ -97,7 +95,7 @@ def test_submit(capsys, tmp_path, requests_mock):
 
 
 def test_submit_stdin(capsys, monkeypatch, requests_mock):
-    """Make sure jobid is read back from submitted job via stdin"""
+    """Make sure jobid is read back from submitted job via stdin."""
     jobid = str(uuid.uuid1())
     fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(fake_data)))
@@ -115,7 +113,7 @@ def test_submit_stdin(capsys, monkeypatch, requests_mock):
 
 
 def test_submit_bad_data(tmp_path, requests_mock):
-    """Ensure a 422 response from bad data shows the returned errors"""
+    """Ensure a 422 response from bad data shows the returned errors."""
     fake_data = {"badkey": "badvalue", "job_queue": "fake"}
     testfile = tmp_path / "test.json"
     testfile.write_text(json.dumps(fake_data))
@@ -136,8 +134,7 @@ def test_submit_bad_data(tmp_path, requests_mock):
 
 
 def test_pack_attachments(tmp_path):
-    """Make sure attachments are packed correctly"""
-
+    """Make sure attachments are packed correctly."""
     attachments = [
         Path() / "file_0.bin",
         Path() / "folder" / "file_1.bin",
@@ -145,8 +142,8 @@ def test_pack_attachments(tmp_path):
     attachment_path = tmp_path / "attachments"
 
     # create attachment files in the attachment path
-    for attachment in attachments:
-        attachment = attachment_path / attachment
+    for file in attachments:
+        attachment = attachment_path / file
         attachment.parent.mkdir(parents=True)
         attachment.write_bytes(os.urandom(128))
 
@@ -196,8 +193,7 @@ def test_pack_attachments(tmp_path):
 
 
 def test_pack_attachments_with_reference(tmp_path):
-    """Make sure attachments are packed correctly when using a reference"""
-
+    """Make sure attachments are packed correctly when using a reference."""
     attachments = [
         Path() / "file_0.bin",
         Path() / "folder" / "file_1.bin",
@@ -205,8 +201,8 @@ def test_pack_attachments_with_reference(tmp_path):
     attachment_path = tmp_path / "attachments"
 
     # create attachment files
-    for attachment in attachments:
-        attachment = attachment_path / attachment
+    for file in attachments:
+        attachment = attachment_path / file
         attachment.parent.mkdir(parents=True)
         attachment.write_bytes(os.urandom(128))
 
@@ -273,8 +269,7 @@ def test_pack_attachments_with_reference(tmp_path):
 
 
 def test_submit_with_attachments(tmp_path):
-    """Make sure jobs with attachments are submitted correctly"""
-
+    """Make sure jobs with attachments are submitted correctly."""
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
@@ -294,7 +289,6 @@ def test_submit_with_attachments(tmp_path):
     tfcli = testflinger_cli.TestflingerCli()
 
     with Mocker() as mocker:
-
         # register responses for job and attachment submission endpoints
         mock_response = {"job_id": job_id}
         mocker.post(f"{URL}/v1/job", json=mock_response)
@@ -332,8 +326,7 @@ def test_submit_with_attachments(tmp_path):
 
 
 def test_submit_attachments_retries(tmp_path):
-    """Check retries after unsuccessful attachment submissions"""
-
+    """Check retries after unsuccessful attachment submissions."""
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
@@ -356,7 +349,6 @@ def test_submit_attachments_retries(tmp_path):
     tfcli.config.data["attachments_tries"] = 4
 
     with Mocker() as mocker:
-
         # register responses for job and attachment submission endpoints
         mock_response = {"job_id": job_id}
         mocker.post(f"{URL}/v1/job", json=mock_response)
@@ -388,8 +380,7 @@ def test_submit_attachments_retries(tmp_path):
 
 
 def test_submit_attachments_no_retries(tmp_path):
-    """Check no retries after attachment submission fails unrecoverably"""
-
+    """Check no retries after attachment submission fails unrecoverably."""
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
@@ -410,7 +401,6 @@ def test_submit_attachments_no_retries(tmp_path):
     tfcli.config.data["attachments_tries"] = 2
 
     with Mocker() as mocker:
-
         # register responses for job and attachment submission endpoints
         mocker.post(f"{URL}/v1/job", json={"job_id": job_id})
         mocker.post(
@@ -440,8 +430,7 @@ def test_submit_attachments_no_retries(tmp_path):
 
 
 def test_submit_attachments_timeout(tmp_path):
-    """Make timeout after repeated attachment submission timeouts"""
-
+    """Make timeout after repeated attachment submission timeouts."""
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
@@ -464,7 +453,6 @@ def test_submit_attachments_timeout(tmp_path):
     tfcli.config.data["attachments_tries"] = 2
 
     with Mocker() as mocker:
-
         # register responses for job and attachment submission endpoints
         mock_response = {"job_id": job_id}
         mocker.post(f"{URL}/v1/job", json=mock_response)
@@ -498,7 +486,7 @@ def test_submit_attachments_timeout(tmp_path):
 
 
 def test_submit_with_priority(tmp_path, requests_mock):
-    """Tests authorization of jobs submitted with priority"""
+    """Tests authorization of jobs submitted with priority."""
     job_id = str(uuid.uuid1())
     job_data = {
         "job_queue": "fake",
@@ -529,7 +517,7 @@ def test_submit_with_priority(tmp_path, requests_mock):
 
 
 def test_submit_token_timeout_retry(tmp_path, requests_mock):
-    """Tests job submission retries 3 times when token has expired"""
+    """Tests job submission retries 3 times when token has expired."""
     job_data = {
         "job_queue": "fake",
         "job_priority": 100,
@@ -566,7 +554,7 @@ def test_submit_token_timeout_retry(tmp_path, requests_mock):
 
 
 def test_show(capsys, requests_mock):
-    """Exercise show command"""
+    """Exercise show command."""
     jobid = str(uuid.uuid1())
     fake_return = {"job_state": "completed"}
     requests_mock.get(URL + "/v1/job/" + jobid, json=fake_return)
@@ -578,7 +566,7 @@ def test_show(capsys, requests_mock):
 
 
 def test_results(capsys, requests_mock):
-    """results should report job_state data"""
+    """Results should report job_state data."""
     jobid = str(uuid.uuid1())
     fake_return = {"job_state": "completed"}
     requests_mock.get(URL + "/v1/result/" + jobid, json=fake_return)
@@ -590,7 +578,7 @@ def test_results(capsys, requests_mock):
 
 
 def test_list_queues(capsys, requests_mock):
-    """list_queues should report queues"""
+    """list_queues should report queues."""
     fake_return = {"queue1": "description1", "queue2": "description2"}
     requests_mock.get(URL + "/v1/agents/queues", json=fake_return)
     sys.argv = ["", "list-queues"]
@@ -602,7 +590,7 @@ def test_list_queues(capsys, requests_mock):
 
 
 def test_list_queues_connection_error(caplog, requests_mock):
-    """list_queues should report queues"""
+    """list_queues should report queues."""
     requests_mock.get(URL + "/v1/agents/queues", status_code=400)
     sys.argv = ["", "list-queues"]
     tfcli = testflinger_cli.TestflingerCli()
@@ -612,7 +600,7 @@ def test_list_queues_connection_error(caplog, requests_mock):
 
 
 def test_submit_no_agents_fails(capsys, tmp_path, requests_mock):
-    """Test that submitting a job without online agents fails"""
+    """Test that submitting a job without online agents fails."""
     requests_mock.get(URL + "/v1/queues/fake/agents", json=[])
     fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
     test_file = tmp_path / "test.json"
@@ -631,7 +619,7 @@ def test_submit_no_agents_fails(capsys, tmp_path, requests_mock):
 def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
     """
     Test that submitting a job without online agents succeeds with
-    --wait-for-available-agents
+    --wait-for-available-agents.
     """
     jobid = str(uuid.uuid1())
     fake_return = {"job_id": jobid}
@@ -653,7 +641,7 @@ def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
 
 
 def test_reserve(capsys, requests_mock):
-    """ensure reserve command generates correct yaml"""
+    """Ensure reserve command generates correct yaml."""
     requests_mock.get(URL + "/v1/agents/queues", json={})
     requests_mock.get(URL + "/v1/agents/images/fake", json={})
     expected_yaml = (
@@ -682,7 +670,7 @@ def test_reserve(capsys, requests_mock):
 
 
 def test_poll_serial(capsys, requests_mock):
-    """Tests that serial output is polled from the correct endpoint"""
+    """Tests that serial output is polled from the correct endpoint."""
     job_id = str(uuid.uuid1())
     requests_mock.get(
         URL + f"/v1/result/{job_id}/serial_output", text="serial output"
