@@ -1,5 +1,5 @@
 FROM ubuntu:22.04
-COPY --from=ghcr.io/astral-sh/uv:0.6.16 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.6.17 /uv /uvx /bin/
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV HOME /root
