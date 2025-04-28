@@ -49,7 +49,7 @@ select = [
     "LOG", # flake8-logging
     "N",   # naming
     "PLE", # pylint errors
-    "PLW0", # pyling warnings
+    "PLW", # pyling warnings
     #"S",  # flake8-bandit 
     "W",   # pycodestyle warnings
 ]

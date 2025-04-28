@@ -362,27 +362,29 @@ def _process_cmds_template_vars(cmds, config=None):
             tokens = []
             for literal, field_name, spec, conv in self.parse(format_string):
                 # replace double braces if parse removed them
-                literal = literal.replace("{", "{{").replace("}", "}}")
+                format_literal = literal.replace("{", "{{").replace("}", "}}")
                 # if the field is {}, just add escaped empty braces
                 if field_name == "":
-                    tokens.extend([literal, "{{}}"])
+                    tokens.extend([format_literal, "{{}}"])
                     continue
                 # if field name was None, we just add the literal token
                 if field_name is None:
-                    tokens.extend([literal])
+                    tokens.extend([format_literal])
                     continue
                 # if conf and spec are not defined, set to ''
-                conv = "!" + conv if conv else ""
-                spec = ":" + spec if spec else ""
+                conv = "!" + conv if conv else ""  # noqa: PLW2901
+                spec = ":" + spec if spec else ""  # noqa: PLW2901
                 # only consider field before index
                 field = field_name.split("[")[0].split(".")[0]
                 # If this field is one we've defined, fill template value
                 if field in kwargs:
-                    tokens.extend([literal, "{", field_name, conv, spec, "}"])
+                    tokens.extend(
+                        [format_literal, "{", field_name, conv, spec, "}"]
+                    )
                 else:
                     # If not, the use escaped braces to pass it through
                     tokens.extend(
-                        [literal, "{{", field_name, conv, spec, "}}"]
+                        [format_literal, "{{", field_name, conv, spec, "}}"]
                     )
             format_string = "".join(tokens)
             return string.Formatter.vformat(self, format_string, args, kwargs)
@@ -412,7 +414,7 @@ def _run_test_cmds_list(cmds, config=None, env=None):
         # Settings from the device yaml configfile like device_ip can be
         # formatted in test commands like "foo {device_ip}"
         if "{{" in cmd:
-            cmd = _process_cmds_template_vars(cmd, config)
+            cmd = _process_cmds_template_vars(cmd, config)  # noqa: PLW2901
 
         logger.info("Running: %s", cmd)
         result = runcmd(cmd, env)

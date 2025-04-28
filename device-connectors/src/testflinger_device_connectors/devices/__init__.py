@@ -295,7 +295,7 @@ class DefaultDevice:
             except FileNotFoundError:
                 pass
             cmd = ["ssh-import-id", "-o", "key.pub", key]
-            proc = subprocess.run(cmd)
+            proc = subprocess.run(cmd, check=False)
             if proc.returncode != 0:
                 logger.error("Unable to import ssh key from: %s", key)
                 continue

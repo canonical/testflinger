@@ -174,7 +174,9 @@ class OemAutoinstall:
             f"{test_username}@{self.config['device_ip']}",
             "true",
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, check=False
+        )
         if result.returncode != 0:
             logger.error("SSH connection failed: %s", result.stderr)
             raise ProvisioningError("Failed SSH to DUT")

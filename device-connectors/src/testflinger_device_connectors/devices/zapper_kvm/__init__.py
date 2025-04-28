@@ -67,11 +67,11 @@ class DeviceConnector(ZapperConnector):
             if "autoinstall_" not in key:
                 continue
 
-            key = key.replace("autoinstall_", "")
+            autoinstall_key = key.replace("autoinstall_", "")
             with contextlib.suppress(AttributeError):
-                getattr(self, f"_validate_{key}")(value)
+                getattr(self, f"_validate_{autoinstall_key}")(value)
 
-            autoinstall_conf[key] = value
+            autoinstall_conf[autoinstall_key] = value
 
         if not autoinstall_conf:
             logger.info("Autoinstall-related keys were not provided.")

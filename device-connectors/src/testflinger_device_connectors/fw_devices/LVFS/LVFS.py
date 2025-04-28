@@ -46,6 +46,7 @@ class LVFSDevice(AbstractDevice):
                 shell=True,
                 capture_output=True,
                 timeout=timeout,
+                check=False,
             )
         except subprocess.TimeoutExpired as e:
             if raise_stderr:
