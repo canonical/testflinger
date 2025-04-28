@@ -121,7 +121,7 @@ def start_agent():
     args = parse_args()
     config = load_config(args.config)
     configure_logging(config)
-    check_interval = config.get("polling_interval")
+    check_interval = int(config.get("polling_interval"))
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
     while True:
@@ -139,7 +139,7 @@ def start_agent():
         client.post_advertised_queues()
         logger.info("Checking jobs")
         agent.process_jobs()
-        logger.info("Sleeping for %s", check_interval)
+        logger.info("Sleeping for %d", check_interval)
         time.sleep(check_interval)
 
 

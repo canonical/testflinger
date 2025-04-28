@@ -68,8 +68,7 @@ ignore = [
     "D103", # docstring: Missing docstring in public function
     "D104", # docstring: Missing docstring in public package
     "D107", # docstring: Missing docstring in __init__
-    "D205", # docstring: 1 black line required between summary line and description
-    "N803", # Naming: Argument '{name}' should be lowercase
+    "D205", # docstring: 1 blank line required between summary line and description
     "S108", # bandit: hardcoded-temp-file
 ]
 

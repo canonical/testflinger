@@ -118,7 +118,7 @@ class TestflingerClient:
         with requests.get(uri, stream=True, timeout=600) as response:
             if not response:
                 logger.error(
-                    "Unable to retrieve attachments for job: %s (error: %s)",
+                    "Unable to retrieve attachments for job: %s (error: %d)",
                     job_id,
                     response.status_code,
                 )
@@ -153,7 +153,7 @@ class TestflingerClient:
             raise TFServerError("other exception") from exc
         if not job_request:
             logger.error(
-                "Unable to re-post job to: %s (error: %s)",
+                "Unable to re-post job to: %s (error: %d",
                 job_uri,
                 job_request.status_code,
             )
@@ -183,7 +183,7 @@ class TestflingerClient:
             raise TFServerError("other exception") from exc
         if not job_request:
             logger.error(
-                "Unable to post results to: %s (error: %s)",
+                "Unable to post results to: %s (error: %d)",
                 result_uri,
                 job_request.status_code,
             )
@@ -207,7 +207,7 @@ class TestflingerClient:
             return {}
         if not job_request:
             logger.error(
-                "Unable to get results from: %s (error: %s)",
+                "Unable to get results from: %s (error: %d)",
                 result_uri,
                 job_request.status_code,
             )
@@ -286,7 +286,7 @@ class TestflingerClient:
                 )
             if not artifact_request:
                 logger.error(
-                    "Unable to post results to: %s (error: %s)",
+                    "Unable to post results to: %s (error: %d)",
                     artifact_uri,
                     artifact_request.status_code,
                 )
@@ -445,7 +445,7 @@ class TestflingerClient:
             # Response code is greater than 399
             if not job_request:
                 logger.error(
-                    "Unable to post status updates to: %s (error: %s)",
+                    "Unable to post status updates to: %s (error: %d)",
                     status_update_uri,
                     job_request.status_code,
                 )

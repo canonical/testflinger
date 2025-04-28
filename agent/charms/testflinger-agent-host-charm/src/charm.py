@@ -277,7 +277,7 @@ class TestflingerAgentHostCharm(CharmBase):
         self.unit.status = ActiveStatus()
 
     def install_apt_packages(self, packages: list):
-        """Create simple wrapper around 'apt-get install -y."""
+        """Wrap 'apt-get install -y."""
         try:
             apt.update()
             apt.add_package(packages)

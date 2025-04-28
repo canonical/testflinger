@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def run_with_logged_errors(cmd: list) -> int:
     """Run a command, log output if errors, return exit code."""
-    proc = subprocess.run(  # noqa S603
+    proc = subprocess.run(  # noqa: S603
         cmd,
         stderr=subprocess.STDOUT,
         stdout=subprocess.PIPE,

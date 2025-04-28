@@ -130,7 +130,7 @@ def replace(
     uname=_KEEP,
     gname=_KEEP,
     deep=True,
-    _KEEP=_KEEP,
+    _KEEP=_KEEP,  # noqa: N803
 ):
     """Return a deep copy of self with the given attributes replaced."""
     if deep:
