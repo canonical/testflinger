@@ -76,6 +76,9 @@ ignore-names = [
 "src/testflinger_device_connectors/devices/*/tests/*" = [
   "S101", # use of assert
 ]
+"tests/*" = [
+  "S101", # use of assert
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
