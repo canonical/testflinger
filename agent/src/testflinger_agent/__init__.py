@@ -121,7 +121,7 @@ def start_agent():
     args = parse_args()
     config = load_config(args.config)
     configure_logging(config)
-    check_interval = int(config.get("polling_interval"))
+    check_interval = config.get("polling_interval")
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
     while True:

@@ -153,7 +153,7 @@ class TestflingerClient:
             raise TFServerError("other exception") from exc
         if not job_request:
             logger.error(
-                "Unable to re-post job to: %s (error: %d",
+                "Unable to re-post job to: %s (error: %d)",
                 job_uri,
                 job_request.status_code,
             )
