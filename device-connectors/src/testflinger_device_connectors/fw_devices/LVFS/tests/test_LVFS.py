@@ -57,7 +57,7 @@ class TestLVFSDevice(unittest.TestCase):
 
     def test_check_results_failed_state(self):
         """Validate UpdateState check in check_results."""
-        global device_results  # noqa PLW0603
+        global device_results  # noqa: PLW0603
         with patch(
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
@@ -82,7 +82,7 @@ class TestLVFSDevice(unittest.TestCase):
 
     def test_check_results_good(self):
         """Test if check_results works with a valid case."""
-        global device_results  # noqa PLW0603
+        global device_results  # noqa: PLW0603
         with patch(
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
@@ -101,7 +101,7 @@ class TestLVFSDevice(unittest.TestCase):
         """Test error in check_results with an error return from ```$ fwupdmgr
         get-results```.
         """
-        global device_results  # noqa PLW0603
+        global device_results  # noqa: PLW0603
         with patch(
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
