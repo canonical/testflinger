@@ -61,9 +61,6 @@ ignore = [
     "D104",    # docstring: Missing docstring in public package
     "D107",    # docstring: Missing docstring in __init__
     "D205",    # docstring: 1 black line required between summary line and description
-    "G001",    # flake8-logging-format: logging string format
-    "G003",    # flake8-logging-format: logging string concat
-    "G004",    # flake8-logging-format: loggin f-string
 ]
 
 [tool.ruff.lint.pep8-naming]

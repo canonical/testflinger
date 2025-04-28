@@ -46,13 +46,13 @@ class MaasStorage:
             self.node_info = node_info
 
     def _logger_debug(self, message):
-        logger.debug("MAAS: {}".format(message))
+        logger.debug("MAAS: %s", message)
 
     def _logger_info(self, message):
-        logger.info("MAAS: {}".format(message))
+        logger.info("MAAS: %s", message)
 
     def _logger_error(self, message):
-        logger.error("MAAS: {}".format(message))
+        logger.error("MAAS: %s", message)
 
     def _node_read(self):
         """Read node block-devices.

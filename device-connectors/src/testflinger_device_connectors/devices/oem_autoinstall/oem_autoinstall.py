@@ -109,8 +109,9 @@ class OemAutoinstall:
 
         if not source_path.exists():
             logger.error(
-                f"{source_path} file was not found in attachments. "
-                "Please check the filename."
+                "%s file was not found in attachments. "
+                "Please check the filename.",
+                source_path,
             )
             raise ProvisioningError(
                 f"{source_path} file was not found in attachments"
