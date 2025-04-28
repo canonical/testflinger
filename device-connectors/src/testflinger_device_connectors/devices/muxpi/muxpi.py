@@ -244,7 +244,7 @@ class MuxPi:
             if self.job_data["provision_data"].get("create_user", True):
                 with self.remote_mount():
                     image_type = self.get_image_type()
-                    logger.info("Image type detected: {}".format(image_type))
+                    logger.info("Image type detected: %s", image_type)
                     logger.info("Creating Test User")
                     self.create_user(image_type)
             else:
@@ -310,17 +310,17 @@ class MuxPi:
         if isinstance(source, Path):
             # the source is an existing attachment
             logger.info(
-                f"Flashing Test image {source.name} on {self.test_device}"
+                "Flashing Test image %s on %s", source, self.test_device
             )
             self.transfer_test_image(local=source, timeout=1200)
         else:
             # the source is a URL
             with tempfile.NamedTemporaryFile(delete=True) as source_file:
-                logger.info(f"Downloading test image from {source}")
+                logger.info("Downloading test image from %s", source)
                 self.download(source, local=source_file.name, timeout=1200)
                 url_name = Path(urllib.parse.urlparse(source).path).name
                 logger.info(
-                    f"Flashing Test image {url_name} on {self.test_device}"
+                    "Flashing Test image %s on %s", url_name, self.test_device
                 )
                 self.transfer_test_image(local=source_file.name, timeout=1800)
 

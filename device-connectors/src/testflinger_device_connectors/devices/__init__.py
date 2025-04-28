@@ -155,7 +155,7 @@ class DefaultDevice:
         if version not in supported_version:
             logger.info(
                 "Fail to provide version in firmware_update_data. "
-                + "Current supported version: latest",
+                "Current supported version: latest",
             )
             exitcode = 1
         else:

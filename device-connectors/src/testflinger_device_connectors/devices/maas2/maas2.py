@@ -50,19 +50,19 @@ class Maas2:
         self.maas_storage = MaasStorage(self.maas_user, self.node_id)
 
     def _logger_debug(self, message):
-        logger.debug("MAAS: {}".format(message))
+        logger.debug("MAAS: %s", message)
 
     def _logger_info(self, message):
-        logger.info("MAAS: {}".format(message))
+        logger.info("MAAS: %s", message)
 
     def _logger_warning(self, message):
-        logger.warning("MAAS: {}".format(message))
+        logger.warning("MAAS: %s", message)
 
     def _logger_error(self, message):
-        logger.error("MAAS: {}".format(message))
+        logger.error("MAAS: %s", message)
 
     def _logger_critical(self, message):
-        logger.critical("MAAS: {}".format(message))
+        logger.critical("MAAS: %s", message)
 
     def recover(self):
         if self.config.get("reset_efi"):
