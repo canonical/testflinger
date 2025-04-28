@@ -343,7 +343,7 @@ def get_device_stage_func(device: str, stage: str) -> Callable:
     return the selected stage method.
     """
     module = import_module(f".{device}", package=__package__)
-    device_class = getattr(module, "DeviceConnector")
+    device_class = module.DeviceConnector
     device_instance = device_class()
     stage_method = getattr(device_instance, stage)
     return stage_method

@@ -64,8 +64,10 @@ class DeviceConnector(DefaultDevice):
             try:
                 device.ensure_test_image(test_username, test_password)
                 device.ensure_master_image()
-            except ProvisioningError:
-                raise RecoveryError("Unable to put system in a usable state!")
+            except ProvisioningError as err:
+                raise RecoveryError(
+                    "Unable to put system in a usable state!"
+                ) from err
         q = multiprocessing.Queue()
         file_server = multiprocessing.Process(
             target=testflinger_device_connectors.serve_file,

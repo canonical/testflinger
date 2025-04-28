@@ -93,8 +93,10 @@ class Dragonboard:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=60)
-            except subprocess.TimeoutExpired:
-                raise ProvisioningError("timeout reaching control host!")
+            except subprocess.TimeoutExpired as exc:
+                raise ProvisioningError(
+                    "timeout reaching control host!"
+                ) from exc
 
     def hardreset(self):
         """Reboot the device.
@@ -110,8 +112,8 @@ class Dragonboard:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
-            except subprocess.TimeoutExpired:
-                raise RecoveryError("timeout reaching control host!")
+            except subprocess.TimeoutExpired as exc:
+                raise RecoveryError("timeout reaching control host!") from exc
 
     def copy_ssh_id(self):
         """Copy the ssh key to the device."""
@@ -275,8 +277,10 @@ class Dragonboard:
         try:
             # XXX: I hope 30 min is enough? but maybe not!
             self._run_control(cmd, timeout=1800)
-        except subprocess.TimeoutExpired:
-            raise ProvisioningError("timeout reached while flashing image!")
+        except subprocess.TimeoutExpired as exc:
+            raise ProvisioningError(
+                "timeout reached while flashing image!"
+            ) from exc
         try:
             self._run_control("sync")
         except subprocess.SubprocessError:
@@ -293,7 +297,7 @@ class Dragonboard:
                 "Unable to run hdparm to rescan partitions: {}".format(
                     exc.output
                 )
-            )
+            ) from exc
 
     def mount_writable_partition(self):
         # Mount the writable partition
@@ -311,7 +315,7 @@ class Dragonboard:
                     self.config["snappy_writable_partition"], exc.output
                 )
             )
-            raise ProvisioningError(err)
+            raise ProvisioningError(err) from exc
 
     def create_user(self):
         """Create user account for default ubuntu user."""
@@ -348,7 +352,7 @@ class Dragonboard:
         except subprocess.CalledProcessError as exc:
             raise ProvisioningError(
                 "Error creating user files: {}".format(exc.output)
-            )
+            ) from exc
 
     def setup_sudo(self):
         sudo_data = "ubuntu ALL=(ALL) NOPASSWD:ALL"
