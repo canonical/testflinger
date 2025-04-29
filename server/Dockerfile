@@ -39,4 +39,4 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev
 
 # Run the testflinger server
-CMD ["uv", "run", "gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+ENTRYPOINT ["uv", "run", "gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
