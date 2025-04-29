@@ -38,8 +38,5 @@ ADD . /srv/testflinger
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev
 
-# Reset the entrypoint, don't invoke `uv`
-ENTRYPOINT []
-
 # Run the testflinger server
 CMD ["uv", "run", "gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
