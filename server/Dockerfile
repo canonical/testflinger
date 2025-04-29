@@ -5,6 +5,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.6.17 /uv /uvx /bin/
 ENV UV_SYSTEM_PYTHON=true
 
 WORKDIR /srv/testflinger
+ENV PATH="/srv/testflinger:$PATH"
 
 ENV HOME /root
 ENV LC_ALL C.UTF-8
@@ -37,11 +38,8 @@ ADD . /srv/testflinger
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev
 
-# Place executables in path
-ENV PATH="/srv/testflinger/.venv/bin:/srv/testflinger:$PATH"
-
 # Reset the entrypoint, don't invoke `uv`
 ENTRYPOINT []
 
 # Run the testflinger server
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+CMD ["uv", "run", "gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
