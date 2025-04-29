@@ -165,6 +165,8 @@ class TestflingerCharm(ops.CharmBase):
         keepalive = str(self.config["keepalive"])
         command = " ".join(
             [
+                "uv",
+                "run",
                 "gunicorn",
                 "-k",
                 "gevent",
