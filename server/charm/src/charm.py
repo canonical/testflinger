@@ -174,7 +174,7 @@ class TestflingerCharm(ops.CharmBase):
                 keepalive,
                 "--bind",
                 "0.0.0.0:5000",
-                "testflinger:app",
+                "app:app",
                 "--access-logfile",
                 "-",
                 "--error-logfile",
