@@ -62,7 +62,7 @@ class TestHandler:
         job_id = str(uuid.uuid1())
         phase = "phase1"
         output_log_handler = OutputLogHandler(client, job_id, phase)
-        output_url = f"http://127.0.0.1:8000/v1/result/{job_id}/output"
+        output_url = f"http://127.0.0.1:8000/v1/result/{job_id}/log/output"
         requests_mock.post(output_url, status_code=200)
         output_log_handler("output0")
         output_log_handler("output1")
@@ -82,7 +82,7 @@ class TestHandler:
         job_id = str(uuid.uuid1())
         phase = "phase1"
         serial_log_handler = SerialLogHandler(client, job_id, phase)
-        serial_url = f"http://127.0.0.1:8000/v1/result/{job_id}/serial_output"
+        serial_url = f"http://127.0.0.1:8000/v1/result/{job_id}/log/serial"
         requests_mock.post(serial_url, status_code=200)
         serial_log_handler("output0")
         serial_log_handler("output1")
