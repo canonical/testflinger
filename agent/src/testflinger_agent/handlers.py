@@ -36,7 +36,6 @@ class FileLogHandler(LogHandler):
 class EndpointLogHandler(LogHandler):
     def __init__(self, client: TestflingerClient, job_id: str, phase: str):
         self.fragment_number = 0
-        self.log_buffer = ""
         self.client = client
         self.phase = phase
         self.job_id = job_id
