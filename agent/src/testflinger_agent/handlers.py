@@ -19,12 +19,19 @@ from .client import TestflingerClient, LogEndpointInput
 
 
 class LogHandler(ABC):
+    """Abstract callable class that receives live log updates"""
+
     @abstractmethod
     def __call__(self, data: str):
         pass
 
 
 class FileLogHandler(LogHandler):
+    """
+    Implementation of LogHandler that writes live log updates
+    to a file.
+    """
+
     def __init__(self, filename: str):
         self.log_file = filename
 
@@ -34,6 +41,11 @@ class FileLogHandler(LogHandler):
 
 
 class EndpointLogHandler(LogHandler):
+    """
+    Abstract class that writes live log updates to a generic endpoint
+    in Testflinger server.
+    """
+
     def __init__(self, client: TestflingerClient, job_id: str, phase: str):
         self.fragment_number = 0
         self.client = client
@@ -56,10 +68,20 @@ class EndpointLogHandler(LogHandler):
 
 
 class OutputLogHandler(EndpointLogHandler):
+    """
+    Implementation of EndpointLogHandler that writes logs to the output
+    endpoint in Testflinger server.
+    """
+
     def write_to_endpoint(self, data_dict: LogEndpointInput):
         self.client.post_output(self.job_id, data_dict)
 
 
 class SerialLogHandler(EndpointLogHandler):
+    """
+    Implementation of EndpointLogHandler that writes logs to the serial
+    endpoint in Testflinger server.
+    """
+
     def write_to_endpoint(self, data_dict: LogEndpointInput):
         self.client.post_serial(self.job_id, data_dict)
