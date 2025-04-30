@@ -15,11 +15,11 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 
-from .client import TestflingerClient, LogEndpointInput
+from .client import LogEndpointInput, TestflingerClient
 
 
 class LogHandler(ABC):
-    """Abstract callable class that receives live log updates"""
+    """Abstract callable class that receives live log updates."""
 
     @abstractmethod
     def __call__(self, data: str):
@@ -74,7 +74,7 @@ class OutputLogHandler(EndpointLogHandler):
     """
 
     def write_to_endpoint(self, data_dict: LogEndpointInput):
-        self.client.post_output(self.job_id, data_dict)
+        self.client.post_log(self.job_id, data_dict, "output")
 
 
 class SerialLogHandler(EndpointLogHandler):
@@ -84,4 +84,4 @@ class SerialLogHandler(EndpointLogHandler):
     """
 
     def write_to_endpoint(self, data_dict: LogEndpointInput):
-        self.client.post_serial(self.job_id, data_dict)
+        self.client.post_log(self.job_id, data_dict, "serial")

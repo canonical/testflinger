@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class LogEndpointInput(TypedDict):
-    """Schema for Testflinger Log endpoints"""
+    """Schema for Testflinger Log endpoints."""
 
     fragment_number: int
     timestamp: str
@@ -281,8 +281,9 @@ class TestflingerClient:
 
     def post_log(
         self,
+        job_id: str,
         log_dict: LogEndpointInput,
-        endpoint: str,
+        log_type: str,
     ):
         """Post log data to the testflinger server for this job.
 
@@ -291,6 +292,7 @@ class TestflingerClient:
         :param endpoint
             Testflinger server endpoint to send logs to
         """
+        endpoint = urljoin(self.server, f"/v1/result/{job_id}/log/{type}")
         try:
             job_request = self.session.post(
                 endpoint, json=log_dict, timeout=60
@@ -299,28 +301,6 @@ class TestflingerClient:
             logger.error(exc)
             return False
         return bool(job_request)
-
-    def post_output(
-        self,
-        job_id: str,
-        log_dict: LogEndpointInput,
-    ):
-        """Post output data to the testflinger server for this job"""
-        output_uri = urljoin(
-            self.server, "/v1/result/{}/log/output".format(job_id)
-        )
-        return self.post_log(log_dict, output_uri)
-
-    def post_serial(
-        self,
-        job_id: str,
-        log_dict: LogEndpointInput,
-    ):
-        """Post output data to the testflinger server for this job"""
-        serial_uri = urljoin(
-            self.server, "/v1/result/{}/log/serial".format(job_id)
-        )
-        return self.post_log(log_dict, serial_uri)
 
     def post_advertised_queues(self):
         """Post the list of advertised queues to testflinger server."""
