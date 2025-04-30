@@ -12,11 +12,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
-import shutil
-import os
 import uuid
-import requests_mock as rmock
+
 import pytest
+import requests_mock as rmock
 
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
@@ -25,7 +24,6 @@ from testflinger_agent.handlers import (
     OutputLogHandler,
     SerialLogHandler,
 )
-
 from testflinger_agent.schema import validate
 
 
