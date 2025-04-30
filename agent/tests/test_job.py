@@ -9,14 +9,13 @@ from testflinger_common.enums import TestEvent
 
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
-from testflinger_agent.handlers import LogUpdateHandler
+from testflinger_agent.handlers import FileLogHandler
 from testflinger_agent.job import (
     TestflingerJob as _TestflingerJob,
 )
 from testflinger_agent.job import (
     read_truncated,
 )
-from testflinger_agent.handlers import FileLogHandler
 from testflinger_agent.runner import CommandRunner
 from testflinger_agent.schema import validate
 from testflinger_agent.stop_condition_checkers import (
