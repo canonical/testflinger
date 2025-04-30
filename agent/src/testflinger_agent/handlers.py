@@ -23,7 +23,7 @@ class LogHandler(ABC):
 
     @abstractmethod
     def __call__(self, data: str):
-        pass
+        raise NotImplementedError
 
 
 class FileLogHandler(LogHandler):
@@ -54,7 +54,7 @@ class EndpointLogHandler(LogHandler):
 
     @abstractmethod
     def write_to_endpoint(self, data_dict: LogEndpointInput):
-        pass
+        raise NotImplementedError
 
     def __call__(self, data: str):
         data_dict: LogEndpointInput = {
