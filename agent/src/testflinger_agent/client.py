@@ -307,7 +307,7 @@ class TestflingerClient:
     ):
         """Post output data to the testflinger server for this job"""
         output_uri = urljoin(
-            self.server, "/v1/result/{}/output".format(job_id)
+            self.server, "/v1/result/{}/log/output".format(job_id)
         )
         return self.post_log(log_dict, output_uri)
 
@@ -318,7 +318,7 @@ class TestflingerClient:
     ):
         """Post output data to the testflinger server for this job"""
         serial_uri = urljoin(
-            self.server, "/v1/result/{}/serial_output".format(job_id)
+            self.server, "/v1/result/{}/log/serial".format(job_id)
         )
         return self.post_log(log_dict, serial_uri)
 
