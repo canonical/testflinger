@@ -18,7 +18,8 @@ import os
 import time
 
 from testflinger_agent.errors import TFServerError
-from .handlers import  FileLogHandler, OutputLogHandler
+
+from .handlers import FileLogHandler, OutputLogHandler
 from .runner import CommandRunner, RunnerEvents
 from .stop_condition_checkers import (
     GlobalTimeoutChecker,
