@@ -12,8 +12,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Ubuntu OEM Script provisioning for Lenovo OEM devices
-this for systems that can use the oem recovery-from-iso.sh script
+"""Ubuntu OEM Script provisioning for Lenovo OEM devices.
+
+Use this for systems that can use the oem recovery-from-iso.sh script
 for provisioning, but require the --ubr flag in order to use the
 "ubuntu recovery" method.
 """

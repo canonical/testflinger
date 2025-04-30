@@ -14,6 +14,7 @@
 
 """Ubuntu Raspberry PI cm3 support code."""
 
+import contextlib
 import json
 import logging
 import os
@@ -84,13 +85,12 @@ class CM3:
                 'the "provision_data" section of '
                 "your job_data"
             ) from err
+        # FIXME: Specify exception instead of `Exception`
         # Remove /dev/sda if somehow it's a normal file
-        try:
+        with contextlib.suppress(Exception):
             self._run_control("test -f /dev/sda")
             # paranoid, but be really certain we're not running locally
             self._run_control("sudo rm -f /dev/sda")
-        except Exception as e:
-            logger.warning("Exception found while removing /dev/sda: %s", e)
 
         self._run_control("sudo pi3gpio set high 16")
         time.sleep(5)
@@ -146,19 +146,13 @@ class CM3:
             if x.get("name")
         ]
         for dev in dev_list:
-            try:
+            # FIXME: Specify exception instead of `Exception`
+            with contextlib.suppress(Exception):
                 with self.remote_mount(dev):
                     dirs = self._run_control("ls /mnt")
                     for path, img_type in self.IMAGE_PATH_IDS.items():
                         if path in dirs.decode().split():
                             return img_type, dev
-            except Exception as e:
-                # If unmountable or any other error, go on to the next one
-                logger.warning(
-                    "Error %s found while processing device: %s.",
-                    e,
-                    dev,
-                )
                 continue
         # We have no idea what kind of image this is
         return "unknown", dev
@@ -174,7 +168,8 @@ class CM3:
             "test_password", "ubuntu"
         )
         while time.time() - started < 600:
-            try:
+            # FIXME: Specify exception instead of `Exception`
+            with contextlib.suppress(Exception):
                 time.sleep(10)
                 cmd = [
                     "sshpass",
@@ -191,10 +186,6 @@ class CM3:
                     cmd, stderr=subprocess.STDOUT, timeout=60
                 )
                 return True
-            except Exception as e:
-                logger.warning(
-                    "Exception %s encountered while running: %s", e, cmd
-                )
         # If we get here, then we didn't boot in time
         raise ProvisioningError("Failed to boot test image!")
 
