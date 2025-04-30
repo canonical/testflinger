@@ -14,6 +14,7 @@
 
 """Ubuntu Raspberry PI muxpi support code."""
 
+import contextlib
 import json
 import logging
 import shlex
@@ -183,20 +184,14 @@ class MuxPi:
             # If media option is provided, then DUT is probably capable of
             # booting from different media, we should switch both of them
             # to TS side regardless of which one was previously used
-            try:
+            # FIXME: Specify exception instead of `Exception`
+            with contextlib.suppress(Exception):
                 cmd = "zapper sdwire plug_to_self"
                 sd_node = self._run_control(cmd)
-            except Exception as e:
-                logger.warning(
-                    "Exception %s encountered while running: %s", e, cmd
-                )
-            try:
+            # FIXME: Specify exception instead of `Exception`
+            with contextlib.suppress(Exception):
                 cmd = "zapper typecmux plug_to_self"
                 usb_node = self._run_control(cmd)
-            except Exception as e:
-                logger.warning(
-                    "Exception %s encountered while running: %s", e, cmd
-                )
 
             if media == "sd":
                 try:

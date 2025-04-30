@@ -14,6 +14,7 @@
 
 """Netboot support code."""
 
+import contextlib
 import logging
 import subprocess
 import time
@@ -177,13 +178,13 @@ class Netboot:
         """
         check_url = "http://{}:8989/check".format(self.config["device_ip"])
         data = ""
-        try:
+
+        # FIXME: Specify exception instead of `Exception`
+        # Any connection error will fail through the normal path
+        with contextlib.suppress(Exception):
             logger.info("Checking if master image booted: %s", check_url)
             with urllib.request.urlopen(check_url) as url:
                 data = url.read()
-        except Exception as e:
-            # Any connection error will fail through the normal path
-            logger.warning("An exception occurred: %s", e)
         if "Snappy Test Device Imager" in str(data):
             return True
         else:
@@ -244,9 +245,9 @@ class Netboot:
 
         # Now reboot the target system
         url = "http://{}:8989/reboot".format(self.config["device_ip"])
-        try:
+
+        # FIXME: Specify exception instead of `Exception`
+        # FIXME: This could fail to return right now due to a bug
+        with contextlib.suppress(Exception):
             logger.info("Rebooting target device: %s", url)
             urllib.request.urlopen(url, timeout=10)
-        except Exception as e:
-            # FIXME: This could fail to return right now due to a bug
-            logger.warning("Known bug exception: %s", e)

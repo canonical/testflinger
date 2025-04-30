@@ -138,11 +138,11 @@ class Multi:
             if not isinstance(job, dict):
                 logger.error("Job is not a dict: %s", job)
                 continue
-            job_allocate_data = self.inject_allocate_data(job)
-            job_parent_jobid = self.inject_parent_jobid(job_allocate_data)
+            updated_job = self.inject_allocate_data(job)
+            updated_job = self.inject_parent_jobid(updated_job)
 
             try:
-                job_id = self.client.submit_job(job_parent_jobid)
+                job_id = self.client.submit_job(updated_job)
             except requests.exceptions.HTTPError as exc:
                 logger.error("Unable to create job: %s", exc.response.text)
                 self.cancel_jobs(self.jobs)

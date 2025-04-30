@@ -252,7 +252,7 @@ def compress_file(filename):
 
 
 def configure_logging(config):
-    """Setups logging."""
+    """Set up logging."""
 
     class AgentFormatter(logging.Formatter):
         """Add agent_name to log records."""
@@ -321,7 +321,8 @@ def runcmd(cmd, env=None, timeout=None):
 
 
 def run_test_cmds(cmds, config=None, env=None):
-    """Run the test commands provided
+    """Run the test commands provided.
+
     This is just a frontend to determine the type of cmds we
     were passed and do the right thing with it.
 
