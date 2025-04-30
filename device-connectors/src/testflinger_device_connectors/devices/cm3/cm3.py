@@ -147,13 +147,12 @@ class CM3:
         ]
         for dev in dev_list:
             # FIXME: Specify exception instead of `Exception`
-            with contextlib.suppress(Exception):
-                with self.remote_mount(dev):
-                    dirs = self._run_control("ls /mnt")
-                    for path, img_type in self.IMAGE_PATH_IDS.items():
-                        if path in dirs.decode().split():
-                            return img_type, dev
-                continue
+            with contextlib.suppress(Exception), self.remote_mount(dev):
+                dirs = self._run_control("ls /mnt")
+                for path, img_type in self.IMAGE_PATH_IDS.items():
+                    if path in dirs.decode().split():
+                        return img_type, dev
+
         # We have no idea what kind of image this is
         return "unknown", dev
 
