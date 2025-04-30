@@ -17,6 +17,7 @@
 
 """TestflingerCli module."""
 
+from enum import enum
 import inspect
 import json
 import logging
@@ -130,6 +131,16 @@ def _print_queue_message():
 class AttachmentError(Exception):
     """Exception thrown when attachments fail to be submitted."""
 
+
+class LogType(Enum):
+    """
+    Enum of different output types
+    NORMAL_OUTPUT - Agent Standard Output
+    SERIAL_OUTPUT - Agent Serial Log Output.
+    """
+
+    NORMAL_OUTPUT = 1
+    SERIAL_OUTPUT = 2
 
 class TestflingerCli:
     """Class for handling the Testflinger CLI."""
@@ -266,12 +277,25 @@ class TestflingerCli:
         parser = subparsers.add_parser(
             "poll", help="Poll for output from a job until it is completed"
         )
-        parser.set_defaults(func=self.poll)
+        parser.set_defaults(func=self.poll_output)
         parser.add_argument(
             "--oneshot",
             "-o",
             action="store_true",
             help="Get latest output and exit immediately",
+        )
+        parser.add_argument(
+            "--start_fragment",
+            "-f",
+            type=int,
+            default=0,
+            help="Start fragment",
+        )
+        parser.add_argument(
+            "--start_timestamp",
+            "-t",
+            type=datetime.fromisoformat,
+            help="Start timestamp",
         )
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
@@ -803,36 +827,58 @@ class TestflingerCli:
             sys.exit(1)
         print(f"Artifacts downloaded to {self.args.filename}")
 
-    def poll(self):
-        """Poll for output from a job until it is completed."""
+
+    def poll(self, log_type: LogType):
+        """
+        Poll for output/serial output from a job until it is completed.
+        """
+        start_fragment = self.args.start_fragment
+        start_timestamp = self.args.start_timestamp
         if self.args.oneshot:
             # This could get an IOError for connection errors or timeouts
             # Raise it since it's not running continuously in this mode
-            output = self.get_latest_output(self.args.job_id)
-            if output:
-                print(output, end="", flush=True)
+            output_json = self.client.get_logs(
+                self.args.job_id,
+                log_type
+                start_fragment,
+                start_timestamp,
+            )
+            last_fragment_number = output_json.get("last_fragment_number")
+            if last_fragment_number < 0:
+                print("Waiting on Output")
+            else:
+                print(output_json.log_data, end="", flush=True)
+                print(f"Last Fragment Number: {last_fragment_number}")
             sys.exit(0)
-        self.do_poll(self.args.job_id)
+        self.do_poll(self.args.job_id, log_type)
+
+    def poll_output(self):
+        """Poll for agent output from a job until it is completed."""
+        self.poll(LogType.NORMAL_OUTPUT)
 
     def poll_serial(self):
         """Poll for serial output from a job until it is completed."""
-        if self.args.oneshot:
-            output = self.get_latest_serial_output(self.args.job_id)
-            if output:
-                print(output, end="", flush=True)
-            sys.exit(0)
-        self.do_poll_serial(self.args.job_id)
+        self.poll(LogType.SERIAL_OUTPUT)
 
-    def do_poll(self, job_id):
+    def do_poll(
+        self,
+        job_id: str,
+        log_type: LogType,
+    ):
         """Poll for output from a running job and print it while it runs.
 
         :param str job_id: Job ID
+        :param LogType log_type: Enum representing serial or agent output.
         """
+        start_fragment = self.args.start_fragment
+        start_timestamp = self.args.start_timestamp
+        
         job_state = self.get_job_state(job_id)
         self.history.update(job_id, job_state)
         prev_queue_pos = None
         if job_state == "waiting":
             print("This job is waiting on a node to become available.")
+        cur_fragment = start_fragment
         while True:
             try:
                 job_state = self.get_job_state(job_id)
@@ -845,10 +891,17 @@ class TestflingerCli:
                         prev_queue_pos = int(queue_pos)
                         print("Jobs ahead in queue: {}".format(queue_pos))
                 time.sleep(10)
-                output = ""
-                output = self.get_latest_output(job_id)
-                if output:
-                    print(output, end="", flush=True)
+                output = self.client.get_logs(
+                    job_id,
+                    log_type,
+                    cur_fragment,
+                    start_timestamp,
+                )
+                if output.get("last_fragment_number") < 0:
+                    print("Waiting on output...")
+                else:
+                    print(output.get("log_data"), end="", flush=True)
+                    cur_fragment = output.get("last_fragment_number") + 1
             except (IOError, client.HTTPError):
                 # Ignore/retry or debug any connection errors or timeouts
                 if self.args.debug:
@@ -864,27 +917,11 @@ class TestflingerCli:
                         continue
                     if choice == "y":
                         self.cancel(job_id)
+                print(f"\nNext fragment number: {cur_fragment}")
                 # Both y and n will allow the external handler deal with it
                 raise
 
         print(job_state)
-
-    def do_poll_serial(self, job_id):
-        """
-        Poll for serial output from a running job and print it while it runs.
-
-        :param str job_id: Job ID
-        """
-        while True:
-            try:
-                output = ""
-                output = self.get_latest_serial_output(job_id)
-                if output:
-                    print(output, end="", flush=True)
-            except (IOError, client.HTTPError):
-                # Ignore/retry or debug any connection errors or timeouts
-                if self.args.debug:
-                    logger.exception("Error polling for serial output")
 
     def jobs(self):
         """List the previously started test jobs."""
@@ -1019,36 +1056,6 @@ class TestflingerCli:
                 if answer.lower() != "y":
                     queue = ""
         return queue
-
-    def get_latest_output(self, job_id):
-        """Get the latest output from a running job.
-
-        :param str job_id: Job ID
-        :return str: New output from the running job
-        """
-        output = ""
-        try:
-            output = self.client.get_output(job_id)
-        except client.HTTPError as exc:
-            if exc.status == 204:
-                # We are still waiting for the job to start
-                pass
-        return output
-
-    def get_latest_serial_output(self, job_id):
-        """Get the latest serial output from a running job.
-
-        :param str job_id: Job ID
-        :return str: New serial output from the running job
-        """
-        output = ""
-        try:
-            output = self.client.get_serial_output(job_id)
-        except client.HTTPError as exc:
-            if exc.status == 204:
-                # We are still waiting for the job to start
-                pass
-        return output
 
     def get_job_state(self, job_id):
         """Return the job state for the specified job_id.
