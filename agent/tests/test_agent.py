@@ -398,7 +398,7 @@ class TestClient:
             m.get("http://127.0.0.1:8000/v1/result/" + job_id, text="{}")
             m.post("http://127.0.0.1:8000/v1/result/" + job_id, text="{}")
             m.post(
-                "http://127.0.0.1:8000/v1/result/" + job_id + "/output",
+                "http://127.0.0.1:8000/v1/result/" + job_id + "/log/output",
                 text="{}",
             )
             m.post(
