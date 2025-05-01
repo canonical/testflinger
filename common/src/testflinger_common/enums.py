@@ -83,3 +83,13 @@ class TestEvent(StrEnum):
     NORMAL_EXIT = "normal_exit"
     JOB_START = "job_start"
     JOB_END = "job_end"
+
+class LogType(StrEnum):
+    """
+    Enum of different output types
+    NORMAL_OUTPUT - Agent Standard Output
+    SERIAL_OUTPUT - Agent Serial Log Output.
+    """
+
+    NORMAL_OUTPUT = "output"
+    SERIAL_OUTPUT = "serial"
