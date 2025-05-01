@@ -12,15 +12,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from dataclasses import asdict, dataclass
 import json
 import logging
 import os
 import shutil
 import tempfile
 import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, TypedDict
+from typing import Dict, List
 from urllib.parse import urljoin
 
 import requests
@@ -29,6 +29,7 @@ from influxdb.exceptions import InfluxDBClientError
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from testflinger_common.enums import LogType
+
 from testflinger_agent.errors import TFServerError
 
 logger = logging.getLogger(__name__)
