@@ -14,6 +14,7 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from testflinger_common.enums import LogType
 
 from .client import LogEndpointInput, TestflingerClient
 
@@ -53,7 +54,7 @@ class EndpointLogHandler(LogHandler):
         self.job_id = job_id
 
     @abstractmethod
-    def write_to_endpoint(self, data_dict: LogEndpointInput):
+    def write_to_endpoint(self, data: LogEndpointInput):
         raise NotImplementedError
 
     def __call__(self, data: str):
@@ -73,8 +74,8 @@ class OutputLogHandler(EndpointLogHandler):
     endpoint in Testflinger server.
     """
 
-    def write_to_endpoint(self, data_dict: LogEndpointInput):
-        self.client.post_log(self.job_id, data_dict, "output")
+    def write_to_endpoint(self, data: LogEndpointInput):
+        self.client.post_log(self.job_id, data, LogType.NORMAL_OUTPUT)
 
 
 class SerialLogHandler(EndpointLogHandler):
@@ -83,5 +84,5 @@ class SerialLogHandler(EndpointLogHandler):
     endpoint in Testflinger server.
     """
 
-    def write_to_endpoint(self, data_dict: LogEndpointInput):
-        self.client.post_log(self.job_id, data_dict, "serial")
+    def write_to_endpoint(self, data: LogEndpointInput):
+        self.client.post_log(self.job_id, data, LogType.SERIAL_OUTPUT)
