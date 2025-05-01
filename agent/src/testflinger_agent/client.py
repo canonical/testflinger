@@ -12,6 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from dataclasses import asdict, dataclass
 import json
 import logging
 import os
@@ -32,8 +33,8 @@ from testflinger_agent.errors import TFServerError
 
 logger = logging.getLogger(__name__)
 
-
-class LogEndpointInput(TypedDict):
+@dataclass(frozen=True)
+class LogEndpointInput:
     """Schema for Testflinger Log endpoints."""
 
     fragment_number: int
@@ -282,20 +283,22 @@ class TestflingerClient:
     def post_log(
         self,
         job_id: str,
-        log_dict: LogEndpointInput,
+        log_input: LogEndpointInput,
         log_type: LogType,
     ):
         """Post log data to the testflinger server for this job.
 
-        :param log_dict
-            Dict with all of the keys for the log endpoint
-        :param endpoint
-            Testflinger server endpoint to send logs to
+        :param job_id
+            id for the job
+        :param log_input
+            Dataclass with all of the keys for the log endpoint
+        :param log_type
+            Enum of different log types the server accepts
         """
-        endpoint = urljoin(self.server, f"/v1/result/{job_id}/log/{type}")
+        endpoint = urljoin(self.server, f"/v1/result/{job_id}/log/{log_type}")
         try:
             job_request = self.session.post(
-                endpoint, json=log_dict, timeout=60
+                endpoint, json=asdict(log_input), timeout=60
             )
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
