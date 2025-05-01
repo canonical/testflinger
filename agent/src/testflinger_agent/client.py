@@ -27,7 +27,7 @@ from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-
+from testflinger_common.enums import LogType
 from testflinger_agent.errors import TFServerError
 
 logger = logging.getLogger(__name__)
@@ -283,7 +283,7 @@ class TestflingerClient:
         self,
         job_id: str,
         log_dict: LogEndpointInput,
-        log_type: str,
+        log_type: LogType,
     ):
         """Post log data to the testflinger server for this job.
 
