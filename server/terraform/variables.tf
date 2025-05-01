@@ -65,6 +65,24 @@ variable "jwt_signing_key" {
   default     = "secret"
 }
 
+variable "http_proxy" {
+  description = "HTTP proxy for accessing external HTTP resources"
+  type        = string
+  default     = ""
+}
+
+variable "https_proxy" {
+  description = "HTTPS proxy for accessing external HTTPS resources"
+  type        = string
+  default     = ""
+}
+
+variable "no_proxy" {
+  description = "Resources that we should abe able to access bypassing proxy"
+  type        = string
+  default     = "localhost,127.0.0.1,::1"
+}
+
 locals {
   app_model = "testflinger-${var.environment}"
   channel   = var.revision == null ? (startswith(var.environment, "prod") ? "latest/stable" : "latest/edge") : null

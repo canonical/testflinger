@@ -65,6 +65,18 @@ config:
       type: string
       default: ""
       description: The secret key used for signing authorization tokens
+    http_proxy:
+      type: string
+      default: ""
+      description: HTTP proxy for accessing external HTTP resources
+    https_proxy:
+      type: string
+      default: ""
+      description: HTTPS proxy for accessing external HTTPS resources
+    no_proxy:
+      type: string
+      default: "localhost,127.0.0.1,::1"
+      description: Resources that we should be able to access bypassing proxy
 
 parts:
   charm:
