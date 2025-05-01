@@ -2,9 +2,9 @@ FROM ubuntu:22.04
 
 # Set up uv
 COPY --from=ghcr.io/astral-sh/uv:0.6.17 /uv /uvx /bin/
-ENV UV_SYSTEM_PYTHON=true \  # use system installation of python
-    UV_COMPILE_BYTECODE=1 \  # for faster startup times
-    UV_LINK_MODE=copy        # silences cache mount warnings
+ENV UV_SYSTEM_PYTHON=true \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
 WORKDIR /srv/testflinger
 ENV PATH="/srv/testflinger/.venv/bin:$PATH"
