@@ -2,10 +2,12 @@ FROM ubuntu:22.04
 
 # Set up uv
 COPY --from=ghcr.io/astral-sh/uv:0.6.17 /uv /uvx /bin/
-ENV UV_SYSTEM_PYTHON=true
+ENV UV_SYSTEM_PYTHON=true \  # use system installation of python
+    UV_COMPILE_BYTECODE=1 \  # for faster startup times
+    UV_LINK_MODE=copy        # silences cache mount warnings
 
 WORKDIR /srv/testflinger
-ENV PATH="/srv/testflinger:$PATH"
+ENV PATH="/srv/testflinger/.venv/bin:$PATH"
 
 ENV HOME /root
 ENV LC_ALL C.UTF-8
@@ -39,4 +41,4 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev
 
 # Run the testflinger server
-ENTRYPOINT ["uv", "run", "gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+ENTRYPOINT ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
