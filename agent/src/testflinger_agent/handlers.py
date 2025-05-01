@@ -14,6 +14,7 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+
 from testflinger_common.enums import LogType
 
 from .client import LogEndpointInput, TestflingerClient
