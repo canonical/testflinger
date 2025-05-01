@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Check libraries
-        uses: canonical/charming-actions/check-libraries@bc8d4ee58ddf99c6f13fc80e8a14dfe1e68a8ea6 # 2.7.0
+        uses: canonical/charming-actions/check-libraries@1753e0803f70445132e92acd45c905aba6473225 # 2.7.0
         with:
           charm-path: server/charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"

@@ -52,7 +52,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Promote Charm
-        uses: canonical/charming-actions/promote-charm@19db2e9c9da186f64b38b95d8e7e57229f3362da # 2.7.0
+        uses: canonical/charming-actions/promote-charm@1753e0803f70445132e92acd45c905aba6473225 # 2.7.0
         with:
           credentials: ${{ secrets.CHARMHUB_TOKEN }}
           destination-channel: ${{ inputs.destination-channel }}
