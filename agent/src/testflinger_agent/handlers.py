@@ -58,13 +58,13 @@ class EndpointLogHandler(LogHandler):
         raise NotImplementedError
 
     def __call__(self, data: str):
-        data_dict: LogEndpointInput = {
-            "fragment_number": self.fragment_number,
-            "timestamp": str(datetime.now(timezone.utc)),
-            "phase": self.phase,
-            "log_data": data,
-        }
-        self.write_to_endpoint(data_dict)
+        log_input = LogEndpointInput(
+            self.fragment_number,
+            datetime.now(timezone.utc).isoformat(),
+            self.phase,
+            data,
+        )
+        self.write_to_endpoint(log_input)
         self.fragment_number += 1
 
 
