@@ -15,6 +15,9 @@ resource "juju_application" "testflinger" {
     external_hostname = var.external_ingress_hostname
     max_pool_size     = var.max_pool_size
     jwt_signing_key   = var.jwt_signing_key
+    http_proxy        = var.http_proxy
+    https_proxy       = var.https_proxy
+    no_proxy          = var.no_proxy
   }
 }
 
