@@ -35,6 +35,9 @@ class JobState(StrEnum):
 
 
 class TestPhase(StrEnum):
+    __test__ = False
+    """Prevents pytest from trying to run this class as a test."""
+
     SETUP = "setup"
     PROVISION = "provision"
     FIRMWARE_UPDATE = "firmware_update"
@@ -45,6 +48,9 @@ class TestPhase(StrEnum):
 
 
 class TestEvent(StrEnum):
+    __test__ = False
+    """Prevents pytest from trying to run this class as a test."""
+
     SETUP_START = "setup_start"
     PROVISION_START = "provision_start"
     FIRMWARE_UPDATE_START = "firmware_update_start"

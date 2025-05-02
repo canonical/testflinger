@@ -34,6 +34,9 @@ logger = logging.getLogger(__name__)
 
 
 class TestflingerClient:
+    __test__ = False
+    """This prevents pytest from trying to run this class as a test."""
+
     def __init__(self, config):
         self.config = config
         self.server = self.config.get(

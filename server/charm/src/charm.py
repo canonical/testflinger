@@ -35,6 +35,9 @@ logger = logging.getLogger(__name__)
 class TestflingerCharm(ops.CharmBase):
     """Testflinger charm."""
 
+    __test__ = False
+    """Prevents pytest from trying to run this class as a test."""
+
     _stored = ops.framework.StoredState()
 
     def __init__(self, *args):
