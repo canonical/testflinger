@@ -84,6 +84,7 @@ class TestEvent(StrEnum):
     JOB_START = "job_start"
     JOB_END = "job_end"
 
+
 class LogType(StrEnum):
     """
     Enum of different output types
