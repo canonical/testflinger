@@ -15,7 +15,8 @@ on:
       - device-connectors/**
 
 jobs:
-  build:
+  test:
+    name: Run unit tests
     defaults:
       run:
         working-directory: device-connectors
@@ -31,5 +32,11 @@ jobs:
         uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Run tests
-        run: uvx --with tox-uv tox
+      - name: Check lock file
+        run: uvx --with tox-uv tox -e lock
+      - name: Check formatting
+        run: uvx --with tox-uv tox -e format
+      - name: Check linting
+        run: uvx --with tox-uv tox -e lint
+      - name: Run unit tests
+        run: uvx --with tox-uv tox -e unit
