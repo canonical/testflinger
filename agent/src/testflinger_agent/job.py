@@ -31,6 +31,9 @@ logger = logging.getLogger(__name__)
 
 
 class TestflingerJob:
+    __test__ = False
+    """This prevents pytest from trying to run this class as a test."""
+
     def __init__(self, job_data, client):
         """
         :param job_data:

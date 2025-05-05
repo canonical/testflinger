@@ -91,6 +91,9 @@ def parse_error_logs(error_log_path: str, phase: str):
 
 
 class TestflingerAgent:
+    __test__ = False
+    """This prevents pytest from trying to run this class as a test."""
+
     def __init__(self, client):
         self.client = client
         signal.signal(signal.SIGUSR1, self.restart_signal_handler)
