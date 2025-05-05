@@ -91,5 +91,5 @@ class LogType(StrEnum):
     SERIAL_OUTPUT - Agent Serial Log Output.
     """
 
-    NORMAL_OUTPUT = "output"
+    STANDARD_OUTPUT = "output"
     SERIAL_OUTPUT = "serial"
