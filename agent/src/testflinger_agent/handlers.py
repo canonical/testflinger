@@ -76,7 +76,7 @@ class OutputLogHandler(EndpointLogHandler):
     """
 
     def write_to_endpoint(self, data: LogEndpointInput):
-        self.client.post_log(self.job_id, data, LogType.NORMAL_OUTPUT)
+        self.client.post_log(self.job_id, data, LogType.STANDARD_OUTPUT)
 
 
 class SerialLogHandler(EndpointLogHandler):
