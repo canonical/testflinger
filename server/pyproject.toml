@@ -23,6 +23,7 @@ dependencies = [
     "pyyaml>=6.0.1",
     "requests>=2.31.0",
     "sentry-sdk>= 2.0.1",
+    "testflinger-common",
     "urllib3>=2.2.1",
     "marshmallow-oneofschema>=3.1.1",
 ]
@@ -85,3 +86,6 @@ convention = "pep257"
 profile = "jinja"
 ignore = "H023,H021"
 indent = 2
+
+[tool.uv.sources]
+testflinger-common = { path = "../common" }
