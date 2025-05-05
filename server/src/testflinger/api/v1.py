@@ -28,12 +28,14 @@ from flask import jsonify, request, send_file
 from marshmallow import ValidationError
 from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
+from testflinger_common.enums import LogType, TestPhase
 from urllib3.util.retry import Retry
 from werkzeug.exceptions import BadRequest
+from werkzeug.routing import BaseConverter
 
 from testflinger import database
 from testflinger.api import schemas
-from testflinger.log_handlers import LogType, MongoLogHandler
+from testflinger.log_handlers import MongoLogHandler
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -459,8 +461,27 @@ def artifacts_get(job_id):
     return send_file(file, download_name="artifact.tar.gz")
 
 
-def log_get(job_id: str, args: dict, log_type: LogType):
-    """Get normal and serial output for a specified job_id."""
+class LogTypeConverter(BaseConverter):
+    """Class to validate log type route parameter."""
+
+    def to_python(self, value):
+        """Validate log type URL parameter."""
+        try:
+            log_type = LogType(value)
+            return log_type
+        except ValueError:
+            raise ValidationError("Invalid log type") from None
+
+    def to_url(self, obj):
+        """Get string representation of log type."""
+        return obj.value
+
+
+@v1.get("/result/<job_id>/log/<log_type:log_type>")
+@v1.output(schemas.LogGet)
+def log_get(job_id: str, log_type: LogType):
+    """Get logs for a specified job_id."""
+    args = request.args
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job id\n")
     query_schema = schemas.LogQueryParams()
@@ -470,75 +491,46 @@ def log_get(job_id: str, args: dict, log_type: LogType):
         abort(400, message=err.messages)
     start_fragment = query_params.get("start_fragment", 0)
     start_timestamp = query_params.get("start_timestamp", None)
+    phase = query_params.get("phase", None)
     log_handler = MongoLogHandler(database.mongo)
-    return log_handler.retrieve_logs(
-        job_id,
-        log_type,
-        start_fragment,
-        start_timestamp,
-    )
+
+    # Return logs for all phases if unspecified
+    if phase is None:
+        return {
+            "phase_logs": {
+                phase.value: log_handler.retrieve_logs(
+                    job_id,
+                    log_type,
+                    phase.value,
+                    start_fragment,
+                    start_timestamp,
+                )
+                for phase in TestPhase
+            }
+        }
+    else:
+        return {
+            "phase_logs": {
+                phase: log_handler.retrieve_logs(
+                    job_id,
+                    log_type,
+                    phase,
+                    start_fragment,
+                    start_timestamp,
+                )
+            }
+        }
 
 
-@v1.get("/result/<job_id>/log/output")
-@v1.output(schemas.LogGet)
-def output_get(job_id):
-    """Get latest output for a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    :return:
-        JSON with log data and the last fragment number retrieved
-    """
-    return log_get(job_id, request.args, LogType.NORMAL_OUTPUT)
-
-
-@v1.get("/result/<job_id>/log/serial_output")
-@v1.output(schemas.LogGet)
-def serial_output_get(job_id):
-    """Get latest serial output for a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    :return:
-        JSON with log data and the last fragment number retrieved
-    """
-    return log_get(job_id, request.args, LogType.SERIAL_OUTPUT)
-
-
-def log_post(job_id: str, json_data: dict, log_type: LogType):
-    """Post normal and serial output for a specified job ID."""
+@v1.post("/result/<job_id>/log/<log_type:log_type>")
+@v1.input(schemas.LogPost, location="json")
+def log_post(job_id: str, log_type: LogType, json_data: dict):
+    """Post logsfor a specified job ID."""
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
     log_handler = MongoLogHandler(database.mongo)
     log_handler.store_log_fragment(job_id, json_data, log_type)
     return "OK"
-
-
-@v1.post("/result/<job_id>/log/output")
-@v1.input(schemas.LogPost, location="json")
-def output_post(job_id, json_data):
-    """Post output for a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    :param json_data:
-        A JSON containing the fragment number, timestamp, and log data
-        of the posted log_fragment
-    """
-    return log_post(job_id, json_data, LogType.NORMAL_OUTPUT)
-
-
-@v1.post("/result/<job_id>/log/serial_output")
-@v1.input(schemas.LogPost, location="json")
-def serial_output_post(job_id, json_data):
-    """Post serial output for a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    :param data:
-        A string containing the latest lines of output to post
-    """
-    return log_post(job_id, json_data, LogType.SERIAL_OUTPUT)
 
 
 @v1.post("/job/<job_id>/action")

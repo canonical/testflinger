@@ -367,7 +367,7 @@ class StatusUpdate(Schema):
 
 
 class LogPost(Schema):
-    """Output Post and Serial Output Post Schema."""
+    """Schema for POST of log fragments."""
 
     fragment_number = fields.Integer(required=True)
     timestamp = fields.DateTime(required=True)
@@ -375,20 +375,30 @@ class LogPost(Schema):
     log_data = fields.String(required=True)
 
 
-class LogGet(Schema):
-    """Output and Serial Output Get response schema."""
+class LogGetItem(Schema):
+    """Schema for GET of logs for a single phase."""
 
     last_fragment_number = fields.Integer(required=True)
     log_data = fields.String(required=True)
 
 
+class LogGet(Schema):
+    """Schema for GET of logs for multiple phases."""
+
+    phase_logs = fields.Dict(
+        keys=fields.String(),
+        values=fields.Nested(LogGetItem),
+    )
+
+
 class LogQueryParams(Schema):
-    """Schema for Output Get Query parameters."""
+    """Schema for Log GET Query parameters."""
 
     start_fragment = fields.Integer(
         required=False, validate=validators.Range(min=0)
     )
     start_timestamp = fields.DateTime(required=False)
+    phase = fields.String(required=False)
 
 
 job_empty = {

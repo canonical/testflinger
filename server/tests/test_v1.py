@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from http import HTTPStatus
 from io import BytesIO
 
+from testflinger_common.enums import LogType, TestPhase
+
 from testflinger.api import v1
 
 
@@ -661,7 +663,7 @@ def test_output_post_get(mongo_app):
     output_url = f"/v1/result/{job_id}/log/output"
     log_data = "line1\nline2\nline3"
     timestamp = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
-    phase = "phase1"
+    phase = str(TestPhase.SETUP)
     log_json = {
         "fragment_number": 0,
         "timestamp": timestamp,
@@ -671,15 +673,17 @@ def test_output_post_get(mongo_app):
     output = app.post(output_url, json=log_json)
     assert "OK" == output.text
     output = app.get(output_url)
-    assert output.json["last_fragment_number"] == 0
-    assert output.json["log_data"] == log_data
+    phase_output = output.json["phase_logs"][phase]
+    assert phase_output["last_fragment_number"] == 0
+    assert phase_output["log_data"] == log_data
 
 
 def test_output_post_get_query(mongo_app):
     """Test output endpoints with timestamp querying."""
     app, _ = mongo_app
     job_id = "00000000-0000-0000-0000-000000000000"
-    output_url = f"/v1/result/{job_id}/log/output"
+    output_url = f"/v1/result/{job_id}/log/{LogType.STANDARD_OUTPUT}"
+    phase = str(TestPhase.SETUP)
     for i in range(10):
         log_data = f"line{i}\n"
         timestamp = datetime(
@@ -688,7 +692,7 @@ def test_output_post_get_query(mongo_app):
         log_json = {
             "fragment_number": i,
             "timestamp": timestamp,
-            "phase": "phase1",
+            "phase": phase,
             "log_data": log_data,
         }
         output = app.post(output_url, json=log_json)
@@ -696,21 +700,22 @@ def test_output_post_get_query(mongo_app):
     query_timestamp = datetime(
         2025, 4, 24, 10, 32, 0, tzinfo=timezone.utc
     ).isoformat()
-    params = {"start_timestamp": query_timestamp}
+    params = {"start_timestamp": query_timestamp, "phase": phase}
     encoded_params = urllib.parse.urlencode(params)
     url_with_timestamp = f"{output_url}?{encoded_params}"
     output = app.get(url_with_timestamp)
     combined_log_expected = "".join([f"line{i}\n" for i in range(7, 10)])
     assert output.status_code == 200
-    assert output.json["log_data"] == combined_log_expected
-    assert output.json["last_fragment_number"] == 9
+    phase_output = output.json["phase_logs"][phase]
+    assert phase_output["log_data"] == combined_log_expected
+    assert phase_output["last_fragment_number"] == 9
 
 
 def test_output_get_invalid_query(mongo_app):
     """Test output endpoint fails when given invalid timestamp."""
     app, _ = mongo_app
     job_id = "00000000-0000-0000-0000-000000000000"
-    output_url = f"/v1/result/{job_id}/log/output"
+    output_url = f"/v1/result/{job_id}/log/{LogType.STANDARD_OUTPUT}"
     params = {"start_timestamp": "my wrong timestamp"}
     encoded_params = urllib.parse.urlencode(params)
     url_with_timestamp = f"{output_url}?{encoded_params}"
@@ -1151,10 +1156,10 @@ def test_serial_output(mongo_app):
     """Test api endpoint to get serial log output."""
     app, _ = mongo_app
     job_id = "00000000-0000-0000-0000-000000000000"
-    output_url = f"/v1/result/{job_id}/log/serial_output"
+    output_url = f"/v1/result/{job_id}/log/{LogType.SERIAL_OUTPUT}"
     log_data = "line1\nline2\nline3"
     timestamp = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
-    phase = "phase1"
+    phase = str(TestPhase.SETUP)
     log_json = {
         "fragment_number": 0,
         "timestamp": timestamp,
@@ -1164,8 +1169,9 @@ def test_serial_output(mongo_app):
     output = app.post(output_url, json=log_json)
     assert "OK" == output.text
     output = app.get(output_url)
-    assert output.json["last_fragment_number"] == 0
-    assert output.json["log_data"] == log_data
+    phase_output = output.json["phase_logs"][phase]
+    assert phase_output["last_fragment_number"] == 0
+    assert phase_output["log_data"] == log_data
 
 
 def test_result_post_large_payload(mongo_app):
