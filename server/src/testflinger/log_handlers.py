@@ -18,19 +18,9 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
-from enum import Enum
 from typing import List
 
-
-class LogType(Enum):
-    """
-    Enum of different output types
-    NORMAL_OUTPUT - Agent Standard Output
-    SERIAL_OUTPUT - Agent Serial Log Output.
-    """
-
-    NORMAL_OUTPUT = 1
-    SERIAL_OUTPUT = 2
+from testflinger_common.enums import LogType, TestPhase
 
 
 class LogHandler(ABC):
@@ -49,6 +39,7 @@ class LogHandler(ABC):
         self,
         job_id: str,
         log_type: LogType,
+        phase: TestPhase,
         start_fragment: int = 0,
         start_timestamp: datetime = None,
     ) -> List[dict]:
@@ -62,6 +53,7 @@ class LogHandler(ABC):
         self,
         job_id: str,
         log_type: LogType,
+        phase: TestPhase,
         start_fragment: int = 0,
         start_timestamp: datetime = None,
     ) -> dict:
@@ -70,7 +62,7 @@ class LogHandler(ABC):
         fragment number retrieved.
         """
         fragments = self.retrieve_log_fragments(
-            job_id, log_type, start_fragment, start_timestamp
+            job_id, log_type, phase, start_fragment, start_timestamp
         )
         data_list = [f["log_data"] for f in fragments]
         log_data = "".join(data_list)
@@ -92,20 +84,12 @@ class MongoLogHandler(LogHandler):
         """Initialize mongo db object."""
         self.mongo = mongo
 
-    def get_collection(self, log_type: LogType):
-        """Get the MongoDB collection corresponding to the LogType."""
-        match log_type:
-            case LogType.NORMAL_OUTPUT:
-                return self.mongo.db.logs.output_fragments
-            case LogType.SERIAL_OUTPUT:
-                return self.mongo.db.logs.serial_output_fragments
-        return None
-
     def store_log_fragment(self, job_id: str, data: dict, log_type: LogType):
         """Store logs in the output/serial_output collection in MongoDB."""
-        log_collection = self.get_collection(log_type)
+        log_collection = self.mongo.db.logs
         timestamp = datetime.now(timezone.utc)
         data["job_id"] = job_id
+        data["log_type"] = log_type
         log_collection.insert_one(
             data,
             {"$set": {"updated_at": timestamp}},
@@ -115,13 +99,16 @@ class MongoLogHandler(LogHandler):
         self,
         job_id: str,
         log_type: LogType,
+        phase: TestPhase,
         start_fragment: int = 0,
         start_timestamp: datetime = None,
     ) -> List[dict]:
         """Retrieve log fragments from MongoDB sorted by fragment number."""
-        log_collection = self.get_collection(log_type)
+        log_collection = self.mongo.db.logs
         query = {
             "job_id": job_id,
+            "log_type": log_type,
+            "phase": phase,
             "fragment_number": {"$gte": start_fragment},
         }
         if start_timestamp is not None:
