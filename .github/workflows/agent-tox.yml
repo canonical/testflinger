@@ -6,31 +6,53 @@ on:
   push:
     branches: [main]
     paths:
-      - common/**  # testflinger-agent depends on testflinger-common
+      - common/** # testflinger-agent depends on testflinger-common
       - agent/**
       - .github/workflows/agent-tox.yml
   pull_request:
     branches: [main]
     paths:
-      - common/**  # testflinger-agent depends on testflinger-common
+      - common/** # testflinger-agent depends on testflinger-common
       - agent/**
       - .github/workflows/agent-tox.yml
 
 jobs:
-  build:
+  test:
+    name: Run unit tests
     defaults:
       run:
         working-directory: agent
     runs-on: [self-hosted, linux, jammy, X64]
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      with:
-        persist-credentials: false
-    - name: Install uv and set up Python
-      uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6
-    - name: Install concierge
-      run: sudo snap install --classic concierge
-    - name: Prepare Juju
-      run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=latest/stable -p machine
-    - name: Run tests
-      run: uvx --with tox-uv tox
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6
+      - name: Check lock file
+        run: uvx --with tox-uv tox -e lock
+      - name: Check formatting
+        run: uvx --with tox-uv tox -e format
+      - name: Check linting
+        run: uvx --with tox-uv tox -e lint
+      - name: Run unit tests
+        run: uvx --with tox-uv tox -e unit
+
+  test_charm:
+    name: Run charm tests
+    defaults:
+      run:
+        working-directory: agent
+    runs-on: [self-hosted, linux, jammy, X64]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6
+      - name: Install concierge
+        run: sudo snap install --classic concierge
+      - name: Prepare Juju
+        run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=latest/stable -p machine
+      - name: Run charm tests
+        run: uvx --with tox-uv tox -e charm
