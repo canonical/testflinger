@@ -12,14 +12,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from testflinger_agent.handlers import LogUpdateHandler
+from testflinger_agent.handlers import FileLogHandler
 from testflinger_agent.masking import Masker
 from testflinger_agent.runner import CommandRunner, MaskingCommandRunner
 
 
 def run(runner, command, tmp_path):
     logfile = tmp_path / "testlog"
-    log_handler = LogUpdateHandler(logfile)
+    log_handler = FileLogHandler(logfile)
     runner.register_output_handler(log_handler)
     exit_code, _, _ = runner.run(command)
     with open(logfile) as log:

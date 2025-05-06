@@ -378,7 +378,7 @@ class JobSearchResponse(Schema):
 
 
 class Result(Schema):
-    """Result schema."""
+    """Deprecated Result schema."""
 
     setup_status = fields.Integer(required=False)
     setup_output = fields.String(required=False)
@@ -401,6 +401,18 @@ class Result(Schema):
     cleanup_status = fields.Integer(required=False)
     cleanup_output = fields.String(required=False)
     cleanup_serial = fields.String(required=False)
+    device_info = fields.Dict(required=False)
+    job_state = fields.String(required=False)
+
+
+class ResultPost(Schema):
+    """Result Post schema."""
+
+    status = fields.Dict(
+        keys=fields.String(validate=OneOf(TestPhases)),
+        values=fields.Integer(),
+        required=False,
+    )
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
 
@@ -454,7 +466,11 @@ class LogGetItem(Schema):
 class LogGet(Schema):
     """Schema for GET of logs for multiple phases."""
 
-    phase_logs = fields.Dict(
+    output = fields.Dict(
+        keys=fields.String(validate=OneOf(TestPhases)),
+        values=fields.Nested(LogGetItem),
+    )
+    serial = fields.Dict(
         keys=fields.String(validate=OneOf(TestPhases)),
         values=fields.Nested(LogGetItem),
     )
