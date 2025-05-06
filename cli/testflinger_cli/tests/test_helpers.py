@@ -15,17 +15,15 @@ from testflinger_cli.helpers import (
 
 def test_is_snap(monkeypatch):
     """Test the is_snap function."""
-    monkeypatch.setenv("SNAP_NAME", "")
+    monkeypatch.delenv("SNAP_NAME", raising=False)
     assert not is_snap()
 
     monkeypatch.setenv("SNAP_NAME", SNAP_NAME)
     assert is_snap()
 
 
-def test_is_in_snap_private_dir(monkeypatch):
+def test_is_in_snap_private_dir():
     """Test the is_in_snap_private_dir function."""
-    monkeypatch.setenv("SNAP_NAME", SNAP_NAME)
-
     assert file_is_in_snap_private_dir(Path("/tmp/job.yaml"))
     assert not file_is_in_snap_private_dir(Path("/home/ubuntu/tmp/job.yaml"))
 
