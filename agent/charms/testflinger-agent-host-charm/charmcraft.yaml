@@ -28,15 +28,9 @@ links:
   issues: [https://github.com/canonical/testflinger/issues]
   website: [https://canonical-testflinger.readthedocs-hosted.com/en/latest/]
 
-bases:
-  - build-on:
-      - name: ubuntu
-        channel: "22.04"
-    run-on:
-      - name: ubuntu
-        channel: "20.04"
-      - name: ubuntu
-        channel: "22.04"
+base: ubuntu@22.04
+platforms:
+  amd64:
 
 charm-libs:
   - lib: operator_libs_linux.apt

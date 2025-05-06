@@ -7,7 +7,7 @@ name = "testflinger-common"
 description = "Testflinger common modules"
 readme = "README.md"
 version = "1.1.0"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = ["strenum>=0.4.15"]
 
 [dependency-groups]

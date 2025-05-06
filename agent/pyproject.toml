@@ -8,7 +8,7 @@ description = "Testflinger agent"
 readme = "README.md"
 version = "1.1.0"
 authors = []
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "influxdb>=5.3.2",
     "pyyaml>=6.0.1",
@@ -74,10 +74,10 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "src/testflinger_agent/agent.py" = [
-    "S202" # bandit: tarfile-unsafe-members
+    "S202", # bandit: tarfile-unsafe-members
 ]
 "src/testflinger_agent/runner.py" = [
-    "S602" # bandit: subprocess-popen-with-shell-equals-true; Removing shell causes S603
+    "S602", # bandit: subprocess-popen-with-shell-equals-true; Removing shell causes S603
 ]
 "tests/*" = [
     "S101", # use of assert

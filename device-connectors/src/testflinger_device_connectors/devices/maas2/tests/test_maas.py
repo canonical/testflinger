@@ -54,9 +54,10 @@ def test_maas_cmd_retry(tmp_path):
         "testflinger_device_connectors.devices.maas2.maas2.MaasStorage",
         return_value=None,
     ):
-        with patch("subprocess.run", return_value=Process(1, b"error")), patch(
-            "time.sleep", return_value=None
-        ) as mocked_time_sleep:
+        with (
+            patch("subprocess.run", return_value=Process(1, b"error")),
+            patch("time.sleep", return_value=None) as mocked_time_sleep,
+        ):
             config_yaml = tmp_path / "config.yaml"
             config = {
                 "maas_user": "user",
