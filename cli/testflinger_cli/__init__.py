@@ -467,9 +467,12 @@ class TestflingerCli:
         if self.args.relative:
             # provided as a command-line argument
             reference = Path(self.args.relative).resolve(strict=True)
+        elif not self.args.filename:
+            # no job file provided: use the current working directory
+            reference = Path(".").resolve(strict=True)
         else:
             # retrieved from the directory where the job file is contained
-            reference = Path(self.args.filename).parent.resolve(strict=True)
+            reference = self.args.filename.parent.resolve(strict=True)
 
         with tarfile.open(archive, "w:gz") as tar:
             for phase, attachments in attachment_data.items():
