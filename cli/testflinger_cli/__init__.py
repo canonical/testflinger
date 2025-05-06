@@ -35,7 +35,7 @@ import argcomplete
 import requests
 import yaml
 
-from testflinger_cli import autocomplete, client, config, history
+from testflinger_cli import autocomplete, client, config, helpers, history
 
 logger = logging.getLogger(__name__)
 
@@ -182,7 +182,7 @@ class TestflingerCli:
         parser.add_argument(
             "-c",
             "--configfile",
-            type=Path,
+            type=helpers.parse_filename,
             default=None,
             help="Configuration file to use",
         )
@@ -217,7 +217,9 @@ class TestflingerCli:
             help="Download a tarball of artifacts saved for a specified job",
         )
         parser.set_defaults(func=self.artifacts)
-        parser.add_argument("--filename", type=Path, default="artifacts.tgz")
+        parser.add_argument(
+            "--filename", type=helpers.parse_filename, default="artifacts.tgz"
+        )
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
         )
@@ -361,7 +363,7 @@ class TestflingerCli:
         parser.add_argument("--wait-for-available-agents", action="store_true")
         parser.add_argument(
             "filename",
-            type=Path,
+            type=lambda x: helpers.parse_filename(x, parse_stdin=True),
             help="YAML or JSON file with your job definition, '-' for stdin",
         ).completer = argcomplete.completers.FilesCompleter(
             allowednames=("*.yaml", "*.yml", "*.json")
@@ -517,16 +519,15 @@ class TestflingerCli:
 
     def submit(self):
         """Submit a new test job to the server."""
-        if self.args.filename.name == "-":
-            data = sys.stdin.read()
-        else:
-            try:
-                data = self.args.filename.read_text(
-                    encoding="utf-8", errors="ignore"
-                )
-            except (PermissionError, FileNotFoundError) as error:
-                logger.exception(error)
-                sys.exit(1)
+        try:
+            data = (
+                self.args.filename.read_text(encoding="utf-8", errors="ignore")
+                if self.args.filename
+                else sys.stdin.read()
+            )
+        except (PermissionError, FileNotFoundError) as exc:
+            logger.exception(exc)
+            sys.exit(1)
         job_dict = yaml.safe_load(data)
 
         # Check if agents are available to handle this queue
