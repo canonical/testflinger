@@ -351,51 +351,6 @@ def search_jobs(query_data):
     return jsonify(list(jobs))
 
 
-@v1.post("/result/<job_id>")
-@v1.input(schemas.Result, location="json")
-def result_post(job_id, json_data):
-    """Post a result for a specified job_id.
-
-    :param job_id:
-        UUID as a string for the job
-    """
-    if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
-
-    # fail if input payload is larger than the BSON size limit
-    # https://www.mongodb.com/docs/manual/reference/limits/
-    content_length = request.content_length
-    if content_length and content_length >= 16 * 1024 * 1024:
-        abort(413, message="Payload too large")
-
-    # First, we need to prepend "result_data" to each key in the result_data
-    for key in list(json_data):
-        json_data[f"result_data.{key}"] = json_data.pop(key)
-
-    database.mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
-    return "OK"
-
-
-@v1.get("/result/<job_id>")
-@v1.output(schemas.Result)
-def result_get(job_id):
-    """Return results for a specified job_id.
-
-    :param job_id:
-        UUID as a string for the job
-    """
-    if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
-    response = database.mongo.db.jobs.find_one(
-        {"job_id": job_id}, {"result_data": True, "_id": False}
-    )
-
-    if not response or not (results := response.get("result_data")):
-        return "", 204
-    results = response.get("result_data")
-    return results
-
-
 @v1.post("/result/<job_id>/artifact")
 def artifacts_post(job_id):
     """Post artifact bundle for a specified job_id.
@@ -469,7 +424,7 @@ def log_get(job_id: str, log_type: LogType):
         phases = [TestPhase(phase)]
 
     return {
-        "phase_logs": {
+        log_type: {
             phase.value: log_handler.retrieve_logs(
                 job_id,
                 log_type,
@@ -499,6 +454,62 @@ def log_post(job_id: str, log_type: LogType, json_data: dict):
     log_handler = MongoLogHandler(database.mongo)
     log_handler.store_log_fragment(log_fragment)
     return "OK"
+
+
+@v1.post("/result/<job_id>")
+@v1.input(schemas.ResultPost, location="json")
+def result_post(job_id, json_data):
+    """Post a result for a specified job_id.
+
+    :param job_id:
+        UUID as a string for the job
+    """
+    if not check_valid_uuid(job_id):
+        abort(400, message="Invalid job_id specified")
+
+    # First, we need to prepend "result_data" to each key in the result_data
+    for key in list(json_data):
+        json_data[f"result_data.{key}"] = json_data.pop(key)
+
+    database.mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
+    return "OK"
+
+
+@v1.get("/result/<job_id>")
+@v1.output(schemas.Result)
+def result_get(job_id):
+    """Return results for a specified job_id.
+
+    :param job_id:
+        UUID as a string for the job
+    """
+    if not check_valid_uuid(job_id):
+        abort(400, message="Invalid job_id specified")
+
+    response = database.mongo.db.jobs.find_one(
+        {"job_id": job_id}, {"result_data": True, "_id": False}
+    )
+
+    if not response or not (result_data := response.get("result_data")):
+        return "", 204
+    log_handler = MongoLogHandler(database.mongo)
+    result_logs = {
+        phase + "_" + log_type: log_data
+        for log_type in LogType
+        for phase in TestPhase
+        if (
+            log_data := log_handler.retrieve_logs(job_id, log_type, phase)[
+                "log_data"
+            ]
+        )
+    }
+    phase_status = result_data.pop("status", {})
+    result_status = {
+        phase + "_status": status
+        for phase in TestPhase
+        if (status := phase_status.get(phase))
+    }
+    return result_logs | result_status | result_data
 
 
 @v1.post("/job/<job_id>/action")
