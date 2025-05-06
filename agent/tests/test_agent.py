@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 import requests_mock as rmock
-from testflinger_common.enums import TestEvent, TestPhase, LogType
+from testflinger_common.enums import LogType, TestEvent, TestPhase
 
 import testflinger_agent
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent

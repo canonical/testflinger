@@ -34,6 +34,7 @@ from testflinger_agent.errors import TFServerError
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass(frozen=True)
 class LogEndpointInput:
     """Schema for Testflinger Log endpoints."""
