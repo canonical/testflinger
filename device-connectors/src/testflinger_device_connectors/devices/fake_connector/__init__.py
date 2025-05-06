@@ -11,8 +11,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-This is a fake device connector that can be used for testing
+"""Fake device connector that can be used for testing.
 
 It will not actually provision anything, but it will otherwise act like a
 normal device connector for the other phases, such as running the test_cmds
@@ -25,7 +24,6 @@ from testflinger_device_connectors.devices import (
     DefaultDevice,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +31,7 @@ class DeviceConnector(DefaultDevice):
     """Fake device connector."""
 
     def provision(self, args):
-        """dummy provision"""
+        """Begin dummy provision."""
         with open(args.job_data) as json_file:
             job_data = json.load(json_file)
         provision_data = job_data.get("provision_data", {})

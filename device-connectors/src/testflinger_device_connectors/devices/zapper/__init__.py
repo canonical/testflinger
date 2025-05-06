@@ -12,8 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
-Package containing modules for implementing Zapper-driven device connectors.
+"""Package containing modules for implementing Zapper-driven device connectors.
 
 Modules inheriting from the provided abstract class will run Zapper-driven
 provisioning procedures via Zapper API. The provisioning logic is implemented
@@ -38,8 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 class ZapperConnector(ABC, DefaultDevice):
-    """
-    Abstract base class defining a common interface for Zapper-driven
+    """Abstract base class defining a common interface for Zapper-driven
     device connectors.
     """
 
@@ -48,7 +46,7 @@ class ZapperConnector(ABC, DefaultDevice):
     ZAPPER_SERVICE_PORT = 60000
 
     def provision(self, args):
-        """Method called when the command is invoked."""
+        """Provision device when the command is invoked."""
         with open(args.config, encoding="utf-8") as configfile:
             self.config = yaml.safe_load(configfile)
         with open(args.job_data, encoding="utf-8") as job_json:
@@ -72,22 +70,19 @@ class ZapperConnector(ABC, DefaultDevice):
     def _validate_configuration(
         self,
     ) -> Tuple[Tuple, Dict[str, Any]]:
-        """
-        Validate the job config and data and prepare the arguments
+        """Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
         raise NotImplementedError
 
     def _run(self, zapper_ip, *args, **kwargs):
-        """
-        Run the Zapper `provision` API via RPyC. The arguments are
+        """Run the Zapper `provision` API via RPyC. The arguments are
         not stricly defined so that the same API can be used by different
         implementations.
 
         The connector logger is passed as an argument to the Zapper API
         in order to get a real time feedback throughout the whole execution.
         """
-
         connection = rpyc.connect(
             zapper_ip,
             self.ZAPPER_SERVICE_PORT,
@@ -105,8 +100,7 @@ class ZapperConnector(ABC, DefaultDevice):
         )
 
     def _copy_ssh_id(self):
-        """Copy the ssh id to the device"""
-
+        """Copy the ssh id to the device."""
         logger.info("Copying the agent's SSH public key to the DUT.")
 
         try:

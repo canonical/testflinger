@@ -14,11 +14,12 @@
 
 """Maas2 agent storage module unit tests."""
 
-
-import pytest
 import json
 import subprocess
-from unittest.mock import Mock, MagicMock, call
+from unittest.mock import MagicMock, Mock, call
+
+import pytest
+
 from testflinger_device_connectors.devices.maas2.maas_storage import (
     MaasStorage,
     MaasStorageError,
@@ -36,7 +37,6 @@ class MockMaasStorage(MaasStorage):
         """Mock method to simulate the call_cmd method in the
         parent MaasStorage class.
         """
-
         if output_json:
             return json.loads(TestMaasStorage.node_info)
         else:
@@ -108,7 +108,7 @@ class TestMaasStorage:
 
     @pytest.fixture
     def maas_storage(self):
-        """Provides a MockMaasStorage instance for testing."""
+        """Provide a MockMaasStorage instance for testing."""
         maas_user = "maas_user"
         node_id = "node_id"
         yield MockMaasStorage(maas_user, node_id)
@@ -391,7 +391,7 @@ class TestMaasStorage:
         }
 
         for dev_type, devices in devs_by_type.items():
-            for device in devices:
+            for _device in devices:
                 setattr(maas_storage, mock_methods[dev_type], MagicMock())
 
             setattr(
@@ -607,7 +607,7 @@ class TestMaasStorageCallCmd:
 
     @pytest.fixture
     def maas_storage(self):
-        """Provides a MockMaasStorage instance for testing."""
+        """Provide a MockMaasStorage instance for testing."""
         maas_user = "maas_user"
         node_id = "node_id"
         yield MockMaasStorageWithCallCmd(maas_user, node_id, self.node_info)

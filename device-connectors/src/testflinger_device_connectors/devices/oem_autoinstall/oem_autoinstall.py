@@ -12,21 +12,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
-Starting from Ubuntu 24.04, OEM uses autoinstall to provision
+"""Starting from Ubuntu 24.04, OEM uses autoinstall to provision
 the PC platforms for all vendors.
 Use this device connector for systems that support autoinstall provisioning
-with provision-image.sh script
+with provision-image.sh script.
 """
 
 import json
 import logging
-from pathlib import Path
-import subprocess
-import yaml
-import shutil
-import time
 import os
+import shutil
+import subprocess
+import time
+from pathlib import Path
+
+import yaml
 
 from testflinger_device_connectors.devices import (
     ProvisioningError,
@@ -49,8 +49,7 @@ class OemAutoinstall:
         self.data_path = Path(__file__).parent / "../../data/oem_autoinstall"
 
     def provision(self):
-        """Provision the device"""
-
+        """Provision the device."""
         # Ensure the device is online and reachable
         try:
             self.copy_ssh_id()
@@ -99,9 +98,8 @@ class OemAutoinstall:
         self.check_device_booted()
 
     def copy_to_deploy_path(self, source_path, dest_path):
-        """
-        Verify if attachment exists, then copy when
-        it's missing in deployment dir
+        """Verify if attachment exists, then copy when
+        it's missing in deployment dir.
         """
         source_path = Path(source_path)
         if source_path.is_absolute():
@@ -111,8 +109,9 @@ class OemAutoinstall:
 
         if not source_path.exists():
             logger.error(
-                f"{source_path} file was not found in attachments. "
-                "Please check the filename."
+                "%s file was not found in attachments. "
+                "Please check the filename.",
+                source_path,
             )
             raise ProvisioningError(
                 f"{source_path} file was not found in attachments"
@@ -122,7 +121,7 @@ class OemAutoinstall:
             shutil.copy(source_path, dest_path)
 
     def run_deploy_script(self, image_url):
-        """Run the script to deploy ISO and config files"""
+        """Run the script to deploy ISO and config files."""
         device_ip = self.config["device_ip"]
         test_username = self.get_test_data_or_default(
             "test_username", "ubuntu"
@@ -154,7 +153,7 @@ class OemAutoinstall:
             raise ProvisioningError("Deploy script failed")
 
     def test_ssh_access(self):
-        """Verify SSH access available to DUT without any prompts"""
+        """Verify SSH access available to DUT without any prompts."""
         try:
             test_username = self.job_data.get("test_data", {}).get(
                 "test_username", "ubuntu"
@@ -175,13 +174,15 @@ class OemAutoinstall:
             f"{test_username}@{self.config['device_ip']}",
             "true",
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, check=False
+        )
         if result.returncode != 0:
             logger.error("SSH connection failed: %s", result.stderr)
             raise ProvisioningError("Failed SSH to DUT")
 
     def get_test_data_or_default(self, attribute, default_value):
-        """Helper function to safely get test attributes"""
+        """Retrieve safely test attributes."""
         try:
             return self.job_data.get("test_data", {}).get(
                 attribute, default_value
@@ -190,8 +191,7 @@ class OemAutoinstall:
             return default_value
 
     def copy_ssh_id(self):
-        """Copy the ssh id to the device"""
-
+        """Copy the ssh id to the device."""
         test_username = self.get_test_data_or_default(
             "test_username", "ubuntu"
         )
@@ -213,8 +213,7 @@ class OemAutoinstall:
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
 
     def hardreset(self):
-        """
-        Reboot the device.
+        """Reboot the device.
 
         :raises RecoveryError:
             If the command times out or anything else fails.
@@ -231,7 +230,7 @@ class OemAutoinstall:
                 raise RecoveryError("Error running reboot script!") from exc
 
     def check_device_booted(self):
-        """Check to see if the device is booted and reachable with ssh"""
+        """Check to see if the device is booted and reachable with ssh."""
         logger.info("Checking to see if the device is available.")
         started = time.time()
         # Wait for provisioning to complete - can take a very long time
@@ -245,6 +244,6 @@ class OemAutoinstall:
         # If we get here, then we didn't boot in time
         agent_name = self.config.get("agent_name")
         logger.error(
-            "Device %s unreachable,  provisioning" "failed!", agent_name
+            "Device %s unreachable,  provisioning failed!", agent_name
         )
         raise ProvisioningError("Failed to boot test image!")

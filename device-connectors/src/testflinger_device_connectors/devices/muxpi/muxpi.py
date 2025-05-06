@@ -14,18 +14,19 @@
 
 """Ubuntu Raspberry PI muxpi support code."""
 
-from contextlib import contextmanager
+import contextlib
 import json
 import logging
-from pathlib import Path
-import requests
 import shlex
 import subprocess
 import tempfile
 import time
-from typing import Optional, Union
 import urllib
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Optional, Union
 
+import requests
 import yaml
 
 from testflinger_device_connectors.devices import (
@@ -80,8 +81,7 @@ class MuxPi:
         )
 
     def _run_control(self, cmd, timeout=60):
-        """
-        Run a command on the control host over ssh
+        """Run a command on the control host over ssh.
 
         :param cmd:
             Command to run
@@ -102,12 +102,11 @@ class MuxPi:
                 ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout
             )
         except subprocess.SubprocessError as e:
-            raise ProvisioningError(e.output)
+            raise ProvisioningError(e.output) from e
         return output
 
     def _copy_to_control(self, local_file, remote_file):
-        """
-        Copy a file to the control host over ssh
+        """Copy a file to the control host over ssh.
 
         :param local_file:
             Local filename
@@ -124,12 +123,11 @@ class MuxPi:
         try:
             output = subprocess.check_output(ssh_cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            raise ProvisioningError(e.output)
+            raise ProvisioningError(e.output) from e
         return output
 
     def reboot_sdwire(self):
-        """
-        Reboot both control host and DUT to ensure SDwire be in a good state
+        """Reboot both control host and DUT to ensure SDwire be in a good state
         before provisioning.
         """
         if not self.config.get("control_host_reboot_script"):
@@ -143,8 +141,8 @@ class MuxPi:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=60)
-            except Exception:
-                raise ProvisioningError("fail to reboot control host")
+            except Exception as e:
+                raise ProvisioningError("fail to reboot control host") from e
 
         logger.info("Rebooting DUT")
         self.hardreset()
@@ -186,16 +184,14 @@ class MuxPi:
             # If media option is provided, then DUT is probably capable of
             # booting from different media, we should switch both of them
             # to TS side regardless of which one was previously used
-            try:
+            # FIXME: Specify exception instead of `Exception`
+            with contextlib.suppress(Exception):
                 cmd = "zapper sdwire plug_to_self"
                 sd_node = self._run_control(cmd)
-            except Exception:
-                pass
-            try:
+            # FIXME: Specify exception instead of `Exception`
+            with contextlib.suppress(Exception):
                 cmd = "zapper typecmux plug_to_self"
                 usb_node = self._run_control(cmd)
-            except Exception:
-                pass
 
             if media == "sd":
                 try:
@@ -247,7 +243,7 @@ class MuxPi:
             if self.job_data["provision_data"].get("create_user", True):
                 with self.remote_mount():
                     image_type = self.get_image_type()
-                    logger.info("Image type detected: {}".format(image_type))
+                    logger.info("Image type detected: %s", image_type)
                     logger.info("Creating Test User")
                     self.create_user(image_type)
             else:
@@ -300,8 +296,7 @@ class MuxPi:
             ) from error
 
     def flash_test_image(self, source: Union[str, Path]):
-        """
-        Flash the image at :source to the sd card.
+        """Flash the image at :source to the sd card.
 
         :param source:
             URL or Path to retrieve the image from
@@ -314,17 +309,17 @@ class MuxPi:
         if isinstance(source, Path):
             # the source is an existing attachment
             logger.info(
-                f"Flashing Test image {source.name} on {self.test_device}"
+                "Flashing Test image %s on %s", source, self.test_device
             )
             self.transfer_test_image(local=source, timeout=1200)
         else:
             # the source is a URL
             with tempfile.NamedTemporaryFile(delete=True) as source_file:
-                logger.info(f"Downloading test image from {source}")
+                logger.info("Downloading test image from %s", source)
                 self.download(source, local=source_file.name, timeout=1200)
                 url_name = Path(urllib.parse.urlparse(source).path).name
                 logger.info(
-                    f"Flashing Test image {url_name} on {self.test_device}"
+                    "Flashing Test image %s on %s", url_name, self.test_device
                 )
                 self.transfer_test_image(local=source_file.name, timeout=1800)
 
@@ -332,7 +327,7 @@ class MuxPi:
             self._run_control("sync")
         except Exception:
             # Nothing should go wrong here, but let's sleep if it does
-            logger.warn("Something went wrong with the sync, sleeping...")
+            logger.warning("Something went wrong with the sync, sleeping...")
             time.sleep(30)
         try:
             self._run_control(
@@ -341,7 +336,7 @@ class MuxPi:
             )
         except Exception as error:
             raise ProvisioningError(
-                "Unable to run hdparm to rescan " "partitions"
+                "Unable to run hdparm to rescan partitions"
             ) from error
 
     def _get_part_labels(self):
@@ -387,8 +382,7 @@ class MuxPi:
                 )
 
     def hardreset(self):
-        """
-        Reboot the device.
+        """Reboot the device.
 
         :raises RecoveryError:
             If the command times out or anything else fails.
@@ -401,19 +395,18 @@ class MuxPi:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
-            except Exception:
-                raise RecoveryError("timeout reaching control host!")
+            except Exception as e:
+                raise RecoveryError("timeout reaching control host!") from e
 
     def get_image_type(self):
-        """
-        Figure out which kind of image is on the configured block device
+        """Figure out which kind of image is on the configured block device.
 
         :returns:
             image type as a string
         """
 
-        def check_path(dir):
-            self._run_control("test -e {}".format(dir))
+        def check_path(dir_path):
+            self._run_control("test -e {}".format(dir_path))
 
         # First check if this is a ce-oem-iot image and type
         res = self.check_ce_oem_iot_image()
@@ -432,18 +425,19 @@ class MuxPi:
 
         for path, img_type in self.IMAGE_PATH_IDS.items():
             try:
-                path = self.mount_point / path
-                check_path(path)
+                full_path = self.mount_point / path
+                check_path(full_path)
                 return img_type
             except Exception:
-                # Path was not found, continue trying others
+                logger.warning(
+                    "Path %s was not found, continue trying others", full_path
+                )
                 continue
         # We have no idea what kind of image this is
         return "unknown"
 
     def check_ce_oem_iot_image(self) -> bool:
-        """
-        Determine if this is a ce-oem-iot image
+        """Determine if this is a ce-oem-iot image.
 
         These images will have a .disk/info file with a buildstamp in it
         that looks like:
@@ -478,16 +472,16 @@ class MuxPi:
                 "sudo umount {}*".format(self.test_device),
                 timeout=30,
             )
-        except KeyError:
-            raise RecoveryError("Device config missing test_device")
+        except KeyError as err:
+            raise RecoveryError("Device config missing test_device") from err
         except Exception:
             # We might not be mounted, so expect this to fail sometimes
-            pass
+            logger.warning("Device %s might not be mounted", self.test_device)
 
     def create_user(self, image_type):
-        """Create user account for default ubuntu user"""
+        """Create user account for default ubuntu user."""
         base = self.mount_point
-        remote_tmp = Path("/tmp") / self.agent_name
+        remote_tmp = Path("/tmp") / self.agent_name  # noqa: S108
         try:
             data_path = Path(__file__).parent / "../../data/muxpi"
             if image_type == "ce-oem-iot-before-24":
@@ -608,8 +602,8 @@ class MuxPi:
                         base / "etc/cloud/cloud.cfg.d/99-fake?cloud.cfg"
                     )
                     self._run_control(rm_cmd)
-        except Exception:
-            raise ProvisioningError("Error creating user files")
+        except Exception as e:
+            raise ProvisioningError("Error creating user files") from e
 
     def _configure_sudo(self):
         # Setup sudoers data
@@ -644,7 +638,6 @@ class MuxPi:
             time.sleep(10)
 
             if boot_check_url is not None:
-
                 logger.info(
                     "Checking %s to confirm boot success ...", boot_check_url
                 )
@@ -661,7 +654,6 @@ class MuxPi:
                     logger.info("Boot check failed with %s", e)
 
             else:
-
                 device_ip = self.config["device_ip"]
                 cmd = [
                     "sshpass",
@@ -690,4 +682,4 @@ class MuxPi:
             try:
                 self._run_control(cmd)
             except Exception:
-                logger.warn("Error running %s", cmd)
+                logger.warning("Error running %s", cmd)

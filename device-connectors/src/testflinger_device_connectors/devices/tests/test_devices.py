@@ -25,11 +25,9 @@ class DefaultDeviceTests(unittest.TestCase):
 
     @patch("subprocess.check_call")
     def test_copy_ssh_id(self, mock_check):
-        """
-        Test whether the function copies the agent's SSH key
+        """Test whether the function copies the agent's SSH key
         to the DUT.
         """
-
         connector = DefaultDevice()
         connector.copy_ssh_key(
             "192.168.1.2",
@@ -46,11 +44,9 @@ class DefaultDeviceTests(unittest.TestCase):
 
     @patch("subprocess.check_call")
     def test_copy_ssh_id_with_key(self, mock_check):
-        """
-        Test whether the function copies the provided key
+        """Test whether the function copies the provided key
         to the DUT.
         """
-
         connector = DefaultDevice()
         connector.copy_ssh_key(
             "192.168.1.2",
@@ -69,11 +65,9 @@ class DefaultDeviceTests(unittest.TestCase):
     @patch("time.sleep", Mock())
     @patch("subprocess.check_call")
     def test_copy_ssh_id_raises(self, mock_check):
-        """
-        Test whether the function raises a RuntimeError
+        """Test whether the function raises a RuntimeError
         exception after 3 failed attempts.
         """
-
         connector = DefaultDevice()
         connector = DefaultDevice()
 
