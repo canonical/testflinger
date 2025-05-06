@@ -9,7 +9,7 @@ from testflinger_cli.consts import SNAP_NAME, SNAP_PRIVATE_DIRS
 
 
 def is_snap() -> bool:
-    """Check if the current environment is a snap."""
+    """Check if the current environment is in the Testflinger snap."""
     return getenv("SNAP_NAME") == SNAP_NAME
 
 
