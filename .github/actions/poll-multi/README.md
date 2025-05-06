@@ -56,6 +56,15 @@ output of the action.
 - `jobs`: A JSON string containing an array of objects with machine IPs
   (`machine-ip`) and child job IDs (`id`).
 
+  ```json
+  [
+    {
+      "machine-ip": "string",
+      "id": "uuid"
+    }
+  ]
+  ```
+
 [job]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
 [cli]: ../../../cli/
 [poll-multi-action]: action.yaml
