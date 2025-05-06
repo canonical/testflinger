@@ -15,7 +15,7 @@ step:
 ```yaml
 - name: Submit job
   id: submit-job
-  uses: canonical/testflinger/.github/actions/submit@v1
+  uses: canonical/testflinger/.github/actions/submit@main
   with:
     poll: true
     job-path: ${{ steps.create-job.outputs.job-path }}
@@ -28,7 +28,7 @@ If you wish to define your job inline, you can use the following step:
 ```yaml
 - name: Submit job
   id: submit-job
-  uses: canonical/testflinger/.github/actions/submit@v1
+  uses: canonical/testflinger/.github/actions/submit@main
   with:
     poll: true
     job: |

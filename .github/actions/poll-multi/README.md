@@ -12,7 +12,7 @@ action, you can poll a job with the following step:
 ```yaml
 - name: Poll multi-device job
   id: poll
-  uses: canonical/testflinger/.github/actions/poll-multi@v1
+  uses: canonical/testflinger/.github/actions/poll-multi@main
   with:
     job-id: ${{ steps.submit.outputs.id }}
 ```
@@ -26,7 +26,7 @@ with the following step:
 ```yaml
 - name: Poll multi-device job until reservation
   id: poll
-  uses: canonical/testflinger/.github/actions/poll-multi@v1
+  uses: canonical/testflinger/.github/actions/poll-multi@main
   with:
     job-id: ${{ steps.submit.outputs.id }}
     sentinel-phase: reserve
