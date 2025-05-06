@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from testflinger_cli.consts import SNAP_NAME
+from testflinger_cli.errors import SnapPrivateFileError
 from testflinger_cli.helpers import (
     file_is_in_snap_private_dir,
     is_snap,
@@ -32,7 +33,7 @@ def test_parse_filename_snap_private(monkeypatch):
     """Test the parse_filename function."""
     # Raises exception if the file is in a snap-confined directory
     monkeypatch.setenv("SNAP_NAME", SNAP_NAME)
-    with pytest.raises(ValueError):
+    with pytest.raises(SnapPrivateFileError):
         parse_filename("/tmp/job.yaml", check_snap_private_dir=True)
 
     # Test that you can override the check_snap_private_dir

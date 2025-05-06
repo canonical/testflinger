@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from testflinger_cli.consts import SNAP_NAME, SNAP_PRIVATE_DIRS
+from testflinger_cli.errors import SnapPrivateFileError
 
 
 def is_snap() -> bool:
@@ -14,7 +15,7 @@ def is_snap() -> bool:
 
 
 def file_is_in_snap_private_dir(file: Path) -> bool:
-    """Check if the file is in a snap-confined directory."""
+    """Check if the file is in a snap-private directory."""
     return any(
         file.resolve().is_relative_to(path) for path in SNAP_PRIVATE_DIRS
     )
@@ -32,12 +33,12 @@ def parse_filename(
     :param parse_stdin:
         If True, treat "-" as stdin.
     :param check_snap_private_dir:
-        If True, check if the file is in a snap-confined directory.
+        If True, check if the file is in a snap-private directory.
     :return:
         A Path object representing the filename. None if parse_stdin is True
         and filename is "-".
-    :raises ValueError:
-        If the file is in a snap-confined directory
+    :raises SnapPrivateFileError:
+        If the file is in a snap-private directory
         and check_snap_private_dir is True.
     """
     if parse_stdin and filename == "-":
@@ -48,5 +49,5 @@ def parse_filename(
         and is_snap()
         and file_is_in_snap_private_dir(path)
     ):
-        raise ValueError(f"File {path} is in a snap-confined directory.")
+        raise SnapPrivateFileError(path)
     return path

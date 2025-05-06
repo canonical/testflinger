@@ -204,7 +204,10 @@ class TestflingerCli:
         self._add_submit_args(subparsers)
 
         argcomplete.autocomplete(parser)
-        self.args = parser.parse_args()
+        try:
+            self.args = parser.parse_args()
+        except SnapPrivateFileError as exc:
+            parser.error(exc)
         self.help = parser.format_help()
 
     def _add_artifacts_args(self, subparsers):
