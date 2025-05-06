@@ -363,7 +363,7 @@ class TestflingerCli:
         parser.add_argument("--wait-for-available-agents", action="store_true")
         parser.add_argument(
             "filename",
-            type=lambda x: helpers.parse_filename(x, parse_stdin=True),
+            type=partial(helpers.parse_filename, parse_stdin=True),
             help="YAML or JSON file with your job definition, '-' for stdin",
         ).completer = argcomplete.completers.FilesCompleter(
             allowednames=("*.yaml", "*.yml", "*.json")
