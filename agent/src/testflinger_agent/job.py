@@ -88,6 +88,7 @@ class TestflingerJob:
         runner = CommandRunner(cwd=rundir, env=self.client.config)
         output_file_handler = FileLogHandler(output_log)
         live_output_handler = OutputLogHandler(self.client, self.job_id, phase)
+        serial_output_handler = SerialLogHandler(self.client, self.job_id, phase)
         runner.register_output_handler(output_file_handler)
         runner.register_output_handler(live_output_handler)
 
@@ -131,6 +132,9 @@ class TestflingerJob:
             exitcode = 100
             exit_reason = str(exc)  # noqa: F841 - ignore this until it's used
         finally:
+            # Write serial log file generated in device connector to
+            # the serial log endpoint if the file exists
+            serial_output_handler.write_from_file(serial_log)
             self._update_phase_results(
                 results_file, phase, exitcode, output_log, serial_log
             )
@@ -160,14 +164,17 @@ class TestflingerJob:
         with open(results_file, "r+") as results:
             outcome_data = json.load(results)
             if os.path.exists(output_log):
-                outcome_data[phase + "_output"] = read_truncated(
-                    output_log, size=max_log_size
+                phase_outputs = outcome_data.setdefault("output", {})
+                phase_outputs[phase] = read_truncated(
+                    output_log, max_log_size
                 )
             if os.path.exists(serial_log):
-                outcome_data[phase + "_serial"] = read_truncated(
+                phase_serials = outcome_data.setdefault("serial", {})
+                phase_serials[phase] = read_truncated(
                     serial_log, max_log_size
                 )
-            outcome_data[phase + "_status"] = exitcode
+            phase_status = outcome_data.setdefault("status", {})
+            phase_status[phase] = exitcode
             results.seek(0)
             json.dump(outcome_data, results)
 
