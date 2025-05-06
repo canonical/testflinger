@@ -15,7 +15,9 @@ def is_snap() -> bool:
 
 def file_is_in_snap_private_dir(file: Path) -> bool:
     """Check if the file is in a snap-confined directory."""
-    return any(file.is_relative_to(path) for path in SNAP_PRIVATE_DIRS)
+    return any(
+        file.resolve().is_relative_to(path) for path in SNAP_PRIVATE_DIRS
+    )
 
 
 def parse_filename(
