@@ -36,6 +36,7 @@ import requests
 import yaml
 
 from testflinger_cli import autocomplete, client, config, helpers, history
+from testflinger_cli.errors import AttachmentError, SnapPrivateFileError
 
 logger = logging.getLogger(__name__)
 
@@ -125,10 +126,6 @@ def _print_queue_message():
         "descriptions, not ALL queues. If you can't find the queue you want "
         "to use, a job can still be submitted for queues not listed here.\n"
     )
-
-
-class AttachmentError(Exception):
-    """Exception thrown when attachments fail to be submitted."""
 
 
 class TestflingerCli:
@@ -503,7 +500,15 @@ class TestflingerCli:
                             # just use the filename
                             agent_path = local_path.name
                     archive_path = phase_path / agent_path
-                    tar.add(local_path, arcname=archive_path)
+                    try:
+                        tar.add(local_path, arcname=archive_path)
+                    except FileNotFoundError as exc:
+                        if (
+                            helpers.is_snap()
+                            and helpers.file_is_in_snap_private_dir(local_path)
+                        ):
+                            raise SnapPrivateFileError(local_path) from exc
+                        raise
                     # side effect: strip "local" information
                     attachment["agent"] = str(agent_path)
                     del attachment["local"]
