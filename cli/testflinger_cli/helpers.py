@@ -48,6 +48,5 @@ def parse_filename(
         and is_snap()
         and file_is_in_snap_private_dir(path)
     ):
-        msg = f"File {path} is in a snap-confined directory."
-        raise ValueError(msg)
+        raise ValueError(f"File {path} is in a snap-confined directory.")
     return path
