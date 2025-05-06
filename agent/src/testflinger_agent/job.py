@@ -21,7 +21,7 @@ from typing import Optional
 
 from testflinger_agent.errors import TFServerError
 
-from .handlers import FileLogHandler, OutputLogHandler
+from .handlers import FileLogHandler, OutputLogHandler, SerialLogHandler
 from .runner import CommandRunner, RunnerEvents
 from .stop_condition_checkers import (
     GlobalTimeoutChecker,
@@ -90,6 +90,9 @@ class TestflingerJob:
         runner = CommandRunner(cwd=rundir, env=self.client.config)
         output_file_handler = FileLogHandler(output_log)
         live_output_handler = OutputLogHandler(self.client, self.job_id, phase)
+        serial_output_handler = SerialLogHandler(
+            self.client, self.job_id, phase
+        )
         runner.register_output_handler(output_file_handler)
         runner.register_output_handler(live_output_handler)
 
@@ -139,6 +142,9 @@ class TestflingerJob:
             exitcode = 100
             exit_reason = str(exc)  # noqa: F841 - ignore this until it's used
         finally:
+            # Write serial log file generated in device connector to
+            # the serial log endpoint if the file exists
+            serial_output_handler.write_from_file(serial_log)
             self._update_phase_results(
                 results_file, phase, exitcode, output_log, serial_log
             )
@@ -164,18 +170,18 @@ class TestflingerJob:
         """
         # the default for `output_bytes` when it is not explicitly set
         # in the agent config is specified in the config schema
-        max_log_size = self.client.config["output_bytes"]
         with open(results_file, "r+") as results:
             outcome_data = json.load(results)
             if os.path.exists(output_log):
-                outcome_data[phase + "_output"] = read_truncated(
-                    output_log, size=max_log_size
-                )
+                phase_outputs = outcome_data.setdefault("output", {})
+                with open(output_log, "r") as file:
+                    phase_outputs[phase] = file.read()
             if os.path.exists(serial_log):
-                outcome_data[phase + "_serial"] = read_truncated(
-                    serial_log, max_log_size
-                )
-            outcome_data[phase + "_status"] = exitcode
+                phase_serials = outcome_data.setdefault("serial", {})
+                with open(serial_log, "r") as file:
+                    phase_serials[phase] = file.read()
+            phase_status = outcome_data.setdefault("status", {})
+            phase_status[phase] = exitcode
             results.seek(0)
             json.dump(outcome_data, results)
 
@@ -273,26 +279,3 @@ class TestflingerJob:
                 return None
 
         return None
-
-
-def read_truncated(filename: str, size: int) -> str:
-    """Return a string corresponding to the last bytes of a text file.
-
-    Include a warning message at the end of the returned value if the file
-    has been truncated.
-
-    :param filename:
-        The name of the text file
-    :param size:
-        Maximum number of bytes to be read from the end of the file
-        (overrides default `output_bytes` value in the agent config)
-    """
-    with open(filename, "r", encoding="utf-8", errors="ignore") as file:
-        end = file.seek(0, 2)
-        if end > size:
-            file.seek(end - size, 0)
-            return file.read() + (
-                f"\nWARNING: File truncated to its last {size} bytes!"
-            )
-        file.seek(0, 0)
-        return file.read()
