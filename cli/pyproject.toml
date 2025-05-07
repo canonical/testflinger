@@ -61,6 +61,7 @@ ignore = [
 "testflinger_cli/tests/*" = [
   "S101", # use of assert
   "S105", # use of harcoded passwords for mock
+  "S108", # use of temporary file or directory
 ]
 
 [tool.ruff.lint.pydocstyle]
