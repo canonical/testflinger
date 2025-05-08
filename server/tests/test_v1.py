@@ -711,6 +711,43 @@ def test_output_post_get_query(mongo_app):
     assert phase_output["last_fragment_number"] == 9
 
 
+def test_output_post_get_phase_query(mongo_app):
+    """Test output endpoints with phase querying."""
+    app, _ = mongo_app
+    job_id = "00000000-0000-0000-0000-000000000000"
+    output_url = f"/v1/result/{job_id}/log/{LogType.STANDARD_OUTPUT}"
+    phases = [str(TestPhase.SETUP), str(TestPhase.PROVISION)]
+    for i in range(10):
+        for phase in phases:
+            log_data = f"{phase} line{i}\n"
+            timestamp = datetime(
+                2025, 4, 24, 10, 5 * i, 0, tzinfo=timezone.utc
+            ).isoformat()
+            log_json = {
+                "fragment_number": i,
+                "timestamp": timestamp,
+                "phase": phase,
+                "log_data": log_data,
+            }
+            output = app.post(output_url, json=log_json)
+            assert "OK" == output.text
+    query_timestamp = datetime(
+        2025, 4, 24, 10, 32, 0, tzinfo=timezone.utc
+    ).isoformat()
+    phase = TestPhase.PROVISION
+    params = {"start_timestamp": query_timestamp, "phase": phase}
+    encoded_params = urllib.parse.urlencode(params)
+    url_with_timestamp = f"{output_url}?{encoded_params}"
+    output = app.get(url_with_timestamp)
+    combined_log_expected = "".join(
+        [f"{phase} line{i}\n" for i in range(7, 10)]
+    )
+    assert output.status_code == 200
+    phase_output = output.json["phase_logs"][phase]
+    assert phase_output["log_data"] == combined_log_expected
+    assert phase_output["last_fragment_number"] == 9
+
+
 def test_output_get_invalid_query(mongo_app):
     """Test output endpoint fails when given invalid timestamp."""
     app, _ = mongo_app
