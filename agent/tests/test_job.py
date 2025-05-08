@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+import uuid
 from unittest.mock import patch
 
 import pytest
@@ -205,3 +206,44 @@ class TestJob:
         job = _TestflingerJob({"parent_job_id": "999"}, client)
         job.wait_for_completion()
         # No assertions needed, just make sure we don't timeout
+
+    def test_serial_log_to_endpoint(self, client, tmp_path, requests_mock):
+        """
+        Test that serial log file data are written to the serial log
+        endpoint.
+        """
+        phase = "provision"
+        output = "a" * 2048
+        serial_log = tmp_path / f"{phase}-serial.log"
+        with open(serial_log, "w") as f:
+            f.write(output)
+
+        # create the outcome file since we bypassed that
+        with open(tmp_path / "testflinger-outcome.json", "w") as outcome_file:
+            outcome_file.write("{}")
+
+        job_id = str(uuid.uuid1())
+        fake_job_data = {
+            "job_id": job_id,
+            "output_timeout": 1,
+            f"{phase}_data": {"url": "foo"},
+        }
+
+        job = _TestflingerJob(fake_job_data, client)
+        self.config[f"{phase}_command"] = "/bin/true"
+        requests_mock.post(rmock.ANY, status_code=200)
+        return_value, exit_event, exit_reason = job.run_test_phase(
+            phase, tmp_path
+        )
+        serial_url = f"http://127.0.0.1:8000/v1/result/{job_id}/log/serial"
+        requests = list(
+            filter(
+                lambda req: req.url == serial_url,
+                requests_mock.request_history,
+            )
+        )
+        assert len(requests) == 2
+        for i in range(2):
+            assert requests[i].json()["fragment_number"] == i
+            assert requests[i].json()["phase"] == phase
+            assert requests[i].json()["log_data"] == "a" * 1024

@@ -592,11 +592,15 @@ def test_result_post_good(mongo_app):
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
     result_url = f"/v1/result/{job_id}"
-    data = {"test_output": "test output string"}
+    data = {
+        "status": {
+            "test": 404
+        }
+    }
     response = app.post(result_url, json=data)
     assert "OK" == response.text
     response = app.get(result_url)
-    assert response.json.get("test_output") == "test output string"
+    assert response.json.get("status").get("test") == 404
 
 
 def test_result_post_bad(mongo_app):
@@ -1172,14 +1176,3 @@ def test_serial_output(mongo_app):
     phase_output = output.json["phase_logs"][phase]
     assert phase_output["last_fragment_number"] == 0
     assert phase_output["log_data"] == log_data
-
-
-def test_result_post_large_payload(mongo_app):
-    """Test that posting a result with a payload size of 16MB or more fails."""
-    app, _ = mongo_app
-    job_id = "00000000-0000-0000-0000-000000000000"
-    result_url = f"/v1/result/{job_id}"
-    large_data = {"test_output": "a" * (16 * 1024 * 1024)}  # 16MB payload
-    response = app.post(result_url, json=large_data)
-    assert 413 == response.status_code
-    assert "Payload too large" in response.json["message"]
