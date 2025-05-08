@@ -19,7 +19,7 @@ import time
 
 from testflinger_agent.errors import TFServerError
 
-from .handlers import FileLogHandler, OutputLogHandler
+from .handlers import FileLogHandler, OutputLogHandler, SerialLogHandler
 from .runner import CommandRunner, RunnerEvents
 from .stop_condition_checkers import (
     GlobalTimeoutChecker,
@@ -88,7 +88,9 @@ class TestflingerJob:
         runner = CommandRunner(cwd=rundir, env=self.client.config)
         output_file_handler = FileLogHandler(output_log)
         live_output_handler = OutputLogHandler(self.client, self.job_id, phase)
-        serial_output_handler = SerialLogHandler(self.client, self.job_id, phase)
+        serial_output_handler = SerialLogHandler(
+            self.client, self.job_id, phase
+        )
         runner.register_output_handler(output_file_handler)
         runner.register_output_handler(live_output_handler)
 
@@ -165,14 +167,10 @@ class TestflingerJob:
             outcome_data = json.load(results)
             if os.path.exists(output_log):
                 phase_outputs = outcome_data.setdefault("output", {})
-                phase_outputs[phase] = read_truncated(
-                    output_log, max_log_size
-                )
+                phase_outputs[phase] = read_truncated(output_log, max_log_size)
             if os.path.exists(serial_log):
                 phase_serials = outcome_data.setdefault("serial", {})
-                phase_serials[phase] = read_truncated(
-                    serial_log, max_log_size
-                )
+                phase_serials[phase] = read_truncated(serial_log, max_log_size)
             phase_status = outcome_data.setdefault("status", {})
             phase_status[phase] = exitcode
             results.seek(0)

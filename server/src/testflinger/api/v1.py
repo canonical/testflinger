@@ -383,7 +383,7 @@ def search_jobs(query_data):
 
 
 @v1.post("/result/<job_id>")
-@v1.input(schemas.Result, location="json")
+@v1.input(schemas.ResultPost, location="json")
 def result_post(job_id, json_data):
     """Post a result for a specified job_id.
 
@@ -392,12 +392,6 @@ def result_post(job_id, json_data):
     """
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
-
-    # fail if input payload is larger than the BSON size limit
-    # https://www.mongodb.com/docs/manual/reference/limits/
-    content_length = request.content_length
-    if content_length and content_length >= 16 * 1024 * 1024:
-        abort(413, message="Payload too large")
 
     # First, we need to prepend "result_data" to each key in the result_data
     for key in list(json_data):
@@ -408,7 +402,7 @@ def result_post(job_id, json_data):
 
 
 @v1.get("/result/<job_id>")
-@v1.output(schemas.Result)
+@v1.output(schemas.ResultGet)
 def result_get(job_id):
     """Return results for a specified job_id.
 
@@ -417,6 +411,7 @@ def result_get(job_id):
     """
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
+
     response = database.mongo.db.jobs.find_one(
         {"job_id": job_id}, {"result_data": True, "_id": False}
     )
@@ -424,6 +419,16 @@ def result_get(job_id):
     if not response or not (results := response.get("result_data")):
         return "", 204
     results = response.get("result_data")
+
+    log_handler = MongoLogHandler(database.mongo)
+    for log_type in LogType:
+        results[log_type] = {}
+        for phase in TestPhase:
+            log_data = log_handler.retrieve_logs(
+                job_id, log_type, phase
+            )["log_data"]
+            if log_data != "":
+                results[log_type][phase] = log_data
     return results
 
 
