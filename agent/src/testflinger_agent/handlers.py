@@ -69,9 +69,9 @@ class EndpointLogHandler(LogHandler):
         self.fragment_number += 1
 
     def write_from_file(self, filename: str, chunk_size: int = 1024):
-        """Write logs to endpoint from a file chunking by chunk_size"""
+        """Write logs to endpoint from a file chunking by chunk_size."""
         try:
-            with open(filename, 'r') as log:
+            with open(filename, "r") as log:
                 while True:
                     data = log.read(chunk_size)
                     if not data:
