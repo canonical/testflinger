@@ -48,6 +48,7 @@ from testflinger_cli import (
 )
 from testflinger_cli.admin import TestflingerAdminCLI
 from testflinger_cli.auth import TestflingerCliAuth
+from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import (
     AttachmentError,
     AuthenticationError,
@@ -228,38 +229,58 @@ class TestflingerCli:
             "--json", action="store_true", help="Print output in JSON format"
         )
 
-    def _add_poll_args(self, subparsers):
-        """Command line arguments for poll."""
-        parser = subparsers.add_parser(
-            "poll", help="Poll for output from a job until it is completed"
-        )
-        parser.set_defaults(func=self.poll)
+    def _add_poll_args_generic(self, parser):
+        """Add arguments for poll and poll-serial."""
         parser.add_argument(
             "--oneshot",
             "-o",
             action="store_true",
             help="Get latest output and exit immediately",
         )
+        parser.add_argument(
+            "--start_fragment",
+            "-f",
+            type=int,
+            default=0,
+            help="Start fragment",
+        )
+        parser.add_argument(
+            "--start_timestamp",
+            "-t",
+            type=datetime.fromisoformat,
+            help="Start timestamp",
+        )
+        parser.add_argument(
+            "--phase",
+            "-p",
+            type=str,
+            help="Return logs from a specific phase",
+        )
+        parser.add_argument(
+            "--json",
+            action="store_true",
+            help="Return logs in JSON format and exit immediately",
+        )
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
         )
+
+    def _add_poll_args(self, subparsers):
+        """Command line arguments for poll."""
+        parser = subparsers.add_parser(
+            "poll", help="Poll for output from a job until it is completed"
+        )
+        parser.set_defaults(func=self.poll_output)
+        self._add_poll_args_generic(parser)
 
     def _add_poll_serial_args(self, subparsers):
         """Command line arguments for poll-serial."""
         parser = subparsers.add_parser(
             "poll-serial",
-            help="Poll for output from a job until it is completed",
+            help="Poll for serial output from a job until it is completed",
         )
         parser.set_defaults(func=self.poll_serial)
-        parser.add_argument(
-            "--oneshot",
-            "-o",
-            action="store_true",
-            help="Get latest serial log output and exit immediately",
-        )
-        parser.add_argument("job_id").completer = partial(
-            autocomplete.job_ids_completer, history=self.history
-        )
+        self._add_poll_args_generic(parser)
 
     def _add_reserve_args(self, subparsers):
         """Command line arguments for reserve."""
@@ -662,7 +683,7 @@ class TestflingerCli:
             print("Job submitted successfully!")
             print(f"job_id: {job_id}")
         if self.args.poll:
-            self.do_poll(job_id)
+            self.do_poll()
 
     def check_online_agents_available(self, queue: str):
         """Exit or warn if no online agents available for a specified queue."""
@@ -883,36 +904,113 @@ class TestflingerCli:
             sys.exit(1)
         print(f"Artifacts downloaded to {self.args.filename}")
 
-    def poll(self):
+    def _get_combined_log_output(
+        self,
+        job_id: str,
+        log_type: LogType,
+        phase: str = None,
+        start_fragment: int = 0,
+        start_timestamp=None,
+    ):
+        """
+        Return last fragment number and combined logs for specified phase
+        or for all phases if unspecified.
+        """
+        output_json = self.client.get_logs(
+            job_id,
+            log_type,
+            phase,
+            start_fragment,
+            start_timestamp,
+        )
+        log_dict = output_json[log_type]
+        if phase:
+            return (
+                log_dict[phase]["last_fragment_number"],
+                log_dict[phase]["log_data"],
+            )
+
+        test_phases = [
+            TestPhase.SETUP,
+            TestPhase.PROVISION,
+            TestPhase.FIRMWARE_UPDATE,
+            TestPhase.TEST,
+            TestPhase.ALLOCATE,
+            TestPhase.RESERVE,
+            TestPhase.CLEANUP,
+        ]
+        log_tuples = [
+            (phase_logs["last_fragment_number"], phase_logs["log_data"])
+            for p in test_phases
+            if (phase_logs := log_dict.get(p))
+        ]
+        if not log_tuples:
+            return -1, ""
+        fragment_numbers, log_data_list = zip(*log_tuples, strict=False)
+        last_fragment_number = max(fragment_numbers)
+        combined_logs = "".join(log_data_list)
+        return last_fragment_number, combined_logs
+
+    def poll(self, log_type: LogType):
         """Poll for output from a job until it is completed."""
+        start_fragment = self.args.start_fragment
+        start_timestamp = self.args.start_timestamp
+        job_id = self.args.job_id
+        phase = self.args.phase
         if self.args.oneshot:
             # This could get an IOError for connection errors or timeouts
             # Raise it since it's not running continuously in this mode
-            output = self.get_latest_output(self.args.job_id)
-            if output:
-                print(output, end="", flush=True)
+            last_fragment_number, log_data = self._get_combined_log_output(
+                job_id, log_type, phase, start_fragment, start_timestamp
+            )
+
+            if last_fragment_number < 0:
+                print("Waiting on Output")
+            else:
+                print(log_data, end="", flush=True)
+                print(f"Last Fragment Number: {last_fragment_number}")
             sys.exit(0)
-        self.do_poll(self.args.job_id)
+        if self.args.json:
+            output_json = self.client.get_logs(
+                job_id,
+                log_type,
+                phase,
+                start_fragment,
+                start_timestamp,
+            )
+            print(json.dumps(output_json, indent=4))
+            sys.exit(0)
+
+        self.do_poll(log_type)
+
+    def poll_output(self):
+        """Poll for agent output from a job until it is completed."""
+        self.poll(LogType.STANDARD_OUTPUT)
 
     def poll_serial(self):
         """Poll for serial output from a job until it is completed."""
-        if self.args.oneshot:
-            output = self.get_latest_serial_output(self.args.job_id)
-            if output:
-                print(output, end="", flush=True)
-            sys.exit(0)
-        self.do_poll_serial(self.args.job_id)
+        self.poll(LogType.SERIAL_OUTPUT)
 
-    def do_poll(self, job_id):
+    def do_poll(
+        self,
+        log_type: LogType,
+    ):
         """Poll for output from a running job and print it while it runs.
 
         :param str job_id: Job ID
+        :param LogType log_type: Enum representing serial or agent output.
         """
+        start_fragment = self.args.start_fragment
+        start_timestamp = self.args.start_timestamp
+        job_id = self.args.job_id
+        phase = self.args.phase
+
         job_state = self.get_job_state(job_id)
         self.history.update(job_id, job_state)
         prev_queue_pos = None
         if job_state == "waiting":
             print("This job is waiting on a node to become available.")
+        cur_fragment = start_fragment
         while True:
             try:
                 job_state = self.get_job_state(job_id)
@@ -925,10 +1023,14 @@ class TestflingerCli:
                         prev_queue_pos = int(queue_pos)
                         print(f"Jobs ahead in queue: {queue_pos}")
                 time.sleep(10)
-                output = ""
-                output = self.get_latest_output(job_id)
-                if output:
-                    print(output, end="", flush=True)
+                last_fragment_number, log_data = self._get_combined_log_output(
+                    job_id, log_type, phase, start_fragment, start_timestamp
+                )
+                if last_fragment_number < 0:
+                    print("Waiting on output...")
+                else:
+                    print(log_data, end="", flush=True)
+                    cur_fragment = last_fragment_number + 1
             except (IOError, client.HTTPError):
                 # Ignore/retry or debug any connection errors or timeouts
                 if self.args.debug:
@@ -944,27 +1046,11 @@ class TestflingerCli:
                         continue
                     if choice == "y":
                         self.cancel(job_id)
+                print(f"\nNext fragment number: {cur_fragment}")
                 # Both y and n will allow the external handler deal with it
                 raise
 
         print(job_state)
-
-    def do_poll_serial(self, job_id):
-        """
-        Poll for serial output from a running job and print it while it runs.
-
-        :param str job_id: Job ID
-        """
-        while True:
-            try:
-                output = ""
-                output = self.get_latest_serial_output(job_id)
-                if output:
-                    print(output, end="", flush=True)
-            except (IOError, client.HTTPError):
-                # Ignore/retry or debug any connection errors or timeouts
-                if self.args.debug:
-                    logger.exception("Error polling for serial output")
 
     def jobs(self):
         """List the previously started test jobs."""
@@ -1041,7 +1127,7 @@ class TestflingerCli:
             job_id = self.submit_job_data(job_data)
             print("Job submitted successfully!")
             print(f"job_id: {job_id}")
-            self.do_poll(job_id)
+            self.do_poll()
 
     def do_list_queues(self) -> dict[str, str]:
         """List the advertised queues on the Testflinger server.
@@ -1057,36 +1143,6 @@ class TestflingerCli:
             logger.exception("Unable to get a list of queues from the server.")
             return {}
         return queues
-
-    def get_latest_output(self, job_id):
-        """Get the latest output from a running job.
-
-        :param str job_id: Job ID
-        :return str: New output from the running job
-        """
-        output = ""
-        try:
-            output = self.client.get_output(job_id)
-        except client.HTTPError as exc:
-            if exc.status == 204:
-                # We are still waiting for the job to start
-                pass
-        return output
-
-    def get_latest_serial_output(self, job_id):
-        """Get the latest serial output from a running job.
-
-        :param str job_id: Job ID
-        :return str: New serial output from the running job
-        """
-        output = ""
-        try:
-            output = self.client.get_serial_output(job_id)
-        except client.HTTPError as exc:
-            if exc.status == 204:
-                # We are still waiting for the job to start
-                pass
-        return output
 
     def get_job_state(self, job_id):
         """Return the job state for the specified job_id.
