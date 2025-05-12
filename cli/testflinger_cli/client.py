@@ -26,6 +26,7 @@ from pathlib import Path
 
 import requests
 
+from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import VPNError
 
 logger = logging.getLogger(__name__)
@@ -370,27 +371,43 @@ class Client:
                 if chunk:
                     artifact.write(chunk)
 
-    def get_output(self, job_id):
-        """Get the latest output for a specified test job.
+    def get_logs(
+        self,
+        job_id: str,
+        log_type: LogType,
+        phase: TestPhase,
+        start_fragment: int,
+        start_timestamp: str,
+    ):
+        """Get the latest output/serial output for a specified test job.
 
         :param job_id:
             ID for the test job
+        :param log_type
+            Enum representing normal output or serial output
+        :param phase
+            Phase to retrieve logs for
+        :param start_fragment
+            First log fragment to start from
+        :param start_timestamp
+            Timestamp to start retrieving logs from
         :return:
-            String containing the latest output from the job
+            JSON containing combined log fragments
+            and latest retrieved fragment number.
         """
-        endpoint = "/v1/result/{}/output".format(job_id)
-        return self.get(endpoint)
-
-    def get_serial_output(self, job_id):
-        """Get the latest serial output for a specified test job.
-
-        :param job_id:
-            ID for the test job
-        :return:
-            String containing the latest serial output from the job
-        """
-        endpoint = "/v1/result/{}/serial_output".format(job_id)
-        return self.get(endpoint)
+        match log_type:
+            case LogType.STANDARD_OUTPUT:
+                endpoint = f"/v1/result/{job_id}/log/output"
+            case LogType.SERIAL_OUTPUT:
+                endpoint = f"/v1/result/{job_id}/log/serial_output"
+        params = {"start_fragment": start_fragment}
+        if start_timestamp is not None:
+            params["start_timestamp"] = start_timestamp.isoformat()
+        if phase is not None:
+            params["phase"] = phase
+        encoded_params = urllib.parse.urlencode(params)
+        complete_url_frag = f"{endpoint}?{encoded_params}"
+        return json.loads(self.get(complete_url_frag))
 
     def get_job_position(self, job_id):
         """Get the status of a test job.
