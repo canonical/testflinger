@@ -328,9 +328,7 @@ class ResultPost(Schema):
     """Result Post schema."""
 
     status = fields.Dict(
-        keys=fields.String(
-            validate=OneOf(TestPhases)
-        ),
+        keys=fields.String(validate=OneOf(TestPhases)),
         values=fields.Integer(),
         required=False,
     )
@@ -342,9 +340,7 @@ class ResultGet(Schema):
     """Result Get schema."""
 
     status = fields.Dict(
-        keys=fields.String(
-            validate=OneOf(TestPhases)
-        ),
+        keys=fields.String(validate=OneOf(TestPhases)),
         values=fields.Integer(),
         required=False,
     )
@@ -360,6 +356,7 @@ class ResultGet(Schema):
     )
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
+
 
 class JobEvent(Schema):
     """Job Event schema."""
