@@ -60,6 +60,12 @@ class TestflingerJob:
         self.job_data = job_data
         self.job_id = job_data.get("job_id")
         self.phase = "unknown"
+        self.live_output_handler = OutputLogHandler(
+            self.client, self.job_id, self.phase
+        )
+        self.serial_output_handler = SerialLogHandler(
+            self.client, self.job_id, self.phase
+        )
 
     def get_runner(self, rundir: str, phase: TestPhase):
         try:
@@ -124,12 +130,10 @@ class TestflingerJob:
         logger.info("Running %s_command: %s", phase, cmd)
         runner = self.get_runner(rundir, phase)
         output_file_handler = FileLogHandler(output_log)
-        live_output_handler = OutputLogHandler(self.client, self.job_id, phase)
-        serial_output_handler = SerialLogHandler(
-            self.client, self.job_id, phase
-        )
+        self.live_output_handler.phase = phase
+        self.serial_output_handler.phase = phase
         runner.register_output_handler(output_file_handler)
-        runner.register_output_handler(live_output_handler)
+        runner.register_output_handler(self.live_output_handler)
 
         # Reserve phase uses a separate timeout handler
         if phase != "reserve":
@@ -188,7 +192,7 @@ class TestflingerJob:
         finally:
             # Write serial log file generated in device connector to
             # the serial log endpoint if the file exists
-            serial_output_handler.write_from_file(serial_log)
+            self.serial_output_handler.write_from_file(serial_log)
             self._update_phase_results(
                 results_file, phase, exitcode, output_log, serial_log
             )

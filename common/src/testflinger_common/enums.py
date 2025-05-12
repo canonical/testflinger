@@ -95,7 +95,7 @@ class AgentState(StrEnum):
 class LogType(StrEnum):
     """
     Enum of different output types
-    NORMAL_OUTPUT - Agent Standard Output
+    STANDARD_OUTPUT - Agent Standard Output
     SERIAL_OUTPUT - Agent Serial Log Output.
     """
 
