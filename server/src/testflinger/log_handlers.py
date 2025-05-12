@@ -69,7 +69,7 @@ class LogHandler(ABC):
         if len(fragments) > 0:
             last_fragment_number = fragments[-1]["fragment_number"]
         else:
-            last_fragment_number = start_fragment
+            last_fragment_number = -1
 
         return {
             "last_fragment_number": last_fragment_number,
