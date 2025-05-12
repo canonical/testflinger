@@ -424,9 +424,9 @@ def result_get(job_id):
     for log_type in LogType:
         results[log_type] = {}
         for phase in TestPhase:
-            log_data = log_handler.retrieve_logs(
-                job_id, log_type, phase
-            )["log_data"]
+            log_data = log_handler.retrieve_logs(job_id, log_type, phase)[
+                "log_data"
+            ]
             if log_data != "":
                 results[log_type][phase] = log_data
     return results
