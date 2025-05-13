@@ -14,13 +14,13 @@
 
 """Ubuntu MAAS 2.x storage provisioning code."""
 
-import logging
-import subprocess
 import collections
 import json
+import logging
 import math
-from testflinger_device_connectors.devices import ProvisioningError
+import subprocess
 
+from testflinger_device_connectors.devices import ProvisioningError
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +46,13 @@ class MaasStorage:
             self.node_info = node_info
 
     def _logger_debug(self, message):
-        logger.debug("MAAS: {}".format(message))
+        logger.debug("MAAS: %s", message)
 
     def _logger_info(self, message):
-        logger.info("MAAS: {}".format(message))
+        logger.info("MAAS: %s", message)
 
     def _logger_error(self, message):
-        logger.error("MAAS: {}".format(message))
+        logger.error("MAAS: %s", message)
 
     def _node_read(self):
         """Read node block-devices.
@@ -129,11 +129,11 @@ class MaasStorage:
             try:
                 # attempt to convert the size string to an integer
                 return int(size_str)
-            except ValueError:
+            except ValueError as err:
                 raise MaasStorageError(
                     "Sizes must end in T, G, M, K, B, or be an integer "
                     "when no unit is provided."
-                )
+                ) from err
 
     def configure_node_storage(self, storage_data, reset=False):
         """Configure the node's storage layout, from provisioning data."""
@@ -204,7 +204,8 @@ class MaasStorage:
 
     def assign_parent_disk(self):
         """Transverse device hierarchy to determine each device's parent
-        disk."""
+        disk.
+        """
         dev_dict = {dev["id"]: dev for dev in self.device_list}
         for dev in self.device_list:
             parent_id = dev.get("device") or dev.get("volume")

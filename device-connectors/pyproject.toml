@@ -23,16 +23,62 @@ testflinger-device-connector = "testflinger_device_connectors.cmd:main"
 
 [dependency-groups]
 dev = [
-    "black>=24.8.0",
-    "flake8>=5.0.4",
-    "pylint>=3.2.7",
     "pytest>=8.3.5",
     "pytest-cov>=5.0.0",
     "pytest-mock>=3.14.0",
+    "ruff>=0.11.7",
 ]
 
 [tool.setuptools.package-data]
 testflinger_device_connectors = ["data/**"]
 
-[tool.black]
+[tool.ruff]
 line-length = 79
+
+[tool.ruff.lint]
+select = [
+    "A",   # flake8-builtins
+    "B",   # flake8-bugbear
+    "C4",  # comprenhension
+    "D",   # docstrings
+    "DTZ", # flake8-datetimez 
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "G",   # flake8-logging-format
+    "I",   # isort
+    "LOG", # flake8-logging
+    "N",   # naming
+    "PLE", # pylint errors
+    "PLW", # pyling warnings
+    "S",   # flake8-bandit 
+    "W",   # pycodestyle warnings
+]
+ignore = [
+    "D100",    # docstring: Missing docstring in public module
+    "D101",    # docstring: Missing docstring in public class
+    "D102",    # docstring: Missing docstring in public method
+    "D103",    # docstring: Missing docstring in public function
+    "D104",    # docstring: Missing docstring in public package
+    "D107",    # docstring: Missing docstring in __init__
+    "D205",    # docstring: 1 black line required between summary line and description
+    "S105",    # flake8-bandit: Hardcoded password string
+    "S310",    # flake8-bandit: Audit url open for permitted schemes
+    "S602",    # flake8-bandit: Subprocess with shell equals True
+    "S603",    # flake8-bandit: Subprocess without shell equals True
+]
+
+[tool.ruff.lint.pep8-naming]
+ignore-names = [
+    "SerialLogger" # Function needs to follow snake_case, excluded to prevail style
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/testflinger_device_connectors/devices/*/tests/*" = [
+  "S101", # use of assert
+]
+"tests/*" = [
+  "S101", # use of assert
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"

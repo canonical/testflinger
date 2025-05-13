@@ -1,13 +1,14 @@
-"""Test detect_device in firmware_update.py"""
+"""Test detect_device in firmware_update.py."""
 
 import unittest
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from testflinger_device_connectors.fw_devices import LVFSDevice
 from testflinger_device_connectors.fw_devices.firmware_update import (
     detect_device,
 )
-
 
 vendor_cmd = "sudo cat /sys/class/dmi/id/chassis_vendor"
 type_cmd = "sudo cat /sys/class/dmi/id/chassis_type"
@@ -15,8 +16,7 @@ type_cmd = "sudo cat /sys/class/dmi/id/chassis_type"
 
 class TestFirmwareUpdate(unittest.TestCase):
     def mock_run_cmd_supported(*args, **kwargs):
-        """
-        Mock run_cmd for a HP All In One device, which has a supported
+        """Mock run_cmd for a HP All In One device, which has a supported
         Device class.
         """
         if args[1] == vendor_cmd:
@@ -25,8 +25,8 @@ class TestFirmwareUpdate(unittest.TestCase):
             return 0, "13", ""
 
     def mock_run_cmd_unsupported(*args, **kwargs):
-        """
-        Mock run_cmd for a device which doesn't have a supported Device class.
+        """Mock run_cmd for a device which doesn't have
+        a supported Device class.
         """
         if args[1] == vendor_cmd:
             return 0, "Default string", ""
@@ -34,9 +34,7 @@ class TestFirmwareUpdate(unittest.TestCase):
             return 0, "3", ""
 
     def mock_run_cmd_fail(*args, **kwargs):
-        """
-        Mock run_cmd for a device which couldn't provide dmi data.
-        """
+        """Mock run_cmd for a device which couldn't provide dmi data."""
         if args[1] == vendor_cmd:
             return (
                 1,
@@ -53,26 +51,22 @@ class TestFirmwareUpdate(unittest.TestCase):
             )
 
     def mock_run_cmd_nossh(*args, **kwargs):
-        """
-        Mock run_cmd to simulate an unreachable device.
-        """
+        """Mock run_cmd to simulate an unreachable device."""
         if args[1] == vendor_cmd:
             return (
                 255,
                 "",
-                "ssh: connect to host 10.10.10.10 port 22: "
-                "No route to host",
+                "ssh: connect to host 10.10.10.10 port 22: No route to host",
             )
         elif args[1] == type_cmd:
             return (
                 255,
                 "",
-                "ssh: connect to host 10.10.10.10 port 22: "
-                "No route to host",
+                "ssh: connect to host 10.10.10.10 port 22: No route to host",
             )
 
     def test_detect_device_supported(self):
-        """Test if detects_device returns a correct device class"""
+        """Test if detects_device returns a correct device class."""
         with patch(
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
@@ -81,7 +75,7 @@ class TestFirmwareUpdate(unittest.TestCase):
             self.assertTrue(isinstance(device, LVFSDevice))
 
     def test_detect_device_unsupported(self):
-        """Test if detects_device exits while given a unsupported device"""
+        """Test if detects_device exits while given a unsupported device."""
         with pytest.raises(RuntimeError) as pytest_wrapped_e:
             with patch(
                 "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
@@ -95,8 +89,8 @@ class TestFirmwareUpdate(unittest.TestCase):
         )
 
     def test_detect_device_fail(self):
-        """
-        Test if detects_device exits while given a device without dmi data
+        """Test if detects_device exits while given a
+        device without dmi data.
         """
         with pytest.raises(RuntimeError) as pytest_wrapped_e:
             with patch(
@@ -111,9 +105,7 @@ class TestFirmwareUpdate(unittest.TestCase):
         )
 
     def test_detect_device_nossh(self):
-        """
-        Test if detects_device exits while given an unreachable device
-        """
+        """Test if detects_device exits while given an unreachable device."""
         with pytest.raises(RuntimeError) as pytest_wrapped_e:
             with patch(
                 "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"

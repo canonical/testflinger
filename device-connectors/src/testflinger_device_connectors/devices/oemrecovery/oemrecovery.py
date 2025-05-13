@@ -39,8 +39,7 @@ class OemRecovery:
             self.job_data = json.load(job_json)
 
     def run_on_control_host(self, cmd, timeout=60):
-        """
-        Run a command on the control host over ssh
+        """Run a command on the control host over ssh.
 
         :param cmd:
             Command to run
@@ -74,8 +73,7 @@ class OemRecovery:
         return proc.returncode, proc.stdout
 
     def provision(self):
-        """Provision the device"""
-
+        """Provision the device."""
         # First, ensure the device is online and reachable
         try:
             self.copy_ssh_id()
@@ -157,7 +155,7 @@ class OemRecovery:
         return False
 
     def copy_ssh_id(self):
-        """Copy the ssh id to the device"""
+        """Copy the ssh id to the device."""
         try:
             test_username = self.job_data.get("test_data", {}).get(
                 "test_username", "ubuntu"
@@ -182,7 +180,7 @@ class OemRecovery:
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
 
     def check_device_booted(self):
-        """Check to see if the device is booted and reachable with ssh"""
+        """Check to see if the device is booted and reachable with ssh."""
         logger.info("Checking to see if the device is available.")
         started = time.time()
         # Wait for provisioning to complete - can take a very long time
@@ -203,13 +201,12 @@ class OemRecovery:
         # If we get here, then we didn't boot in time
         agent_name = self.config.get("agent_name")
         logger.error(
-            "Device %s unreachable,  provisioning" "failed!", agent_name
+            "Device %s unreachable,  provisioning failed!", agent_name
         )
         raise ProvisioningError("Failed to boot test image!")
 
     def _run_cmd_list(self, cmdlist):
-        """
-        Run a list of commands
+        """Run a list of commands.
 
         :param cmdlist:
             List of commands to run
@@ -231,8 +228,7 @@ class OemRecovery:
             logger.info(output)
 
     def hardreset(self):
-        """
-        Reboot the device.
+        """Reboot the device.
 
         :raises RecoveryError:
             If the command times out or anything else fails.

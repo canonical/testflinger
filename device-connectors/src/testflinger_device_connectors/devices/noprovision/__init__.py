@@ -16,11 +16,10 @@
 
 import logging
 
+import testflinger_device_connectors
 from testflinger_device_connectors.devices import (
     DefaultDevice,
 )
-
-import testflinger_device_connectors
 from testflinger_device_connectors.devices.noprovision.noprovision import (
     Noprovision,
 )

@@ -13,11 +13,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Zapper Connector for IOT provisioning."""
-import logging
+
 import contextlib
+import logging
 from typing import Any, Dict, Tuple
-from testflinger_device_connectors.devices.zapper import ZapperConnector
+
 from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices.zapper_iot.parser import (
     validate_urls,
 )
@@ -33,11 +35,9 @@ class DeviceConnector(ZapperConnector):
     def _validate_configuration(
         self,
     ) -> Tuple[Tuple, Dict[str, Any]]:
-        """
-        Validate the job config and data and prepare the arguments
+        """Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
-
         username = self.job_data.get("test_data", {}).get(
             "test_username", "ubuntu"
         )
@@ -59,7 +59,6 @@ class DeviceConnector(ZapperConnector):
 
         provision_plan = self.job_data["provision_data"].get("provision_plan")
         if provision_plan:
-
             try:
                 # Ensure the provisioning username matches either the test
                 # username or the Ubuntu SSO email if provided
