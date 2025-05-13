@@ -13,6 +13,7 @@ jobs:
       contents: write
       pull-requests: write
     strategy:
+      fail-fast: false  # Allow all jobs to run even if one fails
       matrix:
         include:
           - charm-path: server/charm
