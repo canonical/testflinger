@@ -29,6 +29,9 @@ outputs:
   device-ip:
     description: 'The IP of the reserved device (if applicable)'
     value: ${{ steps.track-reservation.outputs.ip }}
+  exit-status:
+    description: 'The exit code of the submitted testflinger job'
+    value: ${{ steps.track.outputs.exit_status != '' && steps.track.outputs.exit_status || steps.track-reservation.outputs.exit_status != '' && steps.track-reservation.outputs.exit_status || '0' }}
 runs:
   using: composite
   steps:
@@ -127,6 +130,7 @@ runs:
         echo "::notice::Submitted job $JOB_ID"
 
     - name: Track the status of the job (non-reservation)
+      id: track
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.outputs.reservation != 'true'
       shell: bash
       env:
@@ -154,6 +158,7 @@ runs:
         )
         echo "::endgroup::"
         echo "::notice::Test exit status: $EXIT_STATUS"
+        echo "exit_status=$EXIT_STATUS" >> $GITHUB_OUTPUT
         exit $EXIT_STATUS
 
     - name: Track the status of the job (reservation)
@@ -193,6 +198,7 @@ runs:
         echo "::endgroup::"
         echo "::notice::Reserve exit status: $EXIT_STATUS"
         [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP: $DEVICE_IP"
+        echo "exit_status=$EXIT_STATUS" >> $GITHUB_OUTPUT
         exit $EXIT_STATUS
 
     - name: Cancel the job if the action is cancelled
