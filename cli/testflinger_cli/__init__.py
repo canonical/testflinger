@@ -139,6 +139,7 @@ class TestflingerCli:
         self._add_poll_serial_args(subparsers)
         self._add_reserve_args(subparsers)
         self._add_status_args(subparsers)
+        self._add_agent_status_args(subparsers)
         self._add_results_args(subparsers)
         self._add_show_args(subparsers)
         self._add_submit_args(subparsers)
@@ -275,6 +276,14 @@ class TestflingerCli:
             autocomplete.job_ids_completer, history=self.history
         )
 
+    def _add_agent_status_args(self, subparsers):
+        """Command line arguments for agent status."""
+        parser = subparsers.add_parser(
+            "agent-status", help="Show the status of a specified AGENT_NAME"
+        )
+        parser.set_defaults(func=self.agent_status)
+        parser.add_argument("agent_name")
+
     def _add_results_args(self, subparsers):
         """Command line arguments for results."""
         parser = subparsers.add_parser(
@@ -337,6 +346,18 @@ class TestflingerCli:
         else:
             print(
                 "Unable to retrieve job state from the server, check your "
+                "connection or try again later."
+            )
+
+    def agent_status(self):
+        """Show the status of a specified AGENT_NAME."""
+        agent_state = self.get_agent_state(self.args.agent_name)
+        if agent_state != "unknown":
+            self.history.update(self.args.agent_name, agent_state)
+            print(agent_state)
+        else:
+            print(
+                "Unable to retrieve agent state from the server, check your "
                 "connection or try again later."
             )
 
@@ -979,6 +1000,33 @@ class TestflingerCli:
             if exc.status == 404:
                 sys.exit(
                     "Received 404 error from server. Are you "
+                    "sure this is a testflinger server?"
+                )
+        except (IOError, ValueError) as exc:
+            # For other types of network errors, or JSONDecodeError if we got
+            # a bad return from get_status()
+            logger.debug("Unable to retrieve job state: %s", exc)
+        return "unknown"
+
+    def get_agent_state(self, agent_name):
+        """Return the state for the specified agent.
+
+        :param str agent_name: Agent Name
+        :raises SystemExit: Exit with HTTP error code
+        :return str: Agent state
+        """
+
+        try:
+            return self.client.get_agent_status(agent_name)
+        except client.HTTPError as exc:
+            if exc.status == 204:
+                sys.exit(
+                    "Invalid agent was specified. Check the agent name "
+                    "to make sure its correct."
+                )
+            if exc.status == 404:
+                sys.exit(
+                    "Received 404 error from server. Are you"
                     "sure this is a testflinger server?"
                 )
         except (IOError, ValueError) as exc:

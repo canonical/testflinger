@@ -139,6 +139,26 @@ class Client:
         data = json.loads(self.get(endpoint))
         return data.get("job_state")
 
+    def get_agent_status(self, agent_name):
+        """Get the status of a specified agent.
+
+        :param agent_name
+            Name of the agent to retrieve status from
+        :return
+            String containing the agent_state for the specified agent.
+        """
+
+        endpoint = "/v1/agents/data"
+        data = json.loads(self.get(endpoint))
+        agent_data = list(
+            filter(lambda agent: agent["name"] == agent_name, data)
+        )
+
+        if agent_data:
+            return agent_data[0].get("state")
+        else:
+            return "unknown"
+
     def post_job_state(self, job_id, state):
         """Post the status of a test job.
 
