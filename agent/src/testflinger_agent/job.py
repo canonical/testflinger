@@ -162,15 +162,16 @@ class TestflingerJob:
         """
         # the default for `output_bytes` when it is not explicitly set
         # in the agent config is specified in the config schema
-        max_log_size = self.client.config["output_bytes"]
         with open(results_file, "r+") as results:
             outcome_data = json.load(results)
             if os.path.exists(output_log):
                 phase_outputs = outcome_data.setdefault("output", {})
-                phase_outputs[phase] = read_truncated(output_log, max_log_size)
+                with open(output_log, 'r') as file:
+                    phase_outputs[phase] = file.read()
             if os.path.exists(serial_log):
                 phase_serials = outcome_data.setdefault("serial", {})
-                phase_serials[phase] = read_truncated(serial_log, max_log_size)
+                with open(serial_log, 'r') as file:
+                    phase_serials[phase] = file.read()
             phase_status = outcome_data.setdefault("status", {})
             phase_status[phase] = exitcode
             results.seek(0)
@@ -254,26 +255,3 @@ class TestflingerJob:
         yield "*" * (len(line) + 4)
         yield "* {} *".format(line)
         yield "*" * (len(line) + 4)
-
-
-def read_truncated(filename: str, size: int) -> str:
-    """Return a string corresponding to the last bytes of a text file.
-
-    Include a warning message at the end of the returned value if the file
-    has been truncated.
-
-    :param filename:
-        The name of the text file
-    :param size:
-        Maximum number of bytes to be read from the end of the file
-        (overrides default `output_bytes` value in the agent config)
-    """
-    with open(filename, "r", encoding="utf-8", errors="ignore") as file:
-        end = file.seek(0, 2)
-        if end > size:
-            file.seek(end - size, 0)
-            return file.read() + (
-                f"\nWARNING: File truncated to its last {size} bytes!"
-            )
-        file.seek(0, 0)
-        return file.read()
