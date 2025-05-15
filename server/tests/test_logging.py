@@ -28,14 +28,15 @@ from testflinger.log_handlers import MongoLogHandler
 @pytest.fixture(name="mongo_app_with_outputs")
 def fixture_mongo_app_with_outputs(mongo_app):
     """Fixture for a MongoDB object with initialized logs."""
-    job_id = str(uuid.uuid1())
     app, mongo = mongo_app
+    newjob = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = newjob.json.get("job_id")
     for i in range(10):
         # Add fragments with timestamp staggered by 5 minutes
         mongo.db.logs.insert_one(
             {
                 "job_id": job_id,
-                "log_type": str(LogType.STANDARD_OUTPUT),
+                "log_type": LogType.STANDARD_OUTPUT,
                 "phase": TestPhase.SETUP,
                 "fragment_number": i,
                 "timestamp": datetime(

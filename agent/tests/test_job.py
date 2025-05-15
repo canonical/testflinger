@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+import uuid
 from unittest.mock import patch
 
 import pytest
@@ -12,9 +13,6 @@ from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.handlers import FileLogHandler
 from testflinger_agent.job import (
     TestflingerJob as _TestflingerJob,
-)
-from testflinger_agent.job import (
-    read_truncated,
 )
 from testflinger_agent.runner import CommandRunner
 from testflinger_agent.schema import validate
@@ -176,26 +174,6 @@ class TestJob:
         assert exit_event == "setup_fail"
         assert exit_reason == "failed"
 
-    def test_read_truncated(self, client, tmp_path):
-        """Test the read_truncated function."""
-        # First check that a small file doesn't get truncated
-        short_file = tmp_path / "short"
-        short_file.write_text("x" * 100)
-        contents = read_truncated(short_file, size=100)
-        assert len(contents) == 100
-        assert "WARNING" not in contents
-
-        # Now check that a larger file does get truncated
-        long_file = tmp_path / "long"
-        long_file.write_text("x" * 200)
-        contents = read_truncated(long_file, size=100)
-        # It won't be exactly 100 bytes, because a warning is added
-        assert len(contents) < 150
-        assert "WARNING" in contents
-
-        # Check that a default value exists for `output_bytes`
-        assert "output_bytes" in client.config
-
     @pytest.mark.timeout(1)
     def test_wait_for_completion(self, client):
         """Test that wait_for_completion works."""
@@ -205,3 +183,44 @@ class TestJob:
         job = _TestflingerJob({"parent_job_id": "999"}, client)
         job.wait_for_completion()
         # No assertions needed, just make sure we don't timeout
+
+    def test_serial_log_to_endpoint(self, client, tmp_path, requests_mock):
+        """
+        Test that serial log file data are written to the serial log
+        endpoint.
+        """
+        phase = "provision"
+        output = "a" * 2048
+        serial_log = tmp_path / f"{phase}-serial.log"
+        with open(serial_log, "w") as f:
+            f.write(output)
+
+        # create the outcome file since we bypassed that
+        with open(tmp_path / "testflinger-outcome.json", "w") as outcome_file:
+            outcome_file.write("{}")
+
+        job_id = str(uuid.uuid1())
+        fake_job_data = {
+            "job_id": job_id,
+            "output_timeout": 1,
+            f"{phase}_data": {"url": "foo"},
+        }
+
+        job = _TestflingerJob(fake_job_data, client)
+        self.config[f"{phase}_command"] = "/bin/true"
+        requests_mock.post(rmock.ANY, status_code=200)
+        return_value, exit_event, exit_reason = job.run_test_phase(
+            phase, tmp_path
+        )
+        serial_url = f"http://127.0.0.1:8000/v1/result/{job_id}/log/serial"
+        requests = list(
+            filter(
+                lambda req: req.url == serial_url,
+                requests_mock.request_history,
+            )
+        )
+        assert len(requests) == 2
+        for i in range(2):
+            assert requests[i].json()["fragment_number"] == i
+            assert requests[i].json()["phase"] == phase
+            assert requests[i].json()["log_data"] == "a" * 1024
