@@ -12,9 +12,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+import copy
 import json
 import logging
 import os
+import signal
 import time
 
 from testflinger_agent.errors import TFServerError
@@ -45,6 +47,30 @@ class TestflingerJob:
         self.job_data = job_data
         self.job_id = job_data.get("job_id")
         self.phase = "unknown"
+        self.conserver_runner = None
+        self.command_runner = None
+
+    def cleanup_runners(self):
+        """
+        Resets termination signal handler and runs cleanup function on a set of
+        runners.
+        """
+        # Resets termination signal behavior to default
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        if self.conserver_runner is not None:
+            self.conserver_runner.cleanup()
+        if self.command_runner is not None:
+            self.command_runner.cleanup()
+
+    def _start_conserver_capture(self):
+        """ Start capturing serial logs from the conserver server."""
+        if "conserver_address" in self.client.config:
+            self.conserver_runner.run_async(
+                (
+                    f"console -M {self.client.config['conserver_address']} "
+                    f"{self.client.config['agent_id']} -s"
+                )
+            )
 
     def run_test_phase(self, phase, rundir):
         """Run the specified test phase in rundir.
@@ -83,31 +109,37 @@ class TestflingerJob:
         results_file = os.path.join(rundir, "testflinger-outcome.json")
         output_log = os.path.join(rundir, phase + ".log")
         serial_log = os.path.join(rundir, phase + "-serial.log")
+        serial_log_conserver = os.path.join(rundir, phase + "-serial-conserver.log")
 
         logger.info("Running %s_command: %s", phase, cmd)
-        runner = CommandRunner(cwd=rundir, env=self.client.config)
+        self.command_runner = CommandRunner(cwd=rundir, env=self.client.config)
+        self.conserver_runner = CommandRunner(cwd=rundir, env=self.client.config)
         output_file_handler = FileLogHandler(output_log)
         live_output_handler = OutputLogHandler(self.client, self.job_id, phase)
         serial_output_handler = SerialLogHandler(
-            self.client, self.job_id, phase
+            copy.deepcopy(self.client), self.job_id, phase
         )
-        runner.register_output_handler(output_file_handler)
-        runner.register_output_handler(live_output_handler)
+        serial_file_handler = FileLogHandler(serial_log_conserver)
+
+        self.command_runner.register_output_handler(output_file_handler)
+        self.command_runner.register_output_handler(live_output_handler)
+        self.conserver_runner.register_output_handler(serial_file_handler)
+        self.conserver_runner.register_output_handler(serial_output_handler)
 
         # Reserve phase uses a separate timeout handler
         if phase != "reserve":
             global_timeout_checker = GlobalTimeoutChecker(
                 self.get_global_timeout()
             )
-            runner.register_stop_condition_checker(global_timeout_checker)
+            self.command_runner.register_stop_condition_checker(global_timeout_checker)
 
         # We only need to check for output timeouts during the test phase
         if phase == "test":
             output_timeout_checker = OutputTimeoutChecker(
                 self.get_output_timeout()
             )
-            runner.register_stop_condition_checker(output_timeout_checker)
-            runner.subscribe_event(
+            self.command_runner.register_stop_condition_checker(output_timeout_checker)
+            self.command_runner.subscribe_event(
                 RunnerEvents.OUTPUT_RECEIVED, output_timeout_checker.update
             )
 
@@ -116,16 +148,23 @@ class TestflingerJob:
             job_cancelled_checker = JobCancelledChecker(
                 self.client, self.job_id
             )
-            runner.register_stop_condition_checker(job_cancelled_checker)
+            self.command_runner.register_stop_condition_checker(job_cancelled_checker)
 
         for line in self.banner(
             "Starting testflinger {} phase on {}".format(phase, node)
         ):
-            runner.run(f"echo '{line}'")
+            self.command_runner.run(f"echo '{line}'")
         try:
             # Set exit_event to fail for this phase in case of an exception
             exit_event = f"{phase}_fail"
-            exitcode, exit_event, exit_reason = runner.run(cmd)
+         
+            # Cleanup all running processes on sigterm
+            signal.signal(
+                signal.SIGTERM, lambda signum, frame: self.cleanup_runners()
+            )
+            self._start_conserver_capture()
+            exitcode, exit_event, exit_reason = self.command_runner.run(cmd)
+            self.conserver_runner.kill_async()
             # make sure the exit code is within the expected 0-255 range
             # (this also handles negative numbers)
             exitcode = exitcode % 256
