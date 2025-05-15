@@ -14,9 +14,6 @@ from testflinger_agent.handlers import FileLogHandler
 from testflinger_agent.job import (
     TestflingerJob as _TestflingerJob,
 )
-from testflinger_agent.job import (
-    read_truncated,
-)
 from testflinger_agent.runner import CommandRunner
 from testflinger_agent.schema import validate
 from testflinger_agent.stop_condition_checkers import (
@@ -176,26 +173,6 @@ class TestJob:
         assert exit_code == 100
         assert exit_event == "setup_fail"
         assert exit_reason == "failed"
-
-    def test_read_truncated(self, client, tmp_path):
-        """Test the read_truncated function."""
-        # First check that a small file doesn't get truncated
-        short_file = tmp_path / "short"
-        short_file.write_text("x" * 100)
-        contents = read_truncated(short_file, size=100)
-        assert len(contents) == 100
-        assert "WARNING" not in contents
-
-        # Now check that a larger file does get truncated
-        long_file = tmp_path / "long"
-        long_file.write_text("x" * 200)
-        contents = read_truncated(long_file, size=100)
-        # It won't be exactly 100 bytes, because a warning is added
-        assert len(contents) < 150
-        assert "WARNING" in contents
-
-        # Check that a default value exists for `output_bytes`
-        assert "output_bytes" in client.config
 
     @pytest.mark.timeout(1)
     def test_wait_for_completion(self, client):
