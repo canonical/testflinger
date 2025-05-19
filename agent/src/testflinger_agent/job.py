@@ -52,7 +52,7 @@ class TestflingerJob:
 
     def cleanup_runners(self):
         """
-        Resets termination signal handler and runs cleanup function on a set of
+        Reset termination signal handler and runs cleanup function on a set of
         runners.
         """
         # Resets termination signal behavior to default
@@ -63,7 +63,7 @@ class TestflingerJob:
             self.command_runner.cleanup()
 
     def _start_conserver_capture(self):
-        """ Start capturing serial logs from the conserver server."""
+        """Start capturing serial logs from the conserver server."""
         if "conserver_address" in self.client.config:
             self.conserver_runner.run_async(
                 (
@@ -109,11 +109,15 @@ class TestflingerJob:
         results_file = os.path.join(rundir, "testflinger-outcome.json")
         output_log = os.path.join(rundir, phase + ".log")
         serial_log = os.path.join(rundir, phase + "-serial.log")
-        serial_log_conserver = os.path.join(rundir, phase + "-serial-conserver.log")
+        serial_log_conserver = os.path.join(
+            rundir, phase + "-serial-conserver.log"
+        )
 
         logger.info("Running %s_command: %s", phase, cmd)
         self.command_runner = CommandRunner(cwd=rundir, env=self.client.config)
-        self.conserver_runner = CommandRunner(cwd=rundir, env=self.client.config)
+        self.conserver_runner = CommandRunner(
+            cwd=rundir, env=self.client.config
+        )
         output_file_handler = FileLogHandler(output_log)
         live_output_handler = OutputLogHandler(self.client, self.job_id, phase)
         serial_output_handler = SerialLogHandler(
@@ -131,14 +135,18 @@ class TestflingerJob:
             global_timeout_checker = GlobalTimeoutChecker(
                 self.get_global_timeout()
             )
-            self.command_runner.register_stop_condition_checker(global_timeout_checker)
+            self.command_runner.register_stop_condition_checker(
+                global_timeout_checker
+            )
 
         # We only need to check for output timeouts during the test phase
         if phase == "test":
             output_timeout_checker = OutputTimeoutChecker(
                 self.get_output_timeout()
             )
-            self.command_runner.register_stop_condition_checker(output_timeout_checker)
+            self.command_runner.register_stop_condition_checker(
+                output_timeout_checker
+            )
             self.command_runner.subscribe_event(
                 RunnerEvents.OUTPUT_RECEIVED, output_timeout_checker.update
             )
@@ -148,7 +156,9 @@ class TestflingerJob:
             job_cancelled_checker = JobCancelledChecker(
                 self.client, self.job_id
             )
-            self.command_runner.register_stop_condition_checker(job_cancelled_checker)
+            self.command_runner.register_stop_condition_checker(
+                job_cancelled_checker
+            )
 
         for line in self.banner(
             "Starting testflinger {} phase on {}".format(phase, node)
@@ -157,7 +167,7 @@ class TestflingerJob:
         try:
             # Set exit_event to fail for this phase in case of an exception
             exit_event = f"{phase}_fail"
-         
+
             # Cleanup all running processes on sigterm
             signal.signal(
                 signal.SIGTERM, lambda signum, frame: self.cleanup_runners()

@@ -12,14 +12,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+import fcntl
 import logging
 import os
-import fcntl
-import sys
 import subprocess
+import sys
 import threading
 import time
-
 from collections import defaultdict
 from enum import Enum
 from typing import Callable, List, Optional, Tuple
@@ -33,9 +32,7 @@ StopConditionType = Callable[[], Optional[str]]
 
 
 class RunnerEvents(Enum):
-    """
-    Runner events that can be subscribed to.
-    """
+    """Runner events that can be subscribed to."""
 
     OUTPUT_RECEIVED = "output_received"
 
@@ -66,11 +63,11 @@ class CommandRunner:
         self.output_handlers.append(handler)
 
     def subscribe_event(self, event_name: RunnerEvents, handler: Callable):
-        """Set a callback for an event that we want to be notified of"""
+        """Set a callback for an event that we want to be notified of."""
         self.events[event_name].append(handler)
 
     def post_event(self, event_name: RunnerEvents):
-        """Post an event for subscribers to be notified of"""
+        """Post an event for subscribers to be notified of."""
         for handler in self.events[event_name]:
             handler()
 
@@ -84,7 +81,7 @@ class CommandRunner:
     def check_stop_conditions(self) -> Tuple[Optional[TestEvent], str]:
         """
         Check stop conditions and return the reason if any are met. Otherwise,
-        return an empty string if none are met
+        return an empty string if none are met.
         """
         for checker in self.stop_condition_checkers:
             event, detail = checker()
@@ -94,8 +91,8 @@ class CommandRunner:
 
     def check_and_post_output(self):
         """
-        Reads output from the running process and posts it to the relevant
-        handlers
+        Read output from the running process and posts it to the relevant
+        handlers.
         """
         if self.process is None:
             return
@@ -108,7 +105,6 @@ class CommandRunner:
         self.post_output(output)
 
     def run_command_thread(self, cmd: str):
-        print(f"im in run command thread with {cmd}")
         self.process = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
@@ -118,7 +114,6 @@ class CommandRunner:
             env=self.env,
             shell=True,
         )
-        print("hello")
         # Ensure that the output doesn't get buffered on our end
         if self.process.stdout is not None:
             set_nonblock(self.process.stdout.fileno())
@@ -130,7 +125,7 @@ class CommandRunner:
 
     def create_command_thread(self, cmd: str):
         """
-        Creates and starts a thread for the command and waits until the process
+        Create and start a thread for the command and waits until the process
         has fully started.
         """
         # Ensure that the process is None before starting
@@ -138,17 +133,14 @@ class CommandRunner:
         self.run_cmd_thread = threading.Thread(
             target=self.run_command_thread, args=(cmd,)
         )
-        print(f"run command thread {cmd}")
         self.run_cmd_thread.start()
         # Make sure to wait until the process actually starts
         while self.process is None:
-            print("Waiting")
             time.sleep(1)
-        print(f"cmd started")
 
     def monitor_command_output(self) -> Tuple[Optional[TestEvent], str]:
         """
-        Checks if any stop conditions have been met while the command is
+        Check if any stop conditions have been met while the command is
         running and posts command output to the relevant handlers.
         """
         stop_event = None
@@ -166,10 +158,9 @@ class CommandRunner:
 
     def run(self, cmd: str) -> Tuple[int, Optional[TestEvent], str]:
         """
-        Creates a thread to run the command. The output of this command
+        Create a thread to run the command. The output of this command
         is monitored synchronously and blocks until the command is stopped.
         """
-
         self.create_command_thread(cmd)
         stop_event, stop_reason = self.monitor_command_output()
         self.run_cmd_thread.join()
@@ -183,11 +174,10 @@ class CommandRunner:
 
     def run_async(self, cmd: str):
         """
-        Creates two threads for running the main command and running
+        Create two threads for running the main command and running
         the function to monitor the output of that command. This function
         does not wait for the command to finish before returning.
         """
-        print("cmd")
         self.create_command_thread(cmd)
         self.monitor_command_output_thread = threading.Thread(
             target=self.monitor_command_output
@@ -201,33 +191,26 @@ class CommandRunner:
         if the command was started using run_async.
         """
         # Check for any final output before exiting
-        print("killing async")
         self.check_and_post_output()
         self.cleanup()
         if self.monitor_command_output_thread is not None:
             self.monitor_command_output_thread.join()
-            print("monitor joined")
         if self.run_cmd_thread is not None:
             self.run_cmd_thread.join()
-            print("cmd thread join")
-        print("finished")
 
 
 def get_stop_reason(returncode: int, stop_reason: str) -> str:
-    """
-    Try to give some reason for the job stopping based on what we know.
-    """
+    """Try to give some reason for the job stopping based on what we know."""
     if returncode == 0:
         return "Normal exit"
     return f"Unknown error rc={returncode}"
 
 
 def set_nonblock(fd: int):
-    """Set the specified fd to nonblocking output
+    """Set the specified fd to nonblocking output.
 
     :param fd:
         File descriptor that should be set to nonblocking mode
     """
-
     fl = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)

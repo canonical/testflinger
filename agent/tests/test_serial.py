@@ -1,52 +1,55 @@
 import json
 import os
-import tempfile
 import shutil
+import tempfile
 from unittest.mock import patch
 
 import pytest
 import requests_mock as rmock
 
 import testflinger_agent
-from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
-from testflinger_agent.job import (
-    TestflingerJob as _TestflingerJob,
-)
+from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.runner import CommandRunner as _CommandRunner
 from testflinger_agent.schema import validate
 
 
 class TestSerialConsole:
     @pytest.fixture
-    def client(self):
+    def agent(self, requests_mock):
         self.tmpdir = tempfile.mkdtemp()
         self.config = validate(
             {
                 "agent_id": "test01",
+                "identifier": "12345-123456",
                 "polling_interval": 2,
                 "server_address": "127.0.0.1:8000",
                 "job_queues": ["test"],
+                "location": "nowhere",
+                "provision_type": "noprovision",
                 "execution_basedir": self.tmpdir,
                 "logging_basedir": self.tmpdir,
                 "results_basedir": os.path.join(self.tmpdir, "results"),
-                "test_command": "/bin/true",
+                "test_command": "echo test",
                 "conserver_address": "console.example.com",
             }
         )
         testflinger_agent.configure_logging(self.config)
-        yield _TestflingerClient(self.config)
+        client = _TestflingerClient(self.config)
+        requests_mock.get(rmock.ANY)
+        requests_mock.post(rmock.ANY)
+        yield _TestflingerAgent(client)
+        # Clean up tmpdir after tests
         shutil.rmtree(self.tmpdir)
 
-    def test_job_with_serial_capture(self, client, requests_mock):
-        """Test that serial logs are captured while a job is running"""
+    def test_job_with_serial_capture(self, agent, requests_mock):
+        """Test that serial logs are captured while a job is running."""
         job_id = "test-job-123"
         fake_job_data = {
             "job_id": job_id,
             "job_queue": "test",
             "test_data": {"test_cmds": "echo test1"},
         }
-        job = _TestflingerJob(fake_job_data, client)
 
         requests_mock.get(
             rmock.ANY, [{"text": json.dumps(fake_job_data)}, {"text": "{}"}]
@@ -66,9 +69,9 @@ class TestSerialConsole:
             mock_command_runner,
         ):
             with patch("shutil.rmtree"):
+                agent.process_jobs()
                 rundir = os.path.join(self.tmpdir, job_id)
-                job.run_test_phase("test", rundir)
-                print("done running")
+
                 with open(
                     os.path.join(rundir, "test-serial-conserver.log")
                 ) as f:
@@ -81,5 +84,4 @@ class TestSerialConsole:
                     if req.path == f"/v1/result/{job_id}/log/serial"
                 ]
                 assert len(serial_posts) == 1
-                assert "log_data" in serial_posts[0].json
-                assert serial_posts[0].json["log_data"] == "serial_log"
+                assert "serial_log" in serial_posts[0].text
