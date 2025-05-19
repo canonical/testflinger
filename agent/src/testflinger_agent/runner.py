@@ -108,6 +108,7 @@ class CommandRunner:
         self.post_output(output)
 
     def run_command_thread(self, cmd: str):
+        print(f"im in run command thread with {cmd}")
         self.process = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
@@ -117,6 +118,7 @@ class CommandRunner:
             env=self.env,
             shell=True,
         )
+        print("hello")
         # Ensure that the output doesn't get buffered on our end
         if self.process.stdout is not None:
             set_nonblock(self.process.stdout.fileno())
@@ -140,7 +142,9 @@ class CommandRunner:
         self.run_cmd_thread.start()
         # Make sure to wait until the process actually starts
         while self.process is None:
+            print("Waiting")
             time.sleep(1)
+        print(f"cmd started")
 
     def monitor_command_output(self) -> Tuple[Optional[TestEvent], str]:
         """
