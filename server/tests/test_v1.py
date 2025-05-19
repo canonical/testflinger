@@ -17,9 +17,12 @@
 
 import json
 import os
+import urllib.parse
 from datetime import datetime, timezone
 from http import HTTPStatus
 from io import BytesIO
+
+from testflinger_common.enums import LogType, TestPhase
 
 from testflinger.api import v1
 
@@ -653,17 +656,6 @@ def test_result_get_artifact_not_exists(mongo_app):
     assert 204 == output.status_code
 
 
-def test_output_post_get(mongo_app):
-    """Test posting output data for a job then reading it back."""
-    app, _ = mongo_app
-    output_url = "/v1/result/00000000-0000-0000-0000-000000000000/output"
-    data = "line1\nline2\nline3"
-    output = app.post(output_url, data=data)
-    assert "OK" == output.text
-    output = app.get(output_url)
-    assert output.text == data
-
-
 def test_job_get_result_invalid(mongo_app):
     """Test getting results with bad job UUID fails."""
     app, _ = mongo_app
@@ -1091,21 +1083,6 @@ def test_get_agents_on_queue(mongo_app):
     output = app.get("/v1/queues/q3/agents")
     assert 200 == output.status_code
     assert len(output.json) == 0
-
-
-def test_serial_output(mongo_app):
-    """Test api endpoint to get serial log output."""
-    app, _ = mongo_app
-    output_url = (
-        "/v1/result/00000000-0000-0000-0000-000000000000/serial_output"
-    )
-    data = "line1\nline2\nline3"
-    output = app.post(output_url, data=data)
-    assert "OK" == output.text
-    output = app.get(output_url)
-    assert output.text == data
-    empty_output = app.get(output_url)
-    assert empty_output.text == ""
 
 
 def test_result_post_large_payload(mongo_app):
