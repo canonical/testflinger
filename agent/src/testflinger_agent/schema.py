@@ -48,6 +48,7 @@ SCHEMA_V1 = {
     # only the last `output_bytes` of the log will be included
     # in the results submitted to the server (default: 10MB)
     voluptuous.Optional("output_bytes", default=10 * 1024 * 1024): int,
+    voluptuous.Optional("conserver_address"): str,
 }
 
 

@@ -15,7 +15,6 @@
 import fcntl
 import logging
 import os
-import signal
 import subprocess
 import sys
 import threading
@@ -53,6 +52,8 @@ class CommandRunner:
         self.cwd = cwd
         self.env = os.environ.copy()
         self.events = defaultdict(list)
+        self.monitor_command_output_thread = None
+        self.run_cmd_thread = None
         if env:
             self.env.update(
                 {k: str(v) for k, v in env.items() if isinstance(v, str)}
@@ -89,6 +90,12 @@ class CommandRunner:
         return None, ""
 
     def check_and_post_output(self):
+        """
+        Read output from the running process and posts it to the relevant
+        handlers.
+        """
+        if self.process is None:
+            return
         raw_output = self.process.stdout.read()
         if not raw_output:
             return
@@ -100,6 +107,7 @@ class CommandRunner:
     def run_command_thread(self, cmd: str):
         self.process = subprocess.Popen(
             cmd,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             cwd=self.cwd,
@@ -112,30 +120,33 @@ class CommandRunner:
         self.process.wait()
 
     def cleanup(self):
-        signal.signal(signal.SIGTERM, signal.SIG_DFL)
         if self.process is not None:
             self.process.kill()
 
-    def run(self, cmd: str) -> Tuple[int, Optional[TestEvent], str]:
+    def create_command_thread(self, cmd: str):
+        """
+        Create and start a thread for the command and waits until the process
+        has fully started.
+        """
         # Ensure that the process is None before starting
         self.process = None
-        stop_event = None
-        stop_reason = ""
-
-        signal.signal(signal.SIGTERM, lambda signum, frame: self.cleanup())
-
-        run_cmd_thread = threading.Thread(
+        self.run_cmd_thread = threading.Thread(
             target=self.run_command_thread, args=(cmd,)
         )
-        run_cmd_thread.start()
-
+        self.run_cmd_thread.start()
         # Make sure to wait until the process actually starts
         while self.process is None:
             time.sleep(1)
 
+    def monitor_command_output(self) -> Tuple[Optional[TestEvent], str]:
+        """
+        Check if any stop conditions have been met while the command is
+        running and posts command output to the relevant handlers.
+        """
+        stop_event = None
+        stop_reason = ""
         while self.process.poll() is None:
             time.sleep(10)
-
             stop_event, stop_reason = self.check_stop_conditions()
             if stop_event is not None:
                 self.post_output(f"\n{stop_reason}\n")
@@ -143,15 +154,49 @@ class CommandRunner:
                 break
 
             self.check_and_post_output()
+        return stop_event, stop_reason
 
+    def run(self, cmd: str) -> Tuple[int, Optional[TestEvent], str]:
+        """
+        Create a thread to run the command. The output of this command
+        is monitored synchronously and blocks until the command is stopped.
+        """
+        self.create_command_thread(cmd)
+        stop_event, stop_reason = self.monitor_command_output()
+        self.run_cmd_thread.join()
         # Check for any final output before exiting
-        run_cmd_thread.join()
         self.check_and_post_output()
         self.cleanup()
         if stop_reason == "":
             stop_reason = get_stop_reason(self.process.returncode, "")
 
         return self.process.returncode, stop_event, stop_reason
+
+    def run_async(self, cmd: str):
+        """
+        Create two threads for running the main command and running
+        the function to monitor the output of that command. This function
+        does not wait for the command to finish before returning.
+        """
+        self.create_command_thread(cmd)
+        self.monitor_command_output_thread = threading.Thread(
+            target=self.monitor_command_output
+        )
+        self.monitor_command_output_thread.start()
+
+    def kill_async(self):
+        """
+        Kills the main command thread and the output monitoring thread if they
+        exist. This function should be run to kill the main command
+        if the command was started using run_async.
+        """
+        # Check for any final output before exiting
+        self.check_and_post_output()
+        self.cleanup()
+        if self.monitor_command_output_thread is not None:
+            self.monitor_command_output_thread.join()
+        if self.run_cmd_thread is not None:
+            self.run_cmd_thread.join()
 
 
 def get_stop_reason(returncode: int, stop_reason: str) -> str:

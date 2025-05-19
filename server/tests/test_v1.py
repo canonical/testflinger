@@ -17,9 +17,12 @@
 
 import json
 import os
+import urllib.parse
 from datetime import datetime, timezone
 from http import HTTPStatus
 from io import BytesIO
+
+from testflinger_common.enums import LogType, TestPhase
 
 from testflinger.api import v1
 
@@ -589,11 +592,11 @@ def test_result_post_good(mongo_app):
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
     result_url = f"/v1/result/{job_id}"
-    data = {"test_output": "test output string"}
+    data = {"status": {"test": 404}}
     response = app.post(result_url, json=data)
     assert "OK" == response.text
     response = app.get(result_url)
-    assert response.json.get("test_output") == "test output string"
+    assert response.json.get("status").get("test") == 404
 
 
 def test_result_post_bad(mongo_app):
@@ -613,19 +616,33 @@ def test_result_post_baddata(mongo_app):
     assert 422 == response.status_code
 
 
-def test_state_update_keeps_results(mongo_app):
-    """Update job_state shouldn't lose old results."""
-    app, _ = mongo_app
+def test_result_get_with_logs(mongo_app):
+    """Tests that results are retrieved with complete output logs."""
+    app, mongo = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
+    output_url = f"/v1/result/{job_id}/log/{LogType.STANDARD_OUTPUT}"
+    phase = str(TestPhase.SETUP)
+    for i in range(10):
+        log_data = f"line{i}\n"
+        timestamp = datetime(
+            2025, 4, 24, 10, 5 * i, 0, tzinfo=timezone.utc
+        ).isoformat()
+        log_json = {
+            "fragment_number": i,
+            "timestamp": timestamp,
+            "phase": phase,
+            "log_data": log_data,
+        }
+        app.post(output_url, json=log_json)
+    combined_log_expected = "".join([f"line{i}\n" for i in range(10)])
     result_url = f"/v1/result/{job_id}"
-    data = {"setup_output": "test", "job_state": "waiting"}
-    output = app.post(result_url, json=data)
-    data = {"job_state": "provision"}
-    output = app.post(result_url, json=data)
-    output = app.get(result_url)
-    current_results = output.json
-    assert current_results.get("setup_output") == "test"
+    data = {"status": {phase: 404}}
+    response = app.post(result_url, json=data)
+    assert "OK" in response.text
+    response = app.get(result_url).json
+    assert response["output"][phase] == combined_log_expected
+    assert response["status"][phase] == 404
 
 
 def test_artifact_post_good(mongo_app):
@@ -656,12 +673,68 @@ def test_result_get_artifact_not_exists(mongo_app):
 def test_output_post_get(mongo_app):
     """Test posting output data for a job then reading it back."""
     app, _ = mongo_app
-    output_url = "/v1/result/00000000-0000-0000-0000-000000000000/output"
-    data = "line1\nline2\nline3"
-    output = app.post(output_url, data=data)
+    job_id = "00000000-0000-0000-0000-000000000000"
+    output_url = f"/v1/result/{job_id}/log/output"
+    log_data = "line1\nline2\nline3"
+    timestamp = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
+    phase = str(TestPhase.SETUP)
+    log_json = {
+        "fragment_number": 0,
+        "timestamp": timestamp,
+        "phase": phase,
+        "log_data": log_data,
+    }
+    output = app.post(output_url, json=log_json)
     assert "OK" == output.text
     output = app.get(output_url)
-    assert output.text == data
+    phase_output = output.json["phase_logs"][phase]
+    assert phase_output["last_fragment_number"] == 0
+    assert phase_output["log_data"] == log_data
+
+
+def test_output_post_get_query(mongo_app):
+    """Test output endpoints with timestamp querying."""
+    app, _ = mongo_app
+    job_id = "00000000-0000-0000-0000-000000000000"
+    output_url = f"/v1/result/{job_id}/log/{LogType.STANDARD_OUTPUT}"
+    phase = str(TestPhase.SETUP)
+    for i in range(10):
+        log_data = f"line{i}\n"
+        timestamp = datetime(
+            2025, 4, 24, 10, 5 * i, 0, tzinfo=timezone.utc
+        ).isoformat()
+        log_json = {
+            "fragment_number": i,
+            "timestamp": timestamp,
+            "phase": phase,
+            "log_data": log_data,
+        }
+        output = app.post(output_url, json=log_json)
+        assert "OK" == output.text
+    query_timestamp = datetime(
+        2025, 4, 24, 10, 32, 0, tzinfo=timezone.utc
+    ).isoformat()
+    params = {"start_timestamp": query_timestamp, "phase": phase}
+    encoded_params = urllib.parse.urlencode(params)
+    url_with_timestamp = f"{output_url}?{encoded_params}"
+    output = app.get(url_with_timestamp)
+    combined_log_expected = "".join([f"line{i}\n" for i in range(7, 10)])
+    assert output.status_code == 200
+    phase_output = output.json["phase_logs"][phase]
+    assert phase_output["log_data"] == combined_log_expected
+    assert phase_output["last_fragment_number"] == 9
+
+
+def test_output_get_invalid_query(mongo_app):
+    """Test output endpoint fails when given invalid timestamp."""
+    app, _ = mongo_app
+    job_id = "00000000-0000-0000-0000-000000000000"
+    output_url = f"/v1/result/{job_id}/log/{LogType.STANDARD_OUTPUT}"
+    params = {"start_timestamp": "my wrong timestamp"}
+    encoded_params = urllib.parse.urlencode(params)
+    url_with_timestamp = f"{output_url}?{encoded_params}"
+    output = app.get(url_with_timestamp)
+    assert output.status_code == 400
 
 
 def test_job_get_result_invalid(mongo_app):
@@ -1096,24 +1169,20 @@ def test_get_agents_on_queue(mongo_app):
 def test_serial_output(mongo_app):
     """Test api endpoint to get serial log output."""
     app, _ = mongo_app
-    output_url = (
-        "/v1/result/00000000-0000-0000-0000-000000000000/serial_output"
-    )
-    data = "line1\nline2\nline3"
-    output = app.post(output_url, data=data)
+    job_id = "00000000-0000-0000-0000-000000000000"
+    output_url = f"/v1/result/{job_id}/log/{LogType.SERIAL_OUTPUT}"
+    log_data = "line1\nline2\nline3"
+    timestamp = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
+    phase = str(TestPhase.SETUP)
+    log_json = {
+        "fragment_number": 0,
+        "timestamp": timestamp,
+        "phase": phase,
+        "log_data": log_data,
+    }
+    output = app.post(output_url, json=log_json)
     assert "OK" == output.text
     output = app.get(output_url)
-    assert output.text == data
-    empty_output = app.get(output_url)
-    assert empty_output.text == ""
-
-
-def test_result_post_large_payload(mongo_app):
-    """Test that posting a result with a payload size of 16MB or more fails."""
-    app, _ = mongo_app
-    job_id = "00000000-0000-0000-0000-000000000000"
-    result_url = f"/v1/result/{job_id}"
-    large_data = {"test_output": "a" * (16 * 1024 * 1024)}  # 16MB payload
-    response = app.post(result_url, json=large_data)
-    assert 413 == response.status_code
-    assert "Payload too large" in response.json["message"]
+    phase_output = output.json["phase_logs"][phase]
+    assert phase_output["last_fragment_number"] == 0
+    assert phase_output["log_data"] == log_data
