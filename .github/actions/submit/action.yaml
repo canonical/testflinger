@@ -36,8 +36,9 @@ runs:
       if: startsWith(runner.name, 'private-')
       shell: bash
       run: |
-        export DEBIAN_FRONTEND=noninteractive 
-        sudo apt-get -qqy update && sudo apt-get install -qqy dnsutils
+        echo "::group::Bypass aproxy (private-endpoint runner)"
+        sudo DEBIAN_FRONTEND=noninteractive apt-get -qqy update && \
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -qqy dnsutils
         sudo snap set aproxy listen=:28443
         sudo nft -f - << EOF
         define testflinger-ips = { $(dig +short testflinger.canonical.com | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | tr '\n' ',') }
@@ -56,6 +57,8 @@ runs:
           }
         }
         EOF
+        echo "::endgroup::"
+
     - name: Test connection to Testflinger server
       shell: bash {0}  # allow curl to fail
       env:
