@@ -14,7 +14,12 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.3.5", "ruff>=0.11.6"]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+    "requests-mock>=1.12.1",
+    "ruff>=0.11.6",
+]
 
 [tool.ruff]
 line-length = 79
