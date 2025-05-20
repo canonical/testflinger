@@ -27,6 +27,8 @@ class Client:
         retries: int = 3,
     ) -> None:
         """Initialize the client."""
+        if urllib.parse.urlparse(server).scheme not in ("http", "https"):
+            raise ValueError("Server URL must start with http:// or https://")
         self.server = server
         self.client_id = client_id
         self.client_secret = client_secret
