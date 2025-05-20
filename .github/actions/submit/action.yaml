@@ -36,6 +36,7 @@ runs:
       if: startsWith(runner.name, 'private-')
       shell: bash
       run: |
+        export DEBIAN_FRONTEND=noninteractive 
         sudo apt-get -qqy update && sudo apt-get install -qqy dnsutils
         sudo snap set aproxy listen=:28443
         sudo nft -f - << EOF
