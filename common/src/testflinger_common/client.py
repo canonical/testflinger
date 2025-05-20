@@ -97,7 +97,7 @@ class Client:
         """Get the attachments of a test job."""
         endpoint = f"/v1/job/{job_id}/attachments"
         response = self.get(endpoint, timeout_sec=timeout_sec, stream=True)
-        with path.open("rb") as attachments:
+        with path.open("wb") as attachments:
             for chunk in response.iter_content(chunk_size=4096):
                 attachments.write(chunk)
 
@@ -116,10 +116,9 @@ class Client:
         """Get the artifacts of a test job."""
         endpoint = f"/v1/result/{job_id}/artifact"
         response = self.get(endpoint, timeout_sec=timeout_sec, stream=True)
-        with path.open("rb") as artifacts:
-            for chunk in response.raw.stream(4096, decode_content=False):
-                if chunk:
-                    artifacts.write(chunk)
+        with path.open("wb") as artifacts:
+            for chunk in response.iter_content(chunk_size=4096):
+                artifacts.write(chunk)
 
     def post_job_artifacts(self, job_id: str, tarball: Path) -> None:
         """Post the artifacts of a test job."""
@@ -151,11 +150,11 @@ class Client:
         response = self.get(f"/v1/job/{job_id}/position")
         return int(response.text)
 
-    def post_job_provision_log(
+    def post_job_provision_logs(
         self, agent_id: str, job_id: str, exit_code: int, detail: str
     ) -> None:
         """Post the outcome of a test job's provision phase."""
-        endpoint = f"/v1/agents/provision_logs/{job_id}/{agent_id}"
+        endpoint = f"/v1/agents/provision_logs/{agent_id}"
         data = {"job_id": job_id, "exit_code": exit_code, "detail": detail}
         self.post(endpoint, json=data, timeout_sec=30)
 
