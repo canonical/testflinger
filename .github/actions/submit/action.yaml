@@ -32,6 +32,13 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Labels
+      env:
+        LABELS: ${{ toJSON(runner) }}
+      shell: bash
+      run:
+        echo $LABELS
+
     - name: Test connection to Testflinger server
       shell: bash {0}  # allow curl to fail
       env:
