@@ -59,12 +59,10 @@ class Client:
         """Return the token for the client."""
         if not self.client_id or not self.client_secret:
             return None
-        url = urllib.parse.urljoin(self.server, "/v1/oauth2/token")
         id_key_pair = f"{self.client_id}:{self.client_secret}"
         encoded_id_key_pair = base64.b64encode(id_key_pair.encode()).decode()
         headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
-        response = self.session.post(url, headers=headers)
-        response.raise_for_status()
+        response = self.post("/v1/oauth2/token", headers=headers)
         return response.text
 
     @cached_property
@@ -96,7 +94,10 @@ class Client:
     ) -> None:
         """Get the attachments of a test job."""
         endpoint = f"/v1/job/{job_id}/attachments"
-        self.get_file(endpoint, path, timeout_sec=timeout_sec)
+        response = self.get(endpoint, timeout_sec=timeout_sec, stream=True)
+        with path.open("rb") as attachments:
+            for chunk in response.iter_content(chunk_size=4096):
+                attachments.write(chunk)
 
     def post_job_results(self, job_id: str, data: dict) -> None:
         """Post the results of a test job."""
@@ -107,10 +108,16 @@ class Client:
         response = self.get(f"/v1/result/{job_id}")
         return response.json()
 
-    def get_job_artifacts(self, job_id: str, path: Path) -> None:
+    def get_job_artifacts(
+        self, job_id: str, path: Path, timeout_sec: float = 30
+    ) -> None:
         """Get the artifacts of a test job."""
         endpoint = f"/v1/result/{job_id}/artifact"
-        self.get_file(endpoint=endpoint, path=path)
+        response = self.get(endpoint, timeout_sec=timeout_sec, stream=True)
+        with path.open("rb") as artifacts:
+            for chunk in response.raw.stream(4096, decode_content=False):
+                if chunk:
+                    artifacts.write(chunk)
 
     def post_job_artifacts(self, job_id: str, tarball: Path) -> None:
         """Post the artifacts of a test job."""
@@ -178,9 +185,8 @@ class Client:
 
     def post_job_output(self, job_id: str, output: str) -> None:
         """Post the output of a test job."""
-        endpoint = f"/v1/job/{job_id}/output"
         data = {"output": output}
-        self.post(endpoint, json=data, timeout_sec=60)
+        self.post(f"/v1/job/{job_id}/output", json=data, timeout_sec=60)
 
     def get_job_output(self, job_id: str) -> str:
         """Get the latest output for a test job."""
@@ -189,11 +195,7 @@ class Client:
 
     def get_job_serial_output(self, job_id: str) -> str:
         """Get the latest serial output for a test job."""
-        url = urllib.parse.urljoin(
-            self.server, f"/v1/job/{job_id}/serial_output"
-        )
-        response = self.session.get(url)
-        response.raise_for_status()
+        response = self.get(f"/v1/job/{job_id}/serial_output")
         return response.text
 
     def post_queues(self, queues: dict[str, str]) -> None:
@@ -302,17 +304,3 @@ class Client:
         )
         response.raise_for_status()
         return response
-
-    def get_file(
-        self,
-        endpoint: str,
-        path: Path,
-        timeout_sec: float = 30,
-        chunk_size: int = 4096,
-    ) -> None:
-        """Get a file from the server."""
-        url = urllib.parse.urljoin(self.server, endpoint)
-        response = self.get(url, timeout_sec=timeout_sec, stream=True)
-        with path.open("wb") as file:
-            for chunk in response.iter_content(chunk_size=chunk_size):
-                file.write(chunk)
