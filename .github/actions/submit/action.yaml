@@ -39,26 +39,12 @@ runs:
       shell: bash
       run: |
         echo "::group::Bypass aproxy (private-endpoint runner)"
-        sudo snap set aproxy listen=:28443
-        sudo nft -f - << EOF
-        define testflinger-ips = { $(getent ahostsv4 $SERVER | awk '/RAW/ {print $1}' | paste -sd,) }
-        define default-ip = $(ip route get $(ip route show 0.0.0.0/0 | grep -oP 'via \K\S+') | grep -oP 'src \K\S+')
-        define exclude-ips = { 10.0.0.0/8, 127.0.0.1/8, 172.16.0.0/12, 192.168.0.0/16, \$testflinger-ips }
-        delete chain ip aproxy prerouting
-        delete chain ip aproxy output
-        table ip aproxy {
-          chain prerouting {
-            type nat hook prerouting priority dstnat; policy accept;
-            ct state established,related accept
-            ip daddr != \$exclude-ips tcp dport { 80, 443 } counter dnat to \$default-ip:28443
-          }
-          chain output {
-            type nat hook output priority -100; policy accept;
-            ct state established,related accept
-            ip daddr != \$exclude-ips tcp dport { 80, 443 } counter dnat to \$default-ip:28443
-          }
-        }
-        EOF
+        TESTFLINGER_IPS=$(getent ahostsv4 $SERVER | awk '/RAW/ {print $1}' | paste -sd,)
+        sudo nft list table ip aproxy > aproxy.table
+        sudo nft flush table ip aproxy
+        cat aproxy.table | \
+          sed 's/ip daddr != { \([^}]*\) }/ip daddr != { \1, '$TESTFLINGER_IPS' }/g' | \
+          sudo nft -f -
         echo Bypass complete
         echo "::endgroup::"
 
