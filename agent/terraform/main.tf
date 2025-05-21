@@ -6,9 +6,10 @@ resource "juju_application" "testflinger-agent-host" {
   units = 1
 
   charm {
-    name    = "testflinger-agent-host"
-    base    = "ubuntu@22.04"
-    channel = "latest/beta"
+    name     = "testflinger-agent-host"
+    base     = "ubuntu@22.04"
+    channel  = var.channel
+    revision = var.revision
   }
 
   config = {
