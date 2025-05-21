@@ -683,3 +683,47 @@ def test_poll_serial(capsys, requests_mock):
         tfcli.poll_serial()
     std = capsys.readouterr()
     assert "serial output" in std.out
+
+
+def test_agent_status(capsys, requests_mock):
+    """Validate that the status of the agent is retrieved."""
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": "fake_agent",
+        "queues": ["fake"],
+        "state": "waiting",
+        "provision_streak_count": 1,
+        "provision_streak_type": "pass",
+    }
+    requests_mock.get(URL + "/v1/agents/data", json=[fake_return])
+    sys.argv = ["", "agent-status", fake_agent]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.agent_status()
+    std = capsys.readouterr()
+    assert "waiting" in std.out
+
+
+def test_queue_status(capsys, requests_mock):
+    """Validate that the status for the queue is retrieved."""
+    fake_queue = "fake"
+    fake_queue_data = [
+        {"name": "fake_agent1", "state": "provision", "queues": ["fake"]},
+        {"name": "fake_agent2", "state": "offline", "queues": ["fake"]},
+    ]
+
+    job_id = str(uuid.uuid1())
+    fake_job_data = [{"job_id": job_id, "job_state": "waiting"}]
+
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
+    )
+    requests_mock.get(URL + "/v1/job/queues/" + fake_queue, json=fake_job_data)
+    sys.argv = ["", "queue-status", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.queue_status()
+    std = capsys.readouterr()
+    assert "Total agents in queue: 2" in std.out
+    assert "Available:             0" in std.out
+    assert "Busy:                  1" in std.out
+    assert "Offline:               1" in std.out
+    assert "Jobs waiting:          1" in std.out

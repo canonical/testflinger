@@ -149,12 +149,12 @@ class Client:
         """
         endpoint = "/v1/agents/data"
         data = json.loads(self.get(endpoint))
-        agent_data = list(
-            filter(lambda agent: agent["name"] == agent_name, data)
+        agent_data = next(
+            (agent for agent in data if agent["name"] == agent_name), None
         )
 
         if agent_data:
-            return agent_data[0].get("state")
+            return agent_data.get("state")
         else:
             return "unknown"
 
