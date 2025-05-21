@@ -388,7 +388,9 @@ def get_jobs_by_queue(queue_name):
     :return:
         JSON data with the jobs allocated to the specified queue.
     """
-    response = database.mongo.db.jobs.find({"job_data.job_queue": queue_name})
+    response = list(
+        database.mongo.db.jobs.find({"job_data.job_queue": queue_name})
+    )
 
     if not response:
         return [], 204
