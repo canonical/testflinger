@@ -147,7 +147,6 @@ class Client:
         :return
             String containing the agent_state for the specified agent.
         """
-
         endpoint = "/v1/agents/data"
         data = json.loads(self.get(endpoint))
         agent_data = list(
@@ -158,6 +157,35 @@ class Client:
             return agent_data[0].get("state")
         else:
             return "unknown"
+
+    def get_queue_status(self, queue_name):
+        """Get the status of a specified queue.
+
+        :param queue_name
+            Name of the queue to retrieve its agent status
+        :return
+            Dictionary containing the agent_status for the specified queue.
+        """
+        endpoint = "/v1/queues/{}/agents".format(queue_name)
+        data = json.loads(self.get(endpoint))
+        queue_status = {
+            "total": 0,
+            "waiting": 0,
+            "busy": 0,
+            "offline": 0,
+        }
+        for agent in data:
+            queue_status["total"] += 1
+
+            # Determine the status of each agent in queue
+            if agent["state"] == "waiting":
+                queue_status["waiting"] += 1
+            elif agent["state"] == "offline":
+                queue_status["offline"] += 1
+            else:
+                queue_status["busy"] += 1
+
+        return queue_status
 
     def post_job_state(self, job_id, state):
         """Post the status of a test job.
@@ -309,5 +337,11 @@ class Client:
     def get_agents_on_queue(self, queue):
         """Get the list of all agents listening to a specified queue."""
         endpoint = f"/v1/queues/{queue}/agents"
+        data = self.get(endpoint)
+        return json.loads(data)
+
+    def get_jobs_in_queue(self, queue_name):
+        """Get the total number of jobs waiting in queue."""
+        endpoint = "/v1/job/queues/{}".format(queue_name)
         data = self.get(endpoint)
         return json.loads(data)
