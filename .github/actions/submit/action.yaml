@@ -34,6 +34,8 @@ runs:
   steps:
     - name: Bypass aproxy (for private-endpoint runners)
       if: startsWith(runner.name, 'private-')
+      env:
+        SERVER: ${{ inputs.server }}
       shell: bash
       run: |
         echo "::group::Bypass aproxy (private-endpoint runner)"
@@ -41,7 +43,7 @@ runs:
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -qqy dnsutils
         sudo snap set aproxy listen=:28443
         sudo nft -f - << EOF
-        define testflinger-ips = { $(dig +short testflinger.canonical.com | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | tr '\n' ',') }
+        define testflinger-ips = { $(dig +short $SERVER | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | tr '\n' ',') }
         define default-ip = $(ip route get $(ip route show 0.0.0.0/0 | grep -oP 'via \K\S+') | grep -oP 'src \K\S+')
         define exclude-ips = { 10.0.0.0/8, 127.0.0.1/8, 172.16.0.0/12, 192.168.0.0/16, \$testflinger-ips }
         table ip aproxy
