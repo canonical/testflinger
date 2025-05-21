@@ -39,8 +39,7 @@ runs:
       shell: bash
       run: |
         echo "::group::Bypass aproxy (private-endpoint runner)"
-        sudo DEBIAN_FRONTEND=noninteractive apt-get -qqy update && \
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -qqy dnsutils
+        sudo apt-get -qq update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -qqy dnsutils
         sudo snap set aproxy listen=:28443
         sudo nft -f - << EOF
         define testflinger-ips = { $(dig +short $SERVER | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | tr '\n' ',') }
