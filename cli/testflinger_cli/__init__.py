@@ -21,6 +21,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import sys
 import tarfile
 import tempfile
@@ -376,6 +377,11 @@ class TestflingerCli:
             default=None,
             help="Secret key to be used with client id for authentication",
         )
+        parser.add_argument(
+            "--json",
+            action="store_true",
+            help="Output agent name, job id and reserved IP in JSON format",
+        )
         relative = parser.add_mutually_exclusive_group()
         relative.add_argument(
             "--attachments-relative-to",
@@ -529,6 +535,10 @@ class TestflingerCli:
                 sys.exit(1)
         job_dict = yaml.safe_load(data)
 
+        if self.args.json and "reserve_data" not in job_dict:
+            logger.exception("Parameter --json is only for reservation jobs!")
+            sys.exit(1)
+
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
         queue = job_dict.get("job_queue")
@@ -557,6 +567,10 @@ class TestflingerCli:
                     )
 
         self.history.new(job_id, queue)
+        if self.args.json:
+            print(job_id, file=sys.stderr)
+            self.do_silentpoll(job_id)
+            return
         if self.args.quiet:
             print(job_id)
         else:
@@ -885,6 +899,47 @@ class TestflingerCli:
                 # Ignore/retry or debug any connection errors or timeouts
                 if self.args.debug:
                     logger.exception("Error polling for serial output")
+
+    def do_silentpoll(self, job_id):
+        """Poll for output from a running job, print only JSON output.
+
+        :param str job_id: Job ID
+        """
+        data = {"rc": 1, "job_id": job_id, "ip": ""}
+        old_job_state = "unknown"
+        job_state = self.get_job_state(job_id)
+        self.history.update(job_id, job_state)
+        done = False
+        while not done:
+            try:
+                job_state = self.get_job_state(job_id)
+                if job_state != old_job_state:
+                    print(
+                        f"Job state changed: {old_job_state} -> {job_state}",
+                        file=sys.stderr,
+                    )
+                    old_job_state = job_state
+                self.history.update(job_id, job_state)
+                if job_state in ("cancelled", "complete", "completed"):
+                    break
+                time.sleep(10)
+                output = self.get_latest_output(job_id)
+                if output:
+                    for line in output.splitlines():
+                        if "You can now connect to" in line:
+                            match = re.search(r"@([0-9.]+)", line)
+                            if match:
+                                ip = match.group(1)
+                                print(f"Found IP: {ip}", file=sys.stderr)
+                                data["rc"] = 0
+                                data["ip"] = ip
+                            done = True
+                            break
+            except (IOError, client.HTTPError):
+                # Ignore/retry or debug any connection errors or timeouts
+                pass
+        data["job_state"] = job_state
+        print(json.dumps(data, indent=2))
 
     def jobs(self):
         """List the previously started test jobs."""

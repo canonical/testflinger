@@ -133,6 +133,25 @@ def test_submit_bad_data(tmp_path, requests_mock):
     )
 
 
+def test_submit_with_json_paramater(capsys, tmp_path, requests_mock):
+    """Make sure jobid is read back from submitted job."""
+    jobid = str(uuid.uuid1())
+    fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+    fake_return = {"job_id": jobid}
+    requests_mock.post(URL + "/v1/job", json=fake_return)
+    requests_mock.get(
+        URL + "/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+    sys.argv = ["", "submit", "--json", str(testfile)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as err:
+        tfcli.submit()
+    assert err.value.code == 1
+
+
 def test_pack_attachments(tmp_path):
     """Make sure attachments are packed correctly."""
     attachments = [
