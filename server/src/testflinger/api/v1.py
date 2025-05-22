@@ -379,34 +379,6 @@ def search_jobs(query_data):
     return jsonify(list(jobs))
 
 
-@v1.get("/job/queues/<queue_name>")
-def get_jobs_by_queue(queue_name):
-    """Get the jobs in a specified queue along with its state.
-
-    :param queue_name
-        String with the queue name where to perform the query.
-    :return:
-        JSON data with the jobs allocated to the specified queue.
-    """
-    response = list(
-        database.mongo.db.jobs.find({"job_data.job_queue": queue_name})
-    )
-
-    if not response:
-        return [], 204
-
-    jobs_in_queue = [
-        {
-            "job_id": job.get("job_id"),
-            "created_at": job.get("created_at"),
-            "job_state": job.get("result_data", {}).get("job_state"),
-        }
-        for job in response
-    ]
-
-    return jsonify(jobs_in_queue)
-
-
 @v1.post("/result/<job_id>")
 @v1.input(schemas.Result, location="json")
 def result_post(job_id, json_data):

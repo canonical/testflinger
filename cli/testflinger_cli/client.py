@@ -21,6 +21,7 @@ import json
 import logging
 import sys
 import urllib.parse
+from collections import Counter
 from pathlib import Path
 
 import requests
@@ -164,28 +165,23 @@ class Client:
         :param queue_name
             Name of the queue to retrieve its agent status
         :return
-            Dictionary containing the agent_status for the specified queue.
+            collections.Counter with the status of the agents
+            for the specified queue.
         """
         endpoint = "/v1/queues/{}/agents".format(queue_name)
         data = json.loads(self.get(endpoint))
-        queue_status = {
-            "total": 0,
-            "waiting": 0,
-            "busy": 0,
-            "offline": 0,
-        }
+
+        agents = Counter()
+
         for agent in data:
-            queue_status["total"] += 1
+            status = (
+                agent["state"]
+                if agent["state"] in ("waiting", "offline")
+                else "busy"
+            )
+            agents[status] += 1
 
-            # Determine the status of each agent in queue
-            if agent["state"] == "waiting":
-                queue_status["waiting"] += 1
-            elif agent["state"] == "offline":
-                queue_status["offline"] += 1
-            else:
-                queue_status["busy"] += 1
-
-        return queue_status
+        return agents
 
     def post_job_state(self, job_id, state):
         """Post the status of a test job.
@@ -342,6 +338,6 @@ class Client:
 
     def get_jobs_in_queue(self, queue_name):
         """Get the total number of jobs waiting in queue."""
-        endpoint = "/v1/job/queues/{}".format(queue_name)
+        endpoint = "/v1/queues/{}/jobs".format(queue_name)
         data = self.get(endpoint)
         return json.loads(data)

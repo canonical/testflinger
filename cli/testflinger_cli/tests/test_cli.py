@@ -717,13 +717,15 @@ def test_queue_status(capsys, requests_mock):
     requests_mock.get(
         URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
     )
-    requests_mock.get(URL + "/v1/job/queues/" + fake_queue, json=fake_job_data)
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
+    )
     sys.argv = ["", "queue-status", fake_queue]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.queue_status()
     std = capsys.readouterr()
-    assert "Total agents in queue: 2" in std.out
-    assert "Available:             0" in std.out
-    assert "Busy:                  1" in std.out
-    assert "Offline:               1" in std.out
-    assert "Jobs waiting:          1" in std.out
+    assert "Agents in queue: 2" in std.out
+    assert "Available:       0" in std.out
+    assert "Busy:            1" in std.out
+    assert "Offline:         1" in std.out
+    assert "Jobs waiting:    1" in std.out

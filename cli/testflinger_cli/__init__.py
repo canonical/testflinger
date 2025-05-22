@@ -29,6 +29,7 @@ import time
 from argparse import ArgumentParser
 from datetime import datetime, timezone
 from functools import partial
+from http import HTTPStatus
 from pathlib import Path
 from typing import Optional
 
@@ -284,6 +285,9 @@ class TestflingerCli:
         )
         parser.set_defaults(func=self.agent_status)
         parser.add_argument("agent_name")
+        parser.add_argument(
+            "--json", action="store_true", help="Print output in JSON format"
+        )
 
     def _add_queue_status_args(self, subparsers):
         """Command line arguments for queue status."""
@@ -293,6 +297,9 @@ class TestflingerCli:
         )
         parser.set_defaults(func=self.queue_status)
         parser.add_argument("queue_name")
+        parser.add_argument(
+            "--json", action="store_true", help="Print output in JSON format"
+        )
 
     def _add_results_args(self, subparsers):
         """Command line arguments for results."""
@@ -363,8 +370,14 @@ class TestflingerCli:
         """Show the status of a specified AGENT_NAME."""
         agent_state = self.get_agent_state(self.args.agent_name)
         if agent_state != "unknown":
-            self.history.update(self.args.agent_name, agent_state)
-            print(agent_state)
+            if self.args.json:
+                print(
+                    json.dumps(
+                        {"agent": self.args.agent_name, "status": agent_state}
+                    )
+                )
+            else:
+                print(agent_state)
         else:
             print(
                 "Unable to retrieve agent state from the server, check your "
@@ -376,12 +389,24 @@ class TestflingerCli:
         queue_state = self.get_queue_state(self.args.queue_name)
         jobs_queued = self.get_queued_jobs(self.args.queue_name)
         if queue_state != "unknown":
-            self.history.update(self.args.queue_name, queue_state)
-            print("Total agents in queue: {}".format(queue_state["total"]))
-            print("Available:             {}".format(queue_state["waiting"]))
-            print("Busy:                  {}".format(queue_state["busy"]))
-            print("Offline:               {}".format(queue_state["offline"]))
-            print("Jobs waiting:          {}".format(jobs_queued))
+            if self.args.json:
+                print(
+                    json.dumps(
+                        {
+                            "total_agents": queue_state.total(),
+                            "available_agents": queue_state["waiting"],
+                            "busy_agents": queue_state["busy"],
+                            "offline_agents": queue_state["offline"],
+                            "jobs_waiting": jobs_queued,
+                        }
+                    )
+                )
+            else:
+                print("Agents in queue: {}".format(queue_state.total()))
+                print("Available:       {}".format(queue_state["waiting"]))
+                print("Busy:            {}".format(queue_state["busy"]))
+                print("Offline:         {}".format(queue_state["offline"]))
+                print("Jobs waiting:    {}".format(jobs_queued))
         else:
             print(
                 "Unable to retrieve queue state from the server, check your "
@@ -1045,12 +1070,12 @@ class TestflingerCli:
         try:
             return self.client.get_agent_status(agent_name)
         except client.HTTPError as exc:
-            if exc.status == 204:
+            if exc.status == HTTPStatus.NO_CONTENT:
                 sys.exit(
                     "Invalid agent was specified. Check the agent name "
                     "to make sure its correct."
                 )
-            if exc.status == 404:
+            if exc.status == HTTPStatus.NOT_FOUND:
                 sys.exit(
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
@@ -1071,12 +1096,12 @@ class TestflingerCli:
         try:
             return self.client.get_queue_status(queue_name)
         except client.HTTPError as exc:
-            if exc.status == 204:
+            if exc.status == HTTPStatus.NO_CONTENT:
                 sys.exit(
                     "Invalid queue specified. Check the queue name "
                     "to make sure its correct."
                 )
-            if exc.status == 404:
+            if exc.status == HTTPStatus.NOT_FOUND:
                 sys.exit(
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
@@ -1103,9 +1128,9 @@ class TestflingerCli:
             )
             return jobs_waiting
         except client.HTTPError as exc:
-            if exc.status == 204:
+            if exc.status == HTTPStatus.NO_CONTENT:
                 return 0
-            if exc.status == 404:
+            if exc.status == HTTPStatus.NOT_FOUND:
                 sys.exit(
                     "Received 404 error from server. Are you "
                     "sure this is a testflinger server?"
