@@ -534,7 +534,9 @@ class TestflingerCli:
             data = sys.stdin.read()
         else:
             try:
-                data = self.args.filename.read_text(encoding="utf-8", errors="ignore")
+                data = self.args.filename.read_text(
+                    encoding="utf-8", errors="ignore"
+                )
             except (PermissionError, FileNotFoundError):
                 logger.exception("Cannot read file %s", self.args.filename)
                 sys.exit(1)
