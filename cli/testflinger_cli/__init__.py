@@ -530,15 +530,14 @@ class TestflingerCli:
 
     def submit(self):
         """Submit a new test job to the server."""
-        try:
-            data = (
-                self.args.filename.read_text(encoding="utf-8", errors="ignore")
-                if self.args.filename
-                else sys.stdin.read()
-            )
-        except (PermissionError, FileNotFoundError) as exc:
-            logger.exception(exc)
-            sys.exit(1)
+        if not self.args.filename:
+            data = sys.stdin.read()
+        else:
+            try:
+                data = self.args.filename.read_text(encoding="utf-8", errors="ignore")
+            except (PermissionError, FileNotFoundError):
+                logger.exception("Cannot read file %s", self.args.filename)
+                sys.exit(1)
         job_dict = yaml.safe_load(data)
 
         # Check if agents are available to handle this queue
