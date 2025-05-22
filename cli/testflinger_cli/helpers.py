@@ -66,7 +66,7 @@ def prompt_for_image(images: list[dict[str, str]]) -> str:
     image = ""
     while not image:
         image = input(
-            f"\nEnter the name of the image you want to use {flex_url} ('?' to list): "
+            f"\nEnter the image you wish to use {flex_url} ('?' to list): "
         ).strip()
         if not image:
             continue
@@ -123,7 +123,7 @@ def prompt_for_queue(queues: list[dict[str, str]]) -> str:
     queue = ""
     while not queue:
         queue = input(
-            "\nEnter the name of the queue you want to use ('?' to list): "
+            "\nEnter the queue you wish to use ('?' to list): "
         ).strip()
         if not queue:
             continue
