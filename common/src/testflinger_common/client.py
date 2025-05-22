@@ -82,7 +82,7 @@ class Client:
         stream: Optional[bool] = None,
         timeout_sec: float = 15,
     ) -> requests.Response:
-        """Post data to the server."""
+        """Get data from the server."""
         url = urllib.parse.urljoin(self.server, endpoint)
         response = self.session.get(
             url,
