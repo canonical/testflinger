@@ -83,31 +83,6 @@ curl 'http://localhost:8000/v1/job/search?tags=foo&tags=bar&match=all'
 
 This will find jobs tagged with both "foo" and "bar".
 
-## `[GET] /v1/job/queues/<queue_name>`
-
-Search for jobs in a specified queue. 
-
-Parameters:
-
-`queue_name` (string): queue name(s) where to get the jobs. 
-
-Status Codes:
-
-- `HTTP 200 (OK)`
-- `HTTP 204 (NO DATA)`: if there are no jobs in the specified queue. 
-
-Returns:
-
-JSON job data with information about the ID, creation time and state for jobs in the specified queue. 
-
-Example:
-
-```shell
-curl 'http://localhost:8000/v1/job/queues/foo'
-```
-
-This will find jobs in the queue `foo` and return its IDs, creation time and state. 
-
 ## `[POST] /v1/result/<job_id>`
 
 Post job outcome data for the specified job_id
