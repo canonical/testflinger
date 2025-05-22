@@ -160,7 +160,9 @@ class Client:
         """Submit a test job's attachments to the server."""
         endpoint = f"/v1/job/{job_id}/attachments"
         mime = "application/x-gzip"
-        response = self.post_file(endpoint, tarball, mime, timeout_sec=timeout_sec)
+        response = self.post_file(
+            endpoint, tarball, mime, timeout_sec=timeout_sec
+        )
         try:
             result = response.json()
         except requests.JSONDecodeError:
