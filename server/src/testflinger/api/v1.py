@@ -19,6 +19,7 @@ import importlib.metadata
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
+from http import HTTPStatus
 
 import bcrypt
 import jwt
@@ -376,34 +377,6 @@ def search_jobs(query_data):
     jobs = database.mongo.db.jobs.aggregate(pipeline)
 
     return jsonify(list(jobs))
-
-
-@v1.get("/job/queues/<queue_name>")
-def get_jobs_by_queue(queue_name):
-    """Get the jobs in a specified queue along with its state.
-
-    :param queue_name
-        String with the queue name where to perform the query.
-    :return:
-        JSON data with the jobs allocated to the specified queue.
-    """
-    response = list(
-        database.mongo.db.jobs.find({"job_data.job_queue": queue_name})
-    )
-
-    if not response:
-        return [], 204
-
-    jobs_in_queue = [
-        {
-            "job_id": job.get("job_id"),
-            "created_at": job.get("created_at"),
-            "job_state": job.get("result_data", {}).get("job_state"),
-        }
-        for job in response
-    ]
-
-    return jsonify(jobs_in_queue)
 
 
 @v1.post("/result/<job_id>")
@@ -861,6 +834,34 @@ def queue_wait_time_percentiles_get():
 def get_agents_on_queue(queue_name):
     """Get the list of all data for agents listening to a specified queue."""
     return database.get_agents_on_queue(queue_name)
+
+
+@v1.get("/queues/<queue_name>/jobs")
+def get_jobs_by_queue(queue_name):
+    """Get the jobs in a specified queue along with its state.
+
+    :param queue_name
+        String with the queue name where to perform the query.
+    :return:
+        JSON data with the jobs allocated to the specified queue.
+    """
+    jobs = list(
+        database.mongo.db.jobs.find({"job_data.job_queue": queue_name})
+    )
+
+    if not jobs:
+        return [], HTTPStatus.NO_CONTENT
+
+    jobs_in_queue = [
+        {
+            "job_id": job.get("job_id"),
+            "created_at": job.get("created_at"),
+            "job_state": job.get("result_data", {}).get("job_state"),
+        }
+        for job in jobs
+    ]
+
+    return jsonify(jobs_in_queue)
 
 
 def generate_token(allowed_resources, secret_key):
