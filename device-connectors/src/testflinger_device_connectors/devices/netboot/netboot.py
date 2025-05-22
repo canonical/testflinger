@@ -182,9 +182,10 @@ class Netboot:
         # FIXME: Specify exception instead of `Exception`
         # Any connection error will fail through the normal path
         logger.info("Checking if master image booted: %s", check_url)
-        with contextlib.suppress(Exception), urllib.request.urlopen(
-            check_url
-        ) as url:
+        with (
+            contextlib.suppress(Exception),
+            urllib.request.urlopen(check_url) as url,
+        ):
             data = url.read()
         if "Snappy Test Device Imager" in str(data):
             return True
