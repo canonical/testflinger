@@ -35,7 +35,8 @@ import argcomplete
 import requests
 import yaml
 
-from testflinger_cli import autocomplete, client, config, history
+from testflinger_cli import autocomplete, client, config, helpers, history
+from testflinger_cli.errors import AttachmentError, SnapPrivateFileError
 
 logger = logging.getLogger(__name__)
 
@@ -127,10 +128,6 @@ def _print_queue_message():
     )
 
 
-class AttachmentError(Exception):
-    """Exception thrown when attachments fail to be submitted."""
-
-
 class TestflingerCli:
     """Class for handling the Testflinger CLI."""
 
@@ -182,7 +179,7 @@ class TestflingerCli:
         parser.add_argument(
             "-c",
             "--configfile",
-            type=Path,
+            type=helpers.parse_filename,
             default=None,
             help="Configuration file to use",
         )
@@ -207,7 +204,10 @@ class TestflingerCli:
         self._add_submit_args(subparsers)
 
         argcomplete.autocomplete(parser)
-        self.args = parser.parse_args()
+        try:
+            self.args = parser.parse_args()
+        except SnapPrivateFileError as exc:
+            parser.error(exc)
         self.help = parser.format_help()
 
     def _add_artifacts_args(self, subparsers):
@@ -217,7 +217,9 @@ class TestflingerCli:
             help="Download a tarball of artifacts saved for a specified job",
         )
         parser.set_defaults(func=self.artifacts)
-        parser.add_argument("--filename", type=Path, default="artifacts.tgz")
+        parser.add_argument(
+            "--filename", type=helpers.parse_filename, default="artifacts.tgz"
+        )
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
         )
@@ -361,7 +363,7 @@ class TestflingerCli:
         parser.add_argument("--wait-for-available-agents", action="store_true")
         parser.add_argument(
             "filename",
-            type=Path,
+            type=partial(helpers.parse_filename, parse_stdin=True),
             help="YAML or JSON file with your job definition, '-' for stdin",
         ).completer = argcomplete.completers.FilesCompleter(
             allowednames=("*.yaml", "*.yml", "*.json")
@@ -465,9 +467,12 @@ class TestflingerCli:
         if self.args.relative:
             # provided as a command-line argument
             reference = Path(self.args.relative).resolve(strict=True)
+        elif not self.args.filename:
+            # no job file provided: use the current working directory
+            reference = Path(".").resolve(strict=True)
         else:
             # retrieved from the directory where the job file is contained
-            reference = Path(self.args.filename).parent.resolve(strict=True)
+            reference = self.args.filename.parent.resolve(strict=True)
 
         with tarfile.open(archive, "w:gz") as tar:
             for phase, attachments in attachment_data.items():
@@ -498,7 +503,15 @@ class TestflingerCli:
                             # just use the filename
                             agent_path = local_path.name
                     archive_path = phase_path / agent_path
-                    tar.add(local_path, arcname=archive_path)
+                    try:
+                        tar.add(local_path, arcname=archive_path)
+                    except FileNotFoundError as exc:
+                        if (
+                            helpers.is_snap()
+                            and helpers.file_is_in_snap_private_dir(local_path)
+                        ):
+                            raise SnapPrivateFileError(local_path) from exc
+                        raise
                     # side effect: strip "local" information
                     attachment["agent"] = str(agent_path)
                     del attachment["local"]
@@ -517,15 +530,15 @@ class TestflingerCli:
 
     def submit(self):
         """Submit a new test job to the server."""
-        if self.args.filename.name == "-":
+        if not self.args.filename:
             data = sys.stdin.read()
         else:
             try:
                 data = self.args.filename.read_text(
                     encoding="utf-8", errors="ignore"
                 )
-            except (PermissionError, FileNotFoundError) as error:
-                logger.exception(error)
+            except (PermissionError, FileNotFoundError):
+                logger.exception("Cannot read file %s", self.args.filename)
                 sys.exit(1)
         job_dict = yaml.safe_load(data)
 
