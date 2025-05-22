@@ -21,6 +21,7 @@ import json
 import logging
 import sys
 import urllib.parse
+from collections import Counter
 from pathlib import Path
 
 import requests
@@ -138,6 +139,49 @@ class Client:
         endpoint = "/v1/result/{}".format(job_id)
         data = json.loads(self.get(endpoint))
         return data.get("job_state")
+
+    def get_agent_status(self, agent_name):
+        """Get the status of a specified agent.
+
+        :param agent_name
+            Name of the agent to retrieve status from
+        :return
+            String containing the agent_state for the specified agent.
+        """
+        endpoint = "/v1/agents/data"
+        data = json.loads(self.get(endpoint))
+        agent_data = next(
+            (agent for agent in data if agent["name"] == agent_name), None
+        )
+
+        if agent_data:
+            return agent_data.get("state")
+        else:
+            return "unknown"
+
+    def get_queue_status(self, queue_name):
+        """Get the status of a specified queue.
+
+        :param queue_name
+            Name of the queue to retrieve its agent status
+        :return
+            collections.Counter with the status of the agents
+            for the specified queue.
+        """
+        endpoint = "/v1/queues/{}/agents".format(queue_name)
+        data = json.loads(self.get(endpoint))
+
+        agents = Counter()
+
+        for agent in data:
+            status = (
+                agent["state"]
+                if agent["state"] in ("waiting", "offline")
+                else "busy"
+            )
+            agents[status] += 1
+
+        return agents
 
     def post_job_state(self, job_id, state):
         """Post the status of a test job.
@@ -289,5 +333,11 @@ class Client:
     def get_agents_on_queue(self, queue):
         """Get the list of all agents listening to a specified queue."""
         endpoint = f"/v1/queues/{queue}/agents"
+        data = self.get(endpoint)
+        return json.loads(data)
+
+    def get_jobs_in_queue(self, queue_name):
+        """Get the total number of jobs waiting in queue."""
+        endpoint = "/v1/queues/{}/jobs".format(queue_name)
         data = self.get(endpoint)
         return json.loads(data)

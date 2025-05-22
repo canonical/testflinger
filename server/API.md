@@ -370,6 +370,31 @@ Example:
 curl http://localhost:8000/v1/queues/foo/agents
 ```
 
+## `[GET] /v1/queues/<queue_name>/jobs`
+
+Search for jobs in a specified queue. 
+
+Parameters:
+
+`queue_name` (string): queue name(s) where to get the jobs. 
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 204 (NO DATA)`: if there are no jobs in the specified queue. 
+
+Returns:
+
+JSON job data with information about the ID, creation time and state for jobs in the specified queue. 
+
+Example:
+
+```shell
+curl 'http://localhost:8000/v1/queues/foo/jobs'
+```
+
+This will find jobs in the queue `foo` and return its IDs, creation time and state. 
+
 ## `[POST] /v1/oauth2/token`
 
 Authenticate client key and return JWT with permissions
