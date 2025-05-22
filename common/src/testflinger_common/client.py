@@ -72,6 +72,52 @@ class Client:
         """Create an authorization header for the client."""
         return {"Authorization": self.token} if self.token else None
 
+    def get(
+        self,
+        endpoint: str,
+        headers: Optional[dict] = None,
+        params: Optional[dict] = None,
+        json: Optional[dict] = None,
+        files: Optional[dict] = None,
+        stream: Optional[bool] = None,
+        timeout_sec: float = 15,
+    ) -> requests.Response:
+        """Post data to the server."""
+        url = urllib.parse.urljoin(self.server, endpoint)
+        response = self.session.get(
+            url,
+            headers=headers,
+            params=params,
+            json=json,
+            files=files,
+            stream=stream,
+            timeout=timeout_sec,
+        )
+        response.raise_for_status()
+        return response
+
+    def post(
+        self,
+        endpoint: str,
+        headers: Optional[dict] = None,
+        params: Optional[dict] = None,
+        json: Optional[dict] = None,
+        files: Optional[dict] = None,
+        timeout_sec: float = 15,
+    ) -> requests.Response:
+        """Post data to the server."""
+        url = urllib.parse.urljoin(self.server, endpoint)
+        response = self.session.post(
+            url,
+            headers=headers,
+            params=params,
+            json=json,
+            files=files,
+            timeout=timeout_sec,
+        )
+        response.raise_for_status()
+        return response
+
     def submit_job(self, job_data: dict) -> str:
         """Submit a test job to the server."""
         headers = self.auth_headers
@@ -259,49 +305,3 @@ class Client:
     def post_job_action(self, job_id: str, action: str) -> None:
         """Post an action to a test job."""
         self.post(f"/v1/job/{job_id}/action", json={"action": action})
-
-    def get(
-        self,
-        endpoint: str,
-        headers: Optional[dict] = None,
-        params: Optional[dict] = None,
-        json: Optional[dict] = None,
-        files: Optional[dict] = None,
-        stream: Optional[bool] = None,
-        timeout_sec: float = 15,
-    ) -> requests.Response:
-        """Post data to the server."""
-        url = urllib.parse.urljoin(self.server, endpoint)
-        response = self.session.get(
-            url,
-            headers=headers,
-            params=params,
-            json=json,
-            files=files,
-            stream=stream,
-            timeout=timeout_sec,
-        )
-        response.raise_for_status()
-        return response
-
-    def post(
-        self,
-        endpoint: str,
-        headers: Optional[dict] = None,
-        params: Optional[dict] = None,
-        json: Optional[dict] = None,
-        files: Optional[dict] = None,
-        timeout_sec: float = 15,
-    ) -> requests.Response:
-        """Post data to the server."""
-        url = urllib.parse.urljoin(self.server, endpoint)
-        response = self.session.post(
-            url,
-            headers=headers,
-            params=params,
-            json=json,
-            files=files,
-            timeout=timeout_sec,
-        )
-        response.raise_for_status()
-        return response
