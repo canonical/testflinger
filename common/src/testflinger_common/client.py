@@ -96,6 +96,15 @@ class Client:
         response.raise_for_status()
         return response
 
+    def get_file(
+        self, endpoint: str, path: Path, timeout_sec: float = 30
+    ) -> None:
+        """Get a file from the server."""
+        response = self.get(endpoint, timeout_sec=timeout_sec, stream=True)
+        with path.open("wb") as file:
+            for chunk in response.iter_content(chunk_size=4096):
+                file.write(chunk)
+
     def post(
         self,
         endpoint: str,
@@ -142,10 +151,7 @@ class Client:
     ) -> None:
         """Get the attachments of a test job."""
         endpoint = f"/v1/job/{job_id}/attachments"
-        response = self.get(endpoint, timeout_sec=timeout_sec, stream=True)
-        with path.open("wb") as attachments:
-            for chunk in response.iter_content(chunk_size=4096):
-                attachments.write(chunk)
+        self.get_file(endpoint, path, timeout_sec=timeout_sec)
 
     def post_job_results(self, job_id: str, data: dict) -> None:
         """Post the results of a test job."""
@@ -161,10 +167,7 @@ class Client:
     ) -> None:
         """Get the artifacts of a test job."""
         endpoint = f"/v1/result/{job_id}/artifact"
-        response = self.get(endpoint, timeout_sec=timeout_sec, stream=True)
-        with path.open("wb") as artifacts:
-            for chunk in response.iter_content(chunk_size=4096):
-                artifacts.write(chunk)
+        self.get_file(endpoint, path, timeout_sec=timeout_sec)
 
     def post_job_artifacts(self, job_id: str, tarball: Path) -> None:
         """Post the artifacts of a test job."""
