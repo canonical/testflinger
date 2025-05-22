@@ -14,6 +14,7 @@
 
 """Ubuntu Raspberry PI cm3 support code."""
 
+import contextlib
 import json
 import logging
 import os
@@ -47,8 +48,7 @@ class CM3:
             self.job_data = json.load(j)
 
     def _run_control(self, cmd, timeout=60):
-        """
-        Run a command on the control host over ssh
+        """Run a command on the control host over ssh.
 
         :param cmd:
             Command to run
@@ -73,25 +73,25 @@ class CM3:
                 ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout
             )
         except subprocess.CalledProcessError as e:
-            raise ProvisioningError(e.output)
+            raise ProvisioningError(e.output) from e
         return output
 
     def provision(self):
         try:
             url = self.job_data["provision_data"]["url"]
-        except KeyError:
+        except KeyError as err:
             raise ProvisioningError(
                 'You must specify a "url" value in '
                 'the "provision_data" section of '
                 "your job_data"
-            )
+            ) from err
+        # FIXME: Specify exception instead of `Exception`
         # Remove /dev/sda if somehow it's a normal file
-        try:
+        with contextlib.suppress(Exception):
             self._run_control("test -f /dev/sda")
             # paranoid, but be really certain we're not running locally
             self._run_control("sudo rm -f /dev/sda")
-        except Exception:
-            pass
+
         self._run_control("sudo pi3gpio set high 16")
         time.sleep(5)
         self.hardreset()
@@ -116,7 +116,7 @@ class CM3:
             return
         agent_name = self.config.get("agent_name")
         logger.error(
-            "Device %s unreachable after provisioning, deployment " "failed!",
+            "Device %s unreachable after provisioning, deployment failed!",
             agent_name,
         )
         raise ProvisioningError("Provisioning failed!")
@@ -132,8 +132,7 @@ class CM3:
             self._run_control("sudo umount {}".format(mount_point))
 
     def get_image_type(self):
-        """
-        Figure out which kind of image is on the configured block device
+        """Figure out which kind of image is on the configured block device.
 
         :returns:
             tuple of image type and device as strings
@@ -147,15 +146,13 @@ class CM3:
             if x.get("name")
         ]
         for dev in dev_list:
-            try:
-                with self.remote_mount(dev):
-                    dirs = self._run_control("ls /mnt")
-                    for path, img_type in self.IMAGE_PATH_IDS.items():
-                        if path in dirs.decode().split():
-                            return img_type, dev
-            except Exception:
-                # If unmountable or any other error, go on to the next one
-                continue
+            # FIXME: Specify exception instead of `Exception`
+            with contextlib.suppress(Exception), self.remote_mount(dev):
+                dirs = self._run_control("ls /mnt")
+                for path, img_type in self.IMAGE_PATH_IDS.items():
+                    if path in dirs.decode().split():
+                        return img_type, dev
+
         # We have no idea what kind of image this is
         return "unknown", dev
 
@@ -170,7 +167,8 @@ class CM3:
             "test_password", "ubuntu"
         )
         while time.time() - started < 600:
-            try:
+            # FIXME: Specify exception instead of `Exception`
+            with contextlib.suppress(Exception):
                 time.sleep(10)
                 cmd = [
                     "sshpass",
@@ -187,13 +185,11 @@ class CM3:
                     cmd, stderr=subprocess.STDOUT, timeout=60
                 )
                 return True
-            except Exception:
-                pass
         # If we get here, then we didn't boot in time
         raise ProvisioningError("Failed to boot test image!")
 
     def create_user(self, image_type):
-        """Create user account for default ubuntu user"""
+        """Create user account for default ubuntu user."""
         metadata = "instance_id: cloud-image"
         userdata = (
             "#cloud-config\n"
@@ -253,12 +249,11 @@ class CM3:
                         )
                     )
                     self._run_control(rm_cmd)
-        except Exception:
-            raise ProvisioningError("Error creating user files")
+        except Exception as e:
+            raise ProvisioningError("Error creating user files") from e
 
     def hardreset(self):
-        """
-        Reboot the device.
+        """Reboot the device.
 
         :raises RecoveryError:
             If the command times out or anything else fails.
@@ -271,5 +266,5 @@ class CM3:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
-            except Exception:
-                raise RecoveryError("timeout reaching control host!")
+            except Exception as e:
+                raise RecoveryError("timeout reaching control host!") from e

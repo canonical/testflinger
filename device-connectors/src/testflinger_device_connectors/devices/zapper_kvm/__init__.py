@@ -23,14 +23,15 @@ import subprocess
 from typing import Any, Dict, Optional, Tuple
 
 import yaml
+
 from testflinger_device_connectors.devices import ProvisioningError
-from testflinger_device_connectors.devices.zapper import ZapperConnector
-from testflinger_device_connectors.devices.oemscript import OemScript
+from testflinger_device_connectors.devices.dell_oemscript import DellOemScript
+from testflinger_device_connectors.devices.hp_oemscript import HPOemScript
 from testflinger_device_connectors.devices.lenovo_oemscript import (
     LenovoOemScript,
 )
-from testflinger_device_connectors.devices.dell_oemscript import DellOemScript
-from testflinger_device_connectors.devices.hp_oemscript import HPOemScript
+from testflinger_device_connectors.devices.oemscript import OemScript
+from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +42,7 @@ class DeviceConnector(ZapperConnector):
     PROVISION_METHOD = "ProvisioningKVM"
 
     def _validate_base_user_data(self, encoded_user_data: str):
-        """
-        Assert `base_user_data` argument is a valid base64 encoded YAML.
-        """
+        """Assert `base_user_data` argument is a valid base64 encoded YAML."""
         try:
             user_data = base64.b64decode(encoded_user_data.encode()).decode()
             yaml.safe_load(user_data)
@@ -57,24 +56,22 @@ class DeviceConnector(ZapperConnector):
             ) from exc
 
     def _get_autoinstall_conf(self) -> Optional[Dict[str, Any]]:
-        """
-        Autoinstall-related keys are pre-fixed with `autoinstall_`.
+        """Autoinstall-related keys are pre-fixed with `autoinstall_`.
 
         If any of those arguments are provided and valid, the function
         returns an autoinstall_conf dictionary, including the agent
         SSH public key.
         """
-
         autoinstall_conf = {}
         for key, value in self.job_data["provision_data"].items():
             if "autoinstall_" not in key:
                 continue
 
-            key = key.replace("autoinstall_", "")
+            autoinstall_key = key.replace("autoinstall_", "")
             with contextlib.suppress(AttributeError):
-                getattr(self, f"_validate_{key}")(value)
+                getattr(self, f"_validate_{autoinstall_key}")(value)
 
-            autoinstall_conf[key] = value
+            autoinstall_conf[autoinstall_key] = value
 
         if not autoinstall_conf:
             logger.info("Autoinstall-related keys were not provided.")
@@ -88,11 +85,9 @@ class DeviceConnector(ZapperConnector):
     def _validate_configuration(
         self,
     ) -> Tuple[Tuple, Dict[str, Any]]:
-        """
-        Validate the job config and data and prepare the arguments
+        """Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
-
         if "alloem_url" in self.job_data["provision_data"]:
             url = self.job_data["provision_data"]["alloem_url"]
             username = "ubuntu"
@@ -164,12 +159,10 @@ class DeviceConnector(ZapperConnector):
         self._run_oem_script(args)
 
     def _run_oem_script(self, args):
-        """
-        If "alloem_url" was in scope, the Zapper only restored
+        """If "alloem_url" was in scope, the Zapper only restored
         the OEM reset partition. The usual oemscript will take care
         of the rest.
         """
-
         if not self.job_data["provision_data"].get("url"):
             logger.warning(
                 "Provisioned with base `alloem` image, no test URL specified."
@@ -187,7 +180,6 @@ class DeviceConnector(ZapperConnector):
 
     def _change_password(self, username, orig_password):
         """Change password via SSH to the one specified in the job data."""
-
         password = self.job_data.get("test_data", {}).get(
             "test_password", "ubuntu"
         )

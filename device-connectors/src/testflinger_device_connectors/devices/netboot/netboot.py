@@ -14,6 +14,7 @@
 
 """Netboot support code."""
 
+import contextlib
 import logging
 import subprocess
 import time
@@ -38,8 +39,7 @@ class Netboot:
             self.config = yaml.safe_load(configfile)
 
     def setboot(self, mode):
-        """
-        Set the boot mode of the device.
+        """Set the boot mode of the device.
 
         :param mode:
             One of 'master' or 'test'
@@ -61,8 +61,7 @@ class Netboot:
         self._run_cmd_list(setboot_script)
 
     def _run_cmd_list(self, cmdlist):
-        """
-        Run a list of commands
+        """Run a list of commands.
 
         :param cmdlist:
             List of commands to run
@@ -73,16 +72,17 @@ class Netboot:
             logger.info("Running %s", cmd)
             try:
                 rc = runcmd(cmd, timeout=60)
-            except CmdTimeoutError:
-                raise ProvisioningError("timeout reaching control host!")
+            except CmdTimeoutError as err:
+                raise ProvisioningError(
+                    "timeout reaching control host!"
+                ) from err
             if rc:
                 raise ProvisioningError(
                     "Error running {} (rc={})".format(cmd, rc)
                 )
 
     def hardreset(self):
-        """
-        Reboot the device.
+        """Reboot the device.
 
         :raises RecoveryError:
             If the command times out or anything else fails.
@@ -95,12 +95,11 @@ class Netboot:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
-            except Exception:
-                raise RecoveryError("timeout reaching control host!")
+            except Exception as e:
+                raise RecoveryError("timeout reaching control host!") from e
 
     def ensure_test_image(self, test_username, test_password):
-        """
-        Actively switch the device to boot the test image.
+        """Actively switch the device to boot the test image.
 
         :param test_username:
             Username of the default user in the test image
@@ -138,8 +137,7 @@ class Netboot:
         raise ProvisioningError("Failed to boot test image!")
 
     def is_test_image_booted(self, test_username, test_password):
-        """
-        Check if the test image is booted.
+        """Check if the test image is booted.
 
         :returns:
             True if the test image is currently booted, False otherwise.
@@ -170,8 +168,7 @@ class Netboot:
         return True
 
     def is_master_image_booted(self):
-        """
-        Check if the master image is booted.
+        """Check if the master image is booted.
 
         :returns:
             True if the master image is currently booted, False otherwise.
@@ -181,21 +178,22 @@ class Netboot:
         """
         check_url = "http://{}:8989/check".format(self.config["device_ip"])
         data = ""
-        try:
-            logger.info("Checking if master image booted: %s", check_url)
-            with urllib.request.urlopen(check_url) as url:
-                data = url.read()
-        except Exception:
-            # Any connection error will fail through the normal path
-            pass
+
+        # FIXME: Specify exception instead of `Exception`
+        # Any connection error will fail through the normal path
+        logger.info("Checking if master image booted: %s", check_url)
+        with (
+            contextlib.suppress(Exception),
+            urllib.request.urlopen(check_url) as url,
+        ):
+            data = url.read()
         if "Snappy Test Device Imager" in str(data):
             return True
         else:
             return False
 
     def ensure_master_image(self):
-        """
-        Actively switch the device to boot the test image.
+        """Actively switch the device to boot the test image.
 
         :raises RecoveryError:
             If the command times out or anything else fails.
@@ -218,8 +216,7 @@ class Netboot:
             raise RecoveryError("Could not reboot to master image!")
 
     def flash_test_image(self, server_ip, server_port):
-        """
-        Flash the image at :image_url to the sd card.
+        """Flash the image at :image_url to the sd card.
 
         :param server_ip:
             IP address of the image server. The image will be downloaded and
@@ -241,8 +238,8 @@ class Netboot:
             req = urllib.request.urlopen(url, timeout=1800)
             logger.info("Image write output:")
             logger.info(str(req.read()))
-        except Exception:
-            raise ProvisioningError("Error while flashing image!")
+        except Exception as e:
+            raise ProvisioningError("Error while flashing image!") from e
 
         # Run post-flash hooks
         post_flash_cmds = self.config.get("post_flash_cmds")
@@ -250,9 +247,9 @@ class Netboot:
 
         # Now reboot the target system
         url = "http://{}:8989/reboot".format(self.config["device_ip"])
-        try:
+
+        # FIXME: Specify exception instead of `Exception`
+        # FIXME: This could fail to return right now due to a bug
+        with contextlib.suppress(Exception):
             logger.info("Rebooting target device: %s", url)
             urllib.request.urlopen(url, timeout=10)
-        except Exception:
-            # FIXME: This could fail to return right now due to a bug
-            pass

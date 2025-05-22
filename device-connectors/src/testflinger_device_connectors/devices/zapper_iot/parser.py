@@ -1,15 +1,15 @@
-"""provision yaml verify"""
+"""provision yaml verify."""
 
 import logging
-import validators
 from typing import List
+
+import validators
 
 logger = logging.getLogger(__name__)
 
 
 def validate_urls(urls: List[str]):
-    """
-    Validate whether the provided URL
+    """Validate whether the provided URL
     is valid in terms of format.
 
     We cannot assert for resource availability here,

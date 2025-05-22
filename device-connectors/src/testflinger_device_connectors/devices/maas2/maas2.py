@@ -32,7 +32,6 @@ from testflinger_device_connectors.devices.maas2.maas_storage import (
     MaasStorageError,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -51,19 +50,19 @@ class Maas2:
         self.maas_storage = MaasStorage(self.maas_user, self.node_id)
 
     def _logger_debug(self, message):
-        logger.debug("MAAS: {}".format(message))
+        logger.debug("MAAS: %s", message)
 
     def _logger_info(self, message):
-        logger.info("MAAS: {}".format(message))
+        logger.info("MAAS: %s", message)
 
     def _logger_warning(self, message):
-        logger.warning("MAAS: {}".format(message))
+        logger.warning("MAAS: %s", message)
 
     def _logger_error(self, message):
-        logger.error("MAAS: {}".format(message))
+        logger.error("MAAS: %s", message)
 
     def _logger_critical(self, message):
-        logger.critical("MAAS: {}".format(message))
+        logger.critical("MAAS: %s", message)
 
     def recover(self):
         if self.config.get("reset_efi"):
@@ -176,8 +175,9 @@ class Maas2:
         )
         if p.returncode:
             self._logger_error(
-                'Failed to set efi boot order to "{}":\n'
-                "{}".format(boot_order, p.stdout.decode())
+                'Failed to set efi boot order to "{}":\n{}'.format(
+                    boot_order, p.stdout.decode()
+                )
             )
 
     def reset_efi(self):
@@ -242,8 +242,7 @@ class Maas2:
         return False
 
     def run_maas_cmd_with_retry(self, cmd, max_retries=5, backoff_start=60):
-        """
-        Run maas command with retries on failure
+        """Run maas command with retries on failure.
 
         :param cmd:
             MAAS command to be run
@@ -330,8 +329,7 @@ class Maas2:
         # Do not use runcmd for this - we need the output, not the end user
         proc = self.run_maas_cmd_with_retry(cmd)
         self._logger_info(
-            "Starting node {} "
-            "with distro {}".format(self.agent_name, distro)
+            "Starting node {} with distro {}".format(self.agent_name, distro)
         )
         cmd = [
             "maas",
@@ -357,7 +355,7 @@ class Maas2:
             time.sleep(60)
             minutes_spent += 1
             self._logger_info(
-                "{} minutes passed " "since deployment.".format(minutes_spent)
+                "{} minutes passed since deployment.".format(minutes_spent)
             )
             status = self.node_status()
 
@@ -376,8 +374,9 @@ class Maas2:
                     return
 
         self._logger_error(
-            'Device {} still in "{}" state, deployment '
-            "failed!".format(self.agent_name, status)
+            'Device {} still in "{}" state, deployment failed!'.format(
+                self.agent_name, status
+            )
         )
         self._logger_error(proc.stdout.decode())
         exception_msg = (
@@ -408,7 +407,7 @@ class Maas2:
         return True
 
     def node_status(self):
-        """Return status of the node according to maas:
+        """Return status of the node according to maas.
 
         Ready: Node is unused
         Allocated: Node is allocated
@@ -422,7 +421,7 @@ class Maas2:
         return data.get("status_name")
 
     def node_release(self):
-        """Release the node to make it available again"""
+        """Release the node to make it available again."""
         cmd = ["maas", self.maas_user, "machine", "release", self.node_id]
         subprocess.run(cmd, check=False)
         # Make sure the device is available before returning
@@ -432,13 +431,14 @@ class Maas2:
             if status == "Ready":
                 return
         self._logger_error(
-            'Device {} still in "{}" state, could not '
-            "recover!".format(self.agent_name, status)
+            'Device {} still in "{}" state, could not recover!'.format(
+                self.agent_name, status
+            )
         )
         raise RecoveryError("Device recovery failed!")
 
     def set_flat_storage_layout(self):
-        """Reset to default flat storage layout"""
+        """Reset to default flat storage layout."""
         cmd = [
             "maas",
             self.maas_user,

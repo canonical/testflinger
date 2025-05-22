@@ -13,7 +13,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Device connector to provision Ubuntu OEM on systems
-that support autoinstall and provision-image.sh script"""
+that support autoinstall and provision-image.sh script.
+"""
 
 import logging
 
@@ -31,7 +32,7 @@ class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""
 
     def provision(self, args):
-        """Method called when the command is invoked."""
+        """Provision device when the command is invoked."""
         device = OemAutoinstall(args.config, args.job_data)
         logger.info("BEGIN provision")
         logger.info("Provisioning device")

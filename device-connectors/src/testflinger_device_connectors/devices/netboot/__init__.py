@@ -18,14 +18,14 @@ import logging
 import multiprocessing
 
 import yaml
+
+import testflinger_device_connectors
 from testflinger_device_connectors.devices import (
     DefaultDevice,
     ProvisioningError,
     RecoveryError,
     SerialLogger,
 )
-
-import testflinger_device_connectors
 from testflinger_device_connectors.devices.netboot.netboot import Netboot
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""
 
     def provision(self, args):
-        """Method called when the command is invoked."""
+        """Provision device when the command is invoked."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         device = Netboot(args.config)
@@ -64,8 +64,10 @@ class DeviceConnector(DefaultDevice):
             try:
                 device.ensure_test_image(test_username, test_password)
                 device.ensure_master_image()
-            except ProvisioningError:
-                raise RecoveryError("Unable to put system in a usable state!")
+            except ProvisioningError as err:
+                raise RecoveryError(
+                    "Unable to put system in a usable state!"
+                ) from err
         q = multiprocessing.Queue()
         file_server = multiprocessing.Process(
             target=testflinger_device_connectors.serve_file,

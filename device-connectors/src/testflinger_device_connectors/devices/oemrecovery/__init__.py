@@ -30,7 +30,7 @@ class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""
 
     def provision(self, args):
-        """Method called when the command is invoked."""
+        """Provision device when the command is invoked."""
         device = OemRecovery(args.config, args.job_data)
         logger.info("BEGIN provision")
         logger.info("Provisioning device")

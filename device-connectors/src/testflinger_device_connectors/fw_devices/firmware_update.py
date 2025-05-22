@@ -1,13 +1,14 @@
-"""Detecting device types"""
+"""Detecting device types."""
 
-import subprocess
 import logging
-from testflinger_device_connectors.fw_devices.dmi import Dmi
+import subprocess
+
 from testflinger_device_connectors.fw_devices import (
     AbstractDevice,
     LVFSDevice,
     OEMDevice,
 )
+from testflinger_device_connectors.fw_devices.dmi import Dmi
 
 logger = logging.getLogger()
 
@@ -24,8 +25,7 @@ def all_subclasses(cls):
 def detect_device(
     ip: str, user: str, password: str = "", **options
 ) -> AbstractDevice:
-    """
-    Detect device's firmware upgrade type by checking on DMI data
+    """Detect device's firmware upgrade type by checking on DMI data.
 
     :param ip:        DUT IP
     :param user:      DUT user
@@ -48,7 +48,7 @@ def detect_device(
         )
     except subprocess.CalledProcessError as err:
         logger.error(err.output)
-        raise RuntimeError(err.output)
+        raise RuntimeError(err.output) from err
 
     err_msg = ""
     if rc1 != 0:
@@ -79,9 +79,9 @@ def detect_device(
             and any(x == vendor_string for x in dev.vendor)
         ][0]
         logger.info("%s is a %s %s", ip, vendor_string, dev.__name__)
-    except IndexError:
+    except IndexError as err:
         logger.error(err_msg)
-        raise RuntimeError(err_msg)
+        raise RuntimeError(err_msg) from err
 
     if issubclass(dev, LVFSDevice):
         return dev(ip, user, password)

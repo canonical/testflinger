@@ -36,8 +36,7 @@ class Noprovision:
             self.config = yaml.safe_load(configfile)
 
     def hardreset(self):
-        """
-        Reboot the device.
+        """Reboot the device.
 
         :raises RecoveryError:
             If the command times out or anything else fails.
@@ -50,12 +49,11 @@ class Noprovision:
             logger.info("Running %s", cmd)
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
-            except subprocess.TimeoutExpired:
-                raise RecoveryError("timeout reaching control host!")
+            except subprocess.TimeoutExpired as e:
+                raise RecoveryError("timeout reaching control host!") from e
 
     def ensure_test_image(self, test_username):
-        """
-        Actively switch the device to boot the test image.
+        """Actively switch the device to boot the test image.
 
         :param test_username:
             Username of the default user in the test image

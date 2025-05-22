@@ -17,6 +17,7 @@
 import json
 import logging
 import os
+
 import yaml
 
 import testflinger_device_connectors
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class DeviceConnector(DefaultDevice):
-    """Device Connector for provisioning multiple devices at the same time"""
+    """Device Connector for provisioning multiple devices at the same time."""
 
     def init_device(self, args):
         """Read config data and initialize the device object."""
@@ -45,7 +46,7 @@ class DeviceConnector(DefaultDevice):
         self.device = Multi(self.config, self.job_data, tfclient)
 
     def provision(self, args):
-        """Method called when the command is invoked."""
+        """Provision device when the command is invoked.."""
         self.init_device(args)
         logger.info("BEGIN provision")
         logger.info("Provisioning device")
@@ -53,8 +54,7 @@ class DeviceConnector(DefaultDevice):
         logger.info("END provision")
 
     def runtest(self, args):
-        """
-        The runtest method for multi-device connectors
+        """Runtest method for multi-device connectors.
 
         This is slightly different from the generic one because we also need
         to import the job_list.json data and inject the device_ip for each
@@ -88,7 +88,7 @@ class DeviceConnector(DefaultDevice):
         return exitcode
 
     def get_job_list_data(self, job_list_file: str = "job_list.json") -> list:
-        """Read job_list.json and return the list data"""
+        """Read job_list.json and return the list data."""
         if not os.path.exists(job_list_file):
             logger.error(
                 "Unable to find multi-job data file, job_list.json not found",
@@ -99,13 +99,12 @@ class DeviceConnector(DefaultDevice):
         return job_list_data
 
     def get_device_ip_dict(self):
-        """
-        Read job_list.json and return a dict of device IPs like this that
+        """Read job_list.json and return a dict of device IPs like this that
         can be used in the environment for the test commands:
         {
             "DEVICE_IP_1": "10.1.1.1",
             "DEVICE_IP_2": "10.1.1.2"
-        }
+        }.
         """
         job_list_data = self.get_job_list_data()
         device_ip_dict = {}
@@ -116,7 +115,7 @@ class DeviceConnector(DefaultDevice):
         return device_ip_dict
 
     def cleanup(self, args):
-        """Cancel all subordinates jobs before finishing the multi-agent job"""
+        """Cancel all subordinates jobs before finishing a multi-agent job."""
         self.init_device(args)
         job_list_data = self.get_job_list_data()
         job_id_list = [job.get("job_id") for job in job_list_data]

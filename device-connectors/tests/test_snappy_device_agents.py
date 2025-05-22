@@ -18,10 +18,10 @@ import testflinger_device_connectors
 
 
 class TestCommandsTemplate:
-    """Tests to ensure test_cmds templating works properly"""
+    """Tests to ensure test_cmds templating works properly."""
 
     def test_known_config_items(self):
-        """Known config items should fill in the expected value"""
+        """Known config items should fill in the expected value."""
         cmds = "test {item}"
         config = {"item": "foo"}
         expected = "test foo"
@@ -33,7 +33,7 @@ class TestCommandsTemplate:
         )
 
     def test_unknown_config_items(self):
-        """Unknown config items should not cause an error"""
+        """Unknown config items should not cause an error."""
         cmds = "test  {unknown_item}"
         config = {}
         assert (
@@ -44,7 +44,7 @@ class TestCommandsTemplate:
         )
 
     def test_escaped_braces(self):
-        """Escaped braces should be unescaped, not interpreted"""
+        """Escaped braces should be unescaped, not interpreted."""
         cmds = "test {{item}}"
         config = {"item": "foo"}
         expected = "test {item}"

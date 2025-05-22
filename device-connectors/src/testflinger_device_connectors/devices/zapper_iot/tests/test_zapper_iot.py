@@ -9,11 +9,9 @@ class ZapperIoTTests(unittest.TestCase):
     """Test Cases for the Zapper IoT class."""
 
     def test_validate_configuration(self):
-        """
-        Test the function creates a proper provision_data
+        """Test the function creates a proper provision_data
         dictionary when valid data are provided.
         """
-
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {
@@ -41,10 +39,7 @@ class ZapperIoTTests(unittest.TestCase):
         self.assertDictEqual(kwargs, expected)
 
     def test_validate_configuration_ubuntu_sso_email(self):
-        """
-        Test the function username will be ubuntu_sso_email if it is provided.
-        """
-
+        """Test the function username will be ubuntu_sso_email if provided."""
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {
@@ -73,11 +68,9 @@ class ZapperIoTTests(unittest.TestCase):
         self.assertDictEqual(kwargs, expected)
 
     def test_validate_configuration_provision_plan(self):
-        """
-        Test the function validates a custom test plan
+        """Test the function validates a custom test plan
         when provided.
         """
-
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {
@@ -133,12 +126,10 @@ class ZapperIoTTests(unittest.TestCase):
         self.assertDictEqual(expected, kwargs)
 
     def test_validate_configuration_ubuntu_sso_email_provision_plan(self):
-        """
-        Test the function validates a custom test plan
+        """Test the function validates a custom test plan
         when provided and an ubuntu_sso_email is provided.
         The username should be overridden with the ubuntu_sso_email.
         """
-
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {
@@ -195,11 +186,9 @@ class ZapperIoTTests(unittest.TestCase):
     def test_validate_configuration_ubuntu_sso_email_missing_provision_plan(
         self,
     ):
-        """
-        Test the function raises an exception if ubuntu_sso_email is not
+        """Test the function raises an exception if ubuntu_sso_email is not
         provided and the initial login method is console-conf.
         """
-
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {
@@ -227,11 +216,9 @@ class ZapperIoTTests(unittest.TestCase):
             device._validate_configuration()
 
     def test_validate_configuration_invalid_url(self):
-        """
-        Test the function raises an exception if one of
+        """Test the function raises an exception if one of
         the url is not valid.
         """
-
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {
@@ -247,11 +234,9 @@ class ZapperIoTTests(unittest.TestCase):
             device._validate_configuration()
 
     def test_validate_configuration_invalid_provision_plan_key_error(self):
-        """
-        Test the function raises an exception if the
+        """Test the function raises an exception if the
         provided custom testplan is not valid.
         """
-
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {"provision_plan": {"key1": "value1"}}
@@ -265,11 +250,9 @@ class ZapperIoTTests(unittest.TestCase):
             device._validate_configuration()
 
     def test_validate_configuration_invalid_provision_plan_value_error(self):
-        """
-        Test the function raises an exception if the
+        """Test the function raises an exception if the
         provided custom testplan is not valid.
         """
-
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {
@@ -290,11 +273,9 @@ class ZapperIoTTests(unittest.TestCase):
     def test_post_run_actions_copy_ssh_id_no_provision_plan(
         self, mock_copy_ssh_id
     ):
-        """
-        Test the function copy the ssh id if there is no provision plan
+        """Test the function copy the ssh id if there is no provision plan
         and without ubuntu_sso_email.
         """
-
         device = DeviceConnector()
         device.job_data = {"provision_data": {}}
         device._post_run_actions(args=None)
@@ -304,11 +285,9 @@ class ZapperIoTTests(unittest.TestCase):
     def test_post_run_actions_not_copy_ssh_id_ubuntu_sso_email(
         self, mock_copy_ssh_id
     ):
-        """
-        Test the function does not copy the ssh id if there is
+        """Test the function does not copy the ssh id if there is
         buntu_sso_email.
         """
-
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {
@@ -322,11 +301,9 @@ class ZapperIoTTests(unittest.TestCase):
     def test_post_run_actions_copy_ssh_id_provision_plan(
         self, mock_copy_ssh_id
     ):
-        """
-        Test the function copies the ssh id if the
+        """Test the function copies the ssh id if the
         initial login method is Not console-conf.
         """
-
         device = DeviceConnector()
         device.job_data = {
             "provision_data": {

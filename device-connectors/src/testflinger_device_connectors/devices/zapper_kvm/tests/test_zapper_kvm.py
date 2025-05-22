@@ -16,8 +16,10 @@
 import base64
 import subprocess
 import unittest
+from unittest.mock import Mock, mock_open, patch
+
 import yaml
-from unittest.mock import Mock, patch, mock_open
+
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
 
@@ -26,12 +28,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
     """Unit tests for ZapperConnector KVM class."""
 
     def test_validate_configuration(self):
-        """
-        Test whether the validate_configuration function returns
+        """Test whether the validate_configuration function returns
         the expected data merging the relevant bits from conf and job
-        data when passing only the required arguments
+        data when passing only the required arguments.
         """
-
         connector = DeviceConnector()
         connector.config = {
             "device_ip": "1.1.1.1",
@@ -66,12 +66,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         self.assertDictEqual(kwargs, expected)
 
     def test_validate_configuration_w_opt(self):
-        """
-        Test whether the validate_configuration function returns
+        """Test whether the validate_configuration function returns
         the expected data merging the relevant bits from conf and job
         data when passing all the optional arguments.
         """
-
         connector = DeviceConnector()
         connector.config = {
             "device_ip": "1.1.1.1",
@@ -122,14 +120,12 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         self.assertDictEqual(kwargs, expected)
 
     def test_validate_configuration_alloem(self):
-        """
-        Test whether the validate_configuration function returns
+        """Test whether the validate_configuration function returns
         the expected data merging the relevant bits from conf and job
         data when `alloem_url` is passed. In that case, username and
         password are hardcoded and the Zapper shall try the procedures
         at least twice because it can fail on purpose.
         """
-
         connector = DeviceConnector()
         connector.config = {
             "device_ip": "1.1.1.1",
@@ -170,12 +166,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         self.assertDictEqual(kwargs, expected)
 
     def test_get_autoinstall_none(self):
-        """
-        Test whether the get_autoinstall_conf function returns
+        """Test whether the get_autoinstall_conf function returns
         None in case none of the autoinstall-related keys are
         provided.
         """
-
         connector = DeviceConnector()
         connector.job_data = {
             "job_queue": "queue",
@@ -198,12 +192,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         self.assertIsNone(conf)
 
     def test_get_autoinstall_conf(self):
-        """
-        Test whether the get_autoinstall_conf function returns
+        """Test whether the get_autoinstall_conf function returns
         the expected data merging the relevant bits from conf and job
         data when password and base_user_data are not given.
         """
-
         connector = DeviceConnector()
         connector.job_data = {
             "job_queue": "queue",
@@ -231,12 +223,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         self.assertDictEqual(conf, expected)
 
     def test_get_autoinstall_conf_full(self):
-        """
-        Test whether the get_autoinstall_conf function returns
+        """Test whether the get_autoinstall_conf function returns
         the expected data merging the relevant bits from conf and job
         data when password and user_data_base are given.
         """
-
         connector = DeviceConnector()
         connector.job_data = {
             "job_queue": "queue",
@@ -270,8 +260,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         self.assertDictEqual(conf, expected)
 
     def test_validate_base_user_data(self):
-        """
-        Test whether the function returns without errors in case of a
+        """Test whether the function returns without errors in case of a
         sane base64 encoded YAML.
         """
         connector = DeviceConnector()
@@ -280,8 +269,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         connector._validate_base_user_data(encoded)
 
     def test_validate_base_user_data_raises_decode(self):
-        """
-        Test whether the function raises an exception if the input
+        """Test whether the function raises an exception if the input
         is not correctly encoded.
         """
         connector = DeviceConnector()
@@ -289,8 +277,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             connector._validate_base_user_data("notbase64")
 
     def test_validate_base_user_data_raises_load(self):
-        """
-        Test whether the function raises an exception if the input
+        """Test whether the function raises an exception if the input
         is not a valid YAML.
         """
         connector = DeviceConnector()
@@ -300,11 +287,9 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             connector._validate_base_user_data(encoded)
 
     def test_run_oem_no_url(self):
-        """
-        Test the function returns without further action when URL
+        """Test the function returns without further action when URL
         is not specified.
         """
-
         connector = DeviceConnector()
         connector.job_data = {"provision_data": {}}
 
@@ -317,7 +302,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
     def test_run_oem_default(self):
         """Test the function runs the base OemScript."""
-
         connector = DeviceConnector()
         connector.job_data = {"provision_data": {"url": "file://image.iso"}}
         args = Mock()
@@ -332,7 +316,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
     def test_run_oem_hp(self):
         """Test the function runs the HP OemScript when oem=hp."""
-
         connector = DeviceConnector()
         connector.job_data = {
             "provision_data": {"url": "file://image.iso", "oem": "hp"}
@@ -349,7 +332,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
     def test_run_oem_dell(self):
         """Test the function runs the Dell OemScript when oem=dell."""
-
         connector = DeviceConnector()
         connector.job_data = {
             "provision_data": {"url": "file://image.iso", "oem": "dell"}
@@ -366,7 +348,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
     def test_run_oem_lenovo(self):
         """Test the function runs the Lenovo OemScript when oem=lenovo."""
-
         connector = DeviceConnector()
         connector.job_data = {
             "provision_data": {"url": "file://image.iso", "oem": "lenovo"}
@@ -383,8 +364,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
     @patch("subprocess.check_output")
     def test_change_password(self, mock_check_output):
-        """
-        Test the function runs a command over SSH to change the
+        """Test the function runs a command over SSH to change the
         original password to the one specified in test_data.
         """
         connector = DeviceConnector()
@@ -410,8 +390,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         )
 
     def test_post_run_actions_alloem(self):
-        """
-        Test the function updates the password and run the OEM script
+        """Test the function updates the password and run the OEM script
         when `alloem_url` is in scope.
         """
         connector = DeviceConnector()
@@ -429,8 +408,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         connector._copy_ssh_id.assert_called()
 
     def test_post_run_actions_alloem_error(self):
-        """
-        Test the function raises the ProvisioningError
+        """Test the function raises the ProvisioningError
         exception in case one of the SSH commands fail.
         """
         connector = DeviceConnector()
@@ -459,8 +437,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             connector._post_run_actions("args")
 
     def test_post_run_actions_alloem_timeout(self):
-        """
-        Test the function raises the ProvisioningError
+        """Test the function raises the ProvisioningError
         exception in case one of the SSH commands times out.
         """
         connector = DeviceConnector()
