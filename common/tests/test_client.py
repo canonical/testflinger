@@ -24,7 +24,7 @@ class TestClient:
         webhook = "http://foo"
         job_id = str(uuid.uuid1())
         requests_mock.post(
-            f"{client.server}/v1/job/{job_id}/events", status_code=200
+            f"{client.server}/v1/job/{job_id}/events", json={}, status_code=200
         )
         events = [
             {
