@@ -35,7 +35,14 @@ import argcomplete
 import requests
 import yaml
 
-from testflinger_cli import autocomplete, client, config, helpers, history
+from testflinger_cli import (
+    autocomplete,
+    client,
+    config,
+    consts,
+    helpers,
+    history,
+)
 from testflinger_cli.errors import AttachmentError, SnapPrivateFileError
 
 logger = logging.getLogger(__name__)
@@ -67,67 +74,6 @@ def configure_logging():
     )
 
 
-def _get_image(images):
-    """Ask the user to select an image from a list."""
-    image = ""
-    flex_url = ""
-    if images and images[list(images.keys())[0]].startswith("url:"):
-        # If this device can take URLs, offer to let the user enter one
-        # instead of just using the known images
-        flex_url = "or URL for a valid image starting with http(s)://... "
-    while not image or image == "?":
-        image = input(
-            "\nEnter the name of the image you want to use "
-            + flex_url
-            + "('?' to list) "
-        )
-        if image == "?":
-            if not images:
-                print(
-                    "WARNING: There are no images defined for this "
-                    "device. You may also provide the URL to an image "
-                    "that can be booted with this device though."
-                )
-                continue
-            for image_id in sorted(images.keys()):
-                print(" " + image_id)
-            continue
-        if image.startswith(("http://", "https://")):
-            return image
-        if image not in images.keys():
-            print(
-                "ERROR: '{}' is not in the list of known images for "
-                "that queue, please select another.".format(image)
-            )
-            image = ""
-    return image
-
-
-def _get_ssh_keys():
-    """Retrieve the launchpad or github ssh key to be used."""
-    ssh_keys = ""
-    while not ssh_keys.strip():
-        ssh_keys = input(
-            "\nEnter the ssh key(s) you wish to use: "
-            "(ex: lp:userid, gh:userid) "
-        )
-        key_list = [ssh_key.strip() for ssh_key in ssh_keys.split(",")]
-        for ssh_key in key_list:
-            if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
-                ssh_keys = ""
-                print("Please enter keys in the form lp:userid or gh:userid")
-    return key_list
-
-
-def _print_queue_message():
-    """Print message for queues."""
-    print(
-        "ATTENTION: This only shows a curated list of queues with "
-        "descriptions, not ALL queues. If you can't find the queue you want "
-        "to use, a job can still be submitted for queues not listed here.\n"
-    )
-
-
 class TestflingerCli:
     """Class for handling the Testflinger CLI."""
 
@@ -139,7 +85,7 @@ class TestflingerCli:
             self.args.server
             or self.config.get("server")
             or os.environ.get("TESTFLINGER_SERVER")
-            or "https://testflinger.canonical.com"
+            or consts.TESTFLINGER_SERVER
         )
         self.client_id = (
             getattr(self.args, "client_id", None)
@@ -154,7 +100,7 @@ class TestflingerCli:
         error_threshold = (
             self.config.get("error_threshold")
             or os.environ.get("TESTFLINGER_ERROR_THRESHOLD")
-            or 3
+            or consts.TESTFLINGER_ERROR_THRESHOLD
         )
 
         # Allow config subcommand without worrying about server or client
@@ -937,7 +883,7 @@ class TestflingerCli:
 
     def list_queues(self):
         """List the advertised queues on the current Testflinger server."""
-        _print_queue_message()
+        print(consts.ADVERTISED_QUEUES_MESSAGE)
         try:
             queues = self.client.get_queues()
         except client.HTTPError as exc:
@@ -957,13 +903,13 @@ class TestflingerCli:
 
     def reserve(self):
         """Install and reserve a system."""
-        _print_queue_message()
+        print(consts.ADVERTISED_QUEUES_MESSAGE)
         try:
             queues = self.client.get_queues()
         except OSError:
             logger.warning("Unable to get a list of queues from the server!")
             queues = {}
-        queue = self.args.queue or self._get_queue(queues)
+        queue = self.args.queue or helpers.prompt_for_queue(queues)
         if queue not in queues.keys():
             print(
                 "WARNING: '{}' is not in the list of known queues".format(
@@ -975,7 +921,7 @@ class TestflingerCli:
         except OSError:
             logger.warning("Unable to get a list of images from the server!")
             images = {}
-        image = self.args.image or _get_image(images)
+        image = self.args.image or helpers.prompt_for_image(images)
         if (
             not image.startswith(("http://", "https://"))
             and image not in images.keys()
@@ -989,7 +935,7 @@ class TestflingerCli:
             image = "url: " + image
         else:
             image = images[image]
-        ssh_keys = self.args.key or _get_ssh_keys()
+        ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
                 sys.exit(
@@ -1015,29 +961,6 @@ class TestflingerCli:
             print("Job submitted successfully!")
             print("job_id: {}".format(job_id))
             self.do_poll(job_id)
-
-    def _get_queue(self, queues):
-        """Ask the user which queue to use from a list."""
-        queue = ""
-        while not queue or queue == "?":
-            queue = input("\nWhich queue do you want to use? ('?' to list) ")
-            if not queue:
-                continue
-            if queue == "?":
-                print("\nAdvertised queues on this server:")
-                for name, description in sorted(queues.items()):
-                    print(" {} - {}".format(name, description))
-                queue = self._get_queue(queues)
-            if queue not in queues.keys():
-                print(
-                    "WARNING: '{}' is not in the list of known queues".format(
-                        queue
-                    )
-                )
-                answer = input("Do you still want to use it? (y/N) ")
-                if answer.lower() != "y":
-                    queue = ""
-        return queue
 
     def get_latest_output(self, job_id):
         """Get the latest output from a running job.

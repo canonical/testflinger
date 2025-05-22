@@ -51,3 +51,90 @@ def parse_filename(
     ):
         raise SnapPrivateFileError(path)
     return path
+
+
+def prompt_for_image(images: list[dict[str, str]]) -> str:
+    """Prompt the user to select an image from a list.
+
+    :param images: A list of images to choose from.
+    :return: The selected image.
+    """
+    flex_url = ""
+    if images and images[list(images)[0]].startswith("url:"):
+        flex_url = "or a URL for a valid image, starting with http(s):// "
+
+    image = ""
+    while not image:
+        image = input(
+            f"\nEnter the name of the image you want to use {flex_url} ('?' to list): "
+        ).strip()
+        if not image:
+            continue
+        if image == "?":
+            if not images:
+                print(
+                    "WARNING: No images defined for this device. You may also "
+                    "provide the URL to an image that can be booted with this "
+                    "deivce though."
+                )
+            else:
+                print("\n".join(sorted(images)))
+            image = ""
+        elif image.startswith(("http://", "https://")):
+            return image
+        elif image not in images:
+            print(
+                f"ERROR: '{image}' is not in the list of known images for "
+                "that queue, please select another."
+            )
+            image = ""
+    return image
+
+
+def prompt_for_ssh_keys() -> list[str]:
+    """Prompt the user to select SSH keys.
+
+    :return: A list of SSH keys in the form of gh:user or lp:user.
+    """
+    ssh_keys = []
+    while not ssh_keys:
+        keys = input(
+            "\nEnter the SSH key(s) you wish to use (ex: 'lp:user, gh:user'): "
+        ).strip()
+        if not keys:
+            continue
+        ssh_keys = [key.strip() for key in keys.split(",")]
+        for key in ssh_keys:
+            if not key.startswith(("gh:", "lp:")):
+                print(
+                    "Please enter keys in the form of 'gh:user' or 'lp:user'."
+                )
+                ssh_keys = []
+                break
+    return ssh_keys
+
+
+def prompt_for_queue(queues: list[dict[str, str]]) -> str:
+    """Prompt the user to select a queue from a list.
+
+    :param queues: A list of queues to choose from.
+    :return: The selected queue.
+    """
+    queue = ""
+    while not queue:
+        queue = input(
+            "\nEnter the name of the queue you want to use ('?' to list): "
+        ).strip()
+        if not queue:
+            continue
+        if queue == "?":
+            print("\nAdvertised queues on this server:")
+            for name, description in queues.items():
+                print(f" {name} - {description}")
+            queue = ""
+        elif queue not in queues:
+            print(f"WARNING: '{queue}' is not in the list of known queues")
+            answer = input("Do you still want to use it? (y/N) ").strip()
+            if answer.lower() != "y":
+                queue = ""
+    return queue
