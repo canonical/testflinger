@@ -127,6 +127,18 @@ class Client:
         response.raise_for_status()
         return response
 
+    def post_file(
+        self,
+        endpoint: str,
+        path: Path,
+        mime: Optional[str] = None,
+        timeout_sec: float = 30,
+    ) -> None:
+        """Post a file to the server."""
+        with path.open("rb") as file:
+            files = {"file": (path.name, file, mime)}
+            self.post(endpoint, files=files, timeout_sec=timeout_sec)
+
     def submit_job(self, job_data: dict) -> str:
         """Submit a test job to the server."""
         headers = self.auth_headers
@@ -142,9 +154,8 @@ class Client:
     ) -> None:
         """Submit a test job's attachments to the server."""
         endpoint = f"/v1/job/{job_id}/attachments"
-        with tarball.open("rb") as file:
-            files = {"file": (tarball.name, file, "application/x-gzip")}
-            self.post(endpoint, files=files, timeout_sec=timeout_sec)
+        mime = "application/x-gzip"
+        self.post_file(endpoint, tarball, mime, timeout_sec=timeout_sec)
 
     def get_job_attachments(
         self, job_id: str, path: Path, timeout_sec: float = 600
@@ -172,9 +183,8 @@ class Client:
     def post_job_artifacts(self, job_id: str, tarball: Path) -> None:
         """Post the artifacts of a test job."""
         endpoint = f"/v1/result/{job_id}/artifact"
-        with tarball.open("rb") as file:
-            files = {"file": (tarball.name, file, "application/x-gzip")}
-            self.post(endpoint, files=files, timeout_sec=30)
+        mime = "application/x-gzip"
+        self.post_file(endpoint, tarball, mime, timeout_sec=30)
 
     def get_jobs(self, queues: list[str]) -> dict:
         """Get the list of jobs from the server.
