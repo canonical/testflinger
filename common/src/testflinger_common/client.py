@@ -34,6 +34,11 @@ class Client:
         self.client_secret = client_secret
         self.retries = retries
 
+    def __repr__(self) -> str:
+        """Return a string representation of the client."""
+        # Don't show client credentials for security reasons
+        return f"Client(server={self.server}, retries={self.retries})"
+
     @cached_property
     def session(self) -> requests.Session:
         """Create a requests session with retry logic."""
