@@ -150,25 +150,20 @@ class Client:
         response = self.post("/v1/job", json=job_data, headers=headers)
         return response.json()
 
-    def cancel_job(self, job_id: str) -> dict | str:
+    def cancel_job(self, job_id: str) -> dict:
         """Cancel a test job on the server."""
         return self.post_job_action(job_id=job_id, action="cancel")
 
     def submit_job_attachments(
         self, job_id: str, tarball: Path, timeout_sec: float = 30
-    ) -> dict | str:
+    ) -> dict:
         """Submit a test job's attachments to the server."""
         endpoint = f"/v1/job/{job_id}/attachments"
         mime = "application/x-gzip"
         response = self.post_file(
             endpoint, tarball, mime, timeout_sec=timeout_sec
         )
-        try:
-            result = response.json()
-        except requests.JSONDecodeError:
-            logger.debug("Failed to decode JSON response")
-            result = response.text
-        return result
+        return response.json()
 
     def get_job_attachments(
         self, job_id: str, path: Path, timeout_sec: float = 600
@@ -177,15 +172,10 @@ class Client:
         endpoint = f"/v1/job/{job_id}/attachments"
         self.get_file(endpoint, path, timeout_sec=timeout_sec)
 
-    def post_job_results(self, job_id: str, data: dict) -> dict | str:
+    def post_job_results(self, job_id: str, data: dict) -> dict:
         """Post the results of a test job."""
         response = self.post(f"/v1/result/{job_id}", json=data, timeout_sec=30)
-        try:
-            result = response.json()
-        except requests.JSONDecodeError:
-            logger.debug("Failed to decode JSON response")
-            result = response.text
-        return result
+        return response.json()
 
     def get_job_results(self, job_id: str) -> dict:
         """Get the results of a test job."""
@@ -199,17 +189,12 @@ class Client:
         endpoint = f"/v1/result/{job_id}/artifact"
         self.get_file(endpoint, path, timeout_sec=timeout_sec)
 
-    def post_job_artifacts(self, job_id: str, tarball: Path) -> dict | str:
+    def post_job_artifacts(self, job_id: str, tarball: Path) -> dict:
         """Post the artifacts of a test job."""
         endpoint = f"/v1/result/{job_id}/artifact"
         mime = "application/x-gzip"
         response = self.post_file(endpoint, tarball, mime, timeout_sec=30)
-        try:
-            result = response.json()
-        except requests.JSONDecodeError:
-            logger.debug("Failed to decode JSON response")
-            result = response.text
-        return result
+        return response.json()
 
     def get_jobs(self, queues: list[str]) -> dict:
         """Get the list of jobs from the server.
@@ -236,17 +221,12 @@ class Client:
 
     def post_job_provision_logs(
         self, agent_id: str, job_id: str, exit_code: int, detail: str
-    ) -> dict | str:
+    ) -> dict:
         """Post the outcome of a test job's provision phase."""
         endpoint = f"/v1/agents/provision_logs/{agent_id}"
         data = {"job_id": job_id, "exit_code": exit_code, "detail": detail}
         response = self.post(endpoint, json=data, timeout_sec=30)
-        try:
-            result = response.json()
-        except requests.JSONDecodeError:
-            logger.debug("Failed to decode JSON response")
-            result = response.text
-        return result
+        return response.json()
 
     def post_job_status_update(
         self,
@@ -255,7 +235,7 @@ class Client:
         webhook: str,
         job_id: str,
         events: list[dict[str, str]],
-    ) -> dict | str:
+    ) -> dict:
         """Post a status update of a test job.
 
         :param job_queue: The queue the job is in.
@@ -274,12 +254,7 @@ class Client:
             "events": events,
         }
         response = self.post(endpoint, json=data, timeout_sec=30)
-        try:
-            result = response.json()
-        except requests.JSONDecodeError:
-            logger.debug("Failed to decode JSON response")
-            result = response.text
-        return result
+        return response.json()
 
     def post_job_output(self, job_id: str, output: str) -> dict:
         """Post the output of a test job."""
@@ -298,18 +273,13 @@ class Client:
         response = self.get(f"/v1/job/{job_id}/serial_output")
         return response.text
 
-    def post_queues(self, queues: dict[str, str]) -> dict | str:
+    def post_queues(self, queues: dict[str, str]) -> dict:
         """Post the advertised queues to the server.
 
         :param queues: Dictionary of queue name to queue description.
         """
         response = self.post("/v1/agents/queues", json=queues, timeout_sec=30)
-        try:
-            result = response.json()
-        except requests.JSONDecodeError:
-            logger.debug("Failed to decode JSON response")
-            result = response.text
-        return result
+        return response.json()
 
     def get_queues(self) -> dict:
         """Get the advertised queues from the server."""
@@ -318,7 +288,7 @@ class Client:
 
     def post_queue_images(
         self, images: dict[str, list[dict[str, str]]]
-    ) -> dict | str:
+    ) -> dict:
         """Post the advertised images for a queue to the server.
 
         :param images: Dictionary of queue name to list of mapping of image name
@@ -336,12 +306,7 @@ class Client:
             ```
         """
         response = self.post("/v1/agents/images", json=images)
-        try:
-            result = response.json()
-        except requests.JSONDecodeError:
-            logger.debug("Failed to decode JSON response")
-            result = response.text
-        return result
+        return response.json()
 
     def get_queue_images(self, queue: str) -> dict:
         """Get the advertised images for a queue from the server."""
@@ -359,7 +324,7 @@ class Client:
         response = self.get("/v1/queues/wait_times", params={"queue": queues})
         return response.json()
 
-    def post_agent_data(self, agent_id: str, data: dict) -> dict | str:
+    def post_agent_data(self, agent_id: str, data: dict) -> dict:
         """Post the agent data to the server.
 
         :param agent_id: The ID of the agent.
@@ -367,20 +332,10 @@ class Client:
         """
         endpoint = f"/v1/agents/data/{agent_id}"
         response = self.post(endpoint, json=data, timeout_sec=30)
-        try:
-            result = response.json()
-        except requests.JSONDecodeError:
-            logger.debug("Failed to decode JSON response")
-            result = response.text
-        return result
+        return response.json()
 
-    def post_job_action(self, job_id: str, action: str) -> dict | str:
+    def post_job_action(self, job_id: str, action: str) -> dict:
         """Post an action to a test job."""
         endpoint = f"/v1/job/{job_id}/action"
         response = self.post(endpoint, json={"action": action})
-        try:
-            result = response.json()
-        except requests.JSONDecodeError:
-            logger.debug("Failed to decode JSON response")
-            result = response.text
-        return result
+        return response.json()
