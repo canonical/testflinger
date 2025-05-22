@@ -44,7 +44,7 @@ jobs:
           echo "Charm Path: $CHARM_PATH"
           echo "Destination Channel: $CHARMHUB_DESTINATION_CHANNEL"
           echo "Origin Channel: $CHARMHUB_ORIGIN_CHANNEL"
-          if [ "$CHARMHUB_DESTINATION_CHANNEl" = "$CHARMHUB_ORIGIN_CHANNEl" ]; then
+          if [ "$CHARMHUB_DESTINATION_CHANNEL" = "$CHARMHUB_ORIGIN_CHANNEL" ]; then
             echo "Error: Destination and origin channels cannot be the same."
             exit 1
           fi
