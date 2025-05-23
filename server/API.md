@@ -287,6 +287,26 @@ Example:
 curl -X GET http://localhost:8000/v1/agents/data
 ```
 
+## `[GET] /v1/agents/data/<agent_name>`
+
+Retrieve data from a specified agent. 
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 404 (Not Found)`: The agent isn't found
+
+Returns:
+
+JSON data for specified agent, useful for getting information from a
+single agent. 
+
+Example:
+
+```shell
+curl -X GET http://localhost:8000/v1/agents/data/foo
+```
+
 ## `[POST] /v1/agents/provision_logs/<agent_name>`
 
 Post provision log data for the specified agent
