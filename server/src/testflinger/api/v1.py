@@ -19,6 +19,7 @@ import importlib.metadata
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
+from http import HTTPStatus
 
 import bcrypt
 import jwt
@@ -641,6 +642,24 @@ def agents_get_all():
     """Get all agent data."""
     agents = database.mongo.db.agents.find({}, {"_id": False, "log": False})
     return jsonify(list(agents))
+
+
+@v1.get("/agents/data/<agent_name>")
+@v1.output(schemas.AgentOut)
+def agents_get_one(agent_name):
+    """Get the information from a specified agent.
+
+    :param agent_name:
+        String with the name of the agent to retrieve information from.
+    :return:
+        JSON data with the specified agent information.
+    """
+    agent_data = database.get_agent_info(agent_name)
+
+    if not agent_data:
+        return {}, HTTPStatus.NO_CONTENT
+
+    return jsonify(agent_data)
 
 
 @v1.post("/agents/data/<agent_name>")

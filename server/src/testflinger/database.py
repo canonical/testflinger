@@ -340,3 +340,11 @@ def check_queue_restricted(queue: str) -> bool:
         {"queue_name": queue}
     )
     return queue_count != 0
+
+
+def get_agent_info(agent: str) -> dict:
+    """Return the information for a specified agent."""
+    agent_data = mongo.db.agents.find_one(
+        {"name": agent}, {"_id": False, "log": False}
+    )
+    return agent_data

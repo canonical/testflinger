@@ -936,6 +936,38 @@ def test_get_agents_data(mongo_app):
         assert output.json[0][key] == value
 
 
+def test_get_agents_data_single(mongo_app):
+    """Test getting agent data from a specified agent."""
+    app, _ = mongo_app
+    agent_name1 = "agent1"
+    agent_name2 = "agent2"
+    agent_data1 = {
+        "state": "provision",
+        "queues": ["q1", "q2"],
+        "location": "here",
+    }
+    agent_data2 = {
+        "state": "waiting",
+        "queues": ["q3", "q4"],
+        "location": "here",
+    }
+
+    # Set the data for agent1
+    output = app.post(f"/v1/agents/data/{agent_name1}", json=agent_data1)
+    assert 200 == output.status_code
+
+    # Set the data for agent2
+    output = app.post(f"/v1/agents/data/{agent_name2}", json=agent_data2)
+    assert 200 == output.status_code
+
+    # Get the data from agent2
+    output = app.get(f"/v1/agents/data/{agent_name2}")
+    assert 200 == output.status_code
+
+    for key, value in agent_data2.items():
+        assert output.json[key] == value
+
+
 def test_search_jobs_by_tags(mongo_app):
     """Test search_jobs by tags."""
     app, _ = mongo_app
