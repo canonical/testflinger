@@ -158,6 +158,58 @@ wget_iso_on_dut() {
     fi
 }
 
+is_valid_iso_on_dut() {
+    local addr=$1
+    local iso_path="/home/$TARGET_USER/$ISO"
+    local exit_code=0
+
+    if ! $SSH "$TARGET_USER"@"$addr" -- "command -v isoinfo >/dev/null 2>&1"; then
+        echo "Installing genisoimage package for ISO verification..."
+        $SSH "$TARGET_USER"@"$addr" -- sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq && \
+        $SSH "$TARGET_USER"@"$addr" -- sudo DEBIAN_FRONTEND=noninteractive apt-get install -y genisoimage
+        if ! $SSH "$TARGET_USER"@"$addr" -- "command -v isoinfo >/dev/null 2>&1"; then
+            echo "ERROR: genisoimage failed to install. Exit"
+            return 1
+        fi
+    fi
+
+    if ! $SSH "$TARGET_USER"@"$addr" -- sudo isoinfo -d -i "$iso_path" 2>/dev/null |
+    grep -q "Volume id:.*[Uu]buntu"; then
+        echo "WARNING: ISO label does not contain 'Ubuntu' - this may not be a standard Ubuntu image"
+    fi
+
+    if ! $SSH "$TARGET_USER"@"$addr" -- sudo file -b --mime-type "$iso_path" | grep -q "application/x-iso9660"; then
+        echo "ERROR: File is not a valid ISO 9660 image or doesn't exist"
+        return 1
+    fi
+
+    # Verify the content of iso to match OEM image
+    local required_dirs=("boot" "casper")  #TODO: add OEM specific
+    local required_files=("casper/vmlinuz" "casper/initrd")
+
+    for dir in "${required_dirs[@]}"; do
+        if ! $SSH "$TARGET_USER"@"$addr" -- sudo isoinfo -i "$iso_path" -f 2>/dev/null | grep -q "^/$dir/"; then
+            echo "WARNING: Required directory '$dir' not found in ISO"
+            exit_code=1
+        fi
+    done
+
+    for file in "${required_files[@]}"; do
+        if ! $SSH "$TARGET_USER"@"$addr" -- sudo isoinfo -i "$iso_path" -f 2>/dev/null | grep -q "^/$file$"; then
+            echo "WARNING: Required file '$file' not found in ISO"
+            exit_code=1
+        fi
+    done
+
+    if [ $exit_code -eq 0 ]; then
+        echo "ISO verification passed"
+    else
+        echo "ISO verification failed"
+    fi
+
+    return $exit_code
+}
+
 OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config:,iso-dut: -n 'provision-image.sh' -- "$@")"
 eval set -- "${OPTS}"
 while :; do
@@ -214,6 +266,25 @@ do
         echo "Can't find partition to store ISO on target $addr"
         exit 1
     fi
+
+    # Handle ISO
+    if [ -n "$URL_DUT" ]; then
+        # store ISO directly on DUT
+        wget_iso_on_dut
+        if ! is_valid_iso_on_dut "$addr"; then
+            echo "Only OEM Ubuntu images are supported"
+            echo "ERROR: ISO verification failed. Aborting deployment"
+            exit 5
+        fi
+    elif [ -n "$ISO_PATH" ]; then
+        # ISO file was stored on agent; scp to DUT
+        if [ ! -f "$ISO_PATH" ]; then
+            echo "No designated ISO file"
+            exit 2
+        fi
+        $SCP "$ISO_PATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
+    fi
+
     RESET_PART="${STORE_PART:0:-1}2"
     RESET_PARTUUID=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o PARTUUID "$RESET_PART")
     EFI_PART="${STORE_PART:0:-1}1"
@@ -260,19 +331,6 @@ do
     # Mount ISO and reset partition
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/iso || true
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/reset || true
-
-    # Handle ISO
-    if [ -n "$URL_DUT" ]; then
-        # store ISO directly on DUT
-        wget_iso_on_dut
-    elif [ -n "$ISO_PATH" ]; then
-        # ISO file was stored on agent; scp to DUT
-        if [ ! -f "$ISO_PATH" ]; then
-            echo "No designated ISO file"
-            exit 2
-        fi
-        $SCP "$ISO_PATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
-    fi
 
     $SSH "$TARGET_USER"@"$addr" -- sudo mount -o loop /home/"$TARGET_USER"/"$ISO" /home/"$TARGET_USER"/iso || true
     $SSH "$TARGET_USER"@"$addr" -- sudo mount "$RESET_PART" /home/"$TARGET_USER"/reset || true
