@@ -1117,3 +1117,24 @@ def test_result_post_large_payload(mongo_app):
     response = app.post(result_url, json=large_data)
     assert 413 == response.status_code
     assert "Payload too large" in response.json["message"]
+
+
+def test_get_jobs_on_queue(mongo_app):
+    """Test api to get jobs on a queue."""
+    app, _ = mongo_app
+    job = {
+        "job_queue": "test",
+        "tags": ["foo"],
+    }
+    # Two jobs that will stay in waiting state
+    app.post("/v1/job", json=job)
+    app.post("/v1/job", json=job)
+
+    # Validate the number of jobs on the queue is accurate
+    output = app.get("/v1/queues/test/jobs")
+    assert 200 == output.status_code
+    assert len(output.json) == 2
+
+    # Confirm  the status code returned if there are no jobs in queue
+    output = app.get("/v1/queues/test2/jobs")
+    assert 204 == output.status_code

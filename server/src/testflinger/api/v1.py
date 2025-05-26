@@ -19,6 +19,7 @@ import importlib.metadata
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
+from http import HTTPStatus
 
 import bcrypt
 import jwt
@@ -833,6 +834,39 @@ def queue_wait_time_percentiles_get():
 def get_agents_on_queue(queue_name):
     """Get the list of all data for agents listening to a specified queue."""
     return database.get_agents_on_queue(queue_name)
+
+
+@v1.get("/queues/<queue_name>/jobs")
+def get_jobs_by_queue(queue_name):
+    """Get the jobs in a specified queue along with its state.
+    :param queue_name
+        String with the queue name where to perform the query.
+    :return:
+        JSON data with the jobs allocated to the specified queue.
+    """
+    jobs = database.get_jobs_on_queue(queue_name)
+
+    if not jobs:
+        return {}, HTTPStatus.NO_CONTENT
+
+    try:
+        jobs_in_queue = [
+            {
+                "job_id": job["job_id"],
+                "created_at": job["created_at"],
+                "job_state": job["result_data"]["job_state"],
+                "job_queue": job["job_data"]["job_queue"],
+            }
+            for job in jobs
+        ]
+
+    except KeyError:
+        abort(
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            message="Unable to retrieve information about specified queue.",
+        )
+
+    return jsonify(jobs_in_queue)
 
 
 def generate_token(allowed_resources, secret_key):
