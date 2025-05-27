@@ -3,7 +3,8 @@
 exec 2>&1
 set -euox pipefail
 #
-# This script is used by TF agent to provision OEM PCs with Ubuntu Noble images
+# This script is used by TF agent to provision OEM PCs with Ubuntu OEM images
+# It checks if the ISO is valid and deploys it on the target
 #
 
 usage()
@@ -134,18 +135,6 @@ wget_iso_on_dut() {
             WGET_OPTS+=" --auth-no-challenge --user=$username --password=$token"
         fi
 
-        if [[ "$URL_DUT" =~ "tel-image-cache.canonical.com" ]]; then
-            CERT_NAME="tel-image-cache-ca.crt"
-            CERT_FILEPATH=/usr/local/share/ca-certificates/"$CERT_NAME"
-            if [ -f "$CERT_FILEPATH" ]; then
-                $SCP "$CERT_FILEPATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
-                $SSH "$TARGET_USER"@"$addr" -- sudo cp "$CERT_NAME" "$CERT_FILEPATH"
-                $SSH "$TARGET_USER"@"$addr" -- sudo update-ca-certificates
-            else
-                echo "Warning: TLS certificate was not found on agent. Downloading ISO might fail.."
-            fi
-        fi
-
         if ! $SSH "$TARGET_USER"@"$addr" -- sudo wget "$WGET_OPTS" -O /home/"$TARGET_USER"/"$ISO" "$URL_DUT"; then
             echo "Downloading ISO on DUT failed."
             exit 4
@@ -163,40 +152,37 @@ is_valid_iso_on_dut() {
     local iso_path="/home/$TARGET_USER/$ISO"
     local exit_code=0
 
-    if ! $SSH "$TARGET_USER"@"$addr" -- "command -v isoinfo >/dev/null 2>&1"; then
-        echo "Installing genisoimage package for ISO verification..."
-        $SSH "$TARGET_USER"@"$addr" -- sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq && \
-        $SSH "$TARGET_USER"@"$addr" -- sudo DEBIAN_FRONTEND=noninteractive apt-get install -y genisoimage
-        if ! $SSH "$TARGET_USER"@"$addr" -- "command -v isoinfo >/dev/null 2>&1"; then
-            echo "ERROR: genisoimage failed to install. Exit"
+    # Ensure xorriso is installed
+    if ! $SSH "$TARGET_USER@$addr" -- "command -v xorriso >/dev/null 2>&1"; then
+        echo "Installing xorriso for ISO verification..."
+        $SSH "$TARGET_USER@$addr" -- sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq && \
+        $SSH "$TARGET_USER@$addr" -- sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xorriso
+        if ! $SSH "$TARGET_USER@$addr" -- "command -v xorriso >/dev/null 2>&1"; then
+            echo "ERROR: xorriso failed to install. Exit"
             return 1
         fi
     fi
 
-    if ! $SSH "$TARGET_USER"@"$addr" -- sudo isoinfo -d -i "$iso_path" 2>/dev/null |
-    grep -q "Volume id:.*[Uu]buntu"; then
-        echo "WARNING: ISO label does not contain 'Ubuntu' - this may not be a standard Ubuntu image"
-    fi
-
-    if ! $SSH "$TARGET_USER"@"$addr" -- sudo file -b --mime-type "$iso_path" | grep -q "application/x-iso9660"; then
+    # Check if file is an ISO image
+    if ! $SSH "$TARGET_USER@$addr" -- sudo file -b --mime-type "$iso_path" | grep -q "application/x-iso9660"; then
         echo "ERROR: File is not a valid ISO 9660 image or doesn't exist"
         return 1
     fi
 
-    # Verify the content of iso to match OEM image
-    local required_dirs=("boot" "casper")  #TODO: add OEM specific
-    local required_files=("casper/vmlinuz" "casper/initrd")
+    # Verify content
+    local required_dirs=("'/cloud-configs/grub'" "'/sideloads'")  # should be oem specific
+    local required_files=("'/casper/vmlinuz'" "'/casper/initrd'")
 
     for dir in "${required_dirs[@]}"; do
-        if ! $SSH "$TARGET_USER"@"$addr" -- sudo isoinfo -i "$iso_path" -f 2>/dev/null | grep -q "^/$dir/"; then
-            echo "WARNING: Required directory '$dir' not found in ISO"
+        if ! $SSH "$TARGET_USER@$addr" -- sudo xorriso -indev "$iso_path" -find / -type d 2>/dev/null | grep -qx "$dir"; then
+            echo "ERROR: Required directory '$dir' not found in ISO"
             exit_code=1
         fi
     done
 
     for file in "${required_files[@]}"; do
-        if ! $SSH "$TARGET_USER"@"$addr" -- sudo isoinfo -i "$iso_path" -f 2>/dev/null | grep -q "^/$file$"; then
-            echo "WARNING: Required file '$file' not found in ISO"
+        if ! $SSH "$TARGET_USER@$addr" -- sudo xorriso -indev "$iso_path" -find / -type f 2>/dev/null | grep -qx "$file"; then
+            echo "ERROR: Required file '$file' not found in ISO"
             exit_code=1
         fi
     done
@@ -204,11 +190,14 @@ is_valid_iso_on_dut() {
     if [ $exit_code -eq 0 ]; then
         echo "ISO verification passed"
     else
-        echo "ISO verification failed"
+        echo "ERROR: ISO verification failed"
+        echo "Removing invalid ISO from DUT"
+        $SSH "$TARGET_USER@$addr" -- sudo rm -f "$iso_path"
     fi
 
     return $exit_code
 }
+
 
 OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config:,iso-dut: -n 'provision-image.sh' -- "$@")"
 eval set -- "${OPTS}"
@@ -271,11 +260,6 @@ do
     if [ -n "$URL_DUT" ]; then
         # store ISO directly on DUT
         wget_iso_on_dut
-        if ! is_valid_iso_on_dut "$addr"; then
-            echo "Only OEM Ubuntu images are supported"
-            echo "ERROR: ISO verification failed. Aborting deployment"
-            exit 5
-        fi
     elif [ -n "$ISO_PATH" ]; then
         # ISO file was stored on agent; scp to DUT
         if [ ! -f "$ISO_PATH" ]; then
@@ -283,6 +267,11 @@ do
             exit 2
         fi
         $SCP "$ISO_PATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
+    fi
+
+    if ! is_valid_iso_on_dut "$addr"; then
+        echo "Only OEM Ubuntu images are supported"
+        exit 5
     fi
 
     RESET_PART="${STORE_PART:0:-1}2"
