@@ -141,6 +141,10 @@ class DefaultDevice:
         """Process firmware update commands (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
+
+        # Write device information to device-info.json
+        self.write_device_info(config)
+
         logger.info("BEGIN firmware_update")
 
         test_opportunity = testflinger_device_connectors.get_test_opportunity(
@@ -192,6 +196,10 @@ class DefaultDevice:
         """Process test commands (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
+
+        # Write device information to device-info.json
+        self.write_device_info(config)
+
         logger.info("BEGIN testrun")
 
         test_opportunity = testflinger_device_connectors.get_test_opportunity(
@@ -224,11 +232,9 @@ class DefaultDevice:
         """Allocate devices for multi-agent jobs (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-        device_ip = config["device_ip"]
-        device_info = {"device_info": {"device_ip": device_ip}}
-        print(device_info)
-        with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
-            devinfo_file.write(json.dumps(device_info))
+
+        # Write device information to device-info.json
+        self.write_device_info(config)
 
     def import_ssh_key(self, key: str, keyfile: str = "key.pub") -> None:
         """Import SSH key provided in Reserve data.
@@ -323,6 +329,10 @@ class DefaultDevice:
         """Reserve systems (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
+
+        # Write device information to device-info.json
+        self.write_device_info(config)
+
         logger.info("BEGIN reservation")
         job_data = testflinger_device_connectors.get_test_opportunity(
             args.job_data
@@ -381,6 +391,21 @@ class DefaultDevice:
     def cleanup(self, _):
         """Clean up devices (default method)."""
         pass
+
+    def write_device_info(self, config):
+        """Write device information to device-info.json.
+
+        :param config
+            Dictionary with the key/values from the configuration file.
+        """
+        device_ip = config["device_ip"]
+        agent_name = config["agent_name"]
+        device_info = {
+            "device_info": {"device_ip": device_ip, "agent_name": agent_name}
+        }
+        print(device_info)
+        with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
+            devinfo_file.write(json.dumps(device_info))
 
 
 def get_device_stage_func(device: str, stage: str) -> Callable:

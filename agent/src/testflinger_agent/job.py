@@ -60,6 +60,15 @@ class TestflingerJob:
         self.phase = phase
         cmd = self.client.config.get(phase + "_command")
         node = self.client.config.get("agent_id")
+
+        # Write the device information to the job /results endpoint
+        device_info = self.get_device_info(rundir)
+
+        try:
+            self.client.post_result(self.job_id, device_info)
+        except TFServerError:
+            logger.warning("Failed to post device_info, skipping")
+
         if not cmd:
             logger.info("No %s_command configured, skipping...", phase)
             return 0, None, None
@@ -177,9 +186,7 @@ class TestflingerJob:
         so that the multi-device agent can find the IP addresses of all
         subordinate jobs.
         """
-        device_info_file = os.path.join(rundir, "device-info.json")
-        with open(device_info_file, "r") as f:
-            device_info = json.load(f)
+        device_info = self.get_device_info(rundir)
 
         # The allocated state MUST be reflected on the server or the multi-
         # device job can't continue
@@ -249,6 +256,24 @@ class TestflingerJob:
         yield "*" * (len(line) + 4)
         yield "* {} *".format(line)
         yield "*" * (len(line) + 4)
+
+    def get_device_info(self, rundir):
+        """Read the json dict from "device-info.json" with information
+        about the device associated with an agent.
+
+        :param rundir
+            String with the directory on where to locate the file
+        """
+        if rundir:
+            try:
+                device_info_file = os.path.join(rundir, "device-info.json")
+                with open(device_info_file, "r") as f:
+                    device_info = json.load(f)
+                return device_info
+            except FileNotFoundError:
+                return None
+
+        return None
 
 
 def read_truncated(filename: str, size: int) -> str:
