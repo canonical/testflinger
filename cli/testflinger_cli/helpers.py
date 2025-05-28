@@ -53,10 +53,10 @@ def parse_filename(
     return path
 
 
-def prompt_for_image(images: list[dict[str, str]]) -> str:
+def prompt_for_image(images: dict[str, str]) -> str:
     """Prompt the user to select an image from a list.
 
-    :param images: A list of images to choose from.
+    :param images: A mapping of image name to image job line to choose from.
     :return: The selected image.
     """
     flex_url = ""
@@ -96,7 +96,7 @@ def prompt_for_ssh_keys() -> list[str]:
 
     :return: A list of SSH keys in the form of gh:user or lp:user.
     """
-    ssh_keys = []
+    ssh_keys: list[str] = []
     while not ssh_keys:
         keys = input(
             "\nEnter the SSH key(s) you wish to use (ex: 'lp:user, gh:user'): "
@@ -114,10 +114,10 @@ def prompt_for_ssh_keys() -> list[str]:
     return ssh_keys
 
 
-def prompt_for_queue(queues: list[dict[str, str]]) -> str:
+def prompt_for_queue(queues: dict[str, str]) -> str:
     """Prompt the user to select a queue from a list.
 
-    :param queues: A list of queues to choose from.
+    :param queues: A mapping of queue name to descripton to choose from.
     :return: The selected queue.
     """
     queue = ""
