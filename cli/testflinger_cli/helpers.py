@@ -73,7 +73,7 @@ def prompt_for_image(images: dict[str, str]) -> str:
                 print(
                     "WARNING: No images defined for this device. You may also "
                     "provide the URL to an image that can be booted with this "
-                    "deivce though."
+                    "device though."
                 )
             else:
                 print("\n".join(sorted(images)))
