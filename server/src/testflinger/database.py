@@ -256,6 +256,12 @@ def get_agents_on_queue(queue: str) -> list[dict]:
     return list(agents)
 
 
+def get_jobs_on_queue(queue: str) -> list[dict]:
+    """Get the jobs that are assigned on a specific queue."""
+    jobs = mongo.db.jobs.find({"job_data.job_queue": queue})
+    return list(jobs)
+
+
 def calculate_percentiles(data: list) -> dict:
     """
     Calculate the percentiles of the wait times for each queue.
