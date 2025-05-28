@@ -3,7 +3,8 @@
 exec 2>&1
 set -euox pipefail
 #
-# This script is used by TF agent to provision OEM PCs with Ubuntu Noble images
+# This script is used by TF agent to provision OEM PCs with Ubuntu OEM images
+# It checks if the ISO is valid and deploys it on the target
 #
 
 usage()
@@ -134,18 +135,6 @@ wget_iso_on_dut() {
             WGET_OPTS+=" --auth-no-challenge --user=$username --password=$token"
         fi
 
-        if [[ "$URL_DUT" =~ "tel-image-cache.canonical.com" ]]; then
-            CERT_NAME="tel-image-cache-ca.crt"
-            CERT_FILEPATH=/usr/local/share/ca-certificates/"$CERT_NAME"
-            if [ -f "$CERT_FILEPATH" ]; then
-                $SCP "$CERT_FILEPATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
-                $SSH "$TARGET_USER"@"$addr" -- sudo cp "$CERT_NAME" "$CERT_FILEPATH"
-                $SSH "$TARGET_USER"@"$addr" -- sudo update-ca-certificates
-            else
-                echo "Warning: TLS certificate was not found on agent. Downloading ISO might fail.."
-            fi
-        fi
-
         if ! $SSH "$TARGET_USER"@"$addr" -- sudo wget "$WGET_OPTS" -O /home/"$TARGET_USER"/"$ISO" "$URL_DUT"; then
             echo "Downloading ISO on DUT failed."
             exit 4
@@ -157,6 +146,58 @@ wget_iso_on_dut() {
         exit 4
     fi
 }
+
+is_valid_iso_on_dut() {
+    local addr=$1
+    local iso_path="/home/$TARGET_USER/$ISO"
+    local exit_code=0
+
+    # Ensure xorriso is installed
+    if ! $SSH "$TARGET_USER@$addr" -- "command -v xorriso >/dev/null 2>&1"; then
+        echo "Installing xorriso for ISO verification..."
+        $SSH "$TARGET_USER@$addr" -- sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq && \
+        $SSH "$TARGET_USER@$addr" -- sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xorriso
+        if ! $SSH "$TARGET_USER@$addr" -- "command -v xorriso >/dev/null 2>&1"; then
+            echo "ERROR: xorriso failed to install. Exit"
+            return 1
+        fi
+    fi
+
+    # Check if file is an ISO image
+    if ! $SSH "$TARGET_USER@$addr" -- sudo file -b --mime-type "$iso_path" | grep -q "application/x-iso9660"; then
+        echo "ERROR: File is not a valid ISO 9660 image or doesn't exist"
+        return 1
+    fi
+
+    # Verify content
+    local required_dirs=("'/cloud-configs/grub'" "'/sideloads'")  # should be oem specific
+    local required_files=("'/casper/vmlinuz'" "'/casper/initrd'")
+
+    for dir in "${required_dirs[@]}"; do
+        if ! $SSH "$TARGET_USER@$addr" -- sudo xorriso -indev "$iso_path" -find / -type d 2>/dev/null | grep -qx "$dir"; then
+            echo "ERROR: Required directory '$dir' not found in ISO"
+            exit_code=1
+        fi
+    done
+
+    for file in "${required_files[@]}"; do
+        if ! $SSH "$TARGET_USER@$addr" -- sudo xorriso -indev "$iso_path" -find / -type f 2>/dev/null | grep -qx "$file"; then
+            echo "ERROR: Required file '$file' not found in ISO"
+            exit_code=1
+        fi
+    done
+
+    if [ $exit_code -eq 0 ]; then
+        echo "ISO verification passed"
+    else
+        echo "ERROR: ISO verification failed"
+        echo "Removing invalid ISO from DUT"
+        $SSH "$TARGET_USER@$addr" -- sudo rm -f "$iso_path"
+    fi
+
+    return $exit_code
+}
+
 
 OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config:,iso-dut: -n 'provision-image.sh' -- "$@")"
 eval set -- "${OPTS}"
@@ -214,6 +255,25 @@ do
         echo "Can't find partition to store ISO on target $addr"
         exit 1
     fi
+
+    # Handle ISO
+    if [ -n "$URL_DUT" ]; then
+        # store ISO directly on DUT
+        wget_iso_on_dut
+    elif [ -n "$ISO_PATH" ]; then
+        # ISO file was stored on agent; scp to DUT
+        if [ ! -f "$ISO_PATH" ]; then
+            echo "No designated ISO file"
+            exit 2
+        fi
+        $SCP "$ISO_PATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
+    fi
+
+    if ! is_valid_iso_on_dut "$addr"; then
+        echo "Only OEM Ubuntu images are supported"
+        exit 5
+    fi
+
     RESET_PART="${STORE_PART:0:-1}2"
     RESET_PARTUUID=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o PARTUUID "$RESET_PART")
     EFI_PART="${STORE_PART:0:-1}1"
@@ -260,19 +320,6 @@ do
     # Mount ISO and reset partition
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/iso || true
     $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/reset || true
-
-    # Handle ISO
-    if [ -n "$URL_DUT" ]; then
-        # store ISO directly on DUT
-        wget_iso_on_dut
-    elif [ -n "$ISO_PATH" ]; then
-        # ISO file was stored on agent; scp to DUT
-        if [ ! -f "$ISO_PATH" ]; then
-            echo "No designated ISO file"
-            exit 2
-        fi
-        $SCP "$ISO_PATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
-    fi
 
     $SSH "$TARGET_USER"@"$addr" -- sudo mount -o loop /home/"$TARGET_USER"/"$ISO" /home/"$TARGET_USER"/iso || true
     $SSH "$TARGET_USER"@"$addr" -- sudo mount "$RESET_PART" /home/"$TARGET_USER"/reset || true
