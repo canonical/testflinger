@@ -262,6 +262,9 @@ class TestflingerCli:
             help="List the advertised queues on the Testflinger server",
         )
         parser.set_defaults(func=self.list_queues)
+        parser.add_argument(
+            "--json", action="store_true", help="Print output in JSON format"
+        )
 
     def _add_poll_args(self, subparsers):
         """Command line arguments for poll."""
@@ -945,9 +948,12 @@ class TestflingerCli:
                 )
             logger.error("Unable to get a list of queues from the server.")
             sys.exit(1)
-        print("Advertised queues on this server:")
-        for name, description in sorted(queues.items()):
-            print(" {} - {}".format(name, description))
+        if self.args.json:
+            print(json.dumps(queues))
+        else:
+            print("Advertised queues on this server:")
+            for name, description in sorted(queues.items()):
+                print(" {} - {}".format(name, description))
 
     def reserve(self):
         """Install and reserve a system."""
