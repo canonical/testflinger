@@ -263,9 +263,7 @@ class TestflingerCli:
         )
         parser.set_defaults(func=self.list_queues)
         parser.add_argument(
-            "--json",
-            action="store_true",
-            help="Print output in JSON format"
+            "--json", action="store_true", help="Print output in JSON format"
         )
 
     def _add_poll_args(self, subparsers):
