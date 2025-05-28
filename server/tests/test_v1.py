@@ -954,18 +954,18 @@ def test_get_agents_data_single(mongo_app):
 
     # Set the data for agent1
     output = app.post(f"/v1/agents/data/{agent_name1}", json=agent_data1)
-    assert 200 == output.status_code
+    assert output.status_code == HTTPStatus.OK
 
     # Set the data for agent2
     output = app.post(f"/v1/agents/data/{agent_name2}", json=agent_data2)
-    assert 200 == output.status_code
+    assert output.status_code == HTTPStatus.OK
 
     # Get the data from agent2
     output = app.get(f"/v1/agents/data/{agent_name2}")
-    assert 200 == output.status_code
+    assert output.status_code == HTTPStatus.OK
 
-    for key, value in agent_data2.items():
-        assert output.json[key] == value
+    # Compare retrieved data with expected data
+    assert all(output.json[key] == value for key, value in agent_data2.items())
 
 
 def test_search_jobs_by_tags(mongo_app):
