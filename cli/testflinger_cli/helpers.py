@@ -59,15 +59,13 @@ def prompt_for_image(images: dict[str, str]) -> str:
     :param images: A mapping of image name to image job line to choose from.
     :return: The selected image.
     """
-    flex_url = ""
+    input_msg = "\nEnter the image you wish to use"
     if images and images[list(images)[0]].startswith("url:"):
-        flex_url = "or a URL for a valid image, starting with http(s):// "
-
+        input_msg += " or a URL for a valid image, starting with http(s)://"
+    input_msg += " ('?' to list): "
     image = ""
     while not image:
-        image = input(
-            f"\nEnter the image you wish to use {flex_url} ('?' to list): "
-        ).strip()
+        image = input(input_msg).strip()
         if not image:
             continue
         if image == "?":
