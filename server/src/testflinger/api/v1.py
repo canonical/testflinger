@@ -839,6 +839,7 @@ def get_agents_on_queue(queue_name):
 @v1.get("/queues/<queue_name>/jobs")
 def get_jobs_by_queue(queue_name):
     """Get the jobs in a specified queue along with its state.
+
     :param queue_name
         String with the queue name where to perform the query.
     :return:
@@ -859,7 +860,6 @@ def get_jobs_by_queue(queue_name):
             }
             for job in jobs
         ]
-
     except KeyError:
         abort(
             HTTPStatus.INTERNAL_SERVER_ERROR,

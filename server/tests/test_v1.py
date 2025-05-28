@@ -1132,9 +1132,9 @@ def test_get_jobs_on_queue(mongo_app):
 
     # Validate the number of jobs on the queue is accurate
     output = app.get("/v1/queues/test/jobs")
-    assert 200 == output.status_code
+    assert output.status_code == HTTPStatus.OK
     assert len(output.json) == 2
 
     # Confirm  the status code returned if there are no jobs in queue
     output = app.get("/v1/queues/test2/jobs")
-    assert 204 == output.status_code
+    assert output.status_code == HTTPStatus.NO_CONTENT
