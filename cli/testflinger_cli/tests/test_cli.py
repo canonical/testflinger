@@ -695,7 +695,7 @@ def test_agent_status(capsys, requests_mock):
         "provision_streak_count": 1,
         "provision_streak_type": "pass",
     }
-    requests_mock.get(URL + "/v1/agents/data", json=[fake_return])
+    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
     sys.argv = ["", "agent-status", fake_agent]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.agent_status()

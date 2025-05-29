@@ -27,6 +27,7 @@ import tarfile
 import tempfile
 import time
 from argparse import ArgumentParser
+from collections import Counter
 from datetime import datetime, timezone
 from functools import partial
 from http import HTTPStatus
@@ -281,7 +282,7 @@ class TestflingerCli:
     def _add_agent_status_args(self, subparsers):
         """Command line arguments for agent status."""
         parser = subparsers.add_parser(
-            "agent-status", help="Show the status of a specified AGENT_NAME"
+            "agent-status", help="Show the status of a specified agent"
         )
         parser.set_defaults(func=self.agent_status)
         parser.add_argument("agent_name")
@@ -293,7 +294,7 @@ class TestflingerCli:
         """Command line arguments for queue status."""
         parser = subparsers.add_parser(
             "queue-status",
-            help="Show the status of the agents in a specified QUEUE_NAME",
+            help="Show the status of the agents in a specified queue",
         )
         parser.set_defaults(func=self.queue_status)
         parser.add_argument("queue_name")
@@ -367,51 +368,64 @@ class TestflingerCli:
             )
 
     def agent_status(self):
-        """Show the status of a specified AGENT_NAME."""
-        agent_state = self.get_agent_state(self.args.agent_name)
-        if agent_state != "unknown":
-            if self.args.json:
-                print(
-                    json.dumps(
-                        {"agent": self.args.agent_name, "status": agent_state}
-                    )
-                )
-            else:
-                print(agent_state)
-        else:
+        """Show the status of a specified agent."""
+        agent_status = self.get_agent_state(self.args.agent_name)
+        if agent_status == "unknown":
             print(
                 "Unable to retrieve agent state from the server, check your "
                 "connection or try again later."
             )
+            return
+
+        if self.args.json:
+            output = json.dumps(
+                {
+                    "agent": self.args.agent_name,
+                    "status": agent_status["state"],
+                    "queues": agent_status["queues"],
+                }
+            )
+        else:
+            output = agent_status["state"]
+        print(output)
 
     def queue_status(self):
-        """Show the status of the agents in a specified QUEUE_NAME."""
+        """Show the status of the agents in a specified queue."""
         queue_state = self.get_queue_state(self.args.queue_name)
         jobs_queued = self.get_queued_jobs(self.args.queue_name)
-        if queue_state != "unknown":
-            if self.args.json:
-                print(
-                    json.dumps(
-                        {
-                            "total_agents": queue_state.total(),
-                            "available_agents": queue_state["waiting"],
-                            "busy_agents": queue_state["busy"],
-                            "offline_agents": queue_state["offline"],
-                            "jobs_waiting": jobs_queued,
-                        }
-                    )
-                )
-            else:
-                print("Agents in queue: {}".format(queue_state.total()))
-                print("Available:       {}".format(queue_state["waiting"]))
-                print("Busy:            {}".format(queue_state["busy"]))
-                print("Offline:         {}".format(queue_state["offline"]))
-                print("Jobs waiting:    {}".format(jobs_queued))
-        else:
+        if queue_state == "unknown":
             print(
                 "Unable to retrieve queue state from the server, check your "
                 "connection or try again later."
             )
+            return
+
+        if self.args.json:
+            output = json.dumps(
+                {
+                    "queue": self.args.queue_name,
+                    "jobs waiting": jobs_queued,
+                    "agents": queue_state,
+                }
+            )
+        else:
+            agents = Counter()
+            for agent in queue_state:
+                status = (
+                    agent["state"]
+                    if agent["state"] in ("waiting", "offline")
+                    else "busy"
+                )
+                agents[status] += 1
+
+            output = (
+                f"Agents in queue: {agents.total()}\n"
+                f"Available:       {agents['waiting']}\n"
+                f"Busy:            {agents['busy']}\n"
+                f"Offline:         {agents['offline']}\n"
+                f"Jobs waiting:    {len(jobs_queued)}"
+            )
+        print(output)
 
     def cancel(self, job_id=None):
         """Tell the server to cancel a specified JOB_ID."""
@@ -1065,10 +1079,15 @@ class TestflingerCli:
 
         :param str agent_name: Agent Name
         :raises SystemExit: Exit with HTTP error code
-        :return str: Agent state
+        :return Dict: Agent status which includes the state and the queues
         """
         try:
-            return self.client.get_agent_status(agent_name)
+            agent_data = self.client.get_agent_data(agent_name)
+            agent_status = {
+                "state": agent_data["state"],
+                "queues": agent_data["queues"],
+            }
+            return agent_status
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.NO_CONTENT:
                 sys.exit(
@@ -1091,10 +1110,10 @@ class TestflingerCli:
 
         :param str queue_name: Queue name
         :raises SystemExit: Exit with HTTP error code
-        :return Dict: Agent states from specified queue.
+        :return Dict: Agent status from specified queue.
         """
         try:
-            return self.client.get_queue_status(queue_name)
+            return self.client.get_agent_status_by_queue(queue_name)
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.NO_CONTENT:
                 sys.exit(
@@ -1113,23 +1132,22 @@ class TestflingerCli:
         return "unknown"
 
     def get_queued_jobs(self, queue_name):
-        """Return the number of jobs waiting in queue.
+        """Return the jobs waiting on a specified queue.
+
         :param str queue_name: Queue name
         :raises SystemExit: Exit with HTTP error code
-        :return int: Number of jobs waiting in queue.
+        :return list: List with the job ids for the waiting jobs
         """
         try:
-            jobs_waiting = len(
-                [
-                    job
-                    for job in self.client.get_jobs_in_queue(queue_name)
-                    if job["job_state"] == "waiting"
-                ]
-            )
+            jobs_waiting = [
+                job["job_id"]
+                for job in self.client.get_jobs_on_queue(queue_name)
+                if job["job_state"] == "waiting"
+            ]
             return jobs_waiting
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.NO_CONTENT:
-                return 0
+                return []
             if exc.status == HTTPStatus.NOT_FOUND:
                 sys.exit(
                     "Received 404 error from server. Are you "
