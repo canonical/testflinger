@@ -102,13 +102,9 @@ def prompt_for_ssh_keys() -> list[str]:
         if not keys:
             continue
         ssh_keys = [key.strip() for key in keys.split(",")]
-        for key in ssh_keys:
-            if not key.startswith(("gh:", "lp:")):
-                print(
-                    "Please enter keys in the form of 'gh:user' or 'lp:user'."
-                )
-                ssh_keys = []
-                break
+        if not all(key.startswith(("gh:", "lp:")) for key in ssh_keys):
+            print("Please enter keys in the form of 'gh:user' or 'lp:user'.")
+            ssh_keys = []
     return ssh_keys
 
 
