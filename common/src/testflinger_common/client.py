@@ -3,6 +3,7 @@
 
 import base64
 import logging
+import mimetypes
 import urllib.parse
 from functools import cached_property
 from http import HTTPStatus
@@ -140,6 +141,9 @@ class Client:
         timeout_sec: float = 30,
     ) -> requests.Response:
         """Post a file to the server."""
+        mime = (
+            mime or mimetypes.guess_type(path)[0] or "application/octet-stream"
+        )
         with path.open("rb") as file:
             files = {"file": (path.name, file, mime)}
             return self.post(endpoint, files=files, timeout_sec=timeout_sec)
