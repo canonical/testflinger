@@ -57,21 +57,14 @@ def cli():
     """Generate the TestflingerCli instance and run it."""
     try:
         tfcli = TestflingerCli()
-        configure_logging()
+        logging.basicConfig(
+            level=logging.WARNING,
+            format=consts.LOG_FORMAT,
+            datefmt=consts.LOG_DATE_FORMAT,
+        )
         tfcli.run()
     except KeyboardInterrupt:
         sys.exit("Received KeyboardInterrupt")
-
-
-def configure_logging():
-    """Configure default logging."""
-    logging.basicConfig(
-        level=logging.WARNING,
-        format=(
-            "%(levelname)s: %(asctime)s %(filename)s:%(lineno)d -- %(message)s"
-        ),
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
 
 
 class TestflingerCli:
