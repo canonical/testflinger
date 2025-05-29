@@ -24,6 +24,9 @@ from testflinger_device_connectors.devices import (
 from testflinger_device_connectors.devices.oem_autoinstall.oem_autoinstall import (  # noqa: E501
     OemAutoinstall,
 )
+from testflinger_device_connectors.devices.oem_autoinstall.zapper_oem import (
+    ZapperConnectorOem,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +36,21 @@ class DeviceConnector(DefaultDevice):
 
     def provision(self, args):
         """Provision device when the command is invoked."""
-        device = OemAutoinstall(args.config, args.job_data)
-        logger.info("BEGIN provision")
-        logger.info("Provisioning device")
-        device.provision()
-        logger.info("END provision")
+        with open(args.job_data, encoding="utf-8") as job_json:
+            self.job_data = json.load(job_json)
+        provision_data = self.job_data.get("provision_data", {})
+
+        if provision_data.get("zapper_usb_url"):
+            logger.info("Using Zapper USB")
+            device_with_zapper = ZapperConnectorOem()
+            logger.info("BEGIN provision via Zapper")
+            logger.info("Provisioning device via Zapper")
+            device_with_zapper.provision()
+            logger.info("END provision via Zapper")
+
+        if provision_data.get("url"):
+            device = OemAutoinstall(args.config, args.job_data)
+            logger.info("BEGIN provision")
+            logger.info("Provisioning device")
+            device.provision()
+            logger.info("END provision")
