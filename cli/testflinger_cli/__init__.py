@@ -409,14 +409,14 @@ class TestflingerCli:
                 }
             )
         else:
-            agents = Counter()
-            for agent in queue_state:
-                status = (
+            agents = Counter(
+                (
                     agent["state"]
                     if agent["state"] in ("waiting", "offline")
                     else "busy"
                 )
-                agents[status] += 1
+                for agent in queue_state
+            )
 
             output = (
                 f"Agents in queue: {agents.total()}\n"
@@ -1074,12 +1074,12 @@ class TestflingerCli:
             logger.debug("Unable to retrieve job state: %s", exc)
         return "unknown"
 
-    def get_agent_state(self, agent_name):
+    def get_agent_state(self, agent_name: str) -> dict:
         """Return the state for the specified agent.
 
-        :param str agent_name: Agent Name
+        :param agent_name: Agent Name
         :raises SystemExit: Exit with HTTP error code
-        :return Dict: Agent status which includes the state and the queues
+        :return: Agent status which includes the state and the queues
         """
         try:
             agent_data = self.client.get_agent_data(agent_name)
@@ -1105,12 +1105,12 @@ class TestflingerCli:
             logger.debug("Unable to retrieve agent state: %s", exc)
         return "unknown"
 
-    def get_queue_state(self, queue_name):
+    def get_queue_state(self, queue_name: str) -> dict:
         """Return the state of the agents from within a specified queue.
 
-        :param str queue_name: Queue name
+        :param queue_name: Queue name
         :raises SystemExit: Exit with HTTP error code
-        :return Dict: Agent status from specified queue.
+        :return: Agent status from specified queue.
         """
         try:
             return self.client.get_agent_status_by_queue(queue_name)
@@ -1131,12 +1131,12 @@ class TestflingerCli:
             logger.debug("Unable to retrieve queue state: %s", exc)
         return "unknown"
 
-    def get_queued_jobs(self, queue_name):
+    def get_queued_jobs(self, queue_name: str) -> list:
         """Return the jobs waiting on a specified queue.
 
-        :param str queue_name: Queue name
+        :param queue_name: Queue name
         :raises SystemExit: Exit with HTTP error code
-        :return list: List with the job ids for the waiting jobs
+        :return: List with the job ids for the waiting jobs
         """
         try:
             jobs_waiting = [

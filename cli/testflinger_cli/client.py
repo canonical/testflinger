@@ -139,24 +139,20 @@ class Client:
         data = json.loads(self.get(endpoint))
         return data.get("job_state")
 
-    def get_agent_data(self, agent_name):
+    def get_agent_data(self, agent_name: str) -> dict:
         """Get all the data from a specified agent.
 
-        :param agent_name
-            Name of the agent to retrieve its data
-        :return
-            Dict containing all the data from the agent.
+        :param agent_name: Name of the agent to retrieve its data
+        :return: Dict containing all the data from the agent.
         """
         endpoint = f"/v1/agents/data/{agent_name}"
         return json.loads(self.get(endpoint))
 
-    def get_agent_status_by_queue(self, queue):
+    def get_agent_status_by_queue(self, queue: str) -> dict:
         """Get the status of the agents by a specified queue.
 
-        :param queue
-            Name of the queue to retrieve its agent status
-        :return
-            Dict with the name and status for each agent in queue.
+        :param queue: Name of the queue to retrieve its agent status
+        :return: Dict with the name and status for each agent in queue.
         """
         endpoint = f"/v1/queues/{queue}/agents"
         data = json.loads(self.get(endpoint))
@@ -319,11 +315,10 @@ class Client:
         data = self.get(endpoint)
         return json.loads(data)
 
-    def get_jobs_on_queue(self, queue):
+    def get_jobs_on_queue(self, queue: str) -> dict:
         """Get the list of jobs assigned to a queue.
 
-        :param queue
-            String with the queue name where to list the jobs
+        :param queue: String with the queue name where to list the jobs
         """
         endpoint = f"/v1/queues/{queue}/jobs"
         data = self.get(endpoint)
