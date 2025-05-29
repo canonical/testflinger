@@ -1,6 +1,6 @@
 [build-system]
-requires = ["wheel", "setuptools", "setuptools-scm"]
-build-backend = "setuptools.build_meta"
+requires = ["uv-build>=0.7,<0.8"]
+build-backend = "uv_build"
 
 [project]
 name = "testflinger-device-connectors"
@@ -54,30 +54,30 @@ select = [
     "W",   # pycodestyle warnings
 ]
 ignore = [
-    "D100",    # docstring: Missing docstring in public module
-    "D101",    # docstring: Missing docstring in public class
-    "D102",    # docstring: Missing docstring in public method
-    "D103",    # docstring: Missing docstring in public function
-    "D104",    # docstring: Missing docstring in public package
-    "D107",    # docstring: Missing docstring in __init__
-    "D205",    # docstring: 1 black line required between summary line and description
-    "S105",    # flake8-bandit: Hardcoded password string
-    "S310",    # flake8-bandit: Audit url open for permitted schemes
-    "S602",    # flake8-bandit: Subprocess with shell equals True
-    "S603",    # flake8-bandit: Subprocess without shell equals True
+    "D100", # docstring: Missing docstring in public module
+    "D101", # docstring: Missing docstring in public class
+    "D102", # docstring: Missing docstring in public method
+    "D103", # docstring: Missing docstring in public function
+    "D104", # docstring: Missing docstring in public package
+    "D107", # docstring: Missing docstring in __init__
+    "D205", # docstring: 1 black line required between summary line and description
+    "S105", # flake8-bandit: Hardcoded password string
+    "S310", # flake8-bandit: Audit url open for permitted schemes
+    "S602", # flake8-bandit: Subprocess with shell equals True
+    "S603", # flake8-bandit: Subprocess without shell equals True
 ]
 
 [tool.ruff.lint.pep8-naming]
 ignore-names = [
-    "SerialLogger" # Function needs to follow snake_case, excluded to prevail style
+    "SerialLogger", # Function needs to follow snake_case, excluded to prevail style
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "src/testflinger_device_connectors/devices/*/tests/*" = [
-  "S101", # use of assert
+    "S101", # use of assert
 ]
 "tests/*" = [
-  "S101", # use of assert
+    "S101", # use of assert
 ]
 
 [tool.ruff.lint.pydocstyle]
