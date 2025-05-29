@@ -27,7 +27,7 @@ def job_ids_completer(
     **kwargs,
 ):
     """Completer for job identifiers."""
-    for job_id in history.history.keys():
+    for job_id in history.history:
         if not job_id.startswith(prefix):
             continue
         yield job_id
