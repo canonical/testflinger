@@ -21,7 +21,6 @@ import json
 import logging
 import sys
 import urllib.parse
-from collections import Counter
 from pathlib import Path
 
 import requests
@@ -140,48 +139,32 @@ class Client:
         data = json.loads(self.get(endpoint))
         return data.get("job_state")
 
-    def get_agent_status(self, agent_name):
-        """Get the status of a specified agent.
+    def get_agent_data(self, agent_name):
+        """Get all the data from a specified agent.
 
         :param agent_name
-            Name of the agent to retrieve status from
+            Name of the agent to retrieve its data
         :return
-            String containing the agent_state for the specified agent.
+            Dict containing all the data from the agent.
         """
-        endpoint = "/v1/agents/data"
-        data = json.loads(self.get(endpoint))
-        agent_data = next(
-            (agent for agent in data if agent["name"] == agent_name), None
-        )
+        endpoint = f"/v1/agents/data/{agent_name}"
+        return json.loads(self.get(endpoint))
 
-        if agent_data:
-            return agent_data.get("state")
-        else:
-            return "unknown"
+    def get_agent_status_by_queue(self, queue):
+        """Get the status of the agents by a specified queue.
 
-    def get_queue_status(self, queue_name):
-        """Get the status of a specified queue.
-
-        :param queue_name
+        :param queue
             Name of the queue to retrieve its agent status
         :return
-            collections.Counter with the status of the agents
-            for the specified queue.
+            Dict with the name and status for each agent in queue.
         """
-        endpoint = "/v1/queues/{}/agents".format(queue_name)
+        endpoint = f"/v1/queues/{queue}/agents"
         data = json.loads(self.get(endpoint))
 
-        agents = Counter()
-
-        for agent in data:
-            status = (
-                agent["state"]
-                if agent["state"] in ("waiting", "offline")
-                else "busy"
-            )
-            agents[status] += 1
-
-        return agents
+        agents_status = [
+            {"name": agent["name"], "state": agent["state"]} for agent in data
+        ]
+        return agents_status
 
     def post_job_state(self, job_id, state):
         """Post the status of a test job.
@@ -336,8 +319,12 @@ class Client:
         data = self.get(endpoint)
         return json.loads(data)
 
-    def get_jobs_in_queue(self, queue_name):
-        """Get the total number of jobs waiting in queue."""
-        endpoint = "/v1/queues/{}/jobs".format(queue_name)
+    def get_jobs_on_queue(self, queue):
+        """Get the list of jobs assigned to a queue.
+
+        :param queue
+            String with the queue name where to list the jobs
+        """
+        endpoint = f"/v1/queues/{queue}/jobs"
         data = self.get(endpoint)
         return json.loads(data)
