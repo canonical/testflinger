@@ -17,6 +17,7 @@
 
 """TestflingerCli module."""
 
+import contextlib
 import inspect
 import json
 import logging
@@ -385,14 +386,12 @@ class TestflingerCli:
         """Pull together the attachment data per phase from the `job_data`."""
         attachments = {}
         for phase in ("provision", "firmware_update", "test"):
-            try:
+            with contextlib.suppress(KeyError):
                 attachments[phase] = [
                     attachment
                     for attachment in job_data[f"{phase}_data"]["attachments"]
                     if attachment.get("local")
                 ]
-            except KeyError:
-                pass
         return attachments or None
 
     def pack_attachments(self, archive: str, attachment_data: dict):
@@ -464,11 +463,7 @@ class TestflingerCli:
         creates an authorization header from it.
         """
         jwt = self.authenticate_with_server()
-        if jwt is not None:
-            auth_headers = {"Authorization": jwt}
-        else:
-            auth_headers = None
-        return auth_headers
+        return {"Authorization": jwt} if jwt else None
 
     def submit(self):
         """Submit a new test job to the server."""
@@ -843,11 +838,8 @@ class TestflingerCli:
 
     def jobs(self):
         """List the previously started test jobs."""
-        if self.args.status:
-            # Getting job state may be slow, only include if requested
-            status_text = "Status"
-        else:
-            status_text = ""
+        # Getting job state may be slow, only include if requested
+        status_text = "Status" if self.args.status else ""
         print(
             "{:36} {:9} {}  {}".format(
                 "Job ID", status_text, "Submission Time", "Queue"
@@ -903,12 +895,8 @@ class TestflingerCli:
             logger.warning("Unable to get a list of queues from the server!")
             queues = {}
         queue = self.args.queue or helpers.prompt_for_queue(queues)
-        if queue not in queues.keys():
-            print(
-                "WARNING: '{}' is not in the list of known queues".format(
-                    queue
-                )
-            )
+        if queue not in queues:
+            print(f"WARNING: '{queue}' is not in the list of known queues")
         try:
             images = self.client.get_images(queue)
         except OSError:
@@ -917,12 +905,11 @@ class TestflingerCli:
         image = self.args.image or helpers.prompt_for_image(images)
         if (
             not image.startswith(("http://", "https://"))
-            and image not in images.keys()
+            and image not in images
         ):
             sys.exit(
-                "ERROR: '{}' is not in the list of known "
-                "images for that queue, please select "
-                "another.".format(image)
+                f"ERROR: '{image}' is not in the list of known "
+                "images for that queue, please select another."
             )
         if image.startswith(("http://", "https://")):
             image = "url: " + image
