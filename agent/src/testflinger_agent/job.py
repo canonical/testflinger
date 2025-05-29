@@ -18,6 +18,7 @@ import os
 import time
 
 from testflinger_agent.errors import TFServerError
+from typing import Optional
 
 from .handlers import LiveOutputHandler, LogUpdateHandler
 from .runner import CommandRunner, RunnerEvents
@@ -257,12 +258,12 @@ class TestflingerJob:
         yield "* {} *".format(line)
         yield "*" * (len(line) + 4)
 
-    def get_device_info(self, rundir):
+    def get_device_info(self, rundir: str) -> Optional[dict]:
         """Read the json dict from "device-info.json" with information
         about the device associated with an agent.
 
-        :param rundir
-            String with the directory on where to locate the file
+        :param rundir: String with the directory on where to locate the file
+        :return: Device information from device-info.json
         """
         if rundir:
             try:

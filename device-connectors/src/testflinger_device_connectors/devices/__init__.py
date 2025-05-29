@@ -392,11 +392,10 @@ class DefaultDevice:
         """Clean up devices (default method)."""
         pass
 
-    def write_device_info(self, config):
+    def write_device_info(self, config: dict) -> None:
         """Write device information to device-info.json.
 
-        :param config
-            Dictionary with the key/values from the configuration file.
+        :param config: Dictionary with the key/values from the configuration file.
         """
         device_ip = config["device_ip"]
         agent_name = config["agent_name"]
