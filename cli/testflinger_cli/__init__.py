@@ -103,7 +103,7 @@ class TestflingerCli:
         if not server.startswith(("http://", "https://")):
             sys.exit(
                 'Server must start with "http://" or "https://" '
-                '- currently set to: "{}"'.format(server)
+                f'- currently set to: "{server}"'
             )
         self.client = client.Client(server, error_threshold=error_threshold)
 
@@ -371,14 +371,12 @@ class TestflingerCli:
                 self.config.set(*setting)
                 return
             if len(setting) == 1:
-                print(
-                    "{} = {}".format(setting[0], self.config.get(setting[0]))
-                )
+                print(f"{setting[0]} = {self.config.get(setting[0])}")
                 return
         print("Current Configuration")
         print("---------------------")
         for k, v in self.config.data.items():
-            print("{} = {}".format(k, v))
+            print(f"{k} = {v}")
         print()
 
     @staticmethod
@@ -511,7 +509,7 @@ class TestflingerCli:
             print(job_id)
         else:
             print("Job submitted successfully!")
-            print("job_id: {}".format(job_id))
+            print(f"job_id: {job_id}")
         if self.args.poll:
             self.do_poll(job_id)
 
@@ -793,7 +791,7 @@ class TestflingerCli:
                     queue_pos = self.client.get_job_position(job_id)
                     if int(queue_pos) != prev_queue_pos:
                         prev_queue_pos = int(queue_pos)
-                        print("Jobs ahead in queue: {}".format(queue_pos))
+                        print(f"Jobs ahead in queue: {queue_pos}")
                 time.sleep(10)
                 output = ""
                 output = self.get_latest_output(job_id)
@@ -805,8 +803,8 @@ class TestflingerCli:
                     logger.exception("Error polling for job output")
             except KeyboardInterrupt:
                 choice = input(
-                    "\nCancel job {} before exiting "
-                    "(y)es/(N)o/(c)ontinue? ".format(job_id)
+                    f"\nCancel job {job_id} before exiting "
+                    "(y)es/(N)o/(c)ontinue? "
                 )
                 if choice:
                     choice = choice[0].lower()
@@ -840,11 +838,7 @@ class TestflingerCli:
         """List the previously started test jobs."""
         # Getting job state may be slow, only include if requested
         status_text = "Status" if self.args.status else ""
-        print(
-            "{:36} {:9} {}  {}".format(
-                "Job ID", status_text, "Submission Time", "Queue"
-            )
-        )
+        print(f"{'Job ID':36} {status_text:9} Submission Time  Queue")
         print("-" * 79)
         for job_id, jobdata in self.history.history.items():
             if self.args.status:
@@ -854,16 +848,11 @@ class TestflingerCli:
                     self.history.update(job_id, job_state)
             else:
                 job_state = ""
-            print(
-                "{} {:9} {} {}".format(
-                    job_id,
-                    job_state,
-                    datetime.fromtimestamp(
-                        jobdata.get("submission_time"), tz=timezone.utc
-                    ).strftime("%a %b %d %H:%M"),
-                    jobdata.get("queue"),
-                )
+            timestamp = datetime.fromtimestamp(
+                jobdata.get("submission_time"), tz=timezone.utc
             )
+            queue = jobdata.get("queue")
+            print(f"{job_id} {job_state:9} {timestamp:%a %b %d %H:%M} {queue}")
         print()
 
     def list_queues(self):
@@ -884,7 +873,7 @@ class TestflingerCli:
         else:
             print("Advertised queues on this server:")
             for name, description in sorted(queues.items()):
-                print(" {} - {}".format(name, description))
+                print(f" {name} - {description}")
 
     def reserve(self):
         """Install and reserve a system."""
@@ -929,7 +918,7 @@ class TestflingerCli:
                                         ssh_keys:"""
         )
         for ssh_key in ssh_keys:
-            template += "\n      - {}".format(ssh_key)
+            template += f"\n      - {ssh_key}"
         job_data = template.format(queue=queue, image=image)
         print("\nThe following yaml will be submitted:")
         print(job_data)
@@ -939,7 +928,7 @@ class TestflingerCli:
         if answer in ("Y", "y", ""):
             job_id = self.submit_job_data(job_data)
             print("Job submitted successfully!")
-            print("job_id: {}".format(job_id))
+            print(f"job_id: {job_id}")
             self.do_poll(job_id)
 
     def get_latest_output(self, job_id):
