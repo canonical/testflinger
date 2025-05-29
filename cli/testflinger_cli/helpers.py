@@ -94,11 +94,10 @@ def prompt_for_ssh_keys() -> list[str]:
 
     :return: A list of SSH keys in the form of gh:user or lp:user.
     """
+    input_msg = "\nEnter the key(s) you wish to use (ex: 'lp:user,gh:user'): "
     ssh_keys: list[str] = []
     while not ssh_keys:
-        keys = input(
-            "\nEnter the SSH key(s) you wish to use (ex: 'lp:user, gh:user'): "
-        ).strip()
+        keys = input(input_msg).strip()
         if not keys:
             continue
         ssh_keys = [key.strip() for key in keys.split(",")]
@@ -114,11 +113,10 @@ def prompt_for_queue(queues: dict[str, str]) -> str:
     :param queues: A mapping of queue name to descripton to choose from.
     :return: The selected queue.
     """
+    input_msg = "\nEnter the queue you wish to use ('?' to list): "
     queue = ""
     while not queue:
-        queue = input(
-            "\nEnter the queue you wish to use ('?' to list): "
-        ).strip()
+        queue = input(input_msg).strip()
         if not queue:
             continue
         if queue == "?":
