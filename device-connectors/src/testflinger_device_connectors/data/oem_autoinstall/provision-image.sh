@@ -198,6 +198,24 @@ is_valid_iso_on_dut() {
     return $exit_code
 }
 
+is_secure_boot_blocker() {
+    # DUT won't boot with unsigned kernel when Secure Boot is enabled
+    local iso_name="$1"
+
+    # Check if ISO name contains "next" or "edge" (case insensitive)
+    if [[ "$iso_name" =~ [Nn][Ee][Xx][Tt]|[Ee][Dd][Gg][Ee] ]]; then
+        local sb_status
+        sb_status=$($SSH "$TARGET_USER@$addr" -- sudo mokutil --sb-state 2>&1)
+
+        if [[ "$sb_status" == *"SecureBoot enabled"* ]]; then
+            echo "WARNING: Secure Boot is enabled on DUT."
+            echo "WARNING: It looks like you're using 'next' or 'edge' ISO with unsigned kernel."
+            return 0
+        fi
+    fi
+
+    return 1
+}
 
 OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config:,iso-dut: -n 'provision-image.sh' -- "$@")"
 eval set -- "${OPTS}"
@@ -254,6 +272,11 @@ do
     if [ -z "$STORE_PART" ]; then
         echo "Can't find partition to store ISO on target $addr"
         exit 1
+    fi
+
+    if is_secure_boot_blocker "$ISO"; then
+        echo "Error: Consider disabling Secure Boot on DUT or use 'production', 'proposed' ISO."
+        exit 6
     fi
 
     # Handle ISO
