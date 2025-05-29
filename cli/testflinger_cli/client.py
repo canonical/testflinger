@@ -148,7 +148,7 @@ class Client:
         endpoint = f"/v1/agents/data/{agent_name}"
         return json.loads(self.get(endpoint))
 
-    def get_agent_status_by_queue(self, queue: str) -> dict:
+    def get_agent_status_by_queue(self, queue: str) -> list[dict]:
         """Get the status of the agents by a specified queue.
 
         :param queue: Name of the queue to retrieve its agent status

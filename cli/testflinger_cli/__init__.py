@@ -370,7 +370,7 @@ class TestflingerCli:
     def agent_status(self):
         """Show the status of a specified agent."""
         agent_status = self.get_agent_state(self.args.agent_name)
-        if agent_status == "unknown":
+        if agent_status["state"] == "unknown":
             print(
                 "Unable to retrieve agent state from the server, check your "
                 "connection or try again later."
@@ -1103,9 +1103,9 @@ class TestflingerCli:
             # For other types of network errors, or JSONDecodeError if we got
             # a bad return from get_agent_status()
             logger.debug("Unable to retrieve agent state: %s", exc)
-        return "unknown"
+        return {"state": "unknown", "queues": []}
 
-    def get_queue_state(self, queue_name: str) -> dict:
+    def get_queue_state(self, queue_name: str) -> list[dict] | str:
         """Return the state of the agents from within a specified queue.
 
         :param queue_name: Queue name
