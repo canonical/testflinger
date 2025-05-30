@@ -26,8 +26,10 @@ import tarfile
 import tempfile
 import time
 from argparse import ArgumentParser
+from collections import Counter
 from datetime import datetime, timezone
 from functools import partial
+from http import HTTPStatus
 from pathlib import Path
 from typing import Optional
 
@@ -36,7 +38,11 @@ import requests
 import yaml
 
 from testflinger_cli import autocomplete, client, config, helpers, history
-from testflinger_cli.errors import AttachmentError, SnapPrivateFileError
+from testflinger_cli.errors import (
+    AttachmentError,
+    SnapPrivateFileError,
+    UnknownStatusError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +205,8 @@ class TestflingerCli:
         self._add_poll_serial_args(subparsers)
         self._add_reserve_args(subparsers)
         self._add_status_args(subparsers)
+        self._add_agent_status_args(subparsers)
+        self._add_queue_status_args(subparsers)
         self._add_results_args(subparsers)
         self._add_show_args(subparsers)
         self._add_submit_args(subparsers)
@@ -335,6 +343,29 @@ class TestflingerCli:
             autocomplete.job_ids_completer, history=self.history
         )
 
+    def _add_agent_status_args(self, subparsers):
+        """Command line arguments for agent status."""
+        parser = subparsers.add_parser(
+            "agent-status", help="Show the status of a specified agent"
+        )
+        parser.set_defaults(func=self.agent_status)
+        parser.add_argument("agent_name")
+        parser.add_argument(
+            "--json", action="store_true", help="Print output in JSON format"
+        )
+
+    def _add_queue_status_args(self, subparsers):
+        """Command line arguments for queue status."""
+        parser = subparsers.add_parser(
+            "queue-status",
+            help="Show the status of the agents in a specified queue",
+        )
+        parser.set_defaults(func=self.queue_status)
+        parser.add_argument("queue_name")
+        parser.add_argument(
+            "--json", action="store_true", help="Print output in JSON format"
+        )
+
     def _add_results_args(self, subparsers):
         """Command line arguments for results."""
         parser = subparsers.add_parser(
@@ -399,6 +430,60 @@ class TestflingerCli:
                 "Unable to retrieve job state from the server, check your "
                 "connection or try again later."
             )
+
+    def agent_status(self):
+        """Show the status of a specified agent."""
+        try:
+            agent_status = self.get_agent_state(self.args.agent_name)
+        except UnknownStatusError as exc:
+            sys.exit(exc)
+
+        if self.args.json:
+            output = json.dumps(
+                {
+                    "agent": self.args.agent_name,
+                    "status": agent_status["state"],
+                    "queues": agent_status["queues"],
+                }
+            )
+        else:
+            output = agent_status["state"]
+        print(output)
+
+    def queue_status(self):
+        """Show the status of the agents in a specified queue."""
+        try:
+            queue_state = self.get_queue_state(self.args.queue_name)
+            jobs_queued = self.get_queued_jobs(self.args.queue_name)
+        except UnknownStatusError as exc:
+            sys.exit(exc)
+
+        if self.args.json:
+            output = json.dumps(
+                {
+                    "queue": self.args.queue_name,
+                    "jobs waiting": jobs_queued,
+                    "agents": queue_state,
+                }
+            )
+        else:
+            agents = Counter(
+                (
+                    agent["status"]
+                    if agent["status"] in ("waiting", "offline")
+                    else "busy"
+                )
+                for agent in queue_state
+            )
+
+            output = (
+                f"Agents in queue: {agents.total()}\n"
+                f"Available:       {agents['waiting']}\n"
+                f"Busy:            {agents['busy']}\n"
+                f"Offline:         {agents['offline']}\n"
+                f"Jobs waiting:    {len(jobs_queued)}"
+            )
+        print(output)
 
     def cancel(self, job_id=None):
         """Tell the server to cancel a specified JOB_ID."""
@@ -1099,3 +1184,88 @@ class TestflingerCli:
             # a bad return from get_status()
             logger.debug("Unable to retrieve job state: %s", exc)
         return "unknown"
+
+    def get_agent_state(self, agent_name: str) -> dict:
+        """Return the state for the specified agent.
+
+        :param agent_name: Agent Name
+        :raises SystemExit: Exit with HTTP error code
+        :return: Agent status which includes the state and the queues
+        """
+        try:
+            agent_data = self.client.get_agent_data(agent_name)
+            agent_status = {
+                "state": agent_data["state"],
+                "queues": agent_data["queues"],
+            }
+            return agent_status
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NO_CONTENT:
+                sys.exit(
+                    "Invalid agent was specified. Check the agent name "
+                    "to make sure its correct."
+                )
+            if exc.status == HTTPStatus.NOT_FOUND:
+                sys.exit(
+                    "Received 404 error from server. Are you "
+                    "sure this is a testflinger server?"
+                )
+        except (IOError, ValueError) as exc:
+            # For other types of network errors, or JSONDecodeError if we got
+            # a bad return from get_agent_status()
+            logger.debug("Unable to retrieve agent state: %s", exc)
+        raise UnknownStatusError("agent")
+
+    def get_queue_state(self, queue_name: str) -> list[dict]:
+        """Return the state of the agents from within a specified queue.
+
+        :param queue_name: Queue name
+        :raises SystemExit: Exit with HTTP error code
+        :return: Agent status from specified queue.
+        """
+        try:
+            return self.client.get_agent_status_by_queue(queue_name)
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NO_CONTENT:
+                sys.exit(
+                    "Invalid queue specified. Check the queue name "
+                    "to make sure its correct."
+                )
+            if exc.status == HTTPStatus.NOT_FOUND:
+                sys.exit(
+                    "Received 404 error from server. Are you "
+                    "sure this is a testflinger server?"
+                )
+        except (IOError, ValueError) as exc:
+            # For other types of network errors or JSONDecodeError if we got
+            # a bad return from get_queue_status()
+            logger.debug("Unable to retrieve queue state: %s", exc)
+        raise UnknownStatusError("queue")
+
+    def get_queued_jobs(self, queue_name: str) -> list:
+        """Return the jobs waiting on a specified queue.
+
+        :param queue_name: Queue name
+        :raises SystemExit: Exit with HTTP error code
+        :return: List with the job ids for the waiting jobs
+        """
+        try:
+            jobs_waiting = [
+                job["job_id"]
+                for job in self.client.get_jobs_on_queue(queue_name)
+                if job["job_state"] == "waiting"
+            ]
+            return jobs_waiting
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NO_CONTENT:
+                return []
+            if exc.status == HTTPStatus.NOT_FOUND:
+                sys.exit(
+                    "Received 404 error from server. Are you "
+                    "sure this is a testflinger server?"
+                )
+        except (IOError, ValueError) as exc:
+            # For other types of network errors or JSONDecodeError is we got
+            # a bad return from get_jobs_in_queue()
+            logger.debug("Unable to retrieve queue state: %s", exc)
+        raise UnknownStatusError("job")
