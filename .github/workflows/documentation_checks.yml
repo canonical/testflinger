@@ -2,11 +2,16 @@ name: Documentation checks
 permissions:
   contents: read
 on:
-  pull_request:
-    branches:
-      - main
+  push:
+    branches: [main]
     paths:
-      - "docs/**"
+      - .github/workflows/documentation_checks.yml
+      - docs/**
+  pull_request:
+    branches: ["**"]
+    paths:
+      - docs/**
+      - .github/workflows/documentation_checks.yml
   workflow_dispatch:
 
 concurrency:

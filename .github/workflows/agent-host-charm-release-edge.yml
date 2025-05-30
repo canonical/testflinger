@@ -3,8 +3,7 @@ permissions:
   contents: read
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - agent/charms/testflinger-agent-host-charm/**
       - .github/workflows/agent-host-charm-release-edge.yml
@@ -18,7 +17,7 @@ jobs:
       packages: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
