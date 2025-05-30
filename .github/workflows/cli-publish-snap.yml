@@ -13,6 +13,12 @@ on:
       - cli/**
       - .github/workflows/cli-publish-snap.yml
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the snap to the store
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -41,7 +47,7 @@ jobs:
           name: testflinger-cli.snap
           path: ${{ steps.build.outputs.snap }}
       - name: Publish snap
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true' }}
         uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_LOGIN }}
