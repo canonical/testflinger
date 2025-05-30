@@ -3,9 +3,9 @@ permissions:
   contents: read
 on:
   pull_request:
-    branches:
-      - main
+    branches: ["**"]
     paths:
+      - .github/workflows/server-charm-check-libs.yml
       - server/charm/**
   workflow_dispatch:
 
