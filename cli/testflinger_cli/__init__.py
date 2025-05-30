@@ -38,7 +38,11 @@ import requests
 import yaml
 
 from testflinger_cli import autocomplete, client, config, helpers, history
-from testflinger_cli.errors import AttachmentError, SnapPrivateFileError
+from testflinger_cli.errors import (
+    AttachmentError,
+    SnapPrivateFileError,
+    TFStatusError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -429,13 +433,10 @@ class TestflingerCli:
 
     def agent_status(self):
         """Show the status of a specified agent."""
-        agent_status = self.get_agent_state(self.args.agent_name)
-        if agent_status["state"] == "unknown":
-            print(
-                "Unable to retrieve agent state from the server, check your "
-                "connection or try again later."
-            )
-            return
+        try:
+            agent_status = self.get_agent_state(self.args.agent_name)
+        except TFStatusError as exc:
+            sys.exit(exc)
 
         if self.args.json:
             output = json.dumps(
@@ -451,14 +452,11 @@ class TestflingerCli:
 
     def queue_status(self):
         """Show the status of the agents in a specified queue."""
-        queue_state = self.get_queue_state(self.args.queue_name)
-        jobs_queued = self.get_queued_jobs(self.args.queue_name)
-        if queue_state == "unknown":
-            print(
-                "Unable to retrieve queue state from the server, check your "
-                "connection or try again later."
-            )
-            return
+        try:
+            queue_state = self.get_queue_state(self.args.queue_name)
+            jobs_queued = self.get_queued_jobs(self.args.queue_name)
+        except TFStatusError as exc:
+            sys.exit(exc)
 
         if self.args.json:
             output = json.dumps(
@@ -1216,9 +1214,9 @@ class TestflingerCli:
             # For other types of network errors, or JSONDecodeError if we got
             # a bad return from get_agent_status()
             logger.debug("Unable to retrieve agent state: %s", exc)
-        return {"state": "unknown", "queues": []}
+        raise TFStatusError("agent")
 
-    def get_queue_state(self, queue_name: str) -> list[dict] | str:
+    def get_queue_state(self, queue_name: str) -> list[dict]:
         """Return the state of the agents from within a specified queue.
 
         :param queue_name: Queue name
@@ -1242,7 +1240,7 @@ class TestflingerCli:
             # For other types of network errors or JSONDecodeError if we got
             # a bad return from get_queue_status()
             logger.debug("Unable to retrieve queue state: %s", exc)
-        return "unknown"
+        raise TFStatusError("queue")
 
     def get_queued_jobs(self, queue_name: str) -> list:
         """Return the jobs waiting on a specified queue.
@@ -1270,4 +1268,4 @@ class TestflingerCli:
             # For other types of network errors or JSONDecodeError is we got
             # a bad return from get_jobs_in_queue()
             logger.debug("Unable to retrieve queue state: %s", exc)
-        return "unknown"
+        raise TFStatusError("job")
