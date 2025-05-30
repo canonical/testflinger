@@ -35,7 +35,7 @@ from werkzeug.routing import BaseConverter
 
 from testflinger import database
 from testflinger.api import schemas
-from testflinger.log_handlers import MongoLogHandler
+from testflinger.logs import LogFragment, MongoLogHandler
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -525,11 +525,19 @@ def log_get(job_id: str, log_type: LogType):
 @v1.post("/result/<job_id>/log/<log_type:log_type>")
 @v1.input(schemas.LogPost, location="json")
 def log_post(job_id: str, log_type: LogType, json_data: dict):
-    """Post logsfor a specified job ID."""
+    """Post logs for a specified job ID."""
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
+    log_fragment = LogFragment(
+        job_id,
+        log_type,
+        json_data["phase"],
+        json_data["fragment_number"],
+        json_data["timestamp"],
+        json_data["log_data"],
+    )
     log_handler = MongoLogHandler(database.mongo)
-    log_handler.store_log_fragment(job_id, json_data, log_type)
+    log_handler.store_log_fragment(log_fragment)
     return "OK"
 
 

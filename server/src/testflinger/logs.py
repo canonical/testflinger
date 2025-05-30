@@ -17,10 +17,23 @@
 """Handlers for storing/retrieving agent output and serial output."""
 
 from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import List
+from typing import Iterable
 
 from testflinger_common.enums import LogType, TestPhase
+
+
+@dataclass
+class LogFragment:
+    """Class representing fragment of log in database."""
+
+    job_id: str
+    log_type: LogType
+    phase: TestPhase
+    fragment_number: int
+    timestamp: datetime
+    log_data: str
 
 
 class LogHandler(ABC):
@@ -30,8 +43,8 @@ class LogHandler(ABC):
     """
 
     @abstractmethod
-    def store_log_fragment(self, job_id: str, data: str, log_type: LogType):
-        """Store log fragments in the handler specific backend."""
+    def store_log_fragment(self, log_fragment: LogFragment):
+        """Store log fragments in the handler-specific backend."""
         raise NotImplementedError
 
     @abstractmethod
@@ -42,9 +55,9 @@ class LogHandler(ABC):
         phase: TestPhase,
         start_fragment: int = 0,
         start_timestamp: datetime = None,
-    ) -> List[dict]:
+    ) -> Iterable[LogFragment]:
         """
-        Retrieve log fragments from the handler specific backend.
+        Retrieve log fragments from the handler-specific backend.
         Log fragment schema can be found in schemas.py.
         """
         raise NotImplementedError
@@ -61,13 +74,15 @@ class LogHandler(ABC):
         Return a dictionary with the combined log fragments and the last
         fragment number retrieved.
         """
-        fragments = self.retrieve_log_fragments(
-            job_id, log_type, phase, start_fragment, start_timestamp
+        fragments = list(
+            self.retrieve_log_fragments(
+                job_id, log_type, phase, start_fragment, start_timestamp
+            )
         )
-        data_list = [f["log_data"] for f in fragments]
-        log_data = "".join(data_list)
+
+        log_data = "".join([f.log_data for f in fragments])
         if len(fragments) > 0:
-            last_fragment_number = fragments[-1]["fragment_number"]
+            last_fragment_number = fragments[-1].fragment_number
         else:
             last_fragment_number = -1
 
@@ -84,14 +99,15 @@ class MongoLogHandler(LogHandler):
         """Initialize mongo db object."""
         self.mongo = mongo
 
-    def store_log_fragment(self, job_id: str, data: dict, log_type: LogType):
-        """Store logs in the output/serial_output collection in MongoDB."""
+    def store_log_fragment(self, log_fragment: LogFragment):
+        """Store logs in the approriate log collection in MongoDB."""
         log_collection = self.mongo.db.logs
+        fragment_dict = asdict(log_fragment)
         timestamp = datetime.now(timezone.utc)
-        data["job_id"] = job_id
-        data["log_type"] = log_type
+        if fragment_dict["timestamp"] is None:
+            fragment_dict["timestamp"] = timestamp
         log_collection.insert_one(
-            data,
+            fragment_dict,
             {"$set": {"updated_at": timestamp}},
         )
 
@@ -102,7 +118,7 @@ class MongoLogHandler(LogHandler):
         phase: TestPhase,
         start_fragment: int = 0,
         start_timestamp: datetime = None,
-    ) -> List[dict]:
+    ) -> Iterable[LogFragment]:
         """Retrieve log fragments from MongoDB sorted by fragment number."""
         log_collection = self.mongo.db.logs
         query = {
@@ -114,4 +130,13 @@ class MongoLogHandler(LogHandler):
         if start_timestamp is not None:
             query["timestamp"] = {"$gte": start_timestamp}
 
-        return list(log_collection.find(query).sort("fragment_number"))
+        fragment_iter = log_collection.find(query).sort("fragment_number")
+        for fragment in fragment_iter:
+            yield LogFragment(
+                fragment["job_id"],
+                fragment["log_type"],
+                fragment["phase"],
+                fragment["fragment_number"],
+                fragment["timestamp"],
+                fragment["log_data"],
+            )
