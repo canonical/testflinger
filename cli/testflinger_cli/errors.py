@@ -19,7 +19,7 @@ class SnapPrivateFileError(FileNotFoundError):
         super().__init__(f"File {path} is in a snap-private directory.")
 
 
-class TFStatusError(Exception):
+class UnknownStatusError(Exception):
     """Exception thrown when unable to retrieve status
     information from TF Server.
     """
