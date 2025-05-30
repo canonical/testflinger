@@ -49,7 +49,7 @@ from testflinger_cli import (
 from testflinger_cli.errors import (
     AttachmentError,
     SnapPrivateFileError,
-    TFStatusError,
+    UnknownStatusError,
 )
 
 logger = logging.getLogger(__name__)
@@ -375,7 +375,7 @@ class TestflingerCli:
         """Show the status of a specified agent."""
         try:
             agent_status = self.get_agent_state(self.args.agent_name)
-        except TFStatusError as exc:
+        except UnknownStatusError as exc:
             sys.exit(exc)
 
         if self.args.json:
@@ -395,7 +395,7 @@ class TestflingerCli:
         try:
             queue_state = self.get_queue_state(self.args.queue_name)
             jobs_queued = self.get_queued_jobs(self.args.queue_name)
-        except TFStatusError as exc:
+        except UnknownStatusError as exc:
             sys.exit(exc)
 
         if self.args.json:
@@ -1101,7 +1101,7 @@ class TestflingerCli:
             # For other types of network errors, or JSONDecodeError if we got
             # a bad return from get_agent_status()
             logger.debug("Unable to retrieve agent state: %s", exc)
-        raise TFStatusError("agent")
+        raise UnknownStatusError("agent")
 
     def get_queue_state(self, queue_name: str) -> list[dict]:
         """Return the state of the agents from within a specified queue.
@@ -1127,7 +1127,7 @@ class TestflingerCli:
             # For other types of network errors or JSONDecodeError if we got
             # a bad return from get_queue_status()
             logger.debug("Unable to retrieve queue state: %s", exc)
-        raise TFStatusError("queue")
+        raise UnknownStatusError("queue")
 
     def get_queued_jobs(self, queue_name: str) -> list:
         """Return the jobs waiting on a specified queue.
@@ -1155,4 +1155,4 @@ class TestflingerCli:
             # For other types of network errors or JSONDecodeError is we got
             # a bad return from get_jobs_in_queue()
             logger.debug("Unable to retrieve queue state: %s", exc)
-        raise TFStatusError("job")
+        raise UnknownStatusError("job")
