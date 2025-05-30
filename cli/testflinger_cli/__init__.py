@@ -409,8 +409,8 @@ class TestflingerCli:
         else:
             agents = Counter(
                 (
-                    agent["state"]
-                    if agent["state"] in ("waiting", "offline")
+                    agent["status"]
+                    if agent["status"] in ("waiting", "offline")
                     else "busy"
                 )
                 for agent in queue_state
