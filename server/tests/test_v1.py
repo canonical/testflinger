@@ -17,12 +17,9 @@
 
 import json
 import os
-import urllib.parse
 from datetime import datetime, timezone
 from http import HTTPStatus
 from io import BytesIO
-
-from testflinger_common.enums import LogType, TestPhase
 
 from testflinger.api import v1
 

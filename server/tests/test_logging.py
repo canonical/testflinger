@@ -16,13 +16,14 @@
 
 """Tests for storing/retrieving agent logs."""
 
+import urllib.parse
 import uuid
 from datetime import datetime, timezone
 
 import pytest
 from testflinger_common.enums import LogType, TestPhase
 
-from testflinger.log_handlers import MongoLogHandler
+from testflinger.logs import LogFragment, MongoLogHandler
 
 
 @pytest.fixture(name="mongo_app_with_outputs")
@@ -53,14 +54,18 @@ def test_store_log_fragment(mongo_app):
     job_id = str(uuid.uuid1())
     log_handler = MongoLogHandler(mongo)
     for i in range(2):
-        log_data = {
-            "phase": TestPhase.SETUP,
-            "fragment_number": i,
-            "log_data": f"My log data {i}",
-        }
-        log_handler.store_log_fragment(
-            job_id, log_data, LogType.STANDARD_OUTPUT
+        timestamp = datetime(
+            2025, 4, 24, 10, 5 * i, 0, tzinfo=timezone.utc
+        ).isoformat()
+        log_fragment = LogFragment(
+            job_id,
+            LogType.STANDARD_OUTPUT,
+            TestPhase.SETUP,
+            i,
+            timestamp,
+            f"My log data {i}",
         )
+        log_handler.store_log_fragment(log_fragment)
     log_fragments = list(mongo.db.logs.find({"job_id": job_id}))
     assert len(log_fragments) == 2
     assert log_fragments[0]["fragment_number"] == 0
@@ -74,13 +79,15 @@ def test_retrieve_log_fragments(mongo_app_with_outputs):
     _, mongo, job_id = mongo_app_with_outputs
     log_handler = MongoLogHandler(mongo)
     start_fragment = 5
-    fragments = log_handler.retrieve_log_fragments(
-        job_id, LogType.STANDARD_OUTPUT, TestPhase.SETUP, start_fragment
+    fragments = list(
+        log_handler.retrieve_log_fragments(
+            job_id, LogType.STANDARD_OUTPUT, TestPhase.SETUP, start_fragment
+        )
     )
     assert len(fragments) == 5
     for i, f in enumerate(fragments):
-        assert f["fragment_number"] == i + 5
-        assert f["log_data"] == f"My log data {i + 5}"
+        assert f.fragment_number == i + 5
+        assert f.log_data == f"My log data {i + 5}"
 
 
 def test_retrieve_log_fragments_by_timestamp(mongo_app_with_outputs):
@@ -91,16 +98,18 @@ def test_retrieve_log_fragments_by_timestamp(mongo_app_with_outputs):
     _, mongo, job_id = mongo_app_with_outputs
     log_handler = MongoLogHandler(mongo)
     start_timestamp = datetime(2025, 4, 24, 10, 32, 0, tzinfo=timezone.utc)
-    fragments = log_handler.retrieve_log_fragments(
-        job_id,
-        LogType.STANDARD_OUTPUT,
-        TestPhase.SETUP,
-        start_timestamp=start_timestamp,
+    fragments = list(
+        log_handler.retrieve_log_fragments(
+            job_id,
+            LogType.STANDARD_OUTPUT,
+            TestPhase.SETUP,
+            start_timestamp=start_timestamp,
+        )
     )
     assert len(fragments) == 3
     for i, f in enumerate(fragments):
-        assert f["fragment_number"] == i + 7
-        assert f["log_data"] == f"My log data {i + 7}"
+        assert f.fragment_number == i + 7
+        assert f.log_data == f"My log data {i + 7}"
 
 
 def test_retrieve_logs(mongo_app_with_outputs):
