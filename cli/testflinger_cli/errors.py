@@ -20,9 +20,7 @@ class SnapPrivateFileError(FileNotFoundError):
 
 
 class UnknownStatusError(Exception):
-    """Exception thrown when unable to retrieve status
-    information from TF Server.
-    """
+    """Exception thrown when unable to retrieve a status from the server."""
 
     def __init__(self, endpoint: str) -> None:
         super().__init__(
