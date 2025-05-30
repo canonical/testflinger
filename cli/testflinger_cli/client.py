@@ -158,7 +158,7 @@ class Client:
         data = json.loads(self.get(endpoint))
 
         agents_status = [
-            {"name": agent["name"], "state": agent["state"]} for agent in data
+            {"name": agent["name"], "status": agent["state"]} for agent in data
         ]
         return agents_status
 
