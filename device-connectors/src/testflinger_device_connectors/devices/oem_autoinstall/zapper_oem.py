@@ -14,16 +14,15 @@
 
 
 import logging
-from typing import Any, Dict, Optional, Tuple
-from pathlib import Path
-import yaml
+from typing import Any, Dict, Tuple
+import json
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
-class ZapperConnectorOem(ZapperConnector):
+class ZapperOem(ZapperConnector):
     """Tool for provisioning baremetal with a given image."""
 
     PROVISION_METHOD = "ProvisioningOEM"
@@ -35,25 +34,29 @@ class ZapperConnectorOem(ZapperConnector):
         Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
+        logger.info("zapper_oem: Validating configuration")
         supported_iso_types = {"bootstrap", "stock", "bios"}
         iso_type = self.job_data["provision_data"]["zapper_iso_type"]
+
         if iso_type not in supported_iso_types:
-            raise ValueError(
+            error_msg = (
                 f"Unsupported ISO type: {iso_type}. "
                 f"Supported types: {supported_iso_types}"
             )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
         provisioning_data = {
-            "url_zapper_iso": self.job_data["provision_data"]["url_zapper_iso"],
+            "iso_url": self.job_data["provision_data"]["zapper_iso_url"],
             "iso_type": iso_type,
             "reboot_script": self.config["reboot_script"],
             "device_ip": self.config["device_ip"],
         }
 
+        logger.info("Zapper provisioning data: %s", json.dumps(provisioning_data, indent=2))
         return ((), provisioning_data)
 
-    def _post_run_actions():
-        pass
-        # Verify DUT online and ssh accessible?
-        
+    def _post_run_actions(self):
+        """Perform post-run actions after provisioning."""
+        logger.info("zapper_oem: Running post-run actions for Zapper provisioning")
 

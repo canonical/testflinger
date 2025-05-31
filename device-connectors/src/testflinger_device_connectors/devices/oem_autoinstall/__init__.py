@@ -17,6 +17,7 @@ that support autoinstall and provision-image.sh script.
 """
 
 import logging
+import json
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
@@ -25,7 +26,7 @@ from testflinger_device_connectors.devices.oem_autoinstall.oem_autoinstall impor
     OemAutoinstall,
 )
 from testflinger_device_connectors.devices.oem_autoinstall.zapper_oem import (
-    ZapperConnectorOem,
+    ZapperOem,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,17 +41,15 @@ class DeviceConnector(DefaultDevice):
             self.job_data = json.load(job_json)
         provision_data = self.job_data.get("provision_data", {})
 
-        if provision_data.get("zapper_usb_url"):
-            logger.info("Using Zapper USB")
-            device_with_zapper = ZapperConnectorOem()
-            logger.info("BEGIN provision via Zapper")
-            logger.info("Provisioning device via Zapper")
-            device_with_zapper.provision()
-            logger.info("END provision via Zapper")
+        if provision_data.get("zapper_iso_url"):
+            logger.info("oem_autoinstall pass to zapper_oem")
+            device_with_zapper = ZapperOem()
+            device_with_zapper.provision(args)
+            logger.info("zapper_oem return to oem_autoinstall")
 
         if provision_data.get("url"):
+            logger.info("BEGIN provision via oem_autoinstall")
             device = OemAutoinstall(args.config, args.job_data)
-            logger.info("BEGIN provision")
             logger.info("Provisioning device")
             device.provision()
-            logger.info("END provision")
+            logger.info("END provision via oem_autoinstall")
