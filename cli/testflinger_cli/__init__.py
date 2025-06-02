@@ -857,17 +857,7 @@ class TestflingerCli:
 
     def list_queues(self):
         """List the advertised queues on the current Testflinger server."""
-        print(consts.ADVERTISED_QUEUES_MESSAGE)
-        try:
-            queues = self.client.get_queues()
-        except client.HTTPError as exc:
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
-                )
-            logger.error("Unable to get a list of queues from the server.")
-            sys.exit(1)
+        queues = self.do_list_queues()
         if self.args.json:
             print(json.dumps(queues))
         else:
@@ -877,15 +867,10 @@ class TestflingerCli:
 
     def reserve(self):
         """Install and reserve a system."""
-        print(consts.ADVERTISED_QUEUES_MESSAGE)
-        try:
-            queues = self.client.get_queues()
-        except OSError:
-            logger.warning("Unable to get a list of queues from the server!")
-            queues = {}
+        queues = self.do_list_queues()
         queue = self.args.queue or helpers.prompt_for_queue(queues)
         if queue not in queues:
-            print(f"WARNING: '{queue}' is not in the list of known queues")
+            logger.warning("'%s' is not in the list of known queues", queue)
         try:
             images = self.client.get_images(queue)
         except OSError:
@@ -896,10 +881,7 @@ class TestflingerCli:
             not image.startswith(("http://", "https://"))
             and image not in images
         ):
-            sys.exit(
-                f"ERROR: '{image}' is not in the list of known "
-                "images for that queue, please select another."
-            )
+            logger.error("'%s' is not in the list of known images", image)
         if image.startswith(("http://", "https://")):
             image = "url: " + image
         else:
@@ -907,9 +889,7 @@ class TestflingerCli:
         ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
-                sys.exit(
-                    "Please enter keys in the form lp:userid or gh:userid"
-                )
+                logger.error("Invalid SSH key format: %s", ssh_key)
         template = inspect.cleandoc(
             """job_queue: {queue}
                                     provision_data:
@@ -930,6 +910,21 @@ class TestflingerCli:
             print("Job submitted successfully!")
             print(f"job_id: {job_id}")
             self.do_poll(job_id)
+
+    def do_list_queues(self) -> dict[str, str]:
+        """List the advertised queues on the Testflinger server.
+
+        :return: A dictionary of queue names and their descriptions.
+        """
+        logger.warning(
+            "This only shows a curated list of queues with descriptions"
+        )
+        try:
+            queues = self.client.get_queues()
+        except client.HTTPError:
+            logger.exception("Unable to get a list of queues from the server.")
+            return {}
+        return queues
 
     def get_latest_output(self, job_id):
         """Get the latest output from a running job.
