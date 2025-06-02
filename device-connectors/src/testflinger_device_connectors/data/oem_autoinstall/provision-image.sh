@@ -198,22 +198,32 @@ is_valid_iso_on_dut() {
     return $exit_code
 }
 
-is_secure_boot_blocker() {
-    # DUT won't boot with unsigned kernel when Secure Boot is enabled
-    local iso_name="$1"
+is_unsigned_iso() {
+    local iso_lower
+    iso_lower="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
 
-    # Check if ISO name contains "next" or "edge" (case insensitive)
-    if [[ "$iso_name" =~ [Nn][Ee][Xx][Tt]|[Ee][Dd][Gg][Ee] ]]; then
-        local sb_status
-        sb_status=$($SSH "$TARGET_USER@$addr" -- sudo mokutil --sb-state 2>&1)
-
-        if [[ "$sb_status" == *"SecureBoot enabled"* ]]; then
-            echo "WARNING: Secure Boot is enabled on DUT."
-            echo "WARNING: It looks like you're using 'next' or 'edge' ISO with unsigned kernel."
+    case "$iso_lower" in
+        *next*)
+            echo "Detected 'next' ISO image"
             return 0
-        fi
-    fi
+            ;;
+        *edge*)
+            echo "Detected 'edge' ISO image"
+            return 0
+            ;;
+    esac
 
+    return 1
+}
+
+
+is_secure_boot_enabled() {
+    local sb_status
+    sb_status=$($SSH "$TARGET_USER@$addr" -- sudo mokutil --sb-state 2>&1)
+    if [[ "$sb_status" == *"SecureBoot enabled"* ]]; then
+        echo "Secure Boot is enabled on the system"
+        return 0
+    fi
     return 1
 }
 
@@ -246,8 +256,6 @@ while :; do
     esac
 done
 
-
-
 read -ra TARGET_IPS <<< "$@"
 
 for addr in "${TARGET_IPS[@]}";
@@ -274,8 +282,9 @@ do
         exit 1
     fi
 
-    if is_secure_boot_blocker "$ISO"; then
-        echo "Error: Consider disabling Secure Boot on DUT or use 'production', 'proposed' ISO."
+    if is_unsigned_iso "$ISO" && is_secure_boot_enabled; then
+        echo "Error: With Secure Boot enabled, unsigned ISO will fail to boot after provision"
+        echo "Error: Consider disabling Secure Boot on DUT or use 'production', 'proposed' ISO"
         exit 6
     fi
 
