@@ -68,7 +68,7 @@ class TestflingerJob:
         try:
             self.client.post_result(self.job_id, device_info)
         except TFServerError:
-            logger.warning("Failed to post device_info, skipping")
+            pass
 
         if not cmd:
             logger.info("No %s_command configured, skipping...", phase)
