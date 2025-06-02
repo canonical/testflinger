@@ -95,3 +95,6 @@ class DeviceConnector(DefaultDevice):
             file_server.terminate()
             serial_proc.stop()
         logger.info("END provision")
+
+        # Write device information to device-info.json
+        self.write_device_info(config)
