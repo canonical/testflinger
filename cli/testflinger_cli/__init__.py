@@ -56,13 +56,13 @@ if os.path.exists(os.path.join(basedir, "setup.py")):
 
 def cli():
     """Generate the TestflingerCli instance and run it."""
+    tfcli = TestflingerCli()
+    logging.basicConfig(
+        level=logging.WARNING,
+        format=consts.LOG_FORMAT,
+        datefmt=consts.LOG_DATE_FORMAT,
+    )
     try:
-        tfcli = TestflingerCli()
-        logging.basicConfig(
-            level=logging.WARNING,
-            format=consts.LOG_FORMAT,
-            datefmt=consts.LOG_DATE_FORMAT,
-        )
         tfcli.run()
     except KeyboardInterrupt:
         sys.exit("Received KeyboardInterrupt")
