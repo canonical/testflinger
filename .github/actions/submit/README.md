@@ -52,6 +52,7 @@ If you wish to define your job inline, you can use the following step:
 
 - `id`: The ID of the submitted job
 - `device-ip`: The IP of the reserved device (if applicable)
+- `exit-status`: The exit code of the submitted job
 
 [^job]: One of `job` or `job-path` required.
 
