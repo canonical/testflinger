@@ -60,7 +60,7 @@ def prompt_for_image(images: dict[str, str]) -> str:
     :return: The selected image.
     """
     input_msg = "\nEnter the image you wish to use"
-    if images and images[list(images)[0]].startswith("url:"):
+    if images and any(value.startswith("url:") for value in images.values()):
         input_msg += " or a URL for a valid image, starting with http(s)://"
     input_msg += " ('?' to list): "
     image = ""
