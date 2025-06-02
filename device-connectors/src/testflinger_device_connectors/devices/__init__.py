@@ -331,7 +331,7 @@ class DefaultDevice:
             config = yaml.safe_load(configfile)
 
         # Write device information to device-info.json
-        self.write_device_info(config)
+        # self.write_device_info(config)
 
         logger.info("BEGIN reservation")
         job_data = testflinger_device_connectors.get_test_opportunity(

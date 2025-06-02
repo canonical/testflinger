@@ -62,14 +62,6 @@ class TestflingerJob:
         cmd = self.client.config.get(phase + "_command")
         node = self.client.config.get("agent_id")
 
-        # Write the device information to the job /results endpoint
-        device_info = self.get_device_info(rundir)
-
-        try:
-            self.client.post_result(self.job_id, device_info)
-        except TFServerError:
-            pass
-
         if not cmd:
             logger.info("No %s_command configured, skipping...", phase)
             return 0, None, None
@@ -129,6 +121,15 @@ class TestflingerJob:
             "Starting testflinger {} phase on {}".format(phase, node)
         ):
             runner.run(f"echo '{line}'")
+
+        # Write the device information to the job /results endpoint
+        device_info = self.get_device_info(rundir)
+
+        try:
+            self.client.post_result(self.job_id, device_info)
+        except TFServerError:
+            pass
+
         try:
             # Set exit_event to fail for this phase in case of an exception
             exit_event = f"{phase}_fail"
