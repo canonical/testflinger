@@ -16,9 +16,9 @@ import json
 import logging
 import os
 import time
+from typing import Optional
 
 from testflinger_agent.errors import TFServerError
-from typing import Optional
 
 from .handlers import LiveOutputHandler, LogUpdateHandler
 from .runner import CommandRunner, RunnerEvents
@@ -61,7 +61,6 @@ class TestflingerJob:
         self.phase = phase
         cmd = self.client.config.get(phase + "_command")
         node = self.client.config.get("agent_id")
-
         if not cmd:
             logger.info("No %s_command configured, skipping...", phase)
             return 0, None, None
@@ -127,7 +126,7 @@ class TestflingerJob:
         try:
             self.client.post_result(self.job_id, device_info)
         except TFServerError:
-            # If no data was retrieved, its okay to continue.
+            # device-info might be empty so no data will be available to send.
             pass
 
         try:
