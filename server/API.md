@@ -380,6 +380,12 @@ Parameters:
 
 - `queue_name` (string): name of the queue for which to get the agents that are listening to it
 
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 204 (NO DATA)`: if there are no agents in the specified queue. 
+- `HTTP 404 (NOT FOUND)`: if the queue does not exists. 
+
 Returns:
 
 JSON array of agents listening to the specified queue
