@@ -9,7 +9,6 @@ on:
       - .github/workflows/common-tox.yml
       - common/**
   pull_request:
-    branches: ["**"]
     paths:
       - .github/workflows/common-tox.yml
       - common/**

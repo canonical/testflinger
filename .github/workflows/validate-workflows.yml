@@ -9,7 +9,6 @@ on:
       - .github/workflows/*
       - .github/actions/**
   pull_request:
-    branches: ["**"]
     paths:
       - .github/workflows/*
       - .github/actions/**

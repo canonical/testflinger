@@ -3,7 +3,6 @@ permissions:
   contents: read
 on:
   pull_request:
-    branches: ["**"]
     paths:
       - cli/**
       - .github/workflows/cli-publish-snap.yml

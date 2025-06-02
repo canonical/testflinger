@@ -10,7 +10,6 @@ on:
       - agent/**
       - .github/workflows/agent-tox.yml
   pull_request:
-    branches: ["**"]
     paths:
       - common/** # testflinger-agent depends on testflinger-common
       - agent/**

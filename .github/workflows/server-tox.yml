@@ -9,7 +9,6 @@ on:
       - .github/workflows/server-tox.yml
       - server/**
   pull_request:
-    branches: ["**"]
     paths:
       - .github/workflows/server-tox.yml
       - server/**

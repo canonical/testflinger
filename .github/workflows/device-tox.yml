@@ -9,7 +9,6 @@ on:
       - .github/workflows/device-tox.yml
       - device-connectors/**
   pull_request:
-    branches: ["**"]
     paths:
       - .github/workflows/device-tox.yml
       - device-connectors/**

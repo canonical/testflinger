@@ -9,7 +9,6 @@ on:
       - .github/workflows/cli-tox.yml
       - cli/**
   pull_request:
-    branches: ["**"]
     paths:
       - .github/workflows/cli-tox.yml
       - cli/**
