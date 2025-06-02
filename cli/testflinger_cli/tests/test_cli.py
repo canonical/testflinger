@@ -23,6 +23,7 @@ import re
 import sys
 import tarfile
 import uuid
+from http import HTTPStatus
 from pathlib import Path
 
 import pytest
@@ -591,11 +592,12 @@ def test_list_queues(capsys, requests_mock):
 
 def test_list_queues_connection_error(caplog, requests_mock):
     """list_queues should report queues."""
-    requests_mock.get(URL + "/v1/agents/queues", status_code=400)
+    requests_mock.get(
+        URL + "/v1/agents/queues", status_code=HTTPStatus.NOT_FOUND
+    )
     sys.argv = ["", "list-queues"]
     tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(SystemExit):
-        tfcli.list_queues()
+    tfcli.list_queues()
     assert "Unable to get a list of queues from the server." in caplog.text
 
 
