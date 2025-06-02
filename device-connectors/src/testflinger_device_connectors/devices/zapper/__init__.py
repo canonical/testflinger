@@ -66,6 +66,9 @@ class ZapperConnector(ABC, DefaultDevice):
 
         logger.info("END provision")
 
+        # Write device information to device-info.json
+        self.write_device_info(self.config)
+
     @abstractmethod
     def _validate_configuration(
         self,

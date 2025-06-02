@@ -51,3 +51,6 @@ class DeviceConnector(DefaultDevice):
             raise e
         finally:
             serial_proc.stop()
+
+            # Write device information to device-info.json
+            self.write_device_info(config)

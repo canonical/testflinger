@@ -122,12 +122,12 @@ class TestflingerJob:
         ):
             runner.run(f"echo '{line}'")
 
-        # Write the device information to the job /results endpoint
+        # Retrieve device info and send it to /result/<job_id> endpoint
         device_info = self.get_device_info(rundir)
-
         try:
             self.client.post_result(self.job_id, device_info)
         except TFServerError:
+            # If no data was retrieved, its okay to continue.
             pass
 
         try:
