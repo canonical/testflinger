@@ -141,10 +141,6 @@ class DefaultDevice:
         """Process firmware update commands (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-
-        # Write device information to device-info.json
-        self.write_device_info(config)
-
         logger.info("BEGIN firmware_update")
 
         test_opportunity = testflinger_device_connectors.get_test_opportunity(
@@ -196,10 +192,6 @@ class DefaultDevice:
         """Process test commands (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-
-        # Write device information to device-info.json
-        self.write_device_info(config)
-
         logger.info("BEGIN testrun")
 
         test_opportunity = testflinger_device_connectors.get_test_opportunity(
@@ -232,7 +224,6 @@ class DefaultDevice:
         """Allocate devices for multi-agent jobs (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-
         # Write device information to device-info.json
         self.write_device_info(config)
 
@@ -329,10 +320,6 @@ class DefaultDevice:
         """Reserve systems (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-
-        # Write device information to device-info.json
-        # self.write_device_info(config)
-
         logger.info("BEGIN reservation")
         job_data = testflinger_device_connectors.get_test_opportunity(
             args.job_data
@@ -395,7 +382,7 @@ class DefaultDevice:
     def write_device_info(self, config: dict) -> None:
         """Write device information to device-info.json.
 
-        :param config: Dictionary with the key/values from the configuration file.
+        :param config: Dictionary with the key/values from the config file.
         """
         device_ip = config["device_ip"]
         agent_name = config["agent_name"]
