@@ -851,7 +851,7 @@ class TestflingerCli:
             timestamp = datetime.fromtimestamp(
                 jobdata.get("submission_time"), tz=timezone.utc
             )
-            queue = jobdata.get("queue")
+            queue = jobdata["queue"]
             print(f"{job_id} {job_state:9} {timestamp:%a %b %d %H:%M} {queue}")
         print()
 
