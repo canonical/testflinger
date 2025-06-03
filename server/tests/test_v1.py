@@ -1108,6 +1108,17 @@ def test_get_queue_wait_times(mongo_app):
 def test_get_agents_on_queue(mongo_app):
     """Test api to get agents on a queue."""
     app, _ = mongo_app
+
+    queue_data = {"q1": "this is a test queue"}
+    app.post("/v1/agents/queues", json=queue_data)
+    output = app.get("/v1/agents/queues")
+    assert output.status_code == HTTPStatus.OK
+
+    queue_data = {"q4": "this is a test queue"}
+    app.post("/v1/agents/queues", json=queue_data)
+    output = app.get("/v1/agents/queues")
+    assert output.status_code == HTTPStatus.OK
+
     agent_name = "agent1"
     agent_data = {"state": "provision", "queues": ["q1", "q2"]}
     output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
@@ -1123,6 +1134,10 @@ def test_get_agents_on_queue(mongo_app):
     output = app.get("/v1/queues/q3/agents")
     assert output.status_code == HTTPStatus.NOT_FOUND
     assert len(output.json) == 0
+
+    # Should get NO_CONTENT if queue exists but no agent is serving to it.
+    output = app.get("/v1/queues/q4/agents")
+    assert output.status_code == HTTPStatus.NO_CONTENT
 
 
 def test_serial_output(mongo_app):
