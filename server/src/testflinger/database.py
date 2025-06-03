@@ -362,4 +362,4 @@ def queue_exists(queue: str) -> bool:
     :param queue: Name of the queue to validate.
     :return: True if exists, False otherwise
     """
-    return mongo.db.agents.find_one({"queues": queue}) is not None
+    return mongo.db.queues.find_one({"name": queue}) is not None
