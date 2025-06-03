@@ -418,7 +418,7 @@ class TestflingerCli:
                 ]
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NO_CONTENT:
-                    sys.exit("No data was found for specified queue")
+                    sys.exit("No agent serving to specified queue")
                 if exc.status == HTTPStatus.NOT_FOUND:
                     sys.exit("Specified queue does not exists")
                 # If any other HTTP error, raise UnknownStatusError
