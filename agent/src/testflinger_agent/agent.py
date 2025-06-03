@@ -27,6 +27,7 @@ from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.event_emitter import EventEmitter
 from testflinger_agent.job import TestflingerJob
+from testflinger_agent.metrics import PrometheusHandler
 
 try:
     # attempt importing a tarfile filter, to check if filtering is supported
@@ -99,6 +100,9 @@ class TestflingerAgent:
         signal.signal(signal.SIGUSR1, self.restart_signal_handler)
         self.set_agent_state("waiting")
         self._post_initial_agent_data()
+        self.metrics_handler = PrometheusHandler(
+            self.client.config.get("metrics_endpoint_port")
+        )
 
     def _post_initial_agent_data(self):
         """Post the initial agent data to the server once on agent startup."""
@@ -245,6 +249,7 @@ class TestflingerAgent:
                 job_end_reason = TestEvent.NORMAL_EXIT
 
                 logger.info("Starting job %s", job.job_id)
+                self.metrics_handler.report_new_job()
                 event_emitter.emit_event(
                     TestEvent.JOB_START,
                     f"{self.client.server}/jobs/{job.job_id}",
@@ -311,6 +316,7 @@ class TestflingerAgent:
                         else:
                             exit_event = TestEvent(phase + "_fail")
                         detail = parse_error_logs(error_log_path, phase)
+                        self.metrics_handler.report_job_failure(phase)
                     else:
                         exit_event = TestEvent(phase + "_success")
                     event_emitter.emit_event(exit_event, detail)

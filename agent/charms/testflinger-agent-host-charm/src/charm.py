@@ -30,9 +30,7 @@ from ops.model import (
 )
 
 from charms.operator_libs_linux.v0 import apt
-from charms.prometheus_k8s.v0.prometheus_scrape import (
-    MetricsEndpointProvider
-)
+from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 
 logger = logging.getLogger(__name__)
 

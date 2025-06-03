@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
+import prometheus_client
 import pytest
 import requests_mock as rmock
 from testflinger_common.enums import TestEvent, TestPhase
@@ -21,6 +22,20 @@ from testflinger_agent.schema import validate
 
 
 class TestClient:
+    @pytest.fixture(autouse=True)
+    def clear_registry(self):
+        """
+        Clear Prometheus metrics so they don't get duplicated across
+        test runs.
+        """
+        collectors = tuple(
+            prometheus_client.REGISTRY._collector_to_names.keys()
+        )
+        for collector in collectors:
+            prometheus_client.REGISTRY.unregister(collector)
+        yield
+
+
     @pytest.fixture
     def agent(self, requests_mock):
         self.tmpdir = tempfile.mkdtemp()
