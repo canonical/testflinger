@@ -374,7 +374,20 @@ class TestflingerCli:
     def agent_status(self):
         """Show the status of a specified agent."""
         try:
-            agent_status = self.get_agent_state(self.args.agent_name)
+            try:
+                agent_status = self.client.get_agent_data(self.args.agent_name)
+            except client.HTTPError as exc:
+                if exc.status == HTTPStatus.NO_CONTENT:
+                    sys.exit("No data was found for specified agent.")
+                if exc.status == HTTPStatus.NOT_FOUND:
+                    sys.exit("Specified agent does not exists.")
+            except (IOError, ValueError) as exc:
+                # For other types of network errors, or JSONDecodeError if we got
+                # a bad return from get_agent_data()
+                logger.debug("Unable to retrieve agent state: %s", exc)
+
+            # If unable to determine the agent status, raise UnknownStatusError
+            raise UnknownStatusError("agent")
         except UnknownStatusError as exc:
             sys.exit(exc)
 
@@ -1071,37 +1084,6 @@ class TestflingerCli:
             # a bad return from get_status()
             logger.debug("Unable to retrieve job state: %s", exc)
         return "unknown"
-
-    def get_agent_state(self, agent_name: str) -> dict:
-        """Return the state for the specified agent.
-
-        :param agent_name: Agent Name
-        :raises SystemExit: Exit with HTTP error code
-        :return: Agent status which includes the state and the queues
-        """
-        try:
-            agent_data = self.client.get_agent_data(agent_name)
-            agent_status = {
-                "state": agent_data["state"],
-                "queues": agent_data["queues"],
-            }
-            return agent_status
-        except client.HTTPError as exc:
-            if exc.status == HTTPStatus.NO_CONTENT:
-                sys.exit(
-                    "Invalid agent was specified. Check the agent name "
-                    "to make sure its correct."
-                )
-            if exc.status == HTTPStatus.NOT_FOUND:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
-                )
-        except (IOError, ValueError) as exc:
-            # For other types of network errors, or JSONDecodeError if we got
-            # a bad return from get_agent_status()
-            logger.debug("Unable to retrieve agent state: %s", exc)
-        raise UnknownStatusError("agent")
 
     def get_queue_state(self, queue_name: str) -> list[dict]:
         """Return the state of the agents from within a specified queue.

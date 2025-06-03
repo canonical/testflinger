@@ -140,7 +140,7 @@ class Client:
         return data.get("job_state")
 
     def get_agent_data(self, agent_name: str) -> dict:
-        """Get all the data from a specified agent.
+        """Get all the data for a specified agent.
 
         :param agent_name: Name of the agent to retrieve its data
         :return: Dict containing all the data from the agent.
