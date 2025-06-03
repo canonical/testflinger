@@ -1111,17 +1111,17 @@ def test_get_agents_on_queue(mongo_app):
     agent_name = "agent1"
     agent_data = {"state": "provision", "queues": ["q1", "q2"]}
     output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
-    assert 200 == output.status_code
+    assert output.status_code == HTTPStatus.OK
 
     # Get the agents on the queue
     output = app.get("/v1/queues/q1/agents")
-    assert 200 == output.status_code
+    assert output.status_code == HTTPStatus.OK
     assert len(output.json) == 1
     assert output.json[0]["name"] == agent_name
 
-    # Should get an empty list if there are no agents on the queue
+    # Should get an empty list and not found if the queue not exists
     output = app.get("/v1/queues/q3/agents")
-    assert 200 == output.status_code
+    assert output.status_code == HTTPStatus.NOT_FOUND
     assert len(output.json) == 0
 
 

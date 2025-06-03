@@ -354,3 +354,12 @@ def get_agent_info(agent: str) -> dict:
         {"name": agent}, {"_id": False, "log": False}
     )
     return agent_data
+
+
+def queue_exists(queue: str) -> bool:
+    """Validate the existance of a queue.
+
+    :param queue: Name of the queue to validate.
+    :return: True if exists, False otherwise
+    """
+    return mongo.db.agents.find_one({"queues": queue}) is not None

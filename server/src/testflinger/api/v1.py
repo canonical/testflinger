@@ -851,7 +851,13 @@ def queue_wait_time_percentiles_get():
 @v1.output(schemas.AgentOut(many=True))
 def get_agents_on_queue(queue_name):
     """Get the list of all data for agents listening to a specified queue."""
-    return database.get_agents_on_queue(queue_name)
+    if not database.queue_exists(queue_name):
+        return [], HTTPStatus.NOT_FOUND
+
+    agents = database.get_agents_on_queue(queue_name)
+    if not agents:
+        return [], HTTPStatus.NO_CONTENT
+    return agents
 
 
 @v1.get("/queues/<queue_name>/jobs")
