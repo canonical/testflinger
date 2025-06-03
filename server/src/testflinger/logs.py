@@ -130,9 +130,8 @@ class MongoLogHandler(LogHandler):
         if start_timestamp is not None:
             query["timestamp"] = {"$gte": start_timestamp}
 
-        fragment_iter = log_collection.find(query).sort("fragment_number")
-        for fragment in fragment_iter:
-            yield LogFragment(
+        yield from (
+            LogFragment(
                 fragment["job_id"],
                 fragment["log_type"],
                 fragment["phase"],
@@ -140,3 +139,5 @@ class MongoLogHandler(LogHandler):
                 fragment["timestamp"],
                 fragment["log_data"],
             )
+            for fragment in log_collection.find(query).sort("fragment_number")
+        )

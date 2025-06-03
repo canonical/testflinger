@@ -467,10 +467,9 @@ class LogTypeConverter(BaseConverter):
     def to_python(self, value):
         """Validate log type URL parameter."""
         try:
-            log_type = LogType(value)
-            return log_type
-        except ValueError:
-            raise ValidationError("Invalid log type") from None
+            return LogType(value)
+        except ValueError as err:
+            raise ValidationError("Invalid log type") from err
 
     def to_url(self, obj):
         """Get string representation of log type."""
@@ -490,36 +489,28 @@ def log_get(job_id: str, log_type: LogType):
     except ValidationError as err:
         abort(400, message=err.messages)
     start_fragment = query_params.get("start_fragment", 0)
-    start_timestamp = query_params.get("start_timestamp", None)
-    phase = query_params.get("phase", None)
+    start_timestamp = query_params.get("start_timestamp")
+    phase = query_params.get("phase")
     log_handler = MongoLogHandler(database.mongo)
 
     # Return logs for all phases if unspecified
     if phase is None:
-        return {
-            "phase_logs": {
-                phase.value: log_handler.retrieve_logs(
-                    job_id,
-                    log_type,
-                    phase.value,
-                    start_fragment,
-                    start_timestamp,
-                )
-                for phase in TestPhase
-            }
-        }
+        phases = TestPhase
     else:
-        return {
-            "phase_logs": {
-                phase: log_handler.retrieve_logs(
-                    job_id,
-                    log_type,
-                    phase,
-                    start_fragment,
-                    start_timestamp,
-                )
-            }
+        phases = [TestPhase(phase)]
+
+    return {
+        "phase_logs": {
+            phase.value: log_handler.retrieve_logs(
+                job_id,
+                log_type,
+                phase.value,
+                start_fragment,
+                start_timestamp,
+            )
+            for phase in phases
         }
+    }
 
 
 @v1.post("/result/<job_id>/log/<log_type:log_type>")

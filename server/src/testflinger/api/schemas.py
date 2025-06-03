@@ -19,6 +19,7 @@ from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
 from marshmallow import ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
+from testflinger_common.enums import TestPhase
 
 ValidJobStates = (
     "setup",
@@ -33,6 +34,8 @@ ValidJobStates = (
     "completed",
     "active",  # fake state for jobs that are not completed or cancelled
 )
+
+TestPhases = [phase.value for phase in TestPhase]
 
 
 class ProvisionLogsIn(Schema):
@@ -371,7 +374,7 @@ class LogPost(Schema):
 
     fragment_number = fields.Integer(required=True)
     timestamp = fields.DateTime(required=True)
-    phase = fields.String(required=True)
+    phase = fields.String(required=True, validate=OneOf(TestPhases))
     log_data = fields.String(required=True)
 
 
@@ -386,7 +389,7 @@ class LogGet(Schema):
     """Schema for GET of logs for multiple phases."""
 
     phase_logs = fields.Dict(
-        keys=fields.String(),
+        keys=fields.String(validate=OneOf(TestPhases)),
         values=fields.Nested(LogGetItem),
     )
 
@@ -398,7 +401,7 @@ class LogQueryParams(Schema):
         required=False, validate=validators.Range(min=0)
     )
     start_timestamp = fields.DateTime(required=False)
-    phase = fields.String(required=False)
+    phase = fields.String(required=False, validate=OneOf(TestPhases))
 
 
 job_empty = {
