@@ -1,6 +1,8 @@
+import json
 import os
 import shutil
 import tempfile
+import uuid
 from unittest.mock import patch
 
 import pytest
@@ -205,3 +207,51 @@ class TestJob:
         job = _TestflingerJob({"parent_job_id": "999"}, client)
         job.wait_for_completion()
         # No assertions needed, just make sure we don't timeout
+
+    def test_get_device_info(self, client, tmp_path):
+        """Test job can read from device-info file."""
+        # Create device-info.json to simulate device-connector
+        fake_device = {"device_ip": "10.10.10.10", "agent_name": "test_agent"}
+        with open(tmp_path / "device-info.json", "w") as devinfo_file:
+            json.dump(fake_device, devinfo_file)
+
+        fake_job_data = {"output_timeout": 1, "provision_data": {"url": "foo"}}
+        job = _TestflingerJob(fake_job_data, client)
+        device_info = job.get_device_info(tmp_path)
+
+        # Compare retrieved data with expected data
+        assert all(
+            device_info[key] == value for key, value in fake_device.items()
+        )
+
+    def test_post_device_info_in_reserve(
+        self, client, tmp_path, requests_mock
+    ):
+        """Test device info is sent to results endpoint in reserve phase."""
+        # Create device-info.json to simulate device-connector
+        fake_device = {"device_ip": "10.10.10.10", "agent_name": "test_agent"}
+        with open(tmp_path / "device-info.json", "w") as devinfo_file:
+            json.dump(fake_device, devinfo_file)
+
+        # create the outcome file since we bypassed that
+        with open(tmp_path / "testflinger-outcome.json", "w") as outcome_file:
+            outcome_file.write("{}")
+
+        job_id = str(uuid.uuid1())
+        self.config["reserve_command"] = "/bin/true"
+        fake_job_data = {
+            "global_timeout": 1,
+            "reserve_data": "foo",
+            "job_id": job_id,
+        }
+
+        post_mock = requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.get(rmock.ANY, status_code=200)
+        job = _TestflingerJob(fake_job_data, client)
+        job.run_test_phase("reserve", tmp_path)
+
+        # Compare retrieved data with expected data
+        assert all(
+            post_mock.last_request.json()[key] == value
+            for key, value in fake_device.items()
+        )
