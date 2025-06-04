@@ -19,6 +19,7 @@ from prometheus_client import Counter, start_http_server
 
 logger = logging.getLogger(__name__)
 
+
 class MetricsHandler(ABC):
     """Abstract class to handle agent metrics to a generic backend."""
 

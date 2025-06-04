@@ -183,12 +183,14 @@ class TestflingerAgentHostCharm(CharmBase):
                 virtual_env_path=VIRTUAL_ENV_PATH,
                 metric_endpoint_port=metric_endpoint_port,
             )
-            prometheus_jobs.append({
-                "job_name": agent_name,
-                 "static_configs": [
-                     {"targets": [f"*:{metric_endpoint_port}"]}
-                 ],
-            })
+            prometheus_jobs.append(
+                {
+                    "job_name": agent_name,
+                    "static_configs": [
+                        {"targets": [f"*:{metric_endpoint_port}"]}
+                    ],
+                }
+            )
             metric_endpoint_port += 1
             with open(
                 f"/etc/supervisor/conf.d/{agent_name}.conf", "w"
