@@ -47,13 +47,16 @@ class ZapperOem(ZapperConnector):
             raise ValueError(error_msg)
 
         provisioning_data = {
-            "iso_url": self.job_data["provision_data"]["zapper_iso_url"],
-            "iso_type": iso_type,
-            "reboot_script": self.config["reboot_script"],
+            "zapper_iso_url": self.job_data["provision_data"]["zapper_iso_url"],
+            "zapper_iso_type": iso_type,
             "device_ip": self.config["device_ip"],
         }
 
-        logger.info("Zapper provisioning data: %s", json.dumps(provisioning_data, indent=2))
+        # Add reboot_script if it exists in config
+        if "reboot_script" in self.config:
+            provisioning_data["reboot_script"] = self.config["reboot_script"]
+
+        logger.info("Validated zapper provisioning data: %s", json.dumps(provisioning_data, indent=2))
         return ((), provisioning_data)
 
     def _post_run_actions(self):
