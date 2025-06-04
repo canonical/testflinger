@@ -355,6 +355,22 @@ wheels = [
 ]
 
 [[package]]
+name = "cosl"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ops" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "tenacity" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/25/13/ca147298721702679f2a286022184fd12b9d5236124308bf363e7184e5b5/cosl-1.0.0.tar.gz", hash = "sha256:5cef884faac1313ae6d234fcd6f40db0cbdd44bcdacfd9a6e9ecf9cede219359", size = 40818, upload-time = "2025-05-22T13:26:16.284Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a2/58/e80bd8436e2a6bb80b62b0317711d48ef1cab4b38e0e9f1efe73d13c0187/cosl-1.0.0-py3-none-any.whl", hash = "sha256:4ed54e818a5614a5164011253c12441cd0bffacfd99c8bd6b5b9740a397e482d", size = 33525, upload-time = "2025-05-22T13:26:14.804Z" },
+]
+
+[[package]]
 name = "coverage"
 version = "7.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2146,6 +2162,15 @@ wheels = [
 ]
 
 [[package]]
+name = "tenacity"
+version = "9.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0a/d4/2b0cd0fe285e14b36db076e78c93766ff1d529d70408bd1d2a5a84f1d929/tenacity-9.1.2.tar.gz", hash = "sha256:1169d376c297e7de388d18b4481760d478b0e99a777cad3a9c86e556f4b697cb", size = 48036, upload-time = "2025-04-02T08:25:09.966Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/30/643397144bfbfec6f6ef821f36f33e57d35946c44a2352d3c9f0ae847619/tenacity-9.1.2-py3-none-any.whl", hash = "sha256:f77bf36710d8b73a50b2dd155c97b870017ad21afe6ab300326b0371b3b05138", size = 28248, upload-time = "2025-04-02T08:25:07.678Z" },
+]
+
+[[package]]
 name = "testflinger-agent"
 version = "1.1.0"
 source = { editable = "." }
@@ -2161,6 +2186,7 @@ dependencies = [
 [package.dev-dependencies]
 charm = [
     { name = "charmcraft" },
+    { name = "cosl" },
     { name = "gitpython" },
     { name = "jinja2" },
     { name = "juju" },
@@ -2191,6 +2217,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 charm = [
     { name = "charmcraft", specifier = ">=2.7.3" },
+    { name = "cosl" },
     { name = "gitpython", specifier = "==3.1.44" },
     { name = "jinja2", specifier = "==3.1.6" },
     { name = "juju", specifier = ">=3.5.2.1" },

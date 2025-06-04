@@ -35,7 +35,6 @@ class TestClient:
             prometheus_client.REGISTRY.unregister(collector)
         yield
 
-
     @pytest.fixture
     def agent(self, requests_mock):
         self.tmpdir = tempfile.mkdtemp()
