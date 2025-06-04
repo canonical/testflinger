@@ -10,7 +10,6 @@ on:
       - agent/**
       - .github/workflows/agent-tox.yml
   pull_request:
-    branches: [main]
     paths:
       - common/** # testflinger-agent depends on testflinger-common
       - agent/**
@@ -24,7 +23,8 @@ jobs:
         working-directory: agent
     runs-on: [self-hosted, linux, jammy, X64]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
       - name: Install uv and set up Python
@@ -45,7 +45,8 @@ jobs:
         working-directory: agent
     runs-on: [self-hosted, linux, jammy, X64]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
       - name: Install uv and set up Python

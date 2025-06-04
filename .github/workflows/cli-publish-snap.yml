@@ -1,25 +1,53 @@
-name: Publish Testflinger CLI snap to edge and beta
+name: Publish Testflinger CLI Snap
 permissions:
   contents: read
 on:
+  pull_request:
+    paths:
+      - cli/**
+      - .github/workflows/cli-publish-snap.yml
   push:
     branches: ["main"]
     paths:
       - cli/**
+      - .github/workflows/cli-publish-snap.yml
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the snap to the store
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
-      - uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1
+      - name: Build snap
         id: build
+        uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1
         with:
           path: cli
-      - uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1
+      - name: Upload snapcraft logs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: runtime-build-log
+          path: |
+            /home/runner/.cache/snapcraft/log/
+            /home/runner/.local/state/snapcraft/log/
+      - name: Upload artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: testflinger-cli.snap
+          path: ${{ steps.build.outputs.snap }}
+      - name: Publish snap
+        if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true' }}
+        uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_LOGIN }}
         with:

@@ -9,7 +9,6 @@ on:
       - .github/workflows/*
       - .github/actions/**
   pull_request:
-    branches: [main]
     paths:
       - .github/workflows/*
       - .github/actions/**
@@ -19,10 +18,12 @@ jobs:
     name: Workflow vulnerability scanning
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6
       - name: Run zizmor
         run: uvx zizmor --pedantic .
         env:

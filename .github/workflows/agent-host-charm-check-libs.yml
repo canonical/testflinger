@@ -3,8 +3,7 @@ permissions:
   contents: read
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
     paths:
       - .github/workflows/agent-host-charm-check-libs.yml
       - agent/charms/testflinger-agent-host-charm/**

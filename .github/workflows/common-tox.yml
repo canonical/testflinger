@@ -9,7 +9,6 @@ on:
       - .github/workflows/common-tox.yml
       - common/**
   pull_request:
-    branches: [main]
     paths:
       - .github/workflows/common-tox.yml
       - common/**
@@ -22,7 +21,8 @@ jobs:
         working-directory: common
     runs-on: [self-hosted, linux, jammy, X64]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
       - name: Install uv and set up Python
