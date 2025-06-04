@@ -16,6 +16,7 @@
 import base64
 import subprocess
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, mock_open, patch
 
 import yaml
@@ -238,7 +239,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                 ],
                 "autoinstall_storage_layout": "lvm",
                 "autoinstall_base_user_data": "content",
-                "autoinstall_oem": True,
             },
             "test_data": {
                 "test_username": "username",
@@ -255,7 +255,45 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "storage_layout": "lvm",
             "base_user_data": "content",
             "authorized_keys": ["mykey"],
-            "oem": True,
+        }
+        self.assertDictEqual(conf, expected)
+
+    def test_get_autoinstall_conf_oem(self):
+        """Test the autoinstall configuration includes oem_autoinstall
+        user-data file + 'direct' storage layout when 'oem:true'.
+        """
+        connector = DeviceConnector()
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://example.com/image.iso",
+                "robot_tasks": [
+                    "job.robot",
+                    "another.robot",
+                ],
+                "autoinstall_oem": True,
+            },
+            "test_data": {
+                "test_username": "username",
+                "test_password": "password",
+            },
+        }
+
+        connector._read_ssh_key = Mock(return_value="mykey")
+        conf = connector._get_autoinstall_conf()
+
+        oem_autoinstall_data = (
+            Path(__file__).parent / "../../../data/oem_autoinstall"
+        )
+        with open(
+            oem_autoinstall_data / "default-user-data", "rb"
+        ) as user_data:
+            encoded_user_data = base64.b64encode(user_data.read())
+
+        expected = {
+            "storage_layout": "direct",
+            "authorized_keys": ["mykey"],
+            "base_user_data": encoded_user_data,
         }
         self.assertDictEqual(conf, expected)
 
