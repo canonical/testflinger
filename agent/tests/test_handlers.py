@@ -95,3 +95,26 @@ class TestHandler:
             assert requests[i].json()["fragment_number"] == i
             assert requests[i].json()["phase"] == "phase1"
             assert requests[i].json()["log_data"] == f"output{i}"
+
+    def test_endpoint_write_from_file(self, client, requests_mock, tmp_path):
+        job_id = str(uuid.uuid1())
+        phase = "phase1"
+        filename = tmp_path / "output.log"
+        output = "a" * 2048
+        with open(filename, "w") as f:
+            f.write(output)
+        serial_log_handler = SerialLogHandler(client, job_id, phase)
+        serial_url = f"http://127.0.0.1:8000/v1/result/{job_id}/log/serial"
+        requests_mock.post(serial_url, status_code=200)
+        serial_log_handler.write_from_file(filename)
+        requests = list(
+            filter(
+                lambda req: req.url == serial_url,
+                requests_mock.request_history,
+            )
+        )
+        assert len(requests) == 2
+        for i in range(2):
+            assert requests[i].json()["fragment_number"] == i
+            assert requests[i].json()["phase"] == "phase1"
+            assert requests[i].json()["log_data"] == "a" * 1024
