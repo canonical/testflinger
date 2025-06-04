@@ -80,6 +80,7 @@ def add_exception_logging_to_file(func: Callable, stage: str):
         try:
             return func(*args, **kwargs)
         except Exception as exception:
+            logger.error(exception)
             if exception.__cause__ is None:
                 exception_cause = None
             else:
