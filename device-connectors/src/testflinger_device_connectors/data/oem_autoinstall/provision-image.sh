@@ -198,6 +198,34 @@ is_valid_iso_on_dut() {
     return $exit_code
 }
 
+is_unsigned_iso() {
+    local iso_lower
+    iso_lower="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
+
+    case "$iso_lower" in
+        *next*)
+            echo "Detected 'next' ISO image"
+            return 0
+            ;;
+        *edge*)
+            echo "Detected 'edge' ISO image"
+            return 0
+            ;;
+    esac
+
+    return 1
+}
+
+
+is_secure_boot_enabled() {
+    local sb_status
+    sb_status=$($SSH "$TARGET_USER@$addr" -- sudo mokutil --sb-state 2>&1)
+    if [[ "$sb_status" == *"SecureBoot enabled"* ]]; then
+        echo "Secure Boot is enabled on the system"
+        return 0
+    fi
+    return 1
+}
 
 OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config:,iso-dut: -n 'provision-image.sh' -- "$@")"
 eval set -- "${OPTS}"
@@ -228,8 +256,6 @@ while :; do
     esac
 done
 
-
-
 read -ra TARGET_IPS <<< "$@"
 
 for addr in "${TARGET_IPS[@]}";
@@ -254,6 +280,12 @@ do
     if [ -z "$STORE_PART" ]; then
         echo "Can't find partition to store ISO on target $addr"
         exit 1
+    fi
+
+    if is_unsigned_iso "$ISO" && is_secure_boot_enabled; then
+        echo "Error: With Secure Boot enabled, unsigned ISO will fail to boot after provision"
+        echo "Error: Consider disabling Secure Boot on DUT or use 'production', 'proposed' ISO"
+        exit 6
     fi
 
     # Handle ISO
