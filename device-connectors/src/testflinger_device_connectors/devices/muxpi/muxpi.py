@@ -579,8 +579,9 @@ class MuxPi:
                     self._copy_to_control(
                         data_path / "pi-desktop/preseed.cfg", remote_tmp
                     )
-                    cmd = "sudo cp {}/preseed.cfg {}/writable/preseed.cfg".format(
-                        remote_tmp, self.mount_point
+                    cmd = (
+                        f"sudo cp {remote_tmp}/preseed.cfg"
+                        f"{self.mount_point}/writable/preseed.cfg"
                     )
                     self._run_control(cmd)
 
