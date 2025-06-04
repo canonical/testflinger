@@ -1,0 +1,21 @@
+#cloud-config
+users:
+  - name: ubuntu
+    passwd: "$6$sDvG1B83mkN1/EWZ$4W3KnGmq9II5Yg3PsgNSRbwW2XpsjJqaXT1A.zo1.YsM.MH18I5dWyJnYnLr7XR2vmzaVj9gV6eHEevRXH8Gn."
+    lock_passwd: false
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+
+ssh_pwauth: true
+packages:
+  - openssh-server
+write_files:
+  - path: /etc/gdm3/custom.conf
+    content: |
+      [daemon]
+      AutomaticLoginEnable = true
+      AutomaticLogin = ubuntu
+      [security]
+      [xdmcp]
+      [chooser]
+      [debug]
