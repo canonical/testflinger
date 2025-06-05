@@ -244,11 +244,12 @@ class DefaultDevice:
                 subprocess.CalledProcessError,
                 subprocess.TimeoutExpired,
             ) as exc:
-                output = getattr(exc, "stdout", b"").decode()
-                if "status_code=404" in output:
-                    raise RuntimeError(
-                        f"Failed to import ssh key: {key}. User not found."
-                    )
+                if isinstance(exc, subprocess.CalledProcessError):
+                    output = (exc.stdout or b"").decode()
+                    if "status_code=404" in output:
+                        raise RuntimeError(
+                            f"Failed to import ssh key: {key}. User not found."
+                        )
 
                 # If any other error, attempt to retry
                 logger.error(f"Unable to import ssh key from: {key}")
@@ -332,14 +333,15 @@ class DefaultDevice:
             except FileNotFoundError:
                 pass
 
-            # Import SSH Keys with ssh-import-id
             try:
+                # Import SSH Keys with ssh-import-id
                 self.import_ssh_key(key)
+
+                # Attempt to copy keys only if import succeeds
+                with contextlib.suppress(RuntimeError):
+                    self.copy_ssh_key(device_ip, test_username, key="key.pub")
             except RuntimeError as exc:
                 logger.error(exc)
-
-            with contextlib.suppress(RuntimeError):
-                self.copy_ssh_key(device_ip, test_username, key="key.pub")
 
         # default reservation timeout is 1 hour
         timeout = int(reserve_data.get("timeout", "3600"))
