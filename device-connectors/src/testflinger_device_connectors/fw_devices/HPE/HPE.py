@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 HPE_SDR = "https://downloads.linux.hpe.com/SDR/"
 HPE_SDR_REPO = f"{HPE_SDR}repo/"
 FW_REPOS = {
-    "rl": "rlcp/firmware/",
     "gen10": "fwpp-gen10/",
     "gen11": "fwpp-gen11/",
     "gen12": "fwpp-gen12/",
@@ -194,7 +193,7 @@ class HPEDevice(OEMDevice):
             r"\d{4}\.\d{2}\.\d{1,2}[\._]?[\w\._]*", r.text, re.I
         )
         logger.info(
-            "Available firmware options: %s",
+            "Available version options in firmware_update_data: %s",
             sorted(set(links), reverse=True),
         )
         current_url = f"{self.repo_url}current{INDEX_FILE}"
