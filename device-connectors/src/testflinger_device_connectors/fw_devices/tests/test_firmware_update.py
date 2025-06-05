@@ -87,7 +87,7 @@ class TestFirmwareUpdate(unittest.TestCase):
             patch(f"{LVFSDevice_path}.run_cmd") as mock1,
             patch(f"{LVFSDevice_path}.check_connectable") as mock2,
         ):
-            mock1.side_effect = self.mock_run_cmd_supported_LVFS
+            mock1.side_effect = self.mock_run_cmd_supported_lvfs
             mock2.return_value = None
             device = detect_device("", "", "")
             self.assertTrue(isinstance(device, LVFSDevice))
@@ -100,7 +100,7 @@ class TestFirmwareUpdate(unittest.TestCase):
             patch("subprocess.check_output") as mock3,
             patch(f"{HPEDevice_path}.__init__") as mock4,
         ):
-            mock1.side_effect = self.mock_run_cmd_supported_HPE
+            mock1.side_effect = self.mock_run_cmd_supported_hpe
             mock2.return_value = None
             mock3.return_value = '{\
                 "power_address": "10.10.10.10",\
