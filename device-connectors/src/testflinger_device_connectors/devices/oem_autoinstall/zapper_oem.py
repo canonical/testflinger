@@ -36,7 +36,7 @@ class ZapperOem(ZapperConnector):
         """
         logger.info("zapper_oem: Validating configuration")
         supported_iso_types = {"bootstrap", "stock", "bios"}
-        iso_type = self.job_data["provision_data"]["zapper_iso_type"]
+        iso_type = self.job_data["provision_data"].get("zapper_iso_type")
 
         if iso_type not in supported_iso_types:
             error_msg = (
@@ -47,7 +47,7 @@ class ZapperOem(ZapperConnector):
             raise ValueError(error_msg)
 
         provisioning_data = {
-            "zapper_iso_url": self.job_data["provision_data"]["zapper_iso_url"],
+            "zapper_iso_url": self.job_data["provision_data"].get("zapper_iso_url"),
             "zapper_iso_type": iso_type,
             "device_ip": self.config["device_ip"],
         }

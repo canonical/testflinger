@@ -41,7 +41,7 @@ class DeviceConnector(DefaultDevice):
             self.job_data = json.load(job_json)
         provision_data = self.job_data.get("provision_data", {})
 
-        if provision_data.get("zapper_iso_url"):
+        if provision_data.get("zapper_iso_type"):
             logger.info("oem_autoinstall pass to zapper_oem")
             device_with_zapper = ZapperOem()
             device_with_zapper.provision(args)
