@@ -18,6 +18,14 @@ on:
         required: false
         default: false
         type: boolean
+      release:
+        description: The release channel to publish to
+        required: false
+        default: edge
+        type: choice
+        options:
+          - beta
+          - edge
 
 jobs:
   build:
@@ -52,4 +60,4 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_LOGIN }}
         with:
           snap: ${{ steps.build.outputs.snap }}
-          release: "edge,beta"
+          release: ${{ github.event_name == 'push' && 'beta' || github.event.inputs.release }}

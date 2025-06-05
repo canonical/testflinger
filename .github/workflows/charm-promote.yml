@@ -23,7 +23,7 @@ on:
       origin-channel:
         description: The channel to promote from
         required: true
-        default: latest/edge
+        default: latest/beta
         type: choice
         options:
           - latest/candidate

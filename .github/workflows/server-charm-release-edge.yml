@@ -8,6 +8,15 @@ on:
       - .github/workflows/server-charm-release-edge.yml
       - server/**
   workflow_dispatch:
+    inputs:
+      channel:
+        description: The channel to release the charm to
+        required: true
+        default: latest/edge
+        type: choice
+        options:
+          - latest/beta
+          - latest/edge
 
 env:
   REGISTRY: ghcr.io
@@ -63,4 +72,4 @@ jobs:
           charm-path: server/charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
-          channel: "latest/edge"
+          channel: ${{ github.event_name == 'push' && 'latest/beta' || github.event.inputs.channel }}
