@@ -76,6 +76,7 @@ class TestflingerAgentHostCharm(CharmBase):
             [
                 "python3-pip",
                 "python3-virtualenv",
+                "pipx",
                 "docker.io",
                 "git",
                 "openssh-client",
@@ -84,6 +85,7 @@ class TestflingerAgentHostCharm(CharmBase):
                 "supervisor",
             ]
         )
+        run_with_logged_errors(["pipx", "install", "uv"])
 
     def update_testflinger_repo(self, branch=None):
         """Update the testflinger repo."""
@@ -271,6 +273,7 @@ class TestflingerAgentHostCharm(CharmBase):
             )
             return
         self.copy_ssh_keys()
+        self.update_tf_cmd_scripts()
         self.write_supervisor_service_files()
         self.supervisor_update()
         self.restart_agents()
