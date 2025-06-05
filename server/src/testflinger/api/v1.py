@@ -657,7 +657,7 @@ def agents_get_one(agent_name):
     agent_data = database.get_agent_info(agent_name)
 
     if not agent_data:
-        return {}, HTTPStatus.NO_CONTENT
+        return {}, HTTPStatus.NOT_FOUND
 
     return jsonify(agent_data)
 
