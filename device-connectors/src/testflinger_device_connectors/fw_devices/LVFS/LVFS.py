@@ -6,12 +6,12 @@ import subprocess
 import time
 from enum import Enum, auto
 from typing import Tuple
+
 from testflinger_device_connectors.fw_devices.base import (
-    AbstractDevice,
     SSH_OPTS,
+    AbstractDevice,
     FirmwareUpdateError,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class LVFSDevice(AbstractDevice):
             )
         except subprocess.TimeoutExpired as e:
             if raise_stderr:
-                raise FirmwareUpdateError(e.output)
+                raise FirmwareUpdateError(e.output) from e
             else:
                 return 124, f"command timeout after {timeout}s", ""
         rc, stdout, stderr = (
@@ -303,7 +303,7 @@ class LVFSDevice(AbstractDevice):
         if status != "0":
             err_msg = f"Failed to SSH to {self.ipaddr} after {timeout}s"
             logger.error(err_msg)
-            raise RuntimeError(err_msg)
+            raise FirmwareUpdateError(err_msg)
         delta = time.time() - timeout_start
         logger.info("%s is SSHable after %ds", self.ipaddr, int(delta))
 

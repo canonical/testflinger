@@ -29,9 +29,9 @@ import yaml
 
 import testflinger_device_connectors
 from testflinger_device_connectors.fw_devices.firmware_update import (
-    detect_device,
-    LVFSDevice,
     FirmwareUpdateError,
+    LVFSDevice,
+    detect_device,
 )
 
 logger = logging.getLogger(__name__)
@@ -180,7 +180,7 @@ class DefaultDevice:
                         "The firmware version did not update successfully"
                     )
         except Exception as e:
-            logger.error("Firmware Update failed: ", str(e))
+            logger.error("Firmware Update failed: %s", str(e))
             exitcode = 1
         finally:
             logger.info("END firmware_update")

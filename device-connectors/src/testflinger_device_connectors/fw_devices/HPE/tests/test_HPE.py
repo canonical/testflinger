@@ -1,12 +1,13 @@
-"""Test HPEDevice"""
+"""Test HPEDevice."""
 
-import unittest
 import json
 import os
-from unittest.mock import patch, Mock
+import unittest
+from unittest.mock import Mock, patch
+
 from testflinger_device_connectors.fw_devices import (
-    HPEDevice,
     FirmwareUpdateError,
+    HPEDevice,
 )
 from testflinger_device_connectors.fw_devices.HPE.tests import HPE_data
 
@@ -17,25 +18,25 @@ get_sysinfo_cmd = "systeminfo --system --json"
 
 class TestHPEDevice(unittest.TestCase):
     def test_init_invalid_bmc_ip(self):
-        """
-        Test if FirmwareUpdateError raises given a invalid BMC IP address
+        """Test if FirmwareUpdateError raises given a invalid BMC IP
+        address.
         """
         with self.assertRaises(FirmwareUpdateError):
             HPEDevice("", "", "300.0.0.0", "", "")
 
     def test_init_null_bmc_ip(self):
-        """
-        Test if FirmwareUpdateError raises given a null BMC IP address
+        """Test if FirmwareUpdateError raises given a null BMC IP
+        address.
         """
         with self.assertRaises(FirmwareUpdateError):
             HPEDevice("", "", "", "", "")
 
     def test_purify_ver(self):
-        """Test if _purify_ver is functional"""
-
-        with patch(f"{HPEDevice_path}._install_ilorest") as mock1, patch(
-            f"{HPEDevice_path}._login_ilo"
-        ) as mock2:
+        """Test if _purify_ver is functional."""
+        with (
+            patch(f"{HPEDevice_path}._install_ilorest") as mock1,
+            patch(f"{HPEDevice_path}._login_ilo") as mock2,
+        ):
             mock1.return_value = None
             mock2.return_value = None
             device = HPEDevice("", "", "127.0.0.1", "", "")
@@ -65,9 +66,7 @@ class TestHPEDevice(unittest.TestCase):
         )
 
     def mock_run_cmd(*args, **kwargs):
-        """
-        Mock run_cmd for ilorest calls
-        """
+        """Mock run_cmd for ilorest calls."""
         if get_fw_cmd in args[1]:
             return 0, HPE_data.RAWGET_FIRMWARE_INVENTORY, ""
         elif args[1] == get_sysinfo_cmd:
@@ -76,12 +75,13 @@ class TestHPEDevice(unittest.TestCase):
             return 0, "", ""
 
     def test_get_fw_info(self):
+        """Test if all raw FirmwareInventory data transferred to
+        HPEDevice.fw_info.
         """
-        Test if all raw FirmwareInventory data transferred to HPEDevice.fw_info
-        """
-        with patch(f"{HPEDevice_path}._install_ilorest") as mock1, patch(
-            f"{HPEDevice_path}._login_ilo"
-        ) as mock2:
+        with (
+            patch(f"{HPEDevice_path}._install_ilorest") as mock1,
+            patch(f"{HPEDevice_path}._login_ilo") as mock2,
+        ):
             mock1.return_value = None
             mock2.return_value = None
             device = HPEDevice("", "", "127.0.0.1", "", "")
@@ -109,19 +109,21 @@ class TestHPEDevice(unittest.TestCase):
         return mock_response
 
     def test_flash_fwpkg(self):
+        """Test if FirmwareUpdateError is raised
+        given a non-supported SPP version.
         """
-        Test if FirmwareUpdateError is raised given a non-supported SPP version
-        """
-        with patch(f"{HPEDevice_path}._install_ilorest") as mock1, patch(
-            f"{HPEDevice_path}._login_ilo"
-        ) as mock2:
+        with (
+            patch(f"{HPEDevice_path}._install_ilorest") as mock1,
+            patch(f"{HPEDevice_path}._login_ilo") as mock2,
+        ):
             mock1.return_value = None
             mock2.return_value = None
             device = HPEDevice("", "", "127.0.0.1", "", "")
 
-        with patch(f"{HPEDevice_path}.run_cmd") as mock1, patch(
-            f"{HPEDevice_path}._download_file"
-        ) as mock2:
+        with (
+            patch(f"{HPEDevice_path}.run_cmd") as mock1,
+            patch(f"{HPEDevice_path}._download_file") as mock2,
+        ):
             mock1.side_effect = self.mock_run_cmd
             mock2.side_effect = self.mock_download_file
             device._get_hpe_fw_repo()

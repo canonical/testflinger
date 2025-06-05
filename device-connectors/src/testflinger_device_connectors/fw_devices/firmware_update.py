@@ -1,13 +1,14 @@
 """Detecting device types."""
 
-import logging
 import json
+import logging
 import subprocess
+
 from testflinger_device_connectors.fw_devices import (
     AbstractDevice,
+    FirmwareUpdateError,
     LVFSDevice,
     OEMDevice,
-    FirmwareUpdateError,
 )
 from testflinger_device_connectors.fw_devices.dmi import Dmi
 
@@ -46,7 +47,7 @@ def detect_device(ip: str, user: str, config: dict) -> AbstractDevice:
         )
     except subprocess.CalledProcessError as err:
         logger.error(err.output)
-        raise FirmwareUpdateError(err.output)
+        raise FirmwareUpdateError(err.output) from err
 
     err_msg = ""
     if rc1 != 0:
@@ -79,7 +80,7 @@ def detect_device(ip: str, user: str, config: dict) -> AbstractDevice:
         logger.info("%s is a %s %s", ip, vendor_string, dev.__name__)
     except IndexError as err:
         logger.error(err_msg)
-        raise FirmwareUpdateError(err_msg)
+        raise FirmwareUpdateError(err_msg) from err
 
     if issubclass(dev, LVFSDevice):
         return dev(ip, user)
@@ -103,9 +104,9 @@ def detect_device(ip: str, user: str, config: dict) -> AbstractDevice:
                 bmc_info["power_user"],
                 bmc_info["power_pass"],
             )
-        except KeyError:
-            raise FirmwareUpdateError("MAAS info isn't provided")
-        except subprocess.CalledProcessError:
+        except KeyError as err:
+            raise FirmwareUpdateError("MAAS info isn't provided") from err
+        except subprocess.CalledProcessError as err:
             err_msg = f"maas error running: {' '.join(cmd)}"
             logger.error(err_msg)
-            raise FirmwareUpdateError(err_msg)
+            raise FirmwareUpdateError(err_msg) from err

@@ -1,8 +1,8 @@
 """Base class for flashing firmware on devices."""
 
-import time
-import subprocess
 import logging
+import subprocess
+import time
 from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ class AbstractDevice(ABC):
     def check_connectable(self, timeout: int):
         """
         After DUT reboot, check if SSH to DUT works within a given timeout
-        period
+        period.
 
         :param timeout: wait time for regaining DUT access
         """
@@ -65,6 +65,7 @@ class AbstractDevice(ABC):
                     f"ping {self.ipaddr} -c 5",
                     stdout=subprocess.DEVNULL,
                     shell=True,
+                    check=False,
                 )
                 status = subprocess.check_output(
                     f"ssh {SSH_OPTS} {self.user}@{self.ipaddr} "
@@ -87,6 +88,6 @@ class AbstractDevice(ABC):
 
 
 class OEMDevice(AbstractDevice):
-    """Device class for devices that are not supported by LVFS-fwupd"""
+    """Device class for devices that are not supported by LVFS-fwupd."""
 
     fw_update_type = "OEM-defined"

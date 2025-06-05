@@ -1,12 +1,14 @@
 """Test detect_device in firmware_update.py."""
 
-import pytest
 import unittest
 from unittest.mock import patch
+
+import pytest
+
 from testflinger_device_connectors.fw_devices import (
+    FirmwareUpdateError,
     HPEDevice,
     LVFSDevice,
-    FirmwareUpdateError,
 )
 from testflinger_device_connectors.fw_devices.firmware_update import (
     detect_device,
@@ -28,7 +30,7 @@ class TestFirmwareUpdate(unittest.TestCase):
         elif args[1] == type_cmd:
             return 0, "13", ""
 
-    def mock_run_cmd_supported_HPE(*args, **kwargs):
+    def mock_run_cmd_supported_hpe(*args, **kwargs):
         """
         Mock run_cmd for a HPE Server device, which has a supported
         Device class.
@@ -79,23 +81,25 @@ class TestFirmwareUpdate(unittest.TestCase):
                 "ssh: connect to host 10.10.10.10 port 22: No route to host",
             )
 
-    def test_detect_device_supported_LVFS(self):
+    def test_detect_device_supported_lvfs(self):
         """Test if detects_device returns a correct device class."""
-        with patch(f"{LVFSDevice_path}.run_cmd") as mock1, patch(
-            f"{LVFSDevice_path}.check_connectable"
-        ) as mock2:
+        with (
+            patch(f"{LVFSDevice_path}.run_cmd") as mock1,
+            patch(f"{LVFSDevice_path}.check_connectable") as mock2,
+        ):
             mock1.side_effect = self.mock_run_cmd_supported_LVFS
             mock2.return_value = None
             device = detect_device("", "", "")
             self.assertTrue(isinstance(device, LVFSDevice))
 
-    def test_detect_device_supported_HPE(self):
-        """Test if detects_device returns a HPEDevice class"""
-        with patch(f"{LVFSDevice_path}.run_cmd") as mock1, patch(
-            f"{LVFSDevice_path}.check_connectable"
-        ) as mock2, patch("subprocess.check_output") as mock3, patch(
-            f"{HPEDevice_path}.__init__"
-        ) as mock4:
+    def test_detect_device_supported_hpe(self):
+        """Test if detects_device returns a HPEDevice class."""
+        with (
+            patch(f"{LVFSDevice_path}.run_cmd") as mock1,
+            patch(f"{LVFSDevice_path}.check_connectable") as mock2,
+            patch("subprocess.check_output") as mock3,
+            patch(f"{HPEDevice_path}.__init__") as mock4,
+        ):
             mock1.side_effect = self.mock_run_cmd_supported_HPE
             mock2.return_value = None
             mock3.return_value = '{\
@@ -108,11 +112,13 @@ class TestFirmwareUpdate(unittest.TestCase):
             self.assertTrue(isinstance(device, HPEDevice))
 
     def test_detect_device_maas_power_error(self):
-        """Test if detects_device fails while missing MAAS power info"""
+        """Test if detects_device fails while missing MAAS power info."""
         with pytest.raises(FirmwareUpdateError) as pytest_wrapped_e:
-            with patch(f"{LVFSDevice_path}.run_cmd") as mock1, patch(
-                f"{LVFSDevice_path}.check_connectable"
-            ) as mock2, patch("subprocess.check_output") as mock3:
+            with (
+                patch(f"{LVFSDevice_path}.run_cmd") as mock1,
+                patch(f"{LVFSDevice_path}.check_connectable") as mock2,
+                patch("subprocess.check_output") as mock3,
+            ):
                 mock1.side_effect = self.mock_run_cmd_supported_HPE
                 mock2.return_value = None
                 mock3.return_value = '{"power_address": "10.10.10.10"}'
@@ -123,11 +129,12 @@ class TestFirmwareUpdate(unittest.TestCase):
                 )
 
     def test_detect_device_maas_config_error(self):
-        """Test if detects_device fails while missing MAAS config"""
+        """Test if detects_device fails while missing MAAS config."""
         with pytest.raises(FirmwareUpdateError) as pytest_wrapped_e:
-            with patch(f"{LVFSDevice_path}.run_cmd") as mock1, patch(
-                f"{LVFSDevice_path}.check_connectable"
-            ) as mock2:
+            with (
+                patch(f"{LVFSDevice_path}.run_cmd") as mock1,
+                patch(f"{LVFSDevice_path}.check_connectable") as mock2,
+            ):
                 mock1.side_effect = self.mock_run_cmd_supported_HPE
                 mock2.return_value = None
                 detect_device("", "", {})
@@ -139,9 +146,10 @@ class TestFirmwareUpdate(unittest.TestCase):
     def test_detect_device_unsupported(self):
         """Test if detects_device fails while given a unsupported device."""
         with pytest.raises(FirmwareUpdateError) as pytest_wrapped_e:
-            with patch(f"{LVFSDevice_path}.run_cmd") as mock1, patch(
-                f"{LVFSDevice_path}.check_connectable"
-            ) as mock2:
+            with (
+                patch(f"{LVFSDevice_path}.run_cmd") as mock1,
+                patch(f"{LVFSDevice_path}.check_connectable") as mock2,
+            ):
                 mock1.side_effect = self.mock_run_cmd_unsupported
                 mock2.return_value = None
                 detect_device("", "", "")
@@ -155,9 +163,10 @@ class TestFirmwareUpdate(unittest.TestCase):
         device without dmi data.
         """
         with pytest.raises(FirmwareUpdateError) as pytest_wrapped_e:
-            with patch(f"{LVFSDevice_path}.run_cmd") as mock1, patch(
-                f"{LVFSDevice_path}.check_connectable"
-            ) as mock2:
+            with (
+                patch(f"{LVFSDevice_path}.run_cmd") as mock1,
+                patch(f"{LVFSDevice_path}.check_connectable") as mock2,
+            ):
                 mock1.side_effect = self.mock_run_cmd_fail
                 mock2.return_value = None
                 detect_device("", "", "")
@@ -169,9 +178,10 @@ class TestFirmwareUpdate(unittest.TestCase):
     def test_detect_device_nossh(self):
         """Test if detects_device exits while given an unreachable device."""
         with pytest.raises(FirmwareUpdateError) as pytest_wrapped_e:
-            with patch(f"{LVFSDevice_path}.run_cmd") as mock1, patch(
-                f"{LVFSDevice_path}.check_connectable"
-            ) as mock2:
+            with (
+                patch(f"{LVFSDevice_path}.run_cmd") as mock1,
+                patch(f"{LVFSDevice_path}.check_connectable") as mock2,
+            ):
                 mock1.side_effect = self.mock_run_cmd_nossh
                 mock2.return_value = None
                 detect_device("", "", "")

@@ -1,4 +1,4 @@
-"""This file provides HPE ilorest outputs for unit tests"""
+"""This file provides HPE ilorest outputs for unit tests."""
 
 """
 ilorest rawget /redfish/v1/UpdateService/FirmwareInventory/ --expand --silent
