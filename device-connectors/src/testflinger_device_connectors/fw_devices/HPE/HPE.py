@@ -26,6 +26,7 @@ FW_REPOS = {
     "gen12": "fwpp-gen12/",
 }
 INDEX_FILE = "/fwrepodata/fwrepo.json"
+ILOREST_VER = "5.3.0.0"
 
 
 class HPEDevice(OEMDevice):
@@ -59,25 +60,11 @@ class HPEDevice(OEMDevice):
     def _install_ilorest(self):
         """Install stable/current ilorest deb from HPE SDR"""
         rc, stdout, stderr = self.run_cmd("--version", raise_stderr=False)
-        if rc == 0:
+        if rc == 0 and ILOREST_VER in stdout:
             logger.info("successfully installed %s", stdout)
             return
-        install_cmd = [
-            f"curl -fsSL {HPE_SDR}hpePublicKey2048_key1.pub"
-            " | sudo gpg --dearmor | sudo tee"
-            " /etc/apt/trusted.gpg.d/hpe.gpg > /dev/null",
-            f"echo '# HPE ilorest\n"
-            f"deb {HPE_SDR_REPO}ilorest stable/current non-free'"
-            " > /etc/apt/sources.list.d/ilorest.list",
-            "apt update",
-            "apt install -y ilorest",
-        ]
-        for cmd in install_cmd:
-            subprocess.run(
-                cmd,
-                shell=True,
-                capture_output=True,
-            )
+        install_cmd = f"pip install ilorest=={ILOREST_VER}"
+        subprocess.run(install_cmd, shell=True, capture_output=True)
         rc, stdout, stderr = self.run_cmd("--version", raise_stderr=False)
         if rc == 0:
             logger.info("successfully installed %s", stdout)
@@ -96,7 +83,7 @@ class HPEDevice(OEMDevice):
         :param timeout:      timeout for the command response
         :returns:            return code, stdout, stderr
         """
-        ilorest_prefix = "ilorest --nologo "
+        ilorest_prefix = f"ilorest --nologo --cache-dir={os.getcwd()} "
         if isinstance(cmds, list):
             ilorest_cmd = ";".join([ilorest_prefix + cmd for cmd in cmds])
         else:
@@ -212,13 +199,13 @@ class HPEDevice(OEMDevice):
 
     def get_fw_info(self):
         """
-        Get current firmware version of all updatable devices on HPE machine,
+        Get current firmware version of all updateable devices on HPE machine,
         and get all available repositories from HPE SDR
         """
         fw_inventory = self._rawget_firmware_inventory()
         server_fw_info = []
         for fw in fw_inventory:
-            update_order = 4 if fw["Updateable"] else 5
+            update_order = 4 if fw.get("Updateable") else 5
             device_class = target_id = ""
             if fw["Oem"]["Hpe"].get("Targets") is not None:
                 device_class = fw["Oem"]["Hpe"].get("DeviceClass")
@@ -253,7 +240,12 @@ class HPEDevice(OEMDevice):
             .group(1)
             .replace(" ", ""),
         ).strip()
-        return ".".join(map(str, list(map(int, ver_num.split(" ")))))
+        try:
+            # for general firmware version string
+            return ".".join(map(str, list(map(int, ver_num.split(" ")))))
+        except ValueError:
+            # for firmware version string like `HPK2`
+            return re.sub(r"^[^\d]+", "", ver_string)
 
     def _update_fw_info(self, spp: str):
         """
@@ -312,7 +304,7 @@ class HPEDevice(OEMDevice):
                 )
         temp_fw_info = sorted(self.fw_info, key=lambda x: x["Update Order"])
         self.fw_info = temp_fw_info
-        logger.info("firmware updatable on HPE machine:\n%s", self.fw_info)
+        logger.info("firmware updateable on HPE machine:\n%s", self.fw_info)
 
     def _flash_fwpkg(self, spp: str) -> bool:
         """
@@ -363,7 +355,7 @@ class HPEDevice(OEMDevice):
                     )
                 else:
                     logger.info(
-                        "[%s] update current firmware %s to %s",
+                        "[%s] flash current firmware %s to %s",
                         fw["Firmware Name"],
                         fw["Firmware Version"],
                         fw["Fwpkg Available"][spp]["version"],
@@ -393,9 +385,9 @@ class HPEDevice(OEMDevice):
         # start flashing firmware files in the install list
         flash_result = dict()
         for file in install_list:
-            self._login_ilo()
+            self._login_ilo() # prevent session expired
             file_name = file.split("/")[-1]
-            logger.info("start flashing %s", file_name)
+            logger.info("start uploading %s", file_name)
             rc, stdout, stderr = self.run_cmd(
                 f"flashfwpkg --forceupload {file}",
                 raise_stderr=False,
@@ -408,7 +400,7 @@ class HPEDevice(OEMDevice):
             # wait for iLO to complete reboot before proceed to next firmware
             if "ilo will reboot" in stdout.lower():
                 logger.info("wait until iLO complete reboot")
-                for retry in range(20):
+                for retry in range(60):
                     time.sleep(10)
                     if (
                         subprocess.check_output(
@@ -421,7 +413,6 @@ class HPEDevice(OEMDevice):
                         == "0"
                     ):
                         break
-                time.sleep(10)
         return True
 
     def _download_fwpkg(self, spp, fw_file):
@@ -433,7 +424,7 @@ class HPEDevice(OEMDevice):
         :return:        full path of downloaded fwpkg file
         """
         url = f"{HPE_SDR_REPO}{self.repo_name}{spp}/{fw_file}"
-        FW_DIR = "/home/HPE_FW"
+        FW_DIR = os.getcwd()
         fw_file_path = os.path.join(FW_DIR, fw_file)
         if not os.path.isdir(FW_DIR):
             os.mkdir(FW_DIR)
@@ -471,7 +462,7 @@ class HPEDevice(OEMDevice):
                 new_fw["Version"]
             ) == self._purify_ver(fw["targetVersion"]):
                 logger.info(
-                    "[%s] firmware flashed %s → %s",
+                    "[%s] firmware flashed: %s → %s",
                     fw["Firmware Name"],
                     fw["Firmware Version"],
                     new_fw["Version"],
