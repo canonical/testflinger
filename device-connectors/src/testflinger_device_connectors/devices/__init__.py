@@ -226,8 +226,8 @@ class DefaultDevice:
         """Import SSH key provided in Reserve data.
 
         :param key: SSH key to import.
-        :raises RuntimeError: If failure during import ssh keys"""
-
+        :raises RuntimeError: If failure during import ssh keys
+        """
         cmd = ["ssh-import-id", "-o", "key.pub", key]
         for retry in range(10):
             try:
@@ -238,7 +238,7 @@ class DefaultDevice:
                     stderr=subprocess.STDOUT,
                     check=True,
                 )
-                logger.info(f"Successfully imported key: {key}")
+                logger.info("Successfully imported key: %s", key)
                 break
             except (
                 subprocess.CalledProcessError,
@@ -249,10 +249,10 @@ class DefaultDevice:
                     if "status_code=404" in output:
                         raise RuntimeError(
                             f"Failed to import ssh key: {key}. User not found."
-                        )
+                        ) from exc
 
                 # If any other error, attempt to retry
-                logger.error(f"Unable to import ssh key from: {key}")
+                logger.error("Unable to import ssh key from: %s", key)
                 logger.info("Retrying...")
                 time.sleep(min(2**retry, 30))
         else:
