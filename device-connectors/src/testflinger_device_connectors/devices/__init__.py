@@ -222,6 +222,43 @@ class DefaultDevice:
         with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
             devinfo_file.write(json.dumps(device_info))
 
+    def import_ssh_key(self, key: str) -> None:
+        """Import SSH key provided in Reserve data.
+
+        :param key: SSH key to import.
+        :raises RuntimeError: If failure during import ssh keys"""
+
+        cmd = ["ssh-import-id", "-o", "key.pub", key]
+        for retry in range(10):
+            try:
+                subprocess.run(
+                    cmd,
+                    timeout=30,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    check=True,
+                )
+                logger.info(f"Successfully imported key: {key}")
+                break
+            except (
+                subprocess.CalledProcessError,
+                subprocess.TimeoutExpired,
+            ) as exc:
+                output = getattr(exc, "stdout", b"").decode()
+                if "status_code=404" in output:
+                    raise RuntimeError(
+                        f"Failed to import ssh key: {key}. User not found."
+                    )
+
+                # If any other error, attempt to retry
+                logger.error(f"Unable to import ssh key from: {key}")
+                logger.info("Retrying...")
+                time.sleep(min(2**retry, 30))
+        else:
+            raise RuntimeError(
+                f"Failed to import ssh key: {key}. Maximum retries reached"
+            )
+
     def copy_ssh_key(
         self,
         device_ip: str,
@@ -294,11 +331,12 @@ class DefaultDevice:
                 os.unlink("key.pub")
             except FileNotFoundError:
                 pass
-            cmd = ["ssh-import-id", "-o", "key.pub", key]
-            proc = subprocess.run(cmd, check=False)
-            if proc.returncode != 0:
-                logger.error("Unable to import ssh key from: %s", key)
-                continue
+
+            # Import SSH Keys with ssh-import-id
+            try:
+                self.import_ssh_key(key)
+            except RuntimeError as exc:
+                logger.error(exc)
 
             with contextlib.suppress(RuntimeError):
                 self.copy_ssh_key(device_ip, test_username, key="key.pub")
