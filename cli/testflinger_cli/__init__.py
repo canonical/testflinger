@@ -17,6 +17,7 @@
 
 """TestflingerCli module."""
 
+import contextlib
 import inspect
 import json
 import logging
@@ -35,7 +36,14 @@ import argcomplete
 import requests
 import yaml
 
-from testflinger_cli import autocomplete, client, config, helpers, history
+from testflinger_cli import (
+    autocomplete,
+    client,
+    config,
+    consts,
+    helpers,
+    history,
+)
 from testflinger_cli.errors import AttachmentError, SnapPrivateFileError
 
 logger = logging.getLogger(__name__)
@@ -48,84 +56,16 @@ if os.path.exists(os.path.join(basedir, "setup.py")):
 
 def cli():
     """Generate the TestflingerCli instance and run it."""
+    tfcli = TestflingerCli()
+    logging.basicConfig(
+        level=logging.WARNING,
+        format=consts.LOG_FORMAT,
+        datefmt=consts.LOG_DATE_FORMAT,
+    )
     try:
-        tfcli = TestflingerCli()
-        configure_logging()
         tfcli.run()
     except KeyboardInterrupt:
         sys.exit("Received KeyboardInterrupt")
-
-
-def configure_logging():
-    """Configure default logging."""
-    logging.basicConfig(
-        level=logging.WARNING,
-        format=(
-            "%(levelname)s: %(asctime)s %(filename)s:%(lineno)d -- %(message)s"
-        ),
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-
-def _get_image(images):
-    """Ask the user to select an image from a list."""
-    image = ""
-    flex_url = ""
-    if images and images[list(images.keys())[0]].startswith("url:"):
-        # If this device can take URLs, offer to let the user enter one
-        # instead of just using the known images
-        flex_url = "or URL for a valid image starting with http(s)://... "
-    while not image or image == "?":
-        image = input(
-            "\nEnter the name of the image you want to use "
-            + flex_url
-            + "('?' to list) "
-        )
-        if image == "?":
-            if not images:
-                print(
-                    "WARNING: There are no images defined for this "
-                    "device. You may also provide the URL to an image "
-                    "that can be booted with this device though."
-                )
-                continue
-            for image_id in sorted(images.keys()):
-                print(" " + image_id)
-            continue
-        if image.startswith(("http://", "https://")):
-            return image
-        if image not in images.keys():
-            print(
-                "ERROR: '{}' is not in the list of known images for "
-                "that queue, please select another.".format(image)
-            )
-            image = ""
-    return image
-
-
-def _get_ssh_keys():
-    """Retrieve the launchpad or github ssh key to be used."""
-    ssh_keys = ""
-    while not ssh_keys.strip():
-        ssh_keys = input(
-            "\nEnter the ssh key(s) you wish to use: "
-            "(ex: lp:userid, gh:userid) "
-        )
-        key_list = [ssh_key.strip() for ssh_key in ssh_keys.split(",")]
-        for ssh_key in key_list:
-            if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
-                ssh_keys = ""
-                print("Please enter keys in the form lp:userid or gh:userid")
-    return key_list
-
-
-def _print_queue_message():
-    """Print message for queues."""
-    print(
-        "ATTENTION: This only shows a curated list of queues with "
-        "descriptions, not ALL queues. If you can't find the queue you want "
-        "to use, a job can still be submitted for queues not listed here.\n"
-    )
 
 
 class TestflingerCli:
@@ -139,7 +79,7 @@ class TestflingerCli:
             self.args.server
             or self.config.get("server")
             or os.environ.get("TESTFLINGER_SERVER")
-            or "https://testflinger.canonical.com"
+            or consts.TESTFLINGER_SERVER
         )
         self.client_id = (
             getattr(self.args, "client_id", None)
@@ -154,7 +94,7 @@ class TestflingerCli:
         error_threshold = (
             self.config.get("error_threshold")
             or os.environ.get("TESTFLINGER_ERROR_THRESHOLD")
-            or 3
+            or consts.TESTFLINGER_ERROR_THRESHOLD
         )
 
         # Allow config subcommand without worrying about server or client
@@ -163,7 +103,7 @@ class TestflingerCli:
         if not server.startswith(("http://", "https://")):
             sys.exit(
                 'Server must start with "http://" or "https://" '
-                '- currently set to: "{}"'.format(server)
+                f'- currently set to: "{server}"'
             )
         self.client = client.Client(server, error_threshold=error_threshold)
 
@@ -431,14 +371,12 @@ class TestflingerCli:
                 self.config.set(*setting)
                 return
             if len(setting) == 1:
-                print(
-                    "{} = {}".format(setting[0], self.config.get(setting[0]))
-                )
+                print(f"{setting[0]} = {self.config.get(setting[0])}")
                 return
         print("Current Configuration")
         print("---------------------")
         for k, v in self.config.data.items():
-            print("{} = {}".format(k, v))
+            print(f"{k} = {v}")
         print()
 
     @staticmethod
@@ -446,14 +384,12 @@ class TestflingerCli:
         """Pull together the attachment data per phase from the `job_data`."""
         attachments = {}
         for phase in ("provision", "firmware_update", "test"):
-            try:
+            with contextlib.suppress(KeyError):
                 attachments[phase] = [
                     attachment
                     for attachment in job_data[f"{phase}_data"]["attachments"]
                     if attachment.get("local")
                 ]
-            except KeyError:
-                pass
         return attachments or None
 
     def pack_attachments(self, archive: str, attachment_data: dict):
@@ -525,11 +461,7 @@ class TestflingerCli:
         creates an authorization header from it.
         """
         jwt = self.authenticate_with_server()
-        if jwt is not None:
-            auth_headers = {"Authorization": jwt}
-        else:
-            auth_headers = None
-        return auth_headers
+        return {"Authorization": jwt} if jwt else None
 
     def submit(self):
         """Submit a new test job to the server."""
@@ -577,7 +509,7 @@ class TestflingerCli:
             print(job_id)
         else:
             print("Job submitted successfully!")
-            print("job_id: {}".format(job_id))
+            print(f"job_id: {job_id}")
         if self.args.poll:
             self.do_poll(job_id)
 
@@ -859,7 +791,7 @@ class TestflingerCli:
                     queue_pos = self.client.get_job_position(job_id)
                     if int(queue_pos) != prev_queue_pos:
                         prev_queue_pos = int(queue_pos)
-                        print("Jobs ahead in queue: {}".format(queue_pos))
+                        print(f"Jobs ahead in queue: {queue_pos}")
                 time.sleep(10)
                 output = ""
                 output = self.get_latest_output(job_id)
@@ -871,8 +803,8 @@ class TestflingerCli:
                     logger.exception("Error polling for job output")
             except KeyboardInterrupt:
                 choice = input(
-                    "\nCancel job {} before exiting "
-                    "(y)es/(N)o/(c)ontinue? ".format(job_id)
+                    f"\nCancel job {job_id} before exiting "
+                    "(y)es/(N)o/(c)ontinue? "
                 )
                 if choice:
                     choice = choice[0].lower()
@@ -904,16 +836,9 @@ class TestflingerCli:
 
     def jobs(self):
         """List the previously started test jobs."""
-        if self.args.status:
-            # Getting job state may be slow, only include if requested
-            status_text = "Status"
-        else:
-            status_text = ""
-        print(
-            "{:36} {:9} {}  {}".format(
-                "Job ID", status_text, "Submission Time", "Queue"
-            )
-        )
+        # Getting job state may be slow, only include if requested
+        status_text = "Status" if self.args.status else ""
+        print(f"{'Job ID':36} {status_text:9} Submission Time  Queue")
         print("-" * 79)
         for job_id, jobdata in self.history.history.items():
             if self.args.status:
@@ -923,78 +848,48 @@ class TestflingerCli:
                     self.history.update(job_id, job_state)
             else:
                 job_state = ""
-            print(
-                "{} {:9} {} {}".format(
-                    job_id,
-                    job_state,
-                    datetime.fromtimestamp(
-                        jobdata.get("submission_time"), tz=timezone.utc
-                    ).strftime("%a %b %d %H:%M"),
-                    jobdata.get("queue"),
-                )
+            timestamp = datetime.fromtimestamp(
+                jobdata.get("submission_time"), tz=timezone.utc
             )
+            queue = jobdata["queue"]
+            print(f"{job_id} {job_state:9} {timestamp:%a %b %d %H:%M} {queue}")
         print()
 
     def list_queues(self):
         """List the advertised queues on the current Testflinger server."""
-        _print_queue_message()
-        try:
-            queues = self.client.get_queues()
-        except client.HTTPError as exc:
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
-                )
-            logger.error("Unable to get a list of queues from the server.")
-            sys.exit(1)
+        queues = self.do_list_queues()
         if self.args.json:
             print(json.dumps(queues))
         else:
             print("Advertised queues on this server:")
             for name, description in sorted(queues.items()):
-                print(" {} - {}".format(name, description))
+                print(f" {name} - {description}")
 
     def reserve(self):
         """Install and reserve a system."""
-        _print_queue_message()
-        try:
-            queues = self.client.get_queues()
-        except OSError:
-            logger.warning("Unable to get a list of queues from the server!")
-            queues = {}
-        queue = self.args.queue or self._get_queue(queues)
-        if queue not in queues.keys():
-            print(
-                "WARNING: '{}' is not in the list of known queues".format(
-                    queue
-                )
-            )
+        queues = self.do_list_queues()
+        queue = self.args.queue or helpers.prompt_for_queue(queues)
+        if queue not in queues:
+            logger.warning("'%s' is not in the list of known queues", queue)
         try:
             images = self.client.get_images(queue)
         except OSError:
             logger.warning("Unable to get a list of images from the server!")
             images = {}
-        image = self.args.image or _get_image(images)
+        image = self.args.image or helpers.prompt_for_image(images)
         if (
             not image.startswith(("http://", "https://"))
-            and image not in images.keys()
+            and image not in images
         ):
-            sys.exit(
-                "ERROR: '{}' is not in the list of known "
-                "images for that queue, please select "
-                "another.".format(image)
-            )
+            logger.error("'%s' is not in the list of known images", image)
         if image.startswith(("http://", "https://")):
             image = "url: " + image
         else:
             image = images[image]
-        ssh_keys = self.args.key or _get_ssh_keys()
+        ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
-                sys.exit(
-                    "Please enter keys in the form lp:userid or gh:userid"
-                )
+                logger.error("Invalid SSH key format: %s", ssh_key)
         template = inspect.cleandoc(
             """job_queue: {queue}
                                     provision_data:
@@ -1003,7 +898,7 @@ class TestflingerCli:
                                         ssh_keys:"""
         )
         for ssh_key in ssh_keys:
-            template += "\n      - {}".format(ssh_key)
+            template += f"\n      - {ssh_key}"
         job_data = template.format(queue=queue, image=image)
         print("\nThe following yaml will be submitted:")
         print(job_data)
@@ -1013,31 +908,23 @@ class TestflingerCli:
         if answer in ("Y", "y", ""):
             job_id = self.submit_job_data(job_data)
             print("Job submitted successfully!")
-            print("job_id: {}".format(job_id))
+            print(f"job_id: {job_id}")
             self.do_poll(job_id)
 
-    def _get_queue(self, queues):
-        """Ask the user which queue to use from a list."""
-        queue = ""
-        while not queue or queue == "?":
-            queue = input("\nWhich queue do you want to use? ('?' to list) ")
-            if not queue:
-                continue
-            if queue == "?":
-                print("\nAdvertised queues on this server:")
-                for name, description in sorted(queues.items()):
-                    print(" {} - {}".format(name, description))
-                queue = self._get_queue(queues)
-            if queue not in queues.keys():
-                print(
-                    "WARNING: '{}' is not in the list of known queues".format(
-                        queue
-                    )
-                )
-                answer = input("Do you still want to use it? (y/N) ")
-                if answer.lower() != "y":
-                    queue = ""
-        return queue
+    def do_list_queues(self) -> dict[str, str]:
+        """List the advertised queues on the Testflinger server.
+
+        :return: A dictionary of queue names and their descriptions.
+        """
+        logger.warning(
+            "This only shows a curated list of queues with descriptions"
+        )
+        try:
+            queues = self.client.get_queues()
+        except client.HTTPError:
+            logger.exception("Unable to get a list of queues from the server.")
+            return {}
+        return queues
 
     def get_latest_output(self, job_id):
         """Get the latest output from a running job.
