@@ -40,8 +40,11 @@ def clone_repo(
         logger.debug("Installing Python package: %s", directory)
         run_with_logged_errors(
             [
-                f"{VIRTUAL_ENV_PATH}/bin/pip3",
+                "/root/.local/bin/uv",
+                "pip",
                 "install",
+                "--python",
+                f"{VIRTUAL_ENV_PATH}/bin/python3",
                 "-U",
                 f"{local_path}/{directory}",
             ]

@@ -26,8 +26,11 @@ def test_clone_repo(mock_run_with_logged_errors, mock_clone_from):
     )
     mock_run_with_logged_errors.assert_called_with(
         [
-            f"{VIRTUAL_ENV_PATH}/bin/pip3",
+            "/root/.local/bin/uv",
+            "pip",
             "install",
+            "--python",
+            f"{VIRTUAL_ENV_PATH}/bin/python3",
             "-U",
             f"{LOCAL_TESTFLINGER_PATH}/device-connectors",
         ]

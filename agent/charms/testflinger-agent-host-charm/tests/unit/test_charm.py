@@ -17,6 +17,7 @@ class TestCharm(unittest.TestCase):
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
+    @patch("charm.TestflingerAgentHostCharm.update_tf_cmd_scripts")
     @patch("os.chown")
     @patch("os.chmod")
     @patch("shutil.move")
@@ -35,6 +36,7 @@ class TestCharm(unittest.TestCase):
         mock_move,
         mock_chmod,
         mock_chown,
+        mock_update_tf_cmd_scripts,
     ):
         """
         Test the copy_ssh_keys method.
