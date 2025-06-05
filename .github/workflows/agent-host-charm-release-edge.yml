@@ -8,6 +8,15 @@ on:
       - agent/charms/testflinger-agent-host-charm/**
       - .github/workflows/agent-host-charm-release-edge.yml
   workflow_dispatch:
+    inputs:
+      channel:
+        description: The channel to release the charm to
+        required: true
+        default: latest/edge
+        type: choice
+        options:
+          - latest/beta
+          - latest/edge
 
 jobs:
   agent-build-and-push-charm:
@@ -28,5 +37,5 @@ jobs:
           charm-path: agent/charms/testflinger-agent-host-charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
-          channel: "latest/edge"
+          channel: ${{ github.event_name == 'push' && 'latest/beta' || github.event.inputs.channel }}
           tag-prefix: "agent-host-charm"
