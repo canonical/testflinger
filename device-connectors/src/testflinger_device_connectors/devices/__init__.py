@@ -332,7 +332,7 @@ class DefaultDevice:
 
             try:
                 # Import SSH Keys with ssh-import-id
-                self.import_ssh_key(key)
+                self.import_ssh_key(key, keyfile="key.pub")
 
                 # Attempt to copy keys only if import succeeds
                 with contextlib.suppress(RuntimeError):
