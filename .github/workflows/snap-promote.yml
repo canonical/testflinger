@@ -45,7 +45,7 @@ jobs:
           echo "Snap: $SNAP_NAME"
           echo "To Channel: $SNAPCRAFT_TO_CHANNEL"
           echo "From Channel: $SNAPCRAFT_FROM_CHANNEL"
-          if [ "$SNAPCRAFT_TO_CHANNEl" = "$SNAPCRAFT_FROM_CHANNEL" ]; then
+          if [ "$SNAPCRAFT_TO_CHANNEL" = "$SNAPCRAFT_FROM_CHANNEL" ]; then
             echo "Error: To channel and from channel cannot be the same."
             exit 1
           fi
