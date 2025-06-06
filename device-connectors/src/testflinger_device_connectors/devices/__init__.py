@@ -179,7 +179,7 @@ class DefaultDevice:
                     raise FirmwareUpdateError(
                         "The firmware version did not update successfully"
                     )
-        except Exception as e:
+        except FirmwareUpdateError as e:
             logger.error("Firmware Update failed: %s", str(e))
             exitcode = 1
         finally:

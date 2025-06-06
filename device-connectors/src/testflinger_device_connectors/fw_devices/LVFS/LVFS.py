@@ -29,8 +29,8 @@ class LVFSDevice(AbstractDevice):
         """Execute command on the DUT via SSH.
 
         :param cmd:          command to run on the DUT
-        :param raise_stderr: when set to `True`, raise RuntimeError if return
-                             code != 0, otherwise ignore it
+        :param raise_stderr: when set to `True`, raise FirmwareUpdateError if
+                             return code != 0, otherwise ignore it
         :param timeout:      timeout for the command response
         :returns:            return code, stdout, stderr
         """

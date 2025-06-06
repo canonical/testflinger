@@ -81,8 +81,8 @@ class HPEDevice(OEMDevice):
         Execute ilorest command.
 
         :param cmds:         ilorest commands
-        :param raise_stderr: when set to `True`, raise RuntimeError if return
-                             code != 0, otherwise ignore it
+        :param raise_stderr: when set to `True`, raise FirmwareUpdateError if
+                             return code != 0, otherwise ignore it
         :param timeout:      timeout for the command response
         :returns:            return code, stdout, stderr
         """
