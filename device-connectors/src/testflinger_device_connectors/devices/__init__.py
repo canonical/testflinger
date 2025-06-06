@@ -216,11 +216,8 @@ class DefaultDevice:
         """Allocate devices for multi-agent jobs (default method)."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
-        device_ip = config["device_ip"]
-        device_info = {"device_info": {"device_ip": device_ip}}
-        print(device_info)
-        with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
-            devinfo_file.write(json.dumps(device_info))
+        # Write device information to device-info.json
+        self.write_device_info(config)
 
     def copy_ssh_key(
         self,
@@ -336,6 +333,19 @@ class DefaultDevice:
     def cleanup(self, _):
         """Clean up devices (default method)."""
         pass
+
+    def write_device_info(self, config: dict) -> None:
+        """Write device information to device-info.json.
+
+        :param config: Dictionary with the key/values from the config file.
+        """
+        device_ip = config["device_ip"]
+        agent_name = config["agent_name"]
+        device_info = {
+            "device_info": {"device_ip": device_ip, "agent_name": agent_name}
+        }
+        with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
+            devinfo_file.write(json.dumps(device_info))
 
 
 def get_device_stage_func(device: str, stage: str) -> Callable:
