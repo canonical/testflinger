@@ -4,13 +4,13 @@
 class Dmi:
     chassis = (
         ("Undefined", "unknown"),  # 0x00
-        ("Other", "unknown"),  # 0x01
+        ("Other", "unknown"),
         ("Unknown", "unknown"),
         ("Desktop", "LVFS"),  # 0x03
         ("Low Profile Desktop", "unknown"),
         ("Pizza Box", "unknown"),
         ("Mini Tower", "unknown"),
-        ("Tower", "unknown"),
+        ("Tower", "OEM-defined"),  # 0x07
         ("Portable", "unknown"),
         ("Laptop", "unknown"),  # 0x09
         ("Notebook", "unknown"),  # 0x0A
@@ -20,7 +20,7 @@ class Dmi:
         ("Sub Notebook", "unknown"),
         ("Space-saving", "unknown"),
         ("Lunch Box", "unknown"),
-        ("Main Server Chassis", "unknown"),  # 0x11
+        ("Main Server Chassis", "OEM-defined"),  # 0x11
         ("Expansion Chassis", "unknown"),
         ("Sub Chassis", "unknown"),
         ("Bus Expansion Chassis", "unknown"),
@@ -28,10 +28,10 @@ class Dmi:
         ("RAID Chassis", "unknown"),
         ("Rack Mount Chassis", "OEM-defined,LVFS"),  # 0x17
         ("Sealed-case PC", "unknown"),
-        ("Multi-system", "unknown"),
+        ("Multi-system", "OEM-defined"),  # 0x19
         ("CompactPCI", "unknonw"),
         ("AdvancedTCA", "unknown"),
-        ("Blade", "server"),
+        ("Blade", "OEM-defined"),  # 0x1C
         ("Blade Enclosure", "unknown"),
         ("Tablet", "unknown"),
         ("Convertible", "unknown"),  # 0x1F

@@ -29,6 +29,8 @@ import yaml
 
 import testflinger_device_connectors
 from testflinger_device_connectors.fw_devices.firmware_update import (
+    FirmwareUpdateError,
+    LVFSDevice,
     detect_device,
 )
 
@@ -148,34 +150,40 @@ class DefaultDevice:
         ignore_failure = fw_config.get("ignore_failure", False)
         version = fw_config.get("version")
         device_ip = config["device_ip"]
-        target_device_username = "ubuntu"
+        username = test_opportunity.get("test_data", {}).get(
+            "test_username", "ubuntu"
+        )
         exitcode = 0
-        supported_version = ["latest"]
+        lvfs_supported_version = ["latest"]
 
-        if version not in supported_version:
-            logger.info(
-                "Fail to provide version in firmware_update_data. "
-                "Current supported version: latest",
-            )
-            exitcode = 1
-        else:
-            try:
-                target_device = detect_device(
-                    device_ip, target_device_username
+        try:
+            target_device = detect_device(device_ip, username, config)
+            # For LVFS, only update to latest is supported
+            if (
+                isinstance(target_device, LVFSDevice)
+                and version not in lvfs_supported_version
+            ):
+                raise FirmwareUpdateError(
+                    "Fail to provide version in firmware_update_data. "
+                    f"Current supported version: {lvfs_supported_version}"
                 )
-                target_device.get_fw_info()
-                if version == "latest":
-                    reboot_required = target_device.upgrade()
-                if reboot_required:
-                    target_device.reboot()
-                    update_succeeded = target_device.check_results()
-                    if not update_succeeded:
-                        exitcode = 1
-            except Exception as err:
-                logger.error("Firmware Update failed: %s", str(err))
-                exitcode = 1
-            finally:
-                logger.info("END firmware_update")
+            target_device.get_fw_info()
+            reboot_required = (
+                target_device.upgrade()
+                if version == "latest"
+                else target_device.downgrade(version)
+            )
+            if reboot_required:
+                target_device.reboot()
+                if not target_device.check_results():
+                    raise FirmwareUpdateError(
+                        "The firmware version did not update successfully"
+                    )
+        except FirmwareUpdateError as e:
+            logger.error("Firmware Update failed: %s", str(e))
+            exitcode = 1
+        finally:
+            logger.info("END firmware_update")
         if ignore_failure:
             exitcode = 0
         return exitcode

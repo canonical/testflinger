@@ -10,6 +10,7 @@ from testflinger_device_connectors.fw_devices import (
 )
 from testflinger_device_connectors.fw_devices.LVFS.tests import fwupd_data
 
+LVFSDevice_path = "testflinger_device_connectors.fw_devices.LVFSDevice"
 device_results = json.loads(fwupd_data.GET_RESULTS_RESPONSE_DATA)
 
 
@@ -25,11 +26,9 @@ class TestLVFSDevice(unittest.TestCase):
         Test if upgrade function returns True. And test if downgrade function
         returns False.
         """
-        with patch(
-            "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
-        ) as mock_path:
+        with patch(f"{LVFSDevice_path}.run_cmd") as mock_path:
             mock_path.side_effect = self.mock_run_cmd
-            device = LVFSDevice("", "", "")
+            device = LVFSDevice("", "")
             device._parse_fwupd_raw(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             self.assertTrue(device.upgrade())
             self.assertFalse(device.downgrade())
@@ -39,11 +38,9 @@ class TestLVFSDevice(unittest.TestCase):
         Test if upgrade function returns False. And test if downgrade function
         returns True.
         """
-        with patch(
-            "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
-        ) as mock_path:
+        with patch(f"{LVFSDevice_path}.run_cmd") as mock_path:
             mock_path.side_effect = self.mock_run_cmd
-            device = LVFSDevice("", "", "")
+            device = LVFSDevice("", "")
 
             device_info = json.loads(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             device_info["Devices"][5]["Version"] = "2.91"
@@ -58,11 +55,9 @@ class TestLVFSDevice(unittest.TestCase):
     def test_check_results_failed_state(self):
         """Validate UpdateState check in check_results."""
         global device_results  # noqa: PLW0603
-        with patch(
-            "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
-        ) as mock_path:
+        with patch(f"{LVFSDevice_path}.run_cmd") as mock_path:
             mock_path.side_effect = self.mock_run_cmd
-            device = LVFSDevice("", "", "")
+            device = LVFSDevice("", "")
             device._parse_fwupd_raw(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             device.fw_info[2]["targetVersion"] = "2.90"
             device_results = json.loads(fwupd_data.GET_RESULTS_RESPONSE_DATA)
@@ -75,7 +70,7 @@ class TestLVFSDevice(unittest.TestCase):
             "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
         ) as mock_path:
             mock_path.side_effect = self.mock_run_cmd
-            device = LVFSDevice("", "", "")
+            device = LVFSDevice("", "")
             device._parse_fwupd_raw(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             device.fw_info[2]["targetVersion"] = "2.91"
             self.assertFalse(device.check_results())
@@ -83,11 +78,9 @@ class TestLVFSDevice(unittest.TestCase):
     def test_check_results_good(self):
         """Test if check_results works with a valid case."""
         global device_results  # noqa: PLW0603
-        with patch(
-            "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
-        ) as mock_path:
+        with patch(f"{LVFSDevice_path}.run_cmd") as mock_path:
             mock_path.side_effect = self.mock_run_cmd
-            device = LVFSDevice("", "", "")
+            device = LVFSDevice("", "")
             device._parse_fwupd_raw(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             device_results = json.loads(fwupd_data.GET_RESULTS_RESPONSE_DATA)
             device_results["UpdateState"] = (
@@ -102,11 +95,9 @@ class TestLVFSDevice(unittest.TestCase):
         get-results```.
         """
         global device_results  # noqa: PLW0603
-        with patch(
-            "testflinger_device_connectors.fw_devices.LVFSDevice.run_cmd"
-        ) as mock_path:
+        with patch(f"{LVFSDevice_path}.run_cmd") as mock_path:
             mock_path.side_effect = self.mock_run_cmd
-            device = LVFSDevice("", "", "")
+            device = LVFSDevice("", "")
             device._parse_fwupd_raw(fwupd_data.GET_DEVICES_RESPONSE_DATA)
             device.fw_info[2]["targetVersion"] = "2.90"
             device_results = json.loads(
