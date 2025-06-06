@@ -222,13 +222,14 @@ class DefaultDevice:
         with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
             devinfo_file.write(json.dumps(device_info))
 
-    def import_ssh_key(self, key: str) -> None:
+    def import_ssh_key(self, key: str, keyfile: str = "key.pub") -> None:
         """Import SSH key provided in Reserve data.
 
         :param key: SSH key to import.
+        :param keyfile: Output file where to store the imported key
         :raises RuntimeError: If failure during import ssh keys
         """
-        cmd = ["ssh-import-id", "-o", "key.pub", key]
+        cmd = ["ssh-import-id", "-o", keyfile, key]
         for retry in range(10):
             try:
                 subprocess.run(
@@ -240,21 +241,19 @@ class DefaultDevice:
                 )
                 logger.info("Successfully imported key: %s", key)
                 break
-            except (
-                subprocess.CalledProcessError,
-                subprocess.TimeoutExpired,
-            ) as exc:
-                if isinstance(exc, subprocess.CalledProcessError):
-                    output = (exc.stdout or b"").decode()
-                    if "status_code=404" in output:
-                        raise RuntimeError(
-                            f"Failed to import ssh key: {key}. User not found."
-                        ) from exc
 
-                # If any other error, attempt to retry
-                logger.error("Unable to import ssh key from: %s", key)
-                logger.info("Retrying...")
-                time.sleep(min(2**retry, 30))
+            except subprocess.TimeoutExpired:
+                pass
+            except subprocess.CalledProcessError as exc:
+                output = (exc.stdout or b"").decode()
+                if "status_code=404" in output:
+                    raise RuntimeError(
+                        f"Failed to import ssh key: {key}. User not found."
+                    ) from exc
+
+            logger.error("Unable to import ssh key from: %s", key)
+            logger.info("Retrying...")
+            time.sleep(min(2**retry, 30))
         else:
             raise RuntimeError(
                 f"Failed to import ssh key: {key}. Maximum retries reached"
@@ -328,10 +327,8 @@ class DefaultDevice:
         reserve_data = job_data["reserve_data"]
         ssh_keys = reserve_data.get("ssh_keys", [])
         for key in ssh_keys:
-            try:
+            with contextlib.suppress(FileNotFoundError):
                 os.unlink("key.pub")
-            except FileNotFoundError:
-                pass
 
             try:
                 # Import SSH Keys with ssh-import-id
