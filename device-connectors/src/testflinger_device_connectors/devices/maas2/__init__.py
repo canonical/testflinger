@@ -53,9 +53,6 @@ class DeviceConnector(DefaultDevice):
             serial_proc.stop()
             logger.info("END provision")
 
-        # Write device information to device-info.json
-        self.write_device_info(config)
-
     def cleanup(self, args):
         device = Maas2(args.config, args.job_data)
         try:
