@@ -378,7 +378,7 @@ class TestflingerCli:
                 agent_status = self.client.get_agent_data(self.args.agent_name)
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NOT_FOUND:
-                    sys.exit("Specified agent does not exists.")
+                    sys.exit(f"Agent '{self.args.agent_name}' does not exist.")
                 # If any other HTTP error, raise UnknownStatusError
                 raise UnknownStatusError("agent") from exc
             except (IOError, ValueError) as exc:
@@ -411,9 +411,11 @@ class TestflingerCli:
                 )
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NO_CONTENT:
-                    sys.exit("No agent serving to specified queue")
+                    sys.exit(
+                        f"No agent is listening on queue '{self.args.queue_name}'."
+                    )
                 if exc.status == HTTPStatus.NOT_FOUND:
-                    sys.exit("Specified queue does not exists")
+                    sys.exit(f"Queue '{self.args.queue_name}' does not exist.")
                 # If any other HTTP error, raise UnknownStatusError
                 raise UnknownStatusError("queue") from exc
             except (IOError, ValueError) as exc:
