@@ -59,7 +59,6 @@ class ZapperOem(ZapperConnector):
         logger.info("Validated zapper provisioning data: %s", json.dumps(provisioning_data, indent=2))
         return ((), provisioning_data)
 
-    def _post_run_actions(self):
-        """Perform post-run actions after provisioning."""
-        logger.info("zapper_oem: Running post-run actions for Zapper provisioning")
+    def _post_run_actions(self, args):
+        logger.info("oem_autoinstall/zapper_oem.py: Skip _post_run_actions")
 
