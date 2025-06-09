@@ -412,7 +412,8 @@ class TestflingerCli:
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NO_CONTENT:
                     sys.exit(
-                        f"No agent is listening on queue '{self.args.queue_name}'."
+                        "No agent is listening on "
+                        f"queue '{self.args.queue_name}'."
                     )
                 if exc.status == HTTPStatus.NOT_FOUND:
                     sys.exit(f"Queue '{self.args.queue_name}' does not exist.")
