@@ -253,7 +253,7 @@ class DefaultDevice:
 
             logger.error("Unable to import ssh key from: %s", key)
             logger.info("Retrying...")
-            time.sleep(min(2**retry, 30))
+            time.sleep(min(2**retry, 100))
         else:
             raise RuntimeError(
                 f"Failed to import ssh key: {key}. Maximum retries reached"
