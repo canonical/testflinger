@@ -409,6 +409,20 @@ class TestflingerCli:
                 queue_status = self.client.get_agent_status_by_queue(
                     self.args.queue_name
                 )
+            except client.HTTPError as exc:
+                if exc.status == HTTPStatus.NO_CONTENT:
+                    sys.exit("No agent serving to specified queue")
+                if exc.status == HTTPStatus.NOT_FOUND:
+                    sys.exit("Specified queue does not exists")
+                # If any other HTTP error, raise UnknownStatusError
+                raise UnknownStatusError("queue") from exc
+            except (IOError, ValueError) as exc:
+                # For other types of network errors or JSONDecodeError
+                # if we got a bad return
+                logger.debug("Unable to retrieve agent state: %s", exc)
+                raise UnknownStatusError("queue") from exc
+
+            try:
                 jobs_queued = [
                     job["job_id"]
                     for job in self.client.get_jobs_on_queue(
@@ -418,16 +432,16 @@ class TestflingerCli:
                 ]
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NO_CONTENT:
-                    sys.exit("No agent serving to specified queue")
-                if exc.status == HTTPStatus.NOT_FOUND:
-                    sys.exit("Specified queue does not exists")
-                # If any other HTTP error, raise UnknownStatusError
-                raise UnknownStatusError("agent") from exc
+                    jobs_queued = []
+                else:
+                    # If any other HTTP error, raise UnknownStatusError
+                    raise UnknownStatusError("job") from exc
             except (IOError, ValueError) as exc:
                 # For other types of network errors or JSONDecodeError
                 # if we got a bad return
-                logger.debug("Unable to retrieve queue state: %s", exc)
-                raise UnknownStatusError("queue") from exc
+                logger.debug("Unable to retrieve job state: %s", exc)
+                raise UnknownStatusError("job") from exc
+
         except UnknownStatusError as exc:
             sys.exit(exc)
 
