@@ -235,6 +235,9 @@ class TestflingerAgent:
             self.restart_agent()
         job_data = self.client.check_jobs()
         while job_data:
+            # Flag to determine if agent needs to be restarted:
+            needs_restart = False
+
             try:
                 job = TestflingerJob(job_data, self.client)
                 event_emitter = EventEmitter(
@@ -283,9 +286,6 @@ class TestflingerAgent:
                 )
                 # Clear  error log before starting
                 open(error_log_path, "w").close()
-
-                # Flag to determine if agent needs to be restarted:
-                needs_restart = False
 
                 for phase in test_phases:
                     # First make sure the job hasn't been cancelled

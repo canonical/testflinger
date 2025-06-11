@@ -139,6 +139,12 @@ class TestClient:
             # mock response to results request
             mocker.get(re.compile(r"/v1/result/"))
 
+            # mock response to get agent status
+            mocker.get(
+                re.compile(r"/v1/agents/data/\w+"),
+                text=json.dumps({"state": "waiting"}),
+            )
+
             # request and process the job (should unpack the archive)
             with patch("shutil.rmtree"):
                 agent.process_jobs()
@@ -147,8 +153,8 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+            assert history[1].path == "/v1/job"
+            assert history[3].path == f"/v1/job/{job_id}/attachments"
 
             # check that the attachment is where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -196,6 +202,12 @@ class TestClient:
             # mock response to results request
             mocker.get(re.compile(r"/v1/result/"))
 
+            # mock response to get agent status
+            mocker.get(
+                re.compile(r"/v1/agents/data/\w+"),
+                text=json.dumps({"state": "waiting"}),
+            )
+
             # request and process the job (should unpack the archive)
             with patch("shutil.rmtree"):
                 agent.process_jobs()
@@ -204,8 +216,8 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+            assert history[1].path == "/v1/job"
+            assert history[3].path == f"/v1/job/{job_id}/attachments"
 
             # check that the attachment is *not* where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -253,6 +265,12 @@ class TestClient:
             # mock response to results request
             mocker.get(re.compile(r"/v1/result/"))
 
+            # mock response to get agent status
+            mocker.get(
+                re.compile(r"/v1/agents/data/\w+"),
+                text=json.dumps({"state": "waiting"}),
+            )
+
             # request and process the job (should unpack the archive)
             with patch("shutil.rmtree"):
                 agent.process_jobs()
@@ -261,8 +279,8 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+            assert history[1].path == "/v1/job"
+            assert history[3].path == f"/v1/job/{job_id}/attachments"
 
             # check that the attachment is *not* where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -376,9 +394,6 @@ class TestClient:
 
     def test_recovery_failed(self, agent, requests_mock):
         # Make sure we stop processing jobs after a device recovery error
-        offline_file = "/tmp/TESTFLINGER-DEVICE-OFFLINE-test001"
-        if os.path.exists(offline_file):
-            os.unlink(offline_file)
         self.config["agent_id"] = "test001"
         self.config["provision_command"] = "bash -c 'exit 46'"
         self.config["test_command"] = "echo test1"
@@ -406,11 +421,17 @@ class TestClient:
                 + self.config.get("agent_id"),
                 text="OK",
             )
+            m.get(
+                "http://127.0.0.1:8000/v1/agents/data/"
+                + self.config.get("agent_id"),
+                [
+                    {"text": json.dumps({"state": "waiting"})},
+                    {"text": json.dumps({"state": "offline"})},
+                ],
+            )
 
             agent.process_jobs()
             assert agent.check_offline()
-        if os.path.exists(offline_file):
-            os.unlink(offline_file)
 
     def test_post_agent_data(self, agent):
         # Make sure we post the initial agent data
