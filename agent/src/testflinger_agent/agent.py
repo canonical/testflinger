@@ -21,7 +21,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from testflinger_common.enums import JobState, TestEvent, TestPhase, AgentState
+from testflinger_common.enums import AgentState, JobState, TestEvent, TestPhase
 
 from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
