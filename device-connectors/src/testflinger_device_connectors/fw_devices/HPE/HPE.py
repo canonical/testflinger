@@ -167,10 +167,9 @@ class HPEDevice(OEMDevice):
             except requests.exceptions.ConnectionError:
                 logger.error(err_msg)
                 continue
-            if r.status_code != 200:
-                logger.error(err_msg)
-            else:
+            if r.status_code == 200:
                 return r
+            logger.error(err_msg)
         raise FirmwareUpdateError(err_msg)
 
     def _get_hpe_fw_repo(self):
