@@ -542,7 +542,7 @@ class MuxPi:
                     base = self.mount_point / "writable"
                     ci_path = base / "var/lib/cloud/seed/nocloud-net"
                     self._run_control(f"sudo mkdir -p {ci_path}")
-                    self._run_control("mkdir -p {}".format(remote_tmp))
+                    self._run_control(f"mkdir -p {remote_tmp}")
                     self._copy_to_control(
                         data_path / "pi-desktop-plucky/meta-data", remote_tmp
                     )
@@ -555,9 +555,10 @@ class MuxPi:
                     self._run_control(cmd)
                     # This needs to be removed for rpi, else
                     # cloud-init won't find the user-data we give it
-                    rm_cmd = "sudo rm -f {}".format(
+                    cloud_cfg = (
                         base / "etc/cloud/cloud.cfg.d/99-fake?cloud.cfg"
                     )
+                    rm_cmd = f"sudo rm -f {cloud_cfg}"
                     self._run_control(rm_cmd)
 
                 else:
@@ -566,23 +567,22 @@ class MuxPi:
                     self._copy_to_control(
                         data_path / "pi-desktop/oem-config.service", remote_tmp
                     )
-                    cmd = (
-                        "sudo cp {}/oem-config.service "
-                        "{}/writable/etc/systemd/system/"
-                        "oem-config.service".format(
-                            remote_tmp, self.mount_point
-                        )
+
+                    src_service = f"{remote_tmp}/oem-config.service"
+                    dst_service = (
+                        self.mount_point
+                        / "writable/etc/systemd/system/oem-config.service"
                     )
+                    cmd = f"sudo cp {src_service} {dst_service}"
                     self._run_control(cmd)
 
                     # Copy the preseed
                     self._copy_to_control(
                         data_path / "pi-desktop/preseed.cfg", remote_tmp
                     )
-                    cmd = (
-                        f"sudo cp {remote_tmp}/preseed.cfg"
-                        f"{self.mount_point}/writable/preseed.cfg"
-                    )
+                    src_preseed = f"{remote_tmp}/preseed.cfg"
+                    dst_preseed = self.mount_point / "writable/preseed.cfg"
+                    cmd = f"sudo cp {src_preseed} {dst_preseed}"
                     self._run_control(cmd)
 
                 # Make sure NetworkManager is started
