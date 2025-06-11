@@ -497,8 +497,7 @@ class HPEDevice(OEMDevice):
             if "ComputerSystem" in stdout:
                 logger.info("iLO connection checked")
                 break
-            else:
-                self._logout_ilo()
+            self._logout_ilo()
         logger.info("reboot DUT")
         self.run_cmd("reboot")
         self._monitor_poststate("FinishedPost", self.reboot_timeout)
