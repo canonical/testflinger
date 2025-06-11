@@ -147,34 +147,6 @@ class TestflingerAgent:
             agent_state = AgentState.OFFLINE
         return agent_state
 
-    def get_offline_files(self):
-        # Return possible restart filenames with and without dashes
-        # i.e. support both:
-        #     TESTFLINGER-DEVICE-OFFLINE-devname-001
-        #     TESTFLINGER-DEVICE-OFFLINE-devname001
-        agent = self.client.config.get("agent_id")
-        files = [
-            "/tmp/TESTFLINGER-DEVICE-OFFLINE-{}".format(agent),
-            "/tmp/TESTFLINGER-DEVICE-OFFLINE-{}".format(
-                agent.replace("-", "")
-            ),
-        ]
-        return files
-
-    def get_restart_files(self):
-        # Return possible restart filenames with and without dashes
-        # i.e. support both:
-        #     TESTFLINGER-DEVICE-RESTART-devname-001
-        #     TESTFLINGER-DEVICE-RESTART-devname001
-        agent = self.client.config.get("agent_id")
-        files = [
-            "/tmp/TESTFLINGER-DEVICE-RESTART-{}".format(agent),
-            "/tmp/TESTFLINGER-DEVICE-RESTART-{}".format(
-                agent.replace("-", "")
-            ),
-        ]
-        return files
-
     def check_offline(self) -> bool:
         """Determine if the agent is offline.
 
@@ -420,5 +392,4 @@ class TestflingerAgent:
         it is not running a job.
         """
         logger.info("Marked agent for restart")
-        restart_file = self.get_restart_files()[0]
-        open(restart_file, "w").close()
+        self.set_agent_state(AgentState.RESTART)
