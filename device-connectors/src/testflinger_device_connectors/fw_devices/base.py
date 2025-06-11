@@ -61,7 +61,9 @@ class AbstractDevice(ABC):
         timeout_start = time.time()
 
         while status != "0" and time.time() < timeout_start + timeout:
-            with suppress(subprocess.TimeoutExpired, subprocess.CalledProcessError):
+            with suppress(
+                subprocess.TimeoutExpired, subprocess.CalledProcessError
+            ):
                 subprocess.run(
                     f"ping {self.ipaddr} -c 5",
                     stdout=subprocess.DEVNULL,
