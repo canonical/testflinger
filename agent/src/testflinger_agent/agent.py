@@ -183,7 +183,10 @@ class TestflingerAgent:
         agent = self.client.config.get("agent_id")
         agent_state = self.get_agent_state(agent)
 
-        if agent_state == AgentState.OFFLINE:
+        if (
+            agent_state == AgentState.OFFLINE
+            or agent == AgentState.MAINTENANCE
+        ):
             return True
         else:
             return False
