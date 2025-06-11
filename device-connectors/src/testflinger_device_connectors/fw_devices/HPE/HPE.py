@@ -258,12 +258,11 @@ class HPEDevice(OEMDevice):
         fwrepo_url = f"{HPE_SDR_REPO}{self.repo_name}{spp}{INDEX_FILE}"
         for _retry in range(3):
             r = requests.get(fwrepo_url, timeout=300)
-            if r.status_code != 200:
-                err_msg = f"Failed to download {fwrepo_url}: {r.status_code}"
-                logger.error(err_msg)
-            else:
+            if r.status_code == 200:
                 err_msg = ""
                 break
+            err_msg = f"Failed to download {fwrepo_url}: {r.status_code}"
+            logger.error(err_msg)
         if err_msg:
             raise FirmwareUpdateError(err_msg)
 
