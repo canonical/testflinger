@@ -4,6 +4,7 @@ import logging
 import subprocess
 import time
 from abc import ABC, abstractmethod
+from contextlib import suppress
 
 logger = logging.getLogger(__name__)
 SSH_OPTS = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
@@ -60,7 +61,7 @@ class AbstractDevice(ABC):
         timeout_start = time.time()
 
         while status != "0" and time.time() < timeout_start + timeout:
-            try:
+            with suppress(subprocess.TimeoutExpired, subprocess.CalledProcessError):
                 subprocess.run(
                     f"ping {self.ipaddr} -c 5",
                     stdout=subprocess.DEVNULL,
@@ -74,11 +75,6 @@ class AbstractDevice(ABC):
                     universal_newlines=True,
                     timeout=10,
                 ).strip()
-            except (
-                subprocess.TimeoutExpired,
-                subprocess.CalledProcessError,
-            ):
-                pass
         if status != "0":
             err_msg = f"Failed to SSH to {self.ipaddr} after {timeout}s"
             logger.error(err_msg)
