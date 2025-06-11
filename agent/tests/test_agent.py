@@ -173,6 +173,12 @@ class TestClient:
                 json={"restricted_to": {}},
             )
 
+            # mock response to get agent status
+            mocker.get(
+                re.compile(r"/v1/agents/data/\w+"),
+                text=json.dumps({"state": "waiting"}),
+            )
+
             # request and process the job (should unpack the archive)
             with patch("shutil.rmtree"):
                 agent.process_jobs()
@@ -235,6 +241,12 @@ class TestClient:
                 json={"restricted_to": {}},
             )
 
+            # mock response to get agent status
+            mocker.get(
+                re.compile(r"/v1/agents/data/\w+"),
+                text=json.dumps({"state": "waiting"}),
+            )
+
             # request and process the job (should unpack the archive)
             with patch("shutil.rmtree"):
                 agent.process_jobs()
@@ -295,6 +307,12 @@ class TestClient:
             mocker.get(
                 "http://127.0.0.1:8000/v1/agents/data/test01",
                 json={"restricted_to": {}},
+            )
+
+            # mock response to get agent status
+            mocker.get(
+                re.compile(r"/v1/agents/data/\w+"),
+                text=json.dumps({"state": "waiting"}),
             )
 
             # request and process the job (should unpack the archive)
@@ -440,9 +458,6 @@ class TestClient:
 
     def test_recovery_failed(self, agent, requests_mock):
         # Make sure we stop processing jobs after a device recovery error
-        offline_file = "/tmp/TESTFLINGER-DEVICE-OFFLINE-test001"
-        if os.path.exists(offline_file):
-            os.unlink(offline_file)
         self.config["agent_id"] = "test001"
         self.config["provision_command"] = "bash -c 'exit 46'"
         self.config["test_command"] = "echo test1"
@@ -471,14 +486,18 @@ class TestClient:
                 text="OK",
             )
             m.get(
-                "http://127.0.0.1:8000/v1/agents/data/test001",
-                json={"restricted_to": {}},
+                "http://127.0.0.1:8000/v1/agents/data/"
+                + self.config.get("agent_id"),
+                [
+                    {"text": json.dumps({"state": "waiting",
+                                          "restricted_to": {}})},
+                    {"text": json.dumps({"state": "offline",
+                                         "restricted_to": {}})},
+                ],
             )
 
             agent.process_jobs()
             assert agent.check_offline()
-        if os.path.exists(offline_file):
-            os.unlink(offline_file)
 
     def test_post_agent_data(self, agent):
         # Make sure we post the initial agent data
