@@ -21,7 +21,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from testflinger_common.enums import JobState, TestEvent, TestPhase, AgentState
+from testflinger_common.enums import AgentState, JobState, TestEvent, TestPhase
 
 from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
@@ -147,34 +147,6 @@ class TestflingerAgent:
             agent_state = AgentState.OFFLINE
         return agent_state
 
-    def get_offline_files(self):
-        # Return possible restart filenames with and without dashes
-        # i.e. support both:
-        #     TESTFLINGER-DEVICE-OFFLINE-devname-001
-        #     TESTFLINGER-DEVICE-OFFLINE-devname001
-        agent = self.client.config.get("agent_id")
-        files = [
-            "/tmp/TESTFLINGER-DEVICE-OFFLINE-{}".format(agent),
-            "/tmp/TESTFLINGER-DEVICE-OFFLINE-{}".format(
-                agent.replace("-", "")
-            ),
-        ]
-        return files
-
-    def get_restart_files(self):
-        # Return possible restart filenames with and without dashes
-        # i.e. support both:
-        #     TESTFLINGER-DEVICE-RESTART-devname-001
-        #     TESTFLINGER-DEVICE-RESTART-devname001
-        agent = self.client.config.get("agent_id")
-        files = [
-            "/tmp/TESTFLINGER-DEVICE-RESTART-{}".format(agent),
-            "/tmp/TESTFLINGER-DEVICE-RESTART-{}".format(
-                agent.replace("-", "")
-            ),
-        ]
-        return files
-
     def check_offline(self) -> bool:
         """Determine if the agent is offline.
 
@@ -185,7 +157,7 @@ class TestflingerAgent:
 
         if (
             agent_state == AgentState.OFFLINE
-            or agent == AgentState.MAINTENANCE
+            or agent_state == AgentState.MAINTENANCE
         ):
             return True
         else:
@@ -267,6 +239,9 @@ class TestflingerAgent:
             self.restart_agent()
         job_data = self.client.check_jobs()
         while job_data:
+            # Flag to determine if agent needs to be restarted:
+            needs_restart = False
+
             try:
                 job = TestflingerJob(job_data, self.client)
                 event_emitter = EventEmitter(
@@ -316,9 +291,6 @@ class TestflingerAgent:
                 )
                 # Clear  error log before starting
                 open(error_log_path, "w").close()
-
-                # Flag to determine if agent needs to be restarted:
-                needs_restart = False
 
                 for phase in test_phases:
                     # First make sure the job hasn't been cancelled
@@ -420,5 +392,4 @@ class TestflingerAgent:
         it is not running a job.
         """
         logger.info("Marked agent for restart")
-        restart_file = self.get_restart_files()[0]
-        open(restart_file, "w").close()
+        self.set_agent_state(AgentState.RESTART)
