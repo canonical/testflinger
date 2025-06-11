@@ -387,12 +387,12 @@ class TestflingerClient:
         agent_data_url = urljoin(agent_data_uri, agent)
 
         try:
-            agent_data = self.session.get(agent_data_url, timeout=30)
-        except requests.exceptions.RequestException as exc:
-            agent_data = {}
-            logger.error(exc)
-
-        return agent_data
+            response = self.session.get(agent_data_url, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except (requests.exceptions.RequestException, ValueError) as exc:
+            logger.error("Failed to retrieve agent data: %s", exc)
+            return {}
 
     def post_influx(self, phase, result=None):
         """Post the relevant data points to testflinger server.
