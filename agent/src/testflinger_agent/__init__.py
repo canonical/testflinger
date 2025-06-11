@@ -126,13 +126,11 @@ def start_agent():
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
     while True:
-        offline_file = agent.check_offline()
-        if offline_file:
+        if agent.check_offline():
             logger.error(
                 "Agent %s is offline, not processing jobs! "
-                "Remove %s to resume processing",
+                "Please contact Tesflinger Admin to enable agent.",
                 config.get("agent_id"),
-                offline_file,
             )
             while agent.check_offline():
                 time.sleep(check_interval)
