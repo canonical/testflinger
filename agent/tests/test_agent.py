@@ -51,7 +51,13 @@ class TestClient:
         self.config["setup_command"] = "echo setup1"
         fake_job_data = {"job_id": str(uuid.uuid1()), "job_queue": "test"}
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(fake_job_data)}, {"text": "{}"}]
+            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+        )
+        # For mocking, we can simplify the agent state by setting as waiting
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -69,7 +75,13 @@ class TestClient:
             "provision_data": {"url": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(fake_job_data)}, {"text": "{}"}]
+            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+        )
+        # For mocking, we can simplify the agent state by setting as waiting
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -89,7 +101,13 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(fake_job_data)}, {"text": "{}"}]
+            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+        )
+        # For mocking, we can simplify the agent state by setting as waiting
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -295,7 +313,13 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(mock_job_data)}, {"text": "{}"}]
+            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
+        )
+        # For mocking, we can simplify the agent state by setting as waiting
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -316,7 +340,13 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(mock_job_data)}, {"text": "{}"}]
+            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
+        )
+        # For mocking, we can simplify the agent state by setting as waiting
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"), patch("os.unlink"):
@@ -343,7 +373,13 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(mock_job_data)}, {"text": "{}"}]
+            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
+        )
+        # For mocking, we can simplify the agent state by setting as waiting
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"), patch("os.unlink"):
@@ -366,12 +402,17 @@ class TestClient:
         mock_job_data = {"job_id": str(uuid.uuid1()), "job_queue": "test"}
         # Send an extra empty data since we will be calling get 3 times
         requests_mock.get(
-            rmock.ANY,
+            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
             [
                 {"text": json.dumps(mock_job_data)},
                 {"text": "{}"},
                 {"text": "{}"},
             ],
+        )
+        # For mocking, we can simplify the agent state by setting as waiting
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch.object(
