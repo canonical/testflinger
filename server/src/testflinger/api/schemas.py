@@ -125,6 +125,12 @@ class MuxPiProvisionData(Schema):
             )
 
 
+class NoProvisionData(Schema):
+    """Schema for the `provision_data` section of a no-provision job."""
+
+    skip = fields.Boolean(required=False, default=True)
+
+
 class OEMAutoinstallProvisionData(Schema):
     """Schema for the `provision_data` section of a OEM Autoinstall job."""
 
@@ -216,6 +222,7 @@ class ProvisionData(OneOfSchema):
         "maas": MAASProvisionData,
         "multi": MultiProvisionData,
         "muxpi": MuxPiProvisionData,
+        "noprovision": NoProvisionData,
         "oem_autoinstall": OEMAutoinstallProvisionData,
         "oem_script": OEMScriptProvisionData,
         "zapper_iot_preset": ZapperIoTPresetProvisionData,
@@ -231,6 +238,8 @@ class ProvisionData(OneOfSchema):
 
     def get_data_type(self, data):
         """Get schema type depending on which schema is correctly parsed."""
+        if data is None:
+            return "noprovision"
         for slug, schema in self.type_schemas.items():
             try:
                 schema().load(data)
@@ -279,7 +288,9 @@ class Job(Schema):
     global_timeout = fields.Integer(required=False)
     output_timeout = fields.Integer(required=False)
     allocation_timeout = fields.Integer(required=False)
-    provision_data = fields.Nested(ProvisionData, required=False)
+    provision_data = fields.Nested(
+        ProvisionData, required=False, allow_none=True
+    )
     # [TODO] specify Nested schema to improve validation,
     # i.e. expected fields within `firmware_update_data`
     firmware_update_data = fields.Dict(required=False)
