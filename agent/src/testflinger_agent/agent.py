@@ -98,10 +98,7 @@ class TestflingerAgent:
     def __init__(self, client):
         self.client = client
         signal.signal(signal.SIGUSR1, self.restart_signal_handler)
-        initial_agent_state = self.get_agent_state(
-            client.config.get("agent_id")
-        )
-        self.set_agent_state(initial_agent_state)
+        self.set_agent_state(AgentState.WAITING)
         self._post_initial_agent_data()
         self.metrics_handler = PrometheusHandler(
             self.client.config.get("metrics_endpoint_port")
