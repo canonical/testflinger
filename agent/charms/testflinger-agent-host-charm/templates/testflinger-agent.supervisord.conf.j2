@@ -3,4 +3,4 @@ startsecs=0
 redirect_stderr=true
 environment=USER="ubuntu",HOME="/home/ubuntu",PYTHONIOENCODING=utf-8
 user=ubuntu
-command={{ virtual_env_path }}/bin/testflinger-agent -c {{ agent_config_path }}/testflinger-agent.conf
+command={{ virtual_env_path }}/bin/testflinger-agent -c {{ agent_config_path }}/testflinger-agent.conf -p {{ metric_endpoint_port }}
