@@ -51,15 +51,14 @@
           <td data-heading="Location">{{ agent.location or "unknown" }}</td>
           <td class="has-overflow" data-heading="State">
             {% if agent.get('comments') %}
-              <span> {{ agent.state }} </span>
+              <span>{{ agent.state }}</span>
               <span class="p-tooltip--top-left" aria-describedby="tooltip">
                 <i class="p-icon--information"></i>
-                <span class="p-tooltip__message" 
-                      role="tooltip" 
+                <span class="p-tooltip__message"
+                      role="tooltip"
                       id="tooltip"
-                      style="white-space: nowrap; text-align: left">
-                      {{ agent.comments }}
-                </span>
+                      style="white-space: nowrap;
+                             text-align: left">{{ agent.comments }}</span>
               </span>
             {% else %}
               {{ agent.state }}
