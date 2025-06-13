@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Optional
 
 from testflinger_agent.errors import TFServerError
@@ -123,11 +124,8 @@ class TestflingerJob:
 
         # Retrieve device info and send it to /result/<job_id> endpoint
         device_info = self.get_device_info(rundir)
-        try:
+        if device_info:
             self.client.post_result(self.job_id, device_info)
-        except TFServerError:
-            # device-info might be empty so no data will be available to send.
-            pass
 
         try:
             # Set exit_event to fail for this phase in case of an exception
@@ -266,8 +264,8 @@ class TestflingerJob:
         :return: Device information from device-info.json
         """
         if rundir:
+            device_info_file = Path(rundir) / "device-info.json"
             try:
-                device_info_file = os.path.join(rundir, "device-info.json")
                 with open(device_info_file, "r") as f:
                     device_info = json.load(f)
                 return device_info
