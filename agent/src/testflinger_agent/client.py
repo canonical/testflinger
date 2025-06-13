@@ -18,7 +18,6 @@ import os
 import shutil
 import tempfile
 import time
-from http import HTTPStatus
 from pathlib import Path
 from typing import Dict, List
 from urllib.parse import urljoin
@@ -181,12 +180,7 @@ class TestflingerClient:
         result_uri = urljoin(self.server, "/v1/result/")
         result_uri = urljoin(result_uri, job_id)
         try:
-            if data:
-                job_request = self.session.post(
-                    result_uri, json=data, timeout=30
-                )
-            else:
-                raise TFServerError(HTTPStatus.BAD_REQUEST)
+            job_request = self.session.post(result_uri, json=data, timeout=30)
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
             raise TFServerError("other exception") from exc
