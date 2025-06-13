@@ -54,6 +54,7 @@ autoinstall:
 
     users:
       - name: ubuntu
+        groups: [adm, sudo]
         sudo: "ALL=(ALL) NOPASSWD:ALL"
         lock_passwd: false
         shell: /bin/bash
