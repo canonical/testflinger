@@ -15,10 +15,11 @@
 #
 """Testflinger v1 OpenAPI schemas."""
 
-from apiflask import Schema, fields
+from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
 from marshmallow import ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
+from testflinger_common.enums import TestPhase
 
 ValidJobStates = (
     "setup",
@@ -33,6 +34,8 @@ ValidJobStates = (
     "completed",
     "active",  # fake state for jobs that are not completed or cancelled
 )
+
+TestPhases = [phase.value for phase in TestPhase]
 
 
 class ProvisionLogsIn(Schema):
@@ -364,6 +367,41 @@ class StatusUpdate(Schema):
     job_queue = fields.String(required=False)
     job_status_webhook = fields.URL(required=True)
     events = fields.List(fields.Nested(JobEvent), required=False)
+
+
+class LogPost(Schema):
+    """Schema for POST of log fragments."""
+
+    fragment_number = fields.Integer(required=True)
+    timestamp = fields.DateTime(required=True)
+    phase = fields.String(required=True, validate=OneOf(TestPhases))
+    log_data = fields.String(required=True)
+
+
+class LogGetItem(Schema):
+    """Schema for GET of logs for a single phase."""
+
+    last_fragment_number = fields.Integer(required=True)
+    log_data = fields.String(required=True)
+
+
+class LogGet(Schema):
+    """Schema for GET of logs for multiple phases."""
+
+    phase_logs = fields.Dict(
+        keys=fields.String(validate=OneOf(TestPhases)),
+        values=fields.Nested(LogGetItem),
+    )
+
+
+class LogQueryParams(Schema):
+    """Schema for Log GET Query parameters."""
+
+    start_fragment = fields.Integer(
+        required=False, validate=validators.Range(min=0)
+    )
+    start_timestamp = fields.DateTime(required=False)
+    phase = fields.String(required=False, validate=OneOf(TestPhases))
 
 
 job_empty = {
