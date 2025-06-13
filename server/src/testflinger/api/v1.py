@@ -96,7 +96,7 @@ def has_attachments(data: dict) -> bool:
     return any(
         nested_field == "attachments"
         for field, nested_dict in data.items()
-        if field.endswith("_data")
+        if field.endswith("_data") and isinstance(nested_dict, dict)
         for nested_field in nested_dict
     )
 

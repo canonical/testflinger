@@ -190,10 +190,17 @@ The ``netboot`` device connector supports the following ``provision_data`` keys:
 noprovision
 -----------
 
-The ``noprovision`` device connector does not support any ``provision_data`` keys.
-However, you can specify any key in this dictionary (example: ``skip: false``) in
-order to ensure the provision step is run. The only effect this will have, is to
-ensure that the system is reachable with ssh before proceeding to the next step.
+The ``noprovision`` device connector supports the following ``provision_data`` keys:
+
+.. list-table:: Supported ``provision_data`` keys for ``noprovision``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``skip``
+     - If set to ``false``, the provision step will not be skipped. This will
+       have the effect of ensuring that the system is reachable with ssh
+       before proceeding to the next step.
 
 .. _oemrecovery:
 

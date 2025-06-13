@@ -63,23 +63,23 @@ class TestflingerJob:
         if not cmd:
             logger.info("No %s_command configured, skipping...", phase)
             return 0, None, None
-        if phase == "provision" and not self.job_data.get("provision_data"):
-            logger.info("No provision_data defined in job data, skipping...")
-            return 0, None, None
-        if phase == "firmware_update" and not self.job_data.get(
-            "firmware_update_data"
+        if phase in (
+            "provision",
+            "firmware_update",
+            "test",
+            "allocate",
+            "reserve",
         ):
-            logger.info(
-                "No firmware_update_data defined in job data, skipping..."
-            )
-            return 0, None, None
-        if phase == "test" and not self.job_data.get("test_data"):
-            logger.info("No test_data defined in job data, skipping...")
-            return 0, None, None
-        if phase == "allocate" and not self.job_data.get("allocate_data"):
-            return 0, None, None
-        if phase == "reserve" and not self.job_data.get("reserve_data"):
-            return 0, None, None
+            if not self.job_data.get(f"{phase}_data"):
+                logger.info(
+                    "No %s_data defined in job data, skipping...", phase
+                )
+                return 0, None, None
+            if self.job_data.get(f"{phase}_data", {}).get("skip", False):
+                logger.info(
+                    "Skipping %s phase as requested in job data", phase
+                )
+                return 0, None, None
         results_file = os.path.join(rundir, "testflinger-outcome.json")
         output_log = os.path.join(rundir, phase + ".log")
         serial_log = os.path.join(rundir, phase + "-serial.log")
