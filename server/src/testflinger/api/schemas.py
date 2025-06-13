@@ -53,6 +53,7 @@ class AgentIn(Schema):
     provision_type = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     state = fields.String(required=False)
+    comments = fields.String(required=False)
 
 
 class AgentOut(Schema):
@@ -64,6 +65,7 @@ class AgentOut(Schema):
     location = fields.String(required=False)
     provision_type = fields.String(required=False)
     job_id = fields.String(required=False)
+    comments = fields.String(required=False)
 
 
 class ActionIn(Schema):
