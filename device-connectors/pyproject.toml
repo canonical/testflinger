@@ -73,6 +73,9 @@ ignore-names = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"src/testflinger_device_connectors/devices/tests/*" = [
+    "S101", # use of assert
+]
 "src/testflinger_device_connectors/devices/*/tests/*" = [
     "S101", # use of assert
 ]

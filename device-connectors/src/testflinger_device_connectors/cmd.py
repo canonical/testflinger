@@ -22,7 +22,7 @@ from typing import Callable
 
 import yaml
 
-from testflinger_device_connectors import configure_logging, write_device_info
+from testflinger_device_connectors import configure_logging
 from testflinger_device_connectors.devices import (
     DEVICE_CONNECTORS,
     RecoveryError,
@@ -110,9 +110,8 @@ def main():
     with open(args.config) as configfile:
         config = yaml.safe_load(configfile)
     configure_logging(config)
-    write_device_info(config)
 
     func = add_exception_logging_to_file(
-        get_device_stage_func(args.device, args.stage), args.stage
+        get_device_stage_func(args.device, args.stage, config), args.stage
     )
     sys.exit(func(args))

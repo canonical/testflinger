@@ -44,7 +44,8 @@ class ZapperConnectorTests(unittest.TestCase):
         args = (1, 2, 3)
         kwargs = {"key1": 1, "key2": 2}
 
-        connector = MockConnector()
+        fake_config = {"device_ip": "1.1.1.1"}
+        connector = MockConnector(fake_config)
         connector._run("localhost", *args, **kwargs)
 
         api = mock_connect.return_value.root.provision
@@ -60,7 +61,8 @@ class ZapperConnectorTests(unittest.TestCase):
         job and config and attempts to copy the agent SSH
         key to the DUT.
         """
-        connector = MockConnector()
+        fake_config = {"device_ip": "1.1.1.1"}
+        connector = MockConnector(fake_config)
         connector.job_data = {
             "test_data": {
                 "test_username": "myuser",
@@ -80,7 +82,8 @@ class ZapperConnectorTests(unittest.TestCase):
         """Test the function raises a ProvisioningError exception
         in case of failure.
         """
-        connector = MockConnector()
+        fake_config = {"device_ip": "1.1.1.1"}
+        connector = MockConnector(fake_config)
         connector.job_data = {
             "test_data": {
                 "test_username": "myuser",

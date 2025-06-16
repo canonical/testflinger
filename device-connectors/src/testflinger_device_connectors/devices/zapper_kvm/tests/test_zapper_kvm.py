@@ -33,12 +33,12 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         the expected data merging the relevant bits from conf and job
         data when passing only the required arguments.
         """
-        connector = DeviceConnector()
-        connector.config = {
+        fake_config = {
             "device_ip": "1.1.1.1",
             "control_host": "1.1.1.2",
             "reboot_script": ["cmd1", "cmd2"],
         }
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -71,12 +71,12 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         the expected data merging the relevant bits from conf and job
         data when passing all the optional arguments.
         """
-        connector = DeviceConnector()
-        connector.config = {
+        fake_config = {
             "device_ip": "1.1.1.1",
             "control_host": "1.1.1.2",
             "reboot_script": ["cmd1", "cmd2"],
         }
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -127,12 +127,12 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         password are hardcoded and the Zapper shall try the procedures
         at least twice because it can fail on purpose.
         """
-        connector = DeviceConnector()
-        connector.config = {
+        fake_config = {
             "device_ip": "1.1.1.1",
             "control_host": "1.1.1.2",
             "reboot_script": ["cmd1", "cmd2"],
         }
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -171,7 +171,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         None in case none of the autoinstall-related keys are
         provided.
         """
-        connector = DeviceConnector()
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+        }
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -195,7 +199,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         the expected data merging the relevant bits from conf and job
         data when password and base_user_data are not given.
         """
-        connector = DeviceConnector()
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+        }
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -226,7 +234,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         the expected data merging the relevant bits from conf and job
         data when password and user_data_base are given.
         """
-        connector = DeviceConnector()
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+        }
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -296,7 +308,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test whether the function returns without errors in case of a
         sane base64 encoded YAML.
         """
-        connector = DeviceConnector()
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+        }
+        connector = DeviceConnector(fake_config)
         user_data_base = yaml.safe_dump({"key1": 1, "key2": [1, 2, 3]})
         encoded = base64.b64encode(user_data_base.encode()).decode()
         connector._validate_base_user_data(encoded)
@@ -305,7 +321,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test whether the function raises an exception if the input
         is not correctly encoded.
         """
-        connector = DeviceConnector()
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+        }
+        connector = DeviceConnector(fake_config)
         with self.assertRaises(ProvisioningError):
             connector._validate_base_user_data("notbase64")
 
@@ -313,7 +333,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test whether the function raises an exception if the input
         is not a valid YAML.
         """
-        connector = DeviceConnector()
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+        }
+        connector = DeviceConnector(fake_config)
         user_data_base = "not: a: correctly: formatted: yaml"
         encoded = base64.b64encode(user_data_base.encode()).decode()
         with self.assertRaises(ProvisioningError):
@@ -323,7 +347,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function returns without further action when URL
         is not specified.
         """
-        connector = DeviceConnector()
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+        }
+        connector = DeviceConnector(fake_config)
         connector.job_data = {"provision_data": {}}
 
         with patch(
@@ -335,7 +363,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
     def test_run_oem_default(self):
         """Test the function runs the base OemScript."""
-        connector = DeviceConnector()
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+        }
+        connector = DeviceConnector(fake_config)
         connector.job_data = {"provision_data": {"url": "file://image.iso"}}
         args = Mock()
 
@@ -349,7 +381,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
     def test_run_oem_hp(self):
         """Test the function runs the HP OemScript when oem=hp."""
-        connector = DeviceConnector()
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+        }
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"url": "file://image.iso", "oem": "hp"}
         }
@@ -365,7 +401,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
     def test_run_oem_dell(self):
         """Test the function runs the Dell OemScript when oem=dell."""
-        connector = DeviceConnector()
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+        }
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"url": "file://image.iso", "oem": "dell"}
         }
@@ -381,7 +421,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
     def test_run_oem_lenovo(self):
         """Test the function runs the Lenovo OemScript when oem=lenovo."""
-        connector = DeviceConnector()
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "control_host": "1.1.1.2",
+        }
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"url": "file://image.iso", "oem": "lenovo"}
         }
@@ -400,9 +444,9 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function runs a command over SSH to change the
         original password to the one specified in test_data.
         """
-        connector = DeviceConnector()
+        fake_config = {"device_ip": "localhost"}
+        connector = DeviceConnector(fake_config)
         connector.job_data = {"test_data": {"test_password": "new_password"}}
-        connector.config = {"device_ip": "localhost"}
 
         connector._change_password("ubuntu", "u")
 
@@ -426,7 +470,8 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function updates the password and run the OEM script
         when `alloem_url` is in scope.
         """
-        connector = DeviceConnector()
+        fake_config = {"device_ip": "localhost"}
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"alloem_url": "file://image.iso"}
         }
@@ -444,7 +489,8 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function raises the ProvisioningError
         exception in case one of the SSH commands fail.
         """
-        connector = DeviceConnector()
+        fake_config = {"device_ip": "localhost"}
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"alloem_url": "file://image.iso"}
         }
@@ -473,7 +519,8 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function raises the ProvisioningError
         exception in case one of the SSH commands times out.
         """
-        connector = DeviceConnector()
+        fake_config = {"device_ip": "localhost"}
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"alloem_url": "file://image.iso"}
         }
