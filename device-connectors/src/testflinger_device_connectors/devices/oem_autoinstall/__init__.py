@@ -42,10 +42,10 @@ class DeviceConnector(DefaultDevice):
         provision_data = self.job_data.get("provision_data", {})
 
         if provision_data.get("zapper_iso_type"):
-            logger.info("oem_autoinstall pass to zapper_oem")
+            logger.info("Init zapper_oem on agent")
             device_with_zapper = ZapperOem()
             device_with_zapper.provision(args)
-            logger.info("zapper_oem return to oem_autoinstall")
+            logger.info("Return to oem_autoinstall")
 
         if provision_data.get("url"):
             logger.info("BEGIN provision via oem_autoinstall")

@@ -34,9 +34,17 @@ class ZapperOem(ZapperConnector):
         Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
-        logger.info("zapper_oem: Validating configuration")
+        logger.info("Validating configuration")
         supported_iso_types = {"bootstrap", "stock", "bios"}
-        iso_type = self.job_data["provision_data"].get("zapper_iso_type")
+        provision_data = self.job_data["provision_data"]
+
+        # Validate required fields
+        if not provision_data.get("zapper_iso_url"):
+            error_msg = "zapper_iso_url is required in provision_data"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        iso_type = provision_data.get("zapper_iso_type")
 
         if iso_type not in supported_iso_types:
             error_msg = (
@@ -46,19 +54,23 @@ class ZapperOem(ZapperConnector):
             logger.error(error_msg)
             raise ValueError(error_msg)
 
+        # Optional fields
+        test_data = self.job_data.get("test_data", {})
+        username = test_data.get("test_username", "ubuntu")
+        password = test_data.get("test_password", "insecure")
+        reboot_script = self.config.get("reboot_script")
+
         provisioning_data = {
-            "zapper_iso_url": self.job_data["provision_data"].get("zapper_iso_url"),
+            "zapper_iso_url": provision_data["zapper_iso_url"],
             "zapper_iso_type": iso_type,
             "device_ip": self.config["device_ip"],
+            "username": username,
+            "password": password,
+            "reboot_script": reboot_script,
         }
 
-        # Add reboot_script if it exists in config
-        if "reboot_script" in self.config:
-            provisioning_data["reboot_script"] = self.config["reboot_script"]
-
-        logger.info("Validated zapper provisioning data: %s", json.dumps(provisioning_data, indent=2))
         return ((), provisioning_data)
 
     def _post_run_actions(self, args):
-        logger.info("oem_autoinstall/zapper_oem.py: Skip _post_run_actions")
+        pass
 
