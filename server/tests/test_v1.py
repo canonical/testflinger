@@ -112,6 +112,31 @@ def test_add_job_valid_reserve_data(mongo_app):
     assert 200 == output.status_code
 
 
+def test_add_job_noprovision_provision_data(mongo_app):
+    """Test that a job with noprovision provision_data works."""
+    app, _ = mongo_app
+    # Test with blank provision_data
+    job_data = {"job_queue": "test", "provision_data": None}
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+    recovered_data = app.get("/v1/job?queue=test").json
+    assert recovered_data["provision_data"] is None
+    # Test with provision_data skip=True
+    provision_data = {"skip": True}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+    recovered_data = app.get("/v1/job?queue=test").json
+    assert recovered_data["provision_data"] == provision_data
+    # Test with provision_data skip=False
+    provision_data = {"skip": False}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+    recovered_data = app.get("/v1/job?queue=test").json
+    assert recovered_data["provision_data"] == provision_data
+
+
 def test_add_job_cm3_provision_data(mongo_app):
     """Test that a job with cm3 provision_data works."""
     # Invalid URL fails

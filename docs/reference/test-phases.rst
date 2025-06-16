@@ -10,6 +10,15 @@ Test phases are declarative and run in a sequential order. A test phase will be 
 
 If the ``<phase>_command`` field is not set in the ``testflinger-agent.conf`` file, then that phase will be skipped. Even if the ``<phase>_command`` is configured, if the test job does not contain valid data for the phase, some optional phases that are not mandatory, and will be skipped if the job does not contain data for it, such as the provision, test, allocate, and reserve phases.
 
+The following phases will be skipped if ``<phase>_data`` is not present in the
+job definition file or if the ``<phase>_data`` field supports and contains the
+``skip`` field set to ``true``:
+
+- :ref:`provision`
+- :ref:`firmware_update`
+- :ref:`test`
+- :ref:`allocate`
+- :ref:`reserve`
 
 Test phase configuration
 -------------------------
@@ -26,6 +35,8 @@ Example agent configuration:
 .. code-block:: yaml
 
     setup_command: echo Nothing needed for setup
+
+.. _provision:
 
 Provision
 ~~~~~~~~~~~~~~~~
@@ -61,6 +72,7 @@ The ``kernel`` field can be included in provision_data to select an alternate ke
       distro: jammy
       kernel: hwe-22.04
 
+.. _firmware_update:
 
 Firmware update
 ~~~~~~~~~~~~~~~~~~~
@@ -99,6 +111,7 @@ If either ``firmware_update_command`` is missing from the agent configuration, o
       version: latest
       ignore_failure: false
 
+.. _test:
 
 Test
 ~~~~~~~~~
@@ -143,7 +156,7 @@ If either ``test_command`` is missing from the agent configuration, or the ``tes
         ssh ubuntu@$DEVICE_IP snap list
         ssh ubuntu@$DEVICE_IP cat /proc/cpuinfo
 
-
+.. _allocate:
 
 Allocate
 ~~~~~~~~~~~
@@ -169,6 +182,8 @@ If either ``allocate_command`` is missing from the agent configuration, or the t
       url: <url>
     allocate_data:
       allocate: true
+
+.. _reserve:
 
 Reserve 
 ~~~~~~~~~~~
@@ -212,6 +227,8 @@ If either ``reserve_command`` is missing from the agent configuration, or the th
       timeout: 4800
 
 Note: ``lp:user1`` is a string in the job definition YAML, not a YAML key-value pair, so there should be no space between the colon and the username.
+
+.. _cleanup:
 
 Cleanup 
 ~~~~~~~~~
