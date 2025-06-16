@@ -49,7 +49,19 @@
             <a href="{{ url_for('testflinger.agent_detail', agent_id=agent.name) }}">{{ agent.name }}</a>
           </td>
           <td data-heading="Location">{{ agent.location or "unknown" }}</td>
-          <td data-heading="State">{{ agent.state }}</td>
+          <td class="has-overflow" data-heading="State">
+            <span>{{ agent.state }}</span>
+            {% if agent.get('comment') %}
+              <span class="p-tooltip--top-left" aria-describedby="state-tooltip">
+                <i class="p-icon--information"></i>
+                <span class="p-tooltip__message"
+                      role="tooltip"
+                      id="state-tooltip"
+                      style="white-space: nowrap;
+                             text-align: left">{{ agent.comment }}</span>
+              </span>
+            {% endif %}
+          </td>
           <td data-heading="Updated At">{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
           <td class="u-align--right u-truncate" data-heading="Job ID">
             <a href="{{ url_for('testflinger.job_detail', job_id=agent.job_id) }}">{{ agent.job_id }}</a>
