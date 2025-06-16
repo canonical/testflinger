@@ -1,11 +1,11 @@
-name: Release testflinger-k8s charm to latest/edge
+name: Release testflinger-k8s charm
 permissions:
   contents: read
 on:
   push:
     branches: [main]
     paths:
-      - .github/workflows/server-charm-release-edge.yml
+      - .github/workflows/server-charm-release.yml
       - server/**
   workflow_dispatch:
     inputs:
