@@ -1,4 +1,4 @@
-name: Release testflinger-agent-host charm to latest/edge
+name: Release testflinger-agent-host charm
 permissions:
   contents: read
 on:
@@ -6,7 +6,7 @@ on:
     branches: [main]
     paths:
       - agent/charms/testflinger-agent-host-charm/**
-      - .github/workflows/agent-host-charm-release-edge.yml
+      - .github/workflows/agent-host-charm-release.yml
   workflow_dispatch:
     inputs:
       channel:
