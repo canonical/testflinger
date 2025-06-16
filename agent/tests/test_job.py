@@ -241,7 +241,7 @@ class TestJob:
         self.config["reserve_command"] = "/bin/true"
         fake_job_data = {
             "global_timeout": 1,
-            "reserve_data": "foo",
+            "reserve_data": {"ssh_keys": "foo"},
             "job_id": job_id,
         }
 
