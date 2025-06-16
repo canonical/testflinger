@@ -451,21 +451,3 @@ def _run_test_cmds_str(cmds, config=None, env=None):
     if result:
         logger.warning("Tests failed, rc=%d", result)
     return result
-
-
-def write_device_info(config: dict = None) -> None:
-    """Write device information to device-info.json.
-
-    :param config: Dictionary with the key/values from the config file.
-    """
-    try:
-        device_ip = config["device_ip"]
-        agent_name = config["agent_name"]
-        device_info = {
-            "device_info": {"device_ip": device_ip, "agent_name": agent_name}
-        }
-    except (TypeError, KeyError):
-        # If config file not provided or key unable to be located
-        device_info = {}
-    with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
-        devinfo_file.write(json.dumps(device_info))
