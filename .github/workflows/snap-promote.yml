@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       snap:
-        description: Snap name to promtoe
+        description: Snap name to promote
         required: true
         default: testflinger-cli
         type: choice
