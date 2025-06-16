@@ -256,6 +256,7 @@ class TestflingerAgentHostCharm(CharmBase):
     def on_upgrade_charm(self, _):
         """Upgrade hook."""
         self.unit.status = MaintenanceStatus("Handling upgrade_charm hook")
+        self.install_dependencies()
         self.update_tf_cmd_scripts()
         self.unit.status = ActiveStatus()
 
