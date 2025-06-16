@@ -283,11 +283,9 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         conf = connector._get_autoinstall_conf()
 
         oem_autoinstall_data = (
-            Path(__file__).parent / "../../../data/oem_autoinstall"
+            Path(__file__).parent / "../../../data/zapper_kvm/"
         )
-        with open(
-            oem_autoinstall_data / "default-user-data", "rb"
-        ) as user_data:
+        with open(oem_autoinstall_data / "user-data-oem", "rb") as user_data:
             encoded_user_data = base64.b64encode(user_data.read())
 
         expected = {

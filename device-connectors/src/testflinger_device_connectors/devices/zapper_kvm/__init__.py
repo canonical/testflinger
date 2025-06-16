@@ -66,10 +66,8 @@ class DeviceConnector(ZapperConnector):
         autoinstall_conf = {}
 
         if self.job_data["provision_data"].get("autoinstall_oem"):
-            # In case of Ubuntu OEM via autoinstall, we can read
-            # from the dedicated connector the default user_data
-            # file and pass it to Zapper along with the other
-            # related keys.
+            # In case of Ubuntu OEM via autoinstall, use a
+            # dedicated user-data file as base.
 
             logger.info(
                 "When using 'autoinstall_oem', "
@@ -77,10 +75,10 @@ class DeviceConnector(ZapperConnector):
             )
 
             oem_autoinstall_data = (
-                Path(__file__).parent / "../../data/oem_autoinstall"
+                Path(__file__).parent / "../../data/zapper_kvm"
             )
             with open(
-                oem_autoinstall_data / "default-user-data", "r"
+                oem_autoinstall_data / "user-data-oem", "r"
             ) as default_user_data:
                 user_data = default_user_data.read()
                 encoded_user_data = base64.b64encode(user_data.encode())
