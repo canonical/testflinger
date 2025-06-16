@@ -124,9 +124,13 @@ class TestflingerAgent:
 
         self.client.post_agent_data(agent_data)
 
-    def set_agent_state(self, state):
-        """Send the agent state to the server."""
-        self.client.post_agent_data({"state": state})
+    def set_agent_state(self, state: str, comment: str = "") -> None:
+        """Send the agent state to the server.
+
+        :param state: Agent state to report to the server.
+        :param comment: Reason for changing the state. Defaults to empty str.
+        """
+        self.client.post_agent_data({"state": state, "comment": comment})
         self.client.post_influx(state)
 
     def get_agent_state(self, agent: str) -> str:
@@ -318,7 +322,11 @@ class TestflingerAgent:
                         # exit code 46 is our indication that recovery failed!
                         # In this case, we need to mark the device offline
                         if exit_code == 46:
-                            self.set_agent_state(AgentState.OFFLINE)
+                            self.set_agent_state(
+                                state=AgentState.OFFLINE,
+                                comment="Set to offline by agent. Recovery "
+                                f"Failed found during {job.job_id} execution.",
+                            )
                             exit_event = TestEvent.RECOVERY_FAIL
                         else:
                             exit_event = TestEvent(phase + "_fail")
