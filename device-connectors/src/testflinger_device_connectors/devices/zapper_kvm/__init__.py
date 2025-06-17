@@ -18,7 +18,6 @@ import base64
 import binascii
 import contextlib
 import logging
-import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -107,7 +106,9 @@ class DeviceConnector(ZapperConnector):
         return autoinstall_conf
 
     def _read_ssh_key(self) -> str:
-        return Path("~/.ssh/id_rsa.pub").expanduser().read_text(encoding="utf-8")
+        return (
+            Path("~/.ssh/id_rsa.pub").expanduser().read_text(encoding="utf-8")
+        )
 
     def _validate_configuration(
         self,

@@ -17,7 +17,7 @@ import base64
 import subprocess
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, mock_open, patch
+from unittest.mock import Mock, patch
 
 import yaml
 
@@ -187,9 +187,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             },
         }
 
-        with patch("builtins.open", mock_open(read_data="mykey")):
-            conf = connector._get_autoinstall_conf()
-
+        conf = connector._get_autoinstall_conf()
         self.assertIsNone(conf)
 
     def test_get_autoinstall_conf(self):
@@ -213,9 +211,9 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                 "test_password": "password",
             },
         }
+        connector._read_ssh_key = Mock(return_value="mykey")
 
-        with patch("builtins.open", mock_open(read_data="mykey")):
-            conf = connector._get_autoinstall_conf()
+        conf = connector._get_autoinstall_conf()
 
         expected = {
             "storage_layout": "lvm",
@@ -247,8 +245,8 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
 
         connector._validate_base_user_data = Mock()
-        with patch("builtins.open", mock_open(read_data="mykey")):
-            conf = connector._get_autoinstall_conf()
+        connector._read_ssh_key = Mock(return_value="mykey")
+        conf = connector._get_autoinstall_conf()
 
         connector._validate_base_user_data.assert_called_once_with("content")
         expected = {
@@ -496,3 +494,12 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
         with self.assertRaises(ProvisioningError):
             connector._post_run_actions("args")
+
+    @patch("testflinger_device_connectors.devices.zapper_kvm.Path")
+    def test_read_ssh_key(self, mock_path):
+        ssh_path = mock_path.return_value.expanduser.return_value
+        ssh_path.read_text.return_value = "mykey"
+
+        connector = DeviceConnector()
+        key = connector._read_ssh_key()
+        self.assertEqual(key, "mykey")
