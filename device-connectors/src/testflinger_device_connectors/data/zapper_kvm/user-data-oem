@@ -1,0 +1,46 @@
+#cloud-config
+
+autoinstall:
+  version: 1
+  storage:
+    layout:
+      name: direct
+      reset-partition: 12G
+      match:
+        - path: /dev/dm*
+        - path: /dev/md*
+        - path: /dev/nvme0n1
+        - path: /dev/pmem*
+        - path: /dev/mmcblk0
+        - path: /dev/sda
+          size: largest # this is a workaround to filter out USB install media, related issue LP#2080997
+        - path: /dev/sdb # in case if /dev/sda is installer USB media
+        - path: /dev/vda # VirtIO disk, for installing the image and testing the image in VMs
+
+  source:
+    id: ubuntu-desktop
+
+  late-commands:
+    - "bash /cdrom/sideloads/hook.sh reset-media-late-commands"
+
+    # Rename factory reset EFI directory so firmware won't show it. Ignore
+    # errors on the way.
+    - "mv /factory-reset/EFI /factory-reset/efi.factory || true"
+    - "sed -i 's#/EFI/boot/bootx64.efi#/efi.factory/boot/bootx64.efi#g' /target/etc/grub.d/99_reset || true"
+    - "echo 'GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash nomodeset modprobe.blacklist=nouveau nouveau.modeset=0\" # remove-before-flight' >> /target/etc/default/grub"
+    - "curtin in-target --target=/target -- update-grub"
+
+    - "bash /factory-reset/cloud-configs/grub/switch-stage.sh /factory-reset/cloud-configs/grub/reset-partition.cfg /factory-reset/boot/grub/grub.cfg"
+
+  user-data:
+    bootcmd:
+      - "bash /sp-bootstrap/hook.sh early-welcome"
+
+    # Reboot after early-welcome is done
+    power_state:
+      mode: "reboot"
+      message: "early-welcome setup complete, rebooting..."
+      timeout: 30
+
+bootcmd:
+  - ['plymouth', 'display-message', '--text', 'Starting installer...']

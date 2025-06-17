@@ -18,8 +18,8 @@ import base64
 import binascii
 import contextlib
 import logging
-import os
 import subprocess
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import yaml
@@ -63,24 +63,52 @@ class DeviceConnector(ZapperConnector):
         SSH public key.
         """
         autoinstall_conf = {}
-        for key, value in self.job_data["provision_data"].items():
-            if "autoinstall_" not in key:
-                continue
 
-            autoinstall_key = key.replace("autoinstall_", "")
-            with contextlib.suppress(AttributeError):
-                getattr(self, f"_validate_{autoinstall_key}")(value)
+        if self.job_data["provision_data"].get("autoinstall_oem"):
+            # In case of Ubuntu OEM via autoinstall, use a
+            # dedicated user-data file as base.
 
-            autoinstall_conf[autoinstall_key] = value
+            logger.info(
+                "When using 'autoinstall_oem', "
+                "other autoinstall keys are not considered"
+            )
+
+            user_data_oem = (
+                Path(__file__).parent / "../../data/zapper_kvm/user-data-oem"
+            )
+            user_data = user_data_oem.read_text(encoding="utf-8")
+            encoded_user_data = base64.b64encode(user_data.encode())
+
+            user_data = yaml.safe_load(user_data)
+            storage = user_data["autoinstall"]["storage"]["layout"]["name"]
+
+            autoinstall_conf = {
+                "base_user_data": encoded_user_data,
+                "storage_layout": storage,
+            }
+
+        else:
+            for key, value in self.job_data["provision_data"].items():
+                if "autoinstall_" not in key:
+                    continue
+
+                autoinstall_key = key.replace("autoinstall_", "")
+                with contextlib.suppress(AttributeError):
+                    getattr(self, f"_validate_{autoinstall_key}")(value)
+                autoinstall_conf[autoinstall_key] = value
 
         if not autoinstall_conf:
             logger.info("Autoinstall-related keys were not provided.")
             return None
 
-        with open(os.path.expanduser("~/.ssh/id_rsa.pub")) as pub:
-            autoinstall_conf["authorized_keys"] = [pub.read()]
+        autoinstall_conf["authorized_keys"] = [self._read_ssh_key()]
 
         return autoinstall_conf
+
+    def _read_ssh_key(self) -> str:
+        return (
+            Path("~/.ssh/id_rsa.pub").expanduser().read_text(encoding="utf-8")
+        )
 
     def _validate_configuration(
         self,
