@@ -15,7 +15,6 @@
 
 import logging
 from typing import Any, Dict, Tuple
-import json
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import ZapperConnector
@@ -37,6 +36,8 @@ class ZapperOem(ZapperConnector):
         logger.info("Validating configuration")
         supported_iso_types = {"bootstrap", "stock", "bios"}
         provision_data = self.job_data["provision_data"]
+        iso_type = provision_data.get("zapper_iso_type")
+        dut_ip = self.config["device_ip"]
 
         # Validate required fields
         if not provision_data.get("zapper_iso_url"):
@@ -44,13 +45,16 @@ class ZapperOem(ZapperConnector):
             logger.error(error_msg)
             raise ValueError(error_msg)
 
-        iso_type = provision_data.get("zapper_iso_type")
-
         if iso_type not in supported_iso_types:
             error_msg = (
                 f"Unsupported ISO type: {iso_type}. "
                 f"Supported types: {supported_iso_types}"
             )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        if not self.config.get("device_ip"):
+            error_msg = "device_ip is missing in config"
             logger.error(error_msg)
             raise ValueError(error_msg)
 
@@ -63,7 +67,7 @@ class ZapperOem(ZapperConnector):
         provisioning_data = {
             "zapper_iso_url": provision_data["zapper_iso_url"],
             "zapper_iso_type": iso_type,
-            "device_ip": self.config["device_ip"],
+            "device_ip": dut_ip,
             "username": username,
             "password": password,
             "reboot_script": reboot_script,

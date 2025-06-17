@@ -1,10 +1,11 @@
 #!/bin/bash
 
 exec 2>&1
-set -euox pipefail
+set -euo pipefail
 #
-# This script is used by TF agent to provision OEM PCs with Ubuntu OEM images
+# This script is to provision OEM PCs with Ubuntu OEM images using Recovery Partition
 # It checks if the ISO is valid and deploys it on the target
+# It assumes that Recovery Partition exists on the target
 #
 
 usage()
@@ -30,10 +31,11 @@ TARGET_USER="ubuntu"
 TARGET_PASSWORD="insecure"
 ISO_PATH=""
 ISO=""
+CONFIG_REPO_PATH=""
 URL_DUT=""
 STORE_PART=""
 TIMEOUT=3600
-SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 SSH="ssh $SSH_OPTS"
 SCP="scp $SSH_OPTS"
 SSH_WITH_PASS="sshpass -p $TARGET_PASSWORD ssh $SSH_OPTS"
@@ -228,6 +230,40 @@ is_secure_boot_enabled() {
 }
 
 set_usb_boot_first() {
+    local bootnum current_order new_order
+
+    # Get USB boot number and avoid usb-ethernet dongles
+    bootnum=$($SSH_WITH_PASS "$TARGET_USER@$addr" -- sudo efibootmgr -v \
+        | awk 'BEGIN {IGNORECASE=1} /Boot[0-9A-F]+\**[[:space:]]+.*USB/ && !/IP/ && !/MAC/ {print $1}' \
+        | head -n1 | cut -c5- | tr -d '*')
+
+    if [[ -z "$bootnum" ]]; then
+        echo "No USB boot entry found" >&2
+        return 1
+    fi
+
+    echo "USB boot entry found: $bootnum"
+
+    # Get current boot order and remove USB bootnum from it
+    # i.e: "BootOrder: 0001,0000,0003"
+    # usb can be in random order, to be safe we try to cover all cases
+    current_order=$($SSH_WITH_PASS "$TARGET_USER@$addr" -- sudo efibootmgr | grep BootOrder | cut -d: -f2 | tr -d '[:space:]')
+    current_order=${current_order//${bootnum},/}  # Remove if at beginning
+    current_order=${current_order//,${bootnum}/}  # Remove if in middle
+    current_order=${current_order//${bootnum}/}   # Remove if alone
+
+    # Build new order with USB first
+    new_order="$bootnum"
+    if [[ -n "$current_order" ]]; then
+        new_order+=",$current_order"
+    fi
+
+    echo "Setting new boot order: $new_order"
+    $SSH_WITH_PASS "$TARGET_USER@$addr" -- sudo efibootmgr -o "$new_order"
+    return $?
+}
+
+set_usb_boot_first_old() {
     local bootnum
     bootnum=$($SSH_WITH_PASS "$TARGET_USER@$addr" -- sudo efibootmgr -v | awk '/\/USB\(/ && !/IP/ && !/MAC/ {print $1}' | head -n1 | cut -c5- | tr -d '*')
 
@@ -239,7 +275,6 @@ set_usb_boot_first() {
     $SSH_WITH_PASS "$TARGET_USER@$addr" -- sudo efibootmgr -o "$bootnum"
     return $?
 }
-
 
 OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config:,iso-dut: -n 'provision-image.sh' -- "$@")"
 eval set -- "${OPTS}"
@@ -271,7 +306,7 @@ while :; do
 done
 
 
-# Get the target IP
+# Get the target IP (should be the only remaining argument)
 if [ $# -ne 1 ]; then
     echo "Error: Expected exactly one target IP address" >&2
     exit 1
@@ -286,7 +321,7 @@ fi
 # Find the partitions
 while read -r name fstype mountpoint;
 do
-    echo "$name,$fstype,$mountpoint"
+    #echo "$name,$fstype,$mountpoint"
     if [ "$fstype" = "ext4" ]; then
         if [ "$mountpoint" = "/home/$TARGET_USER" ] || [ "$mountpoint" = "/" ]; then
             STORE_PART="/dev/$name"
@@ -374,8 +409,8 @@ $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/reset || true
 $SSH "$TARGET_USER"@"$addr" -- sudo mount -o loop /home/"$TARGET_USER"/"$ISO" /home/"$TARGET_USER"/iso || true
 $SSH "$TARGET_USER"@"$addr" -- sudo mount "$RESET_PART" /home/"$TARGET_USER"/reset || true
 
-# Sync ISO to the reset partition
-$SSH "$TARGET_USER"@"$addr" -- sudo rsync -avP /home/"$TARGET_USER"/iso/ /home/"$TARGET_USER"/reset || true
+# Sync ISO to the reset partition (output hidden due to many files)
+$SSH "$TARGET_USER"@"$addr" -- sudo rsync -aP /home/"$TARGET_USER"/iso/ /home/"$TARGET_USER"/reset >/dev/null 2>&1 || true
 
 # Sync cloud-configs to the reset partition
 $SSH "$TARGET_USER"@"$addr" -- sudo mkdir -p /home/"$TARGET_USER"/reset/cloud-configs || true
@@ -387,29 +422,26 @@ $SSH "$TARGET_USER"@"$addr" -- sudo sed -i "s/RP_PARTUUID/${RESET_PARTUUID}/" /h
 # Reboot the target
 $SSH "$TARGET_USER"@"$addr" -- sudo reboot || true
 
-
 # Clear the known hosts
-
 if [ -f "$HOME/.ssh/known_hosts" ]; then
     ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$addr"
 fi
 
-
 echo "Deployment will start after reboot"
 
-# Polling the single target
+# After provisioning, wait for the target to come back online
 startTime=$(date +%s)
-echo "Verify deployment status on $addr"
+echo "Polling ssh connection status on $addr until timeout ($TIMEOUT seconds)..."
 
 while :; do
     sleep 180
     currentTime=$(date +%s)
     if [[ $((currentTime - startTime)) -gt $TIMEOUT ]]; then
-        echo "Timeout is reached, deployment is not finished on $addr"
+        echo "Timeout is reached, deployment is not finished on $addr."
         exit 1
     fi
 
-    if $SSH_WITH_PASS "$TARGET_USER"@"$addr" -- echo "Connection Test"; then
+    if $SSH_WITH_PASS "$TARGET_USER"@"$addr" -- echo "Connection Success"; then
         echo "$addr is back online. Deployment is done."
         break
     fi
