@@ -74,14 +74,11 @@ class DeviceConnector(ZapperConnector):
                 "other autoinstall keys are not considered"
             )
 
-            oem_autoinstall_data = (
-                Path(__file__).parent / "../../data/zapper_kvm"
+            user_data_oem = (
+                Path(__file__).parent / "../../data/zapper_kvm/user-data-oem"
             )
-            with open(
-                oem_autoinstall_data / "user-data-oem", "r"
-            ) as default_user_data:
-                user_data = default_user_data.read()
-                encoded_user_data = base64.b64encode(user_data.encode())
+            user_data = user_data_oem.read_text(encoding="utf-8")
+            encoded_user_data = base64.b64encode(user_data.encode())
 
             user_data = yaml.safe_load(user_data)
             storage = user_data["autoinstall"]["storage"]["layout"]["name"]
