@@ -98,6 +98,8 @@ class TestflingerAgent:
 
     def __init__(self, client):
         self.client = client
+        self.agent_id = self.client.config.get("agent_id")
+        self.restart_handler = RestartHandler()
         signal.signal(signal.SIGUSR1, self.restart_signal_handler)
         self.set_agent_state(AgentState.WAITING)
         self._post_initial_agent_data()
@@ -134,13 +136,12 @@ class TestflingerAgent:
         self.client.post_agent_data({"state": state, "comment": comment})
         self.client.post_influx(state)
 
-    def get_agent_state(self, agent: str) -> tuple:
+    def get_agent_state(self) -> tuple:
         """Get the agent state from the server by using client module.
 
-        :param agent: Agent to retrieve status from
         :return: State for the agent and reason for the state if any.
         """
-        agent_data = self.client.get_agent_data(agent)
+        agent_data = self.client.get_agent_data(self.agent_id)
         # Comment is optional, so key might not exists
         comment = agent_data.get("comment", "")
         try:
@@ -149,7 +150,7 @@ class TestflingerAgent:
             logger.error(
                 "Unable to retrieve status for agent: %s "
                 "Assumming agent is offline",
-                agent,
+                self.agent_id,
             )
             agent_state = AgentState.OFFLINE
         return (agent_state, comment)
@@ -159,8 +160,7 @@ class TestflingerAgent:
 
         :return: True if agent is offline, False otherwise.
         """
-        agent = self.client.config.get("agent_id")
-        agent_state, _ = self.get_agent_state(agent)
+        agent_state, _ = self.get_agent_state()
 
         if (
             agent_state == AgentState.OFFLINE
@@ -173,15 +173,20 @@ class TestflingerAgent:
     def check_restart(self) -> tuple:
         """Determine if the agent requires a restart.
 
-        :return: True if agent requires restarting, False otherwise.
+        :return: True or False along with the comment if any.
         """
-        agent = self.client.config.get("agent_id")
-        agent_state, comment = self.get_agent_state(agent)
+        agent_state, comment = self.get_agent_state()
 
+        # Restart requested by server
         if agent_state == AgentState.RESTART:
             return (True, comment)
-        else:
-            return (False, comment)
+        # Restart requested by Signal
+        if (
+            self.restart_handler.marked_for_restart()
+            and agent_state != AgentState.OFFLINE
+        ):
+            return (True, self.restart_handler.get_comment())
+        return (False, comment)
 
     def restart_agent(self, comment: str = "") -> None:
         """Perform the restart action if device is not busy
@@ -242,11 +247,10 @@ class TestflingerAgent:
         self.retry_old_results()
 
         # Before picking up jobs, validate restart is not needed.
-        restart_handler = RestartHandler()
         needs_restart, comment = self.check_restart()
-        restart_handler.update(needs_restart, comment)
-        if restart_handler.marked_for_restart():
-            self.restart_agent(restart_handler.get_comment())
+        self.restart_handler.update(needs_restart, comment)
+        if self.restart_handler.marked_for_restart():
+            self.restart_agent(self.restart_handler.get_comment())
 
         job_data = self.client.check_jobs()
         while job_data:
@@ -311,12 +315,14 @@ class TestflingerAgent:
                         break
 
                     # Before posting status, check if restart is needed
-                    if not restart_handler.marked_for_restart():
+                    if not self.restart_handler.marked_for_restart():
                         needs_restart, comment = self.check_restart()
 
-                    restart_handler.update(needs_restart, comment)
+                    self.restart_handler.update(needs_restart, comment)
                     self.client.post_job_state(job.job_id, phase)
-                    self.set_agent_state(phase, restart_handler.get_comment())
+                    self.set_agent_state(
+                        phase, self.restart_handler.get_comment()
+                    )
                     event_emitter.emit_event(TestEvent(phase + "_start"))
                     exit_code, exit_event, exit_reason = job.run_test_phase(
                         phase, rundir
@@ -375,8 +381,8 @@ class TestflingerAgent:
                 shutil.move(rundir, results_basedir)
             self.set_agent_state(AgentState.WAITING)
 
-            if restart_handler.marked_for_restart():
-                self.restart_agent(restart_handler.get_comment())
+            if self.restart_handler.marked_for_restart():
+                self.restart_agent(self.restart_handler.get_comment())
             if self.check_offline():
                 # Don't get a new job if we are now marked offline
                 break
@@ -406,4 +412,7 @@ class TestflingerAgent:
         it is not running a job.
         """
         logger.info("Marked agent for restart")
-        self.set_agent_state(AgentState.RESTART)
+        self.restart_handler.update(
+            restart=True,
+            comment="Restart signal detected from supervisor process",
+        )
