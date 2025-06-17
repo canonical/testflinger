@@ -139,7 +139,6 @@ class TestflingerAgent:
     def get_agent_state(self) -> tuple:
         """Get the agent state from the server by using client module.
 
-        :param agent: Agent to retrieve status from
         :return: State for the agent and reason for the state if any.
         """
         agent_data = self.client.get_agent_data(self.agent_id)
@@ -174,7 +173,7 @@ class TestflingerAgent:
     def check_restart(self) -> tuple:
         """Determine if the agent requires a restart.
 
-        :return: True if agent requires restarting, False otherwise.
+        :return: True or False along with the comment if any.
         """
         agent_state, comment = self.get_agent_state()
 
