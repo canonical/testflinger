@@ -31,3 +31,38 @@ class LogUpdateHandler:
     def __call__(self, data: str):
         with open(self.log_file, "a") as log:
             log.write(data)
+
+
+class RestartHandler:
+    """Handler to determine if restart is needed at any stage of the agent."""
+
+    def __init__(self):
+        """Initialize handler with default values."""
+        self.needs_restart = False
+        self.comment = ""
+
+    def update(self, restart: bool, comment: str) -> None:
+        """Update the attributes of the class if needed.
+
+        :param restart: Flag to set if agent needs restarting.
+        :param comment: Reason for requesting agent restart.
+        """
+        if restart and not self.needs_restart:
+            self.needs_restart = True
+            self.comment = comment
+        elif self.needs_restart and comment:
+            self.comment = f"Restart Pending: {comment}"
+
+    def marked_for_restart(self) -> bool:
+        """Indicate the current restart state of the restart handler.
+
+        :return: True if a restart is neeeded, False otherwise.
+        """
+        return self.needs_restart
+
+    def get_comment(self) -> str:
+        """Retrieve the comment from the restart handler.
+
+        :return: Preserved comment if an agent was set to restart.
+        """
+        return self.comment
