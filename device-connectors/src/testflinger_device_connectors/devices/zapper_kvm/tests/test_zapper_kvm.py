@@ -282,11 +282,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         connector._read_ssh_key = Mock(return_value="mykey")
         conf = connector._get_autoinstall_conf()
 
-        oem_autoinstall_data = (
-            Path(__file__).parent / "../../../data/zapper_kvm/"
+        user_data_oem = (
+            Path(__file__).parent / "../../../data/zapper_kvm/user-data-oem"
         )
-        with open(oem_autoinstall_data / "user-data-oem", "rb") as user_data:
-            encoded_user_data = base64.b64encode(user_data.read())
+        encoded_user_data = base64.b64encode(user_data_oem.read_bytes())
 
         expected = {
             "storage_layout": "direct",
