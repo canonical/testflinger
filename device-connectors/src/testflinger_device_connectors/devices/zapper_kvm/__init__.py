@@ -107,8 +107,7 @@ class DeviceConnector(ZapperConnector):
         return autoinstall_conf
 
     def _read_ssh_key(self) -> str:
-        with open(os.path.expanduser("~/.ssh/id_rsa.pub")) as pub:
-            return pub.read()
+        return Path("~/.ssh/id_rsa.pub").expanduser().read_text(encoding="utf-8")
 
     def _validate_configuration(
         self,
