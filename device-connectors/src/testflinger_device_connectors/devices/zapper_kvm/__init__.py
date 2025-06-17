@@ -94,10 +94,8 @@ class DeviceConnector(ZapperConnector):
                     continue
 
                 autoinstall_key = key.replace("autoinstall_", "")
-
                 with contextlib.suppress(AttributeError):
                     getattr(self, f"_validate_{autoinstall_key}")(value)
-
                 autoinstall_conf[autoinstall_key] = value
 
         if not autoinstall_conf:
