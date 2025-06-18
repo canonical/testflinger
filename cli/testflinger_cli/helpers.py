@@ -1,10 +1,11 @@
 # Copyright (C) 2025 Canonical Ltd.
 """Helpers for the Testflinger CLI."""
-import yaml
 
 from os import getenv
 from pathlib import Path
 from typing import Optional
+
+import yaml
 
 from testflinger_cli.consts import SNAP_NAME, SNAP_PRIVATE_DIRS
 from testflinger_cli.errors import SnapPrivateFileError
@@ -134,12 +135,11 @@ def prompt_for_queue(queues: dict[str, str]) -> str:
 
 
 def pretty_yaml_dump(obj, **kwargs) -> str:
-    """Creates a pretty YAML representation of obj
+    """Create a pretty YAML representation of obj.
 
-    :param obj: The object to be represented
-    :return: A pretty representation of obj as a YAML string
+    :param obj: The object to be represented.
+    :return: A pretty representation of obj as a YAML string.
     """
-    assert "default_style" not in kwargs, "Style is imposed by the this dumper"
 
     # objective is to get multiline strings as blocks leaving any other string
     # unchanged
