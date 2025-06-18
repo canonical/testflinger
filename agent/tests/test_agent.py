@@ -51,7 +51,12 @@ class TestClient:
         self.config["setup_command"] = "echo setup1"
         fake_job_data = {"job_id": str(uuid.uuid1()), "job_queue": "test"}
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(fake_job_data)}, {"text": "{}"}]
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"restricted_to": {}},
+        )
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -69,7 +74,12 @@ class TestClient:
             "provision_data": {"url": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(fake_job_data)}, {"text": "{}"}]
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"restricted_to": {}},
+        )
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -89,7 +99,12 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(fake_job_data)}, {"text": "{}"}]
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"restricted_to": {}},
+        )
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -138,6 +153,11 @@ class TestClient:
             )
             # mock response to results request
             mocker.get(re.compile(r"/v1/result/"))
+            # mock response to requesting agent data
+            mocker.get(
+                "http://127.0.0.1:8000/v1/agents/data/test01",
+                json={"restricted_to": {}},
+            )
 
             # request and process the job (should unpack the archive)
             with patch("shutil.rmtree"):
@@ -147,8 +167,9 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+            request_paths = [req.path for req in history]
+            assert "/v1/job" in request_paths
+            assert f"/v1/job/{job_id}/attachments" in request_paths
 
             # check that the attachment is where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -195,6 +216,10 @@ class TestClient:
             )
             # mock response to results request
             mocker.get(re.compile(r"/v1/result/"))
+            mocker.get(
+                "http://127.0.0.1:8000/v1/agents/data/test01",
+                json={"restricted_to": {}},
+            )
 
             # request and process the job (should unpack the archive)
             with patch("shutil.rmtree"):
@@ -204,8 +229,9 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+            request_paths = [req.path for req in history]
+            assert "/v1/job" in request_paths
+            assert f"/v1/job/{job_id}/attachments" in request_paths
 
             # check that the attachment is *not* where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -252,6 +278,10 @@ class TestClient:
             )
             # mock response to results request
             mocker.get(re.compile(r"/v1/result/"))
+            mocker.get(
+                "http://127.0.0.1:8000/v1/agents/data/test01",
+                json={"restricted_to": {}},
+            )
 
             # request and process the job (should unpack the archive)
             with patch("shutil.rmtree"):
@@ -261,8 +291,9 @@ class TestClient:
             # - there is a request to the job retrieval endpoint
             # - there a request to the attachment retrieval endpoint
             history = mocker.request_history
-            assert history[0].path == "/v1/job"
-            assert history[2].path == f"/v1/job/{job_id}/attachments"
+            request_paths = [req.path for req in history]
+            assert "/v1/job" in request_paths
+            assert f"/v1/job/{job_id}/attachments" in request_paths
 
             # check that the attachment is *not* where it's supposed to be
             basepath = Path(self.tmpdir) / mock_job_data["job_id"]
@@ -277,7 +308,12 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(mock_job_data)}, {"text": "{}"}]
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"restricted_to": {}},
+        )
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -298,7 +334,12 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(mock_job_data)}, {"text": "{}"}]
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"restricted_to": {}},
+        )
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"), patch("os.unlink"):
@@ -325,7 +366,12 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(mock_job_data)}, {"text": "{}"}]
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"restricted_to": {}},
+        )
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"), patch("os.unlink"):
@@ -348,12 +394,16 @@ class TestClient:
         mock_job_data = {"job_id": str(uuid.uuid1()), "job_queue": "test"}
         # Send an extra empty data since we will be calling get 3 times
         requests_mock.get(
-            rmock.ANY,
+            "http://127.0.0.1:8000/v1/job?queue=test",
             [
                 {"text": json.dumps(mock_job_data)},
                 {"text": "{}"},
                 {"text": "{}"},
             ],
+        )
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"restricted_to": {}},
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch.object(
@@ -405,6 +455,10 @@ class TestClient:
                 "http://127.0.0.1:8000/v1/agents/data/"
                 + self.config.get("agent_id"),
                 text="OK",
+            )
+            m.get(
+                "http://127.0.0.1:8000/v1/agents/data/test001",
+                json={"restricted_to": {}},
             )
 
             agent.process_jobs()
