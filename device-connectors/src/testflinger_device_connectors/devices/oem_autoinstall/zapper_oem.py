@@ -21,8 +21,8 @@ from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
-class ZapperOem(ZapperConnector):
 
+class ZapperOem(ZapperConnector):
     PROVISION_METHOD = "ProvisioningOEM"
 
     def _validate_configuration(
@@ -40,7 +40,9 @@ class ZapperOem(ZapperConnector):
 
         # Validate required fields
         if not provision_data.get("zapper_iso_url"):
-            raise ProvisioningError("zapper_iso_url is required in provision_data")
+            raise ProvisioningError(
+                "zapper_iso_url is required in provision_data"
+            )
 
         if iso_type not in supported_iso_types:
             raise ProvisioningError(
@@ -70,4 +72,3 @@ class ZapperOem(ZapperConnector):
 
     def _post_run_actions(self, args):
         pass
-

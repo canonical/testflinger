@@ -16,8 +16,8 @@
 that support autoinstall and provision-image.sh script.
 """
 
-import logging
 import json
+import logging
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
