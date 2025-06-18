@@ -272,7 +272,8 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the autoinstall configuration includes oem_autoinstall
         user-data file + 'direct' storage layout when 'oem:true'.
         """
-        connector = DeviceConnector()
+        fake_config = {"device_ip": "localhost"}
+        connector = DeviceConnector(fake_config)
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -547,6 +548,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         ssh_path = mock_path.return_value.expanduser.return_value
         ssh_path.read_text.return_value = "mykey"
 
-        connector = DeviceConnector()
+        fake_config = {"device_ip": "localhost"}
+        connector = DeviceConnector(fake_config)
         key = connector._read_ssh_key()
         self.assertEqual(key, "mykey")
