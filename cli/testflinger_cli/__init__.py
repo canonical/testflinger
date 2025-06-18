@@ -325,6 +325,11 @@ class TestflingerCli:
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
         )
+        parser.add_argument(
+            "--yaml",
+            action="store_true",
+            help="Print the job as a YAML document instead of a JSON object",
+        )
 
     def _add_submit_args(self, subparsers):
         """Command line arguments for submit."""
@@ -832,7 +837,13 @@ class TestflingerCli:
                 exc.status,
             )
             sys.exit(1)
-        print(json.dumps(results, sort_keys=True, indent=4))
+        if self.args.yaml:
+            to_print = helpers.pretty_yaml_dump(
+                results, sort_keys=True, indent=4
+            )
+        else:
+            to_print = json.dumps(results, sort_keys=True, indent=4)
+        print(to_print)
 
     def results(self):
         """Get results JSON for a completed JOB_ID."""
