@@ -328,7 +328,7 @@ class TestflingerCli:
         parser.add_argument(
             "--yaml",
             action="store_true",
-            help="Print the job as a YAML document instead of a json object",
+            help="Print the job as a YAML document instead of a JSON object",
         )
 
     def _add_submit_args(self, subparsers):
@@ -838,8 +838,8 @@ class TestflingerCli:
             )
             sys.exit(1)
         if self.args.yaml:
-            to_print = yaml.dump(
-                results, sort_keys=True, indent=4, default_style="|"
+            to_print = helpers.pretty_yaml_dump(
+                results, sort_keys=True, indent=4
             )
         else:
             to_print = json.dumps(results, sort_keys=True, indent=4)

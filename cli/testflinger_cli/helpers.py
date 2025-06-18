@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Canonical Ltd.
 """Helpers for the Testflinger CLI."""
+import yaml
 
 from os import getenv
 from pathlib import Path
@@ -130,3 +131,28 @@ def prompt_for_queue(queues: dict[str, str]) -> str:
             if answer.lower() != "y":
                 queue = ""
     return queue
+
+
+def pretty_yaml_dump(obj, **kwargs) -> str:
+    """Creates a pretty YAML representation of obj
+
+    :param obj: The object to be represented
+    :return: A pretty representation of obj as a YAML string
+    """
+    assert "default_style" not in kwargs, "Style is imposed by the this dumper"
+
+    # objective is to get multiline strings as blocks leaving any other string
+    # unchanged
+    def multiline_str_representer(dumper, data):
+        # see section "Constructors, representers resolvers"
+        # at https://pyyaml.org/wiki/PyYAMLDocumentation
+        # and https://yaml.org/spec/1.2.2/#literal-style
+        if "\n" in data:
+            return dumper.represent_scalar(
+                "tag:yaml.org,2002:str", data, style="|"
+            )
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data)
+
+    # dublicated calls to this are no-op
+    yaml.add_representer(str, multiline_str_representer)
+    return yaml.dump(obj, **kwargs)
