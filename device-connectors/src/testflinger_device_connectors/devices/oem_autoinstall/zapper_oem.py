@@ -22,7 +22,6 @@ from testflinger_device_connectors.devices.zapper import ZapperConnector
 logger = logging.getLogger(__name__)
 
 class ZapperOem(ZapperConnector):
-    """Tool for provisioning baremetal with a given image."""
 
     PROVISION_METHOD = "ProvisioningOEM"
 
@@ -43,7 +42,7 @@ class ZapperOem(ZapperConnector):
         if not provision_data.get("zapper_iso_url"):
             error_msg = "zapper_iso_url is required in provision_data"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise ProvisioningError(error_msg)
 
         if iso_type not in supported_iso_types:
             error_msg = (
@@ -51,12 +50,12 @@ class ZapperOem(ZapperConnector):
                 f"Supported types: {supported_iso_types}"
             )
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise ProvisioningError(error_msg)
 
         if not self.config.get("device_ip"):
             error_msg = "device_ip is missing in config"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise ProvisioningError(error_msg)
 
         # Optional fields
         test_data = self.job_data.get("test_data", {})

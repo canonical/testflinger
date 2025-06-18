@@ -263,19 +263,6 @@ set_usb_boot_first() {
     return $?
 }
 
-set_usb_boot_first_old() {
-    local bootnum
-    bootnum=$($SSH_WITH_PASS "$TARGET_USER@$addr" -- sudo efibootmgr -v | awk '/\/USB\(/ && !/IP/ && !/MAC/ {print $1}' | head -n1 | cut -c5- | tr -d '*')
-
-    if [[ -z "$bootnum" ]]; then
-        echo "No USB boot entry found" >&2
-        return 1
-    fi
-    echo "Setting USB first in boot order by efibootmgr"
-    $SSH_WITH_PASS "$TARGET_USER@$addr" -- sudo efibootmgr -o "$bootnum"
-    return $?
-}
-
 OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config:,iso-dut: -n 'provision-image.sh' -- "$@")"
 eval set -- "${OPTS}"
 while :; do
