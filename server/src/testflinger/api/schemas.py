@@ -66,6 +66,7 @@ class AgentOut(Schema):
     provision_type = fields.String(required=False)
     job_id = fields.String(required=False)
     comment = fields.String(required=False)
+    restricted_to = fields.Dict(required=False)
 
 
 class ActionIn(Schema):

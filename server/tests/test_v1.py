@@ -1165,6 +1165,39 @@ def test_serial_output(mongo_app):
     assert empty_output.text == ""
 
 
+def test_agents_data_restricted_to(mongo_app):
+    """Test restricted_to field in agents data."""
+    app, mongo = mongo_app
+    mongo.restricted_queues.insert_one(
+        {"queue_name": "q1"}
+    )
+
+    mongo.client_permissions.insert_one({
+        "client_id": "test-client-id",
+        "allowed_queues": ["q1"],
+    })
+
+    agent_name = "agent1"
+    agent_data = {
+        "state": "provision",
+        "queues": ["q1", "q2"],
+        "location": "here",
+    }
+
+    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    assert output.status_code == HTTPStatus.OK
+
+    output = app.get("/v1/agents/data")
+    assert output.status_code == HTTPStatus.OK
+
+    result = output.json[0]
+    expected_restricted_to = {
+        "q1": ["test-client-id"],
+        "q2": [],
+    }
+    assert result["restricted_to"] == expected_restricted_to
+
+
 def test_result_post_large_payload(mongo_app):
     """Test that posting a result with a payload size of 16MB or more fails."""
     app, _ = mongo_app
