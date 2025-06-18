@@ -153,6 +153,6 @@ def pretty_yaml_dump(obj, **kwargs) -> str:
             )
         return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 
-    # dublicated calls to this are no-op
+    # duplicated calls to this are no-op
     yaml.add_representer(str, multiline_str_representer)
     return yaml.dump(obj, **kwargs)
