@@ -368,7 +368,7 @@ def queue_exists(queue: str) -> bool:
 def get_restricted_queues():
     """Return a set of all restricted queues."""
     docs = mongo.db.restricted_queues.find({}, {"queue_name": 1})
-    return set(doc["queue_name"] for doc in docs)
+    return {doc["queue_name"] for doc in docs}
 
 
 def get_client_permissions():
