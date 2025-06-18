@@ -222,7 +222,7 @@ Besides the output from the provisioning and testing commands, the returned data
   is 10 MB.
 
 Finally, the ``results`` command can also be used to retrieve relevant information about which agent is processing an specific job. 
-This can be particulary relevant during the ``reserve`` stage as it will provide the ``device_ip`` to use for accesing the device. 
+This can be particularly relevant during the ``reserve`` stage as it will provide the ``device_ip`` to use for accessing the device. 
 
 .. code-block:: shell
 
