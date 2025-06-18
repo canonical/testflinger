@@ -16,6 +16,8 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
+from typing import Optional
 
 from testflinger_agent.errors import TFServerError
 
@@ -119,6 +121,12 @@ class TestflingerJob:
             "Starting testflinger {} phase on {}".format(phase, node)
         ):
             runner.run(f"echo '{line}'")
+
+        # Retrieve device info and send it to /result/<job_id> endpoint
+        device_info = self.get_device_info(rundir)
+        if device_info:
+            self.client.post_result(self.job_id, device_info)
+
         try:
             # Set exit_event to fail for this phase in case of an exception
             exit_event = f"{phase}_fail"
@@ -177,9 +185,7 @@ class TestflingerJob:
         so that the multi-device agent can find the IP addresses of all
         subordinate jobs.
         """
-        device_info_file = os.path.join(rundir, "device-info.json")
-        with open(device_info_file, "r") as f:
-            device_info = json.load(f)
+        device_info = self.get_device_info(rundir)
 
         # The allocated state MUST be reflected on the server or the multi-
         # device job can't continue
@@ -249,6 +255,24 @@ class TestflingerJob:
         yield "*" * (len(line) + 4)
         yield "* {} *".format(line)
         yield "*" * (len(line) + 4)
+
+    def get_device_info(self, rundir: str) -> Optional[dict]:
+        """Read the json dict from "device-info.json" with information
+        about the device associated with an agent.
+
+        :param rundir: String with the directory on where to locate the file
+        :return: Device information from device-info.json
+        """
+        if rundir:
+            device_info_file = Path(rundir) / "device-info.json"
+            try:
+                with device_info_file.open() as f:
+                    device_info = json.load(f)
+                return device_info
+            except FileNotFoundError:
+                return None
+
+        return None
 
 
 def read_truncated(filename: str, size: int) -> str:

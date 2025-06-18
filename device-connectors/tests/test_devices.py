@@ -30,9 +30,10 @@ STAGES_CONNECTORS_PRODUCT = tuple(product(STAGES, DEVICE_CONNECTORS))
 @pytest.mark.parametrize("stage,device", STAGES_CONNECTORS_PRODUCT)
 def test_get_device_stage_func(stage, device):
     """Check that we can load all stages from all device connectors."""
+    fake_config = {"device_ip": "10.10.10.10", "agent_name": "fake_agent"}
     connector_instance = import_module(
         f"testflinger_device_connectors.devices.{device}"
-    ).DeviceConnector()
+    ).DeviceConnector(config=fake_config)
     orig_func = getattr(connector_instance, stage)
-    func = get_device_stage_func(device, stage)
+    func = get_device_stage_func(device, stage, fake_config)
     assert func.__func__ is orig_func.__func__

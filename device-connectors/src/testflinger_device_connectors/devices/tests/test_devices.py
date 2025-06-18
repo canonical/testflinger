@@ -13,6 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for DefaultDevice base device connector."""
 
+import json
 import subprocess
 import unittest
 from unittest.mock import Mock, call, patch
@@ -28,7 +29,8 @@ class DefaultDeviceTests(unittest.TestCase):
         """Test whether the function copies the agent's SSH key
         to the DUT.
         """
-        connector = DefaultDevice()
+        fake_config = {"device_ip": "10.10.10.10", "agent_name": "fake_agent"}
+        connector = DefaultDevice(fake_config)
         connector.copy_ssh_key(
             "192.168.1.2",
             "username",
@@ -47,7 +49,8 @@ class DefaultDeviceTests(unittest.TestCase):
         """Test whether the function copies the provided key
         to the DUT.
         """
-        connector = DefaultDevice()
+        fake_config = {"device_ip": "10.10.10.10", "agent_name": "fake_agent"}
+        connector = DefaultDevice(fake_config)
         connector.copy_ssh_key(
             "192.168.1.2",
             "username",
@@ -68,8 +71,8 @@ class DefaultDeviceTests(unittest.TestCase):
         """Test whether the function raises a RuntimeError
         exception after 3 failed attempts.
         """
-        connector = DefaultDevice()
-        connector = DefaultDevice()
+        fake_config = {"device_ip": "10.10.10.10", "agent_name": "fake_agent"}
+        connector = DefaultDevice(fake_config)
 
         mock_check.side_effect = subprocess.CalledProcessError(1, "")
 
@@ -87,3 +90,16 @@ class DefaultDeviceTests(unittest.TestCase):
         )
         expected = call(cmd.split(), timeout=30)
         mock_check.assert_has_calls(10 * [expected])
+
+    def test_write_device_info(self):
+        """Validate device-info file can be read upon class initialization."""
+        fake_config = {"device_ip": "10.10.10.10", "agent_name": "fake_agent"}
+        DefaultDevice(fake_config)
+
+        with open("device-info.json") as devinfo_file:
+            device_info = json.load(devinfo_file)["device_info"]
+
+        # Compare retrieved data with expected data
+        assert all(
+            device_info[key] == value for key, value in fake_config.items()
+        )

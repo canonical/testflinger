@@ -112,6 +112,6 @@ def main():
     configure_logging(config)
 
     func = add_exception_logging_to_file(
-        get_device_stage_func(args.device, args.stage), args.stage
+        get_device_stage_func(args.device, args.stage, config), args.stage
     )
     sys.exit(func(args))
