@@ -566,6 +566,18 @@ def test_show(capsys, requests_mock):
     assert "completed" in std.out
 
 
+def test_show_yaml(capsys, requests_mock):
+    """Exercise show command."""
+    jobid = str(uuid.uuid1())
+    fake_return = {"job_state": "completed"}
+    requests_mock.get(URL + "/v1/job/" + jobid, json=fake_return)
+    sys.argv = ["", "show", jobid, "--yaml"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.show()
+    std = capsys.readouterr()
+    assert "completed" in std.out
+
+
 def test_results(capsys, requests_mock):
     """Results should report job_state data."""
     jobid = str(uuid.uuid1())
