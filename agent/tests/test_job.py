@@ -255,3 +255,28 @@ class TestJob:
             post_mock.last_request.json()[key] == value
             for key, value in fake_device.items()
         )
+
+    @pytest.mark.parametrize(
+        "phase",
+        ["setup", "provision", "test", "reserve"],
+    )
+    def test_phase_results_file(self, client, phase, tmp_path, requests_mock):
+        """Validate that each phase return the expected outcome."""
+        self.config[f"{phase}_command"] = "/bin/true"
+        fake_job_data = {"global_timeout": 1, f"{phase}_data": {"foo": "foo"}}
+        outcome_file_path = tmp_path / "testflinger-outcome.json"
+
+        # create the outcome file since we bypassed that
+        with outcome_file_path.open("w") as outcome_file:
+            outcome_file.write("{}")
+
+        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.get(rmock.ANY, status_code=200)
+        job = _TestflingerJob(fake_job_data, client)
+        job.run_test_phase(phase, tmp_path)
+
+        with outcome_file_path.open() as outcome_file:
+            outcome_data = json.load(outcome_file)
+
+        print(outcome_data)
+        assert outcome_data.get(f"{phase}_status") == 0

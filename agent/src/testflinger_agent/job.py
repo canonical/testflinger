@@ -266,7 +266,7 @@ class TestflingerJob:
         if rundir:
             device_info_file = Path(rundir) / "device-info.json"
             try:
-                with open(device_info_file, "r") as f:
+                with device_info_file.open() as f:
                     device_info = json.load(f)
                 return device_info
             except FileNotFoundError:

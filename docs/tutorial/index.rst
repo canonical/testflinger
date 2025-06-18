@@ -214,10 +214,29 @@ In some cases, you might want to check the device output to know how each job ph
 
 Besides the output from the provisioning and testing commands, the returned data also includes an exit code of each phase and output from the Testflinger agent. This information is very useful for troubleshooting testing issues.
 
-Note: Testflinger agents truncate the `*_output` fields when submitting job results to the server,
-keeping only the last section of the output log if it exceeds a certain threshold. This threshold
-can be set through the `output_bytes` field of the agent configuration file and its default value
-is 10 MB.
+.. note::
+
+  Testflinger agents truncate the `*_output` fields when submitting job results to the server,
+  keeping only the last section of the output log if it exceeds a certain threshold. This threshold
+  can be set through the `output_bytes` field of the agent configuration file and its default value
+  is 10 MB.
+
+Finally, the ``results`` command can also be used to retrieve relevant information about which agent is processing an specific job. 
+This can be particulary relevant during the ``reserve`` stage as it will provide the ``device_ip`` to use for accesing the device. 
+
+.. code-block:: shell
+
+  $ testflinger-cli results 2bac1457-0000-0000-0000-15f23f69fd39
+
+  {
+      "device_info": {
+          "agent_name": "agent1",
+          "device_ip": "10.10.10.10"
+      },
+      "job_state": "reserve"
+  }
+
+
 
 ---------
 

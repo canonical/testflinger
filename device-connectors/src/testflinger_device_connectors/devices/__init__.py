@@ -248,10 +248,9 @@ class DefaultDevice:
         logger.info("END testrun")
         return exitcode
 
-    def allocate(self, args):
+    def allocate(self):
         """Allocate devices for multi-agent jobs (default method)."""
-        # Write device information to device-info.json
-        self.write_device_info()
+        pass
 
     def import_ssh_key(self, key: str, keyfile: str = "key.pub") -> None:
         """Import SSH key provided in Reserve data.
