@@ -40,22 +40,16 @@ class ZapperOem(ZapperConnector):
 
         # Validate required fields
         if not provision_data.get("zapper_iso_url"):
-            error_msg = "zapper_iso_url is required in provision_data"
-            logger.error(error_msg)
-            raise ProvisioningError(error_msg)
+            raise ProvisioningError("zapper_iso_url is required in provision_data")
 
         if iso_type not in supported_iso_types:
-            error_msg = (
+            raise ProvisioningError(
                 f"Unsupported ISO type: {iso_type}. "
                 f"Supported types: {supported_iso_types}"
             )
-            logger.error(error_msg)
-            raise ProvisioningError(error_msg)
 
         if not self.config.get("device_ip"):
-            error_msg = "device_ip is missing in config"
-            logger.error(error_msg)
-            raise ProvisioningError(error_msg)
+            raise ProvisioningError("device_ip is missing in config")
 
         # Optional fields
         test_data = self.job_data.get("test_data", {})
