@@ -1168,14 +1168,14 @@ def test_serial_output(mongo_app):
 def test_agents_data_restricted_to(mongo_app):
     """Test restricted_to field in agents data."""
     app, mongo = mongo_app
-    mongo.restricted_queues.insert_one(
-        {"queue_name": "q1"}
-    )
+    mongo.restricted_queues.insert_one({"queue_name": "q1"})
 
-    mongo.client_permissions.insert_one({
-        "client_id": "test-client-id",
-        "allowed_queues": ["q1"],
-    })
+    mongo.client_permissions.insert_one(
+        {
+            "client_id": "test-client-id",
+            "allowed_queues": ["q1"],
+        }
+    )
 
     agent_name = "agent1"
     agent_data = {

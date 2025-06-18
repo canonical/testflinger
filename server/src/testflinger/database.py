@@ -364,14 +364,18 @@ def queue_exists(queue: str) -> bool:
     """
     return mongo.db.agents.find_one({"queues": queue}) is not None
 
+
 def get_restricted_queues():
     """Return a set of all restricted queues."""
     docs = mongo.db.restricted_queues.find({}, {"queue_name": 1})
     return set(doc["queue_name"] for doc in docs)
 
+
 def get_client_permissions():
     """Return a mapping of restricted queues and its permitted client IDs."""
-    docs = mongo.db.client_permissions.find({}, {"allowed_queues": 1, "client_id": 1})
+    docs = mongo.db.client_permissions.find(
+        {}, {"allowed_queues": 1, "client_id": 1}
+    )
     queue_to_clients = {}
     for doc in docs:
         client_id = doc["client_id"]
