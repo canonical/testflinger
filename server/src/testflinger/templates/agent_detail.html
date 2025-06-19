@@ -32,6 +32,9 @@
     {% for queue in agent.queues %}
       <li>
         <a href="{{ url_for('testflinger.queue_detail', queue_name=queue) }}">{{ queue }}</a>
+        {% if agent.restricted_to[queue]|default([]) %}
+          <small>(restricted to: {{ agent.restricted_to[queue]|join(", ") }})</small>
+        {% endif %}
       </li>
     {% endfor %}
   </ul>
