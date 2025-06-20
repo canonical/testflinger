@@ -868,3 +868,84 @@ def test_authentication_error(tmp_path, requests_mock, monkeypatch):
     with pytest.raises(SystemExit) as err:
         testflinger_cli.TestflingerCli()
     assert "Authentication with Testflinger server failed" in str(err.value)
+@pytest.mark.parametrize("state", ["offline", "maintenance"])
+def test_set_agent_status_online(capsys, requests_mock, state):
+    """Validate we are able to change agent status to online."""
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": "fake_agent",
+        "queues": ["fake"],
+        "state": state,
+    }
+    fake_send_agent_data = [{"state": "waiting", "comment": ""}]
+
+    sys.argv = [
+        "",
+        "admin",
+        "set",
+        "agent-status",
+        "--status",
+        "online",
+        fake_agent,
+    ]
+    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    requests_mock.post(
+        URL + "/v1/agents/data/" + fake_agent, json=fake_send_agent_data
+    )
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.admin_cli.set_agent_status()
+    std = capsys.readouterr()
+    assert "Agent fake_agent status is now: waiting" in std.out
+
+
+@pytest.mark.parametrize(
+    "state", ["setup", "provision", "test", "allocate", "reserve"]
+)
+def test_set_incorrect_agent_status(capsys, requests_mock, state):
+    """Validate we can't modify the agent status if at any testing stage."""
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": "fake_agent",
+        "queues": ["fake"],
+        "state": state,
+    }
+    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    sys.argv = [
+        "",
+        "admin",
+        "set",
+        "agent-status",
+        "--status",
+        "maintenance",
+        fake_agent,
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.admin_cli.set_agent_status()
+    std = capsys.readouterr()
+    assert f"Could not modify {fake_agent} in its current state" in std.out
+
+
+def test_set_offline_without_comments(requests_mock):
+    """Validate status can't change to offline without comments."""
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": "fake_agent",
+        "queues": ["fake"],
+        "state": "waiting",
+    }
+    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    sys.argv = [
+        "",
+        "admin",
+        "set",
+        "agent-status",
+        "--status",
+        "offline",
+        fake_agent,
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as excinfo:
+        tfcli.admin_cli.set_agent_status()
+    assert "Comment is required when setting agent status to offline" in str(
+        excinfo.value
+    )
