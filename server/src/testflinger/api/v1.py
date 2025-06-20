@@ -640,16 +640,13 @@ def images_post():
 @v1.output(schemas.AgentOut(many=True))
 def agents_get_all():
     """Get all agent data."""
-    agents = list(
-        database.mongo.db.agents.find({}, {"_id": False, "log": False})
-    )
-
+    agents = database.get_agents()
     restricted_queues = database.get_restricted_queues()
-    client_permissions = database.get_client_permissions()
+    restricted_queues_owners = database.get_restricted_queues_owners()
 
     for agent in agents:
         agent["restricted_to"] = {
-            queue: client_permissions.get(queue, [])
+            queue: restricted_queues_owners.get(queue, [])
             if queue in restricted_queues
             else []
             for queue in agent.get("queues", [])
