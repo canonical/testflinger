@@ -21,6 +21,7 @@ import json
 import logging
 import sys
 import urllib.parse
+from http import HTTPStatus
 from pathlib import Path
 
 import requests
@@ -328,3 +329,20 @@ class Client:
         endpoint = f"/v1/queues/{queue}/jobs"
         data = self.get(endpoint)
         return json.loads(data)
+
+    def set_agent_status(self, agent: str, status: str, comment: str) -> None:
+        """Modify the status of an agent based on user request.
+
+        :param agent: Name of the agent
+        :param status: Status to send to the agent
+        :param comment: Reason for changing the status
+        """
+        endpoint = f"/v1/agents/data/{agent}"
+        data = {"state": status, "comment": comment}
+        current_status = self.get_agent_data(agent)["state"]
+        allowed_status = ["waiting", "offline", "maintenance"]
+        if current_status in allowed_status:
+            self.put(endpoint, data)
+        else:
+            # Avoid modifications on any other agent status
+            raise HTTPError(HTTPStatus.CONFLICT)
