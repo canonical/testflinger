@@ -97,7 +97,7 @@ class TestflingerAdminCLI:
             and not self.main_cli.args.comment
         ):
             sys.exit(
-                "Commment is required when setting agent status to offline."
+                "Comment is required when setting agent status to offline."
             )
 
         for agent in agents:
