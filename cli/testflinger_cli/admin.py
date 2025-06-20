@@ -1,0 +1,128 @@
+# Copyright (C) 2020-2022 Canonical
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+"""Testflinger Admin CLI module."""
+
+import sys
+from http import HTTPStatus
+
+from testflinger_cli import client
+from testflinger_cli.errors import UnknownStatusError
+
+
+class TestflingerAdminCLI:
+    """Class for handling all admin CLI commands."""
+
+    def __init__(self, subparsers, main_cli):
+        self.main_cli = main_cli
+
+        parser = subparsers.add_parser(
+            "admin",
+            help="Admin commands. Requires authentication",
+        )
+        admin_subparser = parser.add_subparsers(
+            dest="admin_command", required=True
+        )
+        self._add_set_args(admin_subparser)
+
+    def _add_set_args(self, subparsers):
+        """Command line arguments for set action."""
+        parser = subparsers.add_parser(
+            "set", help="Perform set action on subcommand"
+        )
+        set_subparser = parser.add_subparsers(
+            dest="set_command", required=True
+        )
+        self._add_set_agent_status_args(set_subparser)
+
+    def _add_set_agent_status_args(self, subparsers):
+        """Command line arguments for agent status."""
+        parser = subparsers.add_parser(
+            "agent-status", help="Modify agent status"
+        )
+        parser.set_defaults(func=self.set_agent_status)
+        parser.add_argument(
+            "--status",
+            required=True,
+            choices=["online", "offline", "maintenance"],
+            help="Status to set for the agent(s)",
+        )
+        parser.add_argument(
+            "agent_list",
+            nargs="+",
+            help="List of agents to modify their status",
+        )
+        parser.add_argument(
+            "--comment",
+            help="Reason for modifying status. "
+            "Required when changing status to offline.",
+        )
+
+    def set_agent_status(self):
+        """Modify agent status."""
+        agents = self.main_cli.args.agent_list
+
+        # Override online for valid state in server
+        status_override = {"online": "waiting"}
+        status = status_override.get(
+            self.main_cli.args.status, self.main_cli.args.status
+        )
+        client_id = "Rene"
+
+        # Creating dictonary to define formmated comments
+        comment_dict = {
+            "waiting": lambda _, __: "",
+            "offline": lambda user,
+            comment: f"Set to offline by {user}. Reason: {comment}",
+            "maintenance": lambda user,
+            _: f"Set to offline by {user} for lab related task.",
+        }
+
+        # Exiting if no comment specified when changing agent status to offline
+        if (
+            self.main_cli.args.status == "offline"
+            and not self.main_cli.args.comment
+        ):
+            sys.exit(
+                "Commment is required when setting agent status to offline."
+            )
+
+        for agent in agents:
+            comment = comment_dict[status](
+                client_id, self.main_cli.args.comment
+            )
+            try:
+                try:
+                    self.main_cli.client.set_agent_status(
+                        agent, status, comment
+                    )
+                    print(f"Agent {agent} status is now: {status}")
+                except client.HTTPError as exc:
+                    if exc.status == HTTPStatus.NOT_FOUND:
+                        print(f"Agent {agent} does not exist.")
+                    elif exc.status == HTTPStatus.CONFLICT:
+                        print(f"Could not modify {agent} in its current state")
+                    elif exc.status == HTTPStatus.FORBIDDEN:
+                        sys.exit(
+                            "Unauthorized. "
+                            "Confirm cliend_id/secret_key pair are correct "
+                            "or you are connected to the rigth network"
+                        )
+                    else:
+                        # For any other HTTP error
+                        raise UnknownStatusError("agent") from exc
+            except UnknownStatusError as exc:
+                print(exc)
