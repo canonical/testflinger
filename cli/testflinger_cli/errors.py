@@ -27,3 +27,26 @@ class UnknownStatusError(Exception):
             f"Unable to retrieve {endpoint} status from the server, check "
             "your connection or try again later."
         )
+
+
+class AuthenticationError(Exception):
+    """Exception thrown when unable to authenticate with the server."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Authentication with Testflinger server failed. "
+            "Check your client id and secret key"
+        )
+
+
+class AuthorizationError(Exception):
+    """Exception thrown when unable to get correct authorization
+    for sending request to the server.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Authorization error received from server."
+            "Make sure you are connected to the right network or "
+            "contact Testflinger admin for more information"
+        )

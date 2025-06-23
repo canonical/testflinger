@@ -17,14 +17,13 @@
 """Testflinger CLI Auth module."""
 
 import logging
-import os
-import sys
 from http import HTTPStatus
 from typing import Optional
 
 import jwt
 
 from testflinger_cli import client
+from testflinger_cli.errors import AuthenticationError, AuthorizationError
 
 logger = logging.getLogger(__name__)
 
@@ -32,18 +31,20 @@ logger = logging.getLogger(__name__)
 class TestflingerCliAuth:
     """Class to handle authentication and authorisation for Testflinger CLI."""
 
-    def __init__(self, client_id: str, secret_key: str, server):
+    def __init__(self, client_id: str, secret_key: str, tf_client):
         self.client_id = client_id
         self.secret_key = secret_key
-        self.client = client.Client(server, error_threshold=3)
+        self.client = tf_client
         self._jwt_token = None
-        self._authenticate_with_server()
 
     def is_authenticated(self) -> bool:
         """Validate if user is currently authenticated.
 
         :return: Status for user authentication.
         """
+        if self.client_id and self.secret_key:
+            self._authenticate_with_server()
+
         return self._jwt_token is not None
 
     def _authenticate_with_server(self) -> None:
@@ -51,24 +52,15 @@ class TestflingerCliAuth:
         Authenticate client id and secret key with server
         and store JWT with permissions.
         """
-        if self.client_id is None or self.secret_key is None:
-            return None
-
         try:
             self._jwt_token = self.client.authenticate(
                 self.client_id, self.secret_key
             )
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.UNAUTHORIZED:
-                sys.exit(
-                    "Authentication with Testflinger server failed. "
-                    "Check your client id and secret key"
-                )
+                raise AuthenticationError from exc
             elif exc.status == HTTPStatus.FORBIDDEN:
-                sys.exit(
-                    "Received 403 error from server."
-                    "Confirm you are connected to the right network."
-                )
+                raise AuthorizationError from exc
 
     def build_auth_headers(self) -> Optional[dict]:
         """Create an authorization header based on stored JWT.
@@ -78,24 +70,17 @@ class TestflingerCliAuth:
         return {"Authorization": self._jwt_token} if self._jwt_token else None
 
     def decode_jwt_token(self) -> Optional[dict]:
-        """Decode authorization token using the secret key.
+        """Decode JWT token without verifying signature.
+        This is not for security but for quick screening,
+        server will still enforce the JWT token validation.
 
         :return: Dict with the decoded JWT
         """
-        secret_key = os.environ.get("JWT_SIGNING_KEY")
-        if self.jwt_token and secret_key:
-            try:
-                decoded_jwt = jwt.decode(
-                    self.jwt_token,
-                    secret_key,
-                    algorithms="HS256",
-                    options={"require": ["exp", "iat", "sub"]},
-                )
-                return decoded_jwt
-            except jwt.exceptions.ExpiredSignatureError:
-                logger.warning("Token has expired")
-            except jwt.exceptions.InvalidTokenError:
-                logger.warning("Invalid Token Provided")
+        if self._jwt_token:
+            decoded_jwt = jwt.decode(
+                self._jwt_token, options={"verify_signature": False}
+            )
+            return decoded_jwt
         return None
 
     def get_user_role(self) -> str:
