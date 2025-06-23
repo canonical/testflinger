@@ -36,15 +36,13 @@ class TestflingerCliAuth:
         self.secret_key = secret_key
         self.client = tf_client
         self._jwt_token = None
+        self._authenticate_with_server()
 
     def is_authenticated(self) -> bool:
         """Validate if user is currently authenticated.
 
         :return: Status for user authentication.
         """
-        if self.client_id and self.secret_key:
-            self._authenticate_with_server()
-
         return self._jwt_token is not None
 
     def _authenticate_with_server(self) -> None:
@@ -52,6 +50,9 @@ class TestflingerCliAuth:
         Authenticate client id and secret key with server
         and store JWT with permissions.
         """
+        if self.client_id is None or self.secret_key is None:
+            return None
+
         try:
             self._jwt_token = self.client.authenticate(
                 self.client_id, self.secret_key
@@ -62,7 +63,7 @@ class TestflingerCliAuth:
             elif exc.status == HTTPStatus.FORBIDDEN:
                 raise AuthorizationError from exc
 
-    def build_auth_headers(self) -> Optional[dict]:
+    def build_headers(self) -> Optional[dict]:
         """Create an authorization header based on stored JWT.
 
         :return: Dict with JWT as the Authorization header if exist.
