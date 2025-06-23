@@ -186,7 +186,7 @@ class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
 
     url = fields.URL(required=True)
     robot_tasks = fields.List(fields.String(), required=True)
-    autoinstall_storage_layout = fields.String(required=True)
+    autoinstall_storage_layout = fields.String(required=False)
     ubuntu_sso_email = fields.Email(required=False)
     autoinstall_base_user_data = fields.String(required=False)
     autoinstall_oem = fields.Boolean(required=False)

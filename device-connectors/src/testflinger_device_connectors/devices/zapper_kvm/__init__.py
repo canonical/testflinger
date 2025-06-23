@@ -77,7 +77,7 @@ class DeviceConnector(ZapperConnector):
                 Path(__file__).parent / "../../data/zapper_kvm/user-data-oem"
             )
             user_data = user_data_oem.read_text(encoding="utf-8")
-            encoded_user_data = base64.b64encode(user_data.encode())
+            encoded_user_data = base64.b64encode(user_data.encode()).decode()
 
             user_data = yaml.safe_load(user_data)
             storage = user_data["autoinstall"]["storage"]["layout"]["name"]
