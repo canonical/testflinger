@@ -84,11 +84,14 @@ class TestflingerCliAuth:
     def get_user_role(self) -> str:
         """Retrieve the role for the user from the decoded jwt.
 
-        :return: String with the role, defaults to 'user'
+        :return: String with the role, defaults to 'user' if not authenticated.
         """
         decoded_token = self.decode_jwt_token()
         if not decoded_token:
             return "user"
 
         permissions = decoded_token.get("permissions", {})
-        return permissions.get("role", "user")
+
+        # If there is a decoded token, the user was authenticated
+        # Default role for legacy client_id's is contributor
+        return permissions.get("role", "contributor")
