@@ -22,6 +22,7 @@ jobs:
   agent-build-and-push-charm:
     runs-on: [self-hosted, linux, jammy, X64]
     permissions:
+      actions: read
       contents: read
       packages: write
 
