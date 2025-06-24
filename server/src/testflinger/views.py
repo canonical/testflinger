@@ -80,7 +80,7 @@ def agent_detail(agent_id):
         return response
 
     restricted_queues = database.get_restricted_queues()
-    client_permissions = database.get_client_permissions()
+    client_permissions = database.get_restricted_queues_owners()
 
     agent_info["restricted_to"] = {
         queue: client_permissions.get(queue, [])
