@@ -676,8 +676,7 @@ def agents_get_one(agent_name):
     agent_data["restricted_to"] = {
         queue: restricted_queues_owners[queue]
         for queue in agent_data.get("queues", [])
-        if queue in restricted_queues
-        and restricted_queues_owners.get(queue)
+        if queue in restricted_queues and restricted_queues_owners.get(queue)
     }
 
     return jsonify(agent_data)
