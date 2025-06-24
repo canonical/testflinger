@@ -16,7 +16,6 @@
 
 """Testflinger CLI Auth module."""
 
-import logging
 from http import HTTPStatus
 from typing import Optional
 
@@ -24,8 +23,6 @@ import jwt
 
 from testflinger_cli import client
 from testflinger_cli.errors import AuthenticationError, AuthorizationError
-
-logger = logging.getLogger(__name__)
 
 
 class TestflingerCliAuth:
