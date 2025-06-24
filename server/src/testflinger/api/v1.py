@@ -646,10 +646,10 @@ def agents_get_all():
 
     for agent in agents:
         agent["restricted_to"] = {
-            queue: restricted_queues_owners.get(queue, [])
-            if queue in restricted_queues
-            else []
+            queue: restricted_queues_owners[queue]
             for queue in agent.get("queues", [])
+            if queue in restricted_queues
+            and restricted_queues_owners.get(queue)
         }
 
     return jsonify(agents)

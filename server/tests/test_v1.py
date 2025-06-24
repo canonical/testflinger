@@ -1193,7 +1193,6 @@ def test_agents_data_restricted_to(mongo_app):
     result = output.json[0]
     expected_restricted_to = {
         "q1": ["test-client-id"],
-        "q2": [],
     }
     assert result["restricted_to"] == expected_restricted_to
 
