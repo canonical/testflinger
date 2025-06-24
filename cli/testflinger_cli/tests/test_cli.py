@@ -486,7 +486,7 @@ def test_submit_attachments_timeout(tmp_path):
         assert history[4].path == f"/v1/job/{job_id}/action"
 
 
-def test_submit_with_priority(tmp_path, requests_mock):
+def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):
     """Tests authorization of jobs submitted with priority."""
     job_id = str(uuid.uuid1())
     job_data = {
@@ -496,13 +496,14 @@ def test_submit_with_priority(tmp_path, requests_mock):
     job_file = tmp_path / "test.json"
     job_file.write_text(json.dumps(job_data))
 
-    sys.argv = ["", "submit", str(job_file)]
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.client_id = "my_client_id"
-    tfcli.secret_key = "my_secret_key"
-
+    # Define variables for authentication
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
     fake_jwt = "my_jwt"
     requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt)
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
     mock_response = {"job_id": job_id}
     requests_mock.post(f"{URL}/v1/job", json=mock_response)
     requests_mock.get(
@@ -517,7 +518,7 @@ def test_submit_with_priority(tmp_path, requests_mock):
     assert history[2].headers.get("Authorization") == fake_jwt
 
 
-def test_submit_token_timeout_retry(tmp_path, requests_mock):
+def test_submit_token_timeout_retry(tmp_path, requests_mock, monkeypatch):
     """Tests job submission retries 3 times when token has expired."""
     job_data = {
         "job_queue": "fake",
@@ -526,13 +527,14 @@ def test_submit_token_timeout_retry(tmp_path, requests_mock):
     job_file = tmp_path / "test.json"
     job_file.write_text(json.dumps(job_data))
 
-    sys.argv = ["", "submit", str(job_file)]
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.client_id = "my_client_id"
-    tfcli.secret_key = "my_secret_key"
-
+    # Define variables for authentication
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
     fake_jwt = "my_jwt"
     requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt)
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
     requests_mock.post(
         f"{URL}/v1/job", text="Token has expired", status_code=401
     )
