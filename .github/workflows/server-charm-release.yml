@@ -26,7 +26,7 @@ jobs:
     runs-on: [self-hosted, linux, jammy, X64]
     permissions:
       actions: read
-      contents: read
+      contents: write
       packages: write
 
     env:
