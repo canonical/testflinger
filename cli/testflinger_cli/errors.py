@@ -46,7 +46,7 @@ class AuthorizationError(Exception):
 
     def __init__(self) -> None:
         super().__init__(
-            "Authorization error received from server."
+            "Authorization error received from server. \n"
             "Make sure you are connected to the right network or "
             "contact Testflinger admin for more information"
         )

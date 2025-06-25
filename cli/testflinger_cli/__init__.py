@@ -713,6 +713,7 @@ class TestflingerCli:
                     if "expired" in exc.msg:
                         if retry_count < 2:
                             retry_count += 1
+                            self.auth.refresh_authentication()
                         else:
                             sys.exit(
                                 "Received 401 error from server due to "

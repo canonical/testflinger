@@ -513,7 +513,7 @@ def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):
     tfcli.submit()
     history = requests_mock.request_history
     assert len(history) == 3
-    assert history[1].path == "/v1/oauth2/token"
+    assert history[0].path == "/v1/oauth2/token"
     assert history[2].path == "/v1/job"
     assert history[2].headers.get("Authorization") == fake_jwt
 
@@ -548,7 +548,7 @@ def test_submit_token_timeout_retry(tmp_path, requests_mock, monkeypatch):
 
     history = requests_mock.request_history
     assert len(history) == 7
-    assert history[1].path == "/v1/oauth2/token"
+    assert history[0].path == "/v1/oauth2/token"
     assert history[2].path == "/v1/job"
     assert history[3].path == "/v1/oauth2/token"
     assert history[4].path == "/v1/job"
