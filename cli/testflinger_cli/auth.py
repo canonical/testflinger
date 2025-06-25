@@ -33,15 +33,13 @@ class TestflingerCliAuth:
         self.secret_key = secret_key
         self.client = tf_client
         self._jwt_token = None
+        self._authenticate_with_server()
 
     def is_authenticated(self) -> bool:
         """Validate if user is currently authenticated.
 
         :return: Status for user authentication.
         """
-        if self._jwt_token is None:
-            self._authenticate_with_server()
-
         return self._jwt_token is not None
 
     def _authenticate_with_server(self) -> None:
@@ -67,7 +65,6 @@ class TestflingerCliAuth:
 
         :return: Dict with JWT as the Authorization header if exist.
         """
-        self._authenticate_with_server()
         return {"Authorization": self._jwt_token} if self._jwt_token else None
 
     def decode_jwt_token(self) -> Optional[dict]:
@@ -83,6 +80,10 @@ class TestflingerCliAuth:
             )
             return decoded_jwt
         return None
+
+    def refresh_authentication(self) -> None:
+        """Attempt to refresh token in case its already expired."""
+        self._authenticate_with_server()
 
     def get_user_role(self) -> str:
         """Retrieve the role for the user from the decoded jwt.
