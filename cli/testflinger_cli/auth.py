@@ -16,6 +16,7 @@
 
 """Testflinger CLI Auth module."""
 
+import contextlib
 from http import HTTPStatus
 from typing import Optional
 
@@ -83,7 +84,8 @@ class TestflingerCliAuth:
 
     def refresh_authentication(self) -> None:
         """Attempt to refresh token in case its already expired."""
-        self._authenticate_with_server()
+        with contextlib.suppress(AuthenticationError):
+            self._authenticate_with_server()
 
     def get_user_role(self) -> str:
         """Retrieve the role for the user from the decoded jwt.
@@ -95,7 +97,6 @@ class TestflingerCliAuth:
             return "user"
 
         permissions = decoded_token.get("permissions", {})
-
         # If there is a decoded token, the user was authenticated
-        # Default role for legacy client_id's is contributor
+        # Default role for legacy client_ids is contributor
         return permissions.get("role", "contributor")
