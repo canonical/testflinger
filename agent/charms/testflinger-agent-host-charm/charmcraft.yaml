@@ -39,6 +39,8 @@ charm-libs:
     version: "0"
   - lib: operator_libs_linux.systemd
     version: "1"
+  - lib: prometheus_k8s.prometheus_scrape
+    version: "0"
 
 actions:
   update-configs:
@@ -84,3 +86,7 @@ config:
 parts:
   charm:
     plugin: charm
+
+provides:
+    metrics-endpoint:
+        interface: prometheus_scrape

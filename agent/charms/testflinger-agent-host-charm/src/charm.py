@@ -30,6 +30,7 @@ from ops.model import (
 )
 
 from charms.operator_libs_linux.v0 import apt
+from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ class TestflingerAgentHostCharm(CharmBase):
             self.on.update_testflinger_action,
             self.on_update_testflinger_action,
         )
+        self.metrics_endpoint = MetricsEndpointProvider(self)
 
     def on_install(self, _):
         """Install hook."""
@@ -171,17 +173,32 @@ class TestflingerAgentHostCharm(CharmBase):
             "templates/testflinger-agent.supervisord.conf.j2", "r"
         ) as service_template:
             template = Template(service_template.read())
+
+        metric_endpoint_port = 8000
+        prometheus_jobs = []
         for agent_dir in agent_dirs:
             agent_config_path = agent_dir
+            agent_name = agent_dir.name
             rendered = template.render(
-                agent_name=agent_dir.name,
+                agent_name=agent_name,
                 agent_config_path=agent_config_path,
                 virtual_env_path=VIRTUAL_ENV_PATH,
+                metric_endpoint_port=metric_endpoint_port,
             )
+            prometheus_jobs.append(
+                {
+                    "job_name": agent_name,
+                    "static_configs": [
+                        {"targets": [f"*:{metric_endpoint_port}"]}
+                    ],
+                }
+            )
+            metric_endpoint_port += 1
             with open(
-                f"/etc/supervisor/conf.d/{agent_dir.name}.conf", "w"
+                f"/etc/supervisor/conf.d/{agent_name}.conf", "w"
             ) as agent_file:
                 agent_file.write(rendered)
+        self.metrics_endpoint.update_scrape_job_spec(prometheus_jobs)
 
     def supervisor_update(self):
         """

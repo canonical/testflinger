@@ -118,7 +118,7 @@ async def test_supervisord_files_written(ops_test: OpsTest):
         'environment=USER="ubuntu",HOME="/home/ubuntu",'
         "PYTHONIOENCODING=utf-8\n"
         "user=ubuntu\n"
-        "command=/srv/testflinger-venv/bin/testflinger-agent -c "
+        "command=/srv/testflinger-venv/bin/testflinger-agent -c -p 8000"
         "/srv/agent-configs/agent/charms/testflinger-agent-host-charm/tests/"
         "integration/data/test01/agent001/testflinger-agent.conf\n"
     )
