@@ -703,8 +703,8 @@ class TestflingerCli:
 
                 if exc.status == 403:
                     sys.exit(
-                        "Received 403 error from server with reason "
-                        f"{exc.msg}"
+                        "Received 403 error from server with reason: "
+                        f"{exc.msg}\n"
                         "The specified client credentials do not have "
                         "sufficient permissions for the resource(s) "
                         "you are trying to access."
@@ -721,10 +721,11 @@ class TestflingerCli:
                             )
                     else:
                         sys.exit(
-                            "Received 401 error from server with reason "
-                            f"{exc.msg} You are attempting to use a feature "
+                            "Received 401 error from server with reason: "
+                            f"{exc.msg}\n"
+                            "You are attempting to use a feature "
                             "that requires client authorisation "
-                            "without using client credentials. "
+                            "without using client credentials. \n"
                             "See https://testflinger.readthedocs.io/en/latest"
                             "/how-to/authentication.html for more details"
                         )
