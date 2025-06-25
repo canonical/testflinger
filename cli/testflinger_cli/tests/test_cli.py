@@ -26,6 +26,7 @@ import uuid
 from http import HTTPStatus
 from pathlib import Path
 
+import jwt
 import pytest
 import requests
 from requests_mock import Mocker
@@ -743,3 +744,81 @@ def test_queue_status(capsys, requests_mock):
     assert "Busy:            1" in std.out
     assert "Offline:         1" in std.out
     assert "Jobs waiting:    1" in std.out
+
+
+def test_retrieve_regular_user_role(tmp_path, requests_mock):
+    """Test that we get a regular user if no auth is made."""
+    job_data = {
+        "job_queue": "fake",
+        "job_priority": 100,
+    }
+    job_file = tmp_path / "test.json"
+    job_file.write_text(json.dumps(job_data))
+
+    requests_mock.post(f"{URL}/v1/oauth2/token")
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    role = tfcli.auth.get_user_role()
+
+    assert tfcli.auth.is_authenticated() is False
+    assert role == "user"
+
+
+def test_user_authenticated_with_role(tmp_path, requests_mock, monkeypatch):
+    """Test user is able to authenticate and there is role defined."""
+    job_data = {
+        "job_queue": "fake",
+        "job_priority": 100,
+    }
+    job_file = tmp_path / "test.json"
+    job_file.write_text(json.dumps(job_data))
+
+    # Define variables for authentication
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
+
+    expected_role = "admin"
+    fake_payload = {
+        "permissions": {"client_id": "my_client_id", "role": expected_role}
+    }
+    fake_jwt_signing_key = "my-secret"
+    fake_jwt_token = jwt.encode(
+        fake_payload, fake_jwt_signing_key, algorithm="HS256"
+    )
+    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    role = tfcli.auth.get_user_role()
+
+    assert tfcli.auth.is_authenticated() is True
+    assert role == expected_role
+
+
+def test_default_auth_user_role(tmp_path, requests_mock, monkeypatch):
+    """Test we are able to get default user for legacy users."""
+    job_data = {
+        "job_queue": "fake",
+        "job_priority": 100,
+    }
+    job_file = tmp_path / "test.json"
+    job_file.write_text(json.dumps(job_data))
+
+    # Define variables for authentication
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
+
+    expected_role = "contributor"
+    fake_payload = {"permissions": {"client_id": "my_client_id"}}
+    fake_jwt_signing_key = "my-secret"
+    fake_jwt_token = jwt.encode(
+        fake_payload, fake_jwt_signing_key, algorithm="HS256"
+    )
+    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    role = tfcli.auth.get_user_role()
+
+    assert tfcli.auth.is_authenticated() is True
+    assert role == expected_role

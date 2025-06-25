@@ -75,12 +75,16 @@ class TestflingerCliAuth:
 
         :return: Dict with the decoded JWT
         """
-        if self.is_authenticated():
+        if not self.is_authenticated():
+            return None
+
+        try:
             decoded_jwt = jwt.decode(
                 self._jwt_token, options={"verify_signature": False}
             )
             return decoded_jwt
-        return None
+        except jwt.exceptions.DecodeError:
+            return None
 
     def refresh_authentication(self) -> None:
         """Attempt to refresh token in case its already expired."""
