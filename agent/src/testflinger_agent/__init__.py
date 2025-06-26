@@ -205,7 +205,7 @@ def parse_args():
     parser.add_argument(
         "--metrics_port",
         "-p",
-        default="8000",
+        default=None,
         type=int,
         help="Port to expose metrics endpoint on",
     )

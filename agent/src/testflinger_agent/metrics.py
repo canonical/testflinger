@@ -52,10 +52,14 @@ class PrometheusHandler(MetricsHandler):
             "Total job failures since last agent restart",
             ["test_phase"],
         )
+        if port is None:
+            return
+
         try:
             start_http_server(port)
-        except Exception:
-            logger.error("Unable to start metrics endpoint")
+        except Exception as err:
+            logger.error("Unable to start metrics endpoint: %s", err)
+            raise
 
     def report_new_job(self):
         """Increase total job counter and push to gateway."""
