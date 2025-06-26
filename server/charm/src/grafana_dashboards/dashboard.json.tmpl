@@ -90,7 +90,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "rate(process_cpu_seconds_total{juju_application=\"testflinger\", juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}[$__rate_interval])",
+          "expr": "rate(process_cpu_seconds_total{juju_application=\"testflinger\", juju_unit=~\"$juju_unit\"}[$__rate_interval])",
           "legendFormat": "{{juju_unit}}",
           "range": true,
           "refId": "A"
@@ -183,7 +183,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by(endpoint) (rate(flask_http_request_duration_seconds_count{status=~\"200|204\", juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}[$__rate_interval]))",
+          "expr": "sum by(endpoint) (rate(flask_http_request_duration_seconds_count{status=~\"200|204\"}[$__rate_interval]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -272,7 +272,7 @@
             "uid": "${prometheusds}"
           },
           "editorMode": "code",
-          "expr": "process_resident_memory_bytes{juju_application=\"testflinger\", juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}",
+          "expr": "process_resident_memory_bytes{juju_application=\"testflinger\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{instance}}",
@@ -367,7 +367,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by(endpoint) (rate(flask_http_request_duration_seconds_sum{status=~\"200|204\", juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}[$__rate_interval])) / sum by(endpoint) (rate(flask_http_request_duration_seconds_count{status=~\"200|204\", juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}[$__rate_interval]))",
+          "expr": "sum by(endpoint) (rate(flask_http_request_duration_seconds_sum{status=~\"200|204\"}[$__rate_interval])) / sum by(endpoint) (rate(flask_http_request_duration_seconds_count{status=~\"200|204\"}[$__rate_interval]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -461,7 +461,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by(juju_unit) (rate(flask_http_request_duration_seconds_sum{status=~\"200|204\", juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}[$__rate_interval])) / sum by(juju_unit) (rate(flask_http_request_duration_seconds_count{status=~\"200|204\", juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}[$__rate_interval]))",
+          "expr": "sum by(juju_unit) (rate(flask_http_request_duration_seconds_sum{status=~\"200|204\"}[$__rate_interval])) / sum by(juju_unit) (rate(flask_http_request_duration_seconds_count{status=~\"200|204\"}[$__rate_interval]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -555,7 +555,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by(endpoint) (increase(flask_http_request_duration_seconds_bucket{status=~\"200|204\", le=\"0.25\", juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}[$__rate_interval])) / ignoring(le) sum by(endpoint) (increase(flask_http_request_duration_seconds_count{status=~\"200|204\", juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}[$__rate_interval]))",
+          "expr": "sum by(endpoint) (increase(flask_http_request_duration_seconds_bucket{status=~\"200|204\", le=\"0.25\"}[$__rate_interval])) / ignoring(le) sum by(endpoint) (increase(flask_http_request_duration_seconds_count{status=~\"200|204\"}[$__rate_interval]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -651,7 +651,7 @@
             "uid": "${prometheusds}"
           },
           "editorMode": "builder",
-          "expr": "sum by(status) (increase(flask_http_request_total{juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}[$__rate_interval]))",
+          "expr": "sum by(status) (increase(flask_http_request_total[$__rate_interval]))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -749,7 +749,7 @@
             "uid": "${prometheusds}"
           },
           "editorMode": "builder",
-          "expr": "sum by(endpoint) (histogram_quantile(0.5, rate(flask_http_request_duration_seconds_bucket{status=\"200\", juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}[$__rate_interval])))",
+          "expr": "sum by(endpoint) (histogram_quantile(0.5, rate(flask_http_request_duration_seconds_bucket{status=\"200\"}[$__rate_interval])))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -840,7 +840,7 @@
             "uid": "${prometheusds}"
           },
           "editorMode": "builder",
-          "expr": "sum by(endpoint) (rate(flask_http_request_duration_seconds_count{status!~\"200|204\", juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}[$__rate_interval]))",
+          "expr": "sum by(endpoint) (rate(flask_http_request_duration_seconds_count{status!~\"200|204\"}[$__rate_interval]))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -936,7 +936,7 @@
             "uid": "${prometheusds}"
           },
           "editorMode": "builder",
-          "expr": "sum by(endpoint) (histogram_quantile(0.9, rate(flask_http_request_duration_seconds_bucket{status=~\"200|204\", juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"}[$__rate_interval])))",
+          "expr": "sum by(endpoint) (histogram_quantile(0.9, rate(flask_http_request_duration_seconds_bucket{status=~\"200|204\"}[$__rate_interval])))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -1073,7 +1073,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(testflinger_jobs_total{juju_model_uuid=~\"$juju_model_uuid\", juju_model=~\"$juju_model\",juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\"})",
+          "expr": "sum(testflinger_jobs_total)",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -1153,7 +1153,7 @@
     ]
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {
