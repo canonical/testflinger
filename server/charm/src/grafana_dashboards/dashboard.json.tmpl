@@ -86,8 +86,8 @@
       "targets": [
         {
           "datasource": {
-            "type": "prometheus",
-            "uid": "${prometheusds}"
+          "type": "prometheus",
+          "uid": "${prometheusds}"
           },
           "editorMode": "code",
           "expr": "rate(process_cpu_seconds_total{juju_application=\"testflinger\", juju_unit=~\"$juju_unit\"}[$__rate_interval])",
@@ -699,9 +699,9 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": {
-        "type": "prometheus",
-        "uid": "${prometheusds}"
-      },
+          "type": "prometheus",
+          "uid": "${prometheusds}"
+        },
       "description": "",
       "fill": 1,
       "fillGradient": 0,
@@ -1115,7 +1115,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "P670FE3BAB64E05C9"
+          "uid": "${prometheusds}"
         },
         "definition": "label_values(flask_http_request_duration_seconds_sum,juju_unit)",
         "hide": 0,
@@ -1132,23 +1132,6 @@
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
-      },
-      {
-        "current": {
-          "selected": false,
-          "text": "juju_prod-cert-cos_6f68af2f-cb55-4d8c-8547-53b6b13cc73c_prometheus_0",
-          "value": "juju_prod-cert-cos_6f68af2f-cb55-4d8c-8547-53b6b13cc73c_prometheus_0"
-        },
-        "hide": 0,
-        "includeAll": false,
-        "multi": false,
-        "name": "datasource",
-        "options": [],
-        "query": "prometheus",
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "type": "datasource"
       }
     ]
   },
@@ -1171,8 +1154,8 @@
     ]
   },
   "timezone": "",
-  "title": "Testflinger Dashboard",
-  "uid": "_eX4mpl3",
-  "version": 15,
+  "title": "Testflinger Server Dashboard",
+  "uid": "_eX4mpl4",
+  "version": 16,
   "weekStart": ""
 }
