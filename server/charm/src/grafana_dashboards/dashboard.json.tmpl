@@ -43,7 +43,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "${prometheusds}"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -87,7 +87,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${prometheusds}"
           },
           "editorMode": "code",
           "expr": "rate(process_cpu_seconds_total{juju_application=\"testflinger\", juju_unit=~\"$juju_unit\"}[$__rate_interval])",
@@ -135,7 +135,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "${prometheusds}"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -180,7 +180,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${prometheusds}"
           },
           "editorMode": "code",
           "expr": "sum by(endpoint) (rate(flask_http_request_duration_seconds_count{status=~\"200|204\"}[$__rate_interval]))",
@@ -319,7 +319,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "${prometheusds}"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -364,7 +364,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${prometheusds}"
           },
           "editorMode": "code",
           "expr": "sum by(endpoint) (rate(flask_http_request_duration_seconds_sum{status=~\"200|204\"}[$__rate_interval])) / sum by(endpoint) (rate(flask_http_request_duration_seconds_count{status=~\"200|204\"}[$__rate_interval]))",
@@ -413,7 +413,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "${prometheusds}"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -458,7 +458,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${prometheusds}"
           },
           "editorMode": "code",
           "expr": "sum by(juju_unit) (rate(flask_http_request_duration_seconds_sum{status=~\"200|204\"}[$__rate_interval])) / sum by(juju_unit) (rate(flask_http_request_duration_seconds_count{status=~\"200|204\"}[$__rate_interval]))",
@@ -507,7 +507,7 @@
       "dashes": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "${prometheusds}"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -552,7 +552,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${prometheusds}"
           },
           "editorMode": "code",
           "expr": "sum by(endpoint) (increase(flask_http_request_duration_seconds_bucket{status=~\"200|204\", le=\"0.25\"}[$__rate_interval])) / ignoring(le) sum by(endpoint) (increase(flask_http_request_duration_seconds_count{status=~\"200|204\"}[$__rate_interval]))",
@@ -993,7 +993,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "${prometheusds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1070,7 +1070,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "${prometheusds}"
           },
           "editorMode": "code",
           "expr": "sum(testflinger_jobs_total)",
