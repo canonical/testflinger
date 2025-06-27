@@ -388,3 +388,24 @@ def get_agents() -> list[dict]:
     """Return a list of all agents."""
     agents = mongo.db.agents.find({}, {"_id": False, "log": False})
     return list(agents)
+
+
+def add_restricted_queue(queue: str, client_id: str):
+    """Add a restricted queue for a client."""
+    mongo.db.restricted_queues.update_one(
+        {"queue_name": queue}, {"$set": {"queue_name": queue}}, upsert=True
+    )
+    mongo.db.client_permissions.update_one(
+        {"client_id": client_id},
+        {"$addToSet": {"allowed_queues": queue}},
+        upsert=True,
+    )
+
+
+def delete_restricted_queue(queue: str, client_id: str):
+    """Delete a restricted queue for a client."""
+    mongo.db.restricted_queues.delete_one({"queue_name": queue})
+
+    mongo.db.client_permissions.update_one(
+        {"client_id": client_id}, {"$pull": {"allowed_queues": queue}}
+    )
