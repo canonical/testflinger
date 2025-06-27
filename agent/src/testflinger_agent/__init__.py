@@ -120,6 +120,7 @@ class ReqBufferFormatter(logging.Formatter):
 def start_agent():
     args = parse_args()
     config = load_config(args.config)
+    config["metrics_endpoint_port"] = args.metrics_port
     configure_logging(config)
     check_interval = config.get("polling_interval")
     client = TestflingerClient(config)
@@ -200,5 +201,12 @@ def parse_args():
         "-c",
         default="testflinger-agent.conf",
         help="Testflinger agent config file",
+    )
+    parser.add_argument(
+        "--metrics_port",
+        "-p",
+        default=None,
+        type=int,
+        help="Port to expose metrics endpoint on",
     )
     return parser.parse_args()

@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
+import prometheus_client
 import pytest
 import requests_mock as rmock
 from testflinger_common.enums import TestEvent, TestPhase
@@ -21,6 +22,19 @@ from testflinger_agent.schema import validate
 
 
 class TestClient:
+    @pytest.fixture(autouse=True)
+    def clear_registry(self):
+        """
+        Clear Prometheus metrics so they don't get duplicated across
+        test runs.
+        """
+        collectors = tuple(
+            prometheus_client.REGISTRY._collector_to_names.keys()
+        )
+        for collector in collectors:
+            prometheus_client.REGISTRY.unregister(collector)
+        yield
+
     @pytest.fixture
     def agent(self, requests_mock):
         self.tmpdir = tempfile.mkdtemp()
@@ -748,3 +762,28 @@ class TestClient:
             provision_fail_event_detail
             == "MyExceptionName: MyExceptionMessage"
         )
+
+    def test_agent_metrics(self, agent, requests_mock):
+        """
+        Tests that total job and total job failures metrics are increased
+        when running a job.
+        """
+        self.config["provision_command"] = "/bin/false"
+        mock_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test",
+            "provision_data": {"url": "foo"},
+        }
+        requests_mock.get(
+            rmock.ANY, [{"text": json.dumps(mock_job_data)}, {"text": "{}"}]
+        )
+        requests_mock.post(rmock.ANY, status_code=200)
+        with patch("shutil.rmtree"), patch("os.unlink"):
+            agent.process_jobs()
+
+        total_jobs = prometheus_client.REGISTRY.get_sample_value("jobs_total")
+        total_provision_failures = prometheus_client.REGISTRY.get_sample_value(
+            "failures_total", {"test_phase": "provision"}
+        )
+        assert total_provision_failures == 1
+        assert total_jobs == 1
