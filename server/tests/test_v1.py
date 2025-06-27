@@ -252,7 +252,17 @@ def test_add_job_oem_autoinstall_provision_data(mongo_app):
     app, _ = mongo_app
     output = app.post("/v1/job", json=job_data)
     assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
-    # Valid URL fails
+    # Attachments works
+    provision_data = {
+        "url": "http://example.com/image.img.xz",
+        "token_file": "file",
+        "attachments": [{"agent": "filename"}],
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+    # Valid URL works
     provision_data = {
         "url": "http://example.com/image.img.xz",
         "token_file": "file",
