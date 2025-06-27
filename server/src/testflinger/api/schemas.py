@@ -138,6 +138,7 @@ class OEMAutoinstallProvisionData(Schema):
     """Schema for the `provision_data` section of a OEM Autoinstall job."""
 
     url = fields.URL(required=True)
+    attachments = fields.List(fields.Nested(Attachment), required=False)
     token_file = fields.String(required=False)
     user_data = fields.String(required=False)
     redeploy_cfg = fields.String(required=False)
