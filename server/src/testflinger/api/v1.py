@@ -991,7 +991,7 @@ def retrieve_token():
     return token
 
 
-@v1.get("/api/restricted-queues")
+@v1.get("/restricted-queues")
 @v1.output(schemas.RestrictedQueueOut(many=True))
 def get_all_restricted_queues() -> list[dict]:
     """List all agent's restricted queues and its owners."""
@@ -1001,7 +1001,7 @@ def get_all_restricted_queues() -> list[dict]:
     return jsonify(response)
 
 
-@v1.get("/api/restricted-queues/<canonical_id>")
+@v1.get("/restricted-queues/<canonical_id>")
 @v1.output(schemas.RestrictedQueueOut)
 def get_agent_restricted_queues(canonical_id: str) -> dict:
     """Get restricted queues for a specific agent."""
@@ -1014,7 +1014,7 @@ def get_agent_restricted_queues(canonical_id: str) -> dict:
     return jsonify(response)
 
 
-@v1.post("/api/restricted-queues/<canonical_id>")
+@v1.post("/restricted-queues/<canonical_id>")
 @v1.input(schemas.RestrictedQueueIn, location="json")
 def add_restricted_queues(canonical_id: str, json_data: dict) -> dict:
     """Add restricted queues for an agent."""
@@ -1035,7 +1035,7 @@ def add_restricted_queues(canonical_id: str, json_data: dict) -> dict:
     return "OK"
 
 
-@v1.delete("/api/restricted-queues/<canonical_id>")
+@v1.delete("/restricted-queues/<canonical_id>")
 @v1.input(schemas.RestrictedQueueIn, location="json")
 def delete_restricted_queue(canonical_id: str, json_data: dict) -> dict:
     """Delete a specific restricted queue from an agent."""
