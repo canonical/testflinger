@@ -9,6 +9,7 @@ readme = "README.md"
 license-files = ["COPYING"]
 dependencies = [
   "argcomplete>=3.6.1",
+  "pyjwt>=2.10.1",
   "pyyaml>=6.0.2",
   "requests>=2.32.3",
   "xdg-base-dirs>=6.0.2",

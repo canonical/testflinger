@@ -91,7 +91,12 @@ class Client:
             logger.error("Unable to communicate with specified server.")
             sys.exit(1)
         if req.status_code != 200:
-            raise HTTPError(status=req.status_code, msg=req.text)
+            try:
+                error_message = req.json().get("message", req.text)
+            except ValueError:
+                # Return clear text if output is not JSON
+                error_message = req.text
+            raise HTTPError(status=req.status_code, msg=error_message)
         return req.text
 
     def put_file(self, uri_frag: str, path: Path, timeout: float):
