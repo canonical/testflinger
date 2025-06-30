@@ -41,6 +41,8 @@ charm-libs:
     version: "1"
   - lib: prometheus_k8s.prometheus_scrape
     version: "0"
+  - lib: grafana_agent.cos_agent
+    version: "0"
 
 actions:
   update-configs:
@@ -90,3 +92,5 @@ parts:
 provides:
     metrics-endpoint:
         interface: prometheus_scrape
+    cos-agent:
+        interace: cos_agent
