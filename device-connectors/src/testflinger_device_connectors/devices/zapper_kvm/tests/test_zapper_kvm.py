@@ -301,7 +301,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         expected = {
             "storage_layout": "direct",
             "authorized_keys": ["mykey"],
-            "base_user_data": encoded_user_data,
+            "base_user_data": encoded_user_data.decode(),
         }
         self.assertDictEqual(conf, expected)
 
