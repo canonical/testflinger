@@ -39,7 +39,7 @@ charm-libs:
     version: "0"
   - lib: operator_libs_linux.systemd
     version: "1"
-  - lib: prometheus_k8s.prometheus_scrape
+  - lib: grafana_agent.cos_agent
     version: "0"
 
 actions:
@@ -88,5 +88,5 @@ parts:
     plugin: charm
 
 provides:
-    metrics-endpoint:
-        interface: prometheus_scrape
+    cos-agent:
+        interface: cos_agent
