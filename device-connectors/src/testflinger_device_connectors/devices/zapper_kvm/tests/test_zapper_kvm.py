@@ -33,12 +33,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         the expected data merging the relevant bits from conf and job
         data when passing only the required arguments.
         """
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "control_host": "1.1.1.2",
-            "reboot_script": ["cmd1", "cmd2"],
-        }
-        connector = DeviceConnector(fake_config)
+        connector = DeviceConnector({})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -58,8 +53,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "username": "ubuntu",
             "password": "ubuntu",
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
-            "reboot_script": ["cmd1", "cmd2"],
-            "device_ip": "1.1.1.1",
             "robot_tasks": ["job.robot", "another.robot"],
             "robot_retries": 1,
         }
@@ -71,12 +64,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         the expected data merging the relevant bits from conf and job
         data when passing all the optional arguments.
         """
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "control_host": "1.1.1.2",
-            "reboot_script": ["cmd1", "cmd2"],
-        }
-        connector = DeviceConnector(fake_config)
+        connector = DeviceConnector({})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -107,8 +95,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "username": "username",
             "password": "password",
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
-            "reboot_script": ["cmd1", "cmd2"],
-            "device_ip": "1.1.1.1",
             "robot_tasks": ["job.robot", "another.robot"],
             "robot_retries": 3,
             "cmdline_append": "more arguments",
@@ -127,12 +113,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         password are hardcoded and the Zapper shall try the procedures
         at least twice because it can fail on purpose.
         """
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "control_host": "1.1.1.2",
-            "reboot_script": ["cmd1", "cmd2"],
-        }
-        connector = DeviceConnector(fake_config)
+        connector = DeviceConnector({})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -158,8 +139,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "username": "ubuntu",
             "password": "u",
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
-            "reboot_script": ["cmd1", "cmd2"],
-            "device_ip": "1.1.1.1",
             "robot_tasks": ["job.robot", "another.robot"],
             "robot_retries": 2,
         }
