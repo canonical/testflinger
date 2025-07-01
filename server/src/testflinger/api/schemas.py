@@ -167,6 +167,7 @@ class ZapperIoTPresetProvisionData(BaseZapperProvisionData):
 
     urls = fields.List(fields.URL(), required=True, validate=Length(min=1))
     preset = fields.String(required=True)
+    preset_kwargs = fields.Dict(required=False)
 
 
 class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
