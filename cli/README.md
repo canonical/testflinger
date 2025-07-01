@@ -2,6 +2,7 @@
 
 [![Snapcraft][snapcraft-badge]][snapcraft-site]
 [![Documentation status][rtd-badge]][rtd-latest]
+[![codecov][cov-badge]][cov-latest]
 [![uv status][uv-badge]][uv-site]
 [![Ruff status][ruff-badge]][ruff-site]
 
@@ -92,6 +93,8 @@ Testflinger CLI is released under the [GPL-3.0 license](COPYING).
 [snapcraft-site]: https://snapcraft.io/testflinger-cli
 [rtd-badge]: https://readthedocs.com/projects/canonical-testflinger/badge/?version=latest
 [rtd-latest]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/
+[cov-badge]: https://codecov.io/gh/canonical/testflinger/graph/badge.svg?token=G8Y0VF2CEY&component=cli
+[cov-latest]: https://codecov.io/gh/canonical/testflinger
 [uv-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json
 [uv-site]: https://github.com/astral-sh/uv
 [job-schema]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
