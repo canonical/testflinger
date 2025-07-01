@@ -95,7 +95,7 @@ class ZapperConnector(ABC, DefaultDevice):
         kwargs.update(
             {
                 "agent_name": self.config["agent_name"],
-                "cid": self.config["env"].get("CID"),
+                "cid": self.config.get("env", {}).get("CID"),
                 "device_ip": self.config["device_ip"],
                 "reboot_script": self.config["reboot_script"],
             }
