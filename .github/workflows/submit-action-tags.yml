@@ -3,9 +3,10 @@ name: Auto Tag on File Change
 on:
   workflow_dispatch:
   push:
-    branches: [CERTTF-568=submit-action-tags-workflow]
+    branches:
+      - CERTTF-568-submit-action-tags-workflow
     paths:
-      - '.github/actions/submit/action.yaml'
+      - .github/actions/submit/action.yaml
 
 jobs:
   auto-tag-submit-action:
