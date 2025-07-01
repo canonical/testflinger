@@ -1,0 +1,52 @@
+name: Auto Tag on File Change
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [CERTTF-568=submit-action-tags-workflow]
+    paths:
+      - '.github/actions/submit/action.yaml'
+
+jobs:
+  auto-tag-submit-action:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for semantic versioning
+          persist-credentials: false
+
+      - name: Generate semantic version
+        id: version
+        uses: PaulHatch/semantic-version@v5.4.0
+        with:
+          # Tag prefix
+          tag_prefix: "v"
+          
+          # Version format - let namespace handle the suffix
+          format: "${major}.${minor}.${patch}"
+          
+          # Pattern to match existing tags with submit suffix
+          #pattern: "^v([0-9]+)\\.([0-9]+)\\.([0-9]+)-submit$"
+          
+          # How to increment versions based on commit messages
+          # Uses conventional commit format by default
+          #major_pattern: "(MAJOR|BREAKING CHANGE|breaking change)"
+          #minor_pattern: "(MINOR|feat)"
+          
+          # Change template (what gets added to commit to determine version bump)
+          change_path: ".github/actions/submit/action.yaml"
+          
+          # Namespace for version calculation (your suffix)
+          namespace: "submit"
+          
+          # Search commit body for patterns (not just title)
+          search_commit_body: false
+        
+      - name: Validate outputs
+        run: |
+          echo ${{ steps.version.outputs.version }} ${{ steps.version.outputs.version_tag }}
