@@ -56,11 +56,11 @@ class TestflingerAgentHostCharm(CharmBase):
             self.on_update_testflinger_action,
         )
         self.scrape_jobs = []
-        self.metrics_endpoint = MetricsEndpointProvider(
+        self.metrics_endpoint = MetricsEndpointProvider(self)
+        self._grafana_agent = COSAgentProvider(
             self,
             self.get_scrape_jobs,
         )
-        self._grafana_agent = COSAgentProvider(self)
 
     def on_install(self, _):
         """Install hook."""

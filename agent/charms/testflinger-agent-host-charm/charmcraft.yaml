@@ -93,4 +93,4 @@ provides:
     metrics-endpoint:
         interface: prometheus_scrape
     cos-agent:
-        interace: cos_agent
+        interface: cos_agent
