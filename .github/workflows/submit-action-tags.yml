@@ -25,12 +25,6 @@ jobs:
         id: version
         uses: PaulHatch/semantic-version@v5.4.0
         with:
-          # Tag prefix
-          tag_prefix: "v"
-          
-          # Version format - let namespace handle the suffix
-          format: "${major}.${minor}.${patch}"
-          
           # Pattern to match existing tags with submit suffix
           #pattern: "^v([0-9]+)\\.([0-9]+)\\.([0-9]+)-submit$"
           
@@ -44,9 +38,6 @@ jobs:
           
           # Namespace for version calculation (your suffix)
           namespace: "submit"
-          
-          # Search commit body for patterns (not just title)
-          search_commit_body: false
         
       - name: Validate outputs
         run: |
