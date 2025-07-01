@@ -25,16 +25,10 @@ jobs:
         id: version
         uses: PaulHatch/semantic-version@v5.4.0
         with:          
-          # How to increment versions based on commit messages
-          # Uses conventional commit format by default
-          major_pattern: "(MAJOR|BREAKING CHANGE|breaking change)"
-          minor_pattern: "(MINOR|feat)"
-
-          # Change template (what gets added to commit to determine version bump)
-          change_path: ".github/actions/submit/action.yaml"
-          
-          # Namespace for version calculation (your suffix)
           namespace: "submit"
+          change_path: ".github/actions/submit/action.yaml"
+          major_pattern: "/breaking change|BREAKING CHANGE|major|MAJOR/"
+          minor_pattern: "/feat:|minor|MINOR/"
         
       - name: Validate outputs
         run: |
