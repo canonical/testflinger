@@ -1,0 +1,19 @@
+comment:
+  layout: "header, diff, flags, components"
+component_management:
+  individual_components:
+    - component_id: agent
+      name: Agent
+      paths: [agent/**]
+    - component_id: cli
+      name: CLI
+      paths: [cli/**]
+    - component_id: common
+      name: Common
+      paths: [common/**]
+    - component_id: device
+      name: Device Connectors
+      paths: [device-connectors/**]
+    - component_id: server
+      name: Server
+      paths: [server/**]
