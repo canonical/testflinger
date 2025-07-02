@@ -623,7 +623,10 @@ class TestflingerCli:
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
         queue = job_dict.get("job_queue")
-        self.check_online_agents_available(queue)
+        try:
+            self.check_online_agents_available(queue)
+        except AuthorizationError as exc:
+            sys.exit(exc)
 
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
@@ -660,7 +663,9 @@ class TestflingerCli:
         """Exit or warn if no online agents available for a specified queue."""
         try:
             agents = self.client.get_agents_on_queue(queue)
-        except client.HTTPError:
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.FORBIDDEN:
+                raise AuthorizationError from exc
             agents = []
         online_agents = [
             agent for agent in agents if agent["state"] != "offline"

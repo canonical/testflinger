@@ -17,6 +17,7 @@
 """Testflinger CLI Auth module."""
 
 import contextlib
+from functools import cached_property
 from http import HTTPStatus
 from typing import Optional
 
@@ -33,43 +34,40 @@ class TestflingerCliAuth:
         self.client_id = client_id
         self.secret_key = secret_key
         self.client = tf_client
-        self._jwt_token = None
-        self._authenticate_with_server()
+        _ = self.jwt_token
 
     def is_authenticated(self) -> bool:
         """Validate if user is currently authenticated.
 
         :return: Status for user authentication.
         """
-        return self._jwt_token is not None
+        return self.jwt_token is not None
 
-    def _authenticate_with_server(self) -> None:
-        """
-        Authenticate client id and secret key with server
-        and store JWT with permissions.
-        """
+    @cached_property
+    def jwt_token(self) -> str | None:
+        """Authenticate with the server and get a JWT."""
         if self.client_id is None or self.secret_key is None:
             return None
 
         try:
-            self._jwt_token = self.client.authenticate(
-                self.client_id, self.secret_key
-            )
+            return self.client.authenticate(self.client_id, self.secret_key)
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.UNAUTHORIZED:
                 raise AuthenticationError from exc
-            elif exc.status == HTTPStatus.FORBIDDEN:
+            if exc.status == HTTPStatus.FORBIDDEN:
                 raise AuthorizationError from exc
+        return None
 
     def build_headers(self) -> Optional[dict]:
         """Create an authorization header based on stored JWT.
 
         :return: Dict with JWT as the Authorization header if exist.
         """
-        return {"Authorization": self._jwt_token} if self._jwt_token else None
+        return {"Authorization": self.jwt_token} if self.jwt_token else None
 
     def decode_jwt_token(self) -> Optional[dict]:
         """Decode JWT token without verifying signature.
+
         This is not for security but for quick screening,
         server will still enforce the JWT token validation.
 
@@ -80,7 +78,7 @@ class TestflingerCliAuth:
 
         try:
             decoded_jwt = jwt.decode(
-                self._jwt_token, options={"verify_signature": False}
+                self.jwt_token, options={"verify_signature": False}
             )
             return decoded_jwt
         except jwt.exceptions.DecodeError:
@@ -88,8 +86,9 @@ class TestflingerCliAuth:
 
     def refresh_authentication(self) -> None:
         """Attempt to refresh token in case its already expired."""
-        with contextlib.suppress(AuthenticationError):
-            self._authenticate_with_server()
+        del self.jwt_token
+        with contextlib.suppress(AuthenticationError, AuthorizationError):
+            _ = self.jwt_token
 
     def get_user_role(self) -> str:
         """Retrieve the role for the user from the decoded jwt.
