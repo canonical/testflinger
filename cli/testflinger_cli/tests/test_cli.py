@@ -822,3 +822,53 @@ def test_default_auth_user_role(tmp_path, requests_mock, monkeypatch):
 
     assert tfcli.auth.is_authenticated() is True
     assert role == expected_role
+
+
+def test_authorization_error(tmp_path, requests_mock, monkeypatch):
+    """Test authorization error raises if received 403 from server."""
+    job_data = {
+        "job_queue": "fake",
+        "job_priority": 100,
+    }
+    job_file = tmp_path / "test.json"
+    job_file.write_text(json.dumps(job_data))
+
+    # Define variables for authentication
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
+
+    requests_mock.post(
+        f"{URL}/v1/oauth2/token", status_code=HTTPStatus.FORBIDDEN
+    )
+
+    sys.argv = ["", "submit", str(job_file)]
+    with pytest.raises(SystemExit) as err:
+        tfcli = testflinger_cli.TestflingerCli()
+        tfcli.submit()
+
+    assert "Authorization error received from server" in str(err.value)
+
+
+def test_authentication_error(tmp_path, requests_mock, monkeypatch):
+    """Test authentication error raises if received 401 from server."""
+    job_data = {
+        "job_queue": "fake",
+        "job_priority": 100,
+    }
+    job_file = tmp_path / "test.json"
+    job_file.write_text(json.dumps(job_data))
+
+    # Define variables for authentication
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
+
+    requests_mock.post(
+        f"{URL}/v1/oauth2/token", status_code=HTTPStatus.UNAUTHORIZED
+    )
+
+    sys.argv = ["", "submit", str(job_file)]
+    with pytest.raises(SystemExit) as err:
+        tfcli = testflinger_cli.TestflingerCli()
+        tfcli.submit()
+
+    assert "Authentication with Testflinger server failed" in str(err.value)
