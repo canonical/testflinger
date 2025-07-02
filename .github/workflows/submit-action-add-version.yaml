@@ -32,9 +32,12 @@ jobs:
 
       - name: Update version file
         if: steps.version.outputs.changed == 'true'
+        env:
+            VERSION: ${{ steps.version.outputs.version_tag }}
         run: |
           mkdir -p .github/actions/submit
-          echo "${{ steps.version.outputs.content }}" > .github/actions/submit/version
+          echo "$VERSION" > .github/actions/submit/version
+          echo ::notice::$VERSION
 
       - name: Commit and push changes
         if: false
