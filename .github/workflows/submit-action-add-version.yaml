@@ -40,7 +40,7 @@ jobs:
           echo ::notice::$VERSION
 
       - name: Commit and push changes
-        if: false
+        if: steps.version.outputs.changed == 'true'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
