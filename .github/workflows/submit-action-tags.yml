@@ -1,21 +1,21 @@
-name: Auto Tag on File Change
+name: Auto Tag on Submit Changes
 
 on:
-  workflow_dispatch:
   push:
     branches:
+      #- main
       - CERTTF-568-submit-action-tags-workflow
     paths:
-      - .github/actions/submit/action.yaml
+      - .github/actions/submit.yaml
 
 jobs:
   auto-tag-submit-action:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-    
+      contents: read
+
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history for semantic versioning
@@ -30,6 +30,18 @@ jobs:
           major_pattern: "breaking(submit):"
           minor_pattern: "feat(submit):"
 
-      - name: Validate outputs
-        run: |
-          echo ${{ steps.version.outputs.version_tag }}
+      - name: Create and push tag
+        env:
+          TAG: ${{ steps.version.outputs.version_tag }}
+        run: |          
+          # Configure git
+          #git config user.name "GitHub Actions"
+          #git config user.email "actions@github.com"
+          
+          # Create tag
+          git tag "$TAG"
+          echo ::notice::"$TAG"
+          git tag
+
+          # Push tag
+          #git push origin "$VERSION"
