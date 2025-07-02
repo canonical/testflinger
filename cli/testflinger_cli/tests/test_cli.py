@@ -843,9 +843,7 @@ def test_authorization_error(tmp_path, requests_mock, monkeypatch):
 
     sys.argv = ["", "submit", str(job_file)]
     with pytest.raises(SystemExit) as err:
-        tfcli = testflinger_cli.TestflingerCli()
-        tfcli.submit()
-
+        testflinger_cli.TestflingerCli()
     assert "Authorization error received from server" in str(err.value)
 
 
@@ -868,7 +866,5 @@ def test_authentication_error(tmp_path, requests_mock, monkeypatch):
 
     sys.argv = ["", "submit", str(job_file)]
     with pytest.raises(SystemExit) as err:
-        tfcli = testflinger_cli.TestflingerCli()
-        tfcli.submit()
-
+        testflinger_cli.TestflingerCli()
     assert "Authentication with Testflinger server failed" in str(err.value)
