@@ -42,8 +42,10 @@ jobs:
       - name: Commit and push changes
         if: steps.version.outputs.changed == 'true'
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
           git add .github/actions/submit/version
-          git commit -m "Auto-update version file"
-          git push
+          if ! git diff --quiet --staged .github/actions/submit/version; then
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git commit -m "Auto-update version file"
+            git push
+          fi
