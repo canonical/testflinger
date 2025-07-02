@@ -27,9 +27,9 @@ jobs:
         with:          
           namespace: "submit"
           change_path: ".github/actions/submit/action.yaml"
-          major_pattern: "/breaking change|BREAKING CHANGE|major|MAJOR/"
-          minor_pattern: "/feat:|minor|MINOR/"
-        
+          major_pattern: "breaking(submit):"
+          minor_pattern: "feat(submit):"
+
       - name: Validate outputs
         run: |
           echo ${{ steps.version.outputs.version_tag }}
