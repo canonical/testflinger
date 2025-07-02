@@ -2,9 +2,9 @@ name: Create version tag for the submit action
 on:
   push:
     branches:
-      - CERTTF-568-submit-action-tags-workflow
-    #paths:
-    #  - .github/actions/submit/action.yaml
+      - main
+    paths:
+      - .github/actions/submit/action.yaml
 
 jobs:
   auto-tag-submit-action:
