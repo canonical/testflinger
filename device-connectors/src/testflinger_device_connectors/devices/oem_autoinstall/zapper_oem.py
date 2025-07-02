@@ -41,7 +41,14 @@ class ZapperOem(ZapperConnector):
         # Validate required fields
         if not provision_data.get("zapper_iso_url"):
             raise ProvisioningError(
-                "zapper_iso_url is required in provision_data"
+                "zapper_iso_url is required in provision_data. "
+                "Set ISO image to be flashed on typecmux USB."
+            )
+
+        if not provision_data.get("zapper_iso_type"):
+            raise ProvisioningError(
+                "zapper_iso_type is required in provision_data. "
+                "Based on ISO type of zapper_iso_url argument."
             )
 
         if iso_type not in supported_iso_types:
