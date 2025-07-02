@@ -59,7 +59,7 @@ class TestflingerAgentHostCharm(CharmBase):
         self.metrics_endpoint = MetricsEndpointProvider(self)
         self._grafana_agent = COSAgentProvider(
             self,
-            self.get_scrape_jobs,
+            scrape_configs=self.get_scrape_jobs,
         )
 
     def on_install(self, _):
