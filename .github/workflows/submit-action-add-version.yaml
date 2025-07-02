@@ -2,6 +2,8 @@ name: Update Version File in PR
 on:
   pull_request:
     types: [opened, synchronize]
+    paths:
+      - .github/actions/submit/action.yaml
 
 jobs:
   update-version:
@@ -29,21 +31,13 @@ jobs:
           minor_pattern: "feat(submit):"
 
       - name: Update version file
+        if: steps.version.outputs.changed == 'true'
         run: |
           mkdir -p .github/actions/submit
           echo "${{ steps.version.outputs.content }}" > .github/actions/submit/version
-          
-      - name: Check if changes exist
-        id: changes
-        run: |
-          if git diff --quiet; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          fi
 
       - name: Commit and push changes
-        if: steps.changes.outputs.has_changes == 'true'
+        if: false
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
