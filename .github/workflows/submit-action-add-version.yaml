@@ -1,0 +1,52 @@
+name: Update Version File in PR
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          # This checks out the PR branch, not main
+          ref: ${{ github.event.pull_request.head.ref }}
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Generate semantic version
+        id: version
+        uses: PaulHatch/semantic-version@v5.4.0
+        with:          
+          namespace: "submit"
+          change_path: ".github/actions/submit/action.yaml"
+          major_pattern: "breaking(submit):"
+          minor_pattern: "feat(submit):"
+
+      - name: Update version file
+        run: |
+          mkdir -p .github/actions/submit
+          echo "${{ steps.version.outputs.content }}" > .github/actions/submit/version
+          
+      - name: Check if changes exist
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .github/actions/submit/version
+          git commit -m "Auto-update version file"
+          git push
