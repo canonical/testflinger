@@ -97,7 +97,7 @@ class CM3:
         self.hardreset()
         logger.info("Flashing image")
         out = self._run_control(
-            "sudo cm3-installer {}".format(url), timeout=1800
+            "sudo cm3-installer-http11 {}".format(url), timeout=1800
         )
         logger.info(out)
         image_type, image_dev = self.get_image_type()
