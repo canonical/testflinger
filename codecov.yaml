@@ -1,10 +1,19 @@
 comment:
   layout: "header, diff, flags, components"
 component_management:
+  default_rules:  # default rules that will be inherited by all components
+    statuses:
+      - type: project
+        target: 70%
+      - type: patch
+        target: 70%
   individual_components:
     - component_id: agent
       name: Agent
       paths: [agent/**]
+      statuses:
+        - type: project
+          target: 69%
     - component_id: cli
       name: CLI
       paths: [cli/**]
@@ -14,6 +23,11 @@ component_management:
     - component_id: device
       name: Device Connectors
       paths: [device-connectors/**]
+      statuses:
+        - type: project
+          target: 49%
+        - type: patch
+          target: 60%
     - component_id: server
       name: Server
       paths: [server/**]

@@ -8,10 +8,12 @@ on:
     paths:
       - .github/workflows/device-tox.yml
       - device-connectors/**
+      - codecov.yaml
   pull_request:
     paths:
       - .github/workflows/device-tox.yml
       - device-connectors/**
+      - codecov.yaml
 
 jobs:
   test:
