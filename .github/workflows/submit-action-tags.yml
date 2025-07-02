@@ -1,0 +1,40 @@
+name: Create version tag for the submit action
+on:
+  push:
+    branches:
+      - CERTTF-568-submit-action-tags-workflow
+    #paths:
+    #  - .github/actions/submit/action.yaml
+
+jobs:
+  auto-tag-submit-action:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # necessary for semantic versioning
+          persist-credentials: true  # necessary for pushing tags
+
+      - name: Generate semantic version
+        id: version
+        uses: PaulHatch/semantic-version@v5.4.0
+        with:
+          namespace: "submit"
+          major_pattern: "breaking(submit):"
+          minor_pattern: "feat(submit):"
+
+      - name: Create and push tag
+        env:
+          TAG: ${{ steps.version.outputs.version_tag }}
+        run: |          
+          echo ::group::Create tag
+          git tag "$TAG"
+          echo ::notice::"$TAG"
+          echo ::endgroup::
+          echo ::group::Push tag
+          git push origin $TAG
+          echo ::endgroup::
