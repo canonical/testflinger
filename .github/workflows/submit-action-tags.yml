@@ -33,8 +33,8 @@ jobs:
         run: |          
           echo ::group::Create tag
           git tag "$TAG"
-          echo ::notice::"$TAG"
           echo ::endgroup::
+          echo ::notice::"$TAG"
           echo ::group::Push tag
           git push origin $TAG
           echo ::endgroup::
