@@ -9,11 +9,13 @@ on:
       - common/** # testflinger-agent depends on testflinger-common
       - agent/**
       - .github/workflows/agent-tox.yml
+      - codecov.yaml
   pull_request:
     paths:
       - common/** # testflinger-agent depends on testflinger-common
       - agent/**
       - .github/workflows/agent-tox.yml
+      - codecov.yaml
 
 jobs:
   test:

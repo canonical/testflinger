@@ -8,10 +8,12 @@ on:
     paths:
       - .github/workflows/server-tox.yml
       - server/**
+      - codecov.yaml
   pull_request:
     paths:
       - .github/workflows/server-tox.yml
       - server/**
+      - codecov.yaml
 
 jobs:
   test:
