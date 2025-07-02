@@ -104,10 +104,7 @@ class TestflingerClient:
             queue for queue, owners in restricted_to.items() if owners
         ]
 
-        if restricted_queues:
-            queue_list = restricted_queues
-        else:
-            queue_list = all_queues
+        queue_list = restricted_queues or all_queues
 
         job_uri = urljoin(self.server, "/v1/job")
         logger.debug("Requesting a job")
