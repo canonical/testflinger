@@ -868,6 +868,8 @@ def test_authentication_error(tmp_path, requests_mock, monkeypatch):
     with pytest.raises(SystemExit) as err:
         testflinger_cli.TestflingerCli()
     assert "Authentication with Testflinger server failed" in str(err.value)
+
+
 @pytest.mark.parametrize("state", ["offline", "maintenance"])
 def test_set_agent_status_online(capsys, requests_mock, state):
     """Validate we are able to change agent status to online."""
