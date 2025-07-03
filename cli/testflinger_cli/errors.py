@@ -44,9 +44,12 @@ class AuthorizationError(Exception):
     for sending request to the server.
     """
 
-    def __init__(self) -> None:
-        super().__init__(
-            "Authorization error received from server. \n"
-            "Make sure you are connected to the right network or "
-            "contact Testflinger admin for more information"
-        )
+    def __init__(self, reason: str = None) -> None:
+        default_reason = "Authorization error received from server. \n"
+        "Make sure you are connected to the right network or "
+        "contact Testflinger admin for more information"
+        self.message = reason or default_reason
+
+    def __str__(self) -> str:
+        """Return a string with the the error message."""
+        return self.message

@@ -20,7 +20,7 @@ import sys
 from http import HTTPStatus
 
 from testflinger_cli import client
-from testflinger_cli.errors import UnknownStatusError
+from testflinger_cli.auth import require_role
 
 
 class TestflingerAdminCLI:
@@ -71,6 +71,7 @@ class TestflingerAdminCLI:
             "Required when changing status to offline.",
         )
 
+    @require_role("admin")
     def set_agent_status(self):
         """Modify agent status."""
         agents = self.main_cli.args.agent_list
@@ -80,7 +81,7 @@ class TestflingerAdminCLI:
         status = status_override.get(
             self.main_cli.args.status, self.main_cli.args.status
         )
-        client_id = "Rene"
+        client_id = self.main_cli.auth.client_id
 
         # Creating dictonary to define formmated comments
         comment_dict = {
@@ -105,24 +106,10 @@ class TestflingerAdminCLI:
                 client_id, self.main_cli.args.comment
             )
             try:
-                try:
-                    self.main_cli.client.set_agent_status(
-                        agent, status, comment
-                    )
-                    print(f"Agent {agent} status is now: {status}")
-                except client.HTTPError as exc:
-                    if exc.status == HTTPStatus.NOT_FOUND:
-                        print(f"Agent {agent} does not exist.")
-                    elif exc.status == HTTPStatus.CONFLICT:
-                        print(f"Could not modify {agent} in its current state")
-                    elif exc.status == HTTPStatus.FORBIDDEN:
-                        sys.exit(
-                            "Unauthorized. "
-                            "Confirm cliend_id/secret_key pair are correct "
-                            "or you are connected to the rigth network"
-                        )
-                    else:
-                        # For any other HTTP error
-                        raise UnknownStatusError("agent") from exc
-            except UnknownStatusError as exc:
-                print(exc)
+                self.main_cli.client.set_agent_status(agent, status, comment)
+                print(f"Agent {agent} status is now: {status}")
+            except client.HTTPError as exc:
+                if exc.status == HTTPStatus.NOT_FOUND:
+                    print(f"Agent {agent} does not exist.")
+                elif exc.status == HTTPStatus.CONFLICT:
+                    print(f"Could not modify {agent} in its current state")
