@@ -33,6 +33,7 @@ from requests_mock import Mocker
 
 import testflinger_cli
 from testflinger_cli.client import HTTPError
+from testflinger_cli.errors import AuthorizationError
 
 URL = "https://testflinger.canonical.com"
 
@@ -871,7 +872,7 @@ def test_authentication_error(tmp_path, requests_mock, monkeypatch):
 
 
 @pytest.mark.parametrize("state", ["offline", "maintenance"])
-def test_set_agent_status_online(capsys, requests_mock, state):
+def test_set_agent_status_online(capsys, requests_mock, state, monkeypatch):
     """Validate we are able to change agent status to online."""
     fake_agent = "fake_agent"
     fake_return = {
@@ -890,6 +891,21 @@ def test_set_agent_status_online(capsys, requests_mock, state):
         "online",
         fake_agent,
     ]
+
+    # Define variables for authentication
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
+
+    expected_role = "admin"
+    fake_payload = {
+        "permissions": {"client_id": "my_client_id", "role": expected_role}
+    }
+    fake_jwt_signing_key = "my-secret"
+    fake_jwt_token = jwt.encode(
+        fake_payload, fake_jwt_signing_key, algorithm="HS256"
+    )
+    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
+
     requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
     requests_mock.post(
         URL + "/v1/agents/data/" + fake_agent, json=fake_send_agent_data
@@ -903,11 +919,11 @@ def test_set_agent_status_online(capsys, requests_mock, state):
 @pytest.mark.parametrize(
     "state", ["setup", "provision", "test", "allocate", "reserve"]
 )
-def test_set_incorrect_agent_status(capsys, requests_mock, state):
+def test_set_incorrect_agent_status(capsys, requests_mock, state, monkeypatch):
     """Validate we can't modify the agent status if at any testing stage."""
     fake_agent = "fake_agent"
     fake_return = {
-        "name": "fake_agent",
+        "name": fake_agent,
         "queues": ["fake"],
         "state": state,
     }
@@ -921,13 +937,28 @@ def test_set_incorrect_agent_status(capsys, requests_mock, state):
         "maintenance",
         fake_agent,
     ]
+
+    # Define variables for authentication
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
+
+    expected_role = "admin"
+    fake_payload = {
+        "permissions": {"client_id": "my_client_id", "role": expected_role}
+    }
+    fake_jwt_signing_key = "my-secret"
+    fake_jwt_token = jwt.encode(
+        fake_payload, fake_jwt_signing_key, algorithm="HS256"
+    )
+    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
+
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_agent_status()
     std = capsys.readouterr()
     assert f"Could not modify {fake_agent} in its current state" in std.out
 
 
-def test_set_offline_without_comments(requests_mock):
+def test_set_offline_without_comments(requests_mock, monkeypatch):
     """Validate status can't change to offline without comments."""
     fake_agent = "fake_agent"
     fake_return = {
@@ -945,9 +976,63 @@ def test_set_offline_without_comments(requests_mock):
         "offline",
         fake_agent,
     ]
+
+    # Define variables for authentication
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
+
+    expected_role = "admin"
+    fake_payload = {
+        "permissions": {"client_id": "my_client_id", "role": expected_role}
+    }
+    fake_jwt_signing_key = "my-secret"
+    fake_jwt_token = jwt.encode(
+        fake_payload, fake_jwt_signing_key, algorithm="HS256"
+    )
+    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
+
     tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as excinfo:
         tfcli.admin_cli.set_agent_status()
     assert "Comment is required when setting agent status to offline" in str(
         excinfo.value
     )
+
+
+@pytest.mark.parametrize("role", ["user", "contributor"])
+def test_set_agent_status_with_unprivileged_user(
+    requests_mock, monkeypatch, role
+):
+    """Validate status can't change if user doesn't have the right role."""
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": "fake_agent",
+        "queues": ["fake"],
+        "state": "waiting",
+    }
+    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    sys.argv = [
+        "",
+        "admin",
+        "set",
+        "agent-status",
+        "--status",
+        "offline",
+        fake_agent,
+    ]
+
+    # Define variables for authentication
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
+
+    fake_payload = {"permissions": {"client_id": "my_client_id", "role": role}}
+    fake_jwt_signing_key = "my-secret"
+    fake_jwt_token = jwt.encode(
+        fake_payload, fake_jwt_signing_key, algorithm="HS256"
+    )
+    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
+
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(AuthorizationError) as excinfo:
+        tfcli.admin_cli.set_agent_status()
+    assert "Authorization Error: Command requires role" in str(excinfo.value)
