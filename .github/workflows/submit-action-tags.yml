@@ -29,6 +29,8 @@ jobs:
           namespace: "submit"
           major_pattern: "breaking(submit):"
           minor_pattern: "feat(submit):"
+          search_commit_body: true
+          enable_prerelease_mode: false
 
       - name: Create and push tag
         env:
