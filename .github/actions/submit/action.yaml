@@ -22,6 +22,12 @@ inputs:
   attachments-relative-to:
     description: The reference directory for relative attachment paths
     required: false
+  client-id:
+    description: Client ID for jobs requiring authentication
+    required: false
+  secret-key:
+    description: Secret key for jobs requiring authentication
+    required: false
 outputs:
   id:
     description: 'The ID of the submitted job'
@@ -145,13 +151,18 @@ runs:
       env:
         SERVER: https://${{ inputs.server }}
         RELATIVE_TO: ${{ inputs.attachments-relative-to }}
+        CLIENT_ID: ${{ inputs.client-id }}
+        SECRET_KEY: ${{ inputs.secret-key }}
         JOB: ${{ steps.create-job-file.outputs.job }}
       run: |
         echo "::group::Submit job to the Testflinger server"
         if [ -n "$RELATIVE_TO" ]; then
           RELATIVE="--attachments-relative-to $RELATIVE_TO"
         fi
-        JOB_ID=$(testflinger --server $SERVER submit --quiet $RELATIVE "$JOB")
+        if [[ -n "$CLIENT_ID" && -n "$SECRET_KEY" ]]; then
+          AUTH="--client_id $CLIENT_ID --secret_key $SECRET_KEY"
+        fi
+        JOB_ID=$(testflinger --server $SERVER submit --quiet $RELATIVE $AUTH "$JOB")
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
         echo "::endgroup::"
         echo "::notice::Submitted job $JOB_ID"
