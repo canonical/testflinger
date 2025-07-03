@@ -160,9 +160,10 @@ runs:
           RELATIVE="--attachments-relative-to $RELATIVE_TO"
         fi
         if [[ -n "$CLIENT_ID" && -n "$SECRET_KEY" ]]; then
-          AUTH="--client_id $CLIENT_ID --secret_key $SECRET_KEY"
+          JOB_ID=$(testflinger --server $SERVER submit --quiet $RELATIVE --client_id "$CLIENT_ID" --secret_key "$SECRET_KEY" "$JOB")
+        else
+          JOB_ID=$(testflinger --server $SERVER submit --quiet $RELATIVE "$JOB")
         fi
-        JOB_ID=$(testflinger --server $SERVER submit --quiet $RELATIVE $AUTH "$JOB")
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
         echo "::endgroup::"
         echo "::notice::Submitted job $JOB_ID"
