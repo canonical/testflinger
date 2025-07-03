@@ -34,7 +34,7 @@ class TestflingerCliAuth:
         self.client_id = client_id
         self.secret_key = secret_key
         self.client = tf_client
-        # Fetch JWT token to fail fast in case there is any auth error. 
+        # Fetch JWT token to fail fast in case of any auth error.
         _ = self.jwt_token
 
     def is_authenticated(self) -> bool:
