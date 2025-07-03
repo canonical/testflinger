@@ -46,8 +46,8 @@ from testflinger_cli import (
     helpers,
     history,
 )
-from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.admin import TestflingerAdminCLI
+from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.errors import (
     AttachmentError,
     AuthenticationError,
