@@ -331,7 +331,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 47
+LIBPATCH = 48
 
 PYDEPS = ["ops>=2.0.0"]
 
@@ -3759,6 +3759,10 @@ class OpenSearchProvidesEventHandlers(ProviderEventHandlers):
             getattr(self.on, "index_requested").emit(
                 event.relation, app=event.app, unit=event.unit
             )
+
+    def _on_secret_changed_event(self, event: SecretChangedEvent) -> None:
+        """Event emitted when the relation data has changed."""
+        pass
 
 
 class OpenSearchProvides(OpenSearchProvidesData, OpenSearchProvidesEventHandlers):
