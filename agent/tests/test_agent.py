@@ -65,8 +65,6 @@ class TestClient:
         self.config["setup_command"] = "echo setup1"
         fake_job_data = {"job_id": str(uuid.uuid1()), "job_queue": "test"}
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/job?queue=test",
-            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
             re.compile(r".*/(?!v1/agents/data/\w+$).*"),
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
@@ -91,15 +89,13 @@ class TestClient:
             "provision_data": {"url": "foo"},
         }
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/job?queue=test",
-            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
             re.compile(r".*/(?!v1/agents/data/\w+$).*"),
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         # For mocking, we can simplify the agent state by setting as waiting
         requests_mock.get(
             re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting"}),
+            text=json.dumps({"state": "waiting", "restricted_to": {}}),
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -176,14 +172,8 @@ class TestClient:
             mocker.get(re.compile(r"/v1/result/"))
             # mock response to requesting agent data
             mocker.get(
-                "http://127.0.0.1:8000/v1/agents/data/test01",
-                json={"restricted_to": {}},
-            )
-
-            # mock response to get agent status
-            mocker.get(
                 re.compile(r"/v1/agents/data/\w+"),
-                text=json.dumps({"state": "waiting"}),
+                text=json.dumps({"state": "waiting", "restricted_to": {}}),
             )
 
             # request and process the job (should unpack the archive)
@@ -243,15 +233,11 @@ class TestClient:
             )
             # mock response to results request
             mocker.get(re.compile(r"/v1/result/"))
-            mocker.get(
-                "http://127.0.0.1:8000/v1/agents/data/test01",
-                json={"restricted_to": {}},
-            )
 
-            # mock response to get agent status
+            # mock response to get agent data
             mocker.get(
                 re.compile(r"/v1/agents/data/\w+"),
-                text=json.dumps({"state": "waiting"}),
+                text=json.dumps({"state": "waiting", "restricted_to": {}}),
             )
 
             # request and process the job (should unpack the archive)
@@ -311,15 +297,11 @@ class TestClient:
             )
             # mock response to results request
             mocker.get(re.compile(r"/v1/result/"))
-            mocker.get(
-                "http://127.0.0.1:8000/v1/agents/data/test01",
-                json={"restricted_to": {}},
-            )
 
-            # mock response to get agent status
+            # mock response to get agent data
             mocker.get(
                 re.compile(r"/v1/agents/data/\w+"),
-                text=json.dumps({"state": "waiting"}),
+                text=json.dumps({"state": "waiting", "restricted_to": {}}),
             )
 
             # request and process the job (should unpack the archive)
@@ -499,10 +481,16 @@ class TestClient:
                 "http://127.0.0.1:8000/v1/agents/data/"
                 + self.config.get("agent_id"),
                 [
-                    {"text": json.dumps({"state": "waiting",
-                                          "restricted_to": {}})},
-                    {"text": json.dumps({"state": "offline",
-                                         "restricted_to": {}})},
+                    {
+                        "text": json.dumps(
+                            {"state": "waiting", "restricted_to": {}}
+                        )
+                    },
+                    {
+                        "text": json.dumps(
+                            {"state": "offline", "restricted_to": {}}
+                        )
+                    },
                 ],
             )
 
