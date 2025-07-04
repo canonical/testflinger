@@ -1,5 +1,6 @@
 comment:
   layout: "header, diff, flags, components"
+  show_carryforward_flags: true
 flag_management:
   default_rules:
     carryforward: true
