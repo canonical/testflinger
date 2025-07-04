@@ -30,6 +30,10 @@ from ops.model import (
 )
 
 from charms.operator_libs_linux.v0 import apt
+from charms.prometheus_k8s.v0.prometheus_scrape import (
+    MetricsEndpointProvider
+)
+from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +54,12 @@ class TestflingerAgentHostCharm(CharmBase):
         self.framework.observe(
             self.on.update_testflinger_action,
             self.on_update_testflinger_action,
+        )
+        self.scrape_jobs = []
+        self.metrics_endpoint = MetricsEndpointProvider(self)
+        self._grafana_agent = COSAgentProvider(
+            self,
+            scrape_configs=self.get_scrape_jobs,
         )
 
     def on_install(self, _):
@@ -132,7 +142,7 @@ class TestflingerAgentHostCharm(CharmBase):
             shutil.rmtree(repo_path, ignore_errors=True)
         shutil.move(tmp_repo_path, repo_path)
 
-    def write_supervisor_service_files(self):
+    def write_supervisor_service_files(self, initial_metrics_port=8000):
         """
         Generate supervisord service files for all agents.
 
@@ -171,17 +181,32 @@ class TestflingerAgentHostCharm(CharmBase):
             "templates/testflinger-agent.supervisord.conf.j2", "r"
         ) as service_template:
             template = Template(service_template.read())
+
+        metric_endpoint_port = initial_metrics_port
+        self.scrape_jobs = []
         for agent_dir in agent_dirs:
             agent_config_path = agent_dir
+            agent_name = agent_dir.name
             rendered = template.render(
-                agent_name=agent_dir.name,
+                agent_name=agent_name,
                 agent_config_path=agent_config_path,
                 virtual_env_path=VIRTUAL_ENV_PATH,
+                metric_endpoint_port=metric_endpoint_port,
             )
+            self.scrape_jobs.append(
+                {
+                    "job_name": agent_name,
+                    "static_configs": [
+                        {"targets": [f"*:{metric_endpoint_port}"]}
+                    ],
+                }
+            )
+            metric_endpoint_port += 1
             with open(
-                f"/etc/supervisor/conf.d/{agent_dir.name}.conf", "w"
+                f"/etc/supervisor/conf.d/{agent_name}.conf", "w"
             ) as agent_file:
                 agent_file.write(rendered)
+        self.metrics_endpoint.update_scrape_job_spec(self.scrape_jobs)
 
     def supervisor_update(self):
         """
@@ -320,6 +345,8 @@ class TestflingerAgentHostCharm(CharmBase):
         self.restart_agents()
         self.unit.status = ActiveStatus()
 
+    def get_scrape_jobs(self):
+        return self.scrape_jobs
 
 if __name__ == "__main__":
     main(TestflingerAgentHostCharm)
