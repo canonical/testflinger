@@ -31,3 +31,51 @@ class LogUpdateHandler:
     def __call__(self, data: str):
         with open(self.log_file, "a") as log:
             log.write(data)
+
+
+class AgentStatusHandler:
+    """Handler to determine if restart is needed at any stage of the agent."""
+
+    def __init__(self):
+        """Initialize handler with default values."""
+        self.needs_restart = False
+        self.needs_offline = False
+        self.comment = ""
+
+    def update(
+        self, comment: str, restart: bool = False, offline: bool = False
+    ) -> None:
+        """Update the attributes of the class if needed.
+
+        :param restart: Flag to set if agent needs restarting.
+        :param offline: Flag to set if agent needs offlining.
+        :param comment: Reason for requesting agent status change.
+        """
+        if restart and not self.needs_restart:
+            self.needs_restart = True
+            if not self.needs_offline:
+                self.comment = comment
+        if offline and not self.needs_offline:
+            self.needs_offline = True
+            self.comment = comment
+
+    def marked_for_restart(self) -> bool:
+        """Indicate the current restart state of the restart handler.
+
+        :return: True if a restart is neeeded, False otherwise.
+        """
+        return self.needs_restart
+
+    def marked_for_offline(self) -> bool:
+        """Indicate the current offline state of the offline handler.
+
+        :return: True if a offline is neeeded, False otherwise.
+        """
+        return self.needs_offline
+
+    def get_comment(self) -> str:
+        """Retrieve the comment from the status handler.
+
+        :return: Preserved comment if an agent status was modified.
+        """
+        return self.comment
