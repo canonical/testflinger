@@ -377,23 +377,6 @@ class TestflingerClient:
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
 
-    def get_agent_data(self, agent: str) -> dict:
-        """Get the data information for an agent from Testflinger Server.
-
-        :param agent: The agent to retrieve data from
-        :return: Information about the agent.
-        """
-        agent_data_uri = urljoin(self.server, "/v1/agents/data/")
-        agent_data_url = urljoin(agent_data_uri, agent)
-
-        try:
-            response = self.session.get(agent_data_url, timeout=30)
-            response.raise_for_status()
-            return response.json()
-        except (requests.exceptions.RequestException, ValueError) as exc:
-            logger.error("Failed to retrieve agent data: %s", exc)
-            return {}
-
     def post_influx(self, phase, result=None):
         """Post the relevant data points to testflinger server.
 
