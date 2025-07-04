@@ -829,7 +829,12 @@ class TestClient:
             "provision_data": {"url": "foo"},
         }
         requests_mock.get(
-            rmock.ANY, [{"text": json.dumps(mock_job_data)}, {"text": "{}"}]
+            rmock.ANY,
+            [
+                {"text": json.dumps(self.config)},
+                {"text": json.dumps(mock_job_data)},
+                {"text": "{}"},
+            ],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"), patch("os.unlink"):
