@@ -539,6 +539,11 @@ class TestClient:
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
+
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
+        )
         with patch("shutil.rmtree"):
             agent.process_jobs()
 
@@ -573,6 +578,10 @@ class TestClient:
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+        )
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
@@ -611,6 +620,11 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
+
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
+        )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
 
@@ -644,6 +658,10 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
+        )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
 
@@ -673,6 +691,11 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
+        )
+
         expected_log_params = (
             job_id,
             0,
@@ -696,6 +719,10 @@ class TestClient:
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+        )
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
         )
         expected_log_params = (
             job_id,
@@ -724,6 +751,11 @@ class TestClient:
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
+
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
+        )
 
         provision_exception_info = {
             "provision_exception_info": {
@@ -794,6 +826,11 @@ class TestClient:
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
 
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
+        )
+
         provision_exception_info = {
             "provision_exception_info": {
                 "exception_name": "MyExceptionName",
@@ -858,12 +895,12 @@ class TestClient:
             "provision_data": {"url": "foo"},
         }
         requests_mock.get(
-            rmock.ANY,
-            [
-                {"text": json.dumps(self.config)},
-                {"text": json.dumps(mock_job_data)},
-                {"text": "{}"},
-            ],
+            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
+        )
+        requests_mock.get(
+            re.compile(r"/v1/agents/data/\w+"),
+            text=json.dumps({"state": "waiting"}),
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"), patch("os.unlink"):
