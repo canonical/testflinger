@@ -139,8 +139,6 @@ class DeviceConnector(ZapperConnector):
             "password": password,
             "robot_retries": retries,
             "autoinstall_conf": self._get_autoinstall_conf(),
-            "reboot_script": self.config["reboot_script"],
-            "device_ip": self.config["device_ip"],
             "robot_tasks": self.job_data["provision_data"]["robot_tasks"],
         }
 
