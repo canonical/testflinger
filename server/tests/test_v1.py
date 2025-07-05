@@ -1237,3 +1237,133 @@ def test_get_jobs_on_queue(mongo_app):
     # Confirm  the status code returned if there are no jobs in queue
     output = app.get("/v1/queues/test2/jobs")
     assert output.status_code == HTTPStatus.NO_CONTENT
+
+
+def test_get_all_restricted_queues(mongo_app):
+    """Test retrieving all restricted queues for agents."""
+    app, mongo = mongo_app
+    mongo.agents.insert_many(
+        [
+            {
+                "name": "agent1",
+                "identifier": "202506-00001",
+                "queues": ["q1", "q2"],
+            },
+            {"name": "agent2", "identifier": "202506-00002", "queues": ["q3"]},
+        ]
+    )
+    mongo.restricted_queues.insert_many(
+        [
+            {"queue_name": "q1"},
+            {"queue_name": "q3"},
+        ]
+    )
+    mongo.client_permissions.insert_many(
+        [
+            {"client_id": "clientA", "allowed_queues": ["q1"]},
+            {"client_id": "clientB", "allowed_queues": ["q3"]},
+        ]
+    )
+
+    output = app.get("/v1/restricted-queues")
+    assert output.status_code == HTTPStatus.OK
+
+    result = output.json
+    expected = [
+        {
+            "canonical_id": "202506-00001",
+            "name": "agent1",
+            "restricted_queues": [
+                {"queue": "q1", "restricted_to": ["clientA"]},
+            ],
+        },
+        {
+            "canonical_id": "202506-00002",
+            "name": "agent2",
+            "restricted_queues": [
+                {"queue": "q3", "restricted_to": ["clientB"]},
+            ],
+        },
+    ]
+    assert result[0] in expected
+    assert result[1] in expected
+
+
+def test_get_agent_restricted_queues(mongo_app):
+    """Test retrieving restricted queues for a specific agent."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {
+            "name": "agent1",
+            "identifier": "202506-00001",
+            "queues": ["q1", "q2"],
+        },
+    )
+    mongo.restricted_queues.insert_one(
+        {"queue_name": "q1"},
+    )
+    mongo.client_permissions.insert_one(
+        {"client_id": "clientA", "allowed_queues": ["q1"]},
+    )
+
+    output = app.get("/v1/restricted-queues/202506-00001")
+    assert output.status_code == HTTPStatus.OK
+
+    result = output.json
+    expected = {
+        "canonical_id": "202506-00001",
+        "name": "agent1",
+        "restricted_queues": [
+            {"queue": "q1", "restricted_to": ["clientA"]},
+        ],
+    }
+    assert result == expected
+
+
+def test_add_restricted_queue(mongo_app):
+    """Test adding a restricted queue for an agent."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {
+            "name": "agent1",
+            "identifier": "202506-00001",
+            "queues": ["q1", "q2"],
+        },
+    )
+
+    data = {
+        "restricted_to": "clientA",
+        "queue": "q1",
+    }
+    output = app.post("/v1/restricted-queues/202506-00001", json=data)
+    assert output.status_code == HTTPStatus.OK
+
+    permission = mongo.client_permissions.find_one({"client_id": "clientA"})
+    assert "q1" in permission.get("allowed_queues", [])
+    restricted_queue = mongo.restricted_queues.find_one({"queue_name": "q1"})
+    assert restricted_queue is not None
+
+
+def test_delete_restricted_queue(mongo_app):
+    """Test deleting a restricted queue for an agent."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {
+            "name": "agent1",
+            "identifier": "202506-00001",
+            "queues": ["q1", "q2"],
+        },
+    )
+    mongo.restricted_queues.insert_one({"queue_name": "q1"})
+    mongo.client_permissions.insert_one(
+        {"client_id": "clientA", "allowed_queues": ["q1"]}
+    )
+
+    data = {"queue": "q1", "restricted_to": "clientA"}
+    output = app.delete("/v1/restricted-queues/202506-00001", json=data)
+    assert output.status_code == HTTPStatus.OK
+
+    permission = mongo.client_permissions.find_one({"client_id": "clientA"})
+    assert "q1" not in permission.get("allowed_queues", [])
+    restricted_queue = mongo.restricted_queues.find_one({"queue_name": "q1"})
+    assert restricted_queue is None
