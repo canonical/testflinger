@@ -229,40 +229,6 @@ is_secure_boot_enabled() {
     return 1
 }
 
-set_usb_boot_first() {
-    local bootnum current_order new_order
-
-    # Get USB boot number and avoid usb-ethernet dongles
-    bootnum=$($SSH_WITH_PASS "$TARGET_USER@$addr" -- sudo efibootmgr -v \
-        | awk 'BEGIN {IGNORECASE=1} /Boot[0-9A-F]+\**[[:space:]]+.*USB/ && !/IP/ && !/MAC/ {print $1}' \
-        | head -n1 | cut -c5- | tr -d '*')
-
-    if [[ -z "$bootnum" ]]; then
-        echo "No USB boot entry found" >&2
-        return 1
-    fi
-
-    echo "USB boot entry found: $bootnum"
-
-    # Get current boot order and remove USB bootnum from it
-    # i.e: "BootOrder: 0001,0000,0003"
-    # usb can be in random order, to be safe we try to cover all cases
-    current_order=$($SSH_WITH_PASS "$TARGET_USER@$addr" -- sudo efibootmgr | grep BootOrder | cut -d: -f2 | tr -d '[:space:]')
-    current_order=${current_order//${bootnum},/}  # Remove if at beginning
-    current_order=${current_order//,${bootnum}/}  # Remove if in middle
-    current_order=${current_order//${bootnum}/}   # Remove if alone
-
-    # Build new order with USB first
-    new_order="$bootnum"
-    if [[ -n "$current_order" ]]; then
-        new_order+=",$current_order"
-    fi
-
-    echo "Setting new boot order: $new_order"
-    $SSH_WITH_PASS "$TARGET_USER@$addr" -- sudo efibootmgr -o "$new_order"
-    return $?
-}
-
 OPTS="$(getopt -o u:o:l: --long iso:,user:,timeout:,local-config:,iso-dut: -n 'provision-image.sh' -- "$@")"
 eval set -- "${OPTS}"
 while :; do
@@ -433,6 +399,3 @@ while :; do
         break
     fi
 done
-
-# Change the boot order to boot from USB first
-set_usb_boot_first
