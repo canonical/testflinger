@@ -23,9 +23,11 @@ env:
 
 jobs:
   build-and-push-charm:
+    name: Build and Push Charm
     runs-on: [self-hosted, linux, jammy, X64]
     permissions:
-      contents: read
+      actions: read
+      contents: write
       packages: write
 
     env:

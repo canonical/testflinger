@@ -363,3 +363,28 @@ def queue_exists(queue: str) -> bool:
     :return: True if exists, False otherwise
     """
     return mongo.db.agents.find_one({"queues": queue}) is not None
+
+
+def get_restricted_queues() -> set[str]:
+    """Return a set of all restricted queues."""
+    restricted_queues = mongo.db.restricted_queues.distinct("queue_name")
+    return set(restricted_queues)
+
+
+def get_restricted_queues_owners() -> dict[str, list[str]]:
+    """Return a mapping of restricted queues and its permitted client IDs."""
+    docs = mongo.db.client_permissions.find(
+        {}, {"allowed_queues": 1, "client_id": 1}
+    )
+    queue_to_clients = {}
+    for doc in docs:
+        client_id = doc["client_id"]
+        for queue_name in doc.get("allowed_queues", []):
+            queue_to_clients.setdefault(queue_name, []).append(client_id)
+    return queue_to_clients
+
+
+def get_agents() -> list[dict]:
+    """Return a list of all agents."""
+    agents = mongo.db.agents.find({}, {"_id": False, "log": False})
+    return list(agents)

@@ -50,6 +50,49 @@ class TestClient:
         job_data = client.check_jobs()
         assert job_data == fake_job_data
 
+    def test_check_jobs_with_restricted_queues(self, client, requests_mock):
+        restricted_data = {
+            "restricted_to": {
+                "test_queue": ["test-client-id"],
+            }
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            json=restricted_data,
+        )
+        fake_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test_queue",
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job",
+            json=fake_job_data,
+        )
+        job_data = client.check_jobs()
+        params = requests_mock.last_request.qs.get("queue")
+        assert params == ["test_queue"]
+        assert job_data == fake_job_data
+
+    def test_check_jobs_with_unrestricted_queues(self, client, requests_mock):
+        client.config["job_queues"] = ["queue1"]
+        unrestricted_data = {"restricted_to": {}}
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            json=unrestricted_data,
+        )
+        fake_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "queue1",
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job",
+            json=fake_job_data,
+        )
+        job_data = client.check_jobs()
+        params = requests_mock.last_request.qs.get("queue")
+        assert params == ["queue1"]
+        assert job_data == fake_job_data
+
     def test_post_advertised_queues(self, client, requests_mock):
         """
         Ensure that the server api /v1/agents/queues was called with
@@ -234,3 +277,17 @@ class TestClient:
         )
         client.post_status_update("", "", [], job_id)
         assert "Unable to post status updates" in caplog.text
+
+    def test_get_agent_data(self, client, requests_mock):
+        agent_data = {
+            "agent_id": "test_agent",
+            "queues": ["queue1", "queue2"],
+            "restricted_to": {"queue1": ["client1"]},
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            json=agent_data,
+        )
+
+        data = client.get_agent_data("test_agent")
+        assert data == agent_data

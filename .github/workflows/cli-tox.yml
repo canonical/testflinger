@@ -8,10 +8,12 @@ on:
     paths:
       - .github/workflows/cli-tox.yml
       - cli/**
+      - codecov.yaml
   pull_request:
     paths:
       - .github/workflows/cli-tox.yml
       - cli/**
+      - codecov.yaml
 
 jobs:
   test:
@@ -35,3 +37,9 @@ jobs:
         run: uvx --with tox-uv tox -e lint
       - name: Run unit tests
         run: uvx --with tox-uv tox -e unit
+      - name: Upload coverage
+        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
+        with:
+          files: coverage.xml
+          flags: cli
+          token: ${{ secrets.CODECOV_TOKEN }}

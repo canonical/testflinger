@@ -1,6 +1,7 @@
 # Testflinger
 
 [![Documentation status][rtd-badge]][rtd-latest]
+[![codecov][cov-badge]][cov-latest]
 
 **Testflinger** is a system for orchestrating the time-sharing of access to a
 pool of target machines.
@@ -62,6 +63,8 @@ If you're interested, start with the [contribution guide](CONTRIBUTING.md).
 
 [rtd-badge]: https://readthedocs.com/projects/canonical-testflinger/badge/?version=latest
 [rtd-latest]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/
+[cov-badge]: https://codecov.io/gh/canonical/testflinger/graph/badge.svg?token=G8Y0VF2CEY
+[cov-latest]: https://codecov.io/gh/canonical/testflinger
 [github]: https://github.com/canonical/testflinger
 [submit-action]: .github/actions/submit/README.md
 [poll-multi-action]: .github/actions/poll-multi/README.md

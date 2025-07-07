@@ -66,6 +66,7 @@ class AgentOut(Schema):
     provision_type = fields.String(required=False)
     job_id = fields.String(required=False)
     comment = fields.String(required=False)
+    restricted_to = fields.Dict(required=False)
 
 
 class ActionIn(Schema):
@@ -137,6 +138,7 @@ class OEMAutoinstallProvisionData(Schema):
     """Schema for the `provision_data` section of a OEM Autoinstall job."""
 
     url = fields.URL(required=False)
+    attachments = fields.List(fields.Nested(Attachment), required=False)
     token_file = fields.String(required=False)
     user_data = fields.String(required=False)
     redeploy_cfg = fields.String(required=False)
@@ -187,7 +189,7 @@ class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
 
     url = fields.URL(required=True)
     robot_tasks = fields.List(fields.String(), required=True)
-    autoinstall_storage_layout = fields.String(required=True)
+    autoinstall_storage_layout = fields.String(required=False)
     ubuntu_sso_email = fields.Email(required=False)
     autoinstall_base_user_data = fields.String(required=False)
     autoinstall_oem = fields.Boolean(required=False)

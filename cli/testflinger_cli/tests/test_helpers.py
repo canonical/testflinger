@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Canonical Ltd.
 """Tests for the helpers of Testflinger CLI."""
 
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from testflinger_cli.helpers import (
     file_is_in_snap_private_dir,
     is_snap,
     parse_filename,
+    pretty_yaml_dump,
 )
 
 
@@ -50,3 +52,19 @@ def test_parse_filename_snap_private(monkeypatch):
 def test_parse_filename_stdin():
     """Test the parse_filename function with stdin."""
     assert parse_filename("-", parse_stdin=True) is None
+
+
+def test_pretty_yaml_dump():
+    """Test pretty yaml dumper dumps single/multi line strings correctly."""
+    single_line = {"a": "some"}
+    assert pretty_yaml_dump(single_line).strip() == "a: some"
+
+    multiline = {"a": "some\nother"}
+    result = textwrap.dedent(
+        """
+        a: |-
+            some
+            other
+        """
+    ).strip()
+    assert pretty_yaml_dump(multiline, indent=4).strip() == result

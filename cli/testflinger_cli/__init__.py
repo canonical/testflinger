@@ -46,8 +46,11 @@ from testflinger_cli import (
     helpers,
     history,
 )
+from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.errors import (
     AttachmentError,
+    AuthenticationError,
+    AuthorizationError,
     SnapPrivateFileError,
     UnknownStatusError,
 )
@@ -112,6 +115,14 @@ class TestflingerCli:
                 f'- currently set to: "{server}"'
             )
         self.client = client.Client(server, error_threshold=error_threshold)
+
+        # Initialize Auth module
+        try:
+            self.auth = TestflingerCliAuth(
+                self.client_id, self.secret_key, self.client
+            )
+        except (AuthenticationError, AuthorizationError) as exc:
+            sys.exit(exc)
 
     def run(self):
         """Run the subcommand specified in command line arguments."""
@@ -324,6 +335,11 @@ class TestflingerCli:
         parser.set_defaults(func=self.show)
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
+        )
+        parser.add_argument(
+            "--yaml",
+            action="store_true",
+            help="Print the job as a YAML document instead of a JSON object",
         )
 
     def _add_submit_args(self, subparsers):
@@ -590,14 +606,6 @@ class TestflingerCli:
                     attachment["agent"] = str(agent_path)
                     del attachment["local"]
 
-    def build_auth_headers(self):
-        """
-        Get a JWT from the server and
-        creates an authorization header from it.
-        """
-        jwt = self.authenticate_with_server()
-        return {"Authorization": jwt} if jwt else None
-
     def submit(self):
         """Submit a new test job to the server."""
         if not self.args.filename:
@@ -615,7 +623,10 @@ class TestflingerCli:
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
         queue = job_dict.get("job_queue")
-        self.check_online_agents_available(queue)
+        try:
+            self.check_online_agents_available(queue)
+        except AuthorizationError as exc:
+            sys.exit(exc)
 
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
@@ -652,7 +663,9 @@ class TestflingerCli:
         """Exit or warn if no online agents available for a specified queue."""
         try:
             agents = self.client.get_agents_on_queue(queue)
-        except client.HTTPError:
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.FORBIDDEN:
+                raise AuthorizationError from exc
             agents = []
         online_agents = [
             agent for agent in agents if agent["state"] != "offline"
@@ -677,7 +690,7 @@ class TestflingerCli:
         retry_count = 0
         while True:
             try:
-                auth_headers = self.build_auth_headers()
+                auth_headers = self.auth.build_headers()
                 job_id = self.client.submit_job(data, headers=auth_headers)
                 break
             except client.HTTPError as exc:
@@ -695,8 +708,8 @@ class TestflingerCli:
 
                 if exc.status == 403:
                     sys.exit(
-                        "Received 403 error from server with reason "
-                        f"{exc.msg}"
+                        "Received 403 error from server with reason: "
+                        f"{exc.msg}\n"
                         "The specified client credentials do not have "
                         "sufficient permissions for the resource(s) "
                         "you are trying to access."
@@ -705,6 +718,7 @@ class TestflingerCli:
                     if "expired" in exc.msg:
                         if retry_count < 2:
                             retry_count += 1
+                            self.auth.refresh_authentication()
                         else:
                             sys.exit(
                                 "Received 401 error from server due to "
@@ -712,10 +726,11 @@ class TestflingerCli:
                             )
                     else:
                         sys.exit(
-                            "Received 401 error from server with reason "
-                            f"{exc.msg} You are attempting to use a feature "
+                            "Received 401 error from server with reason: "
+                            f"{exc.msg}\n"
+                            "You are attempting to use a feature "
                             "that requires client authorisation "
-                            "without using client credentials. "
+                            "without using client credentials. \n"
                             "See https://testflinger.readthedocs.io/en/latest"
                             "/how-to/authentication.html for more details"
                         )
@@ -780,35 +795,6 @@ class TestflingerCli:
             f"failed after {tries} tries"
         )
 
-    def authenticate_with_server(self):
-        """
-        Authenticate client id and secret key with server
-        and return JWT with permissions.
-        """
-        if self.client_id is None or self.secret_key is None:
-            return None
-
-        try:
-            jwt = self.client.authenticate(self.client_id, self.secret_key)
-        except client.HTTPError as exc:
-            if exc.status == 401:
-                sys.exit(
-                    "Authentication with Testflinger server failed. "
-                    "Check your client id and secret key"
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
-                )
-            # This shouldn't happen, so let's get more information
-            logger.error(
-                "Unexpected error status from testflinger server: %s",
-                exc.status,
-            )
-            sys.exit(1)
-        return jwt
-
     def show(self):
         """Show the requested job JSON for a specified JOB_ID."""
         try:
@@ -832,7 +818,13 @@ class TestflingerCli:
                 exc.status,
             )
             sys.exit(1)
-        print(json.dumps(results, sort_keys=True, indent=4))
+        if self.args.yaml:
+            to_print = helpers.pretty_yaml_dump(
+                results, sort_keys=True, indent=4
+            )
+        else:
+            to_print = json.dumps(results, sort_keys=True, indent=4)
+        print(to_print)
 
     def results(self):
         """Get results JSON for a completed JOB_ID."""

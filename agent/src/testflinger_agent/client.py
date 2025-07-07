@@ -91,12 +91,24 @@ class TestflingerClient:
     def check_jobs(self):
         """Check for new jobs for on the Testflinger server.
 
+        If the agent has restricted queues, only accept jobs from those queues.
+
         :return: Dict with job data, or None if no job found
         """
+        agent_id = self.config.get("agent_id")
+        agent_data = self.get_agent_data(agent_id)
+
+        all_queues = self.config.get("job_queues", [])
+        restricted_to = agent_data.get("restricted_to", {})
+        restricted_queues = [
+            queue for queue, owners in restricted_to.items() if owners
+        ]
+
+        queue_list = restricted_queues or all_queues
+
+        job_uri = urljoin(self.server, "/v1/job")
+        logger.debug("Requesting a job")
         try:
-            job_uri = urljoin(self.server, "/v1/job")
-            queue_list = self.config.get("job_queues")
-            logger.debug("Requesting a job")
             job_request = self.session.get(
                 job_uri, params={"queue": queue_list}, timeout=30
             )
@@ -218,6 +230,17 @@ class TestflingerClient:
         if job_request.content:
             return job_request.json()
         else:
+            return {}
+
+    def get_agent_data(self, agent_id: str) -> dict:
+        """Fetch data for the given agent."""
+        url = urljoin(self.server, f"/v1/agents/data/{agent_id}")
+        try:
+            response = self.session.get(url, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except (requests.exceptions.RequestException, ValueError) as exc:
+            logger.error("Failed to retrieve agent data: %s", exc)
             return {}
 
     def transmit_job_outcome(self, rundir):

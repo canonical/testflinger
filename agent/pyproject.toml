@@ -11,6 +11,7 @@ authors = []
 requires-python = ">=3.10"
 dependencies = [
     "influxdb>=5.3.2",
+    "prometheus-client>=0.22.1",
     "pyyaml>=6.0.1",
     "requests>=2.31.0",
     "testflinger-common",
@@ -23,6 +24,7 @@ testflinger-agent = "testflinger_agent.cmd:main"
 [dependency-groups]
 charm = [
     "charmcraft>=2.7.3",
+    "cosl",
     "gitpython==3.1.44",
     "jinja2==3.1.6",
     "juju>=3.5.2.1",

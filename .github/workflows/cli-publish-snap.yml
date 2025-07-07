@@ -1,4 +1,4 @@
-name: Publish Testflinger CLI Snap
+name: Build Testflinger CLI
 permissions:
   contents: read
 on:
@@ -28,7 +28,8 @@ on:
           - edge
 
 jobs:
-  build:
+  snap:
+    name: Snap
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

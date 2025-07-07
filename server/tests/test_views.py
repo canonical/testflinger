@@ -94,7 +94,10 @@ def test_agent_detail_no_provision_log(testapp):
     mongo.db.agents.insert_one(
         {"name": "agent1", "updated_at": datetime.now(tz=timezone.utc)}
     )
-    with patch("testflinger.views.mongo", mongo):
+    with (
+        patch("testflinger.views.mongo", mongo),
+        patch("testflinger.database.mongo", mongo),
+    ):
         with testapp.test_request_context():
             response = agent_detail("agent1")
 
@@ -114,6 +117,34 @@ def test_agent_not_found(testapp):
 
     assert "Agent not found: agent1" in str(response.data)
     assert response.status_code == 404
+
+
+def test_agent_detail_with_restricted_to(testapp):
+    """Test that the agent detail page shows restricted_to field properly."""
+    mongo = mongomock.MongoClient()
+    mongo.db.restricted_queues.insert_one({"queue_name": "queue1"})
+    mongo.db.client_permissions.insert_one(
+        {
+            "client_id": "test-client-id",
+            "allowed_queues": ["queue1"],
+        }
+    )
+    mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "queues": ["queue1", "queue2"],
+            "updated_at": datetime.now(tz=timezone.utc),
+        }
+    )
+    with (
+        patch("testflinger.views.mongo", mongo),
+        patch("testflinger.database.mongo", mongo),
+    ):
+        with testapp.test_request_context():
+            response = agent_detail("agent1")
+
+    html = str(response)
+    assert "(restricted to: test-client-id)" in html
 
 
 def test_job_not_found(testapp):

@@ -137,6 +137,34 @@ class RealSerialLogger:
 
 
 class DefaultDevice:
+    """Defines a common class for all DeviceConnector to use default methods.
+
+    Attributes:
+        config: Configuration with all the information of the device.
+    """
+
+    def __init__(self, config: dict) -> None:
+        """Initialize class with device config and writing data to JSON file.
+
+        :param config: Dict with all the information relevant to a device.
+        """
+        self.config = config
+        self.write_device_info()
+
+    def write_device_info(self) -> None:
+        """Write device information to device-info.json using the config
+        stored during initialization.
+        """
+        device_info = {
+            "device_info": {
+                field: value
+                for field in ("device_ip", "agent_name")
+                if (value := self.config.get(field))
+            }
+        }
+        with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
+            devinfo_file.write(json.dumps(device_info))
+
     def firmware_update(self, args):
         """Process firmware update commands (default method)."""
         with open(args.config) as configfile:
@@ -220,15 +248,9 @@ class DefaultDevice:
         logger.info("END testrun")
         return exitcode
 
-    def allocate(self, args):
+    def allocate(self):
         """Allocate devices for multi-agent jobs (default method)."""
-        with open(args.config) as configfile:
-            config = yaml.safe_load(configfile)
-        device_ip = config["device_ip"]
-        device_info = {"device_info": {"device_ip": device_ip}}
-        print(device_info)
-        with open("device-info.json", "w", encoding="utf-8") as devinfo_file:
-            devinfo_file.write(json.dumps(device_info))
+        pass
 
     def import_ssh_key(self, key: str, keyfile: str = "key.pub") -> None:
         """Import SSH key provided in Reserve data.
@@ -383,12 +405,12 @@ class DefaultDevice:
         pass
 
 
-def get_device_stage_func(device: str, stage: str) -> Callable:
+def get_device_stage_func(device: str, stage: str, config: dict) -> Callable:
     """Load the selected device connector and
     return the selected stage method.
     """
     module = import_module(f".{device}", package=__package__)
     device_class = module.DeviceConnector
-    device_instance = device_class()
+    device_instance = device_class(config=config)
     stage_method = getattr(device_instance, stage)
     return stage_method

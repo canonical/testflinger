@@ -79,6 +79,16 @@ def agent_detail(agent_id):
         response.status_code = 404
         return response
 
+    restricted_queues = database.get_restricted_queues()
+    client_permissions = database.get_restricted_queues_owners()
+
+    agent_info["restricted_to"] = {
+        queue: client_permissions.get(queue, [])
+        if queue in restricted_queues
+        else []
+        for queue in agent_info.get("queues", [])
+    }
+
     # We want to include the start/stop dates so that default values
     # can be filled in for the date pickers
     agent_info["start"] = start_date
