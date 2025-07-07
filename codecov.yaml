@@ -1,5 +1,9 @@
 comment:
   layout: "header, diff, flags, components"
+  show_carryforward_flags: true
+flag_management:
+  default_rules:
+    carryforward: true
 component_management:
   default_rules:  # default rules that will be inherited by all components
     statuses:

@@ -12,11 +12,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function creates a proper provision_data
         dictionary when valid data are provided.
         """
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "reboot_script": ["cmd1", "cmd2"],
-        }
-        device = DeviceConnector(fake_config)
+        device = DeviceConnector({})
         device.job_data = {
             "provision_data": {
                 "preset": "TestPreset",
@@ -30,8 +26,6 @@ class ZapperIoTTests(unittest.TestCase):
             "username": "ubuntu",
             "password": "ubuntu",
             "preset": "TestPreset",
-            "reboot_script": ["cmd1", "cmd2"],
-            "device_ip": "1.1.1.1",
             "urls": ["http://test.tar.gz"],
         }
 
@@ -40,11 +34,7 @@ class ZapperIoTTests(unittest.TestCase):
 
     def test_validate_configuration_ubuntu_sso_email(self):
         """Test the function username will be ubuntu_sso_email if provided."""
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "reboot_script": ["cmd1", "cmd2"],
-        }
-        device = DeviceConnector(fake_config)
+        device = DeviceConnector({})
         device.job_data = {
             "provision_data": {
                 "ubuntu_sso_email": "test@example.com",
@@ -59,8 +49,6 @@ class ZapperIoTTests(unittest.TestCase):
             "username": "test@example.com",
             "password": "ubuntu",
             "preset": "TestPreset",
-            "reboot_script": ["cmd1", "cmd2"],
-            "device_ip": "1.1.1.1",
             "urls": ["http://test.tar.gz"],
         }
 
@@ -71,11 +59,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function validates a custom test plan
         when provided.
         """
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "reboot_script": ["cmd1", "cmd2"],
-        }
-        device = DeviceConnector(fake_config)
+        device = DeviceConnector({})
         device.job_data = {
             "provision_data": {
                 "provision_plan": {
@@ -117,8 +101,6 @@ class ZapperIoTTests(unittest.TestCase):
                 ],
             },
             "urls": [],
-            "reboot_script": ["cmd1", "cmd2"],
-            "device_ip": "1.1.1.1",
             "preset": None,
         }
         self.maxDiff = None
@@ -130,11 +112,7 @@ class ZapperIoTTests(unittest.TestCase):
         when provided and an ubuntu_sso_email is provided.
         The username should be overridden with the ubuntu_sso_email.
         """
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "reboot_script": ["cmd1", "cmd2"],
-        }
-        device = DeviceConnector(fake_config)
+        device = DeviceConnector({})
         device.job_data = {
             "provision_data": {
                 "ubuntu_sso_email": "test@example.com",
@@ -175,8 +153,6 @@ class ZapperIoTTests(unittest.TestCase):
                 ],
             },
             "urls": [],
-            "reboot_script": ["cmd1", "cmd2"],
-            "device_ip": "1.1.1.1",
             "preset": None,
         }
         self.maxDiff = None
