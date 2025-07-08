@@ -70,6 +70,16 @@ class TestflingerAdminCLI:
             help="Reason for modifying status. "
             "Required when changing status to offline.",
         )
+        parser.add_argument(
+            "--client_id",
+            default=None,
+            help="Client ID to authenticate with Testflinger server",
+        )
+        parser.add_argument(
+            "--secret_key",
+            default=None,
+            help="Secret key to be used with client id for authentication",
+        )
 
     @require_role("admin")
     def set_agent_status(self):

@@ -118,7 +118,6 @@ class TestflingerCli:
                 f'- currently set to: "{server}"'
             )
         self.client = client.Client(server, error_threshold=error_threshold)
-
         # Initialize Auth module
         try:
             self.auth = TestflingerCliAuth(
