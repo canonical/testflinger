@@ -205,6 +205,8 @@ class TestflingerAgent:
         """
         logger.info("Taking agent offline")
         self.set_agent_state(AgentState.OFFLINE, comment)
+        # Need to set the offline flag to False to allow recovery
+        self.status_handler.update(offline=False, comment=comment)
 
     def unpack_attachments(self, job_data: dict, cwd: Path):
         """Download and unpack the attachments associated with a job."""

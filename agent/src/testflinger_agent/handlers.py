@@ -43,7 +43,10 @@ class AgentStatusHandler:
         self.comment = ""
 
     def update(
-        self, comment: str, restart: bool = False, offline: bool = False
+        self,
+        comment: str,
+        restart: bool | None = None,
+        offline: bool | None = None,
     ) -> None:
         """Update the attributes of the class if needed.
 
@@ -58,6 +61,9 @@ class AgentStatusHandler:
         if offline and not self.needs_offline:
             self.needs_offline = True
             self.comment = comment
+        # Clear the flag if received an offline False
+        elif not offline and self.needs_offline:
+            self.needs_offline = False
 
     def marked_for_restart(self) -> bool:
         """Indicate the current restart state of the restart handler.
