@@ -36,9 +36,13 @@ class ZapperOem(ZapperConnector):
         supported_iso_types = {"bootstrap", "stock", "bios"}
         provision_data = self.job_data["provision_data"]
         iso_type = provision_data.get("zapper_iso_type")
-        dut_ip = self.config["device_ip"]
 
         # Validate required fields
+        if not self.config.get("device_ip"):
+            raise ProvisioningError("device_ip is missing in config")
+
+        dut_ip = self.config["device_ip"]
+
         if not provision_data.get("zapper_iso_url"):
             raise ProvisioningError(
                 "zapper_iso_url is required in provision_data. "
@@ -56,9 +60,6 @@ class ZapperOem(ZapperConnector):
                 f"Unsupported ISO type: {iso_type}. "
                 f"Supported types: {supported_iso_types}"
             )
-
-        if not self.config.get("device_ip"):
-            raise ProvisioningError("device_ip is missing in config")
 
         # Optional fields
         test_data = self.job_data.get("test_data", {})
