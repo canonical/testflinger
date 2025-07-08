@@ -920,7 +920,7 @@ def test_set_agent_status_online(capsys, requests_mock, state, monkeypatch):
     "state", ["setup", "provision", "test", "allocate", "reserve"]
 )
 def test_set_incorrect_agent_status(capsys, requests_mock, state, monkeypatch):
-    """Validate we can't modify the agent status if at any testing stage."""
+    """Validate we can't modify status to online if at any testing stage."""
     fake_agent = "fake_agent"
     fake_return = {
         "name": fake_agent,
@@ -934,7 +934,7 @@ def test_set_incorrect_agent_status(capsys, requests_mock, state, monkeypatch):
         "set",
         "agent-status",
         "--status",
-        "maintenance",
+        "online",
         fake_agent,
     ]
 
@@ -1036,3 +1036,49 @@ def test_set_agent_status_with_unprivileged_user(
     with pytest.raises(AuthorizationError) as excinfo:
         tfcli.admin_cli.set_agent_status()
     assert "Authorization Error: Command requires role" in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "state", ["setup", "provision", "test", "allocate", "reserve"]
+)
+def test_deferred_offline_message(capsys, requests_mock, state, monkeypatch):
+    """Validate we receive a deffered message if agent under test phase."""
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": fake_agent,
+        "queues": ["fake"],
+        "state": state,
+    }
+    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    sys.argv = [
+        "",
+        "admin",
+        "set",
+        "agent-status",
+        "--status",
+        "maintenance",
+        fake_agent,
+    ]
+
+    # Define variables for authentication
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
+
+    expected_role = "admin"
+    fake_payload = {
+        "permissions": {"client_id": "my_client_id", "role": expected_role}
+    }
+    fake_jwt_signing_key = "my-secret"
+    fake_jwt_token = jwt.encode(
+        fake_payload, fake_jwt_signing_key, algorithm="HS256"
+    )
+    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
+
+    fake_send_agent_data = [{"state": "maintenance", "comment": ""}]
+    requests_mock.post(
+        URL + "/v1/agents/data/" + fake_agent, json=fake_send_agent_data
+    )
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.admin_cli.set_agent_status()
+    std = capsys.readouterr()
+    assert "Status maintenance deferred until job completion" in std.out

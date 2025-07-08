@@ -93,23 +93,32 @@ class TestflingerAdminCLI:
         }
 
         # Exiting if no comment specified when changing agent status to offline
-        if (
-            self.main_cli.args.status == "offline"
-            and not self.main_cli.args.comment
-        ):
+        if status == "offline" and not self.main_cli.args.comment:
             sys.exit(
                 "Comment is required when setting agent status to offline."
             )
+
+        # Defining test phases
+        test_status = ["setup", "provision", "test", "allocate", "reserve"]
 
         for agent in agents:
             comment = comment_dict[status](
                 client_id, self.main_cli.args.comment
             )
+            agent_status = self.main_cli.client.get_agent_data(agent)["state"]
+            # Do not change to waiting if device is under test phase
+            if agent_status in test_status and status == "waiting":
+                print(f"Could not modify {agent} in its current state")
+                continue
             try:
                 self.main_cli.client.set_agent_status(agent, status, comment)
-                print(f"Agent {agent} status is now: {status}")
+                if agent_status in test_status:
+                    print(
+                        f"Agent {agent} processing job. "
+                        f"Status {status} deferred until job completion"
+                    )
+                else:
+                    print(f"Agent {agent} status is now: {status}")
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NOT_FOUND:
                     print(f"Agent {agent} does not exist.")
-                elif exc.status == HTTPStatus.CONFLICT:
-                    print(f"Could not modify {agent} in its current state")
