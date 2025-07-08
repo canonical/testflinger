@@ -134,9 +134,12 @@ def prompt_for_queue(queues: dict[str, str]) -> str:
     return queue
 
 
-# custom YAML representer for strings
 def multiline_str_representer(dumper, data):
-    """Render multiline strings as blocks, leave other strings unchanged."""
+    """
+    Render multiline strings as blocks, leave other strings unchanged.
+
+    This is a custom YAML representer for strings.
+    """
     # see section "Constructors, representers resolvers"
     # at https://pyyaml.org/wiki/PyYAMLDocumentation
     # and https://yaml.org/spec/1.2.2/#literal-style
