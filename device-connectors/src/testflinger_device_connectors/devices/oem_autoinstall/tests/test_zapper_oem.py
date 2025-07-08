@@ -23,25 +23,26 @@ from testflinger_device_connectors.devices.oem_autoinstall.zapper_oem import (
 class ZapperOemTests(unittest.TestCase):
     """Test Cases for the ZapperOem class."""
 
-    def set_up(self):
-        """Set up test fixtures."""
-        self.config = {
-            "device_ip": "192.168.1.100",
-            "reboot_script": "/path/to/reboot.sh",
-        }
-        # Create a fresh device instance for each test
-        self.device = ZapperOem(self.config.copy())
+    def _create_device(self, config=None):
+        """Create a test device with default config."""
+        if config is None:
+            config = {
+                "device_ip": "192.168.1.100",
+                "reboot_script": "snmp 1.2.3.4.5.6.7",
+            }
+        return ZapperOem(config)
 
     def test_validate_configuration_minimal(self):
-        """Test provision_data dict with minimal config."""
-        self.device.job_data = {
+        """Test _validate_configuration with minimal config."""
+        device = self._create_device()
+        device.job_data = {
             "provision_data": {
                 "zapper_iso_url": "http://example.com/image.iso",
                 "zapper_iso_type": "bootstrap",
             }
         }
 
-        args, kwargs = self.device._validate_configuration()
+        args, kwargs = device._validate_configuration()
 
         expected = {
             "zapper_iso_url": "http://example.com/image.iso",
@@ -49,15 +50,16 @@ class ZapperOemTests(unittest.TestCase):
             "device_ip": "192.168.1.100",
             "username": "ubuntu",
             "password": "insecure",
-            "reboot_script": "/path/to/reboot.sh",
+            "reboot_script": "snmp 1.2.3.4.5.6.7",
         }
 
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
     def test_validate_configuration_full(self):
-        """Test the function with all possible parameters."""
-        self.device.job_data = {
+        """Test _validate_configuration with all parameters."""
+        device = self._create_device()
+        device.job_data = {
             "provision_data": {
                 "zapper_iso_url": "http://example.com/image.iso",
                 "zapper_iso_type": "stock",
@@ -68,7 +70,7 @@ class ZapperOemTests(unittest.TestCase):
             },
         }
 
-        args, kwargs = self.device._validate_configuration()
+        args, kwargs = device._validate_configuration()
 
         expected = {
             "zapper_iso_url": "http://example.com/image.iso",
@@ -76,41 +78,39 @@ class ZapperOemTests(unittest.TestCase):
             "device_ip": "192.168.1.100",
             "username": "testuser",
             "password": "testpass",
-            "reboot_script": "/path/to/reboot.sh",
+            "reboot_script": "snmp 1.2.3.4.5.6.7",
         }
 
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
     def test_validate_configuration_missing_required_fields(self):
-        """Test exception when required fields are missing."""
-        # Test missing zapper_iso_url
-        self.device.job_data = {
+        """Test _validate_configuration with missing required fields."""
+        device = self._create_device()
+        device.job_data = {
             "provision_data": {
                 "zapper_iso_type": "bootstrap",
             }
         }
         with self.assertRaises(ProvisioningError) as context:
-            self.device._validate_configuration()
+            device._validate_configuration()
         self.assertIn("zapper_iso_url is required", str(context.exception))
-        self.device.job_data = None  # Reset job_data
 
     def test_validate_configuration_missing_iso_type(self):
-        """Test exception when zapper_iso_type is missing."""
-        self.device.job_data = {
+        """Test _validate_configuration with missing zapper_iso_type."""
+        device = self._create_device()
+        device.job_data = {
             "provision_data": {
                 "zapper_iso_url": "http://example.com/image.iso",
             }
         }
         with self.assertRaises(ProvisioningError) as context:
-            self.device._validate_configuration()
+            device._validate_configuration()
         self.assertIn("zapper_iso_type is required", str(context.exception))
-        self.device.job_data = None  # Reset job_data
 
     def test_validate_configuration_missing_device_ip(self):
-        """Test exception when device_ip is missing."""
-        # Create a new device instance with empty config
-        device = ZapperOem({})
+        """Test _validate_configuration with missing device_ip."""
+        device = self._create_device(config={})  # Empty config
         device.job_data = {
             "provision_data": {
                 "zapper_iso_url": "http://example.com/image.iso",
@@ -122,8 +122,9 @@ class ZapperOemTests(unittest.TestCase):
         self.assertIn("device_ip is missing", str(context.exception))
 
     def test_validate_configuration_invalid_iso_type(self):
-        """Test the function raises an exception for invalid ISO types."""
-        self.device.job_data = {
+        """Test _validate_configuration with invalid ISO type."""
+        device = self._create_device()
+        device.job_data = {
             "provision_data": {
                 "zapper_iso_url": "http://example.com/image.iso",
                 "zapper_iso_type": "invalid_type",
@@ -131,7 +132,7 @@ class ZapperOemTests(unittest.TestCase):
         }
 
         with self.assertRaises(ProvisioningError) as context:
-            self.device._validate_configuration()
+            device._validate_configuration()
         self.assertIn("Unsupported ISO type", str(context.exception))
         self.assertIn("bootstrap", str(context.exception))
         self.assertIn("stock", str(context.exception))
@@ -139,8 +140,9 @@ class ZapperOemTests(unittest.TestCase):
 
     def test_post_run_actions_noop(self):
         """Test that _post_run_actions does not raise any exceptions."""
-        # Currently not used
-        self.device._post_run_actions(None)
+        device = self._create_device()
+        # This should not raise any exceptions
+        device._post_run_actions(None)
 
     def test_provision_method_constant(self):
         """Test that the PROVISION_METHOD constant is set correctly."""
