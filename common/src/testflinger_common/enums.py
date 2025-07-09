@@ -83,3 +83,10 @@ class TestEvent(StrEnum):
     NORMAL_EXIT = "normal_exit"
     JOB_START = "job_start"
     JOB_END = "job_end"
+
+
+class AgentState(StrEnum):
+    WAITING = "waiting"
+    OFFLINE = "offline"
+    MAINTENANCE = "maintenance"
+    RESTART = "restart"
