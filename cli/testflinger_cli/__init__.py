@@ -362,11 +362,13 @@ class TestflingerCli:
             allowednames=("*.yaml", "*.yml", "*.json")
         )
         parser.add_argument(
+            "--client-id",
             "--client_id",
             default=None,
             help="Client ID to authenticate with Testflinger server",
         )
         parser.add_argument(
+            "--secret-key",
             "--secret_key",
             default=None,
             help="Secret key to be used with client id for authentication",

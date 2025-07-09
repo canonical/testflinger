@@ -18,6 +18,7 @@
 
 import sys
 from http import HTTPStatus
+from string import Template
 
 from testflinger_cli import client
 from testflinger_cli.auth import require_role
@@ -61,21 +62,24 @@ class TestflingerAdminCLI:
             help="Status to set for the agent(s)",
         )
         parser.add_argument(
-            "agent_list",
+            "--agents",
+            required=True,
+            action="extend",
             nargs="+",
-            help="List of agents to modify their status",
+            help="Agents to modify the status on",
         )
         parser.add_argument(
             "--comment",
-            help="Reason for modifying status. "
-            "Required when changing status to offline.",
+            help="Reason for modifying status (required for status offline)",
         )
         parser.add_argument(
+            "--client-id",
             "--client_id",
             default=None,
             help="Client ID to authenticate with Testflinger server",
         )
         parser.add_argument(
+            "--secret-key",
             "--secret_key",
             default=None,
             help="Secret key to be used with client id for authentication",
@@ -84,8 +88,6 @@ class TestflingerAdminCLI:
     @require_role("admin")
     def set_agent_status(self):
         """Modify agent status."""
-        agents = self.main_cli.args.agent_list
-
         # Override online for valid state in server
         status_override = {"online": "waiting"}
         status = status_override.get(
@@ -93,13 +95,13 @@ class TestflingerAdminCLI:
         )
         client_id = self.main_cli.auth.client_id
 
-        # Creating dictonary to define formmated comments
-        comment_dict = {
-            "waiting": lambda _, __: "",
-            "offline": lambda user,
-            comment: f"Set to offline by {user}. Reason: {comment}",
-            "maintenance": lambda user,
-            _: f"Set to offline by {user} for lab related task.",
+        # Creating dictionary to define formmated comments
+        comment_templates = {
+            "waiting": Template(""),
+            "offline": Template("Set to offline by $user. Reason: $comment"),
+            "maintenance": Template(
+                "Set to offline by $user for lab-related task."
+            ),
         }
 
         # Exiting if no comment specified when changing agent status to offline
@@ -111,9 +113,10 @@ class TestflingerAdminCLI:
         # Defining test phases
         test_status = ["setup", "provision", "test", "allocate", "reserve"]
 
-        for agent in agents:
-            comment = comment_dict[status](
-                client_id, self.main_cli.args.comment
+        for agent in self.main_cli.args.agents:
+            comment = comment_templates[status].substitute(
+                user=client_id,
+                comment=self.main_cli.args.comment,
             )
             agent_status = self.main_cli.client.get_agent_data(agent)["state"]
             # Do not change to waiting if device is under test phase

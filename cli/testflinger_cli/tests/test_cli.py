@@ -889,6 +889,7 @@ def test_set_agent_status_online(capsys, requests_mock, state, monkeypatch):
         "agent-status",
         "--status",
         "online",
+        "--agents",
         fake_agent,
     ]
 
@@ -935,6 +936,7 @@ def test_set_incorrect_agent_status(capsys, requests_mock, state, monkeypatch):
         "agent-status",
         "--status",
         "online",
+        "--agents",
         fake_agent,
     ]
 
@@ -974,6 +976,7 @@ def test_set_offline_without_comments(requests_mock, monkeypatch):
         "agent-status",
         "--status",
         "offline",
+        "--agents",
         fake_agent,
     ]
 
@@ -1018,6 +1021,7 @@ def test_set_agent_status_with_unprivileged_user(
         "agent-status",
         "--status",
         "offline",
+        "--agents",
         fake_agent,
     ]
 
@@ -1057,6 +1061,7 @@ def test_deferred_offline_message(capsys, requests_mock, state, monkeypatch):
         "agent-status",
         "--status",
         "maintenance",
+        "--agents",
         fake_agent,
     ]
 
