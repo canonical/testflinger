@@ -13,7 +13,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import base64
 import logging
+from pathlib import Path
 from typing import Any, Dict, Tuple
 
 from testflinger_device_connectors.devices import ProvisioningError
@@ -35,7 +37,11 @@ class ZapperOem(ZapperConnector):
         logger.info("Validating configuration")
         supported_iso_types = {"bootstrap", "stock", "bios"}
         provision_data = self.job_data["provision_data"]
+
         iso_type = provision_data.get("zapper_iso_type")
+        meta_data_b64 = None
+        user_data_b64 = None
+        grub_cfg_b64 = None
 
         # Validate required fields
         if not self.config.get("device_ip"):
@@ -61,6 +67,13 @@ class ZapperOem(ZapperConnector):
                 f"Supported types: {supported_iso_types}"
             )
 
+        if iso_type == "stock":
+            # Stock ISO requires meta-data, user-data and grub.cfg
+            data_path = Path(__file__).parent / "../../data/oem_autoinstall/stock"
+            meta_data_b64 = self._read_file_to_base64(data_path / "default-meta-data")
+            user_data_b64 = self._read_file_to_base64(data_path / "default-user-data")
+            grub_cfg_b64 = self._read_file_to_base64(data_path / "default-grub.cfg")
+
         # Optional fields
         test_data = self.job_data.get("test_data", {})
         username = test_data.get("test_username", "ubuntu")
@@ -74,9 +87,21 @@ class ZapperOem(ZapperConnector):
             "username": username,
             "password": password,
             "reboot_script": reboot_script,
+            "meta_data_b64": meta_data_b64,
+            "user_data_b64": user_data_b64,
+            "grub_cfg_b64": grub_cfg_b64,
         }
 
         return ((), provisioning_data)
+
+    def _read_file_to_base64(self, filepath):
+        """Read a file and return its base64 encoded content."""
+        try:
+            with open(filepath, "rb") as f:
+                content = f.read()
+                return base64.b64encode(content).decode("utf-8")
+        except OSError as e:
+            raise ProvisioningError(f"Failed to read file {filepath}: {e}") from e
 
     def _post_run_actions(self, args):
         pass
