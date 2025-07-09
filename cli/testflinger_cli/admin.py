@@ -135,3 +135,8 @@ class TestflingerAdminCLI:
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NOT_FOUND:
                     print(f"Agent {agent} does not exist.")
+                else:
+                    print(
+                        "Exception raised when setting "
+                        f"status for {agent}: {exc}"
+                    )
