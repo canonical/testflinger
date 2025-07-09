@@ -18,6 +18,9 @@ that support autoinstall and provision-image.sh script.
 
 import json
 import logging
+from pathlib import Path
+
+import yaml
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
@@ -45,7 +48,7 @@ class DeviceConnector(DefaultDevice):
             "zapper_iso_url"
         ):
             logger.info("Init zapper_oem on agent")
-            device_with_zapper = ZapperOem()
+            device_with_zapper = ZapperOem(self._load_config(args.config))
             device_with_zapper.provision(args)
             logger.info("Return to oem_autoinstall")
 
@@ -55,3 +58,8 @@ class DeviceConnector(DefaultDevice):
             logger.info("Provisioning device")
             device.provision()
             logger.info("END provision via oem_autoinstall")
+
+    def _load_config(self, config_path):
+        """Load YAML config file and return as dict."""
+        with open(Path(config_path)) as f:
+            return yaml.safe_load(f) or {}
