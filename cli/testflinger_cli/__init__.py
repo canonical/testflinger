@@ -820,7 +820,7 @@ class TestflingerCli:
             sys.exit(1)
         if self.args.yaml:
             to_print = helpers.pretty_yaml_dump(
-                results, sort_keys=True, indent=4
+                results, sort_keys=True, indent=4, default_flow_style=False
             )
         else:
             to_print = json.dumps(results, sort_keys=True, indent=4)

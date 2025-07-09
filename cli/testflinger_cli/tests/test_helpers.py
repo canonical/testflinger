@@ -59,12 +59,15 @@ def test_pretty_yaml_dump():
     single_line = {"a": "some"}
     assert pretty_yaml_dump(single_line).strip() == "a: some"
 
-    multiline = {"a": "some\nother"}
+    multiline = {"a": "some \nother\n"}
     result = textwrap.dedent(
         """
-        a: |-
+        a: |
             some
             other
         """
-    ).strip()
-    assert pretty_yaml_dump(multiline, indent=4).strip() == result
+    )
+    assert (
+        pretty_yaml_dump(multiline, indent=4, default_flow_style=False).strip()
+        == result.strip()
+    )

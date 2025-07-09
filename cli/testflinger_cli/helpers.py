@@ -134,25 +134,32 @@ def prompt_for_queue(queues: dict[str, str]) -> str:
     return queue
 
 
+def multiline_str_representer(dumper, data):
+    """
+    Render multiline strings as blocks, leave other strings unchanged.
+
+    This is a custom YAML representer for strings.
+    """
+    # see section "Constructors, representers resolvers"
+    # at https://pyyaml.org/wiki/PyYAMLDocumentation
+    # and https://yaml.org/spec/1.2.2/#literal-style
+    if "\n" in data:
+        # remove trailing whitespace from each line
+        # (suggested fix for https://github.com/yaml/pyyaml/issues/240)
+        data = "\n".join(line.rstrip() for line in data.splitlines()) + "\n"
+        return dumper.represent_scalar(
+            "tag:yaml.org,2002:str", data, style="|"
+        )
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data)
+
+
+yaml.add_representer(str, multiline_str_representer)
+
+
 def pretty_yaml_dump(obj, **kwargs) -> str:
     """Create a pretty YAML representation of obj.
 
     :param obj: The object to be represented.
     :return: A pretty representation of obj as a YAML string.
     """
-
-    # objective is to get multiline strings as blocks leaving any other string
-    # unchanged
-    def multiline_str_representer(dumper, data):
-        # see section "Constructors, representers resolvers"
-        # at https://pyyaml.org/wiki/PyYAMLDocumentation
-        # and https://yaml.org/spec/1.2.2/#literal-style
-        if "\n" in data:
-            return dumper.represent_scalar(
-                "tag:yaml.org,2002:str", data, style="|"
-            )
-        return dumper.represent_scalar("tag:yaml.org,2002:str", data)
-
-    # duplicated calls to this are no-op
-    yaml.add_representer(str, multiline_str_representer)
     return yaml.dump(obj, **kwargs)
