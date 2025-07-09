@@ -156,14 +156,20 @@ runs:
         JOB: ${{ steps.create-job-file.outputs.job }}
       run: |
         echo "::group::Submit job to the Testflinger server"
-        if [ -n "$RELATIVE_TO" ]; then
-          RELATIVE="--attachments-relative-to $RELATIVE_TO"
-        fi
-        if [[ -n "$CLIENT_ID" && -n "$SECRET_KEY" ]]; then
-          JOB_ID=$(testflinger --server $SERVER submit --quiet $RELATIVE --client_id "$CLIENT_ID" --secret_key "$SECRET_KEY" "$JOB")
-        else
-          JOB_ID=$(testflinger --server $SERVER submit --quiet $RELATIVE "$JOB")
-        fi
+        AUTH_ARGS_COUNT=0
+        [[ -n $CLIENT_ID ]] && ((++AUTH_ARGS_COUNT))
+        [[ -n $SECRET_KEY ]] && ((++AUTH_ARGS_COUNT))
+        case $AUTH_ARGS_COUNT in
+            0) AUTH_ARGS=() ;;
+            2) AUTH_ARGS=( --client_id "$CLIENT_ID" --secret_key "$SECRET_KEY" ) ;;
+            1) echo "::error::Both 'client-id' and 'secret-key' must be provided or neither"; exit 1 ;;
+        esac
+        JOB_ID=$(\
+          testflinger --server "$SERVER" submit --quiet \
+          ${RELATIVE_TO:+--attachments-relative-to "$RELATIVE_TO"} \
+          "${AUTH_ARGS[@]}" \
+          "$JOB" \
+        )
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
         echo "::endgroup::"
         echo "::notice::Submitted job $JOB_ID"
