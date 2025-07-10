@@ -388,3 +388,14 @@ def get_agents() -> list[dict]:
     """Return a list of all agents."""
     agents = mongo.db.agents.find({}, {"_id": False, "log": False})
     return list(agents)
+
+
+def get_client_permissions(client_id: str) -> dict:
+    """Retrieve the client permissions for a specified user.
+
+    :param client_id: User to retrieve permissions from.
+    :return: Dictionary with the permissions for the user.
+    """
+    return mongo.db.client_permissions.find_one(
+        {"client_id": client_id}, {"_id": False}
+    )
