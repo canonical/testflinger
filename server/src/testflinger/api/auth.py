@@ -16,12 +16,15 @@
 
 """Testflinger API Auth module."""
 
+import os
 from datetime import datetime, timedelta, timezone
+from functools import wraps
 from http import HTTPStatus
 
 import bcrypt
 import jwt
 from apiflask import abort
+from flask import g, request
 
 from testflinger import database
 
@@ -97,22 +100,26 @@ def decode_jwt_token(auth_token: str | None, secret_key: str) -> dict | None:
     return decoded_jwt
 
 
-def check_token_priority(
-    auth_token: str, secret_key: str, queue: str, priority: int
-) -> None:
+def check_max_priority(permissions: dict, queue: str, priority: int) -> None:
     """
     Check if the requested priority is less than the max priority
     specified in the authorization token if it exists.
 
-    :param auth_token: JWT token with all permissions
-    :param secret_key: Signing key to validate the authenticity of the token.
+    :param permissions: Permissions given to user.
     :param queue: Queue name defined in the job.
     :param priority: Priority defined in the job.
     """
+    # No auth required if priority is set to 0 mandatory otherwise
     if priority == 0:
         return
-    decoded_jwt = decode_jwt_token(auth_token, secret_key)
-    permissions = decoded_jwt.get("permissions", {})
+
+    # If no permissions found it means user is not authenticated
+    if not permissions:
+        abort(
+            HTTPStatus.UNAUTHORIZED,
+            f"Authentication required for setting priority: {priority}",
+        )
+
     max_priority_dict = permissions.get("max_priority", {})
     star_priority = max_priority_dict.get("*", 0)
     queue_priority = max_priority_dict.get(queue, 0)
@@ -127,21 +134,27 @@ def check_token_priority(
         )
 
 
-def check_token_queue(auth_token: str, secret_key: str, queue: str) -> None:
+def check_queue_restriction(permissions: dict, queue: str) -> None:
     """
     Check if the queue is in the restricted list.
 
     If queue is restricted checks the authorization token for restricted
     queues the user is allowed to use.
 
-    :param auth_token: JWT token with all permissions
-    :param secret_key: Signing key to validate the authenticity of the token.
+    :param permissions: Permissions given to user.
     :param queue: Queue name defined in the job.
     """
+    # No auth required if queue is not restricted mandatory otherwise
     if not database.check_queue_restricted(queue):
         return
-    decoded_jwt = decode_jwt_token(auth_token, secret_key)
-    permissions = decoded_jwt.get("permissions", {})
+
+    # If no permissions found it means user is not authenticated
+    if not permissions:
+        abort(
+            HTTPStatus.UNAUTHORIZED,
+            f"Authentication required to push to restricted queue: {queue}",
+        )
+
     allowed_queues = permissions.get("allowed_queues", [])
     if queue not in allowed_queues:
         abort(
@@ -153,24 +166,33 @@ def check_token_queue(auth_token: str, secret_key: str, queue: str) -> None:
         )
 
 
-def check_token_reservation_timeout(
-    auth_token: str, secret_key: str, reservation_timeout: int, queue: str
+def check_max_reservation_timeout(
+    permissions: dict, reservation_timeout: int, queue: str
 ) -> None:
     """
     Check if the requested reservation is either less than the max
     or that their token gives them the permission to use a higher one.
 
-    :param auth_token: JWT token with all permissions
-    :param secret_key: Signing key to validate the authenticity of the token.
+    :param permissions: Permissions given to user.
     :param reservation_timeout: Timeout defined in job.
     :param queue: Queue name defined in the job.
     """
     # Max reservation time defaults to 6 hours
     max_reservation_time = 6 * 60 * 60
+    # No auth required if reservation less than 6hrs mandatory otherwise
     if reservation_timeout <= max_reservation_time:
         return
-    decoded_jwt = decode_jwt_token(auth_token, secret_key)
-    permissions = decoded_jwt.get("permissions", {})
+
+    # If no permissions found it means user is not authenticated
+    if not permissions:
+        abort(
+            HTTPStatus.UNAUTHORIZED,
+            (
+                "Authentication required for setting "
+                f"timeout: {reservation_timeout}"
+            ),
+        )
+
     max_reservation_time_dict = permissions.get("max_reservation_time", {})
     queue_reservation_time = max_reservation_time_dict.get(queue, 0)
     star_reservation_time = max_reservation_time_dict.get("*", 0)
@@ -185,21 +207,50 @@ def check_token_reservation_timeout(
         )
 
 
-def check_token_permissions(
-    auth_token: str, secret_key: str, job_data: dict
-) -> None:
+def check_permissions(permissions: dict, job_data: dict) -> None:
     """
     Validate token received from client and checks if it can
     push a job to the queue with the requested priority.
     """
     priority_level = job_data.get("job_priority", 0)
     job_queue = job_data["job_queue"]
-    check_token_priority(auth_token, secret_key, job_queue, priority_level)
-    check_token_queue(auth_token, secret_key, job_queue)
+    check_max_priority(permissions, job_queue, priority_level)
+    check_queue_restriction(permissions, job_queue)
 
     reserve_data = job_data.get("reserve_data", {})
     # Default reservation timeout is 1 hour
     reservation_timeout = reserve_data.get("timeout", 3600)
-    check_token_reservation_timeout(
-        auth_token, secret_key, reservation_timeout, job_queue
-    )
+    check_max_reservation_timeout(permissions, reservation_timeout, job_queue)
+
+
+def authenticate(func):
+    """Attempt authentication if token provided and store auth variables."""
+
+    @wraps(func)
+    def decorator(*args, **kwargs):
+        # Retrieve authentication header
+        auth_token = request.headers.get("Authorization")
+
+        # Initialize auth state
+        g.client_id = None
+        g.role = "user"
+        g.permissions = {}
+        g.is_authenticated = False
+
+        # If no token, continuing as regular user.
+        if not auth_token:
+            return func(*args, **kwargs)
+
+        # If there is a token available, attempt to retrieve information
+        secret_key = os.environ.get("JWT_SIGNING_KEY")
+        decoded_jwt = decode_jwt_token(auth_token, secret_key)
+        permissions = decoded_jwt.get("permissions", {})
+
+        # Store auth state if decoding was successful
+        g.client_id = permissions["client_id"]
+        g.role = permissions.get("role", "contributor")
+        g.permissions = permissions
+        g.is_authenticated = True
+        return func(*args, **kwargs)
+
+    return decorator
