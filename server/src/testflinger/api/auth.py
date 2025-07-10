@@ -17,6 +17,7 @@
 """Testflinger API Auth module."""
 
 from datetime import datetime, timedelta, timezone
+from http import HTTPStatus
 
 import bcrypt
 import jwt
@@ -25,7 +26,9 @@ from apiflask import abort
 from testflinger import database
 
 
-def validate_client_key_pair(client_id: str, client_key: str) -> dict:
+def validate_client_key_pair(
+    client_id: str | None, client_key: str | None
+) -> dict | None:
     """
     Check credentials for validity and returns their permissions.
 
@@ -33,7 +36,7 @@ def validate_client_key_pair(client_id: str, client_key: str) -> dict:
     :param client_key: password for the authenticated user.
     :return: entry with all permissions allowed for a user.
     """
-    if client_key is None:
+    if not client_id:
         return None
     client_key_bytes = client_key.encode("utf-8")
     client_permissions_entry = database.get_client_permissions(client_id)
@@ -43,7 +46,7 @@ def validate_client_key_pair(client_id: str, client_key: str) -> dict:
         client_permissions_entry["client_secret_hash"].encode("utf8"),
     ):
         return None
-    client_permissions_entry.pop("_id", None)
+    # Removing client_secret_hash for security purposes
     client_permissions_entry.pop("client_secret_hash", None)
     return client_permissions_entry
 
@@ -53,7 +56,7 @@ def generate_token(allowed_resources: dict, secret_key: str) -> str:
     Generate JWT token with queue permission given a secret key.
 
     :param allowed_resources: dictionary with all permissions for a user
-    :secret_key: Signing key to set the authenticity of the token.
+    :param secret_key: Signing key to set the authenticity of the token.
 
     :return: JWT token with all user permissions.
     """
@@ -68,17 +71,17 @@ def generate_token(allowed_resources: dict, secret_key: str) -> str:
     return token
 
 
-def decode_jwt_token(auth_token: str, secret_key: str) -> dict:
+def decode_jwt_token(auth_token: str | None, secret_key: str) -> dict | None:
     """
     Decode authorization token using the secret key. Aborts with
     an HTTP error if it does not exist or if it fails to decode.
 
     :param auth_token: JWT token with all permissions
-    :secret_key: Signing key to validate the authenticity of the token.
+    :param secret_key: Signing key to validate the authenticity of the token.
     :return: Dictionary with the information decoded from the JWT token.
     """
-    if auth_token is None:
-        abort(401, "Unauthorized")
+    if not auth_token:
+        abort(HTTPStatus.UNAUTHORIZED, "Unauthorized")
     try:
         decoded_jwt = jwt.decode(
             auth_token,
@@ -87,24 +90,24 @@ def decode_jwt_token(auth_token: str, secret_key: str) -> dict:
             options={"require": ["exp", "iat", "sub"]},
         )
     except jwt.exceptions.ExpiredSignatureError:
-        abort(401, "Token has expired")
+        abort(HTTPStatus.UNAUTHORIZED, "Token has expired")
     except jwt.exceptions.InvalidTokenError:
-        abort(403, "Invalid Token")
+        abort(HTTPStatus.FORBIDDEN, "Invalid Token")
 
     return decoded_jwt
 
 
 def check_token_priority(
     auth_token: str, secret_key: str, queue: str, priority: int
-) -> bool:
+) -> None:
     """
     Check if the requested priority is less than the max priority
     specified in the authorization token if it exists.
 
     :param auth_token: JWT token with all permissions
-    :secret_key: Signing key to validate the authenticity of the token.
-    :queue: Queue name defined in the job.
-    :priority: Priority defined in the job.
+    :param secret_key: Signing key to validate the authenticity of the token.
+    :param queue: Queue name defined in the job.
+    :param priority: Priority defined in the job.
     """
     if priority == 0:
         return
@@ -116,7 +119,7 @@ def check_token_priority(
     max_priority = max(star_priority, queue_priority)
     if priority > max_priority:
         abort(
-            403,
+            HTTPStatus.FORBIDDEN,
             (
                 f"Not enough permissions to push to {queue} "
                 f"with priority {priority}"
@@ -124,7 +127,7 @@ def check_token_priority(
         )
 
 
-def check_token_queue(auth_token: str, secret_key: str, queue: str) -> bool:
+def check_token_queue(auth_token: str, secret_key: str, queue: str) -> None:
     """
     Check if the queue is in the restricted list.
 
@@ -132,8 +135,8 @@ def check_token_queue(auth_token: str, secret_key: str, queue: str) -> bool:
     queues the user is allowed to use.
 
     :param auth_token: JWT token with all permissions
-    :secret_key: Signing key to validate the authenticity of the token.
-    :queue: Queue name defined in the job.
+    :param secret_key: Signing key to validate the authenticity of the token.
+    :param queue: Queue name defined in the job.
     """
     if not database.check_queue_restricted(queue):
         return
@@ -142,7 +145,7 @@ def check_token_queue(auth_token: str, secret_key: str, queue: str) -> bool:
     allowed_queues = permissions.get("allowed_queues", [])
     if queue not in allowed_queues:
         abort(
-            403,
+            HTTPStatus.FORBIDDEN,
             (
                 "Not enough permissions to push to the "
                 f"restricted queue: {queue}"
@@ -152,15 +155,15 @@ def check_token_queue(auth_token: str, secret_key: str, queue: str) -> bool:
 
 def check_token_reservation_timeout(
     auth_token: str, secret_key: str, reservation_timeout: int, queue: str
-) -> bool:
+) -> None:
     """
     Check if the requested reservation is either less than the max
     or that their token gives them the permission to use a higher one.
 
     :param auth_token: JWT token with all permissions
-    :secret_key: Signing key to validate the authenticity of the token.
-    :reservation_timeout: Timeout defined in job.
-    :queue: Queue name defined in the job.
+    :param secret_key: Signing key to validate the authenticity of the token.
+    :param reservation_timeout: Timeout defined in job.
+    :param queue: Queue name defined in the job.
     """
     # Max reservation time defaults to 6 hours
     max_reservation_time = 6 * 60 * 60
@@ -174,7 +177,7 @@ def check_token_reservation_timeout(
     max_reservation_time = max(queue_reservation_time, star_reservation_time)
     if reservation_timeout > max_reservation_time:
         abort(
-            403,
+            HTTPStatus.FORBIDDEN,
             (
                 f"Not enough permissions to push to {queue} "
                 f"with reservation timeout {reservation_timeout}"
@@ -184,7 +187,7 @@ def check_token_reservation_timeout(
 
 def check_token_permissions(
     auth_token: str, secret_key: str, job_data: dict
-) -> bool:
+) -> None:
     """
     Validate token received from client and checks if it can
     push a job to the queue with the requested priority.

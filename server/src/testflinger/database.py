@@ -396,4 +396,6 @@ def get_client_permissions(client_id: str) -> dict:
     :param client_id: User to retrieve permissions from.
     :return: Dictionary with the permissions for the user.
     """
-    return mongo.db.client_permissions.find_one({"client_id": client_id})
+    return mongo.db.client_permissions.find_one(
+        {"client_id": client_id}, {"_id": False}
+    )
