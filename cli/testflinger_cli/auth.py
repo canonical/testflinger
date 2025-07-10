@@ -17,7 +17,7 @@
 """Testflinger CLI Auth module."""
 
 import contextlib
-from functools import cached_property
+from functools import cached_property, wraps
 from http import HTTPStatus
 from typing import Optional
 
@@ -104,3 +104,26 @@ class TestflingerCliAuth:
         # If there is a decoded token, the user was authenticated
         # Default role for legacy client_ids is contributor
         return permissions.get("role", "contributor")
+
+
+def require_role(*roles):
+    """Determine if a user is entitled to perform CLI action."""
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            auth = self.main_cli.auth
+
+            if not auth.is_authenticated():
+                raise AuthenticationError
+            user_role = auth.get_user_role()
+            if user_role not in roles:
+                raise AuthorizationError(
+                    f"Authorization Error: Command requires role: {roles}"
+                )
+
+            return func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
