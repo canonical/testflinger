@@ -1,10 +1,11 @@
 #!/bin/bash
 
 exec 2>&1
-set -euox pipefail
+set -euo pipefail
 #
-# This script is used by TF agent to provision OEM PCs with Ubuntu OEM images
+# This script is to provision OEM PCs with Ubuntu OEM images using Recovery Partition
 # It checks if the ISO is valid and deploys it on the target
+# It assumes that Recovery Partition exists on the target
 #
 
 usage()
@@ -27,16 +28,17 @@ if [ $# -lt 3 ]; then
 fi
 
 TARGET_USER="ubuntu"
-TARGET_IPS=()
+TARGET_PASSWORD="insecure"
 ISO_PATH=""
 ISO=""
+CONFIG_REPO_PATH=""
 URL_DUT=""
 STORE_PART=""
 TIMEOUT=3600
-SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 SSH="ssh $SSH_OPTS"
 SCP="scp $SSH_OPTS"
-
+SSH_WITH_PASS="sshpass -p $TARGET_PASSWORD ssh $SSH_OPTS"
 create_redeploy_cfg() {
     # generates grub.cfg file to start the redeployment
     local filename=$1
@@ -256,128 +258,144 @@ while :; do
     esac
 done
 
-read -ra TARGET_IPS <<< "$@"
 
-for addr in "${TARGET_IPS[@]}";
+# Get the target IP (should be the only remaining argument)
+if [ $# -ne 1 ]; then
+    echo "Error: Expected exactly one target IP address" >&2
+    exit 1
+fi
+addr="$1"
+
+# Clear the known host
+if [ -f "$HOME/.ssh/known_hosts" ]; then
+    ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$addr"
+fi
+
+# Find the partitions
+while read -r name fstype mountpoint;
 do
-    # Clear the known host
-    if [ -f "$HOME/.ssh/known_hosts" ]; then
-        ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$addr"
-    fi
-
-    # Find the partitions
-    while read -r name fstype mountpoint;
-    do
-        echo "$name,$fstype,$mountpoint"
-        if [ "$fstype" = "ext4" ]; then
-            if [ "$mountpoint" = "/home/$TARGET_USER" ] || [ "$mountpoint" = "/" ]; then
-                STORE_PART="/dev/$name"
-                break
-            fi
+    #echo "$name,$fstype,$mountpoint"
+    if [ "$fstype" = "ext4" ]; then
+        if [ "$mountpoint" = "/home/$TARGET_USER" ] || [ "$mountpoint" = "/" ]; then
+            STORE_PART="/dev/$name"
+            break
         fi
-    done < <($SSH "$TARGET_USER"@"$addr" -- lsblk -n -l -o NAME,FSTYPE,MOUNTPOINT)
+    fi
+done < <($SSH "$TARGET_USER"@"$addr" -- lsblk -n -l -o NAME,FSTYPE,MOUNTPOINT)
 
-    if [ -z "$STORE_PART" ]; then
-        echo "Can't find partition to store ISO on target $addr"
+if [ -z "$STORE_PART" ]; then
+    echo "Can't find partition to store ISO on target $addr"
+    exit 1
+fi
+
+if is_unsigned_iso "$ISO" && is_secure_boot_enabled; then
+    echo "Error: With Secure Boot enabled, unsigned ISO will fail to boot after provision"
+    echo "Error: Consider disabling Secure Boot on DUT or use 'production', 'proposed' ISO"
+    exit 6
+fi
+
+# Handle ISO
+if [ -n "$URL_DUT" ]; then
+    # store ISO directly on DUT
+    wget_iso_on_dut
+elif [ -n "$ISO_PATH" ]; then
+    # ISO file was stored on agent; scp to DUT
+    if [ ! -f "$ISO_PATH" ]; then
+        echo "No designated ISO file"
+        exit 2
+    fi
+    $SCP "$ISO_PATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
+fi
+
+if ! is_valid_iso_on_dut "$addr"; then
+    echo "Only OEM Ubuntu images are supported"
+    exit 5
+fi
+
+RESET_PART="${STORE_PART:0:-1}2"
+RESET_PARTUUID=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o PARTUUID "$RESET_PART")
+EFI_PART="${STORE_PART:0:-1}1"
+
+# Copy cloud-config redeploy to the target
+$SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/redeploy/cloud-configs/redeploy
+$SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/redeploy/cloud-configs/grub
+
+$SCP "$CONFIG_REPO_PATH"/user-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
+
+if [ ! -r "$CONFIG_REPO_PATH"/meta-data ]; then
+    create_meta_data "$CONFIG_REPO_PATH"/meta-data
+fi
+$SCP "$CONFIG_REPO_PATH"/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
+
+if [ ! -r "$CONFIG_REPO_PATH"/redeploy.cfg ]; then
+    create_redeploy_cfg "$CONFIG_REPO_PATH"/redeploy.cfg
+fi
+$SCP "$CONFIG_REPO_PATH"/redeploy.cfg "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg
+
+# ssh configs are expected to be deployed as a directory
+mkdir -p "$CONFIG_REPO_PATH"/ssh/sshd_config.d
+
+create_sshd_conf "$CONFIG_REPO_PATH"/ssh/sshd_config.d/pc_sanity.conf
+cp "$CONFIG_REPO_PATH"/authorized_keys "$CONFIG_REPO_PATH"/ssh || true  # optional file
+$SCP -r "$CONFIG_REPO_PATH"/ssh "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/ssh-config
+
+rm -rf "$CONFIG_REPO_PATH"/ssh
+
+# Umount the partitions
+MOUNT=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o MOUNTPOINT "$RESET_PART")
+if [ -n "$MOUNT" ]; then
+    $SSH "$TARGET_USER"@"$addr" -- sudo umount "$RESET_PART"
+fi
+MOUNT=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o MOUNTPOINT "$EFI_PART")
+if [ -n "$MOUNT" ]; then
+    $SSH "$TARGET_USER"@"$addr" -- sudo umount "$EFI_PART"
+fi
+
+# Format partitions
+$SSH "$TARGET_USER"@"$addr" -- sudo mkfs.vfat "$RESET_PART"
+$SSH "$TARGET_USER"@"$addr" -- sudo mkfs.vfat "$EFI_PART"
+
+# Mount ISO and reset partition
+$SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/iso || true
+$SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/reset || true
+
+$SSH "$TARGET_USER"@"$addr" -- sudo mount -o loop /home/"$TARGET_USER"/"$ISO" /home/"$TARGET_USER"/iso || true
+$SSH "$TARGET_USER"@"$addr" -- sudo mount "$RESET_PART" /home/"$TARGET_USER"/reset || true
+
+# Sync ISO to the reset partition (output hidden due to many files)
+$SSH "$TARGET_USER"@"$addr" -- sudo rsync -aP /home/"$TARGET_USER"/iso/ /home/"$TARGET_USER"/reset >/dev/null 2>&1 || true
+
+# Sync cloud-configs to the reset partition
+$SSH "$TARGET_USER"@"$addr" -- sudo mkdir -p /home/"$TARGET_USER"/reset/cloud-configs || true
+$SSH "$TARGET_USER"@"$addr" -- sudo cp -r /home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/ /home/"$TARGET_USER"/reset/cloud-configs/
+$SSH "$TARGET_USER"@"$addr" -- sudo cp -r /home/"$TARGET_USER"/redeploy/ssh-config/ /home/"$TARGET_USER"/reset/
+$SSH "$TARGET_USER"@"$addr" -- sudo cp /home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg /home/"$TARGET_USER"/reset/boot/grub/grub.cfg
+$SSH "$TARGET_USER"@"$addr" -- sudo sed -i "s/RP_PARTUUID/${RESET_PARTUUID}/" /home/"$TARGET_USER"/reset/boot/grub/grub.cfg
+
+# Reboot the target
+$SSH "$TARGET_USER"@"$addr" -- sudo reboot || true
+
+# Clear the known hosts
+if [ -f "$HOME/.ssh/known_hosts" ]; then
+    ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$addr"
+fi
+
+echo "Deployment will start after reboot"
+
+# After provisioning, wait for the target to come back online
+startTime=$(date +%s)
+echo "Polling ssh connection status on $addr until timeout ($TIMEOUT seconds)..."
+
+while :; do
+    sleep 180
+    currentTime=$(date +%s)
+    if [[ $((currentTime - startTime)) -gt $TIMEOUT ]]; then
+        echo "Timeout is reached, deployment is not finished on $addr."
         exit 1
     fi
 
-    if is_unsigned_iso "$ISO" && is_secure_boot_enabled; then
-        echo "Error: With Secure Boot enabled, unsigned ISO will fail to boot after provision"
-        echo "Error: Consider disabling Secure Boot on DUT or use 'production', 'proposed' ISO"
-        exit 6
-    fi
-
-    # Handle ISO
-    if [ -n "$URL_DUT" ]; then
-        # store ISO directly on DUT
-        wget_iso_on_dut
-    elif [ -n "$ISO_PATH" ]; then
-        # ISO file was stored on agent; scp to DUT
-        if [ ! -f "$ISO_PATH" ]; then
-            echo "No designated ISO file"
-            exit 2
-        fi
-        $SCP "$ISO_PATH" "$TARGET_USER"@"$addr":/home/"$TARGET_USER"
-    fi
-
-    if ! is_valid_iso_on_dut "$addr"; then
-        echo "Only OEM Ubuntu images are supported"
-        exit 5
-    fi
-
-    RESET_PART="${STORE_PART:0:-1}2"
-    RESET_PARTUUID=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o PARTUUID "$RESET_PART")
-    EFI_PART="${STORE_PART:0:-1}1"
-
-    # Copy cloud-config redeploy to the target
-    $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/redeploy/cloud-configs/redeploy
-    $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/redeploy/cloud-configs/grub
-
-    $SCP "$CONFIG_REPO_PATH"/user-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
-
-    if [ ! -r "$CONFIG_REPO_PATH"/meta-data ]; then
-        create_meta_data "$CONFIG_REPO_PATH"/meta-data
-    fi
-    $SCP "$CONFIG_REPO_PATH"/meta-data "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/
-
-    if [ ! -r "$CONFIG_REPO_PATH"/redeploy.cfg ]; then
-        create_redeploy_cfg "$CONFIG_REPO_PATH"/redeploy.cfg
-    fi
-    $SCP "$CONFIG_REPO_PATH"/redeploy.cfg "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg
-
-    # ssh configs are expected to be deployed as a directory
-    mkdir -p "$CONFIG_REPO_PATH"/ssh/sshd_config.d
-
-    create_sshd_conf "$CONFIG_REPO_PATH"/ssh/sshd_config.d/pc_sanity.conf
-    cp "$CONFIG_REPO_PATH"/authorized_keys "$CONFIG_REPO_PATH"/ssh || true  # optional file
-    $SCP -r "$CONFIG_REPO_PATH"/ssh "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/ssh-config
-
-    rm -rf "$CONFIG_REPO_PATH"/ssh
-
-    # Umount the partitions
-    MOUNT=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o MOUNTPOINT "$RESET_PART")
-    if [ -n "$MOUNT" ]; then
-        $SSH "$TARGET_USER"@"$addr" -- sudo umount "$RESET_PART"
-    fi
-    MOUNT=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o MOUNTPOINT "$EFI_PART")
-    if [ -n "$MOUNT" ]; then
-        $SSH "$TARGET_USER"@"$addr" -- sudo umount "$EFI_PART"
-    fi
-
-    # Format partitions
-    $SSH "$TARGET_USER"@"$addr" -- sudo mkfs.vfat "$RESET_PART"
-    $SSH "$TARGET_USER"@"$addr" -- sudo mkfs.vfat "$EFI_PART"
-
-    # Mount ISO and reset partition
-    $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/iso || true
-    $SSH "$TARGET_USER"@"$addr" -- mkdir -p /home/"$TARGET_USER"/reset || true
-
-    $SSH "$TARGET_USER"@"$addr" -- sudo mount -o loop /home/"$TARGET_USER"/"$ISO" /home/"$TARGET_USER"/iso || true
-    $SSH "$TARGET_USER"@"$addr" -- sudo mount "$RESET_PART" /home/"$TARGET_USER"/reset || true
-
-    # Sync ISO to the reset partition
-    $SSH "$TARGET_USER"@"$addr" -- sudo rsync -avP /home/"$TARGET_USER"/iso/ /home/"$TARGET_USER"/reset || true
-
-    # Sync cloud-configs to the reset partition
-    $SSH "$TARGET_USER"@"$addr" -- sudo mkdir -p /home/"$TARGET_USER"/reset/cloud-configs || true
-    $SSH "$TARGET_USER"@"$addr" -- sudo cp -r /home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/ /home/"$TARGET_USER"/reset/cloud-configs/
-    $SSH "$TARGET_USER"@"$addr" -- sudo cp -r /home/"$TARGET_USER"/redeploy/ssh-config/ /home/"$TARGET_USER"/reset/
-    $SSH "$TARGET_USER"@"$addr" -- sudo cp /home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg /home/"$TARGET_USER"/reset/boot/grub/grub.cfg
-    $SSH "$TARGET_USER"@"$addr" -- sudo sed -i "s/RP_PARTUUID/${RESET_PARTUUID}/" /home/"$TARGET_USER"/reset/boot/grub/grub.cfg
-
-    # Reboot the target
-    $SSH "$TARGET_USER"@"$addr" -- sudo reboot || true
-done
-
-# Clear the known hosts
-for addr in "${TARGET_IPS[@]}";
-do
-    if [ -f "$HOME/.ssh/known_hosts" ]; then
-        ssh-keygen -f "$HOME/.ssh/known_hosts" -R "$addr"
+    if $SSH_WITH_PASS "$TARGET_USER"@"$addr" -- echo "Connection Success"; then
+        echo "$addr is back online. Deployment is done."
+        break
     fi
 done
-
-echo "Deployment will start after reboot"
-exit 0
-# Let device connector to poll the status

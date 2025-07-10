@@ -16,13 +16,20 @@
 that support autoinstall and provision-image.sh script.
 """
 
+import json
 import logging
+from pathlib import Path
+
+import yaml
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
 )
 from testflinger_device_connectors.devices.oem_autoinstall.oem_autoinstall import (  # noqa: E501
     OemAutoinstall,
+)
+from testflinger_device_connectors.devices.oem_autoinstall.zapper_oem import (
+    ZapperOem,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,8 +40,26 @@ class DeviceConnector(DefaultDevice):
 
     def provision(self, args):
         """Provision device when the command is invoked."""
-        device = OemAutoinstall(args.config, args.job_data)
-        logger.info("BEGIN provision")
-        logger.info("Provisioning device")
-        device.provision()
-        logger.info("END provision")
+        with open(args.job_data, encoding="utf-8") as job_json:
+            self.job_data = json.load(job_json)
+        provision_data = self.job_data.get("provision_data", {})
+
+        if provision_data.get("zapper_iso_type") or provision_data.get(
+            "zapper_iso_url"
+        ):
+            logger.info("Init zapper_oem on agent")
+            device_with_zapper = ZapperOem(self._load_config(args.config))
+            device_with_zapper.provision(args)
+            logger.info("Return to oem_autoinstall")
+
+        if provision_data.get("url"):
+            logger.info("BEGIN provision via oem_autoinstall")
+            device = OemAutoinstall(args.config, args.job_data)
+            logger.info("Provisioning device")
+            device.provision()
+            logger.info("END provision via oem_autoinstall")
+
+    def _load_config(self, config_path):
+        """Load YAML config file and return as dict."""
+        with open(Path(config_path)) as f:
+            return yaml.safe_load(f) or {}
