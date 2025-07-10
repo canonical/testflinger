@@ -39,6 +39,8 @@ charm-libs:
     version: "0"
   - lib: operator_libs_linux.systemd
     version: "1"
+  - lib: grafana_agent.cos_agent
+    version: "0"
 
 actions:
   update-configs:
@@ -84,3 +86,7 @@ config:
 parts:
   charm:
     plugin: charm
+
+provides:
+    cos-agent:
+        interface: cos_agent

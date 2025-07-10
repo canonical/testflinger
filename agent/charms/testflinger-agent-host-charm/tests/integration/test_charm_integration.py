@@ -120,7 +120,7 @@ async def test_supervisord_files_written(ops_test: OpsTest):
         "user=ubuntu\n"
         "command=/srv/testflinger-venv/bin/testflinger-agent -c "
         "/srv/agent-configs/agent/charms/testflinger-agent-host-charm/tests/"
-        "integration/data/test01/agent001/testflinger-agent.conf\n"
+        "integration/data/test01/agent001/testflinger-agent.conf -p 8000\n"
     )
 
     conf_file = "/etc/supervisor/conf.d/agent001.conf"
