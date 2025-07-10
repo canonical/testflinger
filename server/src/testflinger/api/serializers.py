@@ -17,20 +17,12 @@
 
 from testflinger import database
 
-
 def serialize_agent_restricted_queues(agent: dict) -> dict:
     """Format restricted queue info for a single agent."""
-    restricted_queues = database.get_restricted_queues()
-    restricted_queues_owners = database.get_restricted_queues_owners()
-
-    queues = agent.get("queues", [])
+    restricted_to = agent.get("restricted_to", {})
     restricted = [
-        {
-            "queue": queue,
-            "restricted_to": restricted_queues_owners[queue],
-        }
-        for queue in queues
-        if queue in restricted_queues and queue in restricted_queues_owners
+        {"queue": queue, "restricted_to": owners}
+        for queue, owners in restricted_to.items()
     ]
 
     return {

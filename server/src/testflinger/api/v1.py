@@ -996,10 +996,22 @@ def retrieve_token():
 def get_all_restricted_queues() -> list[dict]:
     """List all agent's restricted queues and its owners."""
     agents = database.get_agents()
-    response = [serialize_agent_restricted_queues(agent) for agent in agents]
+    restricted_queues = database.get_restricted_queues()
+    restricted_queues_owners = database.get_restricted_queues_owners()
+
+    response = []
+    for agent in agents:
+        agent["restricted_to"] = {
+            queue: restricted_queues_owners[queue]
+            for queue in agent.get("queues", [])
+            if queue in restricted_queues and queue in restricted_queues_owners
+        }
+
+        serialized = serialize_agent_restricted_queues(agent)
+        if serialized["restricted_queues"]:
+            response.append(serialized)
 
     return jsonify(response)
-
 
 @v1.get("/restricted-queues/<canonical_id>")
 @v1.output(schemas.RestrictedQueueOut)
@@ -1009,8 +1021,16 @@ def get_agent_restricted_queues(canonical_id: str) -> dict:
     if not agent:
         return jsonify({"error": "Agent not found"})
 
-    response = serialize_agent_restricted_queues(agent)
+    restricted_queues = database.get_restricted_queues()
+    restricted_queues_owners = database.get_restricted_queues_owners()
 
+    agent["restricted_to"] = {
+        queue: restricted_queues_owners[queue]
+        for queue in agent.get("queues", [])
+        if queue in restricted_queues and queue in restricted_queues_owners
+    }
+
+    response = serialize_agent_restricted_queues(agent)
     return jsonify(response)
 
 
