@@ -47,6 +47,8 @@ If you wish to define your job inline, you can use the following step:
 | `dry-run`                          | Don't submit job.                                  |          | `false`                     |
 | `server`                           | Testflinger server address.                        |          | `testflinger.canonical.com` |
 | `attachments-relative-to`          | Reference directory for relative attachment paths. |          |                             |
+| `client-id`                        | Client ID for jobs requiring authentication.       | [^auth]  |                             |
+| `secret-key`                       | Secret key for jobs requiring authentication.      | [^auth]  |                             |
 
 ### Outputs
 
@@ -66,6 +68,8 @@ If you wish to define your job inline, you can use the following step:
     cancel the job after you are done with the reserved device.
 
 [^poll-multi]: To poll a multi-device job, see the [`poll-multi`][poll-multi-action] action.
+
+[^auth]: Both client-id and secret-key must be provided, or neither.
 
 [job]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
 [cli]: ../../../cli/
