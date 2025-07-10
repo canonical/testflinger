@@ -1270,27 +1270,15 @@ def test_get_all_restricted_queues(mongo_app):
 
     result = output.json
     expected = [
-        {
-            "canonical_id": "202506-00001",
-            "name": "agent1",
-            "restricted_queues": [
-                {"queue": "q1", "restricted_to": ["clientA"]},
-            ],
-        },
-        {
-            "canonical_id": "202506-00002",
-            "name": "agent2",
-            "restricted_queues": [
-                {"queue": "q3", "restricted_to": ["clientB"]},
-            ],
-        },
+        {"queue": "q1", "owners": ["clientA"]},
+        {"queue": "q3", "owners": ["clientB"]},
     ]
     assert result[0] in expected
     assert result[1] in expected
 
 
-def test_get_agent_restricted_queues(mongo_app):
-    """Test retrieving restricted queues for a specific agent."""
+def test_get_restricted_queue(mongo_app):
+    """Test retrieving info for a specific restricted queue."""
     app, mongo = mongo_app
     mongo.agents.insert_one(
         {
@@ -1300,23 +1288,17 @@ def test_get_agent_restricted_queues(mongo_app):
         },
     )
     mongo.restricted_queues.insert_one(
-        {"queue_name": "q1"},
+        {"queue_name": "202506-00001"},
     )
     mongo.client_permissions.insert_one(
-        {"client_id": "clientA", "allowed_queues": ["q1"]},
+        {"client_id": "clientA", "allowed_queues": ["202506-00001"]},
     )
 
     output = app.get("/v1/restricted-queues/202506-00001")
     assert output.status_code == HTTPStatus.OK
 
     result = output.json
-    expected = {
-        "canonical_id": "202506-00001",
-        "name": "agent1",
-        "restricted_queues": [
-            {"queue": "q1", "restricted_to": ["clientA"]},
-        ],
-    }
+    expected = {"queue": "202506-00001", "owners": ["clientA"]}
     assert result == expected
 
 
@@ -1332,15 +1314,14 @@ def test_add_restricted_queue(mongo_app):
     )
 
     data = {
-        "restricted_to": "clientA",
-        "queue": "q1",
+        "client_id": "clientA",
     }
-    output = app.post("/v1/restricted-queues/202506-00001", json=data)
+    output = app.post("/v1/restricted-queues/q2", json=data)
     assert output.status_code == HTTPStatus.OK
 
     permission = mongo.client_permissions.find_one({"client_id": "clientA"})
-    assert "q1" in permission.get("allowed_queues", [])
-    restricted_queue = mongo.restricted_queues.find_one({"queue_name": "q1"})
+    assert "q2" in permission.get("allowed_queues", [])
+    restricted_queue = mongo.restricted_queues.find_one({"queue_name": "q2"})
     assert restricted_queue is not None
 
 
@@ -1351,7 +1332,7 @@ def test_delete_restricted_queue(mongo_app):
         {
             "name": "agent1",
             "identifier": "202506-00001",
-            "queues": ["q1", "q2"],
+            "queues": ["q1"],
         },
     )
     mongo.restricted_queues.insert_one({"queue_name": "q1"})
@@ -1359,8 +1340,8 @@ def test_delete_restricted_queue(mongo_app):
         {"client_id": "clientA", "allowed_queues": ["q1"]}
     )
 
-    data = {"queue": "q1", "restricted_to": "clientA"}
-    output = app.delete("/v1/restricted-queues/202506-00001", json=data)
+    data = {"client_id": "clientA"}
+    output = app.delete("/v1/restricted-queues/q1", json=data)
     assert output.status_code == HTTPStatus.OK
 
     permission = mongo.client_permissions.find_one({"client_id": "clientA"})

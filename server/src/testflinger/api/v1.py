@@ -33,7 +33,6 @@ from werkzeug.exceptions import BadRequest
 
 from testflinger import database
 from testflinger.api import schemas
-from testflinger.api.serializers import serialize_agent_restricted_queues
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -995,82 +994,78 @@ def retrieve_token():
 @v1.output(schemas.RestrictedQueueOut(many=True))
 def get_all_restricted_queues() -> list[dict]:
     """List all agent's restricted queues and its owners."""
-    agents = database.get_agents()
     restricted_queues = database.get_restricted_queues()
     restricted_queues_owners = database.get_restricted_queues_owners()
 
     response = []
-    for agent in agents:
-        agent["restricted_to"] = {
-            queue: restricted_queues_owners[queue]
-            for queue in agent.get("queues", [])
-            if queue in restricted_queues and queue in restricted_queues_owners
-        }
-
-        serialized = serialize_agent_restricted_queues(agent)
-        if serialized["restricted_queues"]:
-            response.append(serialized)
+    for queue in restricted_queues:
+        owners = restricted_queues_owners.get(queue, [])
+        response.append(
+            {
+                "queue": queue,
+                "owners": owners,
+            }
+        )
 
     return jsonify(response)
 
-@v1.get("/restricted-queues/<canonical_id>")
+
+@v1.get("/restricted-queues/<queue_name>")
 @v1.output(schemas.RestrictedQueueOut)
-def get_agent_restricted_queues(canonical_id: str) -> dict:
+def get_restricted_queue(queue_name: str) -> dict:
     """Get restricted queues for a specific agent."""
-    agent = database.mongo.db.agents.find_one({"identifier": canonical_id})
-    if not agent:
-        return jsonify({"error": "Agent not found"})
+    queue = database.mongo.db.restricted_queues.find_one(
+        {"queue_name": queue_name}
+    )
+    if not queue:
+        return jsonify({"error": "Queue not found"}), HTTPStatus.NOT_FOUND
 
-    restricted_queues = database.get_restricted_queues()
     restricted_queues_owners = database.get_restricted_queues_owners()
+    owners = restricted_queues_owners.get(queue_name, [])
 
-    agent["restricted_to"] = {
-        queue: restricted_queues_owners[queue]
-        for queue in agent.get("queues", [])
-        if queue in restricted_queues and queue in restricted_queues_owners
-    }
-
-    response = serialize_agent_restricted_queues(agent)
-    return jsonify(response)
+    return jsonify(
+        {
+            "queue": queue_name,
+            "owners": owners,
+        }
+    )
 
 
-@v1.post("/restricted-queues/<canonical_id>")
+@v1.post("/restricted-queues/<queue_name>")
 @v1.input(schemas.RestrictedQueueIn, location="json")
-def add_restricted_queues(canonical_id: str, json_data: dict) -> dict:
-    """Add restricted queues for an agent."""
-    client_id = json_data.get("restricted_to", "")
-    queue = json_data.get("queue", "")
+def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
+    """Add an owner to the specific restricted queue."""
+    client_id = json_data.get("client_id", "")
 
-    if not queue or not client_id:
-        return jsonify(
-            {"error": "Missing queue or client ID"}
-        ), HTTPStatus.BAD_REQUEST
+    if not client_id:
+        return jsonify({"error": "Missing client ID."}), HTTPStatus.BAD_REQUEST
 
-    agent = database.mongo.db.agents.find_one({"identifier": canonical_id})
+    agent = database.mongo.db.agents.find_one({"queues": queue_name})
     if not agent:
-        return jsonify({"error": "Agent not found"}), HTTPStatus.NOT_FOUND
+        return jsonify(
+            {"error": "No agent is associated with the specified queue."}
+        ), HTTPStatus.NOT_FOUND
 
-    database.add_restricted_queue(queue, client_id)
+    database.add_restricted_queue(queue_name, client_id)
 
     return "OK"
 
 
-@v1.delete("/restricted-queues/<canonical_id>")
+@v1.delete("/restricted-queues/<queue_name>")
 @v1.input(schemas.RestrictedQueueIn, location="json")
-def delete_restricted_queue(canonical_id: str, json_data: dict) -> dict:
-    """Delete a specific restricted queue from an agent."""
-    client_id = json_data.get("restricted_to", "")
-    queue = json_data.get("queue", "")
+def delete_restricted_queue(queue_name: str, json_data: dict) -> dict:
+    """Delete an owner from the specific restricted queue."""
+    client_id = json_data.get("client_id", "")
 
-    if not queue or not client_id:
-        return jsonify(
-            {"error": "Missing queue or client ID"}
-        ), HTTPStatus.BAD_REQUEST
+    if not client_id:
+        return jsonify({"error": "Missing client ID."}), HTTPStatus.BAD_REQUEST
 
-    agent = database.mongo.db.agents.find_one({"identifier": canonical_id})
-    if not agent:
-        return jsonify({"error": "Agent not found"}), HTTPStatus.NOT_FOUND
+    queue = database.mongo.db.restricted_queues.find_one(
+        {"queue_name": queue_name}
+    )
+    if not queue:
+        return jsonify({"error": "Queue not found."}), HTTPStatus.NOT_FOUND
 
-    database.delete_restricted_queue(queue, client_id)
+    database.delete_restricted_queue(queue_name, client_id)
 
     return "OK"
