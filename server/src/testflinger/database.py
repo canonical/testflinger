@@ -365,6 +365,17 @@ def queue_exists(queue: str) -> bool:
     return mongo.db.agents.find_one({"queues": queue}) is not None
 
 
+def restricted_queue_exists(queue: str) -> bool:
+    """Validate the existance of a restricted queue.
+
+    :param queue: Name of the queue to validate.
+    :return: True if exists, False otherwise
+    """
+    return (
+        mongo.db.restricted_queues.find_one({"queue_name": queue}) is not None
+    )
+
+
 def get_restricted_queues() -> set[str]:
     """Return a set of all restricted queues."""
     restricted_queues = mongo.db.restricted_queues.distinct("queue_name")

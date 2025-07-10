@@ -1014,11 +1014,10 @@ def get_all_restricted_queues() -> list[dict]:
 @v1.output(schemas.RestrictedQueueOut)
 def get_restricted_queue(queue_name: str) -> dict:
     """Get restricted queues for a specific agent."""
-    queue = database.mongo.db.restricted_queues.find_one(
-        {"queue_name": queue_name}
-    )
-    if not queue:
-        return jsonify({"error": "Queue not found"}), HTTPStatus.NOT_FOUND
+    if not database.restricted_queue_exists(queue_name):
+        return jsonify(
+            {"error": "Restricted queue not found"}
+        ), HTTPStatus.NOT_FOUND
 
     restricted_queues_owners = database.get_restricted_queues_owners()
     owners = restricted_queues_owners.get(queue_name, [])
@@ -1040,8 +1039,7 @@ def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
     if not client_id:
         return jsonify({"error": "Missing client ID."}), HTTPStatus.BAD_REQUEST
 
-    agent = database.mongo.db.agents.find_one({"queues": queue_name})
-    if not agent:
+    if not database.queue_exists(queue_name):
         return jsonify(
             {"error": "No agent is associated with the specified queue."}
         ), HTTPStatus.NOT_FOUND
@@ -1055,16 +1053,14 @@ def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
 @v1.input(schemas.RestrictedQueueIn, location="json")
 def delete_restricted_queue(queue_name: str, json_data: dict) -> dict:
     """Delete an owner from the specific restricted queue."""
-    client_id = json_data.get("client_id", "")
+    if not database.restricted_queue_exists(queue_name):
+        return jsonify(
+            {"error": "Restricted queue not found"}
+        ), HTTPStatus.NOT_FOUND
 
+    client_id = json_data.get("client_id", "")
     if not client_id:
         return jsonify({"error": "Missing client ID."}), HTTPStatus.BAD_REQUEST
-
-    queue = database.mongo.db.restricted_queues.find_one(
-        {"queue_name": queue_name}
-    )
-    if not queue:
-        return jsonify({"error": "Queue not found."}), HTTPStatus.NOT_FOUND
 
     database.delete_restricted_queue(queue_name, client_id)
 
