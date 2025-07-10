@@ -254,3 +254,28 @@ def authenticate(func):
         return func(*args, **kwargs)
 
     return decorator
+
+
+def require_role(*roles):
+    """Determine if a user is entitled to do a request on endpoint."""
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if not g.is_authenticated:
+                abort(
+                    HTTPStatus.UNAUTHORIZED,
+                    "Authentication is required for specified endpoint",
+                )
+
+            if g.role not in roles:
+                abort(
+                    HTTPStatus.FORBIDDEN,
+                    f"Specified action requires role: {roles}",
+                )
+
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
