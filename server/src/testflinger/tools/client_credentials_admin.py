@@ -117,6 +117,38 @@ def handle_max_reservation_input() -> list:
             print("Invalid input. Please enter 'y' or 'n'.")
     return max_reservation
 
+def handle_client_id_role():
+    """Define a role for a specified user."""
+    default_role = "contributor"
+    allowed_roles = {1: "admin", 2: "manager", 3: default_role}
+
+    while True:
+        role_input = (
+            input("Do you want to specify a role for this client_id? (y/n): ")
+            .strip()
+            .lower()
+        )
+        if role_input == "y":
+            print("1. admin")
+            print("2. manager")
+            print("3. contributor (default)")
+            while True:
+                try:
+                    role_selection = int(
+                        input("Specify the number of the chosen role: ")
+                    )
+
+                    if role_selection in allowed_roles:
+                        return allowed_roles[role_selection]
+                    else:
+                        print("Please specify a valid option")
+                except ValueError:
+                    print("Please enter a valid integer value")
+        elif role_input == "n":
+            return default_role
+        else:
+            print("Invalid input. Please enter 'y' or 'n'.")
+
 
 def confirm_dialogue(entry: dict) -> bool:
     """Prompt the user to confirm their changes."""
@@ -168,9 +200,11 @@ def create_client_credential(db):
     max_priority = handle_max_priority_input()
     allowed_queues = handle_allowed_queues_input()
     max_reservation = handle_max_reservation_input()
+    client_role = handle_client_id_role()
 
     entry = {
         "client_id": client_id,
+        "role": client_role,
         "max_priority": max_priority,
         "allowed_queues": allowed_queues,
         "max_reservation_time": max_reservation,
@@ -194,9 +228,11 @@ def edit_client_credential(db):
     max_priority = handle_max_priority_input()
     allowed_queues = handle_allowed_queues_input()
     max_reservation = handle_max_reservation_input()
+    client_role = handle_client_id_role()
     confirm_output = confirm_dialogue(
         {
             "client_id": client_id,
+            "role": client_role,
             "max_priority": max_priority,
             "allowed_queues": allowed_queues,
             "max_reservation_time": max_reservation,
@@ -207,6 +243,7 @@ def edit_client_credential(db):
             {"client_id": client_id},
             {
                 "$set": {
+                    "role": client_role,
                     "max_priority": max_priority,
                     "allowed_queues": allowed_queues,
                     "max_reservation_time": max_reservation,
