@@ -23,7 +23,7 @@ from http import HTTPStatus
 
 import requests
 from apiflask import APIBlueprint, abort
-from flask import jsonify, request, send_file
+from flask import g, jsonify, request, send_file
 from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -31,6 +31,7 @@ from werkzeug.exceptions import BadRequest
 
 from testflinger import database
 from testflinger.api import auth, schemas
+from testflinger.api.auth import authenticate
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -62,6 +63,7 @@ def get_version():
 
 
 @v1.post("/job")
+@authenticate
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
 def job_post(json_data: dict):
@@ -73,9 +75,8 @@ def job_post(json_data: dict):
         job_queue = ""
     if not job_queue:
         abort(422, message="Invalid data or no job_queue specified")
-    auth_token = request.headers.get("Authorization")
     try:
-        job = job_builder(json_data, auth_token)
+        job = job_builder(json_data)
     except ValueError:
         abort(400, message="Invalid job_id specified")
 
@@ -99,7 +100,7 @@ def has_attachments(data: dict) -> bool:
     )
 
 
-def job_builder(data: dict, auth_token: str):
+def job_builder(data: dict):
     """Build a job from a dictionary of data."""
     job = {
         "created_at": datetime.now(timezone.utc),
@@ -123,9 +124,8 @@ def job_builder(data: dict, auth_token: str):
         data["attachments_status"] = "waiting"
 
     priority_level = data.get("job_priority", 0)
-    auth.check_token_permissions(
-        auth_token,
-        os.environ.get("JWT_SIGNING_KEY"),
+    auth.check_permissions(
+        g.permissions,
         data,
     )
     job["job_priority"] = priority_level

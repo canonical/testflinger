@@ -21,6 +21,7 @@ restricted queues.
 import base64
 import os
 from datetime import datetime, timedelta, timezone
+from http import HTTPStatus
 
 import jwt
 
@@ -121,7 +122,9 @@ def test_priority_no_token(mongo_app_with_permissions):
     app, _, _, _, _ = mongo_app_with_permissions
     job = {"job_queue": "myqueue2", "job_priority": 200}
     job_response = app.post("/v1/job", json=job)
-    assert 401 == job_response.status_code
+    assert job_response.status_code == HTTPStatus.UNAUTHORIZED
+    message = job_response.get_json()["message"]
+    assert "Authentication required for setting priority" in message
 
 
 def test_priority_invalid_queue(mongo_app_with_permissions):
@@ -319,7 +322,9 @@ def test_restricted_queue_reject_no_token(mongo_app_with_permissions):
     app, _, _, _, _ = mongo_app_with_permissions
     job = {"job_queue": "rqueue1"}
     job_response = app.post("/v1/job", json=job)
-    assert 401 == job_response.status_code
+    assert job_response.status_code == HTTPStatus.UNAUTHORIZED
+    message = job_response.get_json()["message"]
+    assert "Authentication required to push to restricted queue" in message
 
 
 def test_extended_reservation_allowed(mongo_app_with_permissions):
@@ -366,7 +371,9 @@ def test_extended_reservation_reject_no_token(mongo_app_with_permissions):
     app, _, _, _, _ = mongo_app_with_permissions
     job = {"job_queue": "myqueue", "reserve_data": {"timeout": 21601}}
     job_response = app.post("/v1/job", json=job)
-    assert 401 == job_response.status_code
+    assert job_response.status_code == HTTPStatus.UNAUTHORIZED
+    message = job_response.get_json()["message"]
+    assert "Authentication required for setting timeout" in message
 
 
 def test_normal_reservation_no_token(mongo_app):
