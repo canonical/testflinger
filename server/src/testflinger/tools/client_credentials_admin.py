@@ -118,6 +118,7 @@ def handle_max_reservation_input() -> list:
             print("Invalid input. Please enter 'y' or 'n'.")
     return max_reservation
 
+
 def handle_client_id_role():
     """Define a role for a specified user."""
     default_role = "contributor"
@@ -329,6 +330,7 @@ def add_list_restricted_queues(db):
     print(f"{len(queue_entry)} queues to add")
     if confirm_dialogue(queue_entry):
         db.restricted_queues.insert_many(queue_entry)
+
 
 def show_client_permissions(db):
     """Display the permissions set for a specified client_id."""
