@@ -27,6 +27,7 @@ from apiflask import abort
 from flask import g, request
 
 from testflinger import database
+from testflinger.enums import ServerRoles
 
 
 def validate_client_key_pair(
@@ -233,7 +234,7 @@ def authenticate(func):
 
         # Initialize auth state
         g.client_id = None
-        g.role = "user"
+        g.role = ServerRoles.USER
         g.permissions = {}
         g.is_authenticated = False
 
@@ -248,7 +249,7 @@ def authenticate(func):
 
         # Store auth state if decoding was successful
         g.client_id = permissions["client_id"]
-        g.role = permissions.get("role", "contributor")
+        g.role = permissions.get("role", ServerRoles.CONTRIBUTOR)
         g.permissions = permissions
         g.is_authenticated = True
         return func(*args, **kwargs)
