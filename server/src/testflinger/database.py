@@ -341,7 +341,11 @@ def get_provision_log(
 
 
 def check_queue_restricted(queue: str) -> bool:
-    """Check if queue is restricted."""
+    """Check if queue is restricted.
+
+    :param queue: Name of the queue to validate.
+    :return: True if restricted, False otherwise.
+    """
     queue_count = mongo.db.restricted_queues.count_documents(
         {"queue_name": queue}
     )
@@ -360,20 +364,9 @@ def queue_exists(queue: str) -> bool:
     """Validate the existance of a queue.
 
     :param queue: Name of the queue to validate.
-    :return: True if exists, False otherwise
+    :return: True if exists, False otherwise.
     """
     return mongo.db.agents.find_one({"queues": queue}) is not None
-
-
-def restricted_queue_exists(queue: str) -> bool:
-    """Validate the existance of a restricted queue.
-
-    :param queue: Name of the queue to validate.
-    :return: True if exists, False otherwise
-    """
-    return (
-        mongo.db.restricted_queues.find_one({"queue_name": queue}) is not None
-    )
 
 
 def get_restricted_queues() -> set[str]:
@@ -402,7 +395,12 @@ def get_agents() -> list[dict]:
 
 
 def add_restricted_queue(queue: str, client_id: str):
-    """Add a restricted queue for a client."""
+    """Add a restricted queue for a client.
+
+    :param queue: Name of the queue to add to restricted_queue collection.
+    :param client_id: The client ID to grant access to the queue
+        (added to allowed_queues).
+    """
     mongo.db.restricted_queues.update_one(
         {"queue_name": queue}, {"$set": {"queue_name": queue}}, upsert=True
     )
@@ -414,7 +412,11 @@ def add_restricted_queue(queue: str, client_id: str):
 
 
 def delete_restricted_queue(queue: str, client_id: str):
-    """Delete a restricted queue for a client."""
+    """Delete a restricted queue for a client.
+
+    :param queue: Name of the queue to delete from restricted_queue collection.
+    :param client_id: The client ID whose access to the queue will be revoked.
+    """
     mongo.db.restricted_queues.delete_one({"queue_name": queue})
 
     mongo.db.client_permissions.update_one(

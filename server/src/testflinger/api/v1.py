@@ -1014,10 +1014,8 @@ def get_all_restricted_queues() -> list[dict]:
 @v1.output(schemas.RestrictedQueueOut)
 def get_restricted_queue(queue_name: str) -> dict:
     """Get restricted queues for a specific agent."""
-    if not database.restricted_queue_exists(queue_name):
-        return jsonify(
-            {"error": "Restricted queue not found"}
-        ), HTTPStatus.NOT_FOUND
+    if not database.check_queue_restricted(queue_name):
+        abort(HTTPStatus.NOT_FOUND, "Error: Restricted queue not found.")
 
     restricted_queues_owners = database.get_restricted_queues_owners()
     owners = restricted_queues_owners.get(queue_name, [])
@@ -1037,12 +1035,13 @@ def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
     client_id = json_data.get("client_id", "")
 
     if not client_id:
-        return jsonify({"error": "Missing client ID."}), HTTPStatus.BAD_REQUEST
+        abort(HTTPStatus.BAD_REQUEST, "Error: Missing client ID.")
 
     if not database.queue_exists(queue_name):
-        return jsonify(
-            {"error": "No agent is associated with the specified queue."}
-        ), HTTPStatus.NOT_FOUND
+        abort(
+            HTTPStatus.NOT_FOUND,
+            "Error: No agent is associated with the specified queue.",
+        )
 
     database.add_restricted_queue(queue_name, client_id)
 
@@ -1053,14 +1052,12 @@ def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
 @v1.input(schemas.RestrictedQueueIn, location="json")
 def delete_restricted_queue(queue_name: str, json_data: dict) -> dict:
     """Delete an owner from the specific restricted queue."""
-    if not database.restricted_queue_exists(queue_name):
-        return jsonify(
-            {"error": "Restricted queue not found"}
-        ), HTTPStatus.NOT_FOUND
+    if not database.check_queue_restricted(queue_name):
+        abort(HTTPStatus.NOT_FOUND, "Error: Restricted queue not found.")
 
     client_id = json_data.get("client_id", "")
     if not client_id:
-        return jsonify({"error": "Missing client ID."}), HTTPStatus.BAD_REQUEST
+        abort(HTTPStatus.BAD_REQUEST, "Error: Missing client ID.")
 
     database.delete_restricted_queue(queue_name, client_id)
 
