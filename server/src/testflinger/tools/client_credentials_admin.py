@@ -28,6 +28,7 @@ import os
 import sys
 
 import bcrypt
+import yaml
 from pymongo import MongoClient, ReturnDocument
 
 from testflinger import database
@@ -276,6 +277,13 @@ def check_queue_exists(db, queue_name: str) -> bool:
     )
 
 
+def get_client_permissions(db, client_id: str) -> dict:
+    """Retrive the permissions set for a specified client."""
+    return db.client_permissions.find_one(
+        {"client_id": client_id}, {"_id": False, "client_secret_hash": False}
+    )
+
+
 def add_restricted_queue(db):
     """Add a restricted queue to the database."""
     queue_name = input("Enter the name of the restricted queue to add: ")
@@ -322,6 +330,16 @@ def add_list_restricted_queues(db):
     if confirm_dialogue(queue_entry):
         db.restricted_queues.insert_many(queue_entry)
 
+def show_client_permissions(db):
+    """Display the permissions set for a specified client_id."""
+    client_id = input("Enter the client_id you wish to show permissions: ")
+    if not check_client_exists(db, client_id):
+        print("Client id not in database!")
+        return
+
+    permissions = get_client_permissions(db, client_id)
+    print(yaml.dump(permissions, sort_keys=False))
+
 
 def main():
     """
@@ -336,6 +354,7 @@ def main():
         print("(aq) Add restricted queue")
         print("(rq) Remove restricted queue")
         print("(al) Add comma separated list of restricted queues")
+        print("(s) Show existing client id permissions")
         print("(q) Quit")
 
         user_input = input("Enter your selection: ")
@@ -351,6 +370,8 @@ def main():
             remove_restricted_queue(db)
         elif user_input == "al":
             add_list_restricted_queues(db)
+        elif user_input == "s":
+            show_client_permissions(db)
         elif user_input == "q":
             sys.exit()
         else:
