@@ -347,38 +347,41 @@ def main():
     restricted queues.
     """
     db = setup_database()
-    while True:
-        print("(c) Create client")
-        print("(e) Edit client")
-        print("(r) Remove client")
-        print("(aq) Add restricted queue")
-        print("(rq) Remove restricted queue")
-        print("(al) Add comma separated list of restricted queues")
-        print("(s) Show existing client id permissions")
-        print("(q) Quit")
+    try:
+        while True:
+            print("(c) Create client")
+            print("(e) Edit client")
+            print("(r) Remove client")
+            print("(aq) Add restricted queue")
+            print("(rq) Remove restricted queue")
+            print("(al) Add comma separated list of restricted queues")
+            print("(s) Show existing client id permissions")
+            print("(q) Quit")
 
-        user_input = input("Enter your selection: ")
-        if user_input == "c":
-            create_client_credential(db)
-        elif user_input == "e":
-            edit_client_credential(db)
-        elif user_input == "r":
-            remove_client_credential(db)
-        elif user_input == "aq":
-            add_restricted_queue(db)
-        elif user_input == "rq":
-            remove_restricted_queue(db)
-        elif user_input == "al":
-            add_list_restricted_queues(db)
-        elif user_input == "s":
-            show_client_permissions(db)
-        elif user_input == "q":
-            sys.exit()
-        else:
-            print(
-                "Invalid selection. Please enter "
-                "'c', 'e', 'r', 'aq', 'rq', 'al', or 'q'\n"
-            )
+            user_input = input("Enter your selection: ")
+            if user_input == "c":
+                create_client_credential(db)
+            elif user_input == "e":
+                edit_client_credential(db)
+            elif user_input == "r":
+                remove_client_credential(db)
+            elif user_input == "aq":
+                add_restricted_queue(db)
+            elif user_input == "rq":
+                remove_restricted_queue(db)
+            elif user_input == "al":
+                add_list_restricted_queues(db)
+            elif user_input == "s":
+                show_client_permissions(db)
+            elif user_input == "q":
+                sys.exit()
+            else:
+                print(
+                    "Invalid selection. Please enter "
+                    "'c', 'e', 'r', 'aq', 'rq', 'al', or 'q'\n"
+                )
+    except KeyboardInterrupt:
+        print("\nReceived KeyboardInterrupt, exiting.")
 
 
 if __name__ == "__main__":
