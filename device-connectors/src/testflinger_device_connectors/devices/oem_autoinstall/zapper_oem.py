@@ -69,10 +69,18 @@ class ZapperOem(ZapperConnector):
 
         if iso_type == "stock":
             # Stock ISO requires meta-data, user-data and grub.cfg
-            data_path = Path(__file__).parent / "../../data/oem_autoinstall/stock"
-            meta_data_b64 = self._read_file_to_base64(data_path / "default-meta-data")
-            user_data_b64 = self._read_file_to_base64(data_path / "default-user-data")
-            grub_cfg_b64 = self._read_file_to_base64(data_path / "default-grub.cfg")
+            data_path = (
+                Path(__file__).parent / "../../data/oem_autoinstall/stock"
+            )
+            meta_data_b64 = self._read_file_to_base64(
+                data_path / "default-meta-data"
+            )
+            user_data_b64 = self._read_file_to_base64(
+                data_path / "default-user-data"
+            )
+            grub_cfg_b64 = self._read_file_to_base64(
+                data_path / "default-grub.cfg"
+            )
 
         # Optional fields
         test_data = self.job_data.get("test_data", {})
@@ -101,7 +109,9 @@ class ZapperOem(ZapperConnector):
                 content = f.read()
                 return base64.b64encode(content).decode("utf-8")
         except OSError as e:
-            raise ProvisioningError(f"Failed to read file {filepath}: {e}") from e
+            raise ProvisioningError(
+                f"Failed to read file {filepath}: {e}"
+            ) from e
 
     def _post_run_actions(self, args):
         pass
