@@ -65,13 +65,12 @@ class TestClient:
         self.config["setup_command"] = "echo setup1"
         fake_job_data = {"job_id": str(uuid.uuid1()), "job_queue": "test"}
         requests_mock.get(
-            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
-            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
-        # For mocking, we can simplify the agent state by setting as waiting
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting", "restricted_to": {}}),
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -89,13 +88,12 @@ class TestClient:
             "provision_data": {"url": "foo"},
         }
         requests_mock.get(
-            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
-            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
-        # For mocking, we can simplify the agent state by setting as waiting
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting", "restricted_to": {}}),
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -115,13 +113,12 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
-            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
-        # For mocking, we can simplify the agent state by setting as waiting
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting", "restricted_to": {}}),
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -172,8 +169,8 @@ class TestClient:
             mocker.get(re.compile(r"/v1/result/"))
             # mock response to requesting agent data
             mocker.get(
-                re.compile(r"/v1/agents/data/\w+"),
-                text=json.dumps({"state": "waiting", "restricted_to": {}}),
+                "http://127.0.0.1:8000/v1/agents/data/test01",
+                json={"state": "waiting", "restricted_to": {}},
             )
 
             # request and process the job (should unpack the archive)
@@ -233,11 +230,9 @@ class TestClient:
             )
             # mock response to results request
             mocker.get(re.compile(r"/v1/result/"))
-
-            # mock response to get agent data
             mocker.get(
-                re.compile(r"/v1/agents/data/\w+"),
-                text=json.dumps({"state": "waiting", "restricted_to": {}}),
+                "http://127.0.0.1:8000/v1/agents/data/test01",
+                json={"state": "waiting", "restricted_to": {}},
             )
 
             # request and process the job (should unpack the archive)
@@ -297,11 +292,9 @@ class TestClient:
             )
             # mock response to results request
             mocker.get(re.compile(r"/v1/result/"))
-
-            # mock response to get agent data
             mocker.get(
-                re.compile(r"/v1/agents/data/\w+"),
-                text=json.dumps({"state": "waiting", "restricted_to": {}}),
+                "http://127.0.0.1:8000/v1/agents/data/test01",
+                json={"state": "waiting", "restricted_to": {}},
             )
 
             # request and process the job (should unpack the archive)
@@ -329,13 +322,12 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
-            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
-        # For mocking, we can simplify the agent state by setting as waiting
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting", "restricted_to": {}}),
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
@@ -356,13 +348,12 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
-            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
-        # For mocking, we can simplify the agent state by setting as waiting
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting", "restricted_to": {}}),
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"), patch("os.unlink"):
@@ -389,13 +380,12 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
-            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
-        # For mocking, we can simplify the agent state by setting as waiting
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting", "restricted_to": {}}),
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"), patch("os.unlink"):
@@ -418,17 +408,16 @@ class TestClient:
         mock_job_data = {"job_id": str(uuid.uuid1()), "job_queue": "test"}
         # Send an extra empty data since we will be calling get 3 times
         requests_mock.get(
-            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
+            "http://127.0.0.1:8000/v1/job?queue=test",
             [
                 {"text": json.dumps(mock_job_data)},
                 {"text": "{}"},
                 {"text": "{}"},
             ],
         )
-        # For mocking, we can simplify the agent state by setting as waiting
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting", "restricted_to": {}}),
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch.object(
@@ -525,13 +514,12 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
+        )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
-
-        requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting"}),
-        )
         with patch("shutil.rmtree"):
             agent.process_jobs()
 
@@ -568,8 +556,8 @@ class TestClient:
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting"}),
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
@@ -608,10 +596,9 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
-
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting"}),
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
@@ -647,8 +634,8 @@ class TestClient:
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting"}),
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
@@ -680,10 +667,9 @@ class TestClient:
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting"}),
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
-
         expected_log_params = (
             job_id,
             0,
@@ -709,8 +695,8 @@ class TestClient:
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting"}),
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
         expected_log_params = (
             job_id,
@@ -737,13 +723,12 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
+        )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
-
-        requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting"}),
-        )
 
         provision_exception_info = {
             "provision_exception_info": {
@@ -811,13 +796,12 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
+        )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=200)
-
-        requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting"}),
-        )
 
         provision_exception_info = {
             "provision_exception_info": {
@@ -883,12 +867,12 @@ class TestClient:
             "provision_data": {"url": "foo"},
         }
         requests_mock.get(
-            re.compile(r".*/(?!v1/agents/data/\w+$).*"),
+            "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            re.compile(r"/v1/agents/data/\w+"),
-            text=json.dumps({"state": "waiting"}),
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
         )
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"), patch("os.unlink"):
