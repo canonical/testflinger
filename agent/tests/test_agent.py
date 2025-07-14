@@ -5,6 +5,7 @@ import shutil
 import tarfile
 import tempfile
 import uuid
+from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import patch
 
@@ -884,3 +885,25 @@ class TestClient:
         )
         assert total_provision_failures == 1
         assert total_jobs == 1
+
+    def test_missing_agent_state(self, agent, requests_mock, caplog):
+        """Test default state for an agent is offline if unable to retrieve."""
+        self.config["provision_command"] = "/bin/false"
+        mock_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test",
+            "provision_data": {"url": "foo"},
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
+        )
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            status_code=HTTPStatus.NOT_FOUND,
+        )
+        requests_mock.post(rmock.ANY, status_code=200)
+        with patch("shutil.rmtree"), patch("os.unlink"):
+            agent.process_jobs()
+        assert "Failed to retrieve agent data" in caplog.text
+        assert "Taking agent offline" in caplog.text
