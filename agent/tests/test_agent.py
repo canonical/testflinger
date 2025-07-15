@@ -903,7 +903,7 @@ class TestClient:
             status_code=HTTPStatus.NOT_FOUND,
         )
         requests_mock.post(rmock.ANY, status_code=200)
-        with patch("shutil.rmtree"), patch("os.unlink"):
+        with patch("shutil.rmtree"):
             agent.process_jobs()
         assert "Failed to retrieve agent data" in caplog.text
         assert "Taking agent offline" in caplog.text

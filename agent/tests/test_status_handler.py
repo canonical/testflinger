@@ -97,31 +97,25 @@ class TestClient:
         """Test SystemExit is received when restarting agent."""
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": "waiting", "comment": ""},
-        )
-        # Mock the status handler to simulate signal restart
-        agent.status_handler.update(
-            comment="Restart signal detected from supervisor process",
-            restart=True,
+            json={"state": "restart", "comment": ""},
         )
 
         with pytest.raises(SystemExit):
             agent.process_jobs()
             assert "Restarting agent" in caplog.text
+            assert (
+                "Restart signal detected from supervisor process"
+                in agent.status_handler.get_comment()
+            )
 
     def test_offline_agent_if_waiting(self, agent, requests_mock, caplog):
         """Test Agent stop processing jobs if set to offline."""
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": "waiting", "comment": ""},
-        )
-        # Mock the status handler to simulate offline
-        agent.status_handler.update(
-            comment="Offline for test",
-            offline=True,
+            json={"state": "offline", "comment": "Offline for test"},
         )
 
-        with patch("shutil.rmtree"), patch("os.unlink"):
+        with patch("shutil.rmtree"):
             agent.process_jobs()
 
         assert "Taking agent offline" in caplog.text
@@ -143,9 +137,85 @@ class TestClient:
         agent.status_handler.update(comment="Offline for test", offline=True)
 
         requests_mock.post(rmock.ANY, status_code=200)
-        with patch("shutil.rmtree"), patch("os.unlink"):
+        with patch("shutil.rmtree"):
             agent.process_jobs()
 
         assert "Taking agent offline" in caplog.text
         assert agent.status_handler.needs_restart is True
         assert agent.status_handler.comment == "Offline for test"
+
+    def test_agent_offline_not_processing_jobs(
+        self, agent, requests_mock, caplog
+    ):
+        """Test device is offline and not processing any job."""
+        # Mocking retrieval of agent status as offline
+        mock_check_offline = [
+            (True, "Offline reason"),
+            (True, "Offline reason"),
+        ]
+
+        # Terminate upon first sleep
+        mock_sleep = [Exception("end")]
+        with (
+            patch("testflinger_agent.TestflingerAgent", return_value=agent),
+            patch(
+                "testflinger_agent.load_config",
+                return_value=agent.client.config,
+            ),
+            patch("testflinger_agent.parse_args") as mock_args,
+            patch.object(
+                agent, "check_offline", side_effect=mock_check_offline
+            ),
+            patch(
+                "testflinger_agent.time.sleep",
+                side_effect=mock_sleep,
+            ),
+        ):
+            # Mocking args for starting agent
+            mock_args.return_value.config = "fake.yaml"
+            mock_args.return_value.metrics_port = 8000
+
+            # Make sure we terminate after first agent status check
+            with pytest.raises(Exception, match="end"):
+                testflinger_agent.start_agent()
+        assert "Agent test01 is offline, not processing jobs" in caplog.text
+
+    def test_agent_process_job_after_offline_cleared(
+        self, agent, requests_mock, caplog
+    ):
+        """Test agent is able to process jobs after offline is cleared."""
+        # Mocking retrieval of agent status as offline
+        mock_check_offline = [
+            (True, "Offline reason"),
+            (True, "Offline reason"),
+            (False, ""),
+        ]
+
+        # Mock sleep time and terminates after first job processing.
+        mock_sleep = [None, Exception("end")]
+        requests_mock.post(rmock.ANY, status_code=200)
+        with (
+            patch("testflinger_agent.TestflingerAgent", return_value=agent),
+            patch(
+                "testflinger_agent.load_config",
+                return_value=agent.client.config,
+            ),
+            patch("testflinger_agent.parse_args") as mock_args,
+            patch.object(
+                agent, "check_offline", side_effect=mock_check_offline
+            ),
+            patch("testflinger_agent.time.sleep", side_effect=mock_sleep),
+            patch.object(agent, "process_jobs") as mock_process,
+        ):
+            # Mocking args for starting agent
+            mock_args.return_value.config = "fake.yaml"
+            mock_args.return_value.metrics_port = 8000
+
+            # Make sure we terminate after processing job.
+            with pytest.raises(Exception, match="end"):
+                testflinger_agent.start_agent()
+
+        assert "Agent test01 is offline, not processing jobs" in caplog.text
+        assert "Checking jobs" in caplog.text
+        assert mock_process.called
+        assert "Sleeping for" in caplog.text
