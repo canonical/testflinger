@@ -126,15 +126,16 @@ def start_agent():
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
     while True:
-        offline_file = agent.check_offline()
-        if offline_file:
+        is_offline, offline_comment = agent.check_offline()
+        if is_offline:
             logger.error(
                 "Agent %s is offline, not processing jobs! "
-                "Remove %s to resume processing",
+                "Reason: %s\n"
+                "Please contact Tesflinger Admin if you require assistance.",
                 config.get("agent_id"),
-                offline_file,
+                offline_comment or "Unknown",
             )
-            while agent.check_offline():
+            while agent.check_offline()[0]:
                 time.sleep(check_interval)
         # Refresh the updated_at timestamp on advertised queues
         client.post_advertised_queues()

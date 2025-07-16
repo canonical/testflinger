@@ -21,11 +21,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-from testflinger_common.enums import JobState, TestEvent, TestPhase
+from testflinger_common.enums import AgentState, JobState, TestEvent, TestPhase
 
 from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.event_emitter import EventEmitter
+from testflinger_agent.handlers import AgentStatusHandler
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.metrics import PrometheusHandler
 
@@ -97,8 +98,10 @@ class TestflingerAgent:
 
     def __init__(self, client):
         self.client = client
+        self.agent_id = self.client.config.get("agent_id")
+        self.status_handler = AgentStatusHandler()
         signal.signal(signal.SIGUSR1, self.restart_signal_handler)
-        self.set_agent_state("waiting")
+        self.set_agent_state(AgentState.WAITING)
         self._post_initial_agent_data()
         self.metrics_handler = PrometheusHandler(
             self.client.config.get("metrics_endpoint_port")
@@ -124,66 +127,84 @@ class TestflingerAgent:
 
         self.client.post_agent_data(agent_data)
 
-    def set_agent_state(self, state):
-        """Send the agent state to the server."""
-        self.client.post_agent_data({"state": state})
+    def set_agent_state(self, state: str, comment: str = "") -> None:
+        """Send the agent state to the server.
+
+        :param state: Agent state to report to the server.
+        :param comment: Reason for changing the state. Defaults to empty str.
+        """
+        self.client.post_agent_data({"state": state, "comment": comment})
         self.client.post_influx(state)
 
-    def get_offline_files(self):
-        # Return possible restart filenames with and without dashes
-        # i.e. support both:
-        #     TESTFLINGER-DEVICE-OFFLINE-devname-001
-        #     TESTFLINGER-DEVICE-OFFLINE-devname001
-        agent = self.client.config.get("agent_id")
-        files = [
-            "/tmp/TESTFLINGER-DEVICE-OFFLINE-{}".format(agent),
-            "/tmp/TESTFLINGER-DEVICE-OFFLINE-{}".format(
-                agent.replace("-", "")
-            ),
-        ]
-        return files
+    def get_agent_state(self) -> tuple:
+        """Get the agent state from the server by using client module.
 
-    def get_restart_files(self):
-        # Return possible restart filenames with and without dashes
-        # i.e. support both:
-        #     TESTFLINGER-DEVICE-RESTART-devname-001
-        #     TESTFLINGER-DEVICE-RESTART-devname001
-        agent = self.client.config.get("agent_id")
-        files = [
-            "/tmp/TESTFLINGER-DEVICE-RESTART-{}".format(agent),
-            "/tmp/TESTFLINGER-DEVICE-RESTART-{}".format(
-                agent.replace("-", "")
-            ),
-        ]
-        return files
+        :return: State for the agent and reason for the state if any.
+        """
+        agent_data = self.client.get_agent_data(self.agent_id)
+        # Comment is optional, so key might not exists
+        comment = agent_data.get("comment", "")
+        if "state" in agent_data:
+            agent_state = agent_data["state"]
+        else:
+            logger.error(
+                "Unable to retrieve status for agent: %s "
+                "Assumming agent is offline",
+                self.agent_id,
+            )
+            agent_state = AgentState.OFFLINE
+        return (agent_state, comment)
 
-    def check_offline(self):
-        possible_files = self.get_offline_files()
-        for offline_file in possible_files:
-            if os.path.exists(offline_file):
-                self.set_agent_state("offline")
-                return offline_file
-        self.set_agent_state("waiting")
-        return ""
+    def check_offline(self) -> tuple:
+        """Determine if agent should be taken offline.
 
-    def check_restart(self):
-        possible_files = self.get_restart_files()
-        for restart_file in possible_files:
-            if os.path.exists(restart_file):
-                try:
-                    os.unlink(restart_file)
-                    logger.info("Restarting agent")
-                    self.set_agent_state("offline")
-                    sys.exit("Restart Requested")
-                except OSError:
-                    logger.error(
-                        "Restart requested, but unable to remove marker file!"
-                    )
-                    break
+        :return: True or False along with the comment if any.
+        """
+        agent_state, comment = self.get_agent_state()
 
-    def mark_device_offline(self):
-        # Create the offline file, this should work even if it exists
-        open(self.get_offline_files()[0], "w").close()
+        # Offline set by server
+        if agent_state in (AgentState.OFFLINE, AgentState.MAINTENANCE):
+            return (True, comment)
+        # Offline deferred and handled by status handler
+        if self.status_handler.needs_offline:
+            return (True, self.status_handler.comment)
+        return (False, comment)
+
+    def check_restart(self) -> tuple:
+        """Determine if the agent requires a restart.
+
+        :return: True or False along with the comment if any.
+        """
+        agent_state, comment = self.get_agent_state()
+
+        # Restart set by server
+        if agent_state == AgentState.RESTART:
+            return (True, comment)
+        # Restart deferred and requested by Signal
+        if (
+            self.status_handler.needs_restart
+            and agent_state != AgentState.OFFLINE
+        ):
+            return (True, self.status_handler.comment)
+        return (False, comment)
+
+    def restart_agent(self, comment: str = "") -> None:
+        """Perform the restart action if device is not busy
+        and requested by user.
+        """
+        logger.info("Restarting agent")
+        # Setting to offline to not process any job during restart.
+        self.set_agent_state(AgentState.OFFLINE, comment)
+        sys.exit("Restart Requested")
+
+    def offline_agent(self, comment: str = "") -> None:
+        """Perform the offline action if device is not busy
+        and requested by user.
+        """
+        logger.info("Taking agent offline")
+        self.set_agent_state(AgentState.OFFLINE, comment)
+        # Need to set the offline flag to False to allow recovery
+        self.status_handler.update(offline=False, comment=comment)
 
     def unpack_attachments(self, job_data: dict, cwd: Path):
         """Download and unpack the attachments associated with a job."""
@@ -235,7 +256,29 @@ class TestflingerAgent:
         # First, see if we have any old results that we couldn't send last time
         self.retry_old_results()
 
-        self.check_restart()
+        # Before picking up jobs, validate offline and restart are not needed.
+        needs_offline, offline_comment = self.check_offline()
+        needs_restart, restart_comment = self.check_restart()
+
+        # Update status handler, if offline is needed, will prioritize it
+        if needs_offline:
+            self.status_handler.update(
+                offline=needs_offline, comment=offline_comment
+            )
+        elif needs_restart:
+            self.status_handler.update(
+                restart=needs_restart,
+                offline=self.status_handler.needs_offline,
+                comment=restart_comment,
+            )
+
+        # Offline or restart agent if needed
+        if self.status_handler.needs_offline:
+            self.offline_agent(self.status_handler.comment)
+            return
+        if self.status_handler.needs_restart:
+            self.restart_agent(self.status_handler.comment)
+
         job_data = self.client.check_jobs()
         while job_data:
             try:
@@ -298,8 +341,25 @@ class TestflingerAgent:
                         event_emitter.emit_event(TestEvent.CANCELLED)
                         break
 
+                    # Before posting status, check if action is needed
+                    if not self.status_handler.needs_offline:
+                        needs_offline, offline_comment = self.check_offline()
+                        if needs_offline:
+                            self.status_handler.update(
+                                offline=needs_offline, comment=offline_comment
+                            )
+
+                    if not self.status_handler.needs_restart:
+                        needs_restart, restart_comment = self.check_restart()
+                        if needs_restart:
+                            self.status_handler.update(
+                                restart=needs_restart,
+                                offline=self.status_handler.needs_offline,
+                                comment=restart_comment,
+                            )
+
                     self.client.post_job_state(job.job_id, phase)
-                    self.set_agent_state(phase)
+                    self.set_agent_state(phase, self.status_handler.comment)
                     event_emitter.emit_event(TestEvent(phase + "_start"))
                     exit_code, exit_event, exit_reason = job.run_test_phase(
                         phase, rundir
@@ -311,7 +371,11 @@ class TestflingerAgent:
                         # exit code 46 is our indication that recovery failed!
                         # In this case, we need to mark the device offline
                         if exit_code == 46:
-                            self.mark_device_offline()
+                            comment = (
+                                "Set to offline by agent. Recovery failed"
+                                f" during job '{job.job_id}' execution."
+                            )
+                            self.offline_agent(comment)
                             exit_event = TestEvent.RECOVERY_FAIL
                         else:
                             exit_event = TestEvent(phase + "_fail")
@@ -352,12 +416,19 @@ class TestflingerAgent:
                 logger.exception(e)
                 results_basedir = self.client.config.get("results_basedir")
                 shutil.move(rundir, results_basedir)
-            self.set_agent_state(JobState.WAITING)
 
-            self.check_restart()
-            if self.check_offline():
+            # Check if offline is needed after job completion
+            needs_offline, offline_comment = self.check_offline()
+            if needs_offline:
+                self.offline_agent(offline_comment)
                 # Don't get a new job if we are now marked offline
                 break
+            # Check if restart is needed after job completion
+            if self.status_handler.needs_restart:
+                self.restart_agent(self.status_handler.comment)
+
+            # If no restart or offline needed, set agent to wait for new job
+            self.set_agent_state(AgentState.WAITING)
             job_data = self.client.check_jobs()
 
     def retry_old_results(self):
@@ -384,5 +455,9 @@ class TestflingerAgent:
         it is not running a job.
         """
         logger.info("Marked agent for restart")
-        restart_file = self.get_restart_files()[0]
-        open(restart_file, "w").close()
+        # If there is a pending offline, preserve the offline flag
+        self.status_handler.update(
+            restart=True,
+            offline=self.status_handler.needs_offline,
+            comment="Restart signal detected from supervisor process",
+        )
