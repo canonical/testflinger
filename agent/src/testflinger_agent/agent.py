@@ -419,15 +419,14 @@ class TestflingerAgent:
             self.set_agent_state(AgentState.WAITING)
 
             # Check if offline is needed after job completion
-            if self.status_handler.needs_offline:
-                self.offline_agent(self.status_handler.comment)
+            needs_offline, offline_comment = self.check_offline()
+            if needs_offline:
+                self.offline_agent(offline_comment)
+                # Don't get a new job if we are now marked offline
                 break
             # Check if restart is needed after job completion
             if self.status_handler.needs_restart:
                 self.restart_agent(self.status_handler.comment)
-            if self.check_offline()[0]:
-                # Don't get a new job if we are now marked offline
-                break
             job_data = self.client.check_jobs()
 
     def retry_old_results(self):
