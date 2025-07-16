@@ -132,13 +132,13 @@ Test jobs are YAML or JSON files that define the configurations and instructions
 
 A test job might contain a very complex command workflow that includes provisioning a system image onto the device, updating the firmware, executing a series test and more. In this tutorial, you will start with a simple test job.
 
-The following example shows a test job, written in YAML, that provisions an Ubuntu Jammy system image on a MAAS-provisioned device and then prints the distribution information:
+The following example shows a test job, written in YAML, that provisions an Ubuntu Noble system image on a MAAS-provisioned device and then prints the distribution information:
 
 .. code-block:: yaml
 
   job_queue: example-queue-1
   provision_data:
-    distro: jammy
+    distro: noble
   test_data:
     test_cmds: |
       ssh -t ubuntu@$DEVICE_IP lsb_release -a
