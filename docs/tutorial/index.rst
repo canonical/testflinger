@@ -186,6 +186,12 @@ This command provides you with brief information about the job's current status,
 
 The above output implies that the test job is going through the provisioning phase. If the job is completed, the returned status shows ``complete``.
 
+You can also monitor your job status using:
+
+.. code-block:: shell
+
+   $ testflinger-cli poll 2bac1457-0000-0000-0000-15f23f69fd39
+
 Check test output
 -----------------
 
@@ -236,6 +242,7 @@ This can be particularly relevant during the ``reserve`` stage as it will provid
       "job_state": "reserve"
   }
 
+You can also view job status and results for a specific queue at ``https://testflinger.example.com/queues/test-queue-1``, where you can select the corresponding job under the “Jobs” list.
 
 
 ---------
