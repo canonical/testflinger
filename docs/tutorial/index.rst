@@ -236,7 +236,13 @@ This can be particularly relevant during the ``reserve`` stage as it will provid
       "job_state": "reserve"
   }
 
+You can also view job status and results for a specific queue at ``https://testflinger.example.com/queues/test-queue-1``, where you can select the corresponding job under the “Jobs” list.
 
+You can even monitor the live output of your job using:
+
+.. code-block:: shell
+
+   $ testflinger-cli poll 2bac1457-0000-0000-0000-15f23f69fd39
 
 ---------
 
