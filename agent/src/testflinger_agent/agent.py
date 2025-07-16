@@ -267,7 +267,9 @@ class TestflingerAgent:
             )
         elif needs_restart:
             self.status_handler.update(
-                restart=needs_restart, comment=restart_comment
+                restart=needs_restart,
+                offline=self.status_handler.needs_offline,
+                comment=restart_comment,
             )
 
         # Offline or restart agent if needed
@@ -352,6 +354,7 @@ class TestflingerAgent:
                         if needs_restart:
                             self.status_handler.update(
                                 restart=needs_restart,
+                                offline=self.status_handler.needs_offline,
                                 comment=restart_comment,
                             )
 
@@ -451,7 +454,9 @@ class TestflingerAgent:
         it is not running a job.
         """
         logger.info("Marked agent for restart")
+        # If there is a pending offline, preserve the offline flag
         self.status_handler.update(
             restart=True,
+            offline=self.status_handler.needs_offline,
             comment="Restart signal detected from supervisor process",
         )

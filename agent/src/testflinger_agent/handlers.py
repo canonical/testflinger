@@ -45,8 +45,8 @@ class AgentStatusHandler:
     def update(
         self,
         comment: str,
-        restart: bool | None = None,
-        offline: bool | None = None,
+        restart: bool = False,
+        offline: bool = False,
     ) -> None:
         """Update the attributes of the class if needed.
 
@@ -54,9 +54,6 @@ class AgentStatusHandler:
         :param offline: Flag to set if agent needs offlining.
         :param comment: Reason for requesting agent status change.
         """
-        # Make sure either restart and offline are specified
-        if restart is None and offline is None:
-            raise ValueError("One of `restart` or `offline` required")
         # Update restart flag and comment if not already marked for restart.
         if restart and not self._needs_restart:
             self._needs_restart = True
