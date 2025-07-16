@@ -6,6 +6,7 @@ from unittest.mock import patch
 import prometheus_client
 import pytest
 import requests_mock as rmock
+from testflinger_common.enums import AgentState
 
 import testflinger_agent
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
@@ -57,7 +58,7 @@ class TestClient:
         """Test agent is marked for offline if signal received."""
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": "waiting", "comment": ""},
+            json={"state": AgentState.WAITING, "comment": ""},
         )
         # Mock the status handler to simulate signal offline
         with patch.multiple(
@@ -74,7 +75,7 @@ class TestClient:
         """Test agent is marked for restart if signal received."""
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": "waiting", "comment": ""},
+            json={"state": AgentState.WAITING, "comment": ""},
         )
         # Mock the status handler to simulate signal restart
         with patch.multiple(
@@ -91,7 +92,7 @@ class TestClient:
         """Test SystemExit is received when restarting agent."""
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": "restart", "comment": ""},
+            json={"state": AgentState.RESTART, "comment": ""},
         )
 
         with pytest.raises(SystemExit):
@@ -106,7 +107,7 @@ class TestClient:
         """Test Agent stop processing jobs if set to offline."""
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": "offline", "comment": "Offline for test"},
+            json={"state": AgentState.OFFLINE, "comment": "Offline for test"},
         )
 
         with patch("shutil.rmtree"):
@@ -121,7 +122,7 @@ class TestClient:
         """Test that offline status and comment takes priority over restart."""
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": "waiting", "comment": ""},
+            json={"state": AgentState.WAITING, "comment": ""},
         )
 
         agent.status_handler.update(
