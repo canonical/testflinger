@@ -244,6 +244,47 @@ This can be particularly relevant during the ``reserve`` stage as it will provid
 
 You can also view job status and results for a specific queue at ``https://testflinger.example.com/queues/test-queue-1``, where you can select the corresponding job under the “Jobs” list.
 
+Reserve job
+-----------
+
+Often, your work will involve manually interacting with a live system rather than simply batch-submitting automated jobs and awaiting results.
+
+In these cases, we can use the :ref:`reserve phase <reserve>`, which grants us SSH access (by installing your public SSH key from your LaunchPad or GitHub account) to the test machine for a specified period of time.
+
+The following example shows a reserve job, written in YAML, that provisions an Ubuntu Noble system image on a MAAS-provisioned device, pushes the ``test-user`` public SSH key imported from LaunchPad, for 2 hours.
+
+.. code-block:: yaml
+
+  job_queue: test-queue-1
+  provision_data:
+    distro: noble
+  reserve_data:
+    ssh_keys:
+      - "lp:test-user"
+    timeout: 7200
+
+In the example reserve job definition file, the specific ``reserve_data`` contains:
+
+- ``ssh_keys``: Specifies the list of public SSH keys to use for reserving the device. Each line includes an identity provider name and your username on the provider's system. Supported identities are LaunchPad (``lp``) and GitHub (``gh``).
+- ``timeout``: Specifies the reservation time in seconds, default is 1 hour (3600), maximum is 6 hours (21600) without authentication.
+
+You can then submit the job like the test job with:
+
+.. code-block:: shell
+
+  $ testflinger-cli submit --poll reserve.yaml
+
+Eventually, provisioning will complete successfully, and Testflinger will install the SSH keys listed and print out an SSH command that you can use to access the device.
+
+When you are finished with the device, you can end your lease early if desired by executing:
+
+.. code-block:: shell
+
+   $ testflinger-cli cancel 2bac1457-0000-0000-0000-15f23f69fd39
+
+Otherwise, your access will remain in place until your lease expires and a new job takes over.
+
+For more info about reservation, refer to :doc:`../how-to/reserve-job`.
 
 ---------
 
