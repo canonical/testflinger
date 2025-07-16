@@ -416,7 +416,6 @@ class TestflingerAgent:
                 logger.exception(e)
                 results_basedir = self.client.config.get("results_basedir")
                 shutil.move(rundir, results_basedir)
-            self.set_agent_state(AgentState.WAITING)
 
             # Check if offline is needed after job completion
             needs_offline, offline_comment = self.check_offline()
@@ -427,6 +426,9 @@ class TestflingerAgent:
             # Check if restart is needed after job completion
             if self.status_handler.needs_restart:
                 self.restart_agent(self.status_handler.comment)
+
+            # If no restart or offline needed, set agent to wait for new job
+            self.set_agent_state(AgentState.WAITING)
             job_data = self.client.check_jobs()
 
     def retry_old_results(self):
