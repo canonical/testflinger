@@ -59,16 +59,13 @@ class TestClient:
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
             json={"state": "waiting", "comment": ""},
         )
-        # Mock the status handler to simulate signal restart
-        with patch.object(
-            agent.status_handler, "marked_for_offline", return_value=True
+        # Mock the status handler to simulate signal offline
+        with patch.multiple(
+            agent.status_handler,
+            _needs_offline=True,
+            _comment="Offline for test",
         ):
-            with patch.object(
-                agent.status_handler,
-                "get_comment",
-                return_value="Offline for test",
-            ):
-                needs_offline, comment = agent.check_offline()
+            needs_offline, comment = agent.check_offline()
 
         assert needs_offline is True
         assert comment == "Offline for test"
@@ -80,15 +77,12 @@ class TestClient:
             json={"state": "waiting", "comment": ""},
         )
         # Mock the status handler to simulate signal restart
-        with patch.object(
-            agent.status_handler, "marked_for_restart", return_value=True
+        with patch.multiple(
+            agent.status_handler,
+            _needs_restart=True,
+            _comment="Restart signal detected from supervisor process",
         ):
-            with patch.object(
-                agent.status_handler,
-                "get_comment",
-                return_value="Restart signal detected from supervisor process",
-            ):
-                needs_restart, comment = agent.check_restart()
+            needs_restart, comment = agent.check_restart()
 
         assert needs_restart is True
         assert comment == "Restart signal detected from supervisor process"

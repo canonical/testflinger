@@ -38,9 +38,9 @@ class AgentStatusHandler:
 
     def __init__(self):
         """Initialize handler with default values."""
-        self.needs_restart = False
-        self.needs_offline = False
-        self.comment = ""
+        self._needs_restart = False
+        self._needs_offline = False
+        self._comment = ""
 
     def update(
         self,
@@ -54,34 +54,33 @@ class AgentStatusHandler:
         :param offline: Flag to set if agent needs offlining.
         :param comment: Reason for requesting agent status change.
         """
-        if restart and not self.needs_restart:
-            self.needs_restart = True
-            if not self.needs_offline:
-                self.comment = comment
-        if offline and not self.needs_offline:
-            self.needs_offline = True
-            self.comment = comment
+        # Make sure either restart and offline are specified
+        if restart is None and offline is None:
+            raise ValueError("One of `restart` or `offline` required")
+        # Update restart flag and comment if not already marked for restart.
+        if restart and not self._needs_restart:
+            self._needs_restart = True
+            if not self._needs_offline:
+                self._comment = comment
+        # Update offline flag and comment if not already marked for offline.
+        if offline and not self._needs_offline:
+            self._needs_offline = True
+            self._comment = comment
         # Clear the flag if received an offline False
-        elif not offline and self.needs_offline:
-            self.needs_offline = False
+        elif not offline and self._needs_offline:
+            self._needs_offline = False
 
-    def marked_for_restart(self) -> bool:
-        """Indicate the current restart state of the restart handler.
+    @property
+    def needs_restart(self) -> bool:
+        """Indicate the current restart state."""
+        return self._needs_restart
 
-        :return: True if a restart is neeeded, False otherwise.
-        """
-        return self.needs_restart
+    @property
+    def needs_offline(self) -> bool:
+        """Indicate the current offline state."""
+        return self._needs_offline
 
-    def marked_for_offline(self) -> bool:
-        """Indicate the current offline state of the offline handler.
-
-        :return: True if a offline is neeeded, False otherwise.
-        """
-        return self.needs_offline
-
-    def get_comment(self) -> str:
-        """Retrieve the comment from the status handler.
-
-        :return: Preserved comment if an agent status was modified.
-        """
-        return self.comment
+    @property
+    def comment(self) -> str:
+        """Retrieve the comment on the state."""
+        return self._comment
