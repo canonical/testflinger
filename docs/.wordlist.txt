@@ -51,6 +51,9 @@ KVM
 kvm
 Lenovo
 lenovo
+LaunchPad
+Launchpad
+launchpad
 lifecycle
 linux
 logfile
@@ -88,6 +91,7 @@ rclone
 ReadMe
 readthedocs
 repo
+reprovisioning
 reST
 reStructuredText
 RL
