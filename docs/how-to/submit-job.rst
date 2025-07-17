@@ -19,3 +19,18 @@ If the job is successful submitted, you will see a ``job_id`` returned by Testfl
 
 
 You can use the ``job_id`` to further monitor and manage the submitted job.
+
+You can also store the ``job_id`` in an environment variable, to be able to use it in the following commands:
+
+.. code-block:: shell
+
+   $ JOB_ID="$(testflinger-cli submit -q example-job.yaml)"
+   $ testflinger-cli poll "${JOB_ID}"
+
+If you will only need the ``job_id`` for the polling command, you can use:
+
+.. code-block:: shell
+
+   $ testflinger-cli submit --poll example-job.yaml
+
+This will submit and start polling right away.
