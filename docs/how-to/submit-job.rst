@@ -18,4 +18,4 @@ If the job is successful submitted, you will see a ``job_id`` returned by Testfl
   job_id: 2bac1457-0000-0000-0000-15f23f69fd39
 
 
-You can use the ``job_id`` to further monitor and manager the submitted job.
+You can use the ``job_id`` to further monitor and manage the submitted job.
