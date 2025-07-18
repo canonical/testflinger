@@ -381,11 +381,7 @@ def result_post(job_id, json_data):
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
 
-    # First, we need to prepend "result_data" to each key in the result_data
-    for key in list(json_data):
-        json_data[f"result_data.{key}"] = json_data.pop(key)
-
-    database.mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
+    database.add_job_results(job_id, json_data)
     return "OK"
 
 
@@ -400,9 +396,7 @@ def result_get(job_id):
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
 
-    response = database.mongo.db.jobs.find_one(
-        {"job_id": job_id}, {"result_data": True, "_id": False}
-    )
+    response = database.get_job_results(job_id)
 
     if not response or not (result_data := response.get("result_data")):
         return "", 204
