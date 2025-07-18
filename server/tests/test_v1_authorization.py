@@ -409,9 +409,18 @@ def test_star_extended_reservation(mongo_app_with_permissions):
     assert 200 == job_response.status_code
 
 
-def test_get_all_restricted_queues(mongo_app):
+def test_get_all_restricted_queues(mongo_app_with_permissions):
     """Test retrieving all restricted queues for agents."""
-    app, mongo = mongo_app
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    mongo.restricted_queues.delete_many({})
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
     mongo.agents.insert_many(
         [
             {
@@ -435,7 +444,7 @@ def test_get_all_restricted_queues(mongo_app):
         ]
     )
 
-    output = app.get("/v1/restricted-queues")
+    output = app.get("/v1/restricted-queues", headers={"Authorization": token})
     assert output.status_code == HTTPStatus.OK
 
     result = output.json
@@ -447,9 +456,18 @@ def test_get_all_restricted_queues(mongo_app):
     assert result[1] in expected
 
 
-def test_get_restricted_queue(mongo_app):
+def test_get_restricted_queue(mongo_app_with_permissions):
     """Test retrieving info for a specific restricted queue."""
-    app, mongo = mongo_app
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    mongo.restricted_queues.delete_many({})
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
     mongo.agents.insert_one(
         {
             "name": "agent1",
@@ -464,7 +482,9 @@ def test_get_restricted_queue(mongo_app):
         {"client_id": "clientA", "allowed_queues": ["202506-00001"]},
     )
 
-    output = app.get("/v1/restricted-queues/202506-00001")
+    output = app.get(
+        "/v1/restricted-queues/202506-00001", headers={"Authorization": token}
+    )
     assert output.status_code == HTTPStatus.OK
 
     result = output.json
@@ -472,9 +492,18 @@ def test_get_restricted_queue(mongo_app):
     assert result == expected
 
 
-def test_add_restricted_queue(mongo_app):
+def test_add_restricted_queue(mongo_app_with_permissions):
     """Test adding a restricted queue for an agent."""
-    app, mongo = mongo_app
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    mongo.restricted_queues.delete_many({})
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
     mongo.agents.insert_one(
         {
             "name": "agent1",
@@ -486,7 +515,9 @@ def test_add_restricted_queue(mongo_app):
     data = {
         "client_id": "clientA",
     }
-    output = app.post("/v1/restricted-queues/q2", json=data)
+    output = app.post(
+        "/v1/restricted-queues/q2", json=data, headers={"Authorization": token}
+    )
     assert output.status_code == HTTPStatus.OK
 
     permission = mongo.client_permissions.find_one({"client_id": "clientA"})
@@ -495,9 +526,18 @@ def test_add_restricted_queue(mongo_app):
     assert restricted_queue is not None
 
 
-def test_delete_restricted_queue(mongo_app):
+def test_delete_restricted_queue(mongo_app_with_permissions):
     """Test deleting a restricted queue for an agent."""
-    app, mongo = mongo_app
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    mongo.restricted_queues.delete_many({})
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
     mongo.agents.insert_one(
         {
             "name": "agent1",
@@ -511,7 +551,9 @@ def test_delete_restricted_queue(mongo_app):
     )
 
     data = {"client_id": "clientA"}
-    output = app.delete("/v1/restricted-queues/q1", json=data)
+    output = app.delete(
+        "/v1/restricted-queues/q1", json=data, headers={"Authorization": token}
+    )
     assert output.status_code == HTTPStatus.OK
 
     permission = mongo.client_permissions.find_one({"client_id": "clientA"})
