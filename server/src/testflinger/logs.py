@@ -106,10 +106,8 @@ class MongoLogHandler(LogHandler):
         timestamp = datetime.now(timezone.utc)
         if fragment_dict["timestamp"] is None:
             fragment_dict["timestamp"] = timestamp
-        log_collection.insert_one(
-            fragment_dict,
-            {"$set": {"updated_at": timestamp}},
-        )
+        fragment_dict["updated_at"] = timestamp
+        log_collection.insert_one(fragment_dict)
 
     def retrieve_log_fragments(
         self,
