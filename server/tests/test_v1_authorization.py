@@ -408,6 +408,7 @@ def test_star_extended_reservation(mongo_app_with_permissions):
     )
     assert 200 == job_response.status_code
 
+
 def test_get_all_restricted_queues(mongo_app):
     """Test retrieving all restricted queues for agents."""
     app, mongo = mongo_app

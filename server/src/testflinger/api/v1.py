@@ -31,7 +31,8 @@ from werkzeug.exceptions import BadRequest
 
 from testflinger import database
 from testflinger.api import auth, schemas
-from testflinger.api.auth import authenticate
+from testflinger.api.auth import authenticate, require_role
+from testflinger.enums import ServerRoles
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
