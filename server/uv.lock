@@ -1359,7 +1359,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "sentry-sdk", specifier = ">=2.0.1" },
     { name = "strenum", specifier = ">=0.4.15" },
-    { name = "testflinger-common", directory = "../common" },
+    { name = "testflinger-common", editable = "../common" },
     { name = "urllib3", specifier = ">=2.2.1" },
 ]
 
@@ -1379,7 +1379,7 @@ dev = [
 [[package]]
 name = "testflinger-common"
 version = "1.1.1"
-source = { directory = "../common" }
+source = { editable = "../common" }
 dependencies = [
     { name = "strenum" },
 ]
