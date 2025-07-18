@@ -270,9 +270,10 @@ def require_role(*roles):
                 )
 
             if g.role not in roles:
+                role_list = ", ".join(r.value for r in roles)
                 abort(
                     HTTPStatus.FORBIDDEN,
-                    f"Specified action requires role: {roles}",
+                    f"Specified action requires role: {role_list}",
                 )
 
             return func(*args, **kwargs)

@@ -831,6 +831,8 @@ def retrieve_token():
 
 
 @v1.get("/restricted-queues")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.RestrictedQueueOut(many=True))
 def get_all_restricted_queues() -> list[dict]:
     """List all agent's restricted queues and its owners."""
@@ -851,6 +853,8 @@ def get_all_restricted_queues() -> list[dict]:
 
 
 @v1.get("/restricted-queues/<queue_name>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.RestrictedQueueOut)
 def get_restricted_queue(queue_name: str) -> dict:
     """Get restricted queues for a specific agent."""
@@ -869,6 +873,8 @@ def get_restricted_queue(queue_name: str) -> dict:
 
 
 @v1.post("/restricted-queues/<queue_name>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
 @v1.input(schemas.RestrictedQueueIn, location="json")
 def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
     """Add an owner to the specific restricted queue."""
@@ -889,6 +895,8 @@ def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
 
 
 @v1.delete("/restricted-queues/<queue_name>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
 @v1.input(schemas.RestrictedQueueIn, location="json")
 def delete_restricted_queue(queue_name: str, json_data: dict) -> dict:
     """Delete an owner from the specific restricted queue."""
