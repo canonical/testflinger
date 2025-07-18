@@ -383,6 +383,19 @@ class StatusUpdate(Schema):
     events = fields.List(fields.Nested(JobEvent), required=False)
 
 
+class RestrictedQueueIn(Schema):
+    """Restricted queue input schema."""
+
+    client_id = fields.String(required=True)
+
+
+class RestrictedQueueOut(Schema):
+    """Restricted queue output schema."""
+
+    queue = fields.String(required=True)
+    owners = fields.List(fields.String(), required=True)
+
+
 job_empty = {
     204: {
         "description": "No job found",

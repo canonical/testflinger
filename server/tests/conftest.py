@@ -24,6 +24,7 @@ import pytest
 from mongomock.gridfs import enable_gridfs_integration
 
 from testflinger import application, database
+from testflinger.enums import ServerRoles
 
 
 @dataclass
@@ -89,6 +90,7 @@ def mongo_app_with_permissions(mongo_app):
         {
             "client_id": client_id,
             "client_secret_hash": client_key_hash,
+            "role": ServerRoles.ADMIN,
             "max_priority": max_priority,
             "allowed_queues": allowed_queues,
             "max_reservation_time": max_reservation_time,
