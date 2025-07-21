@@ -23,7 +23,7 @@ from http import HTTPStatus
 
 import requests
 from apiflask import APIBlueprint, abort
-from flask import g, jsonify, request, send_file
+from flask import current_app, g, jsonify, request, send_file
 from marshmallow import ValidationError
 from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
@@ -36,12 +36,12 @@ from testflinger import database
 from testflinger.api import auth, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.enums import ServerRoles
+from testflinger.logs import LogFragment, MongoLogHandler
 from testflinger.secrets.exceptions import (
     AccessError,
     StoreError,
     UnexpectedError,
 )
-from testflinger.logs import LogFragment, MongoLogHandler
 
 TESTFLINGER_ADMIN_ID = "testflinger-admin"
 
@@ -472,7 +472,7 @@ def result_post(job_id, json_data):
 
 
 @v1.get("/result/<job_id>")
-@v1.output(schemas.Result)
+@v1.output(schemas.ResultGet)
 def result_get(job_id):
     """Return results for a specified job_id.
 
