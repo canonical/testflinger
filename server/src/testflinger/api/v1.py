@@ -386,7 +386,7 @@ def result_post(job_id, json_data):
 
 
 @v1.get("/result/<job_id>")
-@v1.output(schemas.Result)
+@v1.output(schemas.ResultGet)
 def result_get(job_id):
     """Return results for a specified job_id.
 
