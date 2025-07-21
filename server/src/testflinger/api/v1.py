@@ -31,7 +31,8 @@ from werkzeug.exceptions import BadRequest
 
 from testflinger import database
 from testflinger.api import auth, schemas
-from testflinger.api.auth import authenticate
+from testflinger.api.auth import authenticate, require_role
+from testflinger.enums import ServerRoles
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -828,3 +829,85 @@ def retrieve_token():
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     token = auth.generate_token(allowed_resources, secret_key)
     return token
+
+
+@v1.get("/restricted-queues")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@v1.output(schemas.RestrictedQueueOut(many=True))
+def get_all_restricted_queues() -> list[dict]:
+    """List all agent's restricted queues and its owners."""
+    restricted_queues = database.get_restricted_queues()
+    restricted_queues_owners = database.get_restricted_queues_owners()
+
+    response = []
+    for queue in restricted_queues:
+        owners = restricted_queues_owners.get(queue, [])
+        response.append(
+            {
+                "queue": queue,
+                "owners": owners,
+            }
+        )
+
+    return jsonify(response)
+
+
+@v1.get("/restricted-queues/<queue_name>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@v1.output(schemas.RestrictedQueueOut)
+def get_restricted_queue(queue_name: str) -> dict:
+    """Get restricted queues for a specific agent."""
+    if not database.check_queue_restricted(queue_name):
+        abort(HTTPStatus.NOT_FOUND, "Error: Restricted queue not found.")
+
+    restricted_queues_owners = database.get_restricted_queues_owners()
+    owners = restricted_queues_owners.get(queue_name, [])
+
+    return jsonify(
+        {
+            "queue": queue_name,
+            "owners": owners,
+        }
+    )
+
+
+@v1.post("/restricted-queues/<queue_name>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
+@v1.input(schemas.RestrictedQueueIn, location="json")
+def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
+    """Add an owner to the specific restricted queue."""
+    client_id = json_data.get("client_id", "")
+
+    if not client_id:
+        abort(HTTPStatus.BAD_REQUEST, "Error: Missing client ID.")
+
+    if not database.queue_exists(queue_name):
+        abort(
+            HTTPStatus.NOT_FOUND,
+            "Error: No agent is associated with the specified queue.",
+        )
+
+    database.add_restricted_queue(queue_name, client_id)
+
+    return "OK"
+
+
+@v1.delete("/restricted-queues/<queue_name>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
+@v1.input(schemas.RestrictedQueueIn, location="json")
+def delete_restricted_queue(queue_name: str, json_data: dict) -> dict:
+    """Delete an owner from the specific restricted queue."""
+    if not database.check_queue_restricted(queue_name):
+        abort(HTTPStatus.NOT_FOUND, "Error: Restricted queue not found.")
+
+    client_id = json_data.get("client_id", "")
+    if not client_id:
+        abort(HTTPStatus.BAD_REQUEST, "Error: Missing client ID.")
+
+    database.delete_restricted_queue(queue_name, client_id)
+
+    return "OK"
