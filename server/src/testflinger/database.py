@@ -575,6 +575,7 @@ def register_web_client(oidc_token: dict):
             }
         )
 
+
 def get_job_results(job_id: str):
     """Retrieve results for a specific job id."""
     return mongo.db.jobs.find_one(
