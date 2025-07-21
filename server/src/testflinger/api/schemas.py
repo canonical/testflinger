@@ -342,8 +342,8 @@ class JobSearchResponse(Schema):
     jobs = fields.List(fields.Nested(Job), required=True)
 
 
-class Result(Schema):
-    """Deprecated Result schema."""
+class ResultGet(Schema):
+    """Result Get schema."""
 
     setup_status = fields.Integer(required=False)
     setup_output = fields.String(required=False)
