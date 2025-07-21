@@ -19,12 +19,10 @@ from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
 from marshmallow import ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
-
 from testflinger_common.duration import DurationParseError, parse_duration
 from testflinger_common.enums import TestPhase
 
 from testflinger.enums import ServerRoles
-
 
 ValidJobStates = (
     "setup",
@@ -377,8 +375,8 @@ class JobSearchResponse(Schema):
     jobs = fields.List(fields.Nested(Job), required=True)
 
 
-class Result(Schema):
-    """Deprecated Result schema."""
+class ResultGet(Schema):
+    """Result Get schema."""
 
     setup_status = fields.Integer(required=False)
     setup_output = fields.String(required=False)
