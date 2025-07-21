@@ -28,6 +28,7 @@ import os
 import sys
 
 import bcrypt
+import yaml
 from pymongo import MongoClient, ReturnDocument
 
 from testflinger import database
@@ -118,6 +119,39 @@ def handle_max_reservation_input() -> list:
     return max_reservation
 
 
+def handle_client_id_role():
+    """Define a role for a specified user."""
+    default_role = "contributor"
+    allowed_roles = {1: "admin", 2: "manager", 3: default_role}
+
+    while True:
+        role_input = (
+            input("Do you want to specify a role for this client_id? (y/n): ")
+            .strip()
+            .lower()
+        )
+        if role_input == "y":
+            print("1. admin")
+            print("2. manager")
+            print("3. contributor (default)")
+            while True:
+                try:
+                    role_selection = int(
+                        input("Specify the number of the chosen role: ")
+                    )
+
+                    if role_selection in allowed_roles:
+                        return allowed_roles[role_selection]
+                    else:
+                        print("Please specify a valid option")
+                except ValueError:
+                    print("Please enter a valid integer value")
+        elif role_input == "n":
+            return default_role
+        else:
+            print("Invalid input. Please enter 'y' or 'n'.")
+
+
 def confirm_dialogue(entry: dict) -> bool:
     """Prompt the user to confirm their changes."""
     print(entry)
@@ -168,9 +202,11 @@ def create_client_credential(db):
     max_priority = handle_max_priority_input()
     allowed_queues = handle_allowed_queues_input()
     max_reservation = handle_max_reservation_input()
+    client_role = handle_client_id_role()
 
     entry = {
         "client_id": client_id,
+        "role": client_role,
         "max_priority": max_priority,
         "allowed_queues": allowed_queues,
         "max_reservation_time": max_reservation,
@@ -194,9 +230,11 @@ def edit_client_credential(db):
     max_priority = handle_max_priority_input()
     allowed_queues = handle_allowed_queues_input()
     max_reservation = handle_max_reservation_input()
+    client_role = handle_client_id_role()
     confirm_output = confirm_dialogue(
         {
             "client_id": client_id,
+            "role": client_role,
             "max_priority": max_priority,
             "allowed_queues": allowed_queues,
             "max_reservation_time": max_reservation,
@@ -207,6 +245,7 @@ def edit_client_credential(db):
             {"client_id": client_id},
             {
                 "$set": {
+                    "role": client_role,
                     "max_priority": max_priority,
                     "allowed_queues": allowed_queues,
                     "max_reservation_time": max_reservation,
@@ -236,6 +275,13 @@ def check_queue_exists(db, queue_name: str) -> bool:
             {"queue_name": queue_name}, limit=1
         )
         != 0
+    )
+
+
+def get_client_permissions(db, client_id: str) -> dict:
+    """Retrive the permissions set for a specified client."""
+    return db.client_permissions.find_one(
+        {"client_id": client_id}, {"_id": False, "client_secret_hash": False}
     )
 
 
@@ -286,41 +332,58 @@ def add_list_restricted_queues(db):
         db.restricted_queues.insert_many(queue_entry)
 
 
+def show_client_permissions(db):
+    """Display the permissions set for a specified client_id."""
+    client_id = input("Enter the client_id you wish to show permissions: ")
+    if not check_client_exists(db, client_id):
+        print("Client id not in database!")
+        return
+
+    permissions = get_client_permissions(db, client_id)
+    print(yaml.dump(permissions, sort_keys=False))
+
+
 def main():
     """
     Command line interface for adding client info and
     restricted queues.
     """
     db = setup_database()
-    while True:
-        print("(c) Create client")
-        print("(e) Edit client")
-        print("(r) Remove client")
-        print("(aq) Add restricted queue")
-        print("(rq) Remove restricted queue")
-        print("(al) Add comma separated list of restricted queues")
-        print("(q) Quit")
+    try:
+        while True:
+            print("(c) Create client")
+            print("(e) Edit client")
+            print("(r) Remove client")
+            print("(aq) Add restricted queue")
+            print("(rq) Remove restricted queue")
+            print("(al) Add comma separated list of restricted queues")
+            print("(s) Show existing client id permissions")
+            print("(q) Quit")
 
-        user_input = input("Enter your selection: ")
-        if user_input == "c":
-            create_client_credential(db)
-        elif user_input == "e":
-            edit_client_credential(db)
-        elif user_input == "r":
-            remove_client_credential(db)
-        elif user_input == "aq":
-            add_restricted_queue(db)
-        elif user_input == "rq":
-            remove_restricted_queue(db)
-        elif user_input == "al":
-            add_list_restricted_queues(db)
-        elif user_input == "q":
-            sys.exit()
-        else:
-            print(
-                "Invalid selection. Please enter "
-                "'c', 'e', 'r', 'aq', 'rq', 'al', or 'q'\n"
-            )
+            user_input = input("Enter your selection: ")
+            if user_input == "c":
+                create_client_credential(db)
+            elif user_input == "e":
+                edit_client_credential(db)
+            elif user_input == "r":
+                remove_client_credential(db)
+            elif user_input == "aq":
+                add_restricted_queue(db)
+            elif user_input == "rq":
+                remove_restricted_queue(db)
+            elif user_input == "al":
+                add_list_restricted_queues(db)
+            elif user_input == "s":
+                show_client_permissions(db)
+            elif user_input == "q":
+                sys.exit()
+            else:
+                print(
+                    "Invalid selection. Please enter "
+                    "'c', 'e', 'r', 'aq', 'rq', 'al', or 'q'\n"
+                )
+    except KeyboardInterrupt:
+        print("\nReceived KeyboardInterrupt, exiting.")
 
 
 if __name__ == "__main__":
