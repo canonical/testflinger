@@ -33,18 +33,83 @@ able to communicate with the server. If an agent has not checked in after 7 days
 it will automatically be removed from the database and will no longer appear in
 the "Agents" list.
 
-Safely Restarting or Shutting Down an Agent
+Handling Agent Status
 -------------------------------------------
+
+Restarting an Agent
+~~~~~~~~~~~~~~~~~~~
 
 When an agent needs to be re-executed due to something like a code update or a
 configuration change, it is important to shut it down safely so that it does not
-interfere with a job currently running. To do this, you can use one of the
-following methods:
+interfere with a job currently running. To do this, you can use the following method:
 
-1.  create a file called ``/tmp/TESTFLINGER-DEVICE-RESTART-(agent_name)`` (where ``(agent_name)`` is the name of the agent). 
-2. Send a SIGUSR1 signal to the agent's process
+1. Send a SIGUSR1 signal to the agent's process
 
-Both of these methods will cause the agent to exit when it is no longer running
+This method will cause the agent to exit when it is no longer running
 a job. You will need to ensure something like systemd or supervisord is watching
 the agent process and restarting it if it exits in order to actually restart the
 agent.
+
+Set an Agent Offline
+~~~~~~~~~~~~~~~~~~~~
+
+Each agent is designed to process jobs indefinitely by listening for jobs in its specified queues
+until any job is available for them. If an agent needs to be set to offline to stop
+processing any jobs, its status can be modified from the CLI. This can be useful when there
+is some debugging or maintenance needed on the physical machine.
+The procedure to offline an agent could be one of the following:
+
+* Set agent to offline. 
+
+Requires a reason for changing the agent status:
+
+.. code-block:: shell
+
+   testflinger-cli admin set --status offline --agents <agent_name> --comment "<Offline Reason>"
+
+
+* Set agent to maintenance. 
+
+This status doesn't need to define a reason as it uses a predefined comment.
+
+.. code-block:: shell
+
+   testflinger-cli admin set --status maintenance --agents <agent_name>
+
+In both statuses, the agent will effectively stop processing jobs immediately if not processing 
+any job, otherwise it will wait until job completion to change agent status. It is important to note
+that in any of the above statuses, the agent will prevent restarting; if a restart signal is detected
+it will be deferred until the agent is marked online. 
+
+.. note::
+
+   Changing agent status through the CLI requires authentication with admin 
+   privileges. Please refer to :doc:`Authentication and Authorisation <../how-to/authentication>`
+   section for more information. 
+
+.. tip::
+
+   If you wish to change the status for multiple agents at the same time, you can define a list 
+   of the agents you want to change status e.g. ``--agents agent1 agent2 ... agentN``
+
+
+Set an Agent Online
+~~~~~~~~~~~~~~~~~~~
+
+To set an agent to online in order to recover from an unexpected agent failure or after being set 
+to offline manually, execute the following command from the CLI:
+
+.. code-block:: shell
+
+   testflinger-cli admin set --status online --agents <agent_name>
+
+.. note::
+
+   Changing agent status through the CLI requires authentication with admin 
+   privileges. Please refer to :doc:`Authentication and Authorisation <../how-to/authentication>`
+   section for more information. 
+
+.. tip::
+
+   If you wish to change the status for multiple agents at the same time, you can define a list 
+   of the agents you want to change status e.g. ``--agents agent1 agent2 ... agentN``
