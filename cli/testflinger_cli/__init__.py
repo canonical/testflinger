@@ -46,6 +46,7 @@ from testflinger_cli import (
     helpers,
     history,
 )
+from testflinger_cli.admin import TestflingerAdminCLI
 from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.errors import (
     AttachmentError,
@@ -75,6 +76,8 @@ def cli():
         tfcli.run()
     except KeyboardInterrupt:
         sys.exit("Received KeyboardInterrupt")
+    except (AuthenticationError, AuthorizationError) as exc:
+        sys.exit(exc)
 
 
 class TestflingerCli:
@@ -115,7 +118,6 @@ class TestflingerCli:
                 f'- currently set to: "{server}"'
             )
         self.client = client.Client(server, error_threshold=error_threshold)
-
         # Initialize Auth module
         try:
             self.auth = TestflingerCliAuth(
@@ -147,6 +149,7 @@ class TestflingerCli:
             "--server", default=None, help="Testflinger server to use"
         )
         subparsers = parser.add_subparsers()
+        self.admin_cli = TestflingerAdminCLI(subparsers, self)
         self._add_artifacts_args(subparsers)
         self._add_cancel_args(subparsers)
         self._add_config_args(subparsers)
@@ -359,11 +362,13 @@ class TestflingerCli:
             allowednames=("*.yaml", "*.yml", "*.json")
         )
         parser.add_argument(
+            "--client-id",
             "--client_id",
             default=None,
             help="Client ID to authenticate with Testflinger server",
         )
         parser.add_argument(
+            "--secret-key",
             "--secret_key",
             default=None,
             help="Secret key to be used with client id for authentication",
