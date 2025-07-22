@@ -65,7 +65,7 @@ Requires a reason for changing the agent status:
 
 .. code-block:: shell
 
-   testflinger-cli admin set --status offline --agents <agent_name> --comment "<Offline Reason>"
+   testflinger-cli admin set agent-status --status offline --agents <agent_name> --comment "<Offline Reason>"
 
 
 * Set agent to maintenance. 
@@ -74,7 +74,7 @@ This status doesn't need to define a reason as it uses a predefined comment.
 
 .. code-block:: shell
 
-   testflinger-cli admin set --status maintenance --agents <agent_name>
+   testflinger-cli admin set agent-status --status maintenance --agents <agent_name>
 
 In both statuses, the agent will effectively stop processing jobs immediately if not processing 
 any job, otherwise it will wait until job completion to change agent status. It is important to note
@@ -101,7 +101,7 @@ to offline manually, execute the following command from the CLI:
 
 .. code-block:: shell
 
-   testflinger-cli admin set --status online --agents <agent_name>
+   testflinger-cli admin set agent-status --status online --agents <agent_name>
 
 .. note::
 
