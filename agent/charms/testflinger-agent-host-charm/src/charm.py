@@ -7,10 +7,13 @@
 
 import logging
 import os
+import re
 import shutil
+import socket
 import sys
 from base64 import b64decode
 from pathlib import Path
+from typing import Optional, Tuple
 
 import testflinger_source
 from common import run_with_logged_errors
@@ -33,6 +36,11 @@ from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from charms.operator_libs_linux.v0 import apt
 
 logger = logging.getLogger(__name__)
+
+SUPERVISOR_CONF_DIR = "/etc/supervisor/conf.d"
+TESTFLINGER_AGENT_CMD = "testflinger-agent"
+DEFAULT_PORT_RANGE_START = 8000
+DEFAULT_PORT_RANGE_END = 10000
 
 
 class TestflingerAgentHostCharm(CharmBase):
@@ -138,6 +146,146 @@ class TestflingerAgentHostCharm(CharmBase):
             shutil.rmtree(repo_path, ignore_errors=True)
         shutil.move(tmp_repo_path, repo_path)
 
+    def get_supervisor_agents_port_mapping(self) -> dict[str, int]:
+        """Get current agent:port mapping from supervisor config files.
+
+        Returns:
+            dict: Mapping of agent names to their configured ports.
+                 Empty dict if no valid configurations found.
+        """
+        agent_port_mapping = {}
+        supervisor_conf_dir = Path(SUPERVISOR_CONF_DIR)
+
+        if not supervisor_conf_dir.exists():
+            logger.debug(
+                "Supervisor config directory %s does not exist",
+                supervisor_conf_dir,
+            )
+            return agent_port_mapping
+
+        try:
+            for conf_file in supervisor_conf_dir.iterdir():
+                if conf_file.suffix == ".conf":
+                    conf_path = str(conf_file)
+                    try:
+                        agent_name, port = self.parse_supervisor_config_file(
+                            conf_path
+                        )
+                        if agent_name and port:
+                            agent_port_mapping[agent_name] = port
+                            logger.debug(
+                                "Found configured agent %s on port %s",
+                                agent_name,
+                                port,
+                            )
+                    except (OSError, IOError) as e:
+                        logger.debug(
+                            "Failed to read config file %s: %s", conf_path, e
+                        )
+                        continue
+                    except ValueError as e:
+                        logger.debug(
+                            "Failed to parse port number in %s: %s",
+                            conf_path,
+                            e,
+                        )
+                        continue
+        except (OSError, IOError) as e:
+            logger.warning("Failed to read supervisor config files: %s", e)
+
+        return agent_port_mapping
+
+    def parse_supervisor_config_file(
+        self, conf_path: str
+    ) -> Tuple[Optional[str], Optional[int]]:
+        """Extract agent name and port from supervisor config file.
+
+        Returns:
+            tuple: (agent_name, port) if both found, (None, None) otherwise.
+        """
+        try:
+            agent_name = None
+            port = None
+
+            with open(conf_path, "r", encoding="utf-8") as f:
+                for raw_line in f:
+                    line = raw_line.strip()
+
+                    if line.startswith("[program:"):
+                        program_match = re.search(
+                            r"\[program:([^\]]+)\]", line
+                        )
+                        if program_match:
+                            agent_name = program_match.group(1)
+                    elif (
+                        line.startswith("command=")
+                        and TESTFLINGER_AGENT_CMD in line
+                    ):
+                        port_match = re.search(r"-p (\d+)", line)
+                        if port_match:
+                            port = int(port_match.group(1))
+
+                    if agent_name and port:
+                        return agent_name, port
+            return None, None
+
+        except (OSError, IOError) as e:
+            logger.debug("Failed to read config file '%s': %s", conf_path, e)
+            return None, None
+        except ValueError as e:
+            logger.debug(
+                "Failed to parse port number in '%s': %s", conf_path, e
+            )
+            return None, None
+
+    def find_available_port(
+        self,
+        used_ports: set[int],
+        start_port: int = DEFAULT_PORT_RANGE_START,
+        max_port: int = DEFAULT_PORT_RANGE_END,
+    ) -> int:
+        """Find an available port avoiding used ports."""
+        for port in range(start_port, max_port):
+            if port in used_ports:
+                continue
+
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.bind(("localhost", port))
+                    return port
+            except OSError:
+                continue
+        raise RuntimeError(
+            f"No available ports found in range {start_port}-{max_port}"
+        )
+
+    def assign_metrics_port(
+        self,
+        agent_name: str,
+        configured_agents: dict[str, int],
+        used_ports: set[int],
+    ) -> int:
+        """Assign a metrics port using supervisor config file discovery."""
+        # Check if agent is already configured with a port
+        if agent_name in configured_agents:
+            current_port = configured_agents[agent_name]
+            logger.info(
+                "Agent %s keeping existing port %s",
+                agent_name,
+                current_port,
+            )
+            return current_port
+        # If not configured, find a new port
+        try:
+            port = self.find_available_port(used_ports)
+            logger.info("Assigned new port %s to agent %s", port, agent_name)
+            return port
+        except RuntimeError as e:
+            logger.error(
+                "Failed to find available port for %s: %s", agent_name, e
+            )
+            raise
+
     def write_supervisor_service_files(self, initial_metrics_port=8000):
         """
         Generate supervisord service files for all agents.
@@ -167,10 +315,18 @@ class TestflingerAgentHostCharm(CharmBase):
             )
             sys.exit(1)
 
+        # Get current agents and their ports from the service files
+        configured_agents = self.get_supervisor_agents_port_mapping()
+        used_ports = set(configured_agents.values())
+        logger.info(
+            "Found %d configured agents",
+            len(configured_agents),
+        )
+
         # Remove all the old service files in case agents have been removed
-        for conf_file in os.listdir("/etc/supervisor/conf.d"):
+        for conf_file in os.listdir(SUPERVISOR_CONF_DIR):
             if conf_file.endswith(".conf"):
-                os.unlink(f"/etc/supervisor/conf.d/{conf_file}")
+                os.unlink(f"{SUPERVISOR_CONF_DIR}/{conf_file}")
 
         # now write the supervisord service files
         with open(
@@ -178,11 +334,23 @@ class TestflingerAgentHostCharm(CharmBase):
         ) as service_template:
             template = Template(service_template.read())
 
-        metric_endpoint_port = initial_metrics_port
         self.scrape_jobs = []
         for agent_dir in agent_dirs:
             agent_config_path = agent_dir
             agent_name = agent_dir.name
+
+            try:
+                metric_endpoint_port = self.assign_metrics_port(
+                    agent_name, configured_agents, used_ports
+                )
+                used_ports.add(metric_endpoint_port)
+            except RuntimeError as e:
+                logger.error("Failed to assign port for %s: %s", agent_name, e)
+                self.unit.status = BlockedStatus(
+                    f"Port assignment failed: {e}"
+                )
+                return
+
             rendered = template.render(
                 agent_name=agent_name,
                 agent_config_path=agent_config_path,
@@ -197,9 +365,9 @@ class TestflingerAgentHostCharm(CharmBase):
                     ],
                 }
             )
-            metric_endpoint_port += 1
+
             with open(
-                f"/etc/supervisor/conf.d/{agent_name}.conf", "w"
+                f"{SUPERVISOR_CONF_DIR}/{agent_name}.conf", "w"
             ) as agent_file:
                 agent_file.write(rendered)
 
