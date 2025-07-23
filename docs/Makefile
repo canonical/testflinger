@@ -3,14 +3,17 @@
 
 # You can set these variables from the command line, and also
 # from the environment for the first two.
-SPHINXOPTS    ?= -c . -d .sphinx/.doctrees
-SPHINXBUILD   ?= sphinx-build
-SPHINXDIR     = .sphinx
-SOURCEDIR     = .
-BUILDDIR      = _build
-VENVDIR       = $(SPHINXDIR)/venv
-VENV          = $(VENVDIR)/bin/activate
+SPHINXDIR       = .sphinx
+SOURCEDIR       = .
+BUILDDIR        = _build
+VENVDIR         = $(SPHINXDIR)/venv
+VENV            = $(VENVDIR)/bin/activate
 
+SPHINXOPTS      ?= -c . -d $(SPHINXDIR)/.doctrees -j auto
+SPHINXBUILD     ?= $(VENVDIR)/bin/sphinx-build
+
+SPHINX_HOST     ?= 127.0.0.1
+SPHINX_PORT     ?= 8000
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -28,19 +31,18 @@ help:
 	@echo "-------------------------------------------------------------"
 	@echo
 
-.PHONY: help full-help install run html check-lfs
+.PHONY: help full-help install run html serve clean clean-doc \
+		spelling linkcheck check-lfs
 
 full-help: $(VENVDIR)
 	@. $(VENV); $(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 	@echo "\n\033[1;31mNOTE: This help texts shows unsupported targets!\033[0m"
 	@echo "Run 'make help' to see supported targets."
 
-# Explicit target avoids fall-through to the "Makefile" target.
-$(SPHINXDIR)/requirements.txt:
-	test -f $(SPHINXDIR)/requirements.txt
-
 # If requirements are updated, venv should be rebuilt and timestamped.
-$(VENVDIR): $(SPHINXDIR)/requirements.txt
+$(VENVDIR):
+	python3 -c "import venv" || \
+        (echo "You must install python3-venv before you can build the documentation."; exit 1)
 	@echo "... setting up virtualenv"
 	python3 -m venv $(VENVDIR)
 	. $(VENV); pip install --require-virtualenv \
@@ -48,7 +50,7 @@ $(VENVDIR): $(SPHINXDIR)/requirements.txt
         --log $(VENVDIR)/pip_install.log
 	@test ! -f $(VENVDIR)/pip_list.txt || \
         mv $(VENVDIR)/pip_list.txt $(VENVDIR)/pip_list.txt.bak
-	@pip list --local --format=freeze > $(VENVDIR)/pip_list.txt
+	@. $(VENV); pip list --local --format=freeze > $(VENVDIR)/pip_list.txt
 	@touch $(VENVDIR)
 
 
@@ -75,41 +77,26 @@ install: $(VENVDIR) woke-install
 
 
 run: install check-lfs
-	. $(VENV); sphinx-autobuild -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)" \
-	$(SPHINXOPTS)
-
-.PHONY: run
+	. $(VENV); $(VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
 
 # Doesn't depend on $(BUILDDIR) to rebuild properly at every run.
 html: install check-lfs
 	. $(VENV); $(SPHINXBUILD) -W --keep-going -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)" -w $(SPHINXDIR)/warnings.txt $(SPHINXOPTS)
 
-epub: install
-	. $(VENV); $(SPHINXBUILD) -b epub "$(SOURCEDIR)" "$(BUILDDIR)" \
-        -w .sphinx/warnings.txt $(SPHINXOPTS)
-
-.PHONY: epub
-
+epub: install check-lfs
+	. $(VENV); $(SPHINXBUILD) -b epub "$(SOURCEDIR)" "$(BUILDDIR)" -w $(SPHINXDIR)/warnings.txt $(SPHINXOPTS)
 
 serve: html
-	cd "$(BUILDDIR)"; python3 -m http.server 8000
-
-.PHONY: serve
-
+	cd "$(BUILDDIR)"; python3 -m http.server --bind $(SPHINX_HOST) $(SPHINX_PORT)
 
 clean: clean-doc
 	@test ! -e "$(VENVDIR)" -o \
-        -d "$(VENVDIR)" -a "$(abspath $(VENVDIR))" != "$(VENVDIR)"
+		-d "$(VENVDIR)" -a "$(abspath $(VENVDIR))" != "$(VENVDIR)"
 	rm -rf $(VENVDIR)
-	rm -rf .sphinx/.doctrees
-
-.PHONY: clean
-
 
 clean-doc:
 	git clean -fx "$(BUILDDIR)"
-
-.PHONY: clean-doc
+	rm -rf $(SPHINXDIR)/.doctrees
 
 
 spelling: html
