@@ -242,6 +242,9 @@ def authenticate(func):
         if not auth_token:
             return func(*args, **kwargs)
 
+        if auth_token.startswith("Bearer "):
+            auth_token = auth_token[len("Bearer ") :]
+
         # If there is a token available, attempt to retrieve information
         secret_key = os.environ.get("JWT_SIGNING_KEY")
         decoded_jwt = decode_jwt_token(auth_token, secret_key)
@@ -252,6 +255,7 @@ def authenticate(func):
         g.role = permissions.get("role", ServerRoles.CONTRIBUTOR)
         g.permissions = permissions
         g.is_authenticated = True
+
         return func(*args, **kwargs)
 
     return decorator
