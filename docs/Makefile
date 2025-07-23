@@ -14,9 +14,26 @@ VENV          = $(VENVDIR)/bin/activate
 
 # Put it first so that "make" without argument is like "make help".
 help:
-	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	@echo
+	@echo "-------------------------------------------------------------"
+	@echo "* watch, build and serve the documentation:  make run"
+	@echo "* only build:                                make html"
+	@echo "* only serve:                                make serve"
+	@echo "* clean built doc files:                     make clean-doc"
+	@echo "* clean full environment:                    make clean"
+	@echo "* check spelling:                            make spelling"
+	@echo "* check links:                               make linkcheck"
+	@echo "* checkout LFS files if present:             make check-lfs"
+	@echo "* other possible targets:                    make <TAB twice>"
+	@echo "-------------------------------------------------------------"
+	@echo
 
-.PHONY: help
+.PHONY: help full-help install run html check-lfs
+
+full-help: $(VENVDIR)
+	@. $(VENV); $(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	@echo "\n\033[1;31mNOTE: This help texts shows unsupported targets!\033[0m"
+	@echo "Run 'make help' to see supported targets."
 
 # Explicit target avoids fall-through to the "Makefile" target.
 $(SPHINXDIR)/requirements.txt:
@@ -32,19 +49,18 @@ $(VENVDIR): $(SPHINXDIR)/requirements.txt
 	@test ! -f $(VENVDIR)/pip_list.txt || \
         mv $(VENVDIR)/pip_list.txt $(VENVDIR)/pip_list.txt.bak
 	@pip list --local --format=freeze > $(VENVDIR)/pip_list.txt
-	@echo "\n" \
-        "--------------------------------------------------------------- \n" \
-        "* watch, build and serve the documentation: make run \n" \
-        "* only build: make html \n" \
-        "* only serve: make serve \n" \
-        "* clean built doc files: make clean-doc \n" \
-        "* clean full environment: make clean \n" \
-        "* check spelling: make spelling \n" \
-        "* check inclusive language: make woke \n" \
-        "* other possible targets: make <press TAB twice> \n" \
-        "--------------------------------------------------------------- \n"
 	@touch $(VENVDIR)
 
+
+# Check if LFS files are present and checkout if needed.
+check-lfs:
+	@if git lfs ls-files -I "docs/"| grep -q ".*"; then \
+        echo "LFS files detected. Checking out LFS files..."; \
+        git lfs fetch -I "docs/"; \
+		git lfs checkout "docs/"; \
+	else \
+		echo "No LFS files detected."; \
+	fi
 
 woke-install:
 	@type woke >/dev/null 2>&1 || \
@@ -58,14 +74,14 @@ install: $(VENVDIR) woke-install
 .PHONY:  install
 
 
-run: install
+run: install check-lfs
 	. $(VENV); sphinx-autobuild -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)" \
 	$(SPHINXOPTS)
 
 .PHONY: run
 
 # Doesn't depend on $(BUILDDIR) to rebuild properly at every run.
-html: install
+html: install check-lfs
 	. $(VENV); $(SPHINXBUILD) -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)" \
         -w .sphinx/warnings.txt $(SPHINXOPTS)
 
