@@ -82,11 +82,7 @@ run: install check-lfs
 
 # Doesn't depend on $(BUILDDIR) to rebuild properly at every run.
 html: install check-lfs
-	. $(VENV); $(SPHINXBUILD) -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)" \
-        -w .sphinx/warnings.txt $(SPHINXOPTS)
-
-.PHONY: html
-
+	. $(VENV); $(SPHINXBUILD) -W --keep-going -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)" -w $(SPHINXDIR)/warnings.txt $(SPHINXOPTS)
 
 epub: install
 	. $(VENV); $(SPHINXBUILD) -b epub "$(SOURCEDIR)" "$(BUILDDIR)" \
