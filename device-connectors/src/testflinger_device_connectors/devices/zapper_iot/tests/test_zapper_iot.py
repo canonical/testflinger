@@ -16,6 +16,7 @@ class ZapperIoTTests(unittest.TestCase):
         device.job_data = {
             "provision_data": {
                 "preset": "TestPreset",
+                "preset_kwargs": {"arg1": "value1"},
                 "urls": ["http://test.tar.gz"],
             }
         }
@@ -26,6 +27,7 @@ class ZapperIoTTests(unittest.TestCase):
             "username": "ubuntu",
             "password": "ubuntu",
             "preset": "TestPreset",
+            "preset_kwargs": {"arg1": "value1"},
             "urls": ["http://test.tar.gz"],
         }
 
@@ -49,6 +51,7 @@ class ZapperIoTTests(unittest.TestCase):
             "username": "test@example.com",
             "password": "ubuntu",
             "preset": "TestPreset",
+            "preset_kwargs": None,
             "urls": ["http://test.tar.gz"],
         }
 
@@ -102,6 +105,7 @@ class ZapperIoTTests(unittest.TestCase):
             },
             "urls": [],
             "preset": None,
+            "preset_kwargs": None,
         }
         self.maxDiff = None
         self.assertEqual(args, ())
@@ -154,6 +158,7 @@ class ZapperIoTTests(unittest.TestCase):
             },
             "urls": [],
             "preset": None,
+            "preset_kwargs": None,
         }
         self.maxDiff = None
         self.assertEqual(args, ())

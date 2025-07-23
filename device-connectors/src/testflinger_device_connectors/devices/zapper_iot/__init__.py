@@ -53,6 +53,9 @@ class DeviceConnector(ZapperConnector):
             "username": username if not ubuntu_sso_email else ubuntu_sso_email,
             "password": password,
             "preset": self.job_data["provision_data"].get("preset"),
+            "preset_kwargs": self.job_data["provision_data"].get(
+                "preset_kwargs"
+            ),
         }
 
         provision_plan = self.job_data["provision_data"].get("provision_plan")
