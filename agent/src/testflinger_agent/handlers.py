@@ -63,9 +63,10 @@ class AgentStatusHandler:
         if offline and not self._needs_offline:
             self._needs_offline = True
             self._comment = comment
-        # Clear the flag if received an offline False
+        # Clear the flag and comment if received an offline False
         elif not offline and self._needs_offline:
             self._needs_offline = False
+            self._comment = ""
 
     @property
     def needs_restart(self) -> bool:

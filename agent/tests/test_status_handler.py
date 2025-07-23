@@ -110,11 +110,15 @@ class TestClient:
             json={"state": AgentState.OFFLINE, "comment": "Offline for test"},
         )
 
+        # Check comment is set before offline processing
+        _, comment = agent.check_offline()
+        assert comment == "Offline for test"
+
         with patch("shutil.rmtree"):
             agent.process_jobs()
 
         assert "Taking agent offline" in caplog.text
-        assert agent.status_handler.comment == "Offline for test"
+        assert agent.status_handler.comment == ""
 
     def test_check_restart_offline_priority_over_restart(
         self, agent, requests_mock, caplog
@@ -131,13 +135,16 @@ class TestClient:
         )
         agent.status_handler.update(comment="Offline for test", offline=True)
 
+        # Check offline comment takes priority
+        assert agent.status_handler.comment == "Offline for test"
+
         requests_mock.post(rmock.ANY, status_code=200)
         with patch("shutil.rmtree"):
             agent.process_jobs()
 
         assert "Taking agent offline" in caplog.text
         assert agent.status_handler.needs_restart is True
-        assert agent.status_handler.comment == "Offline for test"
+        assert agent.status_handler.comment == ""
 
     def test_agent_offline_not_processing_jobs(
         self, agent, requests_mock, caplog
