@@ -21,6 +21,27 @@ build:
         then
           exit 183;
         fi
+      # Support Git LFS: Download and uncompress the binary
+      # https://docs.readthedocs.io/en/stable/build-customization.html#support-git-lfs-large-file-storage
+      - |
+        wget https://github.com/git-lfs/git-lfs/releases/download/v3.5.1/git-lfs-linux-amd64-v3.5.1.tar.gz
+        if [ $? -eq 0 ]; then
+          tar xvfz git-lfs-linux-amd64-v3.5.1.tar.gz
+          lfs_dir=$(tar -tf git-lfs-linux-amd64-v3.5.1.tar.gz | head -1 | xargs dirname)
+          # Modify LFS config paths to point where git-lfs binary was downloaded
+          git config filter.lfs.process "`pwd`/$lfs_dir/git-lfs filter-process"
+          git config filter.lfs.smudge  "`pwd`/$lfs_dir/git-lfs smudge -- %f"
+          git config filter.lfs.clean "`pwd`/$lfs_dir/git-lfs clean -- %f"
+          # Make LFS available in current repository 
+          ./$lfs_dir/git-lfs install
+          # Download content from remote
+          ./$lfs_dir/git-lfs fetch
+          # Make local files to have the real content on them
+          ./$lfs_dir/git-lfs checkout
+        else
+          echo "Download of git-lfs failed"
+        fi
+    
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
