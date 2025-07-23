@@ -99,11 +99,18 @@ class RealSerialLogger:
 
         def reconnector():
             """Reconnect when needed."""
+            logged = False
             while True:
                 try:
                     self._log_serial()
                 except Exception:
-                    logger.error("Error connecting to serial logging server")
+                    if not logged:
+                        error = (
+                            "Error connecting to serial logging server. "
+                            + "Retrying in the background..."
+                        )
+                        logger.error(error)
+                        logged = True
 
                 # Keep trying if we can't connect, but sleep between attempts
                 time.sleep(30)
