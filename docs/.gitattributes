@@ -3,3 +3,7 @@
 *.ico filter=lfs diff=lfs merge=lfs -text
 *.jpg filter=lfs diff=lfs merge=lfs -text
 *.png filter=lfs diff=lfs merge=lfs -text
+
+# Exclude specific files from LFS
+tag.png -filter -diff -merge text
+favicon.png -filter -diff -merge text
