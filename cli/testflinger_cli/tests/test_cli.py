@@ -1087,3 +1087,52 @@ def test_deferred_offline_message(capsys, requests_mock, state, monkeypatch):
     tfcli.admin_cli.set_agent_status()
     std = capsys.readouterr()
     assert "Status maintenance deferred until job completion" in std.out
+
+
+def test_set_status_unknown_agent(capsys, requests_mock, monkeypatch):
+    """Validate we skip non existing agents but modify the ones that exist."""
+    fake_agents = ["fake_agent1", "fake_agent2"]
+    fake_return = {
+        "name": "fake_agent1",
+        "queues": ["fake"],
+        "state": "waiting",
+    }
+    fake_send_agent_data = [{"state": "offline", "comment": ""}]
+
+    sys.argv = [
+        "",
+        "admin",
+        "set",
+        "agent-status",
+        "--status",
+        "online",
+        "--agents",
+        *fake_agents,
+    ]
+
+    # Define variables for authentication
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
+
+    expected_role = "admin"
+    fake_payload = {
+        "permissions": {"client_id": "my_client_id", "role": expected_role}
+    }
+    fake_jwt_signing_key = "my-secret"
+    fake_jwt_token = jwt.encode(
+        fake_payload, fake_jwt_signing_key, algorithm="HS256"
+    )
+    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
+
+    requests_mock.get(URL + "/v1/agents/data/fake_agent1", json=fake_return)
+    requests_mock.get(
+        URL + "/v1/agents/data/fake_agent2", status_code=HTTPStatus.NOT_FOUND
+    )
+    requests_mock.post(
+        URL + "/v1/agents/data/fake_agent1", json=fake_send_agent_data
+    )
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.admin_cli.set_agent_status()
+    std = capsys.readouterr()
+    assert "Agent fake_agent1 status is now: waiting" in std.out
+    assert "Agent fake_agent2 does not exist." in std.out

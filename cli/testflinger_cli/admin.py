@@ -118,11 +118,28 @@ class TestflingerAdminCLI:
                 user=client_id,
                 comment=self.main_cli.args.comment,
             )
-            agent_status = self.main_cli.client.get_agent_data(agent)["state"]
+
+            # Get agent status, skip if agent doesn't exist
+            try:
+                agent_status = self.main_cli.client.get_agent_data(agent)[
+                    "state"
+                ]
+            except client.HTTPError as exc:
+                if exc.status == HTTPStatus.NOT_FOUND:
+                    print(f"Agent {agent} does not exist.")
+                else:
+                    print(
+                        "Exception raised when setting "
+                        f"status for {agent}: {exc}"
+                    )
+                continue
+
             # Do not change to waiting if device is under test phase
             if agent_status in test_status and status == "waiting":
                 print(f"Could not modify {agent} in its current state")
                 continue
+
+            # Set the agent status
             try:
                 self.main_cli.client.set_agent_status(agent, status, comment)
                 if agent_status in test_status:
