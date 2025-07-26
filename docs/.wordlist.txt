@@ -49,6 +49,9 @@ Kubeflow
 Kubernetes
 KVM
 kvm
+launchpad
+LaunchPad
+Launchpad
 Lenovo
 lenovo
 lifecycle
