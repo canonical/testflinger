@@ -77,17 +77,6 @@ EOL
     echo "'$filename' was generated with default content."
 }
 
-create_sshd_conf() {
-    # generates config to enable the exported authorized_keys file
-    local filename=$1
-
-    cat <<EOL > "$filename"
-AuthorizedKeysFile .ssh/authorized_keys /etc/ssh/authorized_keys
-EOL
-
-    echo "'$filename' was generated with default content."
-}
-
 create_meta_data() {
     local filename=$1
     # currently meta-data is an empty file, but it's required by cloud-init
@@ -332,15 +321,6 @@ if [ ! -r "$CONFIG_REPO_PATH"/redeploy.cfg ]; then
 fi
 $SCP "$CONFIG_REPO_PATH"/redeploy.cfg "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg
 
-# ssh configs are expected to be deployed as a directory
-mkdir -p "$CONFIG_REPO_PATH"/ssh/sshd_config.d
-
-create_sshd_conf "$CONFIG_REPO_PATH"/ssh/sshd_config.d/pc_sanity.conf
-cp "$CONFIG_REPO_PATH"/authorized_keys "$CONFIG_REPO_PATH"/ssh || true  # optional file
-$SCP -r "$CONFIG_REPO_PATH"/ssh "$TARGET_USER"@"$addr":/home/"$TARGET_USER"/redeploy/ssh-config
-
-rm -rf "$CONFIG_REPO_PATH"/ssh
-
 # Umount the partitions
 MOUNT=$($SSH "$TARGET_USER"@"$addr" -- lsblk -n -o MOUNTPOINT "$RESET_PART")
 if [ -n "$MOUNT" ]; then
@@ -368,7 +348,6 @@ $SSH "$TARGET_USER"@"$addr" -- sudo rsync -aP /home/"$TARGET_USER"/iso/ /home/"$
 # Sync cloud-configs to the reset partition
 $SSH "$TARGET_USER"@"$addr" -- sudo mkdir -p /home/"$TARGET_USER"/reset/cloud-configs || true
 $SSH "$TARGET_USER"@"$addr" -- sudo cp -r /home/"$TARGET_USER"/redeploy/cloud-configs/redeploy/ /home/"$TARGET_USER"/reset/cloud-configs/
-$SSH "$TARGET_USER"@"$addr" -- sudo cp -r /home/"$TARGET_USER"/redeploy/ssh-config/ /home/"$TARGET_USER"/reset/
 $SSH "$TARGET_USER"@"$addr" -- sudo cp /home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg /home/"$TARGET_USER"/reset/boot/grub/grub.cfg
 $SSH "$TARGET_USER"@"$addr" -- sudo sed -i "s/RP_PARTUUID/${RESET_PARTUUID}/" /home/"$TARGET_USER"/reset/boot/grub/grub.cfg
 
