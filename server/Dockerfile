@@ -30,11 +30,12 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN mkdir -p -m 755 /var/log/testflinger
 
+COPY --from=common . /srv/common
+
 # Install the project dependencies using lock file and settings
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  --mount=type=bind,from=common,target=/srv/common \
   uv sync --frozen --no-install-project --no-dev
 
 # Add the rest of the project and install testflinger (optimal layer caching)
