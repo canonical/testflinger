@@ -64,6 +64,8 @@ jobs:
         uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6
         with:
           context: ./server
+          build-contexts: |
+            common=./common
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
