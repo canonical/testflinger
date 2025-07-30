@@ -35,15 +35,15 @@ The following configuration options are supported by the Testflinger Agent:
     * - ``advertised_images``
       - List of images to associate with a queue name so that they can be referenced by name when using Testflinger reserve
     * - ``global_timeout``
-      - Maximum global timeout (in seconds) a job is allowed to specify for this device connector. The job will timeout during the provision or test phase if it takes longer than the requested global_timeout to run. (Default 4 hours)
+      - Maximum global timeout (in seconds) a job is allowed to specify for this device connector. The job will timeout during the provision or test phase if it takes longer than the requested ``global_timeout`` to run. (Default 4 hours)
     * - ``output_timeout``
-      - Maximum output timeout (in seconds) a job is allowed to specify for this device connector. The job will timeout if there has been no output in the test phase for longer than the requested output_timeout. (Default 15 min.)
+      - Maximum output timeout (in seconds) a job is allowed to specify for this device connector. The job will timeout if there has been no output in the test phase for longer than the requested ``output_timeout``. (Default 15 min.)
     * - ``setup_command``
       - Command to run for the setup phase
     * - ``provision_command``
       - Command to run for the provision phase
     * - ``firmware_update_command``
-      - Command to run for the firmware_update phase
+      - Command to run for the ``firmware_update`` phase
     * - ``allocate_command``
       - Command to run for the allocate phase
     * - ``test_command``
