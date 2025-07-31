@@ -1,7 +1,6 @@
 """Tests for the RealSerialLogger class."""
 
 import socket
-import time
 import unittest
 from unittest import mock
 

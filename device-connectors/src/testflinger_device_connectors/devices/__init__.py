@@ -114,7 +114,6 @@ class RealSerialLogger:
 
     def start(self):
         """Start the serial logger connection."""
-
         self.proc = multiprocessing.Process(
             target=self._reconnector, daemon=True
         )
