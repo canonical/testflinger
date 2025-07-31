@@ -12,7 +12,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import base64
 import unittest
+from pathlib import Path
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.oem_autoinstall.zapper_oem import (
@@ -51,10 +53,18 @@ class ZapperOemTests(unittest.TestCase):
             "username": "ubuntu",
             "password": "insecure",
             "reboot_script": "snmp 1.2.3.4.5.6.7",
+            "meta_data_b64": None,
+            "user_data_b64": None,
+            "grub_cfg_b64": None,
         }
 
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
+
+    def _read_file_to_base64_test(self, filepath):
+        """Return base64-encoded content of a file."""
+        with open(filepath, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
 
     def test_validate_configuration_full(self):
         """Test _validate_configuration with all parameters."""
@@ -70,6 +80,25 @@ class ZapperOemTests(unittest.TestCase):
             },
         }
 
+        # Get the test data directory path
+        data_dir = (
+            Path(__file__).parent.parent.parent.parent
+            / "data"
+            / "oem_autoinstall"
+            / "stock"
+        )
+
+        # Read and encode the expected files
+        meta_data = self._read_file_to_base64_test(
+            data_dir / "default-meta-data"
+        )
+        user_data = self._read_file_to_base64_test(
+            data_dir / "default-user-data"
+        )
+        grub_cfg = self._read_file_to_base64_test(
+            data_dir / "default-grub.cfg"
+        )
+
         args, kwargs = device._validate_configuration()
 
         expected = {
@@ -79,6 +108,9 @@ class ZapperOemTests(unittest.TestCase):
             "username": "testuser",
             "password": "testpass",
             "reboot_script": "snmp 1.2.3.4.5.6.7",
+            "meta_data_b64": meta_data,
+            "user_data_b64": user_data,
+            "grub_cfg_b64": grub_cfg,
         }
 
         self.assertEqual(args, ())
