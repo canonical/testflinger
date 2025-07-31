@@ -49,7 +49,7 @@ The ``cm3`` device connector supports the following ``provision_data`` keys:
      - Description
    * - ``url``
      - URL to a compressed disk image that is downloaded, decompressed using
-       ``unzstd`` (**xz** format is recommended, but any format supported by
+       ``unzstd`` (``xz`` format is recommended, but any format supported by
        the ``zstd`` tool is supported) and
        flashed to the device, which will be used to boot up the DUT.
 
@@ -67,7 +67,7 @@ The ``dragonboard`` device connector supports the following ``provision_data`` k
      - Description
    * - ``url``
      - URL to a compressed disk image that is downloaded, decompressed using
-       ``unzstd`` (**xz** format is recommended, but any format supported by
+       ``unzstd`` (``xz`` format is recommended, but any format supported by
        the ``zstd`` tool is supported) and
        flashed to the SD card, which will be used to boot up the DUT.
 
@@ -123,7 +123,7 @@ The ``muxpi`` device connector supports the following ``provision_data`` keys:
      - Description
    * - ``url``
      - URL to a compressed disk image that is downloaded, decompressed using
-       ``unzstd`` (**xz** format is recommended, but any format supported by
+       ``unzstd`` (``xz`` format is recommended, but any format supported by
        the ``zstd`` tool is supported) and
        flashed to the SD card, which will be used to boot up the DUT.
    * - ``use_attachment``
@@ -181,7 +181,7 @@ The ``netboot`` device connector supports the following ``provision_data`` keys:
       - Description
     * - ``url``
       - URL to a compressed disk image that is downloaded, decompressed using
-        ``unzstd`` (**xz** format is recommended, but any format supported by
+        ``unzstd`` (``xz`` format is recommended, but any format supported by
         the ``zstd`` tool is supported) and
         flashed to the device, which will be used to boot up the DUT.
 
@@ -228,7 +228,7 @@ The ``dell_oemscript`` device connector supports the following ``provision_data`
      - Description
    * - ``url``
      - URL to a compressed disk image that is downloaded, decompressed using
-       ``unzstd`` (**xz** format is recommended, but any format supported by
+       ``unzstd`` (``xz`` format is recommended, but any format supported by
        the ``zstd`` tool is supported) and
        flashed to the device, which will be used to boot up the DUT. The image
        must be an OEM Image that retains a recovery partition on the machine.
@@ -247,7 +247,7 @@ The ``lenovo_oemscript`` device connector supports the following ``provision_dat
      - Description
    * - ``url``
      - URL to a compressed disk image that is downloaded, decompressed using
-       ``unzstd`` (**xz** format is recommended, but any format supported by
+       ``unzstd`` (``xz`` format is recommended, but any format supported by
        the ``zstd`` tool is supported) and
        flashed to the device, which will be used to boot up the DUT. The image
        must be an OEM Image that retains a recovery partition on the machine.
@@ -266,7 +266,7 @@ The ``hp_oemscript`` device connector supports the following ``provision_data`` 
      - Description
    * - ``url``
      - URL to a compressed disk image that is downloaded, decompressed using
-       ``unzstd`` (**xz** format is recommended, but any format supported by
+       ``unzstd`` (``xz`` format is recommended, but any format supported by
        the ``zstd`` tool is supported) and
        flashed to the device, which will be used to boot up the DUT. The image
        must be an OEM Image that retains a recovery partition on the machine.
