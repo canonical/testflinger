@@ -1,0 +1,10 @@
+autoinstall
+dragonboard
+Lenovo
+logfile
+muxpi
+netboot
+oemrecovery
+preloaded
+SDWire
+Tegra

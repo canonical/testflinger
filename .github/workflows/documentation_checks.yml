@@ -30,10 +30,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Aspell
-        run: |
-          sudo apt-get install aspell aspell-en
-
       - name: Install the doc framework
         working-directory: docs/
         run: |

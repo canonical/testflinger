@@ -72,7 +72,7 @@ The configuration options listed below are available for all device connectors u
      - IP of the sidecar device or “controller” that can be used to assist with provisioning. This device should already be configured for ssh using a key on the agent host.
    * - ``control_user``
      - cm3, muxpi
-     - User to ssh to on the control_host (default: ``ubuntu``)
+     - User to ssh to on the ``control_host`` (default: ``ubuntu``)
    * - ``test_device``
      - cm3, dragonboard, muxpi, netboot
      - Block device used for writing the test image. This device will be erased and overwritten with the requested image for provisioning.

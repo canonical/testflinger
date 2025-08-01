@@ -14,7 +14,7 @@ spread have a need to find currently running jobs so that they can be
 cancelled once they are done using those devices for their testing.
 
 To add tags to a job submission, add a section like this with one or more tags
-in your job yaml:
+in your job YAML file:
 
 .. code-block:: yaml
 

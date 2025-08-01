@@ -90,7 +90,7 @@ To trigger the firmware update phase, provide the following section in the job d
 Variables in ``firmware_update_data``:
 
 * ``version``: The desired firmware level on the device. Currently the only shared supported value among different machines is ``latest``, which upgrades all components in the device with the latest firmware release. For HPE server machines, user can specify a model-based release version string referring to [HPE Gen10](https://downloads.linux.hpe.com/SDR/repo/fwpp-gen10/), [HPE Gen11](https://downloads.linux.hpe.com/SDR/repo/fwpp-gen11/) and [HPE Gen12](https://downloads.linux.hpe.com/SDR/repo/fwpp-gen12/) firmware repositories. For example, ``2023.09.00.04`` is applicable for HPE Gen10 server machines.
-* ``ignore_failure``: If set to false, Testflinger agent will suspend the job if firmware_update phase return a status other than 0, which implies there's a failure during firmware_update phase. If set to true, the job will continue regardless the status of firmware_update phase. The default value is ``false``.
+* ``ignore_failure``: If set to false, Testflinger agent will suspend the job if ``firmware_update`` phase return a status other than 0, which implies there's a failure during ``firmware_update`` phase. If set to true, the job will continue regardless the status of ``firmware_update`` phase. The default value is ``false``.
 
 If either ``firmware_update_command`` is missing from the agent configuration, or the ``firmware_update_data`` section is missing from the job, this phase will be skipped.
 
@@ -245,7 +245,7 @@ Example agent configuration:
 
 Attachments
 ------------
-In the `provisioning`, `firmware_update` and `test` phases, it is also possible
+In the ``provisioning``, ``firmware_update`` and ``test`` phases, it is also possible
 to specify attachments, i.e. local files that are to be copied over to
 the Testflinger agent host.
 

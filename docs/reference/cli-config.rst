@@ -22,25 +22,25 @@ Testflinger Config Variables
 
 The following config values are currently supported:
 
-* server - Testflinger Server URL to use
+* ``server`` - Testflinger Server URL to use
 
   * Config file key: ``server``
   * Environment variable: ``TESTFLINGER_SERVER``
   * Default: ``https://testflinger.canonical.com``
 
-* error_threshold - warn the user of possible server/network problems after failing to read from the server after this many consecutive attempts
+* ``error_threshold`` - warn the user of possible server/network problems after failing to read from the server after this many consecutive attempts
 
   * Config file key: ``error_threshold``
   * Environment variable: ``TESTFLINGER_ERROR_THRESHOLD``
   * Default: ``3``
 
-* client_id - Client ID to use for APIs that require authorisation
+* ``client_id`` - Client ID to use for APIs that require authorisation
 
   * Config file key: ``client_id``
   * Environment variable: ``TESTFLINGER_CLIENT_ID``
   * Default: ``None``
 
-* secret_key - Secret key to use for APIs that require authorisation
+* ``secret_key`` - Secret key to use for APIs that require authorisation
 
   * Config file key: ``secret_key``
   * Environment variable: ``TESTFLINGER_SECRET_KEY``

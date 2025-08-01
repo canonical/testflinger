@@ -1,6 +1,6 @@
 MAAS Custom Storage Configuration
 =================================
-This extension of the Testflinger MAAS Testflinger Device Connector to handle a variety of node storage layout configurations. This configuration will be passed to Testflinger via the node job configuration yaml file, as part of the SUT provision data (example below). This functionality is contained in the discreet Python module (``maas-storage.py``) that sits alongside the MAAS Testflinger Device Connector, to be imported and called when this device connector is instantiated, if a storage layout configuration is supplied.
+This extension of the Testflinger MAAS Testflinger Device Connector to handle a variety of node storage layout configurations. This configuration will be passed to Testflinger via the node job configuration YAML file, as part of the SUT provision data (example below). This functionality is contained in the discreet Python module (``maas-storage.py``) that sits alongside the MAAS Testflinger Device Connector, to be imported and called when this device connector is instantiated, if a storage layout configuration is supplied.
 
 These storage layout configurations are to be passed along to MAAS, via the CLI API, when the device connector is created as part of its provision phase. While initial scope and use of this module will be limited to SQA testing requirements, the availability of this module implies additional consumers can specify disk layout configurations as part of their Testflinger job definitions.
 
@@ -10,7 +10,7 @@ Job Configuration
 -----------------
 The storage configuration is traditionally supplied as a node bucket config, so we can duplicate how this is laid out in the SUT job configuration at the end of this document.
 
-As below, the storage configuration is defined under ``disks`` key in the yaml file. It is composed of a list of storage configuration entries, which are dictionaries with at least these two fields, ``type`` and ``id``:
+As below, the storage configuration is defined under ``disks`` key in the YAML file. It is composed of a list of storage configuration entries, which are dictionaries with at least these two fields, ``type`` and ``id``:
 
 -   **type**: the type of configuration entry. Currently this is one of:
 	- ``disk`` - a physical disk on the system

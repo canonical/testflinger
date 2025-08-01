@@ -122,6 +122,11 @@ If you have `tox` installed, you can also just run `tox` from the subproject.
   git config --global push.gpgSign if-asked
   ```
 
+## Documentation
+
+Testflinger documentation is maintained under the [`docs/`](./docs/) subdirectory.
+To submit changes to the documentation, please read the [documentation contributing guide](./docs/CONTRIBUTING.md).
+
 [uv]: https://docs.astral.sh/uv
 [uv-add]: https://docs.astral.sh/uv/reference/cli/#uv-add
 [uv-remove]: https://docs.astral.sh/uv/reference/cli/#uv-remove
