@@ -642,6 +642,7 @@ def test_add_client_permissions(mongo_app_with_permissions):
 
     # Define client_id and permissions
     client_permissions = {
+        "client_id": "test_client",
         "client_secret": "my-secret-password",
         "max_priority": {"*": 10},
         "max_reservation_time": {"*": 40000},
@@ -649,7 +650,7 @@ def test_add_client_permissions(mongo_app_with_permissions):
     }
 
     output = app.post(
-        "/v1/client-permissions/test_client",
+        "/v1/client-permissions",
         json=client_permissions,
         headers={"Authorization": token},
     )
@@ -788,6 +789,7 @@ def test_create_client_permissions_invalid_role(mongo_app_with_permissions):
 
     # Send invalid role
     client_permissions = {
+        "client_id": "test_client",
         "client_secret": "my-secret-password",
         "max_priority": {"*": 10},
         "max_reservation_time": {"*": 40000},
@@ -795,7 +797,7 @@ def test_create_client_permissions_invalid_role(mongo_app_with_permissions):
     }
 
     output = app.post(
-        "/v1/client-permissions/test_client",
+        "/v1/client-permissions",
         json=client_permissions,
         headers={"Authorization": token},
     )
@@ -820,11 +822,12 @@ def test_create_client_permissions_missing_required_fields(
 
     # Missing required fields (role, max_priority, max_reservation_time)
     client_permissions = {
+        "client_id": "test_client",
         "client_secret": "my-secret-password",
     }
 
     output = app.post(
-        "/v1/client-permissions/test_client",
+        "/v1/client-permissions",
         json=client_permissions,
         headers={"Authorization": token},
     )
@@ -852,6 +855,7 @@ def test_create_client_permissions_duplicate_client(
     token = authenticate_output.data.decode("utf-8")
 
     client_permissions = {
+        "client_id": "test_client",
         "client_secret": "my-secret-password",
         "max_priority": {"*": 10},
         "max_reservation_time": {"*": 40000},
@@ -860,7 +864,7 @@ def test_create_client_permissions_duplicate_client(
 
     # Create client
     output1 = app.post(
-        "/v1/client-permissions/test_client",
+        "/v1/client-permissions",
         json=client_permissions,
         headers={"Authorization": token},
     )
@@ -868,7 +872,7 @@ def test_create_client_permissions_duplicate_client(
 
     # Attempt to create same client
     output2 = app.post(
-        "/v1/client-permissions/test_client",
+        "/v1/client-permissions",
         json=client_permissions,
         headers={"Authorization": token},
     )
