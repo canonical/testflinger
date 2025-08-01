@@ -21,6 +21,7 @@ import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
 
+import bcrypt
 import requests
 from apiflask import APIBlueprint, abort
 from flask import g, jsonify, request, send_file
@@ -909,5 +910,106 @@ def delete_restricted_queue(queue_name: str, json_data: dict) -> dict:
         abort(HTTPStatus.BAD_REQUEST, "Error: Missing client ID.")
 
     database.delete_restricted_queue(queue_name, client_id)
+
+    return "OK"
+
+
+@v1.get("/client-permissions")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
+@v1.output(schemas.ClientPermissionsOut(many=True))
+def get_all_client_permissions() -> list[dict]:
+    """Retrieve all client permissions from database."""
+    return database.get_client_permissions()
+
+
+@v1.get("/client-permissions/<client_id>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
+@v1.output(schemas.ClientPermissionsOut)
+def get_client_permissions(client_id) -> list[dict]:
+    """Retrieve single client-permissions from database."""
+    if not database.check_client_exists(client_id):
+        abort(
+            HTTPStatus.NOT_FOUND,
+            "Error: Specified client_id does not exist.",
+        )
+
+    return database.get_client_permissions(client_id)
+
+
+@v1.post("/client-permissions/<client_id>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
+@v1.input(schemas.ClientPermissionsIn)
+def create_client_permissions(client_id, json_data: dict) -> str:
+    """Set client permissions for a specified user."""
+    if database.check_client_exists(client_id):
+        abort(HTTPStatus.CONFLICT, "Error: Client already exists")
+
+    # Validate data contains client_secret as this is not Schema required
+    try:
+        client_secret = json_data.pop("client_secret")
+    except KeyError:
+        abort(HTTPStatus.BAD_REQUEST, "Error: Missing client_secret")
+
+    # Hash the password and add it to json_data
+    client_secret_hash = bcrypt.hashpw(
+        client_secret.encode("utf-8"), bcrypt.gensalt()
+    ).decode()
+    json_data["client_id"] = client_id
+    json_data["client_secret_hash"] = client_secret_hash
+
+    # Add client_id and its permissions in database
+    database.add_client_permissions(json_data)
+
+    return "OK"
+
+
+@v1.put("/client-permissions/<client_id>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
+@v1.input(schemas.ClientPermissionsIn)
+def edit_client_permissions(client_id: str, json_data: dict) -> str:
+    """Edit client permissions for a specified user."""
+    if not database.check_client_exists(client_id):
+        abort(
+            HTTPStatus.NOT_FOUND,
+            "Error: Specified client_id does not exist.",
+        )
+
+    # Remove client_secret if exist in json_data
+    json_data.pop("client_secret", None)
+
+    # Retrieve non empty values
+    update_fields = {
+        key: value for key, value in json_data.items() if value is not None
+    }
+
+    # Edit permissions in database
+    database.edit_client_permissions(update_fields)
+
+    return "OK"
+
+
+@v1.delete("/client-permissions/<client_id>")
+@authenticate
+@require_role(ServerRoles.ADMIN)
+def delete_client_permissions(client_id: str) -> str:
+    """Delete client id along with its permissions."""
+    # Testflinger Admin credential can't be removed from API!'
+    if client_id == "testflinger-admin":
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            "Error: System admin client cannot by deleted from API.",
+        )
+    if not database.check_client_exists(client_id):
+        abort(
+            HTTPStatus.NOT_FOUND,
+            "Error: Specified client_id does not exist.",
+        )
+
+    # Delete entry from database
+    database.delete_client_permissions(client_id)
 
     return "OK"
