@@ -394,15 +394,20 @@ def get_agents() -> list[dict]:
     return list(agents)
 
 
-def get_client_permissions(client_id: str) -> dict:
+def get_client_permissions(client_id: str | None = None) -> dict | list[dict]:
     """Retrieve the client permissions for a specified user.
+
+    If no client_id is specified, will return the permissions from all users.
 
     :param client_id: User to retrieve permissions from.
     :return: Dictionary with the permissions for the user.
     """
-    return mongo.db.client_permissions.find_one(
-        {"client_id": client_id}, {"_id": False}
-    )
+    if client_id:
+        return mongo.db.client_permissions.find_one(
+            {"client_id": client_id}, {"_id": False}
+        )
+    else:
+        return mongo.db.client_permissions.find({}, {"_id": False})
 
 
 def add_restricted_queue(queue: str, client_id: str):
@@ -433,3 +438,40 @@ def delete_restricted_queue(queue: str, client_id: str):
     mongo.db.client_permissions.update_one(
         {"client_id": client_id}, {"$pull": {"allowed_queues": queue}}
     )
+
+
+def check_client_exists(client_id: str) -> bool:
+    """Check if client id exists in client_permissions."""
+    return (
+        mongo.db.client_permissions.count_documents(
+            {"client_id": client_id}, limit=1
+        )
+        != 0
+    )
+
+
+def add_client_permissions(data: dict) -> None:
+    """Create a new client_id along with its permissions.
+
+    :param data: client_id along with its permissions
+    """
+    mongo.db.client_permissions.insert_one(data)
+
+
+def edit_client_permissions(client_id: str, update_fields: dict) -> None:
+    """Edit client_id with specified new permissions.
+
+    :param client_id: client_id to update permissions
+    :param update_fields: Updated permissions.
+    """
+    mongo.db.client_permissions.update_one(
+        {"client_id": client_id}, {"$set": update_fields}
+    )
+
+
+def delete_client_permissions(client_id: dict) -> None:
+    """Edit client_id with specified new permissions.
+
+    :param update_fields: client_id along with update permissions.
+    """
+    mongo.db.client_permissions.delete_one({"client_id": client_id})
