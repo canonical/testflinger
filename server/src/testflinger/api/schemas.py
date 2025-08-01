@@ -20,6 +20,8 @@ from apiflask.validators import Length, OneOf, Regexp
 from marshmallow import ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
 
+from testflinger.enums import ServerRoles
+
 ValidJobStates = (
     "setup",
     "provision",
@@ -447,3 +449,36 @@ images_out = {
         },
     },
 }
+
+
+class ClientPermissionsIn(Schema):
+    """Client Permissions output schema."""
+
+    client_secret = fields.String(required=False)  # Optional for schema reuse
+    max_priority = fields.Dict(
+        keys=fields.String(),
+        values=fields.Integer(),
+        required=True,
+        allow_none=True,
+    )
+    max_reservation_time = fields.Dict(required=True, allow_none=True)
+    role = fields.String(
+        required=True, validate=OneOf([role.value for role in ServerRoles])
+    )
+
+
+class ClientPermissionsOut(Schema):
+    """Client Permissions output schema."""
+
+    client_id = fields.String(required=True)
+    max_priority = fields.Dict(
+        keys=fields.String(),
+        values=fields.Integer(),
+        required=True,
+        allow_none=True,
+    )
+    allowed_queues = fields.List(
+        fields.String(), required=True, allow_none=True
+    )
+    max_reservation_time = fields.Dict(required=True, allow_none=True)
+    role = fields.String(required=True)
