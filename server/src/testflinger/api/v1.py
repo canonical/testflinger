@@ -987,7 +987,7 @@ def edit_client_permissions(client_id: str, json_data: dict) -> str:
     }
 
     # Edit permissions in database
-    database.edit_client_permissions(update_fields)
+    database.edit_client_permissions(client_id, update_fields)
 
     return "OK"
 
