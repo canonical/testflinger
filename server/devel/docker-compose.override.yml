@@ -5,6 +5,9 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=testflinger
 
   testflinger:
+    build:
+      additional_contexts:
+        common: ../common    
     command: gunicorn --bind 0.0.0.0:5000 --reload app:app
     environment:
       - MONGODB_USERNAME=testflinger
