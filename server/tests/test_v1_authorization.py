@@ -560,3 +560,321 @@ def test_delete_restricted_queue(mongo_app_with_permissions):
     assert "q1" not in permission.get("allowed_queues", [])
     restricted_queue = mongo.restricted_queues.find_one({"queue_name": "q1"})
     assert restricted_queue is None
+
+
+def test_get_all_client_permissions(mongo_app_with_permissions):
+    """Test get all client_id and its permissions."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
+    client_entry = {
+        "client_id": "test_client",
+        "max_priority": {},
+        "allowed_queues": ["q1"],
+        "max_reservation_time": {},
+        "role": "contributor",
+    }
+    # Insert client
+    mongo.client_permissions.insert_one(client_entry)
+
+    output = app.get(
+        "/v1/client-permissions",
+        headers={"Authorization": token},
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    assert "client_secret_hash" not in output.json
+    # There are two clients, the admin and the recently created
+    assert len(output.json) == 2
+
+    # Cleanup test client
+    mongo.client_permissions.delete_one({"client_id": "test_client"})
+
+
+def test_get_single_client_permissions(mongo_app_with_permissions):
+    """Test get single client_id and its permissions."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
+    client_entry = {
+        "client_id": "test_client",
+        "max_priority": {},
+        "allowed_queues": ["q1"],
+        "max_reservation_time": {},
+        "role": "contributor",
+    }
+    # Insert client
+    mongo.client_permissions.insert_one(client_entry)
+
+    output = app.get(
+        "/v1/client-permissions/my_client_id",
+        headers={"Authorization": token},
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    for key, expected_value in client_entry.items():
+        assert client_entry[key] == expected_value
+    assert "client_secret_hash" not in output.json
+
+    # Cleanup test client
+    mongo.client_permissions.delete_one({"client_id": "test_client"})
+
+
+def test_add_client_permissions(mongo_app_with_permissions):
+    """Test adding a client_id and its permissions."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
+    # Define client_id and permissions
+    client_permissions = {
+        "client_secret": "my-secret-password",
+        "max_priority": {"*": 10},
+        "max_reservation_time": {"*": 40000},
+        "role": "contributor",
+    }
+
+    output = app.post(
+        "/v1/client-permissions/test_client",
+        json=client_permissions,
+        headers={"Authorization": token},
+    )
+
+    # Retrieve data from Database
+    client_entry = mongo.client_permissions.find_one(
+        {"client_id": "test_client"}
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    assert client_entry is not None
+
+    # Check all fields match
+    clear_password = client_permissions.pop("client_secret")
+    for key, expected_value in client_permissions.items():
+        assert client_entry[key] == expected_value
+
+    # Validate clear secret is not in Database
+    assert "client_secret" not in client_entry
+    assert "client_secret_hash" in client_entry
+    assert client_entry["client_secret_hash"] != clear_password
+
+    # Cleanup test client
+    mongo.client_permissions.delete_one({"client_id": "test_client"})
+
+
+def test_edit_client_permissions(mongo_app_with_permissions):
+    """Test editing a client_id and its permissions."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
+    # Insert initial client directly in mongo
+    initial_client = {
+        "client_id": "test_client",
+        "client_secret_hash": "hashed_password",
+        "max_priority": {"q1": 10},
+        "max_reservation_time": {},
+        "role": "contributor",
+    }
+    mongo.client_permissions.insert_one(initial_client)
+
+    # Edit the client with updated permissions
+    updated_permissions = {
+        "max_priority": {},
+        "max_reservation_time": {"*": 50000},
+        "role": "manager",
+    }
+
+    output = app.put(
+        "/v1/client-permissions/test_client",
+        json=updated_permissions,
+        headers={"Authorization": token},
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Verify the updated data
+    client_entry = mongo.client_permissions.find_one(
+        {"client_id": "test_client"}
+    )
+
+    assert client_entry is not None
+    assert client_entry["max_priority"] == {}
+    assert client_entry["max_reservation_time"] == {"*": 50000}
+    assert client_entry["role"] == "manager"
+
+    # Ensure client_secret_hash is unchanged
+    assert client_entry["client_secret_hash"] == "hashed_password"  # noqa S105
+
+    # Cleanup test client
+    mongo.client_permissions.delete_one({"client_id": "test_client"})
+
+
+def test_delete_client_permissions(mongo_app_with_permissions):
+    """Test deleting a client_id and its permissions."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
+    # Insert client
+    mongo.client_permissions.insert_one(
+        {
+            "client_id": "test_client",
+            "max_priority": {},
+            "allowed_queues": ["q1"],
+            "max_reservation_time": {},
+            "role": "contributor",
+        }
+    )
+
+    output = app.delete(
+        "/v1/client-permissions/test_client", headers={"Authorization": token}
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    client_id_list = list(mongo.client_permissions.find({}))
+    client_ids = [client["client_id"] for client in client_id_list]
+    assert "clientA" not in client_ids
+
+
+def test_delete_testflinger_admin(mongo_app_with_permissions):
+    """Test deleting testflinger-admin is unsuccessful."""
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
+    # No need to mock this client_id creation, request should be rejected
+    output = app.delete(
+        "/v1/client-permissions/testflinger-admin",
+        headers={"Authorization": token},
+    )
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_create_client_permissions_invalid_role(mongo_app_with_permissions):
+    """Test creating client with invalid role fails with schema validation."""
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
+    # Send invalid role
+    client_permissions = {
+        "client_secret": "my-secret-password",
+        "max_priority": {"*": 10},
+        "max_reservation_time": {"*": 40000},
+        "role": "invalid_role",  # This should fail validation
+    }
+
+    output = app.post(
+        "/v1/client-permissions/test_client",
+        json=client_permissions,
+        headers={"Authorization": token},
+    )
+
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    error_response = output.json
+    assert "role" in error_response["detail"]["json"]
+    assert "Must be one of" in str(error_response["detail"]["json"]["role"])
+
+
+def test_create_client_permissions_missing_required_fields(
+    mongo_app_with_permissions,
+):
+    """Test creating client fails with schema validation."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
+    # Missing required fields (role, max_priority, max_reservation_time)
+    client_permissions = {
+        "client_secret": "my-secret-password",
+    }
+
+    output = app.post(
+        "/v1/client-permissions/test_client",
+        json=client_permissions,
+        headers={"Authorization": token},
+    )
+
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    error_response = output.json
+
+    # Should have errors for missing fields
+    json_errors = error_response["detail"]["json"]
+    assert "role" in json_errors
+    assert "max_priority" in json_errors
+    assert "max_reservation_time" in json_errors
+
+
+def test_create_client_permissions_duplicate_client(
+    mongo_app_with_permissions,
+):
+    """Test creating duplicate client fails with conflict error."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
+    client_permissions = {
+        "client_secret": "my-secret-password",
+        "max_priority": {"*": 10},
+        "max_reservation_time": {"*": 40000},
+        "role": "contributor",
+    }
+
+    # Create client
+    output1 = app.post(
+        "/v1/client-permissions/test_client",
+        json=client_permissions,
+        headers={"Authorization": token},
+    )
+    assert output1.status_code == HTTPStatus.OK
+
+    # Attempt to create same client
+    output2 = app.post(
+        "/v1/client-permissions/test_client",
+        json=client_permissions,
+        headers={"Authorization": token},
+    )
+    assert output2.status_code == HTTPStatus.CONFLICT
+    error_response = output2.json
+    assert "Client already exists" in error_response["message"]
+
+    # Cleanup
+    mongo.client_permissions.delete_one({"client_id": "test_client"})
