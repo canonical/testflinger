@@ -938,26 +938,29 @@ def get_client_permissions(client_id) -> list[dict]:
     return database.get_client_permissions(client_id)
 
 
-@v1.post("/client-permissions/<client_id>")
+@v1.post("/client-permissions")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
 @v1.input(schemas.ClientPermissionsIn)
-def create_client_permissions(client_id, json_data: dict) -> str:
+def create_client_permissions(json_data: dict) -> str:
     """Set client permissions for a specified user."""
-    if database.check_client_exists(client_id):
-        abort(HTTPStatus.CONFLICT, "Error: Client already exists")
-
-    # Validate data contains client_secret as this is not Schema required
+    # Validate data include client credentials as those are not Schema required
     try:
+        client_id = json_data["client_id"]
         client_secret = json_data.pop("client_secret")
     except KeyError:
-        abort(HTTPStatus.BAD_REQUEST, "Error: Missing client_secret")
+        abort(
+            HTTPStatus.BAD_REQUEST,
+            "Error: Missing client_id or client_secret in request body",
+        )
+
+    if database.check_client_exists(client_id):
+        abort(HTTPStatus.CONFLICT, "Error: Client already exists")
 
     # Hash the password and add it to json_data
     client_secret_hash = bcrypt.hashpw(
         client_secret.encode("utf-8"), bcrypt.gensalt()
     ).decode()
-    json_data["client_id"] = client_id
     json_data["client_secret_hash"] = client_secret_hash
 
     # Add client_id and its permissions in database
@@ -978,10 +981,11 @@ def edit_client_permissions(client_id: str, json_data: dict) -> str:
             "Error: Specified client_id does not exist.",
         )
 
-    # Remove client_secret if exist in json_data
+    # Remove client_credentials if exist in json_data
+    json_data.pop("client_id", None)
     json_data.pop("client_secret", None)
 
-    # Retrieve non empty values
+    # Retrieve non null values
     update_fields = {
         key: value for key, value in json_data.items() if value is not None
     }
