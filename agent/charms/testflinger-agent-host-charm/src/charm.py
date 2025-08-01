@@ -360,8 +360,9 @@ class TestflingerAgentHostCharm(CharmBase):
             self.scrape_jobs.append(
                 {
                     "job_name": agent_name,
+                    "metrics_path": "/metrics",
                     "static_configs": [
-                        {"targets": [f"*:{metric_endpoint_port}"]}
+                        {"targets": [f"localhost:{metric_endpoint_port}"]}
                     ],
                 }
             )
