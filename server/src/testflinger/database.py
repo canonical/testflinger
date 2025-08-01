@@ -450,7 +450,7 @@ def check_client_exists(client_id: str) -> bool:
     )
 
 
-def add_client_permissions(data: dict):
+def add_client_permissions(data: dict) -> None:
     """Create a new client_id along with its permissions.
 
     :param data: client_id along with its permissions
@@ -458,18 +458,18 @@ def add_client_permissions(data: dict):
     mongo.db.client_permissions.insert_one(data)
 
 
-def edit_client_permissions(update_fields: dict):
+def edit_client_permissions(client_id: str, update_fields: dict) -> None:
     """Edit client_id with specified new permissions.
 
-    :param update_fields: client_id along with update permissions.
+    :param client_id: client_id to update permissions
+    :param update_fields: Updated permissions.
     """
-    client_id = update_fields.pop("client_id")
     mongo.db.client_permissions.update_one(
         {"client_id": client_id}, {"$set": update_fields}
     )
 
 
-def delete_client_permissions(client_id: dict):
+def delete_client_permissions(client_id: dict) -> None:
     """Edit client_id with specified new permissions.
 
     :param update_fields: client_id along with update permissions.
