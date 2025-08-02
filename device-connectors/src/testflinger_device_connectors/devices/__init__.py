@@ -94,21 +94,29 @@ class RealSerialLogger:
         self.port = int(port)
         self.filename = filename
 
+    def _reconnector(self):
+        """Reconnect when needed."""
+        logged = False
+        while True:
+            try:
+                self._log_serial()
+            except Exception:
+                if not logged:
+                    error = (
+                        "Error connecting to serial logging server. "
+                        + "Retrying in the background..."
+                    )
+                    logger.error(error)
+                    logged = True
+
+            # Keep trying if we can't connect, but sleep between attempts
+            time.sleep(30)
+
     def start(self):
         """Start the serial logger connection."""
-
-        def reconnector():
-            """Reconnect when needed."""
-            while True:
-                try:
-                    self._log_serial()
-                except Exception:
-                    logger.error("Error connecting to serial logging server")
-
-                # Keep trying if we can't connect, but sleep between attempts
-                time.sleep(30)
-
-        self.proc = multiprocessing.Process(target=reconnector, daemon=True)
+        self.proc = multiprocessing.Process(
+            target=self._reconnector, daemon=True
+        )
         self.proc.start()
 
     def _log_serial(self):
