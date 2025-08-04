@@ -11,7 +11,10 @@ services:
       - mongodb_data:/data/db
 
   testflinger:
-    build: .
+    build:
+      context: .
+      additional_contexts:
+        common: ../common
     image: testflinger:latest
     restart: always
     env_file:
