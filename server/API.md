@@ -447,7 +447,7 @@ curl http://localhost:8000/v1/oauth2/token \
 
 ## `[GET] /v1/restricted-queues`
 
-Retrieve the list all agents restricted queues. 
+Retrieve the list of all restricted queues and their owners.
 
 Headers:
 
@@ -472,7 +472,7 @@ curl http://localhost:8000/v1/restricted-queues \
 
 ## `[GET] /v1/restricted-queues/<queue_name>`
 
-Retrieve the restricted queues and its owner. 
+Retrieve the specified restricted queue and its owners.
 
 Headers:
 
@@ -497,7 +497,8 @@ curl http://localhost:8000/v1/restricted-queues/foo \
 
 ## `[POST] /v1/restricted-queues/<queue_name>`
 
-Add an owner to the specific restricted queue. 
+Add an owner to the specific restricted queue.
+If the queue does not exist yet, it will be created automatically.
 
 Headers:
 
