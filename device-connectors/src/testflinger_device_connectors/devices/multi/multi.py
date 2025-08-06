@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime, timedelta
 
 import requests
 
@@ -95,13 +96,14 @@ class Multi:
             device_ips = [
                 job["device_info"]["device_ip"] for job in job_list
             ]
-        copy_ssh_keys_to_devices(ssh_keys, device_ips)
+        copy_ssh_keys_to_devices(ssh_keys, device_ips, test_username)
         print("*** TESTFLINGER SYSTEMS RESERVED ***")
         print("You can now connect to the following devices:")
         for job in job_list:
             device_ip = job["device_info"]["device_ip"]
             print(f"{test_username}@{device_ip}")
 
+        timeout = int(reserve_data.get("timeout", "3600"))
         now = datetime.now().astimezone().isoformat()
         expire_time = (
             datetime.now().astimezone() + timedelta(seconds=timeout)
@@ -112,12 +114,13 @@ class Multi:
             "Reservation will automatically timeout in {} seconds".format(
                 timeout
             )
+        )
         job_id = job_data.get("job_id", "<job_id>")
         print(
             "To end the reservation sooner use: "
             + "testflinger-cli cancel {}".format(job_id)
         )
-        time.sleep(int(timeout))
+        time.sleep(timeout)
 
     def terminate_if_parent_completed(self):
         """If parent job is completed or cancelled, cancel sub jobs."""
