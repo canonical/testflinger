@@ -1022,6 +1022,7 @@ class TestflingerCli:
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
                 logger.error("Invalid SSH key format: %s", ssh_key)
+
         template = inspect.cleandoc(
             """job_queue: {queue}
                                     provision_data:
