@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 from http import HTTPStatus
 from io import BytesIO
 
+import pytest
+
 from testflinger.api import v1
 
 
@@ -1237,3 +1239,29 @@ def test_get_jobs_on_queue(mongo_app):
     # Confirm  the status code returned if there are no jobs in queue
     output = app.get("/v1/queues/test2/jobs")
     assert output.status_code == HTTPStatus.NO_CONTENT
+
+
+@pytest.mark.parametrize("timeout", [1800, "1800", "30m", "1800s"])
+def test_reserve_data_with_human_readable_timeout(mongo_app, timeout):
+    """Test that a job with valid human readable timeout field works."""
+    job_data = {
+        "job_queue": "test",
+        "reserve_data": {"timeout": timeout},
+    }
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.OK
+    submitted_job = app.get("/v1/job?queue=test").json
+    assert submitted_job["reserve_data"]["timeout"] == 1800
+
+
+@pytest.mark.parametrize("timeout", ["invalid", "30x", "-30m", ""])
+def test_reserve_data_with_invalid_timeout(mongo_app, timeout):
+    """Test that a job with invalid timeout field is rejected."""
+    job_data = {
+        "job_queue": "test",
+        "reserve_data": {"timeout": timeout},
+    }
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
