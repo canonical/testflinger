@@ -25,6 +25,8 @@ from http import HTTPStatus
 
 import jwt
 
+from testflinger.enums import ServerRoles
+
 
 def create_auth_header(client_id: str, client_key: str) -> dict:
     """
@@ -577,7 +579,7 @@ def test_get_all_client_permissions(mongo_app_with_permissions):
         "max_priority": {},
         "allowed_queues": ["q1"],
         "max_reservation_time": {},
-        "role": "contributor",
+        "role": ServerRoles.CONTRIBUTOR,
     }
     # Insert client
     mongo.client_permissions.insert_one(client_entry)
@@ -611,7 +613,7 @@ def test_get_single_client_permissions(mongo_app_with_permissions):
         "max_priority": {},
         "allowed_queues": ["q1"],
         "max_reservation_time": {},
-        "role": "contributor",
+        "role": ServerRoles.CONTRIBUTOR,
     }
     # Insert client
     mongo.client_permissions.insert_one(client_entry)
@@ -646,7 +648,7 @@ def test_add_client_permissions(mongo_app_with_permissions):
         "client_secret": "my-secret-password",
         "max_priority": {"*": 10},
         "max_reservation_time": {"*": 40000},
-        "role": "contributor",
+        "role": ServerRoles.CONTRIBUTOR,
     }
 
     output = app.post(
@@ -693,7 +695,7 @@ def test_edit_client_permissions(mongo_app_with_permissions):
         "client_secret_hash": "hashed_password",
         "max_priority": {"q1": 10},
         "max_reservation_time": {},
-        "role": "contributor",
+        "role": ServerRoles.CONTRIBUTOR,
     }
     mongo.client_permissions.insert_one(initial_client)
 
@@ -701,7 +703,7 @@ def test_edit_client_permissions(mongo_app_with_permissions):
     updated_permissions = {
         "max_priority": {},
         "max_reservation_time": {"*": 50000},
-        "role": "manager",
+        "role": ServerRoles.MANAGER,
     }
 
     output = app.put(
@@ -719,7 +721,7 @@ def test_edit_client_permissions(mongo_app_with_permissions):
     assert client_entry is not None
     assert client_entry["max_priority"] == {}
     assert client_entry["max_reservation_time"] == {"*": 50000}
-    assert client_entry["role"] == "manager"
+    assert client_entry["role"] == ServerRoles.MANAGER
 
     # Ensure client_secret_hash is unchanged
     assert client_entry["client_secret_hash"] == "hashed_password"  # noqa S105
@@ -745,7 +747,7 @@ def test_delete_client_permissions(mongo_app_with_permissions):
             "max_priority": {},
             "allowed_queues": ["q1"],
             "max_reservation_time": {},
-            "role": "contributor",
+            "role": ServerRoles.CONTRIBUTOR,
         }
     )
 
@@ -793,7 +795,7 @@ def test_create_client_permissions_invalid_role(mongo_app_with_permissions):
         "client_secret": "my-secret-password",
         "max_priority": {"*": 10},
         "max_reservation_time": {"*": 40000},
-        "role": "invalid_role",  # This should fail validation
+        "role": "invalid_role",
     }
 
     output = app.post(
@@ -820,7 +822,7 @@ def test_create_client_permissions_missing_required_fields(
     )
     token = authenticate_output.data.decode("utf-8")
 
-    # Missing required fields (role, max_priority, max_reservation_time)
+    # Missing required fields (max_priority, max_reservation_time)
     client_permissions = {
         "client_id": "test_client",
         "client_secret": "my-secret-password",
@@ -837,7 +839,6 @@ def test_create_client_permissions_missing_required_fields(
 
     # Should have errors for missing fields
     json_errors = error_response["detail"]["json"]
-    assert "role" in json_errors
     assert "max_priority" in json_errors
     assert "max_reservation_time" in json_errors
 
@@ -859,7 +860,7 @@ def test_create_client_permissions_duplicate_client(
         "client_secret": "my-secret-password",
         "max_priority": {"*": 10},
         "max_reservation_time": {"*": 40000},
-        "role": "contributor",
+        "role": ServerRoles.CONTRIBUTOR,
     }
 
     # Create client
@@ -882,3 +883,109 @@ def test_create_client_permissions_duplicate_client(
 
     # Cleanup
     mongo.client_permissions.delete_one({"client_id": "test_client"})
+
+
+def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
+    """Test that a lower level role can't edit permissions."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
+    manager_permissions = {
+        "client_id": "test_manager",
+        "client_secret": "my-secret-password",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.MANAGER,
+    }
+
+    # First create manager client_id
+    output1 = app.post(
+        "/v1/client-permissions",
+        json=manager_permissions,
+        headers={"Authorization": token},
+    )
+    assert output1.status_code == HTTPStatus.OK
+
+    # Get manager token
+    manager_auth_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header("test_manager", "my-secret-password"),
+    )
+    manager_token = manager_auth_output.data.decode("utf-8")
+
+    # Attempt to demote admin account from fixture
+    updated_permissions = {
+        "role": ServerRoles.CONTRIBUTOR,
+        "max_priority": {},
+        "max_reservation_time": {},
+    }
+    output2 = app.put(
+        f"/v1/client-permissions/{client_id}",
+        json=updated_permissions,
+        headers={"Authorization": manager_token},
+    )
+    assert output2.status_code == HTTPStatus.FORBIDDEN
+    error_response = output2.json
+    assert "Insufficient permissions to modify" in error_response["message"]
+
+    # Cleanup
+    mongo.client_permissions.delete_one({"client_id": "test_manager"})
+
+
+def test_role_hierachy_create_permissions(mongo_app_with_permissions):
+    """Test that a lower level role can't create higher level accounts."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
+    manager_permissions = {
+        "client_id": "test_manager",
+        "client_secret": "my-secret-password",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.MANAGER,
+    }
+
+    # First create manager client_id
+    output1 = app.post(
+        "/v1/client-permissions",
+        json=manager_permissions,
+        headers={"Authorization": token},
+    )
+    assert output1.status_code == HTTPStatus.OK
+
+    # Get manager token
+    manager_auth_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header("test_manager", "my-secret-password"),
+    )
+    manager_token = manager_auth_output.data.decode("utf-8")
+
+    # Attempt to create new admin account
+    admin_permissions = {
+        "client_id": "new_admin",
+        "client_secret": "my-admin-secret",
+        "role": ServerRoles.ADMIN,
+        "max_priority": {"*": 100},
+        "max_reservation_time": {"*": 20000},
+    }
+    output2 = app.post(
+        "/v1/client-permissions",
+        json=admin_permissions,
+        headers={"Authorization": manager_token},
+    )
+    assert output2.status_code == HTTPStatus.FORBIDDEN
+    error_response = output2.json
+    assert "Insufficient permissions to create" in error_response["message"]
+
+    # Cleanup
+    mongo.client_permissions.delete_one({"client_id": "test_manager"})

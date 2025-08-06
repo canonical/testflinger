@@ -464,7 +464,7 @@ class ClientPermissionsIn(Schema):
     )
     max_reservation_time = fields.Dict(required=True, allow_none=True)
     role = fields.String(
-        required=True, validate=OneOf([role.value for role in ServerRoles])
+        required=False, validate=OneOf([role.value for role in ServerRoles])
     )
 
 

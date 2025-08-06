@@ -957,6 +957,19 @@ def create_client_permissions(json_data: dict) -> str:
     if database.check_client_exists(client_id):
         abort(HTTPStatus.CONFLICT, "Error: Client already exists")
 
+    # Check role hierarchy
+    target_role = json_data.get("role", ServerRoles.CONTRIBUTOR)
+    if not auth.check_role_hierarchy(g.role, target_role):
+        abort(
+            HTTPStatus.FORBIDDEN,
+            (
+                "Insufficient permissions to create "
+                f"client with role: {target_role}"
+            ),
+        )
+
+    # If role was not specified, use default role specified in target role
+    json_data["role"] = target_role
     # Hash the password and add it to json_data
     client_secret_hash = bcrypt.hashpw(
         client_secret.encode("utf-8"), bcrypt.gensalt()
@@ -981,6 +994,21 @@ def edit_client_permissions(client_id: str, json_data: dict) -> str:
             "Error: Specified client_id does not exist.",
         )
 
+    # Get current client permissions to check current role
+    current_permissions = database.get_client_permissions(client_id)
+    # If role not in permissions, will set default for backward compatibility
+    current_role = current_permissions.get("role", ServerRoles.CONTRIBUTOR)
+
+    # Check role hierarchy
+    if not auth.check_role_hierarchy(g.role, current_role):
+        abort(
+            HTTPStatus.FORBIDDEN,
+            (
+                "Insufficient permissions to modify "
+                f"client with role: {current_role}"
+            ),
+        )
+
     # Remove client_credentials if exist in json_data
     json_data.pop("client_id", None)
     json_data.pop("client_secret", None)
@@ -989,6 +1017,15 @@ def edit_client_permissions(client_id: str, json_data: dict) -> str:
     update_fields = {
         key: value for key, value in json_data.items() if value is not None
     }
+
+    # Check role hierarchy for new role if being updated
+    if "role" in update_fields:
+        new_role = update_fields["role"]
+        if not auth.check_role_hierarchy(g.role, new_role):
+            abort(
+                HTTPStatus.FORBIDDEN,
+                f"Insufficient permissions to assign role: {new_role}",
+            )
 
     # Edit permissions in database
     database.edit_client_permissions(client_id, update_fields)
