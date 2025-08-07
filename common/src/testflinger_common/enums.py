@@ -90,3 +90,14 @@ class AgentState(StrEnum):
     OFFLINE = "offline"
     MAINTENANCE = "maintenance"
     RESTART = "restart"
+
+
+class LogType(StrEnum):
+    """
+    Enum of different output types
+    NORMAL_OUTPUT - Agent Standard Output
+    SERIAL_OUTPUT - Agent Serial Log Output.
+    """
+
+    STANDARD_OUTPUT = "output"
+    SERIAL_OUTPUT = "serial"
