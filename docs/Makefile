@@ -33,20 +33,18 @@ help:
 	@echo "* check links:                               make linkcheck"
 	@echo "* check markdown:                            make lint-md"
 	@echo "* check spelling:                            make spelling"
-	@echo "* check spelling (without building again):   make spellcheck"
 	@echo "* check inclusive language:                  make woke"
 	@echo "* check accessibility:                       make pa11y"
 	@echo "* check style guide compliance:              make vale"
 	@echo "* check style guide compliance on target:    make vale TARGET=*"
-	@echo "* check metrics for documentation:           make allmetrics"
 	@echo "* other possible targets:                    make <TAB twice>"
 	@echo "-------------------------------------------------------------"
 	@echo
 
-.PHONY: help full-help html epub pdf linkcheck spelling spellcheck woke \
+.PHONY: help full-help html epub pdf linkcheck spelling woke \
         vale pa11y run serve install pa11y-install   \
-        vale-install pdf-prep pdf-prep-force clean clean-doc allmetrics \
-        update lint-md check-lfs
+        vale-install pdf-prep pdf-prep-force clean clean-doc \
+        lint-md check-lfs
 
 full-help: $(VENVDIR)
 	@. $(VENV); $(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
