@@ -444,3 +444,231 @@ Example:
 curl http://localhost:8000/v1/oauth2/token \
   -X GET --header "Authorization: Basic ABCDEF12345"
 ```
+
+## `[GET] /v1/restricted-queues`
+
+Retrieve the list of all restricted queues and their owners.
+
+Headers:
+
+- Bearer Token: JWT Token with permissions (Base64 Encoded)
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 401 (Unauthorized)`: Invalid client_id or client-key
+- `HTTP 403 (Forbidden)`: Incorrect permissions for authenticated user
+
+Returns:
+
+JSON data with a list of restricted queues
+
+Example:
+
+```shell
+curl http://localhost:8000/v1/restricted-queues \
+  -X GET --header "Authorization: Bearer <JWT Token>"
+```
+
+## `[GET] /v1/restricted-queues/<queue_name>`
+
+Retrieve the specified restricted queue and its owners.
+
+Headers:
+
+- Bearer Token: JWT Token with permissions (Base64 Encoded)
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 401 (Unauthorized)`: Invalid client_id or client-key
+- `HTTP 403 (Forbidden)`: Incorrect permissions for authenticated user
+
+Returns:
+
+JSON Data with restricted queue and who owns it
+
+Example:
+
+```shell
+curl http://localhost:8000/v1/restricted-queues/foo \
+  -X GET --header "Authorization: Bearer <JWT Token>"
+```
+
+## `[POST] /v1/restricted-queues/<queue_name>`
+
+Add an owner to the specific restricted queue.
+If the queue does not exist yet, it will be created automatically.
+
+Headers:
+
+- Bearer Token: JWT Token with permissions (Base64 Encoded)
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 400 (Bad Request)`: Missing client_id to set as owner of restricted queue.
+- `HTTP 401 (Unauthorized)`: Invalid client_id or client-key
+- `HTTP 403 (Forbidden)`: Incorrect permissions for authenticated user
+- `HTTP 404 (Not Found)`: Queue does not exists or is not associated to an agent.
+
+Example:
+
+```shell
+curl http://localhost:8000/v1/restricted-queues/foo \
+  -X POST --header "Authorization: Bearer <JWT Token>" \
+  --header "Content-Type: application/json" \
+  --header "Accept: application/json" \
+  --data '{"client_id": "foo"}'
+```
+
+## `[DELETE] /v1/restricted-queues/<queue_name>`
+
+Delete an owner from the specific restricted queue.
+
+Headers:
+
+- Bearer Token: JWT Token with permissions (Base64 Encoded)
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 400 (Bad Request)`: Missing client_id to set as owner of restricted queue.
+- `HTTP 401 (Unauthorized)`: Invalid client_id or client-key
+- `HTTP 403 (Forbidden)`: Incorrect permissions for authenticated user
+- `HTTP 404 (Not Found)`: Queue is not in the restricted queue list
+
+Example:
+
+```shell
+curl http://localhost:8000/v1/restricted-queues/foo \
+  -X DELETE --header "Authorization: Bearer <JWT Token>" \
+  --header "Content-Type: application/json" \
+  --header "Accept: application/json" \
+  --data '{"client_id": "foo"}'
+```
+
+## `[GET] /v1/client-permissions`
+
+Retrieve the list all client_id and its permissions
+
+Headers:
+
+- Bearer Token: JWT Token with permissions (Base64 Encoded)
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 401 (Unauthorized)`: Invalid client_id or client-key
+- `HTTP 403 (Forbidden)`: Incorrect permissions for authenticated user
+
+Returns:
+
+JSON data with a list all client IDs and its permission excluding the hashed secret stored in database
+
+Example:
+
+```shell
+curl http://localhost:8000/v1/client-permissions \
+  -X GET --header "Authorization: Bearer <JWT Token>"
+```
+
+## `[GET] /v1/client-permissions/<client_id>`
+
+Retrieve the permissions associated with a client_id
+
+Headers:
+
+- Bearer Token: JWT Token with permissions (Base64 Encoded)
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 401 (Unauthorized)`: Invalid client_id or client-key
+- `HTTP 403 (Forbidden)`: Incorrect permissions for authenticated user
+- `HTTP 404 (Not Found)`: Specified client_id does not exist
+
+Returns:
+
+JSON data with the permissions of a specified client excluding the hashed secret stored in database
+
+Example:
+
+```shell
+curl http://localhost:8000/v1/client-permissions/foo \
+  -X GET --header "Authorization: Bearer <JWT Token>"
+```
+
+## `[POST] /v1/client-permissions`
+
+Create new client_id with specified permissions.
+
+Headers:
+
+- Bearer Token: JWT Token with permissions (Base64 Encoded)
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 400 (Bad Request)`: Missing client_id and/or client_secret in JSON data
+- `HTTP 401 (Unauthorized)`: Invalid client_id or client-key
+- `HTTP 403 (Forbidden)`: Incorrect permissions for authenticated user
+- `HTTP 409 (Conflict)`: Specified client_id already exists
+
+Example:
+
+```shell
+curl http://localhost:8000/v1/client-permissions \
+  -X POST --header "Authorization: Bearer <JWT Token>"
+  --header "Content-Type: application/json" \
+  --header "Accept: application/json" \
+  --data '{"client_id": "foo", "client_secret": "my-secret-password", "max_priority": {}, "max_reservation_time": {"*": 40000}, "role": "contributor"}'
+```
+
+## `[PUT] /v1/client-permissions/<client_id>`
+
+Edit the permissions for a specified client_id. 
+
+Headers:
+
+- Bearer Token: JWT Token with permissions (Base64 Encoded)
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 401 (Unauthorized)`: Invalid client_id or client-key
+- `HTTP 403 (Forbidden)`: Incorrect permissions for authenticated user
+- `HTTP 404 (Not Found)`: Specified client_id does not exist
+
+Example:
+
+```shell
+curl http://localhost:8000/v1/client-permissions/foo \
+  -X PUT --header "Authorization: Bearer <JWT Token>"
+  --header "Content-Type: application/json" \
+  --header "Accept: application/json" \
+  --data '{"max_priority": {"q1": 10}, "max_reservation_time": {}, "role": "contributor"}'
+```
+
+## `[DELETE] /v1/client-permissions/<client_id>`
+
+Delete a client_id along with its permissions
+
+Headers:
+
+- Bearer Token: JWT Token with permissions (Base64 Encoded)
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 401 (Unauthorized)`: Invalid client_id or client-key
+- `HTTP 403 (Forbidden)`: Incorrect permissions for authenticated user
+- `HTTP 404 (Not Found)`: Specified client_id does not exist
+- `HTTP 422 (Unprocessable Entity)`: System admin can't be removed using the API
+
+Example:
+
+```shell
+curl http://localhost:8000/v1/client-permissions/foo \
+  -X DELETE --header "Authorization: Bearer <JWT Token>"
+```
