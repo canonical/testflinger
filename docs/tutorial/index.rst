@@ -37,24 +37,27 @@ Once the installation is finished, you can execute the ``testflinger-cli`` comma
   $ testflinger-cli --help
 
   usage: testflinger-cli [-h] [-c CONFIGFILE] [-d] [--server SERVER]
-                        {artifacts,cancel,config,jobs,list-queues,poll,reserve,results,show,status,submit}
-                        ...
+                         {admin,artifacts,cancel,config,jobs,list-queues,poll,poll-serial,reserve,status,agent-status,queue-status,results,show,submit} ...
 
   positional arguments:
-    {artifacts,cancel,config,jobs,list-queues,poll,reserve,results,show,status,submit}
+    {admin,artifacts,cancel,config,jobs,list-queues,poll,poll-serial,reserve,status,agent-status,queue-status,results,show,submit}
+      admin               Admin commands. Requires authentication
       artifacts           Download a tarball of artifacts saved for a specified job
       cancel              Tell the server to cancel a specified JOB_ID
       config              Get or set configuration options
       jobs                List the previously started test jobs
       list-queues         List the advertised queues on the Testflinger server
       poll                Poll for output from a job until it is completed
+      poll-serial         Poll for output from a job until it is completed
       reserve             Install and reserve a system
+      status              Show the status of a specified JOB_ID
+      agent-status        Show the status of a specified agent
+      queue-status        Show the status of the agents in a specified queue
       results             Get results JSON for a completed JOB_ID
       show                Show the requested job JSON for a specified JOB_ID
-      status              Show the status of a specified JOB_ID
       submit              Submit a new test job to the server
 
-  optional arguments:
+  options:
     -h, --help            show this help message and exit
     -c CONFIGFILE, --configfile CONFIGFILE
                           Configuration file to use

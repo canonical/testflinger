@@ -747,6 +747,217 @@ def test_queue_status(capsys, requests_mock):
     assert "Jobs waiting:    1" in std.out
 
 
+def test_queue_status_verbose(capsys, requests_mock):
+    """Test that --verbose flag without --jobs shows agent status.
+
+    This ensures no change in behavior.
+    """
+    fake_queue = "fake"
+    fake_queue_data = [
+        {"name": "fake_agent1", "state": "provision", "queues": ["fake"]},
+        {"name": "fake_agent2", "state": "offline", "queues": ["fake"]},
+    ]
+
+    job_id = str(uuid.uuid1())
+    fake_job_data = [{"job_id": job_id, "job_state": "waiting"}]
+
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
+    )
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
+    )
+    sys.argv = ["", "queue-status", "--verbose", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.queue_status()
+    std = capsys.readouterr()
+
+    # Should show agent status (original behavior)
+    assert "Agents in queue: 2" in std.out
+    assert "Available:       0" in std.out
+    assert "Busy:            1" in std.out
+    assert "Offline:         1" in std.out
+    assert "Jobs waiting:    1" in std.out
+
+
+def test_queue_status_verbose_show_completed(capsys, requests_mock):
+    """Test that --verbose --show-completed without --jobs shows agent status.
+
+    This ensures no change in behavior.
+    """
+    fake_queue = "fake"
+    fake_queue_data = [
+        {"name": "fake_agent1", "state": "provision", "queues": ["fake"]},
+        {"name": "fake_agent2", "state": "offline", "queues": ["fake"]},
+    ]
+
+    job_id = str(uuid.uuid1())
+    fake_job_data = [{"job_id": job_id, "job_state": "waiting"}]
+
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
+    )
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
+    )
+    sys.argv = [
+        "",
+        "queue-status",
+        "--verbose",
+        "--show-completed",
+        fake_queue,
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.queue_status()
+    std = capsys.readouterr()
+
+    # Should show agent status (original behavior)
+    assert "Agents in queue: 2" in std.out
+    assert "Available:       0" in std.out
+    assert "Busy:            1" in std.out
+    assert "Offline:         1" in std.out
+    assert "Jobs waiting:    1" in std.out
+
+
+def test_queue_status_json(capsys, requests_mock):
+    """Test JSON output for queue status (original agent-focused behavior)."""
+    fake_queue = "fake"
+    fake_queue_data = [
+        {"name": "fake_agent1", "state": "provision", "queues": ["fake"]},
+        {"name": "fake_agent2", "state": "offline", "queues": ["fake"]},
+    ]
+
+    job_id = str(uuid.uuid1())
+    fake_job_data = [{"job_id": job_id, "job_state": "waiting"}]
+
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
+    )
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
+    )
+    sys.argv = ["", "queue-status", "--json", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.queue_status()
+    std = capsys.readouterr()
+
+    # Parse JSON output - should be original agent-focused format
+    output_data = json.loads(std.out)
+    assert output_data["queue"] == fake_queue
+    assert output_data["jobs waiting"] == [job_id]
+    assert len(output_data["agents"]) == 2
+
+
+def test_queue_status_empty_queue(capsys, requests_mock):
+    """Test queue status with no agents (original behavior)."""
+    fake_queue = "empty"
+
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/agents",
+        status_code=204,  # No content
+    )
+    sys.argv = ["", "queue-status", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.queue_status()
+    assert "No agent is listening on" in str(exc_info.value)
+
+
+def test_queue_status_nonexistent_queue(requests_mock):
+    """Test queue status with nonexistent queue (original behavior)."""
+    fake_queue = "nonexistent"
+
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/agents",
+        status_code=404,  # Not found
+    )
+    sys.argv = ["", "queue-status", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.queue_status()
+    assert "does not exist" in str(exc_info.value)
+
+
+def test_queue_status_jobs_basic(capsys, requests_mock):
+    """Test basic queue status with --jobs flag."""
+    fake_queue = "fake"
+    fake_job_data = [
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "waiting",
+            "created_at": "2023-10-13T15:22:46Z",
+            "job_queue": fake_queue,
+        },
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "running",
+            "created_at": "2023-10-13T15:22:40Z",
+            "job_queue": fake_queue,
+        },
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "complete",
+            "created_at": "2023-10-13T15:22:30Z",
+            "job_queue": fake_queue,
+        },
+    ]
+
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
+    )
+    sys.argv = ["", "queue-status", "--jobs", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.queue_status()
+    std = capsys.readouterr()
+    assert "1 complete, 1 running, 1 waiting" in std.out
+
+
+def test_queue_status_jobs_verbose(capsys, requests_mock):
+    """Test verbose queue status with --jobs flag."""
+    fake_queue = "fake"
+    fake_job_data = [
+        {
+            "job_id": "de153d8f-7d32-47d7-9a05-a20f2ef6bb35",
+            "job_state": "waiting",
+            "created_at": "2023-10-13T15:22:46Z",
+            "job_queue": fake_queue,
+        },
+        {
+            "job_id": "ba73620d-6d1a-45ab-bb68-a640e4e4c489",
+            "job_state": "provisioning",
+            "created_at": "2023-10-13T15:22:40Z",
+            "job_queue": fake_queue,
+        },
+        {
+            "job_id": "8b0bb52f-08d8-4671-b275-55d84a965f7c",
+            "job_state": "complete",
+            "created_at": "2023-10-13T15:22:30Z",
+            "job_queue": fake_queue,
+        },
+    ]
+
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
+    )
+    sys.argv = ["", "queue-status", "--jobs", "--verbose", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.queue_status()
+    std = capsys.readouterr()
+
+    # Should show summary
+    assert "1 complete, 1 running, 1 waiting" in std.out
+    # Should show incomplete jobs in verbose format
+    assert "de153d8f-7d32-47d7-9a05-a20f2ef6bb35" in std.out
+    assert "ba73620d-6d1a-45ab-bb68-a640e4e4c489" in std.out
+    assert "waiting" in std.out
+    assert "provisioning" in std.out
+    assert "2023-10-13 15:22:46" in std.out
+    # Should NOT show completed jobs without --show-completed
+    assert "8b0bb52f-08d8-4671-b275-55d84a965f7c" not in std.out
+
+
 def test_retrieve_regular_user_role(tmp_path, requests_mock):
     """Test that we get a regular user if no auth is made."""
     job_data = {
