@@ -506,6 +506,15 @@ def test_add_restricted_queue(mongo_app_with_permissions):
     )
     token = authenticate_output.data.decode("utf-8")
 
+    client_entry = {
+        "client_id": "clientA",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.CONTRIBUTOR,
+    }
+    # Insert client
+    mongo.client_permissions.insert_one(client_entry)
+
     mongo.agents.insert_one(
         {
             "name": "agent1",
@@ -526,6 +535,43 @@ def test_add_restricted_queue(mongo_app_with_permissions):
     assert "q2" in permission.get("allowed_queues", [])
     restricted_queue = mongo.restricted_queues.find_one({"queue_name": "q2"})
     assert restricted_queue is not None
+
+
+def test_add_restricted_queue_client_not_exists(mongo_app_with_permissions):
+    """Test add a restricted queue for an agent fails if client don't exist."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    mongo.restricted_queues.delete_many({})
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    token = authenticate_output.data.decode("utf-8")
+
+    mongo.agents.insert_one(
+        {
+            "name": "agent1",
+            "identifier": "202506-00001",
+            "queues": ["q1", "q2"],
+        },
+    )
+
+    data = {
+        "client_id": "clientA",
+    }
+    output = app.post(
+        "/v1/restricted-queues/q2", json=data, headers={"Authorization": token}
+    )
+    assert output.status_code == HTTPStatus.NOT_FOUND
+    assert "Specified client_id does not exist" in output.json["message"]
+
+    # Client Permissions collection should be empty
+    permission = mongo.client_permissions.find_one({"client_id": "clientA"})
+    assert permission is None
+    # Restricted queue should also be empty
+    restricted_queue = mongo.restricted_queues.find_one({"queue_name": "q2"})
+    assert restricted_queue is None
 
 
 def test_delete_restricted_queue(mongo_app_with_permissions):

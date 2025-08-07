@@ -882,8 +882,16 @@ def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
     """Add an owner to the specific restricted queue."""
     client_id = json_data.get("client_id", "")
 
+    # Validate client ID is available in request data
     if not client_id:
         abort(HTTPStatus.BAD_REQUEST, "Error: Missing client ID.")
+
+    # Validate client ID exists in database
+    if not database.check_client_exists(client_id):
+        abort(
+            HTTPStatus.NOT_FOUND,
+            "Error: Specified client_id does not exist.",
+        )
 
     if not database.queue_exists(queue_name):
         abort(
