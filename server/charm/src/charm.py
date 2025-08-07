@@ -289,7 +289,7 @@ class TestflingerCharm(ops.CharmBase):
 
         try:
             db = self.connect_to_mongodb()
-            if not db:
+            if db is None:
                 event.fail("Unable to connect to MongoDB")
                 return
 
