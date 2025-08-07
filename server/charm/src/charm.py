@@ -330,9 +330,15 @@ class TestflingerCharm(ops.CharmBase):
         if not db_relation:
             return
 
-        app_databag = db_relation.data[self.app]
-        mongo_client = MongoClient(host=app_databag["uris"])
-        return mongo_client[app_databag["database"]]
+        # Get the relation data from the remote application
+        for unit in db_relation.units:
+            remote_app = unit.app
+            remote_app_databag = db_relation.data[remote_app]
+            if "uris" in remote_app_databag:
+                mongo_client = MongoClient(host=remote_app_databag["uris"])
+                return mongo_client[remote_app_databag["database"]]
+
+        return None
 
     def check_client_exist(self, db: MongoClient):
         """Validate if client_id already exists in collection."""
