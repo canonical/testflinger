@@ -16,7 +16,6 @@ The project uses _Sphinx_ to build and publish documentation. The configurations
 
 Before committing and pushing changes, it's a good practice to run documentation builds locally to verify your changes, using the provided `Makefile`. The local build commands verify that the documentation can be built successfully without technical errors. To perform quality control, see the section [Automatic checks](#automatic-checks).
 
-
 ### Local build
 
 To build the documentation locally, navigate to the `docs/` directory and run the build commands:
