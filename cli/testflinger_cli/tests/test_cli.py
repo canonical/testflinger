@@ -33,6 +33,7 @@ from requests_mock import Mocker
 
 import testflinger_cli
 from testflinger_cli.client import HTTPError
+from testflinger_cli.enums import LogType
 from testflinger_cli.errors import AuthorizationError
 
 URL = "https://testflinger.canonical.com"
@@ -687,11 +688,266 @@ def test_reserve(capsys, requests_mock):
     assert expected_yaml in std.out
 
 
+def test_poll_args_generic_parsing():
+    """Test that generic poll arguments are parsed correctly."""
+    sys.argv = [
+        "",
+        "poll",
+        "--oneshot",
+        "--start_fragment",
+        "5",
+        "--start_timestamp",
+        "2023-01-01T00:00:00",
+        "--phase",
+        "test",
+        "--json",
+        "test-job-id",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    assert tfcli.args.oneshot is True
+    assert tfcli.args.start_fragment == 5
+    assert tfcli.args.start_timestamp.year == 2023
+    assert tfcli.args.phase == "test"
+    assert tfcli.args.json is True
+    assert tfcli.args.job_id == "test-job-id"
+
+
+def test_poll_serial_args_generic_parsing():
+    """Test that generic poll-serial arguments are parsed correctly."""
+    sys.argv = [
+        "",
+        "poll-serial",
+        "--start_fragment",
+        "10",
+        "--phase",
+        "provision",
+        "test-job-id",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    assert tfcli.args.start_fragment == 10
+    assert tfcli.args.phase == "provision"
+    assert tfcli.args.job_id == "test-job-id"
+
+
+def test_get_combined_log_output_single_phase(requests_mock):
+    """Test _get_combined_log_output for a specific phase."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "output": {
+            "test": {
+                "last_fragment_number": 42,
+                "log_data": "test phase output",
+            }
+        }
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/output?start_fragment=0",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    last_fragment, log_data = tfcli._get_combined_log_output(
+        job_id, LogType.STANDARD_OUTPUT, "test", 0, None
+    )
+
+    assert last_fragment == 42
+    assert log_data == "test phase output"
+
+
+def test_get_combined_log_output_all_phases(requests_mock):
+    """Test _get_combined_log_output combining all phases."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "output": {
+            "setup": {"last_fragment_number": 10, "log_data": "setup output"},
+            "test": {"last_fragment_number": 20, "log_data": "test output"},
+            "cleanup": {
+                "last_fragment_number": 30,
+                "log_data": "cleanup output",
+            },
+        }
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/output?start_fragment=0",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    last_fragment, log_data = tfcli._get_combined_log_output(
+        job_id, LogType.STANDARD_OUTPUT, None, 0, None
+    )
+
+    assert last_fragment == 30  # max fragment number
+    assert "setup output" in log_data
+    assert "test output" in log_data
+    assert "cleanup output" in log_data
+
+
+def test_poll_output_oneshot(capsys, requests_mock):
+    """Test poll command with --oneshot flag."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "output": {
+            "test": {"last_fragment_number": 5, "log_data": "test output data"}
+        }
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/output?start_fragment=0",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll", "--oneshot", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit):
+        tfcli.poll_output()
+
+    std = capsys.readouterr()
+    assert "test output data" in std.out
+    assert "Last Fragment Number: 5" in std.out
+
+
+def test_poll_output_json_mode(capsys, requests_mock):
+    """Test poll command with --json flag."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "output": {
+            "test": {"last_fragment_number": 5, "log_data": "test output data"}
+        }
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/output?start_fragment=0",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll", "--json", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit):
+        tfcli.poll_output()
+
+    std = capsys.readouterr()
+    assert json.loads(std.out) == mock_response
+
+
+def test_poll_serial_oneshot(capsys, requests_mock):
+    """Test poll-serial command with --oneshot flag."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "serial": {
+            "test": {
+                "last_fragment_number": 3,
+                "log_data": "serial output data",
+            }
+        }
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/serial_output?start_fragment=0",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll-serial", "--oneshot", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit):
+        tfcli.poll_serial()
+
+    std = capsys.readouterr()
+    assert "serial output data" in std.out
+    assert "Last Fragment Number: 3" in std.out
+
+
+def test_poll_waiting_on_output(capsys, requests_mock):
+    """Test poll command when no output is available yet."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "output": {"test": {"last_fragment_number": -1, "log_data": ""}}
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/output?start_fragment=0",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll", "--oneshot", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit):
+        tfcli.poll_output()
+
+    std = capsys.readouterr()
+    assert "Waiting on Output" in std.out
+
+
+def test_poll_with_start_fragment_and_timestamp(requests_mock):
+    """Test poll command with start_fragment and start_timestamp parameters."""
+    job_id = str(uuid.uuid1())
+    start_timestamp = "2023-01-01T00:00:00"
+
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/output?"
+        "start_fragment=10&start_timestamp=2023-01-01T00%3A00%3A00",
+        json={
+            "output": {
+                "test": {"last_fragment_number": 15, "log_data": "output"}
+            }
+        },
+    )
+
+    sys.argv = [
+        "",
+        "poll",
+        "--oneshot",
+        "--start_fragment",
+        "10",
+        "--start_timestamp",
+        start_timestamp,
+        job_id,
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # This should make the request with the correct parameters
+    with pytest.raises(SystemExit):
+        tfcli.poll_output()
+
+
+def test_poll_with_phase_filter(requests_mock):
+    """Test poll command with phase filter."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "output": {
+            "provision": {
+                "last_fragment_number": 8,
+                "log_data": "provision logs only",
+            }
+        }
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/output?start_fragment=0&phase=provision",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll", "--oneshot", "--phase", "provision", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit):
+        tfcli.poll_output()
+
+
 def test_poll_serial(capsys, requests_mock):
     """Tests that serial output is polled from the correct endpoint."""
     job_id = str(uuid.uuid1())
+    mock_response = {
+        "serial": {
+            "test": {"last_fragment_number": 2, "log_data": "serial output"}
+        }
+    }
     requests_mock.get(
-        URL + f"/v1/result/{job_id}/serial_output", text="serial output"
+        URL + f"/v1/result/{job_id}/serial_output?start_fragment=0",
+        json=mock_response,
     )
     sys.argv = ["", "poll-serial", "--oneshot", job_id]
     tfcli = testflinger_cli.TestflingerCli()
@@ -1136,3 +1392,126 @@ def test_set_status_unknown_agent(capsys, requests_mock, monkeypatch):
     std = capsys.readouterr()
     assert "Agent fake_agent1 status is now: waiting" in std.out
     assert "Agent fake_agent2 does not exist." in std.out
+
+
+def test_submit_with_poll_integration(tmp_path, requests_mock, monkeypatch):
+    """Test that submit --poll calls do_poll with the correct job_id."""
+    jobid = str(uuid.uuid1())
+    fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+
+    fake_return = {"job_id": jobid}
+    requests_mock.post(URL + "/v1/job", json=fake_return)
+    requests_mock.get(
+        URL + "/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+
+    sys.argv = ["", "submit", str(testfile), "--poll"]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Track calls to do_poll
+    poll_calls = []
+
+    def mock_do_poll(*args, **kwargs):
+        poll_calls.append((args, kwargs))
+        # Don't actually poll to avoid infinite loop
+        return
+
+    monkeypatch.setattr(tfcli, "do_poll", mock_do_poll)
+
+    tfcli.submit()
+
+    # Verify do_poll was called with the job_id from the submission
+    assert len(poll_calls) == 1
+    args, kwargs = poll_calls[0]
+    assert args[0] == jobid  # First argument should be the submitted job_id
+
+
+def test_live_polling_with_fragments_progression(
+    capsys, requests_mock, monkeypatch
+):
+    """Test live polling uses cur_fragment and progresses through fragments."""
+    import time
+
+    job_id = str(uuid.uuid1())
+
+    # Mock time.sleep
+    sleep_calls = []
+    monkeypatch.setattr(
+        time, "sleep", lambda duration: sleep_calls.append(duration)
+    )
+
+    # Track fragment progression
+    fragment_requests = []
+    iteration_count = 0
+
+    def mock_get_job_state(self, job_id_arg):
+        nonlocal iteration_count
+        iteration_count += 1
+        # Run for 3 iterations then complete
+        return "complete" if iteration_count > 3 else "running"
+
+    def mock_get_combined_log_output(
+        self, job_id_arg, log_type, phase, fragment, timestamp
+    ):
+        # Track what fragment was requested
+        fragment_requests.append(fragment)
+
+        last_fragment = fragment + 2  # Simulate new data
+        log_data = f"Fragment {fragment} -> {last_fragment}: New log data\n"
+
+        return last_fragment, log_data
+
+    def mock_history_update(job_id_arg, state):
+        pass
+
+    # Start with fragment 5
+    sys.argv = ["", "poll", "--start_fragment", "5", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Set up mocks on the instance
+    monkeypatch.setattr(
+        tfcli,
+        "get_job_state",
+        lambda job_id_arg: mock_get_job_state(tfcli, job_id_arg),
+    )
+
+    def combined_log_wrapper_2(
+        job_id_arg, log_type, phase, fragment, timestamp
+    ):
+        return mock_get_combined_log_output(
+            tfcli, job_id_arg, log_type, phase, fragment, timestamp
+        )
+
+    monkeypatch.setattr(
+        tfcli, "_get_combined_log_output", combined_log_wrapper_2
+    )
+    monkeypatch.setattr(tfcli.history, "update", mock_history_update)
+
+    # Run the polling
+    tfcli.do_poll(job_id)
+
+    captured = capsys.readouterr()
+
+    # Verify fragment progression
+    assert len(fragment_requests) >= 2
+
+    # First request should use start_fragment (5)
+    assert fragment_requests[0] == 5
+
+    # Verify fragment progression - each request uses last_fragment + 1
+    for i in range(len(fragment_requests) - 1):
+        # Expected fragment number should be 1 higher than the last
+        # fragment number
+        cur_fragment = fragment_requests[i]
+        expected_fragment = cur_fragment + 3
+        assert fragment_requests[i + 1] == expected_fragment
+        expected_string = (
+            f"Fragment {cur_fragment} -> {cur_fragment + 2}: New log data\n"
+        )
+        assert expected_string in captured.out
+
+    # Should have slept between iterations
+    assert len(sleep_calls) >= 2
