@@ -53,6 +53,11 @@ agent.
 Set an Agent Offline
 ~~~~~~~~~~~~~~~~~~~~
 
+.. note::
+   The following action require an authenticated ``client_id`` with admin privileges, 
+   for more information please refer to :doc:`Create or edit Testflinger admin credentials <../how-to/create-admin-user>` 
+   if needed to set an initial admin ``client_id``.
+
 Each agent is designed to process jobs indefinitely by listening for jobs in its specified queues
 until any job is available for them. If an agent needs to be set to offline to stop
 processing any jobs, its status can be modified from the CLI. This can be useful when there
@@ -81,12 +86,6 @@ any job, otherwise it will wait until job completion to change agent status. It 
 that in any of the above statuses, the agent will prevent restarting; if a restart signal is detected
 it will be deferred until the agent is marked online. 
 
-.. note::
-
-   Changing agent status through the CLI requires authentication with admin 
-   privileges. Please refer to :doc:`Authentication and Authorisation <../how-to/authentication>`
-   section for more information. 
-
 .. tip::
 
    If you wish to change the status for multiple agents at the same time, you can define a list 
@@ -96,18 +95,17 @@ it will be deferred until the agent is marked online.
 Set an Agent Online
 ~~~~~~~~~~~~~~~~~~~
 
+.. note::
+   The following action require an authenticated ``client_id`` with admin privileges, 
+   for more information please refer to :doc:`Create or edit Testflinger admin credentials <../how-to/create-admin-user>` 
+   if needed to set an initial admin ``client_id``.
+
 To set an agent to online in order to recover from an unexpected agent failure or after being set 
 to offline manually, execute the following command from the CLI:
 
 .. code-block:: shell
 
    testflinger-cli admin set agent-status --status online --agents <agent_name>
-
-.. note::
-
-   Changing agent status through the CLI requires authentication with admin 
-   privileges. Please refer to :doc:`Authentication and Authorisation <../how-to/authentication>`
-   section for more information. 
 
 .. tip::
 
