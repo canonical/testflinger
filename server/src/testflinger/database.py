@@ -423,7 +423,6 @@ def add_restricted_queue(queue: str, client_id: str):
     mongo.db.client_permissions.update_one(
         {"client_id": client_id},
         {"$addToSet": {"allowed_queues": queue}},
-        upsert=True,
     )
 
 
