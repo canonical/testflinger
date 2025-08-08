@@ -159,7 +159,6 @@ def test_set_admin_password(mock_mongo_client, harness):
     # Verify new user was created
     mock_collection.insert_one.assert_called_once()
     insert_call = mock_collection.insert_one.call_args[0][0]
-    print(insert_call)
     assert insert_call["client_id"] == TESTFLINGER_ADMIN_ID
     assert insert_call["role"] == "admin"
     assert "client_secret_hash" in insert_call
@@ -203,7 +202,6 @@ def test_update_admin_password(mock_mongo_client, harness):
     # Verify user was updated
     mock_collection.update_one.assert_called_once()
     update_call = mock_collection.update_one.call_args
-    print(update_call)
     assert update_call[0][0] == {"client_id": TESTFLINGER_ADMIN_ID}
     assert "$set" in update_call[0][1]
     assert "client_secret_hash" in update_call[0][1]["$set"]
