@@ -317,6 +317,22 @@ class TestflingerCli:
         parser.set_defaults(func=self.queue_status)
         parser.add_argument("queue_name")
         parser.add_argument(
+            "--jobs",
+            action="store_true",
+            help="Show job status summary instead of agent status",
+        )
+        parser.add_argument(
+            "--verbose",
+            "-v",
+            action="store_true",
+            help="Show individual jobs with details (only with --jobs)",
+        )
+        parser.add_argument(
+            "--show-completed",
+            action="store_true",
+            help="Include completed jobs (only with --jobs --verbose)",
+        )
+        parser.add_argument(
             "--json", action="store_true", help="Print output in JSON format"
         )
 
@@ -425,6 +441,18 @@ class TestflingerCli:
 
     def queue_status(self):
         """Show the status of the agents in a specified queue."""
+        if self.args.jobs:
+            # New job-focused functionality
+            self._queue_status_jobs()
+        else:
+            # Original agent-focused functionality
+            self._queue_status_agents()
+
+    def _queue_status_agents(self):
+        """Show the status of the agents in a specified queue.
+
+        This is the original functionality.
+        """
         try:
             try:
                 queue_status = self.client.get_agent_status_by_queue(
@@ -495,6 +523,143 @@ class TestflingerCli:
                 f"Jobs waiting:    {len(jobs_queued)}"
             )
         print(output)
+
+    def _queue_status_jobs(self):
+        """Show the status of jobs in a specified queue (new functionality)."""
+        try:
+            # Get all jobs in the queue
+            try:
+                jobs = self.client.get_jobs_on_queue(self.args.queue_name)
+            except client.HTTPError as exc:
+                if exc.status == HTTPStatus.NO_CONTENT:
+                    jobs = []
+                elif exc.status == HTTPStatus.NOT_FOUND:
+                    sys.exit(f"Queue '{self.args.queue_name}' does not exist.")
+                else:
+                    # If any other HTTP error, raise UnknownStatusError
+                    raise UnknownStatusError("queue") from exc
+            except (IOError, ValueError) as exc:
+                # For other types of network errors or JSONDecodeError
+                # if we got a bad return
+                logger.debug("Unable to retrieve job data: %s", exc)
+                raise UnknownStatusError("queue") from exc
+
+        except UnknownStatusError as exc:
+            sys.exit(exc)
+
+        # Categorize jobs by status
+        job_counts = Counter()
+        incomplete_jobs = []
+        completed_jobs = []
+
+        for job in jobs:
+            job_state = job["job_state"]
+            job_counts[job_state] += 1
+
+            # Categorize for verbose output
+            if job_state in ("complete", "completed", "cancelled"):
+                completed_jobs.append(job)
+            else:
+                incomplete_jobs.append(job)
+
+        # Generate output based on options
+        if self.args.json:
+            output_data = {
+                "queue": self.args.queue_name,
+                "summary": dict(job_counts),
+                "total_jobs": len(jobs),
+            }
+
+            if self.args.verbose:
+                output_data["incomplete_jobs"] = incomplete_jobs
+                if self.args.show_completed:
+                    output_data["completed_jobs"] = completed_jobs
+
+            print(json.dumps(output_data, sort_keys=True, indent=2))
+        else:
+            self._print_queue_status_summary(job_counts, jobs)
+
+            if self.args.verbose:
+                self._print_verbose_job_list(incomplete_jobs, completed_jobs)
+
+    def _print_queue_status_summary(self, job_counts, jobs):
+        """Print a summary of job statuses in the queue."""
+        # Map job states to more user-friendly names
+        state_mapping = {
+            "complete": "complete",
+            "completed": "complete",
+            "cancelled": "cancelled",
+            "waiting": "waiting",
+            "running": "running",
+            "provision": "running",
+            "test": "running",
+            "setup": "running",
+            "reserved": "running",
+            "released": "running",
+        }
+
+        # Count jobs by simplified states
+        simplified_counts = Counter()
+        for state, count in job_counts.items():
+            simplified_state = state_mapping.get(state, "running")
+            simplified_counts[simplified_state] += count
+
+        # Format output like the issue example:
+        # "70 complete, 1 Running, 9 Waiting"
+        parts = []
+        if simplified_counts["complete"]:
+            parts.append(f"{simplified_counts['complete']} complete")
+        if simplified_counts["cancelled"]:
+            parts.append(f"{simplified_counts['cancelled']} cancelled")
+        if simplified_counts["running"]:
+            parts.append(f"{simplified_counts['running']} running")
+        if simplified_counts["waiting"]:
+            parts.append(f"{simplified_counts['waiting']} waiting")
+
+        if parts:
+            print(", ".join(parts))
+        else:
+            print("No jobs found in queue")
+
+    def _print_verbose_job_list(self, incomplete_jobs, completed_jobs):
+        """Print detailed job list for verbose mode."""
+        # Sort jobs by creation time (newest first for incomplete,
+        # oldest first for completed)
+        incomplete_jobs.sort(key=lambda x: x["created_at"], reverse=True)
+        completed_jobs.sort(key=lambda x: x["created_at"])
+
+        # Print incomplete jobs first
+        for job in incomplete_jobs:
+            timestamp = self._format_timestamp(job["created_at"])
+            print(f"{job['job_id']}\t{job['job_state']:<12}\t{timestamp}")
+
+        # Print completed jobs if requested
+        if self.args.show_completed and completed_jobs:
+            for job in completed_jobs:
+                timestamp = self._format_timestamp(job["created_at"])
+                print(f"{job['job_id']}\t{job['job_state']:<12}\t{timestamp}")
+
+    def _format_timestamp(self, timestamp_str):
+        """Format timestamp string to match the issue example format."""
+        try:
+            # Parse the ISO timestamp from the server
+            if isinstance(timestamp_str, str):
+                # Handle different timestamp formats from the server
+                if "T" in timestamp_str:
+                    dt = datetime.fromisoformat(
+                        timestamp_str.replace("Z", "+00:00")
+                    )
+                else:
+                    dt = datetime.fromisoformat(timestamp_str)
+            else:
+                # If it's already a datetime object
+                dt = timestamp_str
+
+            # Format as "2023-10-13 15:22:46"
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
+        except (ValueError, AttributeError):
+            # Fallback to original string if parsing fails
+            return str(timestamp_str)
 
     def cancel(self, job_id=None):
         """Tell the server to cancel a specified JOB_ID."""
