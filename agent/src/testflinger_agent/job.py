@@ -125,7 +125,16 @@ class TestflingerJob:
         # Retrieve device info and send it to /result/<job_id> endpoint
         device_info = self.get_device_info(rundir)
         if device_info:
-            self.client.post_result(self.job_id, device_info)
+            try:
+                # raises TFServerError upon HTTP failure
+                self.client.post_result(self.job_id, device_info)
+            except TFServerError as exc:
+                logger.warning(
+                    "Failed to post device info during %s for job %s: %s",
+                    phase,
+                    self.job_id,
+                    exc,
+                )
 
         try:
             # Set exit_event to fail for this phase in case of an exception
