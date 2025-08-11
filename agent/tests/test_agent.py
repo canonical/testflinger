@@ -929,7 +929,7 @@ class TestClient:
         # Mock server connectivity
         with patch("time.sleep"):
             # Server should be unavailable on first check
-            assert not agent.client.is_server_reacheable()
+            assert not agent.client.is_server_reachable()
 
             # Wait for connectivity to be restored
             agent.client.wait_for_server_connectivity(interval=1)

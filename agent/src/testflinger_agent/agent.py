@@ -415,8 +415,8 @@ class TestflingerAgent:
                 results_basedir = self.client.config.get("results_basedir")
                 shutil.move(rundir, results_basedir)
 
-            # Complete cleanup only if server is reacheable
-            if not self.client.is_server_reacheable():
+            # Complete cleanup only if server is reachable
+            if not self.client.is_server_reachable():
                 self.client.wait_for_server_connectivity()
 
             # clear job id

@@ -482,8 +482,8 @@ class TestflingerClient:
                 exc,
             )
 
-    def is_server_reacheable(self, timeout=10) -> bool:
-        """Check if server is reacheable by doing a health check.
+    def is_server_reachable(self, timeout=10) -> bool:
+        """Check if server is reachable by doing a health check.
 
         :param timeout: timeout for completing HTTP request
         :returns: True if server is reachable, False otherwise
@@ -508,7 +508,7 @@ class TestflingerClient:
         retry_count = 0
         while True:
             time.sleep(interval)
-            if self.is_server_reacheable():
+            if self.is_server_reachable():
                 logger.info("Testflinger server connectivity restored")
                 break
             else:

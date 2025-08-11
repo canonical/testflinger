@@ -127,7 +127,7 @@ def start_agent():
     agent = TestflingerAgent(client)
     while True:
         # Only check agent status and process jobs if server is available
-        if client.is_server_reacheable():
+        if client.is_server_reachable():
             is_offline, offline_comment = agent.check_offline()
             if is_offline:
                 logger.error(
