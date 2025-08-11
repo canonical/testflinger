@@ -126,23 +126,28 @@ def start_agent():
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
     while True:
-        is_offline, offline_comment = agent.check_offline()
-        if is_offline:
-            logger.error(
-                "Agent %s is offline, not processing jobs! "
-                "Reason: %s\n"
-                "Please contact Tesflinger Admin if you require assistance.",
-                config.get("agent_id"),
-                offline_comment or "Unknown",
-            )
-            while agent.check_offline()[0]:
-                time.sleep(check_interval)
-        # Refresh the updated_at timestamp on advertised queues
-        client.post_advertised_queues()
-        logger.info("Checking jobs")
-        agent.process_jobs()
-        logger.info("Sleeping for %d", check_interval)
-        time.sleep(check_interval)
+        # Only check agent status and process jobs if server is available
+        if client.is_server_reacheable():
+            is_offline, offline_comment = agent.check_offline()
+            if is_offline:
+                logger.error(
+                    "Agent %s is offline, not processing jobs! "
+                    "Reason: %s\n"
+                    "Please contact TF Admin if you require assistance.",
+                    config.get("agent_id"),
+                    offline_comment or "Unknown",
+                )
+                while agent.check_offline()[0]:
+                    time.sleep(check_interval)
+            # Refresh the updated_at timestamp on advertised queues
+            client.post_advertised_queues()
+            logger.info("Checking jobs")
+            agent.process_jobs()
+            logger.info("Sleeping for %d", check_interval)
+            time.sleep(check_interval)
+        else:
+            # Waiting until we restore connectivity
+            client.wait_for_server_connectivity()
 
 
 def load_config(configfile):

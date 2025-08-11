@@ -148,11 +148,11 @@ class TestflingerAgent:
             agent_state = agent_data["state"]
         else:
             logger.error(
-                "Unable to retrieve status for agent: %s "
-                "Assumming agent is offline",
+                "Unable to retrieve status for agent: %s ",
                 self.agent_id,
             )
-            agent_state = AgentState.OFFLINE
+            # This is a local state, not something to send to server
+            agent_state = AgentState.UNKNOWN
         return (agent_state, comment)
 
     def check_offline(self) -> tuple:
@@ -404,8 +404,6 @@ class TestflingerAgent:
                 else:
                     event_emitter.emit_event(TestEvent.CLEANUP_SUCCESS)
                 event_emitter.emit_event(TestEvent.JOB_END, job_end_reason)
-                # clear job id
-                self.client.post_agent_data({"job_id": ""})
 
             try:
                 self.client.transmit_job_outcome(rundir)
@@ -416,6 +414,13 @@ class TestflingerAgent:
                 logger.exception(e)
                 results_basedir = self.client.config.get("results_basedir")
                 shutil.move(rundir, results_basedir)
+
+            # Complete cleanup only if server is reacheable
+            if not self.client.is_server_reacheable():
+                self.client.wait_for_server_connectivity()
+
+            # clear job id
+            self.client.post_agent_data({"job_id": ""})
 
             # Check if offline is needed after job completion
             needs_offline, offline_comment = self.check_offline()

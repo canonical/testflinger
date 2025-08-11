@@ -157,6 +157,7 @@ class TestClient:
         with rmock.Mocker() as mocker:
             mocker.post(rmock.ANY, status_code=200)
             # mock response to requesting jobs
+            mocker.get(f"{agent.client.server}/v1", status_code=200)
             mocker.get(
                 re.compile(r"/v1/job\?queue=\w+"),
                 [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
@@ -220,6 +221,7 @@ class TestClient:
         with rmock.Mocker() as mocker:
             mocker.post(rmock.ANY, status_code=200)
             # mock response to requesting jobs
+            mocker.get(f"{agent.client.server}/v1", status_code=200)
             mocker.get(
                 re.compile(r"/v1/job\?queue=\w+"),
                 [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
@@ -282,6 +284,7 @@ class TestClient:
         with rmock.Mocker() as mocker:
             mocker.post(rmock.ANY, status_code=200)
             # mock response to requesting jobs
+            mocker.get(f"{agent.client.server}/v1", status_code=200)
             mocker.get(
                 re.compile(r"/v1/job\?queue=\w+"),
                 [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
@@ -453,6 +456,7 @@ class TestClient:
         # In this case we are making sure that the repost job request
         # gets good status
         with rmock.Mocker() as m:
+            m.get(f"{agent.client.server}/v1", status_code=200)
             m.get(
                 "http://127.0.0.1:8000/v1/job?queue=test", json=fake_job_data
             )
@@ -894,6 +898,7 @@ class TestClient:
             "job_queue": "test",
             "provision_data": {"url": "foo"},
         }
+        requests_mock.get(f"{agent.client.server}/v1", status_code=200)
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
@@ -906,4 +911,3 @@ class TestClient:
         with patch("shutil.rmtree"):
             agent.process_jobs()
         assert "Failed to retrieve agent data" in caplog.text
-        assert "Taking agent offline" in caplog.text

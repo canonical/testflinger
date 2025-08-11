@@ -6,7 +6,7 @@ build-backend = "uv_build"
 name = "testflinger-common"
 description = "Testflinger common modules"
 readme = "README.md"
-version = "1.1.1"
+version = "1.1.2"
 requires-python = ">=3.10"
 dependencies = ["strenum>=0.4.15"]
 
