@@ -157,7 +157,7 @@ class TestClient:
         with rmock.Mocker() as mocker:
             mocker.post(rmock.ANY, status_code=200)
             # mock response to requesting jobs
-            mocker.get(f"{agent.client.server}/v1", status_code=200)
+            mocker.get(f"{agent.client.server}/v1", status_code=HTTPStatus.OK)
             mocker.get(
                 re.compile(r"/v1/job\?queue=\w+"),
                 [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
@@ -221,7 +221,7 @@ class TestClient:
         with rmock.Mocker() as mocker:
             mocker.post(rmock.ANY, status_code=200)
             # mock response to requesting jobs
-            mocker.get(f"{agent.client.server}/v1", status_code=200)
+            mocker.get(f"{agent.client.server}/v1", status_code=HTTPStatus.OK)
             mocker.get(
                 re.compile(r"/v1/job\?queue=\w+"),
                 [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
@@ -284,7 +284,7 @@ class TestClient:
         with rmock.Mocker() as mocker:
             mocker.post(rmock.ANY, status_code=200)
             # mock response to requesting jobs
-            mocker.get(f"{agent.client.server}/v1", status_code=200)
+            mocker.get(f"{agent.client.server}/v1", status_code=HTTPStatus.OK)
             mocker.get(
                 re.compile(r"/v1/job\?queue=\w+"),
                 [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
@@ -456,7 +456,7 @@ class TestClient:
         # In this case we are making sure that the repost job request
         # gets good status
         with rmock.Mocker() as m:
-            m.get(f"{agent.client.server}/v1", status_code=200)
+            m.get(f"{agent.client.server}/v1", status_code=HTTPStatus.OK)
             m.get(
                 "http://127.0.0.1:8000/v1/job?queue=test", json=fake_job_data
             )
@@ -898,7 +898,9 @@ class TestClient:
             "job_queue": "test",
             "provision_data": {"url": "foo"},
         }
-        requests_mock.get(f"{agent.client.server}/v1", status_code=200)
+        requests_mock.get(
+            f"{agent.client.server}/v1", status_code=HTTPStatus.OK
+        )
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
@@ -911,3 +913,27 @@ class TestClient:
         with patch("shutil.rmtree"):
             agent.process_jobs()
         assert "Failed to retrieve agent data" in caplog.text
+
+    def test_server_wait_for_connectivity(self, agent, requests_mock, caplog):
+        """Test agent waits for server availability before processing jobs."""
+        # Mock all GET response for server availability
+        requests_mock.get(
+            f"{agent.client.server}/v1",
+            [
+                {"status_code": HTTPStatus.SERVICE_UNAVAILABLE},
+                {"status_code": HTTPStatus.SERVICE_UNAVAILABLE},
+                {"status_code": HTTPStatus.OK},
+            ],
+        )
+
+        # Mock server connectivity
+        with patch("time.sleep"):
+            # Server should be unavailable on first check
+            assert not agent.client.is_server_reacheable()
+
+            # Wait for connectivity to be restored
+            agent.client.wait_for_server_connectivity(interval=1)
+            # First attempt is also unsuccessful
+            assert "Testflinger server unreachable" in caplog.text
+            # Server should recover in second attempt
+            assert "Testflinger server connectivity restored" in caplog.text
