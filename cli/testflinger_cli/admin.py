@@ -65,6 +65,7 @@ class TestflingerAdminCLI:
             dest="set_command", required=True
         )
         self._add_set_agent_status_args(set_subparser)
+        self._add_set_client_permissions_args(set_subparser)
 
     def _add_get_args(self, subparsers):
         """Command line arguments for set action."""
@@ -108,6 +109,37 @@ class TestflingerAdminCLI:
         parser.add_argument(
             "--comment",
             help="Reason for modifying status (required for status offline)",
+        )
+        self._add_common_admin_args(parser)
+
+    def _add_set_client_permissions_args(self, subparsers):
+        parser = subparsers.add_parser(
+            "client-permissions", help="Set permissions for a client_id"
+        )
+        parser.set_defaults(func=self.set_client_permissions)
+        parser.add_argument(
+            "--testflinger-client-id",
+            help="Client_id to set permissions",
+        )
+        parser.add_argument(
+            "--testflinger-client-secret",
+            help="Secret key to be defined for client_id",
+        )
+        parser.add_argument(
+            "--max-priority",
+            help="Max priority defined for specified queues for client_id",
+        )
+        parser.add_argument(
+            "--max-reservation",
+            help="Max reservation time defined specified queues for client_id",
+        )
+        parser.add_argument(
+            "--role",
+            help="Role defined for client_id",
+            choices=["admin", "manager", "contributor"],
+        )
+        parser.add_argument(
+            "--json", help="Optional JSON data with client_permissions"
         )
         self._add_common_admin_args(parser)
 
@@ -209,6 +241,77 @@ class TestflingerAdminCLI:
                     )
 
     @require_role("admin", "manager")
+    def set_client_permissions(self):
+        """Set permissions for specified clients."""
+        # Get the authentication header to perform authenticated request
+        auth_header = self.main_cli.auth.build_headers()
+
+        # Build json_data - --json takes precedence if provided
+        if self.main_cli.args.json:
+            try:
+                # Handle both string and already parsed JSON
+                if isinstance(self.main_cli.args.json, str):
+                    json_data = json.loads(self.main_cli.args.json)
+                else:
+                    json_data = self.main_cli.args.json
+            except (json.JSONDecodeError, TypeError) as exc:
+                sys.exit(f"Error parsing JSON: {exc}")
+        else:
+            # Build from individual arguments
+            args_mapping = {
+                "client_id": "testflinger_client_id",
+                "client_secret": "testflinger_client_secret",
+                "max_priority": "max_priority",
+                "max_reservation": "max_reservation",
+                "role": "role",
+            }
+
+            json_data = {
+                json_key: getattr(self.main_cli.args, arg_name)
+                for json_key, arg_name in args_mapping.items()
+                if getattr(self.main_cli.args, arg_name) is not None
+            }
+
+        # Get client_id for existence check
+        tf_client_id = json_data.get("client_id")
+        if not tf_client_id:
+            sys.exit("Error: client_id cannot be empty")
+
+        # Check if client exists by trying to get its permissions
+        try:
+            self.main_cli.client.get_client_permissions(
+                auth_header, tf_client_id
+            )
+            # Client exists, so edit it
+            print(f"Updating existing client '{tf_client_id}'...")
+            self.main_cli.client.edit_client_permissions(
+                auth_header, json_data
+            )
+            print(f"Client '{tf_client_id}' permissions updated successfully")
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NOT_FOUND:
+                # Client doesn't exist, try to create
+                print(f"Creating new client '{tf_client_id}'...")
+                try:
+                    self.main_cli.client.create_client_permissions(
+                        auth_header, json_data
+                    )
+                    print(f"Client '{tf_client_id}' created successfully")
+                except client.HTTPError as create_exc:
+                    print(
+                        f"Failed to create client: {create_exc.msg}",
+                        file=sys.stderr,
+                    )
+            elif exc.status == HTTPStatus.UNPROCESSABLE_ENTITY:
+                print(f"Schema validation failed: {exc.msg}", file=sys.stderr)
+            else:
+                # Other HTTP error
+                print(
+                    f"Failed to set client permissions: {exc.msg}",
+                    file=sys.stderr,
+                )
+
+    @require_role("admin", "manager")
     def get_client_permissions(self):
         """Get permissions for specified clients."""
         # Get the authentication header to perform authenticated GET request
@@ -230,7 +333,6 @@ class TestflingerAdminCLI:
             if exc.status == HTTPStatus.NOT_FOUND:
                 # Failure reason is clearly stated in msg from server
                 print(exc.msg, file=sys.stderr)
-
 
     @require_role("admin", "manager")
     def delete_client_permissions(self):

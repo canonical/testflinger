@@ -197,35 +197,6 @@ class Client:
             self._handle_response_error(req)
         return req.text
 
-    def delete(
-        self, uri_frag: str, timeout: int = 15, headers: dict | None = None
-    ):
-        """Submit a DELETE request to the server
-        :param uri_frag: endpoint for the DELETE request
-        :param timeout: timeout for the request to complete
-        :param headers: authentication header if needed to perfom request.
-        :return: string containing the response from the server.
-        """
-        uri = urllib.parse.urljoin(self.server, uri_frag)
-        try:
-            req = requests.delete(uri, timeout=timeout, headers=headers)
-        except requests.exceptions.ConnectTimeout:
-            logger.error(
-                "Timeout while trying to communicate with the server."
-            )
-            sys.exit(1)
-        except requests.exceptions.ConnectionError:
-            logger.error("Unable to communicate with specified server.")
-            sys.exit(1)
-        if req.status_code != 200:
-            try:
-                error_message = req.json().get("message", req.text)
-            except ValueError:
-                # Return clear text if output is not JSON
-                error_message = req.text
-            raise HTTPError(status=req.status_code, msg=error_message)
-        return req.text
-
     def put_file(self, uri_frag: str, path: Path, timeout: float):
         """Stream a file to the server using a POST request.
 
@@ -466,6 +437,17 @@ class Client:
         endpoint = f"/v1/agents/data/{agent}"
         data = {"state": status, "comment": comment}
         self.post(endpoint, data)
+
+    def create_client_permissions(self, auth_header: dict, json_data: dict):
+        """Create new client_id with specified permissions."""
+        endpoint = "/v1/client-permissions"
+        self.post(endpoint, data=json_data, headers=auth_header)
+
+    def edit_client_permissions(self, auth_header: dict, json_data: dict):
+        """Edit existing client_id permissions."""
+        client_id = json_data.pop("client_id")
+        endpoint = f"/v1/client-permissions/{client_id}"
+        self.put(endpoint, data=json_data, headers=auth_header)
 
     def get_client_permissions(
         self, auth_header: dict, tf_client_id: str | None = None
