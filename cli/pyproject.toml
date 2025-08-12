@@ -70,3 +70,6 @@ convention = "pep257"
 
 [tool.uv]
 cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true } }]
+
+[tool.setuptools_scm]
+fallback_version = "0.0.0"
