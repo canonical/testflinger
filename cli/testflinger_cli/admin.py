@@ -40,6 +40,7 @@ class TestflingerAdminCLI:
         )
         self._add_set_args(admin_subparser)
         self._add_get_args(admin_subparser)
+        self._add_delete_args(admin_subparser)
 
     def _add_common_admin_args(self, parser):
         parser.add_argument(
@@ -75,6 +76,16 @@ class TestflingerAdminCLI:
         )
         self._add_get_client_permissions_args(get_subparser)
 
+    def _add_delete_args(self, subparsers):
+        """Command line arguments for set action."""
+        parser = subparsers.add_parser(
+            "delete", help="Perform delete action on subcommand"
+        )
+        delete_subparser = parser.add_subparsers(
+            dest="delete_command", required=True
+        )
+        self._add_delete_client_permissions_args(delete_subparser)
+
     def _add_set_agent_status_args(self, subparsers):
         """Command line arguments for agent status."""
         parser = subparsers.add_parser(
@@ -107,9 +118,20 @@ class TestflingerAdminCLI:
         parser.set_defaults(func=self.get_client_permissions)
         parser.add_argument(
             "--testflinger-client-id",
-            action="extend",
-            nargs="*",
-            help="List of client_id to get permissions",
+            help="Client_id to get permissions",
+        )
+        self._add_common_admin_args(parser)
+
+    def _add_delete_client_permissions_args(self, subparsers):
+        parser = subparsers.add_parser(
+            "client-permissions",
+            help="Delete client_id registry from database",
+        )
+        parser.set_defaults(func=self.delete_client_permissions)
+        parser.add_argument(
+            "--testflinger-client-id",
+            required=True,
+            help="client_id to delete from database",
         )
         self._add_common_admin_args(parser)
 
@@ -192,25 +214,40 @@ class TestflingerAdminCLI:
         # Get the authentication header to perform authenticated GET request
         auth_header = self.main_cli.auth.build_headers()
 
-        # If no client_id specified, get all client_permissions
-        if not self.main_cli.args.testflinger_client_id:
-            permissions = self.main_cli.client.get_client_permissions(
-                auth_header
-            )
-        else:
-            permissions = []
-            for tf_client in self.main_cli.args.testflinger_client_id:
-                try:
-                    permissions.append(
-                        self.main_cli.client.get_client_permissions(
-                            auth_header, tf_client
-                        )
+        # If no client_id specified will get all client_permissions
+        tf_client_id = getattr(
+            self.main_cli.args, "testflinger_client_id", None
+        )
+        try:
+            print(
+                json.dumps(
+                    self.main_cli.client.get_client_permissions(
+                        auth_header, tf_client_id
                     )
+                )
+            )
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NOT_FOUND:
+                # Failure reason is clearly stated in msg from server
+                print(exc.msg, file=sys.stderr)
 
-                except client.HTTPError as exc:
-                    if exc.status == HTTPStatus.NOT_FOUND:
-                        print(
-                            f"Specified client_id {tf_client} does not exist."
-                        )
-                    continue
-        print(json.dumps(permissions))
+
+    @require_role("admin", "manager")
+    def delete_client_permissions(self):
+        """Delete specified clients from client_permissions database."""
+        # Get the authentication header to perform authenticated DELETE request
+        auth_header = self.main_cli.auth.build_headers()
+
+        tf_client = self.main_cli.args.testflinger_client_id
+        try:
+            self.main_cli.client.delete_client_permissions(
+                auth_header, tf_client
+            )
+            print(f"Succesfully deleted {tf_client} from database")
+        except client.HTTPError as exc:
+            if (
+                exc.status == HTTPStatus.NOT_FOUND
+                or exc.status == HTTPStatus.UNPROCESSABLE_ENTITY
+            ):
+                # Failure reason is clearly stated in msg from server
+                print(exc.msg, file=sys.stderr)
