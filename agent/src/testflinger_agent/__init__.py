@@ -134,7 +134,7 @@ def start_agent():
             logger.error(
                 "Agent %s is offline, not processing jobs! "
                 "Reason: %s\n"
-                "Please contact TF Admin if you require assistance.",
+                "Please contact Testflinger Admin if you require assistance.",
                 config.get("agent_id"),
                 offline_comment or "Unknown",
             )
