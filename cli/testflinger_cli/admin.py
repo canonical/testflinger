@@ -38,6 +38,21 @@ class TestflingerAdminCLI:
             dest="admin_command", required=True
         )
         self._add_set_args(admin_subparser)
+        self._add_get_args(admin_subparser)
+
+    def _add_common_admin_args(self, parser):
+        parser.add_argument(
+            "--client-id",
+            "--client_id",
+            default=None,
+            help="Client ID to authenticate with Testflinger server",
+        )
+        parser.add_argument(
+            "--secret-key",
+            "--secret_key",
+            default=None,
+            help="Secret key to be used with client id for authentication",
+        )
 
     def _add_set_args(self, subparsers):
         """Command line arguments for set action."""
@@ -48,6 +63,16 @@ class TestflingerAdminCLI:
             dest="set_command", required=True
         )
         self._add_set_agent_status_args(set_subparser)
+
+    def _add_get_args(self, subparsers):
+        """Command line arguments for set action."""
+        parser = subparsers.add_parser(
+            "get", help="Perform get action on subcommand"
+        )
+        set_subparser = parser.add_subparsers(
+            dest="get_command", required=True
+        )
+        self._add_get_client_permissions_args(set_subparser)
 
     def _add_set_agent_status_args(self, subparsers):
         """Command line arguments for agent status."""
@@ -72,18 +97,20 @@ class TestflingerAdminCLI:
             "--comment",
             help="Reason for modifying status (required for status offline)",
         )
-        parser.add_argument(
-            "--client-id",
-            "--client_id",
-            default=None,
-            help="Client ID to authenticate with Testflinger server",
+        self._add_common_admin_args(parser)
+
+    def _add_get_client_permissions_args(self, subparsers):
+        parser = subparsers.add_parser(
+            "client-permissions", help="Get permissions for client_id"
         )
+        parser.set_defaults(func=self.get_client_permissions)
         parser.add_argument(
-            "--secret-key",
-            "--secret_key",
-            default=None,
-            help="Secret key to be used with client id for authentication",
+            "--testflinger-client-id",
+            action="extend",
+            nargs="*",
+            help="List of client_id to get permissions",
         )
+        self._add_common_admin_args(parser)
 
     @require_role("admin")
     def set_agent_status(self):
@@ -157,3 +184,19 @@ class TestflingerAdminCLI:
                         "Exception raised when setting "
                         f"status for {agent}: {exc}"
                     )
+
+    def get_client_permissions(self):
+        """Get permissions for specified clients."""
+        # If no client_id specified, get all client_permissions
+        if not self.main_cli.args.testflinger_client_id:
+            self.client.get_client_permissions()
+        else:
+            for tf_client in self.main_cli.args.testflinger_client_id:
+                try:
+                    self.client.get_client_permissions(tf_client)
+                except client.HTTPError as exc:
+                    if exc.status == HTTPStatus.NOT_FOUND:
+                        print(
+                            f"Specified client_id {tf_client} does not exist."
+                        )
+                    continue
