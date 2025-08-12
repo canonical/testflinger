@@ -16,6 +16,7 @@
 
 """Testflinger Admin CLI module."""
 
+import json
 import sys
 from http import HTTPStatus
 from string import Template
@@ -69,10 +70,10 @@ class TestflingerAdminCLI:
         parser = subparsers.add_parser(
             "get", help="Perform get action on subcommand"
         )
-        set_subparser = parser.add_subparsers(
+        get_subparser = parser.add_subparsers(
             dest="get_command", required=True
         )
-        self._add_get_client_permissions_args(set_subparser)
+        self._add_get_client_permissions_args(get_subparser)
 
     def _add_set_agent_status_args(self, subparsers):
         """Command line arguments for agent status."""
@@ -185,18 +186,31 @@ class TestflingerAdminCLI:
                         f"status for {agent}: {exc}"
                     )
 
+    @require_role("admin", "manager")
     def get_client_permissions(self):
         """Get permissions for specified clients."""
+        # Get the authentication header to perform authenticated GET request
+        auth_header = self.main_cli.auth.build_headers()
+
         # If no client_id specified, get all client_permissions
         if not self.main_cli.args.testflinger_client_id:
-            self.client.get_client_permissions()
+            permissions = self.main_cli.client.get_client_permissions(
+                auth_header
+            )
         else:
+            permissions = []
             for tf_client in self.main_cli.args.testflinger_client_id:
                 try:
-                    self.client.get_client_permissions(tf_client)
+                    permissions.append(
+                        self.main_cli.client.get_client_permissions(
+                            auth_header, tf_client
+                        )
+                    )
+
                 except client.HTTPError as exc:
                     if exc.status == HTTPStatus.NOT_FOUND:
                         print(
                             f"Specified client_id {tf_client} does not exist."
                         )
                     continue
+        print(json.dumps(permissions))

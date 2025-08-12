@@ -439,15 +439,16 @@ class Client:
         self.post(endpoint, data)
 
     def get_client_permissions(
-        self, tf_client_id: str | None = None
+        self, auth_header: dict, tf_client_id: str | None = None
     ) -> list[dict] | None:
         """Get the permissions from specified client.
 
         If no client specified, will provide all client permissions.
+        :auth_header: Authentication header required to perform GET request
         :param tf_client_id: Specified client to retrieve permissions from
         """
         if tf_client_id:
             endpoint = f"/v1/client-permissions/{tf_client_id}"
         else:
             endpoint = "/v1/client-permissions"
-        return json.loads(self.get(endpoint))
+        return json.loads(self.get(endpoint, headers=auth_header))
