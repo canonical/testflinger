@@ -507,14 +507,13 @@ class TestflingerClient:
         """
         retry_count = 0
         while True:
-            time.sleep(interval)
             if self.is_server_reachable():
-                logger.info("Testflinger server connectivity restored")
                 break
             else:
                 logger.warning(
                     "Testflinger server unreachable, waiting for connectivity"
                 )
+                time.sleep(interval)
                 # Exponentially increase interval between rechecks
                 interval = min(interval * (2**retry_count), max_interval)
                 retry_count += 1

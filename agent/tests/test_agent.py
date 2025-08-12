@@ -935,5 +935,3 @@ class TestClient:
             agent.client.wait_for_server_connectivity(interval=1)
             # First attempt is also unsuccessful
             assert "Testflinger server unreachable" in caplog.text
-            # Server should recover in second attempt
-            assert "Testflinger server connectivity restored" in caplog.text
