@@ -197,6 +197,35 @@ class Client:
             self._handle_response_error(req)
         return req.text
 
+    def delete(
+        self, uri_frag: str, timeout: int = 15, headers: dict | None = None
+    ):
+        """Submit a DELETE request to the server
+        :param uri_frag: endpoint for the DELETE request
+        :param timeout: timeout for the request to complete
+        :param headers: authentication header if needed to perfom request.
+        :return: string containing the response from the server.
+        """
+        uri = urllib.parse.urljoin(self.server, uri_frag)
+        try:
+            req = requests.delete(uri, timeout=timeout, headers=headers)
+        except requests.exceptions.ConnectTimeout:
+            logger.error(
+                "Timeout while trying to communicate with the server."
+            )
+            sys.exit(1)
+        except requests.exceptions.ConnectionError:
+            logger.error("Unable to communicate with specified server.")
+            sys.exit(1)
+        if req.status_code != 200:
+            try:
+                error_message = req.json().get("message", req.text)
+            except ValueError:
+                # Return clear text if output is not JSON
+                error_message = req.text
+            raise HTTPError(status=req.status_code, msg=error_message)
+        return req.text
+
     def put_file(self, uri_frag: str, path: Path, timeout: float):
         """Stream a file to the server using a POST request.
 
@@ -452,3 +481,14 @@ class Client:
         else:
             endpoint = "/v1/client-permissions"
         return json.loads(self.get(endpoint, headers=auth_header))
+
+    def delete_client_permissions(
+        self, auth_header: dict, tf_client_id: str
+    ) -> None:
+        """Delete a client_id along with its permissions.
+
+        :auth_header: Authentication header required to perform DE:ETE request
+        :param tf_client_id: Specified client to delete permissions from
+        """
+        endpoint = f"/v1/client-permissions/{tf_client_id}"
+        self.delete(endpoint, headers=auth_header)
