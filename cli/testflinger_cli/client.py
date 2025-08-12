@@ -75,7 +75,7 @@ class Client:
             raise HTTPError(status=req.status_code, msg=error_message)
         return req.text
 
-    def put(self, uri_frag, data, timeout=15, headers=None):
+    def post(self, uri_frag, data, timeout=15, headers=None):
         """Submit a POST request to the server
         :param uri_frag:
             endpoint for the POST request
@@ -211,7 +211,7 @@ class Client:
         """
         endpoint = "/v1/result/{}".format(job_id)
         data = {"job_state": state}
-        self.put(endpoint, data)
+        self.post(endpoint, data)
 
     def submit_job(self, data: dict, headers: dict = None) -> str:
         """Submit a test job to the testflinger server.
@@ -222,7 +222,7 @@ class Client:
             ID for the test job
         """
         endpoint = "/v1/job"
-        response = self.put(endpoint, data, headers=headers)
+        response = self.post(endpoint, data, headers=headers)
         return json.loads(response).get("job_id")
 
     def authenticate(self, client_id: str, secret_key: str) -> dict:
@@ -240,7 +240,7 @@ class Client:
             id_key_pair.encode("utf-8")
         ).decode("utf-8")
         headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
-        response = self.put(endpoint, {}, headers=headers)
+        response = self.post(endpoint, {}, headers=headers)
         return response
 
     def post_attachment(self, job_id: str, path: Path, timeout: int):
@@ -372,7 +372,7 @@ class Client:
         """
         endpoint = f"/v1/agents/data/{agent}"
         data = {"state": status, "comment": comment}
-        self.put(endpoint, data)
+        self.post(endpoint, data)
 
     def get_client_permissions(
         self, auth_header: dict, tf_client_id: str | None = None
