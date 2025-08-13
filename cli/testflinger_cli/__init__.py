@@ -504,7 +504,7 @@ class TestflingerCli:
             except AttributeError:
                 sys.exit("No job id specified to cancel.")
         try:
-            self.client.put(f"/v1/job/{job_id}/action", {"action": "cancel"})
+            self.client.post(f"/v1/job/{job_id}/action", {"action": "cancel"})
             self.history.update(job_id, "cancelled")
         except client.HTTPError as exc:
             if exc.status == 400:
