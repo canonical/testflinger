@@ -67,10 +67,30 @@ class Client:
                 )
             raise
         if req.status_code != 200:
-            raise HTTPError(req.status_code)
+            try:
+                error_json = req.json()
+                error_message = error_json.get("message", req.text)
+
+                # For 422 validation errors, try to get detailed error info
+                if req.status_code == 422 and "detail" in error_json:
+                    detail = error_json["detail"]
+                    if isinstance(detail, dict) and "json" in detail:
+                        validation_errors = detail["json"]
+                        error_details = ", ".join(
+                            [
+                                f"{field}: {msg}"
+                                for field, msg in validation_errors.items()
+                            ]
+                        )
+                        error_message = f"Validation error - {error_details}"
+
+            except ValueError:
+                # Return clear text if output is not JSON
+                error_message = req.text
+            raise HTTPError(status=req.status_code, msg=error_message)
         return req.text
 
-    def put(self, uri_frag, data, timeout=15, headers=None):
+    def post(self, uri_frag, data, timeout=15, headers=None):
         """Submit a POST request to the server
         :param uri_frag:
             endpoint for the POST request
@@ -92,7 +112,117 @@ class Client:
             sys.exit(1)
         if req.status_code != 200:
             try:
-                error_message = req.json().get("message", req.text)
+                error_json = req.json()
+                error_message = error_json.get("message", req.text)
+
+                # For 422 validation errors, try to get detailed error info
+                if req.status_code == 422 and "detail" in error_json:
+                    detail = error_json["detail"]
+                    if isinstance(detail, dict) and "json" in detail:
+                        validation_errors = detail["json"]
+                        error_details = ", ".join(
+                            [
+                                f"{field}: {msg}"
+                                for field, msg in validation_errors.items()
+                            ]
+                        )
+                        error_message = f"Validation error - {error_details}"
+
+            except ValueError:
+                # Return clear text if output is not JSON
+                error_message = req.text
+            raise HTTPError(status=req.status_code, msg=error_message)
+        return req.text
+
+    def put(
+        self,
+        uri_frag: str,
+        data: dict | None = None,
+        timeout: int = 15,
+        headers: dict | None = None,
+    ):
+        """Submit a PUT request to the server
+        :param uri_frag: endpoint for the PUT request
+        :param data: JSON data to send in the request body
+        :param timeout: timeout for the request to complete
+        :param headers: authentication header if needed to perfom request.
+        :return: string containing the response from the server.
+        """
+        uri = urllib.parse.urljoin(self.server, uri_frag)
+        try:
+            req = requests.put(
+                uri, json=data, timeout=timeout, headers=headers
+            )
+        except requests.exceptions.ConnectTimeout:
+            logger.error(
+                "Timeout while trying to communicate with the server."
+            )
+            sys.exit(1)
+        except requests.exceptions.ConnectionError:
+            logger.error("Unable to communicate with specified server.")
+            sys.exit(1)
+        if req.status_code != 200:
+            try:
+                error_json = req.json()
+                error_message = error_json.get("message", req.text)
+
+                # For 422 validation errors, try to get detailed error info
+                if req.status_code == 422 and "detail" in error_json:
+                    detail = error_json["detail"]
+                    if isinstance(detail, dict) and "json" in detail:
+                        validation_errors = detail["json"]
+                        error_details = ", ".join(
+                            [
+                                f"{field}: {msg}"
+                                for field, msg in validation_errors.items()
+                            ]
+                        )
+                        error_message = f"Validation error - {error_details}"
+
+            except ValueError:
+                # Return clear text if output is not JSON
+                error_message = req.text
+            raise HTTPError(status=req.status_code, msg=error_message)
+        return req.text
+
+    def delete(
+        self, uri_frag: str, timeout: int = 15, headers: dict | None = None
+    ):
+        """Submit a DELETE request to the server
+        :param uri_frag: endpoint for the DELETE request
+        :param timeout: timeout for the request to complete
+        :param headers: authentication header if needed to perfom request.
+        :return: string containing the response from the server.
+        """
+        uri = urllib.parse.urljoin(self.server, uri_frag)
+        try:
+            req = requests.delete(uri, timeout=timeout, headers=headers)
+        except requests.exceptions.ConnectTimeout:
+            logger.error(
+                "Timeout while trying to communicate with the server."
+            )
+            sys.exit(1)
+        except requests.exceptions.ConnectionError:
+            logger.error("Unable to communicate with specified server.")
+            sys.exit(1)
+        if req.status_code != 200:
+            try:
+                error_json = req.json()
+                error_message = error_json.get("message", req.text)
+
+                # For 422 validation errors, try to get detailed error info
+                if req.status_code == 422 and "detail" in error_json:
+                    detail = error_json["detail"]
+                    if isinstance(detail, dict) and "json" in detail:
+                        validation_errors = detail["json"]
+                        error_details = ", ".join(
+                            [
+                                f"{field}: {msg}"
+                                for field, msg in validation_errors.items()
+                            ]
+                        )
+                        error_message = f"Validation error - {error_details}"
+
             except ValueError:
                 # Return clear text if output is not JSON
                 error_message = req.text
@@ -177,7 +307,7 @@ class Client:
         """
         endpoint = "/v1/result/{}".format(job_id)
         data = {"job_state": state}
-        self.put(endpoint, data)
+        self.post(endpoint, data)
 
     def submit_job(self, data: dict, headers: dict = None) -> str:
         """Submit a test job to the testflinger server.
@@ -188,7 +318,7 @@ class Client:
             ID for the test job
         """
         endpoint = "/v1/job"
-        response = self.put(endpoint, data, headers=headers)
+        response = self.post(endpoint, data, headers=headers)
         return json.loads(response).get("job_id")
 
     def authenticate(self, client_id: str, secret_key: str) -> dict:
@@ -206,7 +336,7 @@ class Client:
             id_key_pair.encode("utf-8")
         ).decode("utf-8")
         headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
-        response = self.put(endpoint, {}, headers=headers)
+        response = self.post(endpoint, {}, headers=headers)
         return response
 
     def post_attachment(self, job_id: str, path: Path, timeout: int):
@@ -338,4 +468,41 @@ class Client:
         """
         endpoint = f"/v1/agents/data/{agent}"
         data = {"state": status, "comment": comment}
-        self.put(endpoint, data)
+        self.post(endpoint, data)
+
+    def create_client_permissions(self, auth_header: dict, json_data: dict):
+        """Create new client_id with specified permissions."""
+        endpoint = "/v1/client-permissions"
+        self.post(endpoint, data=json_data, headers=auth_header)
+
+    def edit_client_permissions(self, auth_header: dict, json_data: dict):
+        """Edit existing client_id permissions."""
+        client_id = json_data.pop("client_id")
+        endpoint = f"/v1/client-permissions/{client_id}"
+        self.put(endpoint, data=json_data, headers=auth_header)
+
+    def get_client_permissions(
+        self, auth_header: dict, tf_client_id: str | None = None
+    ) -> list[dict] | None:
+        """Get the permissions from specified client.
+
+        If no client specified, will provide all client permissions.
+        :auth_header: Authentication header required to perform GET request
+        :param tf_client_id: Specified client to retrieve permissions from
+        """
+        if tf_client_id:
+            endpoint = f"/v1/client-permissions/{tf_client_id}"
+        else:
+            endpoint = "/v1/client-permissions"
+        return json.loads(self.get(endpoint, headers=auth_header))
+
+    def delete_client_permissions(
+        self, auth_header: dict, tf_client_id: str
+    ) -> None:
+        """Delete a client_id along with its permissions.
+
+        :auth_header: Authentication header required to perform DE:ETE request
+        :param tf_client_id: Specified client to delete permissions from
+        """
+        endpoint = f"/v1/client-permissions/{tf_client_id}"
+        self.delete(endpoint, headers=auth_header)
