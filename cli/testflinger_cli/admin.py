@@ -334,7 +334,7 @@ class TestflingerAdminCLI:
                 # Failure reason is clearly stated in msg from server
                 print(exc.msg, file=sys.stderr)
 
-    @require_role("admin", "manager")
+    @require_role("admin")
     def delete_client_permissions(self):
         """Delete specified clients from client_permissions database."""
         # Get the authentication header to perform authenticated DELETE request
