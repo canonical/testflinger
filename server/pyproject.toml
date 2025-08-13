@@ -76,6 +76,9 @@ ignore = [
 "tests/*" = [
     "S101", # use of assert
 ]
+"src/testflinger/tests/*" = [
+    "S101", # use of assert
+]
 "charm/tests/*" = [
     "S101", # use of assert
 ]
@@ -89,4 +92,4 @@ ignore = "H023,H021"
 indent = 2
 
 [tool.uv.sources]
-testflinger-common = { path = "../common", editable = true }
+testflinger-common = { path = "../common" }

@@ -19,6 +19,7 @@ from apiflask import Schema, fields
 from apiflask.validators import Length, OneOf, Regexp
 from marshmallow import ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
+from testflinger_common.duration import DurationParseError, parse_duration
 
 from testflinger.enums import ServerRoles
 
@@ -277,13 +278,38 @@ class TestData(Schema):
     test_password = fields.String(required=False)
 
 
+class DurationField(fields.Field):
+    """Custom field that accepts both integer seconds and duration strings."""
+
+    def __init__(self, **kwargs):
+        """Initialize the field with allow_none=True by default."""
+        kwargs.setdefault("allow_none", True)
+        super().__init__(**kwargs)
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        """Serialize duration to integer seconds."""
+        if value is None:
+            return None
+        return int(value)
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        """Deserialize duration from integer or string to integer seconds."""
+        if value is None:
+            return None
+
+        try:
+            return parse_duration(value)
+        except DurationParseError as e:
+            raise ValidationError(f"Invalid duration format: {e}") from e
+
+
 class ReserveData(Schema):
     """Schema for the `reserve_data` section of a Testflinger job."""
 
     ssh_keys = fields.List(
         fields.String(validate=Regexp(r"^(lp|gh):(\S+)$")), required=False
     )
-    timeout = fields.Integer(required=False)
+    timeout = DurationField(required=False)
 
 
 class Job(Schema):
