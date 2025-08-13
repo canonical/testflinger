@@ -89,7 +89,7 @@ class Client:
                                 for field, msg in validation_errors.items()
                             ]
                         )
-                        error_message = f"Validation error - {error_details}"
+                        error_message = f"{error_message} - {error_details}"
 
             except ValueError:
                 # Return clear text if output is not JSON
@@ -144,7 +144,7 @@ class Client:
                                 for field, msg in validation_errors.items()
                             ]
                         )
-                        error_message = f"Validation error - {error_details}"
+                        error_message = f"{error_message} - {error_details}"
 
             except ValueError:
                 # Return clear text if output is not JSON
@@ -199,7 +199,7 @@ class Client:
                                 for field, msg in validation_errors.items()
                             ]
                         )
-                        error_message = f"Validation error - {error_details}"
+                        error_message = f"{error_message} - {error_details}"
 
             except ValueError:
                 # Return clear text if output is not JSON
@@ -246,7 +246,7 @@ class Client:
                                 for field, msg in validation_errors.items()
                             ]
                         )
-                        error_message = f"Validation error - {error_details}"
+                        error_message = f"{error_message} - {error_details}"
 
             except ValueError:
                 # Return clear text if output is not JSON

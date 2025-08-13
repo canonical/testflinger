@@ -68,7 +68,7 @@ def test_client_request_methods(requests_mock, method):
 def test_client_request_methods_schema_validation(requests_mock, method):
     """Test output from request after a schema validation fails."""
     validation_error_response = {
-        "message": "Validation failed",
+        "message": "Validation error",
         "detail": {
             "json": {
                 "field1": "This field is required",
