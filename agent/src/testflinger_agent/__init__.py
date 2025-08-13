@@ -126,12 +126,15 @@ def start_agent():
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
     while True:
+        # Only check agent status and process jobs if server is available
+        client.wait_for_server_connectivity()
+
         is_offline, offline_comment = agent.check_offline()
         if is_offline:
             logger.error(
                 "Agent %s is offline, not processing jobs! "
                 "Reason: %s\n"
-                "Please contact Tesflinger Admin if you require assistance.",
+                "Please contact Testflinger Admin if you require assistance.",
                 config.get("agent_id"),
                 offline_comment or "Unknown",
             )

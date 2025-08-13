@@ -90,3 +90,4 @@ class AgentState(StrEnum):
     OFFLINE = "offline"
     MAINTENANCE = "maintenance"
     RESTART = "restart"
+    UNKNOWN = "unknown"

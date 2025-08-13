@@ -481,3 +481,38 @@ class TestflingerClient:
                 status_update_uri,
                 exc,
             )
+
+    def is_server_reachable(self, timeout=10) -> bool:
+        """Check if server is reachable by doing a health check.
+
+        :param timeout: timeout for completing HTTP request
+        :returns: True if server is reachable, False otherwise
+        """
+        try:
+            health_url = urljoin(self.server, "/v1")
+            response = self.session.get(health_url, timeout=timeout)
+            # Mark to False if found any server-side issues
+            return response.status_code < 500
+        except requests.exceptions.RequestException:
+            logger.error("Server connectivity lost")
+            return False
+
+    def wait_for_server_connectivity(
+        self, interval=30, max_interval=180
+    ) -> None:
+        """Wait for connection to tf server to continue agent process.
+
+        :param interval: Initial interval between checks
+        :param max_interval: Max time to wait between checks
+        """
+        retry_count = 0
+        while True:
+            if self.is_server_reachable():
+                break
+            logger.warning(
+                "Testflinger server unreachable, waiting for connectivity"
+            )
+            time.sleep(interval)
+            # Exponentially increase interval between rechecks
+            interval = min(interval * (2**retry_count), max_interval)
+            retry_count += 1
