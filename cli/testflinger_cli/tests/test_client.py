@@ -17,11 +17,13 @@
 """Unit tests for the Client class."""
 
 import logging
+from http import HTTPStatus
 
 import pytest
 import requests
 
-from testflinger_cli.client import Client
+from testflinger_cli.client import Client, HTTPError
+from testflinger_cli.tests.test_cli import URL
 
 
 def test_get_error_threshold(caplog, requests_mock):
@@ -44,3 +46,59 @@ def test_get_error_threshold(caplog, requests_mock):
         "Error communicating with the server for the past 3 requests"
         in caplog.text
     )
+
+
+@pytest.mark.parametrize("method", ["get", "post", "put", "delete"])
+def test_client_request_methods(requests_mock, method):
+    """Test a successful request sent to server."""
+    getattr(requests_mock, method)(f"{URL}/test", text="success")
+
+    client = Client(URL)
+    client_method = getattr(client, method)
+
+    if method in ["post", "put"]:
+        response = client_method("test", {"key": "value"})
+    else:
+        response = client_method("test")
+
+    assert response == "success"
+
+
+@pytest.mark.parametrize("method", ["get", "post", "put", "delete"])
+def test_client_request_methods_schema_validation(requests_mock, method):
+    """Test output from request after a schema validation fails."""
+    validation_error_response = {
+        "message": "Validation failed",
+        "detail": {
+            "json": {
+                "field1": "This field is required",
+                "field2": "Invalid value provided",
+            }
+        },
+    }
+
+    getattr(requests_mock, method)(
+        f"{URL}/test",
+        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        json=validation_error_response,
+    )
+
+    client = Client(URL)
+    client_method = getattr(client, method)
+
+    with pytest.raises(HTTPError) as exc_info:
+        if method in ["post", "put"]:
+            client_method("test", {"key": "value"})
+        else:
+            client_method("test")
+
+    assert exc_info.value.status == HTTPStatus.UNPROCESSABLE_ENTITY
+    error_details = ", ".join(
+        [
+            f"{field}: {msg}"
+            for field, msg in validation_error_response["detail"][
+                "json"
+            ].items()
+        ]
+    )
+    assert f"Validation error - {error_details}" == exc_info.value.msg
