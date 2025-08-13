@@ -48,6 +48,27 @@ def test_get_error_threshold(caplog, requests_mock):
     )
 
 
+@pytest.mark.parametrize("method", ["post", "put", "delete"])
+@pytest.mark.parametrize(
+    "exception",
+    [requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError],
+)
+def test_client_connection_errors_exit(requests_mock, method, exception):
+    """Test that POST, PUT, DELETE methods exit on connection errors."""
+    getattr(requests_mock, method)(f"{URL}/test", exc=exception)
+
+    client = Client(URL)
+    client_method = getattr(client, method)
+
+    with pytest.raises(SystemExit) as exc_info:
+        if method in ["post", "put"]:
+            client_method("test", {"key": "value"})
+        else:
+            client_method("test")
+
+    assert exc_info.value.code == 1
+
+
 @pytest.mark.parametrize("method", ["get", "post", "put", "delete"])
 def test_client_request_methods(requests_mock, method):
     """Test a successful request sent to server."""
