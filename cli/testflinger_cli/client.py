@@ -21,6 +21,7 @@ import json
 import logging
 import sys
 import urllib.parse
+from http import HTTPStatus
 from pathlib import Path
 
 import requests
@@ -45,12 +46,15 @@ class Client:
         self.error_count = 0
         self.error_threshold = error_threshold
 
-    def get(self, uri_frag, timeout=15, headers=None):
-        """Submit a GET request to the server
-        :param uri_frag:
-            endpoint for the GET request
-        :return:
-            String containing the response from the server.
+    def get(
+        self, uri_frag: str, timeout: int = 15, headers: dict | None = None
+    ):
+        """Submit a GET request to the server.
+
+        :param uri_frag: endpoint for the GET request
+        :param timeout: timeout for the request to complete
+        :param headers: authentication header if needed to perfom request
+        :return: string containing the response from the server
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
@@ -66,16 +70,47 @@ class Client:
                     exc,
                 )
             raise
-        if req.status_code != 200:
-            raise HTTPError(req.status_code)
+        if req.status_code != HTTPStatus.OK:
+            try:
+                error_json = req.json()
+                error_message = error_json.get("message", req.text)
+
+                # For schema validation errors, try to get detailed error info
+                if (
+                    req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+                    and "detail" in error_json
+                ):
+                    detail = error_json["detail"]
+                    if isinstance(detail, dict) and "json" in detail:
+                        validation_errors = detail["json"]
+                        error_details = ", ".join(
+                            [
+                                f"{field}: {msg}"
+                                for field, msg in validation_errors.items()
+                            ]
+                        )
+                        error_message = f"Validation error - {error_details}"
+
+            except ValueError:
+                # Return clear text if output is not JSON
+                error_message = req.text
+            raise HTTPError(status=req.status_code, msg=error_message)
         return req.text
 
-    def put(self, uri_frag, data, timeout=15, headers=None):
-        """Submit a POST request to the server
-        :param uri_frag:
-            endpoint for the POST request
-        :return:
-            String containing the response from the server.
+    def post(
+        self,
+        uri_frag: str,
+        data: dict,
+        timeout: int = 15,
+        headers: dict | None = None,
+    ):
+        """Submit a POST request to the server.
+
+        :param uri_frag: endpoint for the POST request
+        :param data: JSON data to send in the request body
+        :param timeout: timeout for the request to complete
+        :param headers: authentication header if needed to perfom request
+        :return: string containing the response from the server
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
@@ -90,9 +125,129 @@ class Client:
         except requests.exceptions.ConnectionError:
             logger.error("Unable to communicate with specified server.")
             sys.exit(1)
-        if req.status_code != 200:
+        if req.status_code != HTTPStatus.OK:
             try:
-                error_message = req.json().get("message", req.text)
+                error_json = req.json()
+                error_message = error_json.get("message", req.text)
+
+                # For schema validation errors, try to get detailed error info
+                if (
+                    req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+                    and "detail" in error_json
+                ):
+                    detail = error_json["detail"]
+                    if isinstance(detail, dict) and "json" in detail:
+                        validation_errors = detail["json"]
+                        error_details = ", ".join(
+                            [
+                                f"{field}: {msg}"
+                                for field, msg in validation_errors.items()
+                            ]
+                        )
+                        error_message = f"Validation error - {error_details}"
+
+            except ValueError:
+                # Return clear text if output is not JSON
+                error_message = req.text
+            raise HTTPError(status=req.status_code, msg=error_message)
+        return req.text
+
+    def put(
+        self,
+        uri_frag: str,
+        data: dict,
+        timeout: int = 15,
+        headers: dict | None = None,
+    ):
+        """Submit a PUT request to the server.
+
+        :param uri_frag: endpoint for the PUT request
+        :param data: JSON data to send in the request body
+        :param timeout: timeout for the request to complete
+        :param headers: authentication header if needed to perfom request
+        :return: string containing the response from the server
+        """
+        uri = urllib.parse.urljoin(self.server, uri_frag)
+        try:
+            req = requests.put(
+                uri, json=data, timeout=timeout, headers=headers
+            )
+        except requests.exceptions.ConnectTimeout:
+            logger.error(
+                "Timeout while trying to communicate with the server."
+            )
+            sys.exit(1)
+        except requests.exceptions.ConnectionError:
+            logger.error("Unable to communicate with specified server.")
+            sys.exit(1)
+        if req.status_code != HTTPStatus.OK:
+            try:
+                error_json = req.json()
+                error_message = error_json.get("message", req.text)
+
+                # For schema validation errors, try to get detailed error info
+                if (
+                    req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+                    and "detail" in error_json
+                ):
+                    detail = error_json["detail"]
+                    if isinstance(detail, dict) and "json" in detail:
+                        validation_errors = detail["json"]
+                        error_details = ", ".join(
+                            [
+                                f"{field}: {msg}"
+                                for field, msg in validation_errors.items()
+                            ]
+                        )
+                        error_message = f"Validation error - {error_details}"
+
+            except ValueError:
+                # Return clear text if output is not JSON
+                error_message = req.text
+            raise HTTPError(status=req.status_code, msg=error_message)
+        return req.text
+
+    def delete(
+        self, uri_frag: str, timeout: int = 15, headers: dict | None = None
+    ):
+        """Submit a DELETE request to the server
+        :param uri_frag: endpoint for the DELETE request
+        :param timeout: timeout for the request to complete
+        :param headers: authentication header if needed to perfom request.
+        :return: string containing the response from the server.
+        """
+        uri = urllib.parse.urljoin(self.server, uri_frag)
+        try:
+            req = requests.delete(uri, timeout=timeout, headers=headers)
+        except requests.exceptions.ConnectTimeout:
+            logger.error(
+                "Timeout while trying to communicate with the server."
+            )
+            sys.exit(1)
+        except requests.exceptions.ConnectionError:
+            logger.error("Unable to communicate with specified server.")
+            sys.exit(1)
+        if req.status_code != HTTPStatus.OK:
+            try:
+                error_json = req.json()
+                error_message = error_json.get("message", req.text)
+
+                # For schema validation errors, try to get detailed error info
+                if (
+                    req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+                    and "detail" in error_json
+                ):
+                    detail = error_json["detail"]
+                    if isinstance(detail, dict) and "json" in detail:
+                        validation_errors = detail["json"]
+                        error_details = ", ".join(
+                            [
+                                f"{field}: {msg}"
+                                for field, msg in validation_errors.items()
+                            ]
+                        )
+                        error_message = f"Validation error - {error_details}"
+
             except ValueError:
                 # Return clear text if output is not JSON
                 error_message = req.text
@@ -177,7 +332,7 @@ class Client:
         """
         endpoint = "/v1/result/{}".format(job_id)
         data = {"job_state": state}
-        self.put(endpoint, data)
+        self.post(endpoint, data)
 
     def submit_job(self, data: dict, headers: dict = None) -> str:
         """Submit a test job to the testflinger server.
@@ -188,7 +343,7 @@ class Client:
             ID for the test job
         """
         endpoint = "/v1/job"
-        response = self.put(endpoint, data, headers=headers)
+        response = self.post(endpoint, data, headers=headers)
         return json.loads(response).get("job_id")
 
     def authenticate(self, client_id: str, secret_key: str) -> dict:
@@ -206,7 +361,7 @@ class Client:
             id_key_pair.encode("utf-8")
         ).decode("utf-8")
         headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
-        response = self.put(endpoint, {}, headers=headers)
+        response = self.post(endpoint, {}, headers=headers)
         return response
 
     def post_attachment(self, job_id: str, path: Path, timeout: int):
@@ -255,7 +410,7 @@ class Client:
         endpoint = "/v1/result/{}/artifact".format(job_id)
         uri = urllib.parse.urljoin(self.server, endpoint)
         req = requests.get(uri, timeout=15, stream=True)
-        if req.status_code != 200:
+        if req.status_code != HTTPStatus.OK:
             raise HTTPError(req.status_code)
         with path.open("wb") as artifact:
             for chunk in req.raw.stream(4096, decode_content=False):
@@ -338,4 +493,4 @@ class Client:
         """
         endpoint = f"/v1/agents/data/{agent}"
         data = {"state": status, "comment": comment}
-        self.put(endpoint, data)
+        self.post(endpoint, data)
