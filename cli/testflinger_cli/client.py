@@ -46,6 +46,37 @@ class Client:
         self.error_count = 0
         self.error_threshold = error_threshold
 
+    def _handle_response_error(self, req: requests.Request):
+        """Handle non-OK response status codes.
+
+        :param req: The response object
+        :raises HTTPError: Exception with status code and error message
+        """
+        try:
+            error_json = req.json()
+            error_message = error_json.get("message", req.text)
+
+            # For schema validation errors, try to get detailed error info
+            if (
+                req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+                and "detail" in error_json
+            ):
+                detail = error_json["detail"]
+                if isinstance(detail, dict) and "json" in detail:
+                    validation_errors = detail["json"]
+                    error_details = ", ".join(
+                        [
+                            f"{field}: {msg}"
+                            for field, msg in validation_errors.items()
+                        ]
+                    )
+                    error_message = f"{error_message} - {error_details}"
+
+        except ValueError:
+            # Return clear text if output is not JSON
+            error_message = req.text
+        raise HTTPError(status=req.status_code, msg=error_message)
+
     def get(
         self, uri_frag: str, timeout: int = 15, headers: dict | None = None
     ):
@@ -70,31 +101,9 @@ class Client:
                     exc,
                 )
             raise
+        # If request was not successful, raise HTTPError with parsed response
         if req.status_code != HTTPStatus.OK:
-            try:
-                error_json = req.json()
-                error_message = error_json.get("message", req.text)
-
-                # For schema validation errors, try to get detailed error info
-                if (
-                    req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-                    and "detail" in error_json
-                ):
-                    detail = error_json["detail"]
-                    if isinstance(detail, dict) and "json" in detail:
-                        validation_errors = detail["json"]
-                        error_details = ", ".join(
-                            [
-                                f"{field}: {msg}"
-                                for field, msg in validation_errors.items()
-                            ]
-                        )
-                        error_message = f"{error_message} - {error_details}"
-
-            except ValueError:
-                # Return clear text if output is not JSON
-                error_message = req.text
-            raise HTTPError(status=req.status_code, msg=error_message)
+            self._handle_response_error(req)
         return req.text
 
     def post(
@@ -125,31 +134,9 @@ class Client:
         except requests.exceptions.ConnectionError:
             logger.error("Unable to communicate with specified server.")
             sys.exit(1)
+        # If request was not successful, raise HTTPError with parsed response
         if req.status_code != HTTPStatus.OK:
-            try:
-                error_json = req.json()
-                error_message = error_json.get("message", req.text)
-
-                # For schema validation errors, try to get detailed error info
-                if (
-                    req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-                    and "detail" in error_json
-                ):
-                    detail = error_json["detail"]
-                    if isinstance(detail, dict) and "json" in detail:
-                        validation_errors = detail["json"]
-                        error_details = ", ".join(
-                            [
-                                f"{field}: {msg}"
-                                for field, msg in validation_errors.items()
-                            ]
-                        )
-                        error_message = f"{error_message} - {error_details}"
-
-            except ValueError:
-                # Return clear text if output is not JSON
-                error_message = req.text
-            raise HTTPError(status=req.status_code, msg=error_message)
+            self._handle_response_error(req)
         return req.text
 
     def put(
@@ -180,31 +167,9 @@ class Client:
         except requests.exceptions.ConnectionError:
             logger.error("Unable to communicate with specified server.")
             sys.exit(1)
+        # If request was not successful, raise HTTPError with parsed response
         if req.status_code != HTTPStatus.OK:
-            try:
-                error_json = req.json()
-                error_message = error_json.get("message", req.text)
-
-                # For schema validation errors, try to get detailed error info
-                if (
-                    req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-                    and "detail" in error_json
-                ):
-                    detail = error_json["detail"]
-                    if isinstance(detail, dict) and "json" in detail:
-                        validation_errors = detail["json"]
-                        error_details = ", ".join(
-                            [
-                                f"{field}: {msg}"
-                                for field, msg in validation_errors.items()
-                            ]
-                        )
-                        error_message = f"{error_message} - {error_details}"
-
-            except ValueError:
-                # Return clear text if output is not JSON
-                error_message = req.text
-            raise HTTPError(status=req.status_code, msg=error_message)
+            self._handle_response_error(req)
         return req.text
 
     def delete(
@@ -227,31 +192,9 @@ class Client:
         except requests.exceptions.ConnectionError:
             logger.error("Unable to communicate with specified server.")
             sys.exit(1)
+        # If request was not successful, raise HTTPError with parsed response
         if req.status_code != HTTPStatus.OK:
-            try:
-                error_json = req.json()
-                error_message = error_json.get("message", req.text)
-
-                # For schema validation errors, try to get detailed error info
-                if (
-                    req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-                    and "detail" in error_json
-                ):
-                    detail = error_json["detail"]
-                    if isinstance(detail, dict) and "json" in detail:
-                        validation_errors = detail["json"]
-                        error_details = ", ".join(
-                            [
-                                f"{field}: {msg}"
-                                for field, msg in validation_errors.items()
-                            ]
-                        )
-                        error_message = f"{error_message} - {error_details}"
-
-            except ValueError:
-                # Return clear text if output is not JSON
-                error_message = req.text
-            raise HTTPError(status=req.status_code, msg=error_message)
+            self._handle_response_error(req)
         return req.text
 
     def put_file(self, uri_frag: str, path: Path, timeout: float):
