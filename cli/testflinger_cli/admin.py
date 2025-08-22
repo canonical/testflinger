@@ -262,7 +262,7 @@ class TestflingerAdminCLI:
                 "client_id": "testflinger_client_id",
                 "client_secret": "testflinger_client_secret",
                 "max_priority": "max_priority",
-                "max_reservation": "max_reservation",
+                "max_reservation_time": "max_reservation",
                 "role": "role",
             }
 
@@ -271,6 +271,14 @@ class TestflingerAdminCLI:
                 for json_key, arg_name in args_mapping.items()
                 if getattr(self.main_cli.args, arg_name) is not None
             }
+
+            # Parse JSON strings for dictionary fields
+            for field in ["max_priority", "max_reservation_time"]:
+                if field in json_data:
+                    try:
+                        json_data[field] = json.loads(json_data[field])
+                    except (json.JSONDecodeError, TypeError) as exc:
+                        sys.exit(f"Error parsing {field} JSON: {exc}")
 
         # Get client_id for existence check
         tf_client_id = json_data.get("client_id")
