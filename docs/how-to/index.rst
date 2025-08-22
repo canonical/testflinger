@@ -16,3 +16,4 @@ Work with jobs via Testflinger CLI
     search-job
     job-priority
     authentication
+    manage-client-permissions
