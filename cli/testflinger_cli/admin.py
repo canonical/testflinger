@@ -303,7 +303,8 @@ class TestflingerAdminCLI:
                         file=sys.stderr,
                     )
             elif exc.status == HTTPStatus.UNPROCESSABLE_ENTITY:
-                print(f"Schema validation failed: {exc.msg}", file=sys.stderr)
+                # Failure reason is clearly stated in msg from server
+                print(exc.msg, file=sys.stderr)
             else:
                 # Other HTTP error
                 print(
