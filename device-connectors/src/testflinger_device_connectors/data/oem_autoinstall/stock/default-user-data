@@ -6,7 +6,6 @@ autoinstall:
   storage:
     layout:
       name: direct
-      #reset-partition: 12G
       match:
         - path: /dev/dm*
         - path: /dev/md*
@@ -77,7 +76,7 @@ autoinstall:
           }
 
           set_usb_boot_first
-        path: /tmp/set_usb_boot.sh
+        path: /usr/local/bin/set_usb_boot.sh
         permissions: '0755'
     runcmd:
       # enable autologin
@@ -88,7 +87,7 @@ autoinstall:
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.settings-daemon.plugins.power"]
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.desktop.session"]
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.desktop.screensaver"]
-      - ["/tmp/set_usb_boot.sh"]  # set USB boot first (after system has booted successfully)
+      - ["/usr/local/bin/set_usb_boot.sh"]  # set USB boot first
       - ["sudo", "apt-get", "update"]
       - ["sudo", "apt-get", "install", "-y", "openssh-server"]
   ssh:
@@ -97,8 +96,3 @@ autoinstall:
       - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCYYa9VOGB5NBJzRQ7OnxG4Z6ynBs+B2+A49RVcNWhzWtwPkEEefsHDIz0VLbVSfGJGQMF2Dsw8PVJWBRTBvc1bkHt3sUCZklAmGVbOhXEaXS/GzCjMEb0Kg8jvEzH3WxLm0X4fIQeIDAE6Za/t5ix3uNwYgzZiGT7isx7aDQtpOrZD+y2n3F1xvDPdySJ304hAkAvMGnkwstNXduUXrnOEoPeOrQbk+k85otyaGqL0C/U+SkeeAKnzikkmvxrZlcp2zxow8iGMTfVNY15nA9BKx4v21nnIKnhVdWZ43ltp9dQoafOXbNtYTxTnFvmaHQ1WFGJ+1/fDAY8tfbjbQaIxPvPJ ubuntu@juju-machine-8-lxc-0
   early-commands:
     - "nmcli networking off"  # to prevent online checks and speed up intallation
-  # late-commands:
-  #   # enable auto login
-  #   - echo "[daemon]" > /target/etc/gdm3/custom.conf
-  #   - echo "AutomaticLoginEnable=true" >> /target/etc/gdm3/custom.conf
-  #   - echo "AutomaticLogin=ubuntu" >> /target/etc/gdm3/custom.conf
