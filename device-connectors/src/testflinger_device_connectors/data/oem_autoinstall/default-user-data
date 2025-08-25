@@ -32,12 +32,6 @@ autoinstall:
 
     write_files:
       - content: |
-          [daemon]
-          AutomaticLoginEnable=True
-          AutomaticLogin=ubuntu
-        path: /etc/gdm3/custom.conf
-        append: true
-      - content: |
           [org.gnome.settings-daemon.plugins.power]
           sleep-inactive-ac-timeout=0
           sleep-inactive-battery-timeout=0
@@ -83,7 +77,7 @@ autoinstall:
           }
 
           set_usb_boot_first
-        path: /tmp/set_usb_boot.sh
+        path: /usr/local/bin/set_usb_boot.sh
         permissions: '0755'
 
     users:
@@ -92,7 +86,6 @@ autoinstall:
         sudo: "ALL=(ALL) NOPASSWD:ALL"
         lock_passwd: false
         shell: /bin/bash
-        # this is just "insecure"
         passwd: "$6$rounds=4096$PCrfo.ggdf4ubP$jpQFjLelT0wZqlsuSgQ4cINcuswPMgKMVaBm198oG9mphcCvqQJ9n0klROSuAgYUn4tbn1ds5K1ba2gTweHwI/"
 
     locale: en_US.UTF-8
@@ -103,11 +96,15 @@ autoinstall:
     package_upgrade: false
 
     runcmd:
+      # enable autologin
+      - ["sudo", "sed", "-i", "s|#  AutomaticLoginEnable = true|AutomaticLoginEnable = true|g", "/etc/gdm3/custom.conf"]
+      - ["sudo", "sed", "-i", "s|#  AutomaticLogin = user1|AutomaticLogin = ubuntu|g", "/etc/gdm3/custom.conf"]
+      # disable power save
       - ["glib-compile-schemas", "/usr/share/glib-2.0/schemas"]
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.settings-daemon.plugins.power"]
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.desktop.session"]
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.desktop.screensaver"]
-      - ["/tmp/set_usb_boot.sh"]
+      - ["/usr/local/bin/set_usb_boot.sh"]
     # Reboot after early-welcome is done
     power_state:
       mode: "reboot"
