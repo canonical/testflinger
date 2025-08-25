@@ -254,7 +254,7 @@ if TYPE_CHECKING:
 
 LIBID = "dc15fa84cef84ce58155fb84f6c6213a"
 LIBAPI = 0
-LIBPATCH = 20
+LIBPATCH = 21
 
 PYDEPS = ["cosl >= 0.0.50", "pydantic"]
 
@@ -472,7 +472,7 @@ else:
             return databag
 
 
-class CosAgentProviderUnitData(DatabagModel):
+class CosAgentProviderUnitData(DatabagModel):  # type: ignore
     """Unit databag model for `cos-agent` relation."""
 
     # The following entries are the same for all units of the same principal.
@@ -499,7 +499,7 @@ class CosAgentProviderUnitData(DatabagModel):
     KEY: ClassVar[str] = "config"
 
 
-class CosAgentPeersUnitData(DatabagModel):
+class CosAgentPeersUnitData(DatabagModel):  # type: ignore
     """Unit databag model for `peers` cos-agent machine charm peer relation."""
 
     # We need the principal unit name and relation metadata to be able to render identifiers
@@ -598,7 +598,7 @@ class Receiver(pydantic.BaseModel):
     )
 
 
-class CosAgentRequirerUnitData(DatabagModel):  # noqa: D101
+class CosAgentRequirerUnitData(DatabagModel):  # type: ignore
     """Application databag model for the COS-agent requirer."""
 
     receivers: List[Receiver] = pydantic.Field(
