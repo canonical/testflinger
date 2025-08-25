@@ -202,8 +202,19 @@ To reserve a device, provide the following section in the job definition file:
 Variables in ``reserve_data``:
 
 * ``ssh_keys``: The list of public SSH keys to use for reserving the device. Each line includes an identity provider name and your username on the provider's system. Testflinger uses the ``ssh-import-id`` command to import public SSH keys from trusted, online identity. Supported identities are Launchpad (``lp``) and GitHub (``gh``).
-* ``timeout``: Reservation time in seconds. The default is one hour (3600), and you can request a reservation for up to 6 hours (21600).
+* ``timeout``: Reservation time. The default is one hour, and you can request a reservation for up to 6 hours.
   Authenticated clients can request longer :doc:`reservation times <../explanation/extended-reservation>` with prior authorisation.
+
+  The timeout can be specified in two formats:
+
+  - **Seconds** (integer): ``3600`` for 1 hour, ``21600`` for 6 hours
+  - **Duration format**: Human-readable format similar to the ``sleep`` command:
+
+    - ``30s`` or ``30sec`` for 30 seconds
+    - ``30m`` or ``30min`` for 30 minutes
+    - ``5h`` or ``5hour`` for 5 hours
+    - ``4d`` or ``4day`` for 4 days
+    - Combined formats: ``2h30m`` for 2 hours and 30 minutes, ``1d5h30m`` for 1 day, 5 hours, and 30 minutes
   
 If either ``reserve_command`` is missing from the agent configuration, or the the ``reserve_data`` section is missing from the job, this phase will be skipped.
 
@@ -224,7 +235,7 @@ If either ``reserve_command`` is missing from the agent configuration, or the th
     reserve_data:
       ssh_keys:
         - "lp:user1"
-      timeout: 4800
+      timeout: 2h30m  # 2 hours and 30 minutes (equivalent to 9000 seconds)
 
 Note: ``lp:user1`` is a string in the job definition YAML, not a YAML key-value pair, so there should be no space between the colon and the username.
 
