@@ -3,3 +3,4 @@
 .. _How to publish documentation on Read the Docs: https://library.canonical.com/documentation/publish-on-read-the-docs
 .. _Example product documentation: https://canonical-example-product-documentation.readthedocs-hosted.com/
 .. _Ubuntu Discourse: https://discourse.ubuntu.com/c/certification/165
+.. _Juju CLI: https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/list-of-juju-cli-commands/run/
