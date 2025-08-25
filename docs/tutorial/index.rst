@@ -41,13 +41,14 @@ Once the installation is finished, you can execute the ``testflinger-cli`` comma
                         ...
 
   positional arguments:
-    {artifacts,cancel,config,jobs,list-queues,poll,reserve,results,show,status,submit}
+    {artifacts,cancel,config,jobs,list-queues,poll,queue-status,reserve,results,show,status,submit}
       artifacts           Download a tarball of artifacts saved for a specified job
       cancel              Tell the server to cancel a specified JOB_ID
       config              Get or set configuration options
       jobs                List the previously started test jobs
       list-queues         List the advertised queues on the Testflinger server
       poll                Poll for output from a job until it is completed
+      queue-status        Show the status of agents and jobs in a specified queue
       reserve             Install and reserve a system
       results             Get results JSON for a completed JOB_ID
       show                Show the requested job JSON for a specified JOB_ID
