@@ -17,6 +17,7 @@
 import base64
 import json
 import logging
+import re
 import subprocess
 import time
 from collections import OrderedDict
@@ -186,14 +187,34 @@ class Maas2:
         efi_data = self._get_efi_data()
         if not efi_data:
             return
+
+        current_boot = efi_data.get("BootCurrent:")
         bootlist = efi_data.get("BootOrder:").split(",")
         new_boot_order = []
+
+        # If current boot is IPv4, add it first to the boot order
+        if current_boot:
+            device_descr = next(
+                (v for k, v in efi_data.items() if f"Boot{current_boot}" in k),
+                None,
+            )
+            if device_descr and "IPv4" in device_descr:
+                new_boot_order.append(current_boot)
+
+        # Add other additional IPv4 entries
         for k, v in efi_data.items():
             if ("IPv4" in v) and "Boot" in k:
-                new_boot_order.append(k[4:8])
+                boot_match = re.search(r"Boot([0-9A-Fa-f]{4})", k)
+                if boot_match:
+                    boot_num = boot_match.group(1)
+                    if boot_num not in new_boot_order:
+                        new_boot_order.append(boot_num)
+
+        # Add remaining entries
         for entry in bootlist:
             if entry not in new_boot_order:
                 new_boot_order.append(entry)
+
         self._set_efi_data(",".join(new_boot_order))
 
     def clear_tpm(self):

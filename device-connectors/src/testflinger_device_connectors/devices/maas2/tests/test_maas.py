@@ -15,6 +15,7 @@
 """Maas2 agent module unit tests."""
 
 import json
+import textwrap
 from collections import namedtuple
 from unittest.mock import patch
 
@@ -76,3 +77,93 @@ def test_maas_cmd_retry(tmp_path):
                 assert err.messsage == "error"
 
             assert mocked_time_sleep.call_count == 6
+
+
+def test_reset_efi_prioritizes_current_boot_device(tmp_path):
+    """Test that reset_efi prioritizes the currently booted network device."""
+    Process = namedtuple("Process", ["returncode", "stdout"])
+
+    # Mock efibootmgr output with BootCurrent and multiple IPv4 devices
+    efibootmgr_output = textwrap.dedent("""\
+        BootCurrent: 0002
+        BootOrder: 0000,0001,0002
+        Boot0000* ubuntu
+        Boot0001* Ethernet 10Gb 2-port Adapter - NIC (PXE IPv4)
+        Boot0002* Ethernet 1Gb 4-port Adapter - NIC (PXE IPv4)
+    """)
+
+    with patch(
+        "testflinger_device_connectors.devices.maas2.maas2.MaasStorage",
+        return_value=None,
+    ):
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                Process(0, efibootmgr_output.encode()),  # _get_efi_data
+                Process(0, b""),  # _set_efi_data
+            ]
+
+            config_yaml = tmp_path / "config.yaml"
+            config = {
+                "maas_user": "user",
+                "node_id": "abc",
+                "agent_name": "agent001",
+                "device_ip": "10.10.10.10",
+            }
+            config_yaml.write_text(yaml.safe_dump(config))
+
+            job_json = tmp_path / "job.json"
+            job = {}
+            job_json.write_text(json.dumps(job))
+
+            maas2 = Maas2(config=config_yaml, job_data=job_json)
+            maas2.reset_efi()
+
+            set_efi_call = mock_run.call_args_list[1]
+            boot_order_arg = set_efi_call[0][0][-1]
+            expected_order = "sudo efibootmgr -o 0002,0001,0000"
+            assert expected_order in boot_order_arg
+
+
+def test_reset_efi_handles_non_ipv4_current_boot(tmp_path):
+    """Test that reset_efi handles cases where current boot is not IPv4."""
+    Process = namedtuple("Process", ["returncode", "stdout"])
+
+    # Current boot is from hard drive, not network
+    efibootmgr_output = textwrap.dedent("""\
+        BootCurrent: 0000
+        BootOrder: 0000,0001,0002
+        Boot0000* ubuntu
+        Boot0001* Ethernet 10Gb 2-port Adapter - NIC (PXE IPv4)
+        Boot0002* Ethernet 1Gb 4-port Adapter - NIC (PXE IPv4)
+    """)
+
+    with patch(
+        "testflinger_device_connectors.devices.maas2.maas2.MaasStorage",
+        return_value=None,
+    ):
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                Process(0, efibootmgr_output.encode()),  # _get_efi_data
+                Process(0, b""),  # _set_efi_data
+            ]
+
+            config_yaml = tmp_path / "config.yaml"
+            config = {
+                "maas_user": "user",
+                "node_id": "abc",
+                "agent_name": "agent001",
+                "device_ip": "10.10.10.10",
+            }
+            config_yaml.write_text(yaml.safe_dump(config))
+
+            job_json = tmp_path / "job.json"
+            job = {}
+            job_json.write_text(json.dumps(job))
+
+            maas2 = Maas2(config=config_yaml, job_data=job_json)
+            maas2.reset_efi()
+
+            set_efi_call = mock_run.call_args_list[1]
+            boot_order_arg = set_efi_call[0][0][-1]
+            expected_order = "sudo efibootmgr -o 0001,0002,0000"
+            assert expected_order in boot_order_arg
