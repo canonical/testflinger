@@ -28,9 +28,6 @@ The configuration options listed below are available for all device connectors u
    * - ``serial_port``
      - all 
      - (optional) ``ser2net`` port for capturing serial output
-   * - ``max_reserve_timeout``
-     - all 
-     - Maximum amount of time (in seconds) that a user can request to reserve a system during the reserve phase
    * - ``env``
      - all 
      - mapping of key value pairs of environment data that will be injected into the runtime environment on the agent host during the test phase
@@ -49,6 +46,12 @@ The configuration options listed below are available for all device connectors u
    * - ``clear_tpm``
      - maas
      - Attempt to clear the TPM before provisioning the system, for SecureBoot systems
+   * - ``timeout_min``
+     - maas
+     - Maximum time in minutes to wait for MAAS deployment to complete (default: 60)
+   * - ``default_disks``
+     - maas
+     - Default disk storage configuration data for MAAS node storage layout
    * - ``snappy_writable_partition``
      - dragonboard
      - The writable partition for injecting the cloud-init user data for enabling a default user
@@ -67,6 +70,12 @@ The configuration options listed below are available for all device connectors u
    * - ``post_provision_script``
      - muxpi
      - List of commands that must be executed on the test device after provisioning, with the test image mounted, for doing device-specific configuration
+   * - ``control_host_reboot_script``
+     - muxpi
+     - List of commands to execute to reboot the control host before provisioning
+   * - ``control_host_reboot_timeout``
+     - muxpi
+     - Time in seconds to wait after rebooting the control host (default: 120)
    * - ``control_host``
      - cm3, muxpi
      - IP of the sidecar device or “controller” that can be used to assist with provisioning. This device should already be configured for ssh using a key on the agent host.
