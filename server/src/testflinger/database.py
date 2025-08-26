@@ -468,9 +468,9 @@ def edit_client_permissions(client_id: str, update_fields: dict) -> None:
     )
 
 
-def delete_client_permissions(client_id: dict) -> None:
-    """Edit client_id with specified new permissions.
+def delete_client_permissions(client_id: str) -> None:
+    """Delete a client_permissions entry with given client_id.
 
-    :param update_fields: client_id along with update permissions.
+    :param client_id: client_id to delete
     """
     mongo.db.client_permissions.delete_one({"client_id": client_id})
