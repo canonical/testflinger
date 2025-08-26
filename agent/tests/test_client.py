@@ -716,3 +716,66 @@ class TestClient:
             and "/v1/agents/data/test_agent" in request.url
         ]
         assert len(agent_data_calls) == 0
+
+    @patch("requests.Session.post", return_value=None)
+    def test_post_status_update_none_response(self, mock_post, client, caplog):
+        """
+        Test that post_status_update handles None response gracefully.
+        This simulates the case where retry exhaustion returns None.
+        """
+        job_id = str(uuid.uuid1())
+
+        client.post_status_update("myjobqueue", "http://foo", [], job_id)
+        assert "No response received" in caplog.text
+
+    @patch("requests.Session.post", return_value=None)
+    def test_post_result_none_response(self, mock_post, client, caplog):
+        """Test that post_result handles None response gracefully."""
+        job_id = str(uuid.uuid1())
+
+        with pytest.raises(TFServerError, match="No response received"):
+            client.post_result(job_id, {"test": "data"})
+        assert "No response received" in caplog.text
+
+    @patch("requests.Session.get", return_value=None)
+    def test_get_result_none_response(self, mock_get, client, caplog):
+        """Test that get_result handles None response gracefully."""
+        job_id = str(uuid.uuid1())
+
+        result = client.get_result(job_id)
+        assert result == {}
+        assert "No response received" in caplog.text
+
+    def test_save_artifacts_error_response(
+        self, client, requests_mock, tmp_path, caplog
+    ):
+        """Test that save_artifacts handles HTTP error response correctly."""
+        job_id = str(uuid.uuid1())
+
+        # Create artifacts directory with a file
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        (artifacts_dir / "test.txt").write_text("test content")
+
+        artifact_uri = f"http://127.0.0.1:8000/v1/result/{job_id}/artifact"
+        requests_mock.post(artifact_uri, status_code=500)
+        with pytest.raises(TFServerError):
+            client.save_artifacts(tmp_path, job_id)
+        assert "Unable to post results" in caplog.text
+        assert "error: 500" in caplog.text
+
+    @patch("requests.Session.post", return_value=None)
+    def test_save_artifacts_none_response(
+        self, mock_post, client, tmp_path, caplog
+    ):
+        """Test that save_artifacts handles None response gracefully."""
+        job_id = str(uuid.uuid1())
+
+        # Create artifacts directory with a file
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        (artifacts_dir / "test.txt").write_text("test content")
+
+        with pytest.raises(TFServerError, match="No response received"):
+            client.save_artifacts(tmp_path, job_id)
+        assert "No response received" in caplog.text
