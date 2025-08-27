@@ -946,7 +946,6 @@ def test_role_hierachy_create_permissions(mongo_app_with_permissions):
     # Cleanup
     mongo.client_permissions.delete_one({"client_id": "test_manager"})
 
-
 def test_refresh_access_token(mongo_app_with_permissions):
     """Test refreshing an access token with a valid refresh token."""
     app, _, client_id, client_key, max_priority = mongo_app_with_permissions
@@ -1232,3 +1231,137 @@ def test_refresh_token_last_accessed_update(mongo_app_with_permissions):
     last_accessed_after = token_entry_after["last_accessed"]
 
     assert last_accessed_after > last_accessed_before
+
+def test_retrieve_parent_permissions_valid(mongo_app):
+    """Test retrieving auth permissions from valid parent job."""
+    from testflinger import database
+    
+    app, mongo = mongo_app
+    parent_permissions = {
+        "client_id": "test_client",
+        "max_priority": {"queue1": 100},
+        "allowed_queues": ["restricted_queue"],
+        "max_reservation_time": {"queue1": 7200}
+    }
+    
+    # Insert parent job with permissions
+    parent_job = {
+        "job_id": "parent-123",
+        "auth_permissions": parent_permissions,
+        "job_data": {"job_queue": "queue1"}
+    }
+    mongo.jobs.insert_one(parent_job)
+    
+    # Test retrieval
+    retrieved_permissions = database.retrieve_parent_permissions("parent-123")
+    assert retrieved_permissions == parent_permissions
+
+
+def test_retrieve_parent_permissions_no_permissions(mongo_app):
+    """Test retrieving permissions from parent job with no auth_permissions."""
+    from testflinger import database
+    
+    app, mongo = mongo_app
+    
+    # Insert parent job without permissions
+    parent_job = {
+        "job_id": "parent-456", 
+        "job_data": {"job_queue": "queue1"}
+    }
+    mongo.jobs.insert_one(parent_job)
+    
+    # Should return empty dict, not error
+    retrieved_permissions = database.retrieve_parent_permissions("parent-456")
+    assert retrieved_permissions == {}
+
+
+def test_retrieve_parent_permissions_nonexistent(mongo_app):
+    """Test retrieving permissions from non-existent parent job."""
+    from testflinger import database
+    
+    app, mongo = mongo_app
+    
+    # Should return empty dict, not error
+    retrieved_permissions = database.retrieve_parent_permissions("nonexistent-job")
+    assert retrieved_permissions == {}
+
+
+def test_agent_jobs_endpoint_with_credentials(mongo_app_with_permissions):
+    """Test agent endpoint submits child job with inherited credentials."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    
+    # Create parent job with permissions
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+	)
+    token = authenticate_output.data.decode("utf-8")
+    parent_job = {"job_queue": "myqueue2", "job_priority": 200}
+    parent_response = app.post(
+        "/v1/job", json=parent_job, headers={"Authorization": token}
+    )
+    parent_job_id = parent_response.json.get("job_id")
+    
+    # Submit child job via agent endpoint
+    child_job = {
+        "job_queue": "myqueue2", 
+        "job_priority": 200,
+        "parent_job_id": parent_job_id
+    }
+    child_response = app.post("/v1/agent/jobs", json=child_job)
+    assert child_response.status_code == 200
+    
+    child_job_id = child_response.json.get("job_id")
+    assert child_job_id is not None
+    
+    # Verify child job inherited parent permissions
+    child_job_data = mongo.jobs.find_one({"job_id": child_job_id})
+    assert child_job_data["parent_job_id"] == parent_job_id
+    assert "auth_permissions" in child_job_data
+
+
+def test_agent_jobs_endpoint_missing_parent_job_id(mongo_app):
+    """Test agent endpoint rejects jobs without parent_job_id."""
+    app, _ = mongo_app
+    
+    child_job = {"job_queue": "myqueue"}
+    response = app.post("/v1/agent/jobs", json=child_job)
+    assert response.status_code == 422
+    assert "parent_job_id required" in response.get_json()["message"]
+
+
+def test_agent_jobs_endpoint_invalid_parent_job_id(mongo_app):
+    """Test agent endpoint rejects jobs with invalid parent_job_id."""
+    app, _ = mongo_app
+    
+    child_job = {
+        "job_queue": "myqueue",
+        "parent_job_id": "invalid-uuid"
+    }
+    response = app.post("/v1/agent/jobs", json=child_job)
+    assert response.status_code == 400
+    assert "Invalid parent_job_id" in response.get_json()["message"]
+
+
+def test_agent_jobs_endpoint_no_parent_permissions(mongo_app):
+    """Test agent endpoint works when parent has no permissions."""
+    app, mongo = mongo_app
+    
+    # Create parent job without authentication (no permissions)
+    parent_job = {"job_queue": "myqueue"}
+    parent_response = app.post("/v1/job", json=parent_job)
+    parent_job_id = parent_response.json.get("job_id")
+    
+    # Submit child job via agent endpoint
+    child_job = {
+        "job_queue": "myqueue",
+        "parent_job_id": parent_job_id
+    }
+    child_response = app.post("/v1/agent/jobs", json=child_job)
+    assert child_response.status_code == 200
+    
+    # Verify child job was created successfully
+    child_job_id = child_response.json.get("job_id")
+    child_job_data = mongo.jobs.find_one({"job_id": child_job_id})
+    assert child_job_data["parent_job_id"] == parent_job_id
+    assert "auth_permissions" not in child_job_data
