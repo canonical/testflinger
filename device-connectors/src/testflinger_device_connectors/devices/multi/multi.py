@@ -185,7 +185,8 @@ class Multi:
             updated_job = self.inject_parent_jobid(updated_job)
 
             try:
-                job_id = self.client.submit_job(updated_job)
+                # Use agent job submission for credential inheritance
+                job_id = self.client.submit_agent_job(updated_job)
             except requests.exceptions.HTTPError as exc:
                 logger.error("Unable to create job: %s", exc.response.text)
                 self.cancel_jobs(self.jobs)
