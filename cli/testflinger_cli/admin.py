@@ -24,6 +24,7 @@ from string import Template
 
 from testflinger_cli import client
 from testflinger_cli.auth import require_role
+from testflinger_cli.consts import ServerRoles
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +140,11 @@ class TestflingerAdminCLI:
         parser.add_argument(
             "--role",
             help="Role defined for client_id",
-            choices=["admin", "manager", "contributor"],
+            choices=[
+                ServerRoles.ADMIN,
+                ServerRoles.MANAGER,
+                ServerRoles.CONTRIBUTOR,
+            ],
         )
         parser.add_argument(
             "--json", help="Optional JSON data with client_permissions"
@@ -170,7 +175,7 @@ class TestflingerAdminCLI:
         )
         self._add_common_admin_args(parser)
 
-    @require_role("admin")
+    @require_role(ServerRoles.ADMIN)
     def set_agent_status(self):
         """Modify agent status."""
         # Override online for valid state in server
@@ -243,7 +248,7 @@ class TestflingerAdminCLI:
                         f"status for {agent}: {exc}"
                     )
 
-    @require_role("admin", "manager")
+    @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
     def set_client_permissions(self):
         """Set permissions for specified clients."""
         # Get the authentication header to perform authenticated request
@@ -323,7 +328,7 @@ class TestflingerAdminCLI:
                     {exc.msg},
                 )
 
-    @require_role("admin", "manager")
+    @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
     def get_client_permissions(self):
         """Get permissions for specified clients."""
         # Get the authentication header to perform authenticated GET request
@@ -346,7 +351,7 @@ class TestflingerAdminCLI:
                 # Failure reason is clearly stated in msg from server
                 logger.error(exc.msg)
 
-    @require_role("admin")
+    @require_role(ServerRoles.ADMIN)
     def delete_client_permissions(self):
         """Delete specified clients from client_permissions database."""
         # Get the authentication header to perform authenticated DELETE request

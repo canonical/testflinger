@@ -24,6 +24,7 @@ import jwt
 import pytest
 
 import testflinger_cli
+from testflinger_cli.consts import ServerRoles
 from testflinger_cli.errors import AuthorizationError
 from testflinger_cli.tests.test_cli import URL
 
@@ -55,7 +56,7 @@ def auth_fixture(monkeypatch, requests_mock):
 @pytest.mark.parametrize("state", ["offline", "maintenance"])
 def test_set_agent_status_online(auth_fixture, capsys, requests_mock, state):
     """Validate we are able to change agent status to online."""
-    auth_fixture("admin")
+    auth_fixture(ServerRoles.ADMIN)
     fake_agent = "fake_agent"
     fake_return = {
         "name": "fake_agent",
@@ -92,7 +93,7 @@ def test_set_incorrect_agent_status(
     auth_fixture, capsys, requests_mock, state
 ):
     """Validate we can't modify status to online if at any testing stage."""
-    auth_fixture("admin")
+    auth_fixture(ServerRoles.ADMIN)
     fake_agent = "fake_agent"
     fake_return = {
         "name": fake_agent,
@@ -119,7 +120,7 @@ def test_set_incorrect_agent_status(
 
 def test_set_offline_without_comments(auth_fixture, requests_mock):
     """Validate status can't change to offline without comments."""
-    auth_fixture("admin")
+    auth_fixture(ServerRoles.ADMIN)
     fake_agent = "fake_agent"
     fake_return = {
         "name": "fake_agent",
@@ -182,7 +183,7 @@ def test_set_agent_status_with_unprivileged_user(
 )
 def test_deferred_offline_message(auth_fixture, capsys, requests_mock, state):
     """Validate we receive a deffered message if agent under test phase."""
-    auth_fixture("admin")
+    auth_fixture(ServerRoles.ADMIN)
     fake_agent = "fake_agent"
     fake_return = {
         "name": fake_agent,
@@ -213,7 +214,7 @@ def test_deferred_offline_message(auth_fixture, capsys, requests_mock, state):
 
 def test_set_status_unknown_agent(auth_fixture, capsys, requests_mock):
     """Validate we skip non existing agents but modify the ones that exist."""
-    auth_fixture("admin")
+    auth_fixture(ServerRoles.ADMIN)
     fake_agents = ["fake_agent1", "fake_agent2"]
     fake_return = {
         "name": "fake_agent1",
@@ -249,8 +250,11 @@ def test_set_status_unknown_agent(auth_fixture, capsys, requests_mock):
 
 def test_get_all_client_permissions(auth_fixture, capsys, requests_mock):
     """Validate we get all client permissions if no client_id was specified."""
-    auth_fixture("admin")
-    fake_clients = {"clientA": "manager", "clientB": "contributor"}
+    auth_fixture(ServerRoles.ADMIN)
+    fake_clients = {
+        "clientA": ServerRoles.MANAGER,
+        "clientB": ServerRoles.CONTRIBUTOR,
+    }
 
     fake_return = [
         {
@@ -283,14 +287,14 @@ def test_get_all_client_permissions(auth_fixture, capsys, requests_mock):
 
 def test_get_single_client_permissions(auth_fixture, capsys, requests_mock):
     """Validate we get a one client permission when client_id is specified."""
-    auth_fixture("admin")
+    auth_fixture(ServerRoles.ADMIN)
     fake_client_id = "clientA"
     fake_return = {
         "client_id": fake_client_id,
         "max_priority": {"q1": 10},
         "allowed_queues": [],
         "max_reservation_time": {},
-        "role": "manager",
+        "role": ServerRoles.MANAGER,
     }
 
     sys.argv = [
@@ -314,7 +318,15 @@ def test_get_single_client_permissions(auth_fixture, capsys, requests_mock):
     assert json_return == fake_return
 
 
-@pytest.mark.parametrize("role", ["user", "contributor", "manager", "admin"])
+@pytest.mark.parametrize(
+    "role",
+    [
+        ServerRoles.USER,
+        ServerRoles.CONTRIBUTOR,
+        ServerRoles.MANAGER,
+        ServerRoles.ADMIN,
+    ],
+)
 def test_delete_client_permissions(auth_fixture, capsys, requests_mock, role):
     """Validate deleting client permissions only works for admin role."""
     auth_fixture(role)
@@ -354,13 +366,13 @@ def test_delete_client_permissions(auth_fixture, capsys, requests_mock, role):
 
 def test_create_client_permissions_json(auth_fixture, capsys, requests_mock):
     """Validate creation of client_permissions when json is provided."""
-    auth_fixture("admin")
+    auth_fixture(ServerRoles.ADMIN)
     fake_client_id = "clientA"
     fake_permissions = {
         "client_id": fake_client_id,
         "max_priority": {"q1": 10},
         "max_reservation_time": {},
-        "role": "contributor",
+        "role": ServerRoles.CONTRIBUTOR,
     }
 
     sys.argv = [
@@ -392,7 +404,7 @@ def test_create_client_permissions_arguments(
     auth_fixture, capsys, requests_mock
 ):
     """Validate creation of client_permissions using command line arguments."""
-    auth_fixture("admin")
+    auth_fixture(ServerRoles.ADMIN)
     fake_client_id = "clientA"
 
     sys.argv = [
@@ -409,7 +421,7 @@ def test_create_client_permissions_arguments(
         "--max-reservation",
         '{"q1": 3600}',
         "--role",
-        "contributor",
+        ServerRoles.CONTRIBUTOR,
     ]
 
     # We need to mock that the client does not exists first
@@ -430,7 +442,7 @@ def test_create_client_permissions_arguments(
 
 def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
     """Validate editing existing client_permissions when json is provided."""
-    auth_fixture("admin")
+    auth_fixture(ServerRoles.ADMIN)
     fake_client_id = "clientA"
 
     # Update just the role
@@ -442,7 +454,7 @@ def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
         "--testflinger-client-id",
         fake_client_id,
         "--role",
-        "manager",
+        ServerRoles.MANAGER,
     ]
 
     # Mock that the client exists with all permissions
@@ -451,7 +463,7 @@ def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
         "max_priority": {"q1": 10},
         "allowed_queues": [],
         "max_reservation_time": {"q1": 3600},
-        "role": "contributor",
+        "role": ServerRoles.CONTRIBUTOR,
     }
     requests_mock.get(
         URL + f"/v1/client-permissions/{fake_client_id}",
@@ -477,13 +489,13 @@ def test_failed_client_creation_schema_validation(
     auth_fixture, capsys, requests_mock, caplog
 ):
     """Validate creation of client_id fails due to schema validation."""
-    auth_fixture("admin")
+    auth_fixture(ServerRoles.ADMIN)
     fake_client_id = "clientA"
     # missing max_reservation_time for creation
     fake_permissions = {
         "client_id": fake_client_id,
         "max_priority": {"q1": 10},
-        "role": "contributor",
+        "role": ServerRoles.CONTRIBUTOR,
     }
 
     # Using JSON for creation for simplicity
