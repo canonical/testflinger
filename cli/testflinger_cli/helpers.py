@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Canonical Ltd.
 """Helpers for the Testflinger CLI."""
 
+from datetime import datetime
 from os import getenv
 from pathlib import Path
 from typing import Optional
@@ -163,3 +164,20 @@ def pretty_yaml_dump(obj, **kwargs) -> str:
     :return: A pretty representation of obj as a YAML string.
     """
     return yaml.dump(obj, **kwargs)
+
+
+def format_timestamp(timestamp_str: str) -> str:
+    """Format timestamp for human reading.
+
+    :param timestamp_str: ISO format timestamp string
+    :return: Formatted timestamp string or original if parsing fails
+    """
+    if not timestamp_str:
+        return "Unknown"
+
+    try:
+        # Parse ISO format timestamp
+        dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except (ValueError, AttributeError):
+        return timestamp_str

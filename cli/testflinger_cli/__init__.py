@@ -317,6 +317,12 @@ class TestflingerCli:
         parser.set_defaults(func=self.queue_status)
         parser.add_argument("queue_name")
         parser.add_argument(
+            "--verbose",
+            "-v",
+            action="store_true",
+            help="Show individual jobs with details",
+        )
+        parser.add_argument(
             "--json", action="store_true", help="Print output in JSON format"
         )
 
@@ -424,12 +430,30 @@ class TestflingerCli:
         print(output)
 
     def queue_status(self):
-        """Show the status of the agents in a specified queue."""
+        """Show agent and job status in a specified queue."""
+        # Get agent and job status data
+        agents_status = self._get_agents_status()
+        jobs_status = self._get_jobs_status()
+
+        if self.args.json:
+            output = self._queue_status_format_json_output(
+                agents_status, jobs_status
+            )
+        else:
+            output = self._queue_status_format_human_output(
+                agents_status, jobs_status
+            )
+
+        print(output)
+
+    def _get_agents_status(self):
+        """Retrieve the status of the agents in a specified queue."""
         try:
             try:
-                queue_status = self.client.get_agent_status_by_queue(
+                agents_status = self.client.get_agent_status_by_queue(
                     self.args.queue_name
                 )
+                return agents_status
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NO_CONTENT:
                     sys.exit(
@@ -446,55 +470,109 @@ class TestflingerCli:
                 logger.debug("Unable to retrieve agent state: %s", exc)
                 raise UnknownStatusError("queue") from exc
 
-            try:
-                jobs_queued = [
-                    job["job_id"]
-                    for job in self.client.get_jobs_on_queue(
-                        self.args.queue_name
-                    )
-                    if job["job_state"] == "waiting"
-                ]
-            except client.HTTPError as exc:
-                if exc.status == HTTPStatus.NO_CONTENT:
-                    jobs_queued = []
-                else:
-                    # If any other HTTP error, raise UnknownStatusError
-                    raise UnknownStatusError("job") from exc
-            except (IOError, ValueError) as exc:
-                # For other types of network errors or JSONDecodeError
-                # if we got a bad return
-                logger.debug("Unable to retrieve job state: %s", exc)
-                raise UnknownStatusError("job") from exc
-
         except UnknownStatusError as exc:
             sys.exit(exc)
 
-        if self.args.json:
-            output = json.dumps(
-                {
-                    "queue": self.args.queue_name,
-                    "jobs waiting": jobs_queued,
-                    "agents": queue_status,
-                }
-            )
+    def _get_jobs_status(self):
+        """Retrieve the status of jobs in a specified queue."""
+        try:
+            jobs_data = self.client.get_jobs_on_queue(self.args.queue_name)
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NO_CONTENT:
+                jobs_data = []
+            else:
+                logger.debug("Unable to retrieve job data: %s", exc)
+                jobs_data = []
+        except (IOError, ValueError) as exc:
+            logger.debug("Unable to retrieve job data: %s", exc)
+            jobs_data = []
+
+        # Categorize jobs based on completion outcome
+        jobs_waiting = []
+        jobs_running = []
+        jobs_completed = []
+
+        for job in jobs_data:
+            # Handle MongoDB date structure or plain string
+            created_at = job.get("created_at", "")
+            if isinstance(created_at, dict) and "$date" in created_at:
+                created_at = created_at["$date"]
+
+            job_info = {
+                "job_id": job["job_id"],
+                "created_at": created_at,
+            }
+
+            job_state = job.get("job_state", "").lower()
+            if job_state == "waiting":
+                jobs_waiting.append(job_info)
+            elif job_state == "complete":
+                jobs_completed.append(job_info)
+            elif job_state not in ("cancelled",):  # Ignore cancelled jobs
+                # All non-waiting, non-complete, non-cancelled are "running"
+                jobs_running.append(job_info)
+
+        return {
+            "jobs_waiting": jobs_waiting,
+            "jobs_running": jobs_running,
+            "jobs_completed": jobs_completed,
+        }
+
+    def _queue_status_format_json_output(self, agents_status, jobs_status):
+        """Format queue status output as JSON."""
+        output_data = {
+            "queue": self.args.queue_name,
+            "agents": agents_status,
+        }
+
+        if self.args.verbose:
+            # In verbose mode, include all job details
+            output_data.update(jobs_status)
         else:
-            agents = Counter(
-                (
-                    agent["status"]
-                    if agent["status"] in ("waiting", "offline")
-                    else "busy"
-                )
-                for agent in queue_status
+            # In non-verbose mode, only include waiting jobs
+            output_data["jobs_waiting"] = jobs_status["jobs_waiting"]
+        return json.dumps(output_data, indent=2)
+
+    def _queue_status_format_human_output(self, agents_status, jobs_status):
+        """Format queue status output for human reading."""
+        # Get agent status count
+        agents = Counter(
+            (
+                agent["status"]
+                if agent["status"] in ("waiting", "offline")
+                else "busy"
+            )
+            for agent in agents_status
+        )
+
+        output_lines = [
+            f"Agents in queue: {agents.total()}",
+            f"Available:       {agents['waiting']}",
+            f"Busy:            {agents['busy']}",
+            f"Offline:         {agents['offline']}",
+        ]
+
+        if self.args.verbose:
+            # Add individual job details
+            for job_type, jobs in jobs_status.items():
+                if jobs:  # Only show if there are jobs
+                    job_type_display = job_type.replace("_", " ").title()
+                    output_lines.append(f"\n{job_type_display}:")
+                    for job in jobs:
+                        timestamp = helpers.format_timestamp(
+                            job.get("created_at", "")
+                        )
+                        output_lines.append(f"  {job['job_id']} - {timestamp}")
+        else:
+            output_lines.extend(
+                [
+                    f"Jobs waiting:    {len(jobs_status['jobs_waiting'])}",
+                    f"Jobs running:    {len(jobs_status['jobs_running'])}",
+                    f"Jobs completed:  {len(jobs_status['jobs_completed'])}",
+                ]
             )
 
-            output = (
-                f"Agents in queue: {agents.total()}\n"
-                f"Available:       {agents['waiting']}\n"
-                f"Busy:            {agents['busy']}\n"
-                f"Offline:         {agents['offline']}\n"
-                f"Jobs waiting:    {len(jobs_queued)}"
-            )
-        print(output)
+        return "\n".join(output_lines)
 
     def cancel(self, job_id=None):
         """Tell the server to cancel a specified JOB_ID."""
