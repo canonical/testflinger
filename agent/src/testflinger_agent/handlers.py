@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from .client import TestflingerClient
 
@@ -85,6 +85,7 @@ class AgentStatusHandler:
         """Retrieve the comment on the state."""
         return self._comment
 
+
 class AgentHeartbeatHandler:
     """Handler to determine if agent needs to send a heartbeat signal."""
 
@@ -98,7 +99,7 @@ class AgentHeartbeatHandler:
         self.heartbeat_frequency = heartbeat_frequency
         self._agent_data = {}
         # Agent sent heartbeat upon initialization or restart
-        self._last_heartbeat = datetime.now(UTC)
+        self._last_heartbeat = datetime.now(timezone.utc)
 
     def update(self, agent_data: dict):
         """Update agent_data retrieved from server.
@@ -118,9 +119,10 @@ class AgentHeartbeatHandler:
         if "updated_at" in self._agent_data:
             # Parse ISO format timestamp
             timestamp = self._agent_data["updated_at"]
-            self._last_heartbeat = datetime.fromisoformat(
-                timestamp.replace("Z", "+00:00")
-            )
+            if isinstance(timestamp, str):
+                self._last_heartbeat = datetime.fromisoformat(
+                    timestamp.replace("Z", "+00:00")
+                )
 
     def _send_heartbeat(self) -> None:
         """Send a heartbeat to the server if needed.
@@ -140,7 +142,7 @@ class AgentHeartbeatHandler:
 
         :return: True or False if heartbeat is required
         """
-        time_delta = datetime.now(UTC) - self._last_heartbeat
+        time_delta = datetime.now(timezone.utc) - self._last_heartbeat
         # Heartbeat is required at least once per heartbeat frequency
         if time_delta.days >= self.heartbeat_frequency:
             return True
