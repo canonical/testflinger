@@ -474,7 +474,7 @@ def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
 
 
 def test_failed_client_creation_schema_validation(
-    auth_fixture, capsys, requests_mock
+    auth_fixture, capsys, requests_mock, caplog
 ):
     """Validate creation of client_id fails due to schema validation."""
     auth_fixture("admin")
@@ -508,5 +508,6 @@ def test_failed_client_creation_schema_validation(
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_client_permissions()
     std = capsys.readouterr()
+    print(std.out)
     assert f"Creating new client '{fake_client_id}'..." in std.out
-    assert "Failed to create client:" in std.err
+    assert "Failed to create client:" in caplog.text

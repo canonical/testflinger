@@ -17,12 +17,15 @@
 """Testflinger Admin CLI module."""
 
 import json
+import logging
 import sys
 from http import HTTPStatus
 from string import Template
 
 from testflinger_cli import client
 from testflinger_cli.auth import require_role
+
+logger = logging.getLogger(__name__)
 
 
 class TestflingerAdminCLI:
@@ -306,18 +309,18 @@ class TestflingerAdminCLI:
                     )
                     print(f"Client '{tf_client_id}' created successfully")
                 except client.HTTPError as create_exc:
-                    print(
-                        f"Failed to create client: {create_exc.msg}",
-                        file=sys.stderr,
+                    logger.error(
+                        "Failed to create client: %s",
+                        create_exc.msg,
                     )
             elif exc.status == HTTPStatus.UNPROCESSABLE_ENTITY:
                 # Failure reason is clearly stated in msg from server
-                print(exc.msg, file=sys.stderr)
+                logger.error(exc.msg)
             else:
                 # Other HTTP error
-                print(
-                    f"Failed to set client permissions: {exc.msg}",
-                    file=sys.stderr,
+                logger.error(
+                    "Failed to set client permissions: %s",
+                    {exc.msg},
                 )
 
     @require_role("admin", "manager")
@@ -341,7 +344,7 @@ class TestflingerAdminCLI:
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.NOT_FOUND:
                 # Failure reason is clearly stated in msg from server
-                print(exc.msg, file=sys.stderr)
+                logger.error(exc.msg)
 
     @require_role("admin")
     def delete_client_permissions(self):
@@ -361,4 +364,4 @@ class TestflingerAdminCLI:
                 or exc.status == HTTPStatus.UNPROCESSABLE_ENTITY
             ):
                 # Failure reason is clearly stated in msg from server
-                print(exc.msg, file=sys.stderr)
+                logger.info(exc.msg)
