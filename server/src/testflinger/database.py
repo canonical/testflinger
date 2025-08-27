@@ -451,7 +451,6 @@ def check_client_exists(client_id: str) -> bool:
 
 def add_client_permissions(data: dict) -> None:
     """Create a new client_id along with its permissions.
-
     :param data: client_id along with its permissions
     """
     mongo.db.client_permissions.insert_one(data)
@@ -474,3 +473,21 @@ def delete_client_permissions(client_id: str) -> None:
     :param client_id: client_id to delete
     """
     mongo.db.client_permissions.delete_one({"client_id": client_id})
+    mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
+
+
+def retrieve_parent_permissions(parent_job_id: str) -> dict:
+    """Retrieve auth permissions from parent job for credential inheritance.
+    
+    :param parent_job_id: UUID of the parent job to inherit permissions from.
+    :return: Dictionary with parent job's auth permissions, or empty dict if none.
+    """
+    parent_job = mongo.db.jobs.find_one(
+        {"job_id": parent_job_id}, 
+        {"auth_permissions": True, "_id": False}
+    )
+    
+    if not parent_job:
+        return {}
+    
+    return parent_job.get("auth_permissions", {})

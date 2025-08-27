@@ -145,6 +145,18 @@ class TFClient:
         response = self.post(endpoint, job_data)
         return json.loads(response).get("job_id")
 
+    def submit_agent_job(self, job_data):
+        """Submit a child job to the testflinger server with credential inheritance.
+
+        :param job_data:
+            dict of data for the job to submit, must include parent_job_id
+        :return:
+            ID for the test job
+        """
+        endpoint = "/v1/agent/jobs"
+        response = self.post(endpoint, job_data)
+        return json.loads(response).get("job_id")
+
     def cancel_job(self, job_id):
         """Tell the server to cancel a specified job_id."""
         try:
