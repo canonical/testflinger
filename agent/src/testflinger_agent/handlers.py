@@ -89,7 +89,11 @@ class AgentHeartbeatHandler:
     """Handler to determine if agent needs to send a heartbeat signal."""
 
     def __init__(self, client: TestflingerClient, heartbeat_frequency: int):
-        """Initialize handler with default values."""
+        """Initialize handler with default values.
+
+        :param client: client used to connect to server
+        :param heartbeat_frequency: Frequency in days to send heartbeat
+        """
         self.client = client
         self.heartbeat_frequency = heartbeat_frequency
         self._agent_data = {}
