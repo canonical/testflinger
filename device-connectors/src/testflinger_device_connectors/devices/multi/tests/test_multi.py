@@ -29,6 +29,10 @@ class MockTFClient(TFClient):
         """Return a fake job id."""
         return str(uuid4())
 
+    def submit_agent_job(self, job_data):
+        """Return a fake agent job id."""
+        return self.submit_job(job_data)
+
 
 def test_bad_tfclient_url():
     """Test that Multi raises an exception when TFClient URL is bad."""
