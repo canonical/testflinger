@@ -234,11 +234,20 @@ class TestClient:
             "state": state,
             "comment": "",
             "queues": "fake_queue",
+            "updated_at": str(past_heartbeat),
+        }
+        updated_agent_data = {
+            "state": state,
+            "comment": "",
+            "queues": "fake_queue",
             "updated_at": str(datetime.now(timezone.utc)),
         }
 
         requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, json=fake_agent_data)
+        requests_mock.get(
+            rmock.ANY,
+            [{"json": fake_agent_data}, {"json": updated_agent_data}],
+        )
 
         # Set the last heartbeat to an old timestamp
         with patch.object(
@@ -246,12 +255,28 @@ class TestClient:
             "_last_heartbeat",
             past_heartbeat,
         ):
-            # This should trigger a heartbeat refresh via get_agent_state()
+            # Clear requests history from agent initialization
+            requests_mock.reset_mock()
+            # First call should trigger a POST to send new heartbeat
+            agent.check_offline()
+
+            # Second call should get the updated data with recent heartbeat
             agent.check_offline()
             refreshed_heartbeat = agent.heartbeat_handler._last_heartbeat
 
+        history = requests_mock.request_history
+        post_requests = [call for call in history if call.method == "POST"]
+        post_data = post_requests[0].json()
+        expected_data = {
+            "state": fake_agent_data["state"].value,
+            "comment": fake_agent_data["comment"],
+        }
+
         # The heartbeat should have been updated
         assert past_heartbeat != refreshed_heartbeat
+        # Make sure only one post request with the expected data
+        assert len(post_requests) == 1
+        assert post_data == expected_data
 
     @pytest.mark.parametrize("state", [AgentState.WAITING, AgentState.OFFLINE])
     def test_agent_keeps_heartbeat_if_recent(
