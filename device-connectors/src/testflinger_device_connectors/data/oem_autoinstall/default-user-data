@@ -77,7 +77,7 @@ autoinstall:
           }
 
           set_usb_boot_first
-        path: /usr/local/bin/set_usb_boot.sh
+        path: /usr/bin/set_usb_boot.sh
         permissions: '0755'
 
     users:
@@ -104,7 +104,7 @@ autoinstall:
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.settings-daemon.plugins.power"]
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.desktop.session"]
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.desktop.screensaver"]
-      - ["/usr/local/bin/set_usb_boot.sh"]
+      - ["/usr/bin/set_usb_boot.sh"]
     # Reboot after early-welcome is done
     power_state:
       mode: "reboot"
