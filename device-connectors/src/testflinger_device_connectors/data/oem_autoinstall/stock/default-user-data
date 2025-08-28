@@ -76,7 +76,7 @@ autoinstall:
           }
 
           set_usb_boot_first
-        path: /usr/local/bin/set_usb_boot.sh
+        path: /usr/bin/set_usb_boot.sh
         permissions: '0755'
     runcmd:
       # enable autologin
@@ -87,7 +87,7 @@ autoinstall:
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.settings-daemon.plugins.power"]
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.desktop.session"]
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.desktop.screensaver"]
-      - ["/usr/local/bin/set_usb_boot.sh"]  # set USB boot first
+      - ["/usr/bin/set_usb_boot.sh"]  # set USB boot first
       - ["sudo", "apt-get", "update"]
       - ["sudo", "apt-get", "install", "-y", "openssh-server"]
   ssh:
