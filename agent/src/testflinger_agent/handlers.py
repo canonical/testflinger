@@ -148,6 +148,4 @@ class AgentHeartbeatHandler:
         """
         time_delta = datetime.now(timezone.utc) - self._last_heartbeat
         # Heartbeat is required at least once per heartbeat frequency
-        if time_delta.days >= self.heartbeat_frequency:
-            return True
-        return False
+        return time_delta.days >= self.heartbeat_frequency
