@@ -12,9 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+import logging
 from datetime import datetime, timezone
 
 from .client import TestflingerClient
+
+logger = logging.getLogger(__name__)
 
 
 class LiveOutputHandler:
@@ -132,6 +135,7 @@ class AgentHeartbeatHandler:
         if self.is_heartbeat_required():
             comment = self._agent_data.get("comment", "")
             if "state" in self._agent_data:
+                logger.info("Sending heartbeat to Testflinger server")
                 agent_state = self._agent_data["state"]
                 self.client.post_agent_data(
                     {"state": agent_state, "comment": comment}

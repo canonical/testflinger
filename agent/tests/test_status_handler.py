@@ -224,7 +224,9 @@ class TestClient:
         assert "Sleeping for" in caplog.text
 
     @pytest.mark.parametrize("state", [AgentState.WAITING, AgentState.OFFLINE])
-    def test_agent_refresh_heartbeat(self, agent, requests_mock, state):
+    def test_agent_refresh_heartbeat(
+        self, agent, requests_mock, state, caplog
+    ):
         """Test agent updates heartbeat at least once per defined frequency."""
         frequency = agent.heartbeat_handler.heartbeat_frequency
         # Mock last heartbeat as old
@@ -277,6 +279,7 @@ class TestClient:
         # Make sure only one post request with the expected data
         assert len(post_requests) == 1
         assert post_data == expected_data
+        assert "Sending heartbeat to Testflinger server" in caplog.text
 
     @pytest.mark.parametrize("state", [AgentState.WAITING, AgentState.OFFLINE])
     def test_agent_keeps_heartbeat_if_recent(
