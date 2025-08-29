@@ -12,7 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+import logging
+from datetime import datetime, timezone
+
 from .client import TestflingerClient
+
+logger = logging.getLogger(__name__)
 
 
 class LiveOutputHandler:
@@ -82,3 +87,71 @@ class AgentStatusHandler:
     def comment(self) -> str:
         """Retrieve the comment on the state."""
         return self._comment
+
+
+class AgentHeartbeatHandler:
+    """Handler to determine if agent needs to send a heartbeat signal."""
+
+    def __init__(self, client: TestflingerClient, heartbeat_frequency: int):
+        """Initialize handler with default values.
+
+        :param client: client used to connect to server
+        :param heartbeat_frequency: Frequency in days to send heartbeat
+        """
+        self.client = client
+        self.heartbeat_frequency = heartbeat_frequency
+        self._agent_data = {}
+        # Agent sent heartbeat upon initialization or restart
+        self._last_heartbeat = datetime.now(timezone.utc)
+
+    def update(self, agent_data: dict):
+        """Update agent_data retrieved from server.
+
+        :param agent_data: Agent information retrieved from server.
+        """
+        if agent_data:
+            self._agent_data = agent_data
+            self._refresh_last_heartbeat()
+            self._send_heartbeat()
+
+    def _refresh_last_heartbeat(self) -> None:
+        """Update heartbeat from agent_data.
+
+        :param agent_data: All agent information retrieved from server.
+        """
+        if "updated_at" in self._agent_data:
+            timestamp = self._agent_data["updated_at"]
+            if isinstance(timestamp, str):
+                # Parse ISO format timestamp string
+                self._last_heartbeat = datetime.fromisoformat(
+                    timestamp.replace("Z", "+00:00")
+                )
+            elif isinstance(timestamp, dict) and "$date" in timestamp:
+                # Parse MongoDB date format
+                date_string = timestamp["$date"]
+                self._last_heartbeat = datetime.fromisoformat(
+                    date_string.replace("Z", "+00:00")
+                )
+
+    def _send_heartbeat(self) -> None:
+        """Send a heartbeat to the server if needed.
+
+        Heartbeat signal is current agent status and comment.
+        """
+        if self.is_heartbeat_required():
+            comment = self._agent_data.get("comment", "")
+            if "state" in self._agent_data:
+                logger.info("Sending heartbeat to Testflinger server")
+                agent_state = self._agent_data["state"]
+                self.client.post_agent_data(
+                    {"state": agent_state, "comment": comment}
+                )
+
+    def is_heartbeat_required(self) -> bool:
+        """Determine if heartbeat is required to send to server.
+
+        :return: True or False if heartbeat is required
+        """
+        time_delta = datetime.now(timezone.utc) - self._last_heartbeat
+        # Heartbeat is required at least once per heartbeat frequency
+        return time_delta.days >= self.heartbeat_frequency
