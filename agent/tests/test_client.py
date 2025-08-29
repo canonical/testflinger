@@ -291,3 +291,42 @@ class TestClient:
 
         data = client.get_agent_data("test_agent")
         assert data == agent_data
+
+    def test_post_status_update_none_response(self, client, caplog):
+        """
+        Test that post_status_update handles None response gracefully.
+        This simulates the case where retry exhaustion returns None.
+        """
+        job_id = str(uuid.uuid1())
+
+        # Mock the session.post to return None (simulating retry exhaustion)
+        with patch.object(client.session, "post", return_value=None):
+            client.post_status_update("myjobqueue", "http://foo", [], job_id)
+            assert "No response received" in caplog.text
+
+    def test_post_result_none_response(self, client, caplog):
+        """Test that post_result handles None response gracefully."""
+        job_id = str(uuid.uuid1())
+
+        with patch.object(client.session, "post", return_value=None):
+            with pytest.raises(TFServerError, match="No response received"):
+                client.post_result(job_id, {"test": "data"})
+            assert "No response received" in caplog.text
+
+    def test_get_result_none_response(self, client, caplog):
+        """Test that get_result handles None response gracefully."""
+        job_id = str(uuid.uuid1())
+
+        with patch.object(client.session, "get", return_value=None):
+            result = client.get_result(job_id)
+            assert result == {}
+            assert "No response received" in caplog.text
+
+    def test_repost_job_none_response(self, client, caplog):
+        """Test that repost_job handles None response gracefully."""
+        job_data = {"job_id": str(uuid.uuid1()), "test": "data"}
+
+        with patch.object(client.session, "post", return_value=None):
+            with pytest.raises(TFServerError, match="No response received"):
+                client.repost_job(job_data)
+            assert "No response received" in caplog.text
