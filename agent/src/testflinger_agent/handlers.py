@@ -123,11 +123,14 @@ class AgentHeartbeatHandler:
             timestamp = self._agent_data["updated_at"]
             if isinstance(timestamp, str):
                 # Parse ISO format timestamp string
-                self._last_heartbeat = datetime.fromisoformat(timestamp)
+                self._last_heartbeat = datetime.fromisoformat(
+                    timestamp.replace("Z", "+00:00")
+                )
             elif isinstance(timestamp, dict) and "$date" in timestamp:
                 # Parse MongoDB date format
+                date_string = timestamp["$date"]
                 self._last_heartbeat = datetime.fromisoformat(
-                    timestamp["$date"]
+                    date_string.replace("Z", "+00:00")
                 )
 
     def _send_heartbeat(self) -> None:
