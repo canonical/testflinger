@@ -236,13 +236,13 @@ class TestClient:
             "state": state,
             "comment": "",
             "queues": "fake_queue",
-            "updated_at": str(past_heartbeat),
+            "updated_at": {"$date": str(past_heartbeat)},
         }
         updated_agent_data = {
             "state": state,
             "comment": "",
             "queues": "fake_queue",
-            "updated_at": str(datetime.now(timezone.utc)),
+            "updated_at": {"$date": str(datetime.now(timezone.utc))},
         }
 
         requests_mock.post(rmock.ANY, status_code=200)
@@ -292,7 +292,7 @@ class TestClient:
             "state": state,
             "comment": "",
             "queues": "fake_queue",
-            "updated_at": str(recent_heartbeat),
+            "updated_at": {"$date": str(recent_heartbeat)},
         }
         requests_mock.get(rmock.ANY, json=fake_agent_data)
 

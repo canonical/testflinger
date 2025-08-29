@@ -120,11 +120,17 @@ class AgentHeartbeatHandler:
         :param agent_data: All agent information retrieved from server.
         """
         if "updated_at" in self._agent_data:
-            # Parse ISO format timestamp
             timestamp = self._agent_data["updated_at"]
             if isinstance(timestamp, str):
+                # Parse ISO format timestamp string
                 self._last_heartbeat = datetime.fromisoformat(
                     timestamp.replace("Z", "+00:00")
+                )
+            elif isinstance(timestamp, dict) and "$date" in timestamp:
+                # Parse MongoDB date format
+                date_string = timestamp["$date"]
+                self._last_heartbeat = datetime.fromisoformat(
+                    date_string.replace("Z", "+00:00")
                 )
 
     def _send_heartbeat(self) -> None:
