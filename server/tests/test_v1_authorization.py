@@ -1011,15 +1011,18 @@ def test_refresh_with_expired_token(mongo_app_with_permissions):
     assert resp.status_code == HTTPStatus.BAD_REQUEST
 
 
+def test_refresh_with_missing_token_field(mongo_app_with_permissions):
+    """Test refresh fails if token field is missing."""
+    app, _, _, _, _ = mongo_app_with_permissions
+
+    resp = app.post("/v1/oauth2/refresh", json={})
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
 def test_revoke_refresh_token(mongo_app_with_permissions):
     """Test that admin can revoke refresh token."""
-    app, mongo, admin_id, admin_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(admin_id, admin_key),
-    )
-    admin_token = authenticate_output.get_json()["access_token"]
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    admin_token = get_access_token(app, client_id, client_key)
 
     contributor_permissions = {
         "client_id": "test_user",
@@ -1062,13 +1065,8 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
 
 def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
     """Test that non-admin cannot revoke any refresh token."""
-    app, mongo, admin_id, admin_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(admin_id, admin_key),
-    )
-    admin_token = authenticate_output.get_json()["access_token"]
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    admin_token = get_access_token(app, client_id, client_key)
 
     user_perm = {
         "client_id": "test_user",
@@ -1100,3 +1098,53 @@ def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
 
     mongo.client_permissions.delete_one({"client_id": "test_user"})
     mongo.refresh_tokens.delete_many({"client_id": "test_user"})
+
+
+def test_revoke_with_missing_token_field(mongo_app_with_permissions):
+    """Test revoke fails if token field is missing."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, client_id, client_key)
+
+    resp = app.post(
+        "/v1/oauth2/revoke", json={}, headers={"Authorization": token}
+    )
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_revoke_already_revoked_token(mongo_app_with_permissions):
+    """Test revoking an already revoked token."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, client_id, client_key)
+
+    user_perm = {
+        "client_id": "test_user",
+        "client_secret": "user-secret",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.CONTRIBUTOR,
+    }
+    app.post(
+        "/v1/client-permissions",
+        json=user_perm,
+        headers={"Authorization": token},
+    )
+
+    user_auth = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header("test_user", "user-secret"),
+    )
+    refresh_token = user_auth.get_json()["refresh_token"]
+
+    resp1 = app.post(
+        "/v1/oauth2/revoke",
+        json={"token": refresh_token},
+        headers={"Authorization": token},
+    )
+    assert resp1.status_code == HTTPStatus.OK
+
+    resp2 = app.post(
+        "/v1/oauth2/revoke",
+        json={"token": refresh_token},
+        headers={"Authorization": token},
+    )
+    assert resp2.status_code in (HTTPStatus.OK, HTTPStatus.BAD_REQUEST)
