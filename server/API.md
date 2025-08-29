@@ -423,7 +423,7 @@ This will find jobs in the queue `foo` and return its IDs, creation time and sta
 
 ## `[POST] /v1/oauth2/token`
 
-Authenticate client key and return JWT with permissions
+Authenticate a client and return an access token and refresh token.
 
 Headers:
 
@@ -432,17 +432,88 @@ Headers:
 Status Codes:
 
 - `HTTP 200 (OK)`
-- `HTTP 401 (Unauthorized)`: Invalid client_id or client-key
+- `HTTP 401 (Unauthorized)`: invalid client_id or client-key
 
 Returns:
 
-Signed JWT with permissions for client
+```json
+{
+  "access_token": "<JWT access token>",
+  "token_type": "Bearer",
+  "expires_in": 30,
+  "refresh_token": "<opaque refresh token>",
+}
+```
+
+Notes:
+- `expires_in` is the lifetime (in seconds) of the access token.
+- Refresh tokens default to 30 days; admin may issue non-expiring tokens for trusted integrations.
 
 Example:
 
 ```shell
 curl http://localhost:8000/v1/oauth2/token \
-  -X GET --header "Authorization: Basic ABCDEF12345"
+  -X POST --header "Authorization: Basic ABCDEF12345"
+```
+
+## `[POST] /v1/oauth2/refresh`
+
+Exchange a valid refresh token for a new access token.
+
+Parameters (JSON body):
+
+- `token` (string): The opaque refresh token issued earlier.
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 400 (Bad Request)`: missing, invalid, revoked or expired refresh token
+
+Returns:
+
+```json
+{
+  "access_token": "<new JWT access token>",
+  "token_type": "Bearer",
+  "expires_in": 30
+}
+```
+
+Example:
+
+```shell
+curl http://localhost:8000/v1/oauth2/refresh \
+  -X POST --header "Content-Type: application/json" \
+  --data '{"refresh_token": "opaque-refresh-token"}'
+```
+
+## `[POST] /v1/oauth2/revoke`
+
+Revoke a refresh token so it can no longer be used.
+
+Parameters (JSON body):
+
+- `token` (string): The opaque refresh token to revoke.
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 400 (Bad Request)`: invalid request
+
+Returns:
+
+```json
+{
+  "message": "Refresh token revoked successfully"
+}
+```
+
+Example:
+
+```shell
+curl http://localhost:8000/v1/oauth2/revoke \
+  -X POST --header "Content-Type: application/json" \
+  --data '{"refresh_token": "opaque-refresh-token"}'
 ```
 
 ## `[GET] /v1/restricted-queues`
@@ -486,7 +557,7 @@ Status Codes:
 
 Returns:
 
-JSON Data with restricted queue and who owns it
+JSON data with restricted queue and who owns it
 
 Example:
 
