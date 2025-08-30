@@ -24,6 +24,7 @@ from typing import Optional
 import jwt
 
 from testflinger_cli import client
+from testflinger_cli.consts import ServerRoles
 from testflinger_cli.errors import AuthenticationError, AuthorizationError
 
 
@@ -98,12 +99,12 @@ class TestflingerCliAuth:
         """
         decoded_token = self.decode_jwt_token()
         if not decoded_token:
-            return "user"
+            return ServerRoles.USER
 
         permissions = decoded_token.get("permissions", {})
         # If there is a decoded token, the user was authenticated
         # Default role for legacy client_ids is contributor
-        return permissions.get("role", "contributor")
+        return permissions.get("role", ServerRoles.CONTRIBUTOR)
 
 
 def require_role(*roles):
@@ -118,8 +119,9 @@ def require_role(*roles):
                 raise AuthenticationError
             user_role = auth.get_user_role()
             if user_role not in roles:
+                role_list = ", ".join(r.value for r in roles)
                 raise AuthorizationError(
-                    f"Authorization Error: Command requires role: {roles}"
+                    f"Authorization Error: Command requires role: {role_list}"
                 )
 
             return func(self, *args, **kwargs)

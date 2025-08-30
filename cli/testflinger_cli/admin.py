@@ -16,12 +16,17 @@
 
 """Testflinger Admin CLI module."""
 
+import json
+import logging
 import sys
 from http import HTTPStatus
 from string import Template
 
 from testflinger_cli import client
 from testflinger_cli.auth import require_role
+from testflinger_cli.consts import ServerRoles
+
+logger = logging.getLogger(__name__)
 
 
 class TestflingerAdminCLI:
@@ -38,6 +43,22 @@ class TestflingerAdminCLI:
             dest="admin_command", required=True
         )
         self._add_set_args(admin_subparser)
+        self._add_get_args(admin_subparser)
+        self._add_delete_args(admin_subparser)
+
+    def _add_common_admin_args(self, parser):
+        parser.add_argument(
+            "--client-id",
+            "--client_id",
+            default=None,
+            help="Client ID to authenticate with Testflinger server",
+        )
+        parser.add_argument(
+            "--secret-key",
+            "--secret_key",
+            default=None,
+            help="Secret key to be used with client id for authentication",
+        )
 
     def _add_set_args(self, subparsers):
         """Command line arguments for set action."""
@@ -48,6 +69,27 @@ class TestflingerAdminCLI:
             dest="set_command", required=True
         )
         self._add_set_agent_status_args(set_subparser)
+        self._add_set_client_permissions_args(set_subparser)
+
+    def _add_get_args(self, subparsers):
+        """Command line arguments for set action."""
+        parser = subparsers.add_parser(
+            "get", help="Perform get action on subcommand"
+        )
+        get_subparser = parser.add_subparsers(
+            dest="get_command", required=True
+        )
+        self._add_get_client_permissions_args(get_subparser)
+
+    def _add_delete_args(self, subparsers):
+        """Command line arguments for set action."""
+        parser = subparsers.add_parser(
+            "delete", help="Perform delete action on subcommand"
+        )
+        delete_subparser = parser.add_subparsers(
+            dest="delete_command", required=True
+        )
+        self._add_delete_client_permissions_args(delete_subparser)
 
     def _add_set_agent_status_args(self, subparsers):
         """Command line arguments for agent status."""
@@ -72,20 +114,68 @@ class TestflingerAdminCLI:
             "--comment",
             help="Reason for modifying status (required for status offline)",
         )
-        parser.add_argument(
-            "--client-id",
-            "--client_id",
-            default=None,
-            help="Client ID to authenticate with Testflinger server",
-        )
-        parser.add_argument(
-            "--secret-key",
-            "--secret_key",
-            default=None,
-            help="Secret key to be used with client id for authentication",
-        )
+        self._add_common_admin_args(parser)
 
-    @require_role("admin")
+    def _add_set_client_permissions_args(self, subparsers):
+        parser = subparsers.add_parser(
+            "client-permissions", help="Set permissions for a client_id"
+        )
+        parser.set_defaults(func=self.set_client_permissions)
+        parser.add_argument(
+            "--testflinger-client-id",
+            help="Client_id to set permissions",
+        )
+        parser.add_argument(
+            "--testflinger-client-secret",
+            help="Secret key to be defined for client_id",
+        )
+        parser.add_argument(
+            "--max-priority",
+            help="Max priority defined for specified queues for client_id",
+        )
+        parser.add_argument(
+            "--max-reservation",
+            help="Max reservation time defined specified queues for client_id",
+        )
+        parser.add_argument(
+            "--role",
+            help="Role defined for client_id",
+            choices=[
+                ServerRoles.ADMIN,
+                ServerRoles.MANAGER,
+                ServerRoles.CONTRIBUTOR,
+            ],
+        )
+        parser.add_argument(
+            "--json", help="Optional JSON data with client_permissions"
+        )
+        self._add_common_admin_args(parser)
+
+    def _add_get_client_permissions_args(self, subparsers):
+        parser = subparsers.add_parser(
+            "client-permissions", help="Get permissions for client_id"
+        )
+        parser.set_defaults(func=self.get_client_permissions)
+        parser.add_argument(
+            "--testflinger-client-id",
+            help="Client_id to get permissions",
+        )
+        self._add_common_admin_args(parser)
+
+    def _add_delete_client_permissions_args(self, subparsers):
+        parser = subparsers.add_parser(
+            "client-permissions",
+            help="Delete client_id registry from database",
+        )
+        parser.set_defaults(func=self.delete_client_permissions)
+        parser.add_argument(
+            "--testflinger-client-id",
+            required=True,
+            help="client_id to delete from database",
+        )
+        self._add_common_admin_args(parser)
+
+    @require_role(ServerRoles.ADMIN)
     def set_agent_status(self):
         """Modify agent status."""
         # Override online for valid state in server
@@ -157,3 +247,126 @@ class TestflingerAdminCLI:
                         "Exception raised when setting "
                         f"status for {agent}: {exc}"
                     )
+
+    @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
+    def set_client_permissions(self):
+        """Set permissions for specified clients."""
+        # Get the authentication header to perform authenticated request
+        auth_header = self.main_cli.auth.build_headers()
+
+        # Build json_data - --json takes precedence if provided
+        if self.main_cli.args.json:
+            try:
+                # Handle both string and already parsed JSON
+                if isinstance(self.main_cli.args.json, str):
+                    json_data = json.loads(self.main_cli.args.json)
+                else:
+                    json_data = self.main_cli.args.json
+            except (json.JSONDecodeError, TypeError) as exc:
+                sys.exit(f"Error parsing JSON: {exc}")
+        else:
+            # Build from individual arguments
+            args_mapping = {
+                "client_id": "testflinger_client_id",
+                "client_secret": "testflinger_client_secret",
+                "max_priority": "max_priority",
+                "max_reservation_time": "max_reservation",
+                "role": "role",
+            }
+
+            json_data = {
+                json_key: getattr(self.main_cli.args, arg_name)
+                for json_key, arg_name in args_mapping.items()
+                if getattr(self.main_cli.args, arg_name) is not None
+            }
+
+            # Parse JSON strings for dictionary fields
+            for field in ["max_priority", "max_reservation_time"]:
+                if field in json_data:
+                    try:
+                        json_data[field] = json.loads(json_data[field])
+                    except (json.JSONDecodeError, TypeError) as exc:
+                        sys.exit(f"Error parsing {field} JSON: {exc}")
+
+        # Get client_id for existence check
+        tf_client_id = json_data.get("client_id")
+        if not tf_client_id:
+            sys.exit("Error: client_id cannot be empty")
+
+        # Check if client exists by trying to get its permissions
+        try:
+            self.main_cli.client.get_client_permissions(
+                auth_header, tf_client_id
+            )
+            # Client exists, so edit it
+            print(f"Updating existing client '{tf_client_id}'...")
+            self.main_cli.client.edit_client_permissions(
+                auth_header, json_data
+            )
+            print(f"Client '{tf_client_id}' permissions updated successfully")
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NOT_FOUND:
+                # Client doesn't exist, try to create
+                print(f"Creating new client '{tf_client_id}'...")
+                try:
+                    self.main_cli.client.create_client_permissions(
+                        auth_header, json_data
+                    )
+                    print(f"Client '{tf_client_id}' created successfully")
+                except client.HTTPError as create_exc:
+                    logger.error(
+                        "Failed to create client: %s",
+                        create_exc.msg,
+                    )
+            elif exc.status == HTTPStatus.UNPROCESSABLE_ENTITY:
+                # Failure reason is clearly stated in msg from server
+                logger.error(exc.msg)
+            else:
+                # Other HTTP error
+                logger.error(
+                    "Failed to set client permissions: %s",
+                    {exc.msg},
+                )
+
+    @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
+    def get_client_permissions(self):
+        """Get permissions for specified clients."""
+        # Get the authentication header to perform authenticated GET request
+        auth_header = self.main_cli.auth.build_headers()
+
+        # If no client_id specified will get all client_permissions
+        tf_client_id = getattr(
+            self.main_cli.args, "testflinger_client_id", None
+        )
+        try:
+            print(
+                json.dumps(
+                    self.main_cli.client.get_client_permissions(
+                        auth_header, tf_client_id
+                    )
+                )
+            )
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NOT_FOUND:
+                # Failure reason is clearly stated in msg from server
+                logger.error(exc.msg)
+
+    @require_role(ServerRoles.ADMIN)
+    def delete_client_permissions(self):
+        """Delete specified clients from client_permissions database."""
+        # Get the authentication header to perform authenticated DELETE request
+        auth_header = self.main_cli.auth.build_headers()
+
+        tf_client = self.main_cli.args.testflinger_client_id
+        try:
+            self.main_cli.client.delete_client_permissions(
+                auth_header, tf_client
+            )
+            print(f"Succesfully deleted {tf_client} from database")
+        except client.HTTPError as exc:
+            if (
+                exc.status == HTTPStatus.NOT_FOUND
+                or exc.status == HTTPStatus.UNPROCESSABLE_ENTITY
+            ):
+                # Failure reason is clearly stated in msg from server
+                logger.info(exc.msg)
