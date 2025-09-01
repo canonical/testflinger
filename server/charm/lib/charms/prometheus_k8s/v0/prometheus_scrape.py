@@ -362,7 +362,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 53
+LIBPATCH = 54
 
 # Version 0.0.53 needed for cosl.rules.generic_alert_groups
 PYDEPS = ["cosl>=0.0.53"]
@@ -1189,15 +1189,21 @@ class MetricsEndpointConsumer(Object):
         """Returns a mapping from unit names to (address, path) tuples, for the given relation."""
         hosts = {}
         for unit in relation.units:
+            if not (unit_databag := relation.data.get(unit)):
+                continue
+
+            unit_path = unit_databag.get("prometheus_scrape_unit_path", "")
             # TODO deprecate and remove unit.name
-            unit_name = relation.data[unit].get("prometheus_scrape_unit_name") or unit.name
+            unit_name = unit_databag.get("prometheus_scrape_unit_name") or unit.name
             # TODO deprecate and remove "prometheus_scrape_host"
-            unit_address = relation.data[unit].get(
-                "prometheus_scrape_unit_address"
-            ) or relation.data[unit].get("prometheus_scrape_host")
-            unit_path = relation.data[unit].get("prometheus_scrape_unit_path", "")
-            if unit_name and unit_address:
-                hosts.update({unit_name: (unit_address, unit_path)})
+            unit_address = unit_databag.get("prometheus_scrape_unit_address") or unit_databag.get(
+                "prometheus_scrape_host"
+            )
+
+            if not (unit_name and unit_address):
+                continue
+
+            hosts.update({unit_name: (unit_address, unit_path)})
 
         return hosts
 
@@ -1547,7 +1553,8 @@ class MetricsEndpointProvider(Object):
         if self._forward_alert_rules:
             alert_rules.add_path(self._alert_rules_path, recursive=True)
             alert_rules.add(
-                copy.deepcopy(generic_alert_groups.application_rules), group_name_prefix=self.topology.identifier
+                copy.deepcopy(generic_alert_groups.application_rules),
+                group_name_prefix=self.topology.identifier,
             )
         alert_rules_as_dict = alert_rules.as_dict()
 
@@ -2042,10 +2049,12 @@ class MetricsEndpointAggregator(Object):
         """
         targets = {}
         for unit in relation.units:
-            port = relation.data[unit].get("port", 80)
-            hostname = relation.data[unit].get("hostname")
-            if hostname:
-                targets.update({unit.name: {"hostname": hostname, "port": port}})
+            if not (unit_databag := relation.data.get(unit)):
+                continue
+            if not (hostname := unit_databag.get("hostname")):
+                continue
+            port = unit_databag.get("port", 80)
+            targets.update({unit.name: {"hostname": hostname, "port": port}})
 
         return targets
 
@@ -2262,9 +2271,12 @@ class MetricsEndpointAggregator(Object):
         """
         rules = {}
         for unit in relation.units:
-            unit_rules = yaml.safe_load(relation.data[unit].get("groups", ""))
-            if unit_rules:
-                rules.update({unit.name: unit_rules})
+            if not (unit_databag := relation.data.get(unit)):
+                continue
+            if not (unit_rules := yaml.safe_load(unit_databag.get("groups", ""))):
+                continue
+
+            rules.update({unit.name: unit_rules})
 
         return rules
 
