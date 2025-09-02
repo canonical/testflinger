@@ -26,7 +26,10 @@ from testflinger_common.enums import AgentState, JobState, TestEvent, TestPhase
 from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.event_emitter import EventEmitter
-from testflinger_agent.handlers import AgentStatusHandler
+from testflinger_agent.handlers import (
+    AgentHeartbeatHandler,
+    AgentStatusHandler,
+)
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.metrics import PrometheusHandler
 
@@ -100,6 +103,9 @@ class TestflingerAgent:
         self.client = client
         self.agent_id = self.client.config.get("agent_id")
         self.status_handler = AgentStatusHandler()
+        self.heartbeat_handler = AgentHeartbeatHandler(
+            self.client, heartbeat_frequency=1
+        )
         signal.signal(signal.SIGUSR1, self.restart_signal_handler)
         self.set_agent_state(AgentState.WAITING)
         self._post_initial_agent_data()
@@ -142,6 +148,10 @@ class TestflingerAgent:
         :return: State for the agent and reason for the state if any.
         """
         agent_data = self.client.get_agent_data(self.agent_id)
+
+        # Send agent information to handler to determine if heartbeat is needed
+        self.heartbeat_handler.update(agent_data)
+
         # Comment is optional, so key might not exists
         comment = agent_data.get("comment", "")
         if "state" in agent_data:
