@@ -311,8 +311,7 @@ def check_role_hierarchy(user_role: str, target_role: str) -> bool:
 
 
 def generate_refresh_token(
-    client_id: str, expires_in: int | None = 3600 * 24 * 30
-) -> str:
+    client_id: str, expires_in: int | None) -> str:
     """
     Generate opaque string as a new refresh token.
 
@@ -359,7 +358,5 @@ def validate_refresh_token(token: str) -> dict:
 
         if expires_at < datetime.now(timezone.utc):
             abort(HTTPStatus.BAD_REQUEST, "Refresh token expired")
-
-    return token_entry
 
     return token_entry

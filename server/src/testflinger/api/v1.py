@@ -18,7 +18,7 @@
 import importlib.metadata
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
 import bcrypt
@@ -834,7 +834,15 @@ def retrieve_token():
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     access_token = auth.generate_access_token(allowed_resources, secret_key)
 
-    refresh_token = auth.generate_refresh_token(client_id)
+    role = allowed_resources.get("role")
+    if role in (ServerRoles.ADMIN, ServerRoles.MANAGER):
+        refresh_expires_in = None
+    else:
+        refresh_expires_in = 30 * 24 * 60 * 60  # 30 days in seconds
+
+    refresh_token = auth.generate_refresh_token(
+        client_id, expires_in=refresh_expires_in
+    )
 
     return {
         "access_token": access_token,
@@ -848,7 +856,7 @@ def retrieve_token():
 def refresh_access_token():
     """Refresh access token using a valid refresh token."""
     data = request.get_json()
-    refresh_token = data.get("token")
+    refresh_token = data.get("refresh_token")
     if not refresh_token:
         abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
 
@@ -872,7 +880,7 @@ def refresh_access_token():
 def revoke_refresh_token():
     """Revoke a refresh token. Only admins can perform this action."""
     data = request.get_json()
-    token = data.get("token")
+    token = data.get("refresh_token")
     if not token:
         abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
 
