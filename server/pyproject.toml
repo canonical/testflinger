@@ -16,6 +16,7 @@ dependencies = [
     "flask-pymongo>=3.0.0",
     "gunicorn>=23.0.0",
     "gevent>=24.2.1",
+    "hvac>=2.3.0",
     "prometheus-client>=0.21.0",
     "prometheus-flask-exporter>=0.23.1",
     "pyjwt>=2.8.0",

@@ -20,10 +20,12 @@ import os
 from datetime import datetime, timezone
 from http import HTTPStatus
 from io import BytesIO
+from unittest.mock import Mock
 
 import pytest
 
 from testflinger.api import v1
+from testflinger.secrets.store import SecretAccessError
 
 
 def test_home(mongo_app):
@@ -1265,3 +1267,138 @@ def test_reserve_data_with_invalid_timeout(mongo_app, timeout):
     app, _ = mongo_app
     output = app.post("/v1/job", json=job_data)
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def create_auth_header(client_id: str, client_key: str) -> dict:
+    """Create authorization header for testing."""
+    import base64
+    id_key_pair = f"{client_id}:{client_key}"
+    base64_encoded_pair = base64.b64encode(id_key_pair.encode("utf-8")).decode("utf-8")
+    return {"Authorization": f"Basic {base64_encoded_pair}"}
+
+
+def test_secrets_put_success(mongo_app_with_permissions):
+    """Test successful secret storage."""
+    app_client, _, client_id, client_key, _ = mongo_app_with_permissions
+    
+    # Get the mock secrets store that was injected via the fixture
+    mock_secrets_store = app_client.application.secrets_store
+    
+    # Get authentication token
+    auth_header = create_auth_header(client_id, client_key)
+    token_response = app_client.post("/v1/oauth2/token", headers=auth_header)
+    token = token_response.data.decode("utf-8")
+    
+    # Test simple path
+    response = app_client.put(
+        "/v1/secrets/alice/database-password",
+        json={"value": "secret123"},
+        headers={"Authorization": token}
+    )
+    
+    assert response.status_code == HTTPStatus.OK
+    assert response.data.decode() == "OK"
+    mock_secrets_store.write.assert_called_with("alice", "database-password", "secret123")
+
+
+def test_secrets_put_with_path_segments(mongo_app_with_permissions):
+    """Test secret storage with path containing slashes."""
+    app_client, _, client_id, client_key, _ = mongo_app_with_permissions
+    
+    # Get the mock secrets store that was injected via the fixture
+    mock_secrets_store = app_client.application.secrets_store
+    
+    # Get authentication token
+    auth_header = create_auth_header(client_id, client_key)
+    token_response = app_client.post("/v1/oauth2/token", headers=auth_header)
+    token = token_response.data.decode("utf-8")
+    
+    # Test path with multiple segments
+    response = app_client.put(
+        "/v1/secrets/bob/ssl/certs/private.key",
+        json={"value": "-----BEGIN PRIVATE KEY-----\n..."},
+        headers={"Authorization": token}
+    )
+    
+    assert response.status_code == HTTPStatus.OK
+    assert response.data.decode() == "OK"
+    mock_secrets_store.write.assert_called_with("bob", "ssl/certs/private.key", "-----BEGIN PRIVATE KEY-----\n...")
+
+
+def test_secrets_put_secret_access_error(mongo_app_with_permissions):
+    """Test handling of SecretAccessError."""
+    app_client, _, client_id, client_key, _ = mongo_app_with_permissions
+    
+    # Get the mock secrets store and configure it to raise SecretAccessError
+    mock_secrets_store = app_client.application.secrets_store
+    mock_secrets_store.write.side_effect = SecretAccessError("Unable to access 'test' for user 'alice'")
+    
+    # Get authentication token
+    auth_header = create_auth_header(client_id, client_key)
+    token_response = app_client.post("/v1/oauth2/token", headers=auth_header)
+    token = token_response.data.decode("utf-8")
+    
+    response = app_client.put(
+        "/v1/secrets/alice/test",
+        json={"value": "secret"},
+        headers={"Authorization": token}
+    )
+    
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    response_data = response.get_json()
+    assert "Unable to access 'test' for user 'alice'" in response_data["message"]
+
+
+def test_secrets_put_generic_error(mongo_app_with_permissions):
+    """Test handling of generic exceptions."""
+    app_client, _, client_id, client_key, _ = mongo_app_with_permissions
+    
+    # Get the mock secrets store and configure it to raise generic exception
+    mock_secrets_store = app_client.application.secrets_store
+    mock_secrets_store.write.side_effect = Exception("Connection failed")
+    
+    # Get authentication token
+    auth_header = create_auth_header(client_id, client_key)
+    token_response = app_client.post("/v1/oauth2/token", headers=auth_header)
+    token = token_response.data.decode("utf-8")
+    
+    response = app_client.put(
+        "/v1/secrets/charlie/test",
+        json={"value": "secret"},
+        headers={"Authorization": token}
+    )
+    
+    assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+    response_data = response.get_json()
+    assert "Failed to store secret: Connection failed" in response_data["message"]
+
+
+def test_secrets_put_missing_value(mongo_app_with_permissions):
+    """Test handling of missing value in JSON payload."""
+    app_client, _, client_id, client_key, _ = mongo_app_with_permissions
+    
+    # Get authentication token
+    auth_header = create_auth_header(client_id, client_key)
+    token_response = app_client.post("/v1/oauth2/token", headers=auth_header)
+    token = token_response.data.decode("utf-8")
+    
+    response = app_client.put(
+        "/v1/secrets/alice/test",
+        json={},  # Missing "value" field
+        headers={"Authorization": token}
+    )
+    
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_secrets_put_unauthenticated(mongo_app):
+    """Test that unauthenticated requests are rejected."""
+    app, _ = mongo_app
+    
+    response = app.put(
+        "/v1/secrets/alice/test",
+        json={"value": "secret"}
+        # No authorization header
+    )
+    
+    assert response.status_code == HTTPStatus.UNAUTHORIZED

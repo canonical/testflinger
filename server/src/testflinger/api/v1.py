@@ -24,7 +24,7 @@ from http import HTTPStatus
 import bcrypt
 import requests
 from apiflask import APIBlueprint, abort
-from flask import g, jsonify, request, send_file
+from flask import current_app, g, jsonify, request, send_file
 from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -34,6 +34,7 @@ from testflinger import database
 from testflinger.api import auth, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.enums import ServerRoles
+from testflinger.secrets.store import SecretAccessError
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -1060,5 +1061,24 @@ def delete_client_permissions(client_id: str) -> str:
 
     # Delete entry from database
     database.delete_client_permissions(client_id)
+
+    return "OK"
+
+
+@v1.put("/secrets/<client_id>/<path:path>")
+@authenticate
+@v1.input(schemas.SecretIn, location="json")
+def secrets_put(client_id, path, json_data):
+    """Store a secret value for the specified client_id and path."""
+    if g.client_id != client_id:
+        abort(400, message=f"'{client_id}' doesn't match authenticated client id")
+
+    value = json_data["value"]
+    try:
+        current_app.secrets_store.write(client_id, path, value)
+    except SecretAccessError as e:
+        abort(400, message=str(e))
+    except Exception as e:
+        abort(500, message=f"Failed to store secret: {str(e)}")
 
     return "OK"

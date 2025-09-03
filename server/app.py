@@ -16,5 +16,7 @@
 """Create the flask app."""
 
 from testflinger.application import create_flask_app
+from testflinger.secrets import setup_secrets_store
 
-app = create_flask_app()
+secrets_store = setup_secrets_store()
+app = create_flask_app(secrets_store=secrets_store)
