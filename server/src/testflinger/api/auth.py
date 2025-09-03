@@ -310,8 +310,7 @@ def check_role_hierarchy(user_role: str, target_role: str) -> bool:
     return current_level >= target_level
 
 
-def generate_refresh_token(
-    client_id: str, expires_in: int | None) -> str:
+def generate_refresh_token(client_id: str, expires_in: int | None) -> str:
     """
     Generate opaque string as a new refresh token.
 
