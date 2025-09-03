@@ -18,7 +18,7 @@
 import importlib.metadata
 import os
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from http import HTTPStatus
 
 import bcrypt
