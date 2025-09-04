@@ -24,6 +24,7 @@ from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
 
 # Constants for TTL indexes
+REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 
@@ -103,6 +104,11 @@ def create_indexes():
     # Remove advertised queues that haven't updated in over 7 days
     mongo.db.queues.create_index(
         "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
+    # Remove refresh tokens that haven't been accessed over 90 days
+    mongo.db.refresh_tokens.create_index(
+        "last_accessed", expireAfterSeconds=REFRESH_TOKEN_IDEL_EXPIRATION
     )
 
     # Faster lookups for common queries
@@ -394,22 +400,6 @@ def get_agents() -> list[dict]:
     return list(agents)
 
 
-def get_client_permissions(client_id: str | None = None) -> dict | list[dict]:
-    """Retrieve the client permissions for a specified user.
-
-    If no client_id is specified, will return the permissions from all users.
-
-    :param client_id: User to retrieve permissions from.
-    :return: Dictionary with the permissions for the user.
-    """
-    if client_id:
-        return mongo.db.client_permissions.find_one(
-            {"client_id": client_id}, {"_id": False}
-        )
-    else:
-        return mongo.db.client_permissions.find({}, {"_id": False})
-
-
 def add_restricted_queue(queue: str, client_id: str):
     """Add a restricted queue for a client.
 
@@ -457,6 +447,22 @@ def add_client_permissions(data: dict) -> None:
     mongo.db.client_permissions.insert_one(data)
 
 
+def get_client_permissions(client_id: str | None = None) -> dict | list[dict]:
+    """Retrieve the client permissions for a specified user.
+
+    If no client_id is specified, will return the permissions from all users.
+
+    :param client_id: User to retrieve permissions from.
+    :return: Dictionary with the permissions for the user.
+    """
+    if client_id:
+        return mongo.db.client_permissions.find_one(
+            {"client_id": client_id}, {"_id": False}
+        )
+    else:
+        return mongo.db.client_permissions.find({}, {"_id": False})
+
+
 def edit_client_permissions(client_id: str, update_fields: dict) -> None:
     """Edit client_id with specified new permissions.
 
@@ -474,3 +480,63 @@ def delete_client_permissions(client_id: str) -> None:
     :param client_id: client_id to delete
     """
     mongo.db.client_permissions.delete_one({"client_id": client_id})
+
+
+def add_refresh_token(data: dict) -> None:
+    """Create a new refresh_token for a client_id.
+
+    :param data: refresh_token along with its client_id.
+    """
+    mongo.db.refresh_tokens.insert_one(data)
+
+
+def get_refresh_token(
+    client_id: str | None = None,
+) -> dict | list[dict] | None:
+    """Retrieve refresh tokens for a specified client_id.
+
+    If no client_id is specified, will return the refresh tokens from
+    all client_ids.
+
+    Returns None if no token is found for the specified client_id.
+
+    :param client_id: The client ID to search for.
+    """
+    if client_id:
+        return mongo.db.refresh_tokens.find_one(
+            {"client_id": client_id}, {"_id": False}
+        )
+    else:
+        return list(mongo.db.refresh_tokens.find({}, {"_id": False}))
+
+
+def get_refresh_token_by_token(token: str) -> dict | None:
+    """
+    Retrieve a refresh token entry using the refresh token string itself.
+
+    :param token: The refresh token string to search for.
+
+    :return: Dictionary with refresh token data, or None if not found.
+    """
+    return mongo.db.refresh_tokens.find_one(
+        {"refresh_token": token}, {"_id": False}
+    )
+
+
+def edit_refresh_token(token: str, update_fields: dict) -> None:
+    """Update refresh token with specified fields.
+
+    :param token: The refresh token to update.
+    :param update_fields: Dictionary of fields to update.
+    """
+    mongo.db.refresh_tokens.update_one(
+        {"refresh_token": token}, {"$set": update_fields}
+    )
+
+
+def delete_refresh_token(token: str) -> None:
+    """Delete a refresh token entry.
+
+    :param token: The refresh token to delete.
+    """
+    mongo.db.refresh_tokens.delete_one({"refresh_token": token})

@@ -40,21 +40,30 @@ def create_auth_header(client_id: str, client_key: str) -> dict:
     return {"Authorization": f"Basic {base64_encoded_pair}"}
 
 
-def test_retrieve_token(mongo_app_with_permissions):
-    """Tests authentication endpoint which returns JWT with permissions."""
-    app, _, client_id, client_key, max_priority = mongo_app_with_permissions
-    output = app.post(
+def get_access_token(app, client_id, client_key):
+    """Authenticate and return a valid access token."""
+    response = app.post(
         "/v1/oauth2/token",
         headers=create_auth_header(client_id, client_key),
     )
-    assert output.status_code == 200
-    token = output.data
+
+    assert response.status_code == 200
+
+    return response.get_json()["access_token"]
+
+
+def test_retrieve_token(mongo_app_with_permissions):
+    """Tests authentication endpoint which returns JWT with permissions."""
+    app, _, client_id, client_key, max_priority = mongo_app_with_permissions
+    token = get_access_token(app, client_id, client_key)
+
     decoded_token = jwt.decode(
         token,
         os.environ.get("JWT_SIGNING_KEY"),
         algorithms="HS256",
         options={"require": ["exp", "iat", "sub", "permissions"]},
     )
+
     assert decoded_token["permissions"]["max_priority"] == max_priority
 
 
@@ -65,10 +74,12 @@ def test_retrieve_token_invalid_client_id(mongo_app_with_permissions):
     """
     app, _, _, client_key, _ = mongo_app_with_permissions
     client_id = "my_wrong_id"
+
     output = app.post(
         "/v1/oauth2/token",
         headers=create_auth_header(client_id, client_key),
     )
+
     assert output.status_code == 401
 
 
@@ -79,25 +90,25 @@ def test_retrieve_token_invalid_client_key(mongo_app_with_permissions):
     """
     app, _, client_id, _, _ = mongo_app_with_permissions
     client_key = "my_wrong_key"
+
     output = app.post(
         "/v1/oauth2/token",
         headers=create_auth_header(client_id, client_key),
     )
+
     assert output.status_code == 401
 
 
 def test_job_with_priority(mongo_app_with_permissions):
     """Tests submission of priority job with valid token."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
+
     job = {"job_queue": "myqueue2", "job_priority": 200}
     job_response = app.post(
         "/v1/job", json=job, headers={"Authorization": token}
     )
+
     assert 200 == job_response.status_code
 
 
@@ -107,15 +118,13 @@ def test_star_priority(mongo_app_with_permissions):
     with star priority permissions.
     """
     app, _, client_id, client_key, _ = mongo_app_with_permissions
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
+
     job = {"job_queue": "mygenericqueue", "job_priority": 1}
     job_response = app.post(
         "/v1/job", json=job, headers={"Authorization": token}
     )
+
     assert 200 == job_response.status_code
 
 
@@ -132,15 +141,13 @@ def test_priority_no_token(mongo_app_with_permissions):
 def test_priority_invalid_queue(mongo_app_with_permissions):
     """Tests rejection of priority job with invalid queue."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
+
     job = {"job_queue": "myinvalidqueue", "job_priority": 200}
     job_response = app.post(
         "/v1/job", json=job, headers={"Authorization": token}
     )
+
     assert 403 == job_response.status_code
 
 
@@ -186,16 +193,14 @@ def test_missing_fields_in_token(mongo_app_with_permissions):
 def test_job_get_with_priority(mongo_app_with_permissions):
     """Tests job get returns job with highest job priority."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
+
     jobs = [
         {"job_queue": "myqueue2"},
         {"job_queue": "myqueue2", "job_priority": 200},
         {"job_queue": "myqueue2", "job_priority": 100},
     ]
+
     job_ids = []
     for job in jobs:
         job_response = app.post(
@@ -203,11 +208,13 @@ def test_job_get_with_priority(mongo_app_with_permissions):
         )
         job_id = job_response.json.get("job_id")
         job_ids.append(job_id)
+
     returned_job_ids = []
     for _ in range(len(jobs)):
         job_get_response = app.get("/v1/job?queue=myqueue2")
         job_id = job_get_response.json.get("job_id")
         returned_job_ids.append(job_id)
+
     assert returned_job_ids[0] == job_ids[1]
     assert returned_job_ids[1] == job_ids[2]
     assert returned_job_ids[2] == job_ids[0]
@@ -219,16 +226,14 @@ def test_job_get_with_priority_multiple_queues(mongo_app_with_permissions):
     submitted across different queues.
     """
     app, _, client_id, client_key, _ = mongo_app_with_permissions
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
+
     jobs = [
         {"job_queue": "myqueue3"},
         {"job_queue": "myqueue2", "job_priority": 200},
         {"job_queue": "myqueue", "job_priority": 100},
     ]
+
     job_ids = []
     for job in jobs:
         job_response = app.post(
@@ -236,6 +241,7 @@ def test_job_get_with_priority_multiple_queues(mongo_app_with_permissions):
         )
         job_id = job_response.json.get("job_id")
         job_ids.append(job_id)
+
     returned_job_ids = []
     for _ in range(len(jobs)):
         job_get_response = app.get(
@@ -243,6 +249,7 @@ def test_job_get_with_priority_multiple_queues(mongo_app_with_permissions):
         )
         job_id = job_get_response.json.get("job_id")
         returned_job_ids.append(job_id)
+
     assert returned_job_ids[0] == job_ids[1]
     assert returned_job_ids[1] == job_ids[2]
     assert returned_job_ids[2] == job_ids[0]
@@ -251,16 +258,14 @@ def test_job_get_with_priority_multiple_queues(mongo_app_with_permissions):
 def test_job_position_get_with_priority(mongo_app_with_permissions):
     """Tests job position get returns correct position with priority."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
+
     jobs = [
         {"job_queue": "myqueue2"},
         {"job_queue": "myqueue2", "job_priority": 200},
         {"job_queue": "myqueue2", "job_priority": 100},
     ]
+
     job_ids = []
     for job in jobs:
         job_response = app.post(
@@ -284,16 +289,14 @@ def test_restricted_queue_allowed(mongo_app_with_permissions):
     when the token allows that queue.
     """
     app, _, client_id, client_key, _ = mongo_app_with_permissions
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
+
     # rqueue1 is a restricted queue that is allowed for this client
     job = {"job_queue": "rqueue1"}
     job_response = app.post(
         "/v1/job", json=job, headers={"Authorization": token}
     )
+
     assert 200 == job_response.status_code
 
 
@@ -303,16 +306,14 @@ def test_restricted_queue_reject(mongo_app_with_permissions):
     when the client is not allowed.
     """
     app, _, client_id, client_key, _ = mongo_app_with_permissions
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
+
     # rqueue3 is a restricted queue that is not allowed for this client
     job = {"job_queue": "rqueue3"}
     job_response = app.post(
         "/v1/job", json=job, headers={"Authorization": token}
     )
+
     assert 403 == job_response.status_code
 
 
@@ -335,15 +336,13 @@ def test_extended_reservation_allowed(mongo_app_with_permissions):
     the token gives them permission.
     """
     app, _, client_id, client_key, _ = mongo_app_with_permissions
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
+
     job = {"job_queue": "myqueue", "reserve_data": {"timeout": 30000}}
     job_response = app.post(
         "/v1/job", json=job, headers={"Authorization": token}
     )
+
     assert 200 == job_response.status_code
 
 
@@ -353,15 +352,13 @@ def test_extended_reservation_rejected(mongo_app_with_permissions):
     the token does not give them permission.
     """
     app, _, client_id, client_key, _ = mongo_app_with_permissions
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
+
     job = {"job_queue": "myqueue2", "reserve_data": {"timeout": 21601}}
     job_response = app.post(
         "/v1/job", json=job, headers={"Authorization": token}
     )
+
     assert 403 == job_response.status_code
 
 
@@ -399,29 +396,21 @@ def test_star_extended_reservation(mongo_app_with_permissions):
         {"client_id": client_id},
         {"$set": {"max_reservation_time": {"*": 30000}}},
     )
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
+
     job = {"job_queue": "myrandomqueue", "reserve_data": {"timeout": 30000}}
     job_response = app.post(
         "/v1/job", json=job, headers={"Authorization": token}
     )
+
     assert 200 == job_response.status_code
 
 
 def test_get_all_restricted_queues(mongo_app_with_permissions):
     """Test retrieving all restricted queues for agents."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
     mongo.restricted_queues.delete_many({})
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     mongo.agents.insert_many(
         [
@@ -461,14 +450,8 @@ def test_get_all_restricted_queues(mongo_app_with_permissions):
 def test_get_restricted_queue(mongo_app_with_permissions):
     """Test retrieving info for a specific restricted queue."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
     mongo.restricted_queues.delete_many({})
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     mongo.agents.insert_one(
         {
@@ -497,14 +480,8 @@ def test_get_restricted_queue(mongo_app_with_permissions):
 def test_add_restricted_queue(mongo_app_with_permissions):
     """Test adding a restricted queue for an agent."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
     mongo.restricted_queues.delete_many({})
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     client_entry = {
         "client_id": "clientA",
@@ -540,14 +517,8 @@ def test_add_restricted_queue(mongo_app_with_permissions):
 def test_add_restricted_queue_client_not_exists(mongo_app_with_permissions):
     """Test add a restricted queue for an agent fails if client don't exist."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
     mongo.restricted_queues.delete_many({})
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     mongo.agents.insert_one(
         {
@@ -577,14 +548,8 @@ def test_add_restricted_queue_client_not_exists(mongo_app_with_permissions):
 def test_delete_restricted_queue(mongo_app_with_permissions):
     """Test deleting a restricted queue for an agent."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
     mongo.restricted_queues.delete_many({})
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     mongo.agents.insert_one(
         {
@@ -613,12 +578,7 @@ def test_delete_restricted_queue(mongo_app_with_permissions):
 def test_get_all_client_permissions(mongo_app_with_permissions):
     """Test get all client_id and its permissions."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     client_entry = {
         "client_id": "test_client",
@@ -647,12 +607,7 @@ def test_get_all_client_permissions(mongo_app_with_permissions):
 def test_get_single_client_permissions(mongo_app_with_permissions):
     """Test get single client_id and its permissions."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     client_entry = {
         "client_id": "test_client",
@@ -681,12 +636,7 @@ def test_get_single_client_permissions(mongo_app_with_permissions):
 def test_add_client_permissions(mongo_app_with_permissions):
     """Test adding a client_id and its permissions."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     # Define client_id and permissions
     client_permissions = {
@@ -728,12 +678,7 @@ def test_add_client_permissions(mongo_app_with_permissions):
 def test_edit_client_permissions(mongo_app_with_permissions):
     """Test editing a client_id and its permissions."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     # Insert initial client directly in mongo
     initial_client = {
@@ -779,12 +724,7 @@ def test_edit_client_permissions(mongo_app_with_permissions):
 def test_delete_client_permissions(mongo_app_with_permissions):
     """Test deleting a client_id and its permissions."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     # Insert client
     mongo.client_permissions.insert_one(
@@ -810,12 +750,7 @@ def test_delete_client_permissions(mongo_app_with_permissions):
 def test_delete_testflinger_admin(mongo_app_with_permissions):
     """Test deleting testflinger-admin is unsuccessful."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     # No need to mock this client_id creation, request should be rejected
     output = app.delete(
@@ -828,12 +763,7 @@ def test_delete_testflinger_admin(mongo_app_with_permissions):
 def test_create_client_permissions_invalid_role(mongo_app_with_permissions):
     """Test creating client with invalid role fails with schema validation."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     # Send invalid role
     client_permissions = {
@@ -861,12 +791,7 @@ def test_create_client_permissions_missing_required_fields(
 ):
     """Test creating client fails with schema validation."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     # Missing required fields (max_priority, max_reservation_time)
     client_permissions = {
@@ -894,12 +819,7 @@ def test_create_client_permissions_duplicate_client(
 ):
     """Test creating duplicate client fails with conflict error."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     client_permissions = {
         "client_id": "test_client",
@@ -934,12 +854,7 @@ def test_create_client_permissions_duplicate_client(
 def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
     """Test that a lower level role can't edit permissions."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     manager_permissions = {
         "client_id": "test_manager",
@@ -962,7 +877,7 @@ def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
         "/v1/oauth2/token",
         headers=create_auth_header("test_manager", "my-secret-password"),
     )
-    manager_token = manager_auth_output.data.decode("utf-8")
+    manager_token = manager_auth_output.get_json()["access_token"]
 
     # Attempt to demote admin account from fixture
     updated_permissions = {
@@ -986,12 +901,7 @@ def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
 def test_role_hierachy_create_permissions(mongo_app_with_permissions):
     """Test that a lower level role can't create higher level accounts."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    token = authenticate_output.data.decode("utf-8")
+    token = get_access_token(app, client_id, client_key)
 
     manager_permissions = {
         "client_id": "test_manager",
@@ -1014,7 +924,7 @@ def test_role_hierachy_create_permissions(mongo_app_with_permissions):
         "/v1/oauth2/token",
         headers=create_auth_header("test_manager", "my-secret-password"),
     )
-    manager_token = manager_auth_output.data.decode("utf-8")
+    manager_token = manager_auth_output.get_json()["access_token"]
 
     # Attempt to create new admin account
     admin_permissions = {
@@ -1035,3 +945,290 @@ def test_role_hierachy_create_permissions(mongo_app_with_permissions):
 
     # Cleanup
     mongo.client_permissions.delete_one({"client_id": "test_manager"})
+
+
+def test_refresh_access_token(mongo_app_with_permissions):
+    """Test refreshing an access token with a valid refresh token."""
+    app, _, client_id, client_key, max_priority = mongo_app_with_permissions
+
+    initial = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    initial_json = initial.get_json()
+    refresh_token = initial_json["refresh_token"]
+
+    refreshed = app.post(
+        "/v1/oauth2/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert refreshed.status_code == HTTPStatus.OK
+    refreshed_json = refreshed.get_json()
+
+    decoded = jwt.decode(
+        refreshed_json["access_token"],
+        os.environ.get("JWT_SIGNING_KEY"),
+        algorithms="HS256",
+        options={"require": ["exp", "iat", "sub", "permissions"]},
+    )
+    assert decoded["permissions"]["max_priority"] == max_priority
+
+
+def test_refresh_with_invalid_token(mongo_app_with_permissions):
+    """Test refresh with a invalid token string."""
+    app, _, _, _, _ = mongo_app_with_permissions
+
+    resp = app.post(
+        "/v1/oauth2/refresh",
+        json={"refresh_token": "not-a-real-token"},
+    )
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_refresh_with_expired_token(mongo_app_with_permissions):
+    """Test refresh fails if the refresh token is expired."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    issued = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    refresh_token = issued.get_json()["refresh_token"]
+
+    mongo.refresh_tokens.update_one(
+        {"refresh_token": refresh_token},
+        {
+            "$set": {
+                "expires_at": datetime.now(timezone.utc) - timedelta(seconds=1)
+            }
+        },
+    )
+
+    resp = app.post(
+        "/v1/oauth2/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_refresh_with_missing_token_field(mongo_app_with_permissions):
+    """Test refresh fails if token field is missing."""
+    app, _, _, _, _ = mongo_app_with_permissions
+
+    resp = app.post("/v1/oauth2/refresh", json={})
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_admin_refresh_token_has_no_expiration(mongo_app_with_permissions):
+    """Test that Admin refresh token does not expire (expires_at is None)."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    assert authenticate_output.status_code == HTTPStatus.OK
+    refresh_token = authenticate_output.get_json()["refresh_token"]
+
+    stored = mongo.refresh_tokens.find_one({"refresh_token": refresh_token})
+    assert stored.get("expires_at") is None
+
+
+def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
+    """Test that Contributor refresh token expires in ~30 days."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    admin_token = get_access_token(app, client_id, client_key)
+
+    contributor_permissions = {
+        "client_id": "test_user",
+        "client_secret": "user-secret",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.CONTRIBUTOR,
+    }
+    authenticate_output = app.post(
+        "/v1/client-permissions",
+        json=contributor_permissions,
+        headers={"Authorization": admin_token},
+    )
+    assert authenticate_output.status_code == HTTPStatus.OK
+
+    output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header("test_user", "user-secret"),
+    )
+    assert output.status_code == HTTPStatus.OK
+    refresh_token = output.get_json()["refresh_token"]
+
+    stored = mongo.refresh_tokens.find_one({"refresh_token": refresh_token})
+    assert stored.get("expires_at") is not None
+
+    mongo.client_permissions.delete_one({"client_id": "test_user"})
+    mongo.refresh_tokens.delete_many({"client_id": "test_user"})
+
+
+def test_revoke_refresh_token(mongo_app_with_permissions):
+    """Test that admin can revoke refresh token."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    admin_token = get_access_token(app, client_id, client_key)
+
+    contributor_permissions = {
+        "client_id": "test_user",
+        "client_secret": "user-secret",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.CONTRIBUTOR,
+    }
+    output = app.post(
+        "/v1/client-permissions",
+        json=contributor_permissions,
+        headers={"Authorization": admin_token},
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    contributor_auth_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header("test_user", "user-secret"),
+    )
+    assert contributor_auth_output.status_code == HTTPStatus.OK
+    refresh_token = contributor_auth_output.get_json()["refresh_token"]
+
+    revoked = app.post(
+        "/v1/oauth2/revoke",
+        json={"refresh_token": refresh_token},
+        headers={"Authorization": admin_token},
+    )
+    assert revoked.status_code == HTTPStatus.OK
+    assert revoked.get_json()["status"] == "OK"
+
+    refreshed = app.post(
+        "/v1/oauth2/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert refreshed.status_code == HTTPStatus.BAD_REQUEST
+
+    mongo.client_permissions.delete_one({"client_id": "test_user"})
+    mongo.refresh_tokens.delete_one({"client_id": "test_user"})
+
+
+def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
+    """Test that non-admin cannot revoke any refresh token."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    admin_token = get_access_token(app, client_id, client_key)
+
+    user_perm = {
+        "client_id": "test_user",
+        "client_secret": "user-secret",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.CONTRIBUTOR,
+    }
+    app.post(
+        "/v1/client-permissions",
+        json=user_perm,
+        headers={"Authorization": admin_token},
+    )
+
+    contributor_auth_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header("test_user", "user-secret"),
+    )
+    user_json = contributor_auth_output.get_json()
+    user_access_token = user_json["access_token"]
+    user_refresh_token = user_json["refresh_token"]
+
+    attempt = app.post(
+        "/v1/oauth2/revoke",
+        json={"refresh_token": user_refresh_token},
+        headers={"Authorization": user_access_token},
+    )
+    assert attempt.status_code == HTTPStatus.FORBIDDEN
+
+    mongo.client_permissions.delete_one({"client_id": "test_user"})
+    mongo.refresh_tokens.delete_many({"client_id": "test_user"})
+
+
+def test_revoke_with_missing_token_field(mongo_app_with_permissions):
+    """Test revoke fails if token field is missing."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, client_id, client_key)
+
+    resp = app.post(
+        "/v1/oauth2/revoke", json={}, headers={"Authorization": token}
+    )
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_revoke_already_revoked_token(mongo_app_with_permissions):
+    """Test revoking an already revoked token."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, client_id, client_key)
+
+    user_perm = {
+        "client_id": "test_user",
+        "client_secret": "user-secret",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.CONTRIBUTOR,
+    }
+    app.post(
+        "/v1/client-permissions",
+        json=user_perm,
+        headers={"Authorization": token},
+    )
+
+    user_auth = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header("test_user", "user-secret"),
+    )
+    refresh_token = user_auth.get_json()["refresh_token"]
+
+    resp1 = app.post(
+        "/v1/oauth2/revoke",
+        json={"refresh_token": refresh_token},
+        headers={"Authorization": token},
+    )
+    assert resp1.status_code == HTTPStatus.OK
+
+    resp2 = app.post(
+        "/v1/oauth2/revoke",
+        json={"refresh_token": refresh_token},
+        headers={"Authorization": token},
+    )
+    assert resp2.status_code in (HTTPStatus.OK, HTTPStatus.BAD_REQUEST)
+
+
+def test_refresh_token_last_accessed_update(mongo_app_with_permissions):
+    """Test that last_accessed is updated when using refresh token."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    assert authenticate_output.status_code == HTTPStatus.OK
+    refresh_token = authenticate_output.get_json()["refresh_token"]
+
+    mongo.refresh_tokens.update_one(
+        {"refresh_token": refresh_token},
+        {
+            "$set": {
+                "last_accessed": datetime.now(timezone.utc)
+                - timedelta(hours=1)
+            }
+        },
+    )
+
+    token_entry_before = mongo.refresh_tokens.find_one(
+        {"refresh_token": refresh_token}
+    )
+    last_accessed_before = token_entry_before["last_accessed"]
+
+    app.post("/v1/oauth2/refresh", json={"refresh_token": refresh_token})
+
+    token_entry_after = mongo.refresh_tokens.find_one(
+        {"refresh_token": refresh_token}
+    )
+    last_accessed_after = token_entry_after["last_accessed"]
+
+    assert last_accessed_after > last_accessed_before

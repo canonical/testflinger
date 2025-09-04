@@ -24,6 +24,7 @@ from http import HTTPStatus
 import bcrypt
 import jwt
 from apiflask import abort
+from authlib.common.security import generate_token
 from flask import g, request
 
 from testflinger import database
@@ -55,9 +56,9 @@ def validate_client_key_pair(
     return client_permissions_entry
 
 
-def generate_token(allowed_resources: dict, secret_key: str) -> str:
+def generate_access_token(allowed_resources: dict, secret_key: str) -> str:
     """
-    Generate JWT token with queue permission given a secret key.
+    Generate JWT access token with queue permission given a secret key.
 
     :param allowed_resources: dictionary with all permissions for a user
     :param secret_key: Signing key to set the authenticity of the token.
@@ -307,3 +308,60 @@ def check_role_hierarchy(user_role: str, target_role: str) -> bool:
 
     # Users can modify roles at their level or below
     return current_level >= target_level
+
+
+def generate_refresh_token(client_id: str, expires_in: int | None) -> str:
+    """
+    Generate opaque string as a new refresh token.
+
+    :param client_id: Client ID associated with this refresh token.
+    :param expires_in: Expiration time in seconds (default 30 days).
+                       Set to None for non-expiring token.
+
+    :return: Refresh token string.
+    """
+    refresh_token = generate_token(48)  # equal to 64 char
+    now = datetime.now(timezone.utc)
+    token_data = {
+        "client_id": client_id,
+        "refresh_token": refresh_token,
+        "issued_at": now,
+        "expires_at": None
+        if expires_in is None
+        else now + timedelta(seconds=expires_in),
+        "revoked": False,
+        "last_accessed": now,
+    }
+    database.add_refresh_token(token_data)
+    return refresh_token
+
+
+def validate_refresh_token(token: str) -> dict:
+    """
+    Validate refresh token existence, revocation and expiration.
+
+    :param token: Refresh token string.
+
+    :return: Token entry from DB if valid.
+    """
+    token_entry = database.get_refresh_token_by_token(token)
+    if not token_entry:
+        abort(HTTPStatus.BAD_REQUEST, "Invalid refresh token.")
+
+    if token_entry["revoked"]:
+        abort(HTTPStatus.BAD_REQUEST, "Refresh token revoked.")
+
+    expires_at = token_entry.get("expires_at")
+    if expires_at:
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        if expires_at < datetime.now(timezone.utc):
+            abort(HTTPStatus.BAD_REQUEST, "Refresh token expired")
+
+    database.edit_refresh_token(
+        token_entry["refresh_token"],
+        {"last_accessed": datetime.now(timezone.utc)},
+    )
+
+    return token_entry
