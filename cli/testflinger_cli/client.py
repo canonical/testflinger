@@ -437,3 +437,49 @@ class Client:
         endpoint = f"/v1/agents/data/{agent}"
         data = {"state": status, "comment": comment}
         self.post(endpoint, data)
+
+    def create_client_permissions(self, auth_header: dict, json_data: dict):
+        """Create new client_id with specified permissions.
+
+        :param auth_header: Auth header required to perform POST request
+        :param json_data: JSON with all client permissions
+        """
+        endpoint = "/v1/client-permissions"
+        self.post(endpoint, data=json_data, headers=auth_header)
+
+    def edit_client_permissions(self, auth_header: dict, json_data: dict):
+        """Edit existing client_id permissions.
+
+        :param auth_header: Auth header required to perform PUT request
+        :param json_data: JSON with updated client permissions
+        """
+        client_id = json_data.pop("client_id")
+        endpoint = f"/v1/client-permissions/{client_id}"
+        self.put(endpoint, data=json_data, headers=auth_header)
+
+    def get_client_permissions(
+        self, auth_header: dict, tf_client_id: str | None = None
+    ) -> list[dict] | None:
+        """Get the permissions from specified client.
+
+        If no client specified, will provide all client permissions.
+
+        :param auth_header: Auth header required to perform GET request
+        :param tf_client_id: Specified client to retrieve permissions from
+        """
+        if tf_client_id:
+            endpoint = f"/v1/client-permissions/{tf_client_id}"
+        else:
+            endpoint = "/v1/client-permissions"
+        return json.loads(self.get(endpoint, headers=auth_header))
+
+    def delete_client_permissions(
+        self, auth_header: dict, tf_client_id: str
+    ) -> None:
+        """Delete a client_id along with its permissions.
+
+        :param auth_header: Auth header required to perform DELETE request
+        :param tf_client_id: Specified client to delete permissions from
+        """
+        endpoint = f"/v1/client-permissions/{tf_client_id}"
+        self.delete(endpoint, headers=auth_header)
