@@ -51,11 +51,9 @@ class MongoClientMock(mongomock.MongoClient):
 @pytest.fixture(name="mongo_app")
 def mongo_app_fixture():
     """Create a pytest fixture for database and app."""
-    from unittest.mock import Mock
     mock_mongo = MongoClientMock()
     database.mongo = mock_mongo
-    mock_secrets_store = Mock()
-    app = application.create_flask_app(TestingConfig, secrets_store=mock_secrets_store)
+    app = application.create_flask_app(TestingConfig)
     yield app.test_client(), mock_mongo.db
 
 
@@ -72,7 +70,6 @@ def mongo_app_with_permissions(mongo_app):
     Pytest fixture that adds permissions
     to the mock db for priority.
     """
-    from unittest.mock import Mock
     os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
     app, mongo = mongo_app
     client_id = "my_client_id"

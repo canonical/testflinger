@@ -34,7 +34,11 @@ from testflinger import database
 from testflinger.api import auth, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.enums import ServerRoles
-from testflinger.secrets.store import SecretAccessError
+from testflinger.secrets.exceptions import (
+    AccessError,
+    StoreError,
+    UnexpectedError,
+)
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -1070,15 +1074,19 @@ def delete_client_permissions(client_id: str) -> str:
 @v1.input(schemas.SecretIn, location="json")
 def secrets_put(client_id, path, json_data):
     """Store a secret value for the specified client_id and path."""
-    if g.client_id != client_id:
-        abort(400, message=f"'{client_id}' doesn't match authenticated client id")
-
+    if current_app.secrets_store is None:
+        abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
+    if client_id != g.client_id:
+        abort(
+            HTTPStatus.FORBIDDEN,
+            message=f"'{client_id}' doesn't match authenticated client id",
+        )
     value = json_data["value"]
     try:
         current_app.secrets_store.write(client_id, path, value)
-    except SecretAccessError as e:
-        abort(400, message=str(e))
-    except Exception as e:
-        abort(500, message=f"Failed to store secret: {str(e)}")
+    except AccessError as error:
+        abort(HTTPStatus.BAD_REQUEST, message=str(error))
+    except (StoreError, UnexpectedError) as error:
+        abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
     return "OK"

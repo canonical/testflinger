@@ -27,7 +27,6 @@ from testflinger.api.v1 import v1
 from testflinger.database import setup_mongodb
 from testflinger.extensions import metrics
 from testflinger.providers import ISODatetimeProvider
-from testflinger.secrets import setup_secrets_store
 from testflinger.views import views
 
 try:
@@ -60,7 +59,7 @@ def create_flask_app(config=None, secrets_store=None):
 
     if tf_app.config.get("TESTING") is not True:
         setup_mongodb(tf_app)
-    
+
     tf_app.secrets_store = secrets_store
 
     sentry_dsn = tf_app.config.get("SENTRY_DSN")
