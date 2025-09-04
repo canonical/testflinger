@@ -24,6 +24,7 @@ from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
 
 # Constants for TTL indexes
+REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 
@@ -103,6 +104,11 @@ def create_indexes():
     # Remove advertised queues that haven't updated in over 7 days
     mongo.db.queues.create_index(
         "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
+    # Remove refresh tokens that haven't been accessed over 90 days
+    mongo.db.refresh_tokens.create_index(
+        "last_accessed", expireAfterSeconds=REFRESH_TOKEN_IDEL_EXPIRATION
     )
 
     # Faster lookups for common queries

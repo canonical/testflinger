@@ -330,6 +330,7 @@ def generate_refresh_token(client_id: str, expires_in: int | None) -> str:
         if expires_in is None
         else now + timedelta(seconds=expires_in),
         "revoked": False,
+        "last_accessed": now,
     }
     database.add_refresh_token(token_data)
     return refresh_token
@@ -357,5 +358,10 @@ def validate_refresh_token(token: str) -> dict:
 
         if expires_at < datetime.now(timezone.utc):
             abort(HTTPStatus.BAD_REQUEST, "Refresh token expired")
+
+    database.edit_refresh_token(
+        token_entry["refresh_token"],
+        {"last_accessed": datetime.now(timezone.utc)},
+    )
 
     return token_entry

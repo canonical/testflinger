@@ -1196,3 +1196,39 @@ def test_revoke_already_revoked_token(mongo_app_with_permissions):
         headers={"Authorization": token},
     )
     assert resp2.status_code in (HTTPStatus.OK, HTTPStatus.BAD_REQUEST)
+
+
+def test_refresh_token_last_accessed_update(mongo_app_with_permissions):
+    """Test that last_accessed is updated when using refresh token."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+    authenticate_output = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    assert authenticate_output.status_code == HTTPStatus.OK
+    refresh_token = authenticate_output.get_json()["refresh_token"]
+
+    mongo.refresh_tokens.update_one(
+        {"refresh_token": refresh_token},
+        {
+            "$set": {
+                "last_accessed": datetime.now(timezone.utc)
+                - timedelta(hours=1)
+            }
+        },
+    )
+
+    token_entry_before = mongo.refresh_tokens.find_one(
+        {"refresh_token": refresh_token}
+    )
+    last_accessed_before = token_entry_before["last_accessed"]
+
+    app.post("/v1/oauth2/refresh", json={"refresh_token": refresh_token})
+
+    token_entry_after = mongo.refresh_tokens.find_one(
+        {"refresh_token": refresh_token}
+    )
+    last_accessed_after = token_entry_after["last_accessed"]
+
+    assert last_accessed_after > last_accessed_before
