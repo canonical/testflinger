@@ -16,16 +16,23 @@
 
 """Testflinger CLI Auth module."""
 
+import configparser
 import contextlib
+import stat
 from functools import cached_property, wraps
 from http import HTTPStatus
+from pathlib import Path
 from typing import Optional
 
 import jwt
 
 from testflinger_cli import client
-from testflinger_cli.consts import ServerRoles
-from testflinger_cli.errors import AuthenticationError, AuthorizationError
+from testflinger_cli.consts import SNAP_COMMON, ServerRoles
+from testflinger_cli.errors import (
+    AuthenticationError,
+    AuthorizationError,
+    InvalidTokenError,
+)
 
 
 class TestflingerCliAuth:
@@ -45,14 +52,35 @@ class TestflingerCliAuth:
         """
         return self.jwt_token is not None
 
-    @cached_property
-    def jwt_token(self) -> str | None:
-        """Authenticate with the server and get a JWT."""
+    def authenticate(self) -> str | None:
+        """Authenticate with server and retrieve access and refresh tokens.
+
+        :raises AuthenticationError: Invalid credentials were provided
+        :raises AuthorizationError: User is not authorized
+        :return: string with access token (jwt token)
+        """
+        # Attempt to get the refresh token
+        refresh_token = self.get_stored_refresh_token()
+        if refresh_token:
+            try:
+                response = self.client.refresh_authentication(refresh_token)
+                return response["access_token"]
+            except client.HTTPError as exc:
+                if exc.status == HTTPStatus.BAD_REQUEST:
+                    # Token is already expired or revoked, clear to force login
+                    self.clear_refresh_token()
+                    raise InvalidTokenError(exc.msg) from exc
+
+        # Attempt login with credentials if no refresh token
         if self.client_id is None or self.secret_key is None:
             return None
-
         try:
-            return self.client.authenticate(self.client_id, self.secret_key)
+            response = self.client.authenticate(
+                self.client_id, self.secret_key
+            )
+            # Store refresh token for persistent login
+            self.store_refresh_token(response["refresh_token"])
+            return response["access_token"]
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.UNAUTHORIZED:
                 raise AuthenticationError from exc
@@ -60,12 +88,60 @@ class TestflingerCliAuth:
                 raise AuthorizationError from exc
         return None
 
+    @cached_property
+    def jwt_token(self) -> str | None:
+        """Authenticate with the server and get a JWT."""
+        return self.authenticate()
+
+    def get_stored_refresh_token(self) -> str | None:
+        """Retrieve the refresh token from Snap Common.
+
+        :return: refresh token if any, otherwise None
+        """
+        testflinger_common_conf = Path(SNAP_COMMON) / "auth.conf"
+        if testflinger_common_conf.exists():
+            config_file = configparser.ConfigParser()
+            config_file.read(testflinger_common_conf)
+            refresh_token = config_file.get(
+                "AUTH", "refresh_token", fallback=None
+            )
+            return refresh_token
+        return None
+
+    def store_refresh_token(self, refresh_token: str) -> None:
+        """Store refresh token for persistent login.
+
+        :param refresh_token: refresh token to store in Snap Common
+        """
+        testflinger_common_conf = Path(SNAP_COMMON) / "auth.conf"
+        config_file = configparser.ConfigParser()
+        config_file["AUTH"] = {"refresh_token": refresh_token}
+        with testflinger_common_conf.open("w") as file:
+            config_file.write(file)
+        # Set permissions to just read/write for owner
+        testflinger_common_conf.chmod(stat.S_IRUSR, stat.S_IWUSR)
+
+    def clear_refresh_token(self):
+        """Cleanup refresh_token if already expired or revoked."""
+        testflinger_common_conf = Path(SNAP_COMMON) / "auth.conf"
+        if testflinger_common_conf.exists():
+            try:
+                testflinger_common_conf.unlink()
+            except (OSError, PermissionError):
+                # Empty file if unable to remove it
+                with testflinger_common_conf.open("w"):
+                    pass
+
     def build_headers(self) -> Optional[dict]:
         """Create an authorization header based on stored JWT.
 
         :return: Dict with JWT as the Authorization header if exist.
         """
-        return {"Authorization": self.jwt_token} if self.jwt_token else None
+        return (
+            {"Authorization": f"Bearer {self.jwt_token}"}
+            if self.jwt_token
+            else None
+        )
 
     def decode_jwt_token(self) -> Optional[dict]:
         """Decode JWT token without verifying signature.
