@@ -6,11 +6,6 @@ services:
     environment:
       MONGO_INITDB_ROOT_PASSWORD: testflinger
       MONGO_INITDB_ROOT_USERNAME: testflinger
-      #MONGODB_AUTH_SOURCE: admin
-      #MONGODB_DATABASE: testflinger_db
-      #MONGODB_HOST: mongo
-      #MONGODB_PASSWORD: testflinger
-      #MONGODB_USERNAME: testflinger
     ports:
       - 27017:27017
   testflinger:
