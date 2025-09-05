@@ -20,7 +20,7 @@ SNAP_PRIVATE_DIRS = [
     "/tmp",  # noqa: S108
 ]
 # Set fallback if not running as snap e.g. local uv
-SNAP_COMMON = os.environ.get("SNAP_COMMON", f"/var/snap/{SNAP_NAME}/common")
+SNAP_COMMON = os.environ.get("SNAP_COMMON", f"/tmp/{SNAP_NAME}/common")  # noqa: S108
 
 LOG_FORMAT = (
     "%(levelname)s: %(asctime)s %(filename)s:%(lineno)d -- %(message)s"

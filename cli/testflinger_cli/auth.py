@@ -114,6 +114,8 @@ class TestflingerCliAuth:
         :param refresh_token: refresh token to store in Snap Common
         """
         testflinger_common_conf = Path(SNAP_COMMON) / "auth.conf"
+        # Ensure directory exists, this is needed for testing environment.
+        testflinger_common_conf.parent.mkdir(parents=True, exist_ok=True)
         config_file = configparser.ConfigParser()
         config_file["AUTH"] = {"refresh_token": refresh_token}
         with testflinger_common_conf.open("w") as file:
