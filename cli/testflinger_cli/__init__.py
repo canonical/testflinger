@@ -1221,7 +1221,10 @@ class TestflingerCli:
         self.auth.clear_refresh_token()
         try:
             # Since refresh token was cleared, credentials are always needed
-            self.auth.authenticate()
-            print(f"Successfully authenticated as user '{self.client_id}'")
+            if self.auth.authenticate():
+                print(f"Successfully authenticated as user '{self.client_id}'")
+            else:
+                # authenticate can return None if no credentials were provided
+                sys.exit("Please provide credentials and reattempt login")
         except (AuthenticationError, AuthorizationError) as exc:
             sys.exit(exc)

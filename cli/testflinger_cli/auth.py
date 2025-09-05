@@ -18,16 +18,15 @@
 
 import configparser
 import contextlib
-import stat
 from functools import cached_property, wraps
 from http import HTTPStatus
-from pathlib import Path
 from typing import Optional
 
 import jwt
+from xdg_base_dirs import xdg_config_home
 
 from testflinger_cli import client
-from testflinger_cli.consts import SNAP_COMMON, ServerRoles
+from testflinger_cli.consts import ServerRoles
 from testflinger_cli.errors import (
     AuthenticationError,
     AuthorizationError,
@@ -42,6 +41,12 @@ class TestflingerCliAuth:
         self.client_id = client_id
         self.secret_key = secret_key
         self.client = tf_client
+
+        # Refresh token relevant configuration
+        config_home = xdg_config_home()
+        config_home.mkdir(parents=True, exist_ok=True)
+        self.auth_config = config_home / "testflinger-cli-auth.conf"
+
         # Fetch JWT token to fail fast in case of any auth error.
         _ = self.jwt_token
 
@@ -98,10 +103,9 @@ class TestflingerCliAuth:
 
         :return: refresh token if any, otherwise None
         """
-        testflinger_common_conf = Path(SNAP_COMMON) / "auth.conf"
-        if testflinger_common_conf.exists():
+        if self.auth_config.exists():
             config_file = configparser.ConfigParser()
-            config_file.read(testflinger_common_conf)
+            config_file.read(self.auth_config)
             refresh_token = config_file.get(
                 "AUTH", "refresh_token", fallback=None
             )
@@ -113,25 +117,19 @@ class TestflingerCliAuth:
 
         :param refresh_token: refresh token to store in Snap Common
         """
-        testflinger_common_conf = Path(SNAP_COMMON) / "auth.conf"
-        # Ensure directory exists, this is needed for testing environment.
-        testflinger_common_conf.parent.mkdir(parents=True, exist_ok=True)
         config_file = configparser.ConfigParser()
         config_file["AUTH"] = {"refresh_token": refresh_token}
-        with testflinger_common_conf.open("w") as file:
+        with self.auth_config.open("w") as file:
             config_file.write(file)
-        # Set permissions to just read/write for owner
-        testflinger_common_conf.chmod(stat.S_IRUSR | stat.S_IWUSR)
 
     def clear_refresh_token(self):
         """Cleanup refresh_token if already expired or revoked."""
-        testflinger_common_conf = Path(SNAP_COMMON) / "auth.conf"
-        if testflinger_common_conf.exists():
+        if self.auth_config.exists():
             try:
-                testflinger_common_conf.unlink()
+                self.auth_config.unlink()
             except (OSError, PermissionError):
                 # Empty file if unable to remove it
-                with testflinger_common_conf.open("w"):
+                with self.auth_config.open("w"):
                     pass
 
     def build_headers(self) -> Optional[dict]:

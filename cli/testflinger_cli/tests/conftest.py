@@ -15,13 +15,16 @@ JWT_SIGNING_KEY = "my-secret"
 
 
 @pytest.fixture(autouse=True)
-def mock_snap_common(monkeypatch, tmp_path):
-    """Automatically mock SNAP_COMMON for all tests to ensure isolation.
+def mock_xdg_config(monkeypatch, tmp_path):
+    """Mock XDG config home for all tests to ensure isolation.
 
-    This prevents tests from accessing the real token storage location
+    This prevents tests from accessing refresh token storage location
     and ensures each test has a clean, isolated environment.
     """
-    monkeypatch.setattr("testflinger_cli.auth.SNAP_COMMON", str(tmp_path))
+    # Mock the xdg_config_home function to return our temp path
+    monkeypatch.setattr(
+        "testflinger_cli.auth.xdg_config_home", lambda: tmp_path
+    )
 
 
 @pytest.fixture
