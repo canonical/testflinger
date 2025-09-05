@@ -55,3 +55,16 @@ class AuthorizationError(Exception):
     def __str__(self) -> str:
         """Return a string with the the error message."""
         return self.message
+
+
+class InvalidTokenError(Exception):
+    """Exception thrown when refresh token is missing, invalid,
+    revoked or expired.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(
+            "Authentication with Testflinger server failed with "
+            f"following reason: {reason} "
+            "Please reauthenticate with server."
+        )

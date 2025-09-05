@@ -20,37 +20,12 @@ import json
 import sys
 from http import HTTPStatus
 
-import jwt
 import pytest
 
 import testflinger_cli
 from testflinger_cli.consts import ServerRoles
 from testflinger_cli.errors import AuthorizationError
 from testflinger_cli.tests.test_cli import URL
-
-# Mock required authentication
-TEST_CLIENT_ID = "my_client_id"
-TEST_SECRET_KEY = "my_secret_key"
-JWT_SIGNING_KEY = "my-secret"
-
-
-@pytest.fixture
-def auth_fixture(monkeypatch, requests_mock):
-    """Configure authentication for test that require role."""
-
-    def _fixture(role):
-        monkeypatch.setenv("TESTFLINGER_CLIENT_ID", TEST_CLIENT_ID)
-        monkeypatch.setenv("TESTFLINGER_SECRET_KEY", TEST_SECRET_KEY)
-
-        fake_payload = {
-            "permissions": {"client_id": TEST_CLIENT_ID, "role": role}
-        }
-        fake_jwt_token = jwt.encode(
-            fake_payload, JWT_SIGNING_KEY, algorithm="HS256"
-        )
-        requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
-
-    return _fixture
 
 
 @pytest.mark.parametrize("state", ["offline", "maintenance"])

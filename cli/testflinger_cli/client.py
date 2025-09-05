@@ -291,12 +291,11 @@ class Client:
 
     def authenticate(self, client_id: str, secret_key: str) -> dict:
         """Authenticate client id and secret key with the server
-        and returns JWT with allowed permissions.
+        and returns access and refresh tokens.
 
-        :param job_data:
-            Dictionary containing data for the job to submit
-        :return:
-            ID for the test job
+        :param client_id: user used for authentication
+        :param secret_key: secret used to authenticate user
+        :return: access_token, token_type, expiration and refresh token
         """
         endpoint = "/v1/oauth2/token"
         id_key_pair = f"{client_id}:{secret_key}"
@@ -305,7 +304,17 @@ class Client:
         ).decode("utf-8")
         headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
         response = self.post(endpoint, {}, headers=headers)
-        return response
+        return json.loads(response)
+
+    def refresh_authentication(self, refresh_token: str) -> dict:
+        """Refresh access_token by using stored refresh_token.
+
+        :param refresh_token: Opaque token used for refreshing access_token
+        :return: access_token with token type and expiration
+        """
+        endpoint = "/v1/oauth2/refresh"
+        response = self.post(endpoint, data={"refresh_token": refresh_token})
+        return json.loads(response)
 
     def post_attachment(self, job_id: str, path: Path, timeout: int):
         """Send a test job attachment to the testflinger server.

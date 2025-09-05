@@ -37,3 +37,8 @@ command line arguments:
 	$ testflinger-cli submit example-job.yaml --client_id "my_client_id" --secret_key "my_secret_key"
 
 However, this is not recommended for security purposes.
+
+.. tip::
+    You can also authenticate by running ``testflinger-cli login`` with or without additional command line arguments.
+    Upon successful authentication with ``login`` or any authenticated command, testflinger-cli will cache credentials
+    and authenticate automatically without requiring ``client_id`` and ``secret_key`` until the cached credentials expire.

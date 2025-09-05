@@ -52,6 +52,7 @@ from testflinger_cli.errors import (
     AttachmentError,
     AuthenticationError,
     AuthorizationError,
+    InvalidTokenError,
     SnapPrivateFileError,
     UnknownStatusError,
 )
@@ -76,7 +77,7 @@ def cli():
         tfcli.run()
     except KeyboardInterrupt:
         sys.exit("Received KeyboardInterrupt")
-    except (AuthenticationError, AuthorizationError) as exc:
+    except (AuthenticationError, AuthorizationError, InvalidTokenError) as exc:
         sys.exit(exc)
 
 
@@ -123,7 +124,11 @@ class TestflingerCli:
             self.auth = TestflingerCliAuth(
                 self.client_id, self.secret_key, self.client
             )
-        except (AuthenticationError, AuthorizationError) as exc:
+        except (
+            AuthenticationError,
+            AuthorizationError,
+            InvalidTokenError,
+        ) as exc:
             sys.exit(exc)
 
     def run(self):
@@ -155,6 +160,7 @@ class TestflingerCli:
         self._add_config_args(subparsers)
         self._add_jobs_args(subparsers)
         self._add_list_queues_args(subparsers)
+        self._add_login_args(subparsers)
         self._add_poll_args(subparsers)
         self._add_poll_serial_args(subparsers)
         self._add_reserve_args(subparsers)
@@ -171,6 +177,20 @@ class TestflingerCli:
         except SnapPrivateFileError as exc:
             parser.error(exc)
         self.help = parser.format_help()
+
+    def _add_auth_args(self, parser):
+        parser.add_argument(
+            "--client-id",
+            "--client_id",
+            default=None,
+            help="Client ID to authenticate with Testflinger server",
+        )
+        parser.add_argument(
+            "--secret-key",
+            "--secret_key",
+            default=None,
+            help="Secret key to be used with client id for authentication",
+        )
 
     def _add_artifacts_args(self, subparsers):
         """Command line arguments for artifacts."""
@@ -227,6 +247,15 @@ class TestflingerCli:
         parser.add_argument(
             "--json", action="store_true", help="Print output in JSON format"
         )
+
+    def _add_login_args(self, subparsers):
+        """Command line arguments for login."""
+        parser = subparsers.add_parser(
+            "login",
+            help="Authenticate with server",
+        )
+        parser.set_defaults(func=self.login)
+        self._add_auth_args(parser)
 
     def _add_poll_args(self, subparsers):
         """Command line arguments for poll."""
@@ -367,18 +396,7 @@ class TestflingerCli:
         ).completer = argcomplete.completers.FilesCompleter(
             allowednames=("*.yaml", "*.yml", "*.json")
         )
-        parser.add_argument(
-            "--client-id",
-            "--client_id",
-            default=None,
-            help="Client ID to authenticate with Testflinger server",
-        )
-        parser.add_argument(
-            "--secret-key",
-            "--secret_key",
-            default=None,
-            help="Secret key to be used with client id for authentication",
-        )
+        self._add_auth_args(parser)
         relative = parser.add_mutually_exclusive_group()
         relative.add_argument(
             "--attachments-relative-to",
@@ -1196,3 +1214,17 @@ class TestflingerCli:
             # a bad return from get_status()
             logger.debug("Unable to retrieve job state: %s", exc)
         return "unknown"
+
+    def login(self):
+        """Authenticate using refresh_token or provided credentials."""
+        # Clear refresh token if user is attempting reauthentication
+        self.auth.clear_refresh_token()
+        try:
+            # Since refresh token was cleared, credentials are always needed
+            if self.auth.authenticate():
+                print(f"Successfully authenticated as user '{self.client_id}'")
+            else:
+                # authenticate can return None if no credentials were provided
+                sys.exit("Please provide credentials and reattempt login")
+        except (AuthenticationError, AuthorizationError) as exc:
+            sys.exit(exc)

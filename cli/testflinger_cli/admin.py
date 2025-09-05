@@ -46,20 +46,6 @@ class TestflingerAdminCLI:
         self._add_get_args(admin_subparser)
         self._add_delete_args(admin_subparser)
 
-    def _add_common_admin_args(self, parser):
-        parser.add_argument(
-            "--client-id",
-            "--client_id",
-            default=None,
-            help="Client ID to authenticate with Testflinger server",
-        )
-        parser.add_argument(
-            "--secret-key",
-            "--secret_key",
-            default=None,
-            help="Secret key to be used with client id for authentication",
-        )
-
     def _add_set_args(self, subparsers):
         """Command line arguments for set action."""
         parser = subparsers.add_parser(
@@ -114,7 +100,7 @@ class TestflingerAdminCLI:
             "--comment",
             help="Reason for modifying status (required for status offline)",
         )
-        self._add_common_admin_args(parser)
+        self.main_cli._add_auth_args(parser)
 
     def _add_set_client_permissions_args(self, subparsers):
         parser = subparsers.add_parser(
@@ -149,7 +135,7 @@ class TestflingerAdminCLI:
         parser.add_argument(
             "--json", help="Optional JSON data with client_permissions"
         )
-        self._add_common_admin_args(parser)
+        self.main_cli._add_auth_args(parser)
 
     def _add_get_client_permissions_args(self, subparsers):
         parser = subparsers.add_parser(
@@ -160,7 +146,7 @@ class TestflingerAdminCLI:
             "--testflinger-client-id",
             help="Client_id to get permissions",
         )
-        self._add_common_admin_args(parser)
+        self.main_cli._add_auth_args(parser)
 
     def _add_delete_client_permissions_args(self, subparsers):
         parser = subparsers.add_parser(
@@ -173,7 +159,7 @@ class TestflingerAdminCLI:
             required=True,
             help="client_id to delete from database",
         )
-        self._add_common_admin_args(parser)
+        self.main_cli._add_auth_args(parser)
 
     @require_role(ServerRoles.ADMIN)
     def set_agent_status(self):
