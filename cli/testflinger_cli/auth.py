@@ -119,7 +119,7 @@ class TestflingerCliAuth:
         with testflinger_common_conf.open("w") as file:
             config_file.write(file)
         # Set permissions to just read/write for owner
-        testflinger_common_conf.chmod(stat.S_IRUSR, stat.S_IWUSR)
+        testflinger_common_conf.chmod(stat.S_IRUSR | stat.S_IWUSR)
 
     def clear_refresh_token(self):
         """Cleanup refresh_token if already expired or revoked."""

@@ -18,6 +18,7 @@
 
 import json
 import sys
+import uuid
 from http import HTTPStatus
 
 import jwt
@@ -35,10 +36,13 @@ JWT_SIGNING_KEY = "my-secret"
 
 
 @pytest.fixture
-def auth_fixture(monkeypatch, requests_mock):
+def auth_fixture(monkeypatch, requests_mock, tmp_path):
     """Configure authentication for test that require role."""
 
     def _fixture(role):
+        # Mock SNAP_COMMON to use temporary directory
+        monkeypatch.setattr("testflinger_cli.auth.SNAP_COMMON", str(tmp_path))
+
         monkeypatch.setenv("TESTFLINGER_CLIENT_ID", TEST_CLIENT_ID)
         monkeypatch.setenv("TESTFLINGER_SECRET_KEY", TEST_SECRET_KEY)
 
@@ -48,7 +52,13 @@ def auth_fixture(monkeypatch, requests_mock):
         fake_jwt_token = jwt.encode(
             fake_payload, JWT_SIGNING_KEY, algorithm="HS256"
         )
-        requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
+        fake_return = {
+            "access_token": fake_jwt_token,
+            "token_type": "Bearer",
+            "expires_in": 30,
+            "refresh_token": str(uuid.uuid4()),
+        }
+        requests_mock.post(f"{URL}/v1/oauth2/token", json=fake_return)
 
     return _fixture
 

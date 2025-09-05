@@ -15,7 +15,6 @@ class ServerRoles(StrEnum):
     USER = "user"
 
 
-
 SNAP_NAME = "testflinger-cli"
 SNAP_PRIVATE_DIRS = [
     "/tmp",  # noqa: S108

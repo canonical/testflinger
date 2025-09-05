@@ -489,6 +489,9 @@ def test_submit_attachments_timeout(tmp_path):
 
 def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):
     """Tests authorization of jobs submitted with priority."""
+    # Mock SNAP_COMMON to use temporary directory
+    monkeypatch.setattr("testflinger_cli.auth.SNAP_COMMON", str(tmp_path))
+
     job_id = str(uuid.uuid1())
     job_data = {
         "job_queue": "fake",
@@ -500,8 +503,13 @@ def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):
     # Define variables for authentication
     monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
     monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-    fake_jwt = "my_jwt"
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt)
+    fake_return = {
+        "access_token": "fake_jwt_token",
+        "token_type": "Bearer",
+        "expires_in": 30,
+        "refresh_token": "fake_refresh_token",
+    }
+    requests_mock.post(f"{URL}/v1/oauth2/token", json=fake_return)
 
     sys.argv = ["", "submit", str(job_file)]
     tfcli = testflinger_cli.TestflingerCli()
@@ -516,11 +524,14 @@ def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):
     assert len(history) == 3
     assert history[0].path == "/v1/oauth2/token"
     assert history[2].path == "/v1/job"
-    assert history[2].headers.get("Authorization") == fake_jwt
+    assert history[2].headers.get("Authorization") == "Bearer fake_jwt_token"
 
 
 def test_submit_token_timeout_retry(tmp_path, requests_mock, monkeypatch):
     """Tests job submission retries 3 times when token has expired."""
+    # Mock SNAP_COMMON to use temporary directory
+    monkeypatch.setattr("testflinger_cli.auth.SNAP_COMMON", str(tmp_path))
+
     job_data = {
         "job_queue": "fake",
         "job_priority": 100,
@@ -531,8 +542,14 @@ def test_submit_token_timeout_retry(tmp_path, requests_mock, monkeypatch):
     # Define variables for authentication
     monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
     monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-    fake_jwt = "my_jwt"
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt)
+    fake_return = {
+        "access_token": "fake_jwt_token",
+        "token_type": "Bearer",
+        "expires_in": 30,
+        "refresh_token": "fake_refresh_token",
+    }
+    requests_mock.post(f"{URL}/v1/oauth2/token", json=fake_return)
+    requests_mock.post(f"{URL}/v1/oauth2/refresh", json=fake_return)
 
     sys.argv = ["", "submit", str(job_file)]
     tfcli = testflinger_cli.TestflingerCli()
@@ -551,9 +568,9 @@ def test_submit_token_timeout_retry(tmp_path, requests_mock, monkeypatch):
     assert len(history) == 7
     assert history[0].path == "/v1/oauth2/token"
     assert history[2].path == "/v1/job"
-    assert history[3].path == "/v1/oauth2/token"
+    assert history[3].path == "/v1/oauth2/refresh"
     assert history[4].path == "/v1/job"
-    assert history[5].path == "/v1/oauth2/token"
+    assert history[5].path == "/v1/oauth2/refresh"
     assert history[6].path == "/v1/job"
 
 
@@ -909,6 +926,9 @@ def test_retrieve_regular_user_role(tmp_path, requests_mock):
 
 def test_user_authenticated_with_role(tmp_path, requests_mock, monkeypatch):
     """Test user is able to authenticate and there is role defined."""
+    # Mock SNAP_COMMON to use temporary directory
+    monkeypatch.setattr("testflinger_cli.auth.SNAP_COMMON", str(tmp_path))
+
     job_data = {
         "job_queue": "fake",
         "job_priority": 100,
@@ -928,7 +948,13 @@ def test_user_authenticated_with_role(tmp_path, requests_mock, monkeypatch):
     fake_jwt_token = jwt.encode(
         fake_payload, fake_jwt_signing_key, algorithm="HS256"
     )
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
+    fake_return = {
+        "access_token": fake_jwt_token,
+        "token_type": "Bearer",
+        "expires_in": 30,
+        "refresh_token": "fake_refresh_token",
+    }
+    requests_mock.post(f"{URL}/v1/oauth2/token", json=fake_return)
 
     sys.argv = ["", "submit", str(job_file)]
     tfcli = testflinger_cli.TestflingerCli()
@@ -940,6 +966,9 @@ def test_user_authenticated_with_role(tmp_path, requests_mock, monkeypatch):
 
 def test_default_auth_user_role(tmp_path, requests_mock, monkeypatch):
     """Test we are able to get default user for legacy users."""
+    # Mock SNAP_COMMON to use temporary directory
+    monkeypatch.setattr("testflinger_cli.auth.SNAP_COMMON", str(tmp_path))
+
     job_data = {
         "job_queue": "fake",
         "job_priority": 100,
@@ -957,7 +986,13 @@ def test_default_auth_user_role(tmp_path, requests_mock, monkeypatch):
     fake_jwt_token = jwt.encode(
         fake_payload, fake_jwt_signing_key, algorithm="HS256"
     )
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
+    fake_return = {
+        "access_token": fake_jwt_token,
+        "token_type": "Bearer",
+        "expires_in": 30,
+        "refresh_token": "fake_refresh_token",
+    }
+    requests_mock.post(f"{URL}/v1/oauth2/token", json=fake_return)
 
     sys.argv = ["", "submit", str(job_file)]
     tfcli = testflinger_cli.TestflingerCli()
