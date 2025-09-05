@@ -80,7 +80,7 @@ class VaultStore(SecretsStore):
         # delete the secret value using the Vault API
         try:
             self.client.secrets.kv.v2.delete_metadata_and_all_versions(
-                path=key
+                path=f"{namespace}/{key}"
             )
         except hvac.exceptions.InvalidPath:
             # no failure if the secret does not exist

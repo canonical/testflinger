@@ -1090,3 +1090,24 @@ def secrets_put(client_id, path, json_data):
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
     return "OK"
+
+
+@v1.delete("/secrets/<client_id>/<path:path>")
+@authenticate
+def secrets_delete(client_id, path):
+    """Remove a secret value for the specified client_id and path."""
+    if current_app.secrets_store is None:
+        abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
+    if client_id != g.client_id:
+        abort(
+            HTTPStatus.FORBIDDEN,
+            message=f"'{client_id}' doesn't match authenticated client id",
+        )
+    try:
+        current_app.secrets_store.delete(client_id, path)
+    except AccessError as error:
+        abort(HTTPStatus.BAD_REQUEST, message=str(error))
+    except (StoreError, UnexpectedError) as error:
+        abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
+
+    return "OK"

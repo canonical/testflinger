@@ -137,9 +137,6 @@ def test_secrets_put_no_value(app_with_store):
     path = "path/to/secret"
     mock_secrets_store = app_with_store.application.secrets_store
 
-    # Configure the mock to raise AccessError for any read attempts
-    mock_secrets_store.read.side_effect = AccessError()
-
     # WHEN: an authorised request without a value is sent to the
     #   PUT secrets endpoint
     auth_header = create_auth_header(client_id, "client_key")
@@ -164,9 +161,6 @@ def test_secrets_put_no_authentication(app_with_store):
     path = "path/to/secret"
     mock_secrets_store = app_with_store.application.secrets_store
 
-    # Configure the mock to raise AccessError for any read attempts
-    mock_secrets_store.read.side_effect = AccessError()
-
     # WHEN: an unauthorised request is sent to the PUT secrets endpoint
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
@@ -180,7 +174,7 @@ def test_secrets_put_no_authentication(app_with_store):
 
 def test_secrets_put_access_error(app_with_store):
     """Test writing a secret with an access error from the store."""
-    # GIVEN: an app with a secrets store
+    # GIVEN: an app with a secrets store where write raises an AccessErrpr
     client_id = "client_1"
     path = "path/to/error/access"
     mock_secrets_store = app_with_store.application.secrets_store
@@ -204,8 +198,8 @@ def test_secrets_put_access_error(app_with_store):
 
 
 def test_secrets_put_store_error(app_with_store):
-    """Test writing a secret with an store error."""
-    # GIVEN: an app with a secrets store
+    """Test writing a secret with a store error."""
+    # GIVEN: an app with a secrets store where write raises a StoreError
     client_id = "client_1"
     path = "path/to/error/store"
     mock_secrets_store = app_with_store.application.secrets_store
@@ -239,6 +233,142 @@ def test_secrets_put_no_store(testapp):
     response = app_client.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": "value"},
+    )
+
+    # THEN: the request is rejected
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+@pytest.mark.parametrize(
+    "client_id,path",
+    (
+        ("client_1", "shallow"),
+        ("client_1", "path/with/components"),
+        ("client_2", "another/path"),
+    ),
+)
+def test_secrets_delete_success(app_with_store, client_id, path):
+    """Test successfully deleting a secret from the store through the API."""
+    # GIVEN: an app with a secrets store
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.delete.return_value = None
+
+    # WHEN: an authorised request is sent to the DELETE secrets endpoint
+    auth_header = create_auth_header(client_id, "client_key")
+    token_response = app_with_store.post(
+        "/v1/oauth2/token", headers=auth_header
+    )
+    token = token_response.data.decode("utf-8")
+    response = app_with_store.delete(
+        f"/v1/secrets/{client_id}/{path}",
+        headers={"Authorization": token},
+    )
+
+    # THEN: the request is successful
+    assert response.status_code == HTTPStatus.OK
+    mock_secrets_store.delete.assert_called_once_with(client_id, path)
+
+
+def test_secrets_delete_different_client_id(app_with_store):
+    """Test deleting a secret from an unauthorized namespace."""
+    # GIVEN: an app with a secrets store
+    client_id = "client_1"
+    unauthorized_client_id = "client_2"
+    path = "path/to/secret"
+    mock_secrets_store = app_with_store.application.secrets_store
+
+    # WHEN: an authorised request for a different client id is sent to
+    #   the DELETE secrets endpoint
+    auth_header = create_auth_header(client_id, "client_key")
+    token_response = app_with_store.post(
+        "/v1/oauth2/token", headers=auth_header
+    )
+    token = token_response.data.decode("utf-8")
+    response = app_with_store.delete(
+        f"/v1/secrets/{unauthorized_client_id}/{path}",
+        headers={"Authorization": token},
+    )
+
+    # THEN: the request is rejected and no secret has been deleted
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    mock_secrets_store.delete.assert_not_called()
+
+
+def test_secrets_delete_no_authentication(app_with_store):
+    """Test deleting a secret when unauthorized."""
+    # GIVEN: an app with a secrets store
+    client_id = "client_1"
+    path = "path/to/secret"
+    mock_secrets_store = app_with_store.application.secrets_store
+
+    # WHEN: an unauthorised request is sent to the DELETE secrets endpoint
+    response = app_with_store.delete(
+        f"/v1/secrets/{client_id}/{path}",
+    )
+
+    # THEN: the request is rejected and no secret has been deleted
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    mock_secrets_store.delete.assert_not_called()
+
+
+def test_secrets_delete_access_error(app_with_store):
+    """Test deleting a secret with an access error from the store."""
+    # GIVEN: an app with a secrets store where delete raises an AccessError
+    client_id = "client_1"
+    path = "path/to/error/access"
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.delete.side_effect = AccessError()
+
+    # WHEN: an authorised request is sent to the DELETE secrets endpoint
+    auth_header = create_auth_header(client_id, "client_key")
+    token_response = app_with_store.post(
+        "/v1/oauth2/token", headers=auth_header
+    )
+    token = token_response.data.decode("utf-8")
+    response = app_with_store.delete(
+        f"/v1/secrets/{client_id}/{path}",
+        headers={"Authorization": token},
+    )
+
+    # THEN: the request is rejected
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    mock_secrets_store.delete.assert_called_once_with(client_id, path)
+
+
+def test_secrets_delete_store_error(app_with_store):
+    """Test deleting a secret with a store error."""
+    # GIVEN: an app with a secrets store where delete raises a StoreError
+    client_id = "client_1"
+    path = "path/to/error/store"
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.delete.side_effect = StoreError()
+
+    # WHEN: an authorised request is sent to the DELETE secrets endpoint
+    auth_header = create_auth_header(client_id, "client_key")
+    token_response = app_with_store.post(
+        "/v1/oauth2/token", headers=auth_header
+    )
+    token = token_response.data.decode("utf-8")
+    response = app_with_store.delete(
+        f"/v1/secrets/{client_id}/{path}",
+        headers={"Authorization": token},
+    )
+
+    # THEN: the request is rejected
+    assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+    mock_secrets_store.delete.assert_called_once_with(client_id, path)
+
+
+def test_secrets_delete_no_store(testapp):
+    """Test deleting a secret without having set up a secrets store."""
+    # GIVEN: an app without a secrets store
+    client_id = "client_1"
+    path = "path/to/secret"
+    app_client = testapp.test_client()
+
+    # WHEN: a request is sent to the DELETE secrets endpoint
+    response = app_client.delete(
+        f"/v1/secrets/{client_id}/{path}",
     )
 
     # THEN: the request is rejected

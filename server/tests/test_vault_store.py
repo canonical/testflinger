@@ -90,13 +90,30 @@ class TestVaultStore:
         """Test successful secret delete."""
         vault_store.delete("test-namespace", "test-key")
         mock_client.secrets.kv.v2.delete_metadata_and_all_versions.assert_called_once_with(
-            path="test-key"
+            path="test-namespace/test-key"
         )
+
+    @pytest.mark.parametrize(
+        "error_cls", [hvac.exceptions.Forbidden, hvac.exceptions.Unauthorized]
+    )
+    def test_delete_error(self, error_cls, vault_store, mock_client):
+        """Test delete with error raises AccessError."""
+        mock_client.secrets.kv.v2.delete_metadata_and_all_versions.side_effect = error_cls()
+
+        with pytest.raises(AccessError):
+            vault_store.delete("test-namespace", "test-key")
+
+    def test_delete_vault_error(self, vault_store, mock_client):
+        """Test delete with VaultError raises StoreError."""
+        mock_client.secrets.kv.v2.delete_metadata_and_all_versions.side_effect = hvac.exceptions.VaultError()
+
+        with pytest.raises(StoreError):
+            vault_store.delete("test-namespace", "test-key")
 
     def test_delete_invalid_path_ignored(self, vault_store, mock_client):
         """Test delete with InvalidPath error is ignored."""
         mock_client.secrets.kv.v2.delete_metadata_and_all_versions.side_effect = hvac.exceptions.InvalidPath()
         vault_store.delete("test-namespace", "test-key")
         mock_client.secrets.kv.v2.delete_metadata_and_all_versions.assert_called_once_with(
-            path="test-key"
+            path="test-namespace/test-key"
         )
