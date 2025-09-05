@@ -1,3 +1,20 @@
+# Copyright (C) 2025 Canonical
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""Tests for the Vault-based implementation of the secrets store."""
+
 import hvac
 import pytest
 
@@ -98,21 +115,21 @@ class TestVaultStore:
     )
     def test_delete_error(self, error_cls, vault_store, mock_client):
         """Test delete with error raises AccessError."""
-        mock_client.secrets.kv.v2.delete_metadata_and_all_versions.side_effect = error_cls()
+        mock_client.secrets.kv.v2.delete_metadata_and_all_versions.side_effect = error_cls()  # noqa: E501
 
         with pytest.raises(AccessError):
             vault_store.delete("test-namespace", "test-key")
 
     def test_delete_vault_error(self, vault_store, mock_client):
         """Test delete with VaultError raises StoreError."""
-        mock_client.secrets.kv.v2.delete_metadata_and_all_versions.side_effect = hvac.exceptions.VaultError()
+        mock_client.secrets.kv.v2.delete_metadata_and_all_versions.side_effect = hvac.exceptions.VaultError()  # noqa: E501
 
         with pytest.raises(StoreError):
             vault_store.delete("test-namespace", "test-key")
 
     def test_delete_invalid_path_ignored(self, vault_store, mock_client):
         """Test delete with InvalidPath error is ignored."""
-        mock_client.secrets.kv.v2.delete_metadata_and_all_versions.side_effect = hvac.exceptions.InvalidPath()
+        mock_client.secrets.kv.v2.delete_metadata_and_all_versions.side_effect = hvac.exceptions.InvalidPath()  # noqa: E501
         vault_store.delete("test-namespace", "test-key")
         mock_client.secrets.kv.v2.delete_metadata_and_all_versions.assert_called_once_with(
             path="test-namespace/test-key"

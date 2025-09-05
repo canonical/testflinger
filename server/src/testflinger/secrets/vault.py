@@ -26,6 +26,8 @@ from testflinger.secrets.store import SecretsStore
 
 
 class VaultStore(SecretsStore):
+    """A Vault-based secrets store implementation."""
+
     # this collection of errors leads to an AccessError being raised
     hvac_access_errors = (
         hvac.exceptions.Forbidden,
@@ -34,6 +36,7 @@ class VaultStore(SecretsStore):
     )
 
     def __init__(self, client: hvac.Client):
+        """Initialize the store with a Vault client."""
         self.client = client
 
     def read(self, namespace: str, key: str) -> str:
