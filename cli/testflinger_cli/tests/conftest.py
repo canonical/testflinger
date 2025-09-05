@@ -21,7 +21,7 @@ def mock_xdg_config(monkeypatch, tmp_path):
     This prevents tests from accessing refresh token storage location
     and ensures each test has a clean, isolated environment.
     """
-    # Mock the xdg_config_home function to return our temp path
+    # Mock the xdg_config_home function to return tmp path
     monkeypatch.setattr(
         "testflinger_cli.auth.xdg_config_home", lambda: tmp_path
     )
@@ -29,7 +29,7 @@ def mock_xdg_config(monkeypatch, tmp_path):
 
 @pytest.fixture
 def auth_fixture(monkeypatch, requests_mock):
-    """Configure authentication for test that require role."""
+    """Configure fixture for test that require authentication."""
 
     def _fixture(role):
         monkeypatch.setenv("TESTFLINGER_CLIENT_ID", TEST_CLIENT_ID)

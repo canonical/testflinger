@@ -307,7 +307,7 @@ class Client:
         return json.loads(response)
 
     def refresh_authentication(self, refresh_token: str) -> dict:
-        """_Refresh access_token for extended authentication.
+        """Refresh access_token by using stored refresh_token.
 
         :param refresh_token: Opaque token used for refreshing access_token
         :return: access_token with token type and expiration

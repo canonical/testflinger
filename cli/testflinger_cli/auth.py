@@ -62,12 +62,14 @@ class TestflingerCliAuth:
 
         :raises AuthenticationError: Invalid credentials were provided
         :raises AuthorizationError: User is not authorized
+        :raises InvalidTokenError: Refresh token already expired
         :return: string with access token (jwt token)
         """
-        # Attempt to get the refresh token
+        # Attempt to get the refresh token from snap directory
         refresh_token = self.get_stored_refresh_token()
         if refresh_token:
             try:
+                # Use refresh token to get new access_token
                 response = self.client.refresh_authentication(refresh_token)
                 return response["access_token"]
             except client.HTTPError as exc:
@@ -99,7 +101,7 @@ class TestflingerCliAuth:
         return self.authenticate()
 
     def get_stored_refresh_token(self) -> str | None:
-        """Retrieve the refresh token from Snap Common.
+        """Retrieve the refresh token from SNAP_USER_DATA.
 
         :return: refresh token if any, otherwise None
         """
@@ -115,12 +117,16 @@ class TestflingerCliAuth:
     def store_refresh_token(self, refresh_token: str) -> None:
         """Store refresh token for persistent login.
 
-        :param refresh_token: refresh token to store in Snap Common
+        :param refresh_token: refresh token to store in SNAP_USER_DATA
         """
         config_file = configparser.ConfigParser()
         config_file["AUTH"] = {"refresh_token": refresh_token}
-        with self.auth_config.open("w") as file:
-            config_file.write(file)
+        try:
+            with self.auth_config.open("w") as file:
+                config_file.write(file)
+        except (OSError, PermissionError):
+            # Ignore write errors as this might run as non snap
+            pass
 
     def clear_refresh_token(self):
         """Cleanup refresh_token if already expired or revoked."""
