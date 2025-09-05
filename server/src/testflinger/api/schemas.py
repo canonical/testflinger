@@ -509,3 +509,9 @@ class ClientPermissionsOut(Schema):
     )
     max_reservation_time = fields.Dict(required=True, allow_none=True)
     role = fields.String(required=True)
+
+
+class SecretIn(Schema):
+    """Secret input schema."""
+
+    value = fields.String(required=True)
