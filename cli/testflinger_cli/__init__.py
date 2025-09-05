@@ -77,7 +77,7 @@ def cli():
         tfcli.run()
     except KeyboardInterrupt:
         sys.exit("Received KeyboardInterrupt")
-    except (AuthenticationError, AuthorizationError) as exc:
+    except (AuthenticationError, AuthorizationError, InvalidTokenError) as exc:
         sys.exit(exc)
 
 
@@ -124,7 +124,11 @@ class TestflingerCli:
             self.auth = TestflingerCliAuth(
                 self.client_id, self.secret_key, self.client
             )
-        except (AuthenticationError, AuthorizationError) as exc:
+        except (
+            AuthenticationError,
+            AuthorizationError,
+            InvalidTokenError,
+        ) as exc:
             sys.exit(exc)
 
     def run(self):
@@ -1219,9 +1223,5 @@ class TestflingerCli:
             # Since refresh token was cleared, credentials are always needed
             self.auth.authenticate()
             print(f"Successfully authenticated as user '{self.client_id}'")
-        except (
-            AuthenticationError,
-            AuthorizationError,
-            InvalidTokenError,
-        ) as exc:
+        except (AuthenticationError, AuthorizationError) as exc:
             sys.exit(exc)
