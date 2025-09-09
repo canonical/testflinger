@@ -1081,9 +1081,8 @@ def secrets_put(client_id, path, json_data):
             HTTPStatus.FORBIDDEN,
             message=f"'{client_id}' doesn't match authenticated client id",
         )
-    value = json_data["value"]
     try:
-        current_app.secrets_store.write(client_id, path, value)
+        current_app.secrets_store.write(client_id, path, json_data["value"])
     except AccessError as error:
         abort(HTTPStatus.BAD_REQUEST, message=str(error))
     except (StoreError, UnexpectedError) as error:
