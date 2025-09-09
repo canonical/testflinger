@@ -804,6 +804,8 @@ def get_jobs_by_queue(queue_name):
 @v1.post("/oauth2/token")
 def retrieve_token():
     """
+    Issue both access token and refresh token for a client.
+
     Get JWT with priority and queue permissions.
 
     Before being encrypted, the JWT can contain fields like:
@@ -821,6 +823,7 @@ def retrieve_token():
     auth_header = request.authorization
     if auth_header is None:
         return "No authorization header specified", 401
+
     client_id = auth_header["username"]
     client_key = auth_header["password"]
     if client_id is None or client_key is None:
@@ -832,9 +835,70 @@ def retrieve_token():
     allowed_resources = auth.validate_client_key_pair(client_id, client_key)
     if allowed_resources is None:
         return "Invalid client id or client key", 401
+
     secret_key = os.environ.get("JWT_SIGNING_KEY")
-    token = auth.generate_token(allowed_resources, secret_key)
-    return token
+    access_token = auth.generate_access_token(allowed_resources, secret_key)
+
+    role = allowed_resources.get("role")
+    if role in (ServerRoles.ADMIN, ServerRoles.MANAGER):
+        refresh_expires_in = None
+    else:
+        refresh_expires_in = 30 * 24 * 60 * 60  # 30 days in seconds
+
+    refresh_token = auth.generate_refresh_token(
+        client_id, expires_in=refresh_expires_in
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "Bearer",
+        "expires_in": 30,
+        "refresh_token": refresh_token,
+    }
+
+
+@v1.post("/oauth2/refresh")
+def refresh_access_token():
+    """Refresh access token using a valid refresh token."""
+    data = request.get_json()
+    refresh_token = data.get("refresh_token")
+    if not refresh_token:
+        abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
+
+    token_entry = auth.validate_refresh_token(refresh_token)
+    client_id = token_entry["client_id"]
+
+    client_permissions = database.get_client_permissions(client_id)
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    access_token = auth.generate_access_token(client_permissions, secret_key)
+
+    return {
+        "access_token": access_token,
+        "token_type": "Bearer",
+        "expires_in": 30,
+    }
+
+
+@v1.post("/oauth2/revoke")
+@authenticate
+@require_role(ServerRoles.ADMIN)
+def revoke_refresh_token():
+    """Revoke a refresh token. Only admins can perform this action."""
+    data = request.get_json()
+    token = data.get("refresh_token")
+    if not token:
+        abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
+
+    token_entry = database.get_refresh_token_by_token(token)
+    if not token_entry:
+        abort(HTTPStatus.BAD_REQUEST, "Refresh token not found")
+
+    if token_entry.get("revoked"):
+        abort(HTTPStatus.BAD_REQUEST, "Refresh token has already been revoked")
+
+    database.edit_refresh_token(token, {"revoked": True})
+
+    return {"status": "OK"}
 
 
 @v1.get("/restricted-queues")

@@ -291,12 +291,11 @@ class Client:
 
     def authenticate(self, client_id: str, secret_key: str) -> dict:
         """Authenticate client id and secret key with the server
-        and returns JWT with allowed permissions.
+        and returns access and refresh tokens.
 
-        :param job_data:
-            Dictionary containing data for the job to submit
-        :return:
-            ID for the test job
+        :param client_id: user used for authentication
+        :param secret_key: secret used to authenticate user
+        :return: access_token, token_type, expiration and refresh token
         """
         endpoint = "/v1/oauth2/token"
         id_key_pair = f"{client_id}:{secret_key}"
@@ -305,7 +304,17 @@ class Client:
         ).decode("utf-8")
         headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
         response = self.post(endpoint, {}, headers=headers)
-        return response
+        return json.loads(response)
+
+    def refresh_authentication(self, refresh_token: str) -> dict:
+        """Refresh access_token by using stored refresh_token.
+
+        :param refresh_token: Opaque token used for refreshing access_token
+        :return: access_token with token type and expiration
+        """
+        endpoint = "/v1/oauth2/refresh"
+        response = self.post(endpoint, data={"refresh_token": refresh_token})
+        return json.loads(response)
 
     def post_attachment(self, job_id: str, path: Path, timeout: int):
         """Send a test job attachment to the testflinger server.
@@ -437,3 +446,49 @@ class Client:
         endpoint = f"/v1/agents/data/{agent}"
         data = {"state": status, "comment": comment}
         self.post(endpoint, data)
+
+    def create_client_permissions(self, auth_header: dict, json_data: dict):
+        """Create new client_id with specified permissions.
+
+        :param auth_header: Auth header required to perform POST request
+        :param json_data: JSON with all client permissions
+        """
+        endpoint = "/v1/client-permissions"
+        self.post(endpoint, data=json_data, headers=auth_header)
+
+    def edit_client_permissions(self, auth_header: dict, json_data: dict):
+        """Edit existing client_id permissions.
+
+        :param auth_header: Auth header required to perform PUT request
+        :param json_data: JSON with updated client permissions
+        """
+        client_id = json_data.pop("client_id")
+        endpoint = f"/v1/client-permissions/{client_id}"
+        self.put(endpoint, data=json_data, headers=auth_header)
+
+    def get_client_permissions(
+        self, auth_header: dict, tf_client_id: str | None = None
+    ) -> list[dict] | None:
+        """Get the permissions from specified client.
+
+        If no client specified, will provide all client permissions.
+
+        :param auth_header: Auth header required to perform GET request
+        :param tf_client_id: Specified client to retrieve permissions from
+        """
+        if tf_client_id:
+            endpoint = f"/v1/client-permissions/{tf_client_id}"
+        else:
+            endpoint = "/v1/client-permissions"
+        return json.loads(self.get(endpoint, headers=auth_header))
+
+    def delete_client_permissions(
+        self, auth_header: dict, tf_client_id: str
+    ) -> None:
+        """Delete a client_id along with its permissions.
+
+        :param auth_header: Auth header required to perform DELETE request
+        :param tf_client_id: Specified client to delete permissions from
+        """
+        endpoint = f"/v1/client-permissions/{tf_client_id}"
+        self.delete(endpoint, headers=auth_header)

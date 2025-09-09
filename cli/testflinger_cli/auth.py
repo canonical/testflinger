@@ -16,15 +16,22 @@
 
 """Testflinger CLI Auth module."""
 
+import configparser
 import contextlib
 from functools import cached_property, wraps
 from http import HTTPStatus
 from typing import Optional
 
 import jwt
+from xdg_base_dirs import xdg_config_home
 
 from testflinger_cli import client
-from testflinger_cli.errors import AuthenticationError, AuthorizationError
+from testflinger_cli.consts import ServerRoles
+from testflinger_cli.errors import (
+    AuthenticationError,
+    AuthorizationError,
+    InvalidTokenError,
+)
 
 
 class TestflingerCliAuth:
@@ -34,6 +41,12 @@ class TestflingerCliAuth:
         self.client_id = client_id
         self.secret_key = secret_key
         self.client = tf_client
+
+        # Refresh token relevant configuration
+        config_home = xdg_config_home()
+        config_home.mkdir(parents=True, exist_ok=True)
+        self.auth_config = config_home / "testflinger-cli-auth.conf"
+
         # Fetch JWT token to fail fast in case of any auth error.
         _ = self.jwt_token
 
@@ -44,14 +57,37 @@ class TestflingerCliAuth:
         """
         return self.jwt_token is not None
 
-    @cached_property
-    def jwt_token(self) -> str | None:
-        """Authenticate with the server and get a JWT."""
+    def authenticate(self) -> str | None:
+        """Authenticate with server and retrieve access and refresh tokens.
+
+        :raises AuthenticationError: Invalid credentials were provided
+        :raises AuthorizationError: User is not authorized
+        :raises InvalidTokenError: Refresh token already expired
+        :return: string with access token (jwt token)
+        """
+        # Attempt to get the refresh token from snap directory
+        refresh_token = self.get_stored_refresh_token()
+        if refresh_token:
+            try:
+                # Use refresh token to get new access_token
+                response = self.client.refresh_authentication(refresh_token)
+                return response["access_token"]
+            except client.HTTPError as exc:
+                if exc.status == HTTPStatus.BAD_REQUEST:
+                    # Token is already expired or revoked, clear to force login
+                    self.clear_refresh_token()
+                    raise InvalidTokenError(exc.msg) from exc
+
+        # Attempt login with credentials if no refresh token
         if self.client_id is None or self.secret_key is None:
             return None
-
         try:
-            return self.client.authenticate(self.client_id, self.secret_key)
+            response = self.client.authenticate(
+                self.client_id, self.secret_key
+            )
+            # Store refresh token for persistent login
+            self.store_refresh_token(response["refresh_token"])
+            return response["access_token"]
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.UNAUTHORIZED:
                 raise AuthenticationError from exc
@@ -59,12 +95,59 @@ class TestflingerCliAuth:
                 raise AuthorizationError from exc
         return None
 
+    @cached_property
+    def jwt_token(self) -> str | None:
+        """Authenticate with the server and get a JWT."""
+        return self.authenticate()
+
+    def get_stored_refresh_token(self) -> str | None:
+        """Retrieve the refresh token from SNAP_USER_DATA.
+
+        :return: refresh token if any, otherwise None
+        """
+        if self.auth_config.exists():
+            config_file = configparser.ConfigParser()
+            config_file.read(self.auth_config)
+            refresh_token = config_file.get(
+                "AUTH", "refresh_token", fallback=None
+            )
+            return refresh_token
+        return None
+
+    def store_refresh_token(self, refresh_token: str) -> None:
+        """Store refresh token for persistent login.
+
+        :param refresh_token: refresh token to store in SNAP_USER_DATA
+        """
+        config_file = configparser.ConfigParser()
+        config_file["AUTH"] = {"refresh_token": refresh_token}
+        try:
+            with self.auth_config.open("w") as file:
+                config_file.write(file)
+        except (OSError, PermissionError):
+            # Ignore write errors as this might run as non snap
+            pass
+
+    def clear_refresh_token(self):
+        """Cleanup refresh_token if already expired or revoked."""
+        if self.auth_config.exists():
+            try:
+                self.auth_config.unlink()
+            except (OSError, PermissionError):
+                # Empty file if unable to remove it
+                with self.auth_config.open("w"):
+                    pass
+
     def build_headers(self) -> Optional[dict]:
         """Create an authorization header based on stored JWT.
 
         :return: Dict with JWT as the Authorization header if exist.
         """
-        return {"Authorization": self.jwt_token} if self.jwt_token else None
+        return (
+            {"Authorization": f"Bearer {self.jwt_token}"}
+            if self.jwt_token
+            else None
+        )
 
     def decode_jwt_token(self) -> Optional[dict]:
         """Decode JWT token without verifying signature.
@@ -98,12 +181,12 @@ class TestflingerCliAuth:
         """
         decoded_token = self.decode_jwt_token()
         if not decoded_token:
-            return "user"
+            return ServerRoles.USER
 
         permissions = decoded_token.get("permissions", {})
         # If there is a decoded token, the user was authenticated
         # Default role for legacy client_ids is contributor
-        return permissions.get("role", "contributor")
+        return permissions.get("role", ServerRoles.CONTRIBUTOR)
 
 
 def require_role(*roles):
@@ -118,8 +201,9 @@ def require_role(*roles):
                 raise AuthenticationError
             user_role = auth.get_user_role()
             if user_role not in roles:
+                role_list = ", ".join(r.value for r in roles)
                 raise AuthorizationError(
-                    f"Authorization Error: Command requires role: {roles}"
+                    f"Authorization Error: Command requires role: {role_list}"
                 )
 
             return func(self, *args, **kwargs)
