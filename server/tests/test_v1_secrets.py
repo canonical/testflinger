@@ -66,12 +66,25 @@ def app_with_store(mocker):
 
 
 def create_auth_header(client_id: str, client_key: str) -> dict:
-    """Create authorization header for testing."""
+    """
+    Create authorization header with base64 encoded client_id
+    and client key using the Basic scheme.
+    """
     id_key_pair = f"{client_id}:{client_key}"
     base64_encoded_pair = base64.b64encode(id_key_pair.encode("utf-8")).decode(
         "utf-8"
     )
     return {"Authorization": f"Basic {base64_encoded_pair}"}
+
+
+def get_access_token(app, client_id, client_key):
+    """Authenticate and return a valid access token."""
+    response = app.post(
+        "/v1/oauth2/token",
+        headers=create_auth_header(client_id, client_key),
+    )
+    assert response.status_code == 200
+    return response.get_json()["access_token"]
 
 
 @pytest.mark.parametrize(
@@ -89,11 +102,7 @@ def test_secrets_put_success(app_with_store, client_id, path, value):
     mock_secrets_store.write.return_value = None
 
     # WHEN: an authorised request is sent to the PUT secrets endpoint
-    auth_header = create_auth_header(client_id, "client_key")
-    token_response = app_with_store.post(
-        "/v1/oauth2/token", headers=auth_header
-    )
-    token = token_response.data.decode("utf-8")
+    token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": value},
@@ -115,11 +124,7 @@ def test_secrets_put_different_client_id(app_with_store):
 
     # WHEN: an authorised request for a different client id is sent to
     #   the PUT secrets endpoint
-    auth_header = create_auth_header(client_id, "client_key")
-    token_response = app_with_store.post(
-        "/v1/oauth2/token", headers=auth_header
-    )
-    token = token_response.data.decode("utf-8")
+    token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.put(
         f"/v1/secrets/{unauthorized_client_id}/{path}",
         json={"value": "value"},
@@ -140,11 +145,7 @@ def test_secrets_put_no_value(app_with_store):
 
     # WHEN: an authorised request without a value is sent to the
     #   PUT secrets endpoint
-    auth_header = create_auth_header(client_id, "client_key")
-    token_response = app_with_store.post(
-        "/v1/oauth2/token", headers=auth_header
-    )
-    token = token_response.data.decode("utf-8")
+    token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         headers={"Authorization": token},
@@ -182,11 +183,7 @@ def test_secrets_put_access_error(app_with_store):
     mock_secrets_store.write.side_effect = AccessError()
 
     # WHEN: an authorised request is sent to the PUT secrets endpoint
-    auth_header = create_auth_header(client_id, "client_key")
-    token_response = app_with_store.post(
-        "/v1/oauth2/token", headers=auth_header
-    )
-    token = token_response.data.decode("utf-8")
+    token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": "value"},
@@ -207,11 +204,7 @@ def test_secrets_put_store_error(app_with_store):
     mock_secrets_store.write.side_effect = StoreError()
 
     # WHEN: an authorised request is sent to the PUT secrets endpoint
-    auth_header = create_auth_header(client_id, "client_key")
-    token_response = app_with_store.post(
-        "/v1/oauth2/token", headers=auth_header
-    )
-    token = token_response.data.decode("utf-8")
+    token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": "value"},
@@ -255,11 +248,7 @@ def test_secrets_delete_success(app_with_store, client_id, path):
     mock_secrets_store.delete.return_value = None
 
     # WHEN: an authorised request is sent to the DELETE secrets endpoint
-    auth_header = create_auth_header(client_id, "client_key")
-    token_response = app_with_store.post(
-        "/v1/oauth2/token", headers=auth_header
-    )
-    token = token_response.data.decode("utf-8")
+    token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.delete(
         f"/v1/secrets/{client_id}/{path}",
         headers={"Authorization": token},
@@ -280,11 +269,7 @@ def test_secrets_delete_different_client_id(app_with_store):
 
     # WHEN: an authorised request for a different client id is sent to
     #   the DELETE secrets endpoint
-    auth_header = create_auth_header(client_id, "client_key")
-    token_response = app_with_store.post(
-        "/v1/oauth2/token", headers=auth_header
-    )
-    token = token_response.data.decode("utf-8")
+    token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.delete(
         f"/v1/secrets/{unauthorized_client_id}/{path}",
         headers={"Authorization": token},
@@ -321,11 +306,7 @@ def test_secrets_delete_access_error(app_with_store):
     mock_secrets_store.delete.side_effect = AccessError()
 
     # WHEN: an authorised request is sent to the DELETE secrets endpoint
-    auth_header = create_auth_header(client_id, "client_key")
-    token_response = app_with_store.post(
-        "/v1/oauth2/token", headers=auth_header
-    )
-    token = token_response.data.decode("utf-8")
+    token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.delete(
         f"/v1/secrets/{client_id}/{path}",
         headers={"Authorization": token},
@@ -345,11 +326,7 @@ def test_secrets_delete_store_error(app_with_store):
     mock_secrets_store.delete.side_effect = StoreError()
 
     # WHEN: an authorised request is sent to the DELETE secrets endpoint
-    auth_header = create_auth_header(client_id, "client_key")
-    token_response = app_with_store.post(
-        "/v1/oauth2/token", headers=auth_header
-    )
-    token = token_response.data.decode("utf-8")
+    token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.delete(
         f"/v1/secrets/{client_id}/{path}",
         headers={"Authorization": token},
