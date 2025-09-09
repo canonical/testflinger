@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import prometheus_client
@@ -221,3 +222,93 @@ class TestClient:
         assert "Checking jobs" in caplog.text
         assert mock_process.called
         assert "Sleeping for" in caplog.text
+
+    @pytest.mark.parametrize("state", [AgentState.WAITING, AgentState.OFFLINE])
+    def test_agent_refresh_heartbeat(
+        self, agent, requests_mock, state, caplog
+    ):
+        """Test agent updates heartbeat at least once per defined frequency."""
+        frequency = agent.heartbeat_handler.heartbeat_frequency
+        # Mock last heartbeat as old
+        past_heartbeat = datetime.now(timezone.utc) - timedelta(days=frequency)
+
+        fake_agent_data = {
+            "state": state,
+            "comment": "",
+            "queues": "fake_queue",
+            "updated_at": {"$date": str(past_heartbeat)},
+        }
+        updated_agent_data = {
+            "state": state,
+            "comment": "",
+            "queues": "fake_queue",
+            "updated_at": {"$date": str(datetime.now(timezone.utc))},
+        }
+
+        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.get(
+            rmock.ANY,
+            [{"json": fake_agent_data}, {"json": updated_agent_data}],
+        )
+
+        # Set the last heartbeat to an old timestamp
+        with patch.object(
+            agent.heartbeat_handler,
+            "_last_heartbeat",
+            past_heartbeat,
+        ):
+            # Clear requests history from agent initialization
+            requests_mock.reset_mock()
+            # First call should trigger a POST to send new heartbeat
+            agent.check_offline()
+
+            # Second call should get the updated data with recent heartbeat
+            agent.check_offline()
+            refreshed_heartbeat = agent.heartbeat_handler._last_heartbeat
+
+        history = requests_mock.request_history
+        post_requests = [call for call in history if call.method == "POST"]
+        post_data = post_requests[0].json()
+        expected_data = {
+            "state": fake_agent_data["state"].value,
+            "comment": fake_agent_data["comment"],
+        }
+
+        # The heartbeat should have been updated
+        assert past_heartbeat != refreshed_heartbeat
+        # Make sure only one post request with the expected data
+        assert len(post_requests) == 1
+        assert post_data == expected_data
+        assert "Sending heartbeat to Testflinger server" in caplog.text
+
+    @pytest.mark.parametrize("state", [AgentState.WAITING, AgentState.OFFLINE])
+    def test_agent_keeps_heartbeat_if_recent(
+        self, agent, requests_mock, state
+    ):
+        """Test agent does not update heartbeat if not required."""
+        # Mock a recent heartbeat
+        recent_heartbeat = datetime.now(timezone.utc) - timedelta(hours=1)
+        fake_agent_data = {
+            "state": state,
+            "comment": "",
+            "queues": "fake_queue",
+            "updated_at": {"$date": str(recent_heartbeat)},
+        }
+        requests_mock.get(rmock.ANY, json=fake_agent_data)
+
+        # Set the last heartbeat to recent timestamp
+        with patch.object(
+            agent.heartbeat_handler,
+            "_last_heartbeat",
+            recent_heartbeat,
+        ):
+            # Clear requests history from agent initialization
+            requests_mock.reset_mock()
+            agent.check_offline()
+            current_heartbeat = agent.heartbeat_handler._last_heartbeat
+
+        history = requests_mock.request_history
+        # Heartbeat should remain the same
+        assert recent_heartbeat == current_heartbeat
+        # There shouldn't be any POST request after check_offline
+        assert len([call for call in history if call.method == "POST"]) == 0
