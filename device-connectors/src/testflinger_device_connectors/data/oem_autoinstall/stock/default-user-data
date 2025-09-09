@@ -79,9 +79,6 @@ autoinstall:
         path: /usr/bin/set_usb_boot.sh
         permissions: '0755'
     runcmd:
-      # enable autologin
-      - ["sudo", "sed", "-i", "s|#  AutomaticLoginEnable = true|AutomaticLoginEnable = true|g", "/etc/gdm3/custom.conf"]
-      - ["sudo", "sed", "-i", "s|#  AutomaticLogin = user1|AutomaticLogin = ubuntu|g", "/etc/gdm3/custom.conf"]
       # disable power save
       - ["glib-compile-schemas", "/usr/share/glib-2.0/schemas"]
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.settings-daemon.plugins.power"]
@@ -96,3 +93,7 @@ autoinstall:
       - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCYYa9VOGB5NBJzRQ7OnxG4Z6ynBs+B2+A49RVcNWhzWtwPkEEefsHDIz0VLbVSfGJGQMF2Dsw8PVJWBRTBvc1bkHt3sUCZklAmGVbOhXEaXS/GzCjMEb0Kg8jvEzH3WxLm0X4fIQeIDAE6Za/t5ix3uNwYgzZiGT7isx7aDQtpOrZD+y2n3F1xvDPdySJ304hAkAvMGnkwstNXduUXrnOEoPeOrQbk+k85otyaGqL0C/U+SkeeAKnzikkmvxrZlcp2zxow8iGMTfVNY15nA9BKx4v21nnIKnhVdWZ43ltp9dQoafOXbNtYTxTnFvmaHQ1WFGJ+1/fDAY8tfbjbQaIxPvPJ ubuntu@juju-machine-8-lxc-0
   early-commands:
     - "nmcli networking off"  # to prevent online checks and speed up intallation
+  late-commands:
+    # enable autologin
+    - curtin in-target -- sed -i 's/^#.*AutomaticLoginEnable.*/AutomaticLoginEnable = true/' /etc/gdm3/custom.conf
+    - curtin in-target -- sed -i 's/^#.*AutomaticLogin = .*/AutomaticLogin = ubuntu/' /etc/gdm3/custom.conf
