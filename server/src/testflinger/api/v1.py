@@ -98,6 +98,7 @@ def job_post(json_data: dict):
 
 
 @v1.post("/agent/jobs")
+@authenticate
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
 def agent_job_post(json_data: dict):

@@ -946,7 +946,6 @@ def test_role_hierachy_create_permissions(mongo_app_with_permissions):
     # Cleanup
     mongo.client_permissions.delete_one({"client_id": "test_manager"})
 
-
 def test_refresh_access_token(mongo_app_with_permissions):
     """Test refreshing an access token with a valid refresh token."""
     app, _, client_id, client_key, max_priority = mongo_app_with_permissions
