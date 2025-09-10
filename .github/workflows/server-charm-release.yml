@@ -70,9 +70,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Modify charmcraft.yaml OCI Image
-        run: sed -i "s|ghcr.io/canonical/testflinger:main|${{ fromJSON(steps.meta.outputs.json).tags[0] }}|g" server/charm/charmcraft.yaml
-
       - name: Upload charm to charmhub
         uses: canonical/charming-actions/upload-charm@1753e0803f70445132e92acd45c905aba6473225 # 2.7.0
         with:
@@ -80,4 +77,3 @@ jobs:
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           channel: ${{ github.event_name == 'push' && 'latest/beta' || github.event.inputs.channel }}
-          # resource-overrides: "testflinger-image=${{ fromJSON(steps.meta.outputs.json).tags[0] }}"
