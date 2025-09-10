@@ -102,26 +102,29 @@ def job_post(json_data: dict):
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
 def agent_job_post(json_data: dict):
-    """Add a child job to the queue with inherited credentials from parent job."""
+    """
+    Add a child job to the queue with inherited credentials
+    from parent job.
+    """
     try:
         job_queue = json_data.get("job_queue")
         parent_job_id = json_data.get("parent_job_id")
     except (AttributeError, BadRequest):
         job_queue = ""
         parent_job_id = None
-    
+
     if not job_queue:
         abort(422, message="Invalid data or no job_queue specified")
-    
+
     if not parent_job_id:
         abort(422, message="parent_job_id required for agent job submission")
-    
+
     if not check_valid_uuid(parent_job_id):
         abort(400, message="Invalid parent_job_id specified")
-    
+
     # Retrieve parent job permissions for credential inheritance
     inherited_permissions = database.retrieve_parent_permissions(parent_job_id)
-    
+
     try:
         job = job_builder(json_data, inherited_permissions)
     except ValueError:
@@ -147,9 +150,10 @@ def has_attachments(data: dict) -> bool:
 
 def job_builder(data: dict, inherited_permissions: dict = None):
     """Build a job from a dictionary of data.
-    
+
     :param data: Job data dictionary
-    :param inherited_permissions: Optional permissions inherited from parent job
+    :param inherited_permissions: Optional permissions inherited from
+    parent job
     """
     job = {
         "created_at": datetime.now(timezone.utc),
@@ -173,9 +177,13 @@ def job_builder(data: dict, inherited_permissions: dict = None):
         data["attachments_status"] = "waiting"
 
     priority_level = data.get("job_priority", 0)
-    
-    # Use inherited permissions if provided, otherwise use current user's permissions
-    permissions_to_check = inherited_permissions if inherited_permissions else g.permissions
+
+    # Use inherited permissions if provided, otherwise use current
+    # user's permissions
+    if inherited_permissions:
+        permissions_to_check = inherited_permissions
+    else:
+        permissions_to_check = g.permissions
     auth.check_permissions(
         permissions_to_check,
         data,
