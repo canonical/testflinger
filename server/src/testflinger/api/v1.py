@@ -1,4 +1,4 @@
-# Copyright (C) 2022 Canonical
+# Copyright (C) 2022-2025 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ from http import HTTPStatus
 import bcrypt
 import requests
 from apiflask import APIBlueprint, abort
-from flask import g, jsonify, request, send_file
+from flask import current_app, g, jsonify, request, send_file
 from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -34,6 +34,11 @@ from testflinger import database
 from testflinger.api import auth, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.enums import ServerRoles
+from testflinger.secrets.exceptions import (
+    AccessError,
+    StoreError,
+    UnexpectedError,
+)
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -1124,5 +1129,48 @@ def delete_client_permissions(client_id: str) -> str:
 
     # Delete entry from database
     database.delete_client_permissions(client_id)
+
+    return "OK"
+
+
+@v1.put("/secrets/<client_id>/<path:path>")
+@authenticate
+@v1.input(schemas.SecretIn, location="json")
+def secrets_put(client_id, path, json_data):
+    """Store a secret value for the specified client_id and path."""
+    if current_app.secrets_store is None:
+        abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
+    if client_id != g.client_id:
+        abort(
+            HTTPStatus.FORBIDDEN,
+            message=f"'{client_id}' doesn't match authenticated client id",
+        )
+    try:
+        current_app.secrets_store.write(client_id, path, json_data["value"])
+    except AccessError as error:
+        abort(HTTPStatus.BAD_REQUEST, message=str(error))
+    except (StoreError, UnexpectedError) as error:
+        abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
+
+    return "OK"
+
+
+@v1.delete("/secrets/<client_id>/<path:path>")
+@authenticate
+def secrets_delete(client_id, path):
+    """Remove a secret value for the specified client_id and path."""
+    if current_app.secrets_store is None:
+        abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
+    if client_id != g.client_id:
+        abort(
+            HTTPStatus.FORBIDDEN,
+            message=f"'{client_id}' doesn't match authenticated client id",
+        )
+    try:
+        current_app.secrets_store.delete(client_id, path)
+    except AccessError as error:
+        abort(HTTPStatus.BAD_REQUEST, message=str(error))
+    except (StoreError, UnexpectedError) as error:
+        abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
     return "OK"

@@ -698,6 +698,18 @@ wheels = [
 ]
 
 [[package]]
+name = "hvac"
+version = "2.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/48/a4/c0b698a7250b7a5c2956427406560701862215c646e079a7907846608f44/hvac-2.3.0.tar.gz", hash = "sha256:1b85e3320e8642dd82f234db63253cda169a817589e823713dc5fca83119b1e2", size = 332660, upload-time = "2024-06-18T14:46:09.748Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/34/56facf52e2ea14ce640f434ccf00311af6f3a1df0019d4682ba28ea09948/hvac-2.3.0-py3-none-any.whl", hash = "sha256:a3afc5710760b6ee9b3571769df87a0333da45da05a5f9f963e1d3925a84be7d", size = 155860, upload-time = "2024-06-18T14:46:05.399Z" },
+]
+
+[[package]]
 name = "idna"
 version = "3.10"
 source = { registry = "https://pypi.org/simple" }
@@ -1128,6 +1140,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pytest-mock"
+version = "3.14.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/71/28/67172c96ba684058a4d24ffe144d64783d2a270d0af0d9e792737bddc75c/pytest_mock-3.14.1.tar.gz", hash = "sha256:159e9edac4c451ce77a5cdb9fc5d1100708d2dd4ba3c3df572f14097351af80e", size = 33241, upload-time = "2025-05-26T13:58:45.167Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b2/05/77b60e520511c53d1c1ca75f1930c7dd8e971d0c4379b7f4b3f9644685ba/pytest_mock-3.14.1-py3-none-any.whl", hash = "sha256:178aefcd11307d874b4cd3100344e7e2d888d9791a6a1d9bfe90fbc1b74fd1d0", size = 9923, upload-time = "2025-05-26T13:58:43.487Z" },
+]
+
+[[package]]
 name = "pytz"
 version = "2025.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1367,7 +1391,7 @@ wheels = [
 
 [[package]]
 name = "testflinger"
-version = "1.1.0"
+version = "1.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "apiflask" },
@@ -1377,6 +1401,7 @@ dependencies = [
     { name = "flask-pymongo" },
     { name = "gevent" },
     { name = "gunicorn" },
+    { name = "hvac" },
     { name = "marshmallow-oneofschema" },
     { name = "prometheus-client" },
     { name = "prometheus-flask-exporter" },
@@ -1400,6 +1425,7 @@ dev = [
     { name = "mongomock" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pytest-mock" },
     { name = "requests" },
     { name = "requests-mock" },
     { name = "ruff" },
@@ -1414,6 +1440,7 @@ requires-dist = [
     { name = "flask-pymongo", specifier = ">=3.0.0" },
     { name = "gevent", specifier = ">=24.2.1" },
     { name = "gunicorn", specifier = ">=23.0.0" },
+    { name = "hvac", specifier = ">=2.3.0" },
     { name = "marshmallow-oneofschema", specifier = ">=3.1.1" },
     { name = "prometheus-client", specifier = ">=0.21.0" },
     { name = "prometheus-flask-exporter", specifier = ">=0.23.1" },
@@ -1435,6 +1462,7 @@ dev = [
     { name = "mongomock", specifier = ">=4.3.0" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
+    { name = "pytest-mock", specifier = ">=3.14.0" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "requests-mock", specifier = ">=1.12.1" },
     { name = "ruff", specifier = ">=0.11.6" },

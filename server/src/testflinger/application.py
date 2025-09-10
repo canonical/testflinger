@@ -36,7 +36,7 @@ except ImportError:
     pass
 
 
-def create_flask_app(config=None):
+def create_flask_app(config=None, secrets_store=None):
     """Create the flask app."""
     tf_app = APIFlask(__name__)
 
@@ -59,6 +59,8 @@ def create_flask_app(config=None):
 
     if tf_app.config.get("TESTING") is not True:
         setup_mongodb(tf_app)
+
+    tf_app.secrets_store = secrets_store
 
     sentry_dsn = tf_app.config.get("SENTRY_DSN")
     if sentry_dsn and "sentry_sdk" in globals():
