@@ -167,12 +167,20 @@ class TestflingerClient:
             logger.error(exc)
             raise TFServerError("other exception") from exc
         if not job_request:
-            logger.error(
-                "Unable to re-post job to: %s (error: %d)",
-                job_uri,
-                job_request.status_code,
-            )
-            raise TFServerError(job_request.status_code)
+            if job_request is None:
+                logger.error(
+                    "Unable to re-post job to: %s (error: %s)",
+                    job_uri,
+                    "No response received",
+                )
+                raise TFServerError("No response received")
+            else:
+                logger.error(
+                    "Unable to re-post job to: %s (error: %d)",
+                    job_uri,
+                    job_request.status_code,
+                )
+                raise TFServerError(job_request.status_code)
 
     def post_job_state(self, job_id, phase):
         """Update the job_state on the testflinger server."""
@@ -197,12 +205,20 @@ class TestflingerClient:
             logger.error(exc)
             raise TFServerError("other exception") from exc
         if not job_request:
-            logger.error(
-                "Unable to post results to: %s (error: %d)",
-                result_uri,
-                job_request.status_code,
-            )
-            raise TFServerError(job_request.status_code)
+            if job_request is None:
+                logger.error(
+                    "Unable to post results to: %s (error: %s)",
+                    result_uri,
+                    "No response received",
+                )
+                raise TFServerError("No response received")
+            else:
+                logger.error(
+                    "Unable to post results to: %s (error: %d)",
+                    result_uri,
+                    job_request.status_code,
+                )
+                raise TFServerError(job_request.status_code)
 
     def get_result(self, job_id):
         """Get current results data to the testflinger server for this job.
@@ -221,11 +237,18 @@ class TestflingerClient:
             logger.error(exc)
             return {}
         if not job_request:
-            logger.error(
-                "Unable to get results from: %s (error: %d)",
-                result_uri,
-                job_request.status_code,
-            )
+            if job_request is None:
+                logger.error(
+                    "Unable to get results from: %s (error: %s)",
+                    result_uri,
+                    "No response received",
+                )
+            else:
+                logger.error(
+                    "Unable to get results from: %s (error: %d)",
+                    result_uri,
+                    job_request.status_code,
+                )
             return {}
         if job_request.content:
             return job_request.json()
@@ -311,12 +334,20 @@ class TestflingerClient:
                     artifact_uri, files=file_upload, timeout=600
                 )
             if not artifact_request:
-                logger.error(
-                    "Unable to post results to: %s (error: %d)",
-                    artifact_uri,
-                    artifact_request.status_code,
-                )
-                raise TFServerError(artifact_request.status_code)
+                if artifact_request is None:
+                    logger.error(
+                        "Unable to post results to: %s (error: %s)",
+                        artifact_uri,
+                        "No response received",
+                    )
+                    raise TFServerError("No response received")
+                else:
+                    logger.error(
+                        "Unable to post results to: %s (error: %d)",
+                        artifact_uri,
+                        artifact_request.status_code,
+                    )
+                    raise TFServerError(artifact_request.status_code)
             else:
                 shutil.rmtree(artifacts_dir)
 
@@ -470,10 +501,15 @@ class TestflingerClient:
             )
             # Response code is greater than 399
             if not job_request:
+                error_msg = (
+                    "No response received"
+                    if job_request is None
+                    else f"HTTP {job_request.status_code}"
+                )
                 logger.error(
-                    "Unable to post status updates to: %s (error: %d)",
+                    "Unable to post status updates to: %s (error: %s)",
                     status_update_uri,
-                    job_request.status_code,
+                    error_msg,
                 )
         except requests.exceptions.RequestException as exc:
             logger.error(
