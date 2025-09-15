@@ -82,6 +82,9 @@ def job_post(json_data: dict):
         job_queue = ""
     if not job_queue:
         abort(422, message="Invalid data or no job_queue specified")
+
+    validate_secrets(json_data)
+
     try:
         job = job_builder(json_data)
     except ValueError:
@@ -95,6 +98,44 @@ def job_post(json_data: dict):
     # because it will get modified by submit_job and other things it calls
     database.add_job(job)
     return jsonify(job_id=job.get("job_id"))
+
+
+def validate_secrets(data: dict):
+    """Validate that all secret paths in the job exist in the secrets store."""
+    try:
+        secrets = data["test_data"]["secrets"]
+    except KeyError:
+        return
+
+    # a secrets store must be set up
+    if current_app.secrets_store is None:
+        abort(HTTPStatus.UNPROCESSABLE_ENTITY, message="No secrets store")
+
+    # the client must be authenticated in order to access their own secrets
+    if (client_id := g.client_id) is None:
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            message="Missing client ID (user not authenticated)",
+        )
+
+    # check that all secrets paths correspond to stored secrets
+    inaccessible_paths = []
+    for secret_path in secrets.values():
+        try:
+            current_app.secrets_store.read(client_id, secret_path)
+        except (AccessError, StoreError, UnexpectedError):
+            inaccessible_paths.append(secret_path)
+    if inaccessible_paths:
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            message=(
+                "Inaccessible secret paths: "
+                + ", ".join(sorted(inaccessible_paths))
+            ),
+        )
+
+    # side-effect: store client ID with job (so that secrets are retrievable)
+    data["client_id"] = client_id
 
 
 def has_attachments(data: dict) -> bool:

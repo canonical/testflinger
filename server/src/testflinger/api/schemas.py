@@ -276,6 +276,11 @@ class TestData(Schema):
     # that specifies values for environment variables
     test_username = fields.String(required=False)
     test_password = fields.String(required=False)
+    secrets = fields.Dict(
+        keys=fields.String(validate=Regexp(r"^[a-zA-Z_][a-zA-Z0-9_]*$")),
+        values=fields.String(validate=Regexp(r"^[a-zA-Z0-9._/-]+$")),
+        required=False,
+    )
 
 
 class DurationField(fields.Field):

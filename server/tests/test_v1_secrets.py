@@ -351,3 +351,170 @@ def test_secrets_delete_no_store(testapp):
 
     # THEN: the request is rejected
     assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_job_submit_with_secrets(app_with_store):
+    """Test that submitting a job with valid secrets works."""
+    # GIVEN: an app with a secrets store that returns values for valid paths
+    client_id = "client_1"
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.read.return_value = "secret_value"
+
+    # WHEN: an authenticated job with secrets is submitted
+    token = get_access_token(app_with_store, client_id, "client_key")
+    job_data = {
+        "job_queue": "test",
+        "test_data": {
+            "secrets": {
+                "SECRET_KEY": "path/to/secret",
+                "API_TOKEN": "tokens/api_key",
+            }
+        },
+    }
+
+    response = app_with_store.post(
+        "/v1/job", json=job_data, headers={"Authorization": f"Bearer {token}"}
+    )
+
+    # THEN: the job is accepted and secrets are validated
+    assert response.status_code == HTTPStatus.OK
+    mock_secrets_store.read.assert_any_call(client_id, "path/to/secret")
+    mock_secrets_store.read.assert_any_call(client_id, "tokens/api_key")
+
+    # AND: the client_id is added to the job data in the database
+    job_id = response.get_json()["job_id"]
+    stored_job_data = database.mongo.db.jobs.find_one({"job_id": job_id})
+    assert stored_job_data["job_data"]["client_id"] == client_id
+
+
+def test_job_submit_with_inaccessible_secret(app_with_store):
+    """Test that submitting a job with an inaccessible secret fails."""
+    # GIVEN: an app with a secrets store where read raises an AccessError
+    client_id = "client_1"
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.read.side_effect = AccessError("Secret not found")
+
+    # WHEN: an authenticated job with invalid secrets is submitted
+    token = get_access_token(app_with_store, client_id, "client_key")
+    job_data = {
+        "job_queue": "test",
+        "test_data": {"secrets": {"INVALID_SECRET": "nonexistent/path"}},
+    }
+
+    response = app_with_store.post(
+        "/v1/job", json=job_data, headers={"Authorization": f"Bearer {token}"}
+    )
+
+    # THEN: the job is rejected with appropriate error message
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert (
+        "Inaccessible secret paths: nonexistent/path"
+        in response.get_json()["message"]
+    )
+
+
+def test_job_submit_with_some_inaccessible_secrets(app_with_store):
+    """Test that submitting a job with inaccessible secrets fails."""
+    # GIVEN: an app with a secrets store where one path exists and one doesn't
+    client_id = "client_1"
+    mock_secrets_store = app_with_store.application.secrets_store
+
+    def mock_read(client_id, path):
+        if path == "valid/path":
+            return "secret_value"
+        else:
+            raise AccessError("Secret not found")
+
+    mock_secrets_store.read.side_effect = mock_read
+
+    # WHEN: an authenticated job with an inaccessible secret is submitted
+    token = get_access_token(app_with_store, client_id, "client_key")
+    job_data = {
+        "job_queue": "test",
+        "test_data": {
+            "secrets": {
+                "VALID_SECRET": "valid/path",
+                "INVALID_SECRET1": "other/path",
+                "INVALID_SECRET2": "another/path",
+            }
+        },
+    }
+
+    response = app_with_store.post(
+        "/v1/job", json=job_data, headers={"Authorization": f"Bearer {token}"}
+    )
+
+    # THEN: the job is rejected and only the invalid path is listed
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    message = response.get_json()["message"]
+    assert "Inaccessible secret paths: another/path, other/path" == message
+    assert "valid/path" not in message
+
+
+def test_job_submit_with_secrets_no_store(testapp):
+    """Test submitting a job with secrets without a secrets store."""
+    # GIVEN: an app without a secrets store
+    app_client = testapp.test_client()
+
+    # WHEN: a job with secrets is submitted
+    job_data = {
+        "job_queue": "test",
+        "test_data": {"secrets": {"SECRET_KEY": "path/to/secret"}},
+    }
+
+    response = app_client.post("/v1/job", json=job_data)
+
+    # THEN: the job is rejected
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "No secrets store" in response.get_json()["message"]
+
+
+def test_job_submit_with_secrets_no_authentication(app_with_store):
+    """Test that submitting a job with secrets fails when not authenticated."""
+    # GIVEN: an app with a secrets store
+
+    # WHEN: an unauthenticated job with secrets is submitted
+    job_data = {
+        "job_queue": "test",
+        "test_data": {"secrets": {"SECRET_KEY": "path/to/secret"}},
+    }
+
+    response = app_with_store.post("/v1/job", json=job_data)
+
+    # THEN: the job is rejected due to missing authentication
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "Missing client ID" in response.get_json()["message"]
+
+
+@pytest.mark.parametrize(
+    "secrets",
+    [
+        # Invalid environment variable names
+        ({"123_INVALID": "valid/path"},),
+        ({"INVALID-NAME": "valid/path"},),
+        ({"INVALID NAME": "valid/path"},),
+        ({"INVALID.NAME": "valid/path"},),
+        ({"": "valid/path"}),
+        # Invalid secret paths
+        ({"VALID_NAME": "invalid path"},),
+        ({"VALID_NAME": "invalid@path"},),
+        ({"VALID_NAME": "invalid\\path"},),
+        ({"VALID_NAME": ""}),
+    ],
+)
+def test_job_submit_with_invalid_secrets(app_with_store, secrets):
+    """Test that submitting a job with invalid secrets is rejected."""
+    # GIVEN: an app with a secrets store
+    client_id = "client_1"
+
+    # WHEN: an authenticated job with invalid secret format is submitted
+    token = get_access_token(app_with_store, client_id, "client_key")
+    job_data = {"job_queue": "test", "test_data": {"secrets": secrets}}
+
+    response = app_with_store.post(
+        "/v1/job", json=job_data, headers={"Authorization": f"Bearer {token}"}
+    )
+
+    # THEN: the job is rejected due to validation error
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "Validation error" in response.get_json()["message"]
