@@ -41,6 +41,7 @@ class VaultStore(SecretsStore):
 
     def read(self, namespace: str, key: str) -> str:
         """Return the stored value for `key` under `namespace`."""
+        print(f"DEBUG: Reading {namespace}/{key}")
         # read the corresponding entry from the Vault API
         try:
             response = self.client.secrets.kv.v2.read_secret_version(
@@ -61,6 +62,16 @@ class VaultStore(SecretsStore):
             raise UnexpectedError(
                 f"Unable to process response for '{key}' under '{namespace}'"
             ) from error
+
+    def is_accessible(self, namespace: str, key: str) -> bool:
+        """Check if there is a stored value for `key` under `namespace`."""
+        print(f"DEBUG: Checking if {namespace}/{key} is accessible")
+        try:
+            value = self.read(namespace, key)
+            print(f"DEBUG: {value}")
+            return True
+        except (AccessError, StoreError):
+            return False
 
     def write(self, namespace: str, key: str, value: str) -> bool:
         """Write the `value` for `key` under `namespace`."""

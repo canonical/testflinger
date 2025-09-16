@@ -118,6 +118,15 @@ def validate_secrets(data: dict):
             message="Missing client ID (user not authenticated)",
         )
 
+    '''
+    inaccessible_paths = [
+        secret_path
+        for secret_path in secrets.values()
+        if not current_app.secrets_store.is_accessible(client_id, secret_path)
+    ]
+    print(f"DEBUG: {inaccessible_paths=}")
+    '''
+
     # check that all secrets paths correspond to stored secrets
     inaccessible_paths = []
     for secret_path in secrets.values():
@@ -190,12 +199,38 @@ def job_get():
     """Request a job to run from supported queues."""
     queue_list = request.args.getlist("queue")
     if not queue_list:
-        return "No queue(s) specified in request", 400
+        return "No queue(s) specified in request", HTTPStatus.BAD_REQUEST
     job = database.pop_job(queue_list=queue_list)
-    if job:
-        job["started_at"] = datetime.now(timezone.utc)
-        return jsonify(job)
-    return {}, 204
+    if not job:
+        return jsonify({}), HTTPStatus.NO_CONTENT
+    if (secrets := retrieve_secrets(job)) is not None:
+        job["test_data"]["secrets"] = secrets
+    job["started_at"] = datetime.now(timezone.utc)
+    return jsonify(job)
+
+
+def retrieve_secrets(data: dict) -> dict | None:
+    """Retrieve all secrets from the secrets store."""
+    try:
+        secrets = data["test_data"]["secrets"]
+    except KeyError:
+        return None
+
+    # a secrets store must be set up and the client_id must have been specified
+    if current_app.secrets_store is None or (client_id := data.get("client_id")) is None:
+        return {
+            identifier: ""
+            for identifier in secrets.keys()
+        }
+
+    result = {}
+    for identifier, secret_path in secrets.items():
+        try:
+            secret_value = current_app.secrets_store.read(client_id, secret_path)
+        except (AccessError, StoreError, UnexpectedError):
+            secret_value = ""
+        result[identifier] = secret_value
+    return result
 
 
 @v1.get("/job/<job_id>")

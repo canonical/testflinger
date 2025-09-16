@@ -17,6 +17,7 @@
 
 import base64
 import os
+from datetime import datetime, timezone
 from http import HTTPStatus
 
 import bcrypt
@@ -518,3 +519,184 @@ def test_job_submit_with_invalid_secrets(app_with_store, secrets):
     # THEN: the job is rejected due to validation error
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert "Validation error" in response.get_json()["message"]
+
+
+def test_job_get_with_secrets(app_with_store):
+    """Test retrieving a job with secrets from the queue."""
+    # GIVEN: an app with a secrets store and a job with secrets submitted
+    client_id = "client_1"
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.read.side_effect = lambda client_id, path: f"secret_value_for_{path}"
+
+    # Submit a job with secrets first
+    token = get_access_token(app_with_store, client_id, "client_key")
+    job_data = {
+        "job_queue": "test",
+        "test_data": {
+            "secrets": {
+                "SECRET_KEY": "path/to/secret",
+                "API_TOKEN": "tokens/api_key",
+            }
+        },
+    }
+
+    submit_response = app_with_store.post(
+        "/v1/job", json=job_data, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert submit_response.status_code == HTTPStatus.OK
+
+    # Reset the mock to track calls during retrieval
+    mock_secrets_store.reset_mock()
+    mock_secrets_store.read.side_effect = lambda client_id, path: f"secret_value_for_{path}"
+
+    # WHEN: a job is retrieved from the queue
+    response = app_with_store.get("/v1/job?queue=test")
+
+    # THEN: the job is returned with resolved secrets
+    assert response.status_code == HTTPStatus.OK
+    job = response.get_json()
+    assert "secrets" in job["test_data"]
+    assert job["test_data"]["secrets"]["SECRET_KEY"] == "secret_value_for_path/to/secret"
+    assert job["test_data"]["secrets"]["API_TOKEN"] == "secret_value_for_tokens/api_key"
+
+    # AND: the secrets store was called with the correct parameters
+    mock_secrets_store.read.assert_any_call(client_id, "path/to/secret")
+    mock_secrets_store.read.assert_any_call(client_id, "tokens/api_key")
+
+
+def test_job_get_with_partial_secrets_failure(app_with_store):
+    """Test retrieving a job when some secrets are accessible and others are not."""
+    # GIVEN: an app with a secrets store and a job with secrets submitted
+    client_id = "client_1"
+    mock_secrets_store = app_with_store.application.secrets_store
+
+    def mock_read_initial(client_id, path):
+        return "secret_value"
+
+    mock_secrets_store.read.side_effect = mock_read_initial
+
+    # Submit a job with secrets first
+    token = get_access_token(app_with_store, client_id, "client_key")
+    job_data = {
+        "job_queue": "test",
+        "test_data": {
+            "secrets": {
+                "VALID_SECRET": "valid/path",
+                "INVALID_SECRET": "invalid/path",
+            }
+        },
+    }
+
+    submit_response = app_with_store.post(
+        "/v1/job", json=job_data, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert submit_response.status_code == HTTPStatus.OK
+
+    # Reset the mock for retrieval with mixed results
+    mock_secrets_store.reset_mock()
+
+    def mock_read_mixed(client_id, path):
+        if path == "valid/path":
+            return "secret_value"
+        else:
+            raise AccessError("Secret not found")
+
+    mock_secrets_store.read.side_effect = mock_read_mixed
+
+    # WHEN: a job is retrieved from the queue
+    response = app_with_store.get("/v1/job?queue=test")
+
+    # THEN: the job is returned with mixed secret values
+    assert response.status_code == HTTPStatus.OK
+    job = response.get_json()
+    assert "secrets" in job["test_data"]
+    assert job["test_data"]["secrets"]["VALID_SECRET"] == "secret_value"
+    assert job["test_data"]["secrets"]["INVALID_SECRET"] == ""
+
+
+def test_job_get_without_secrets(app_with_store):
+    """Test retrieving a job that doesn't have secrets."""
+    # GIVEN: an app with a secrets store and a job without secrets submitted
+    client_id = "client_1"
+
+    # Submit a job without secrets first
+    token = get_access_token(app_with_store, client_id, "client_key")
+    job_data = {"job_queue": "test"}
+
+    submit_response = app_with_store.post(
+        "/v1/job", json=job_data, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert submit_response.status_code == HTTPStatus.OK
+
+    # WHEN: a job is retrieved from the queue
+    response = app_with_store.get("/v1/job?queue=test")
+
+    # THEN: the job is returned without secrets field
+    assert response.status_code == HTTPStatus.OK
+    job = response.get_json()
+
+    if "test_data" in job:
+        assert "secrets" not in job["test_data"]
+
+
+def test_job_get_with_secrets_no_store(testapp):
+    """Test retrieving a job with secrets when no secrets store is configured."""
+    # GIVEN: an app without a secrets store
+    app_client = testapp.test_client()
+
+    # Manually insert a job with secrets into the database (simulating a job
+    # submitted when store was available but now unavailable)
+    job_id = "test-job-id-1234"
+    job_data = {
+        "job_queue": "test",
+        "test_data": {"secrets": {"SECRET_KEY": "path/to/secret"}},
+        "client_id": "client_1",
+    }
+    database.mongo.db.jobs.insert_one({
+        "job_id": job_id,
+        "job_data": job_data,
+        "created_at": datetime.now(timezone.utc),
+        "result_data": {"job_state": "waiting"},
+        "job_priority": 0,
+    })
+
+    # WHEN: a job is retrieved from the queue
+    response = app_client.get("/v1/job?queue=test")
+
+    # THEN: the job is returned with empty secret values
+    assert response.status_code == HTTPStatus.OK
+    job = response.get_json()
+    assert "secrets" in job["test_data"]
+    assert job["test_data"]["secrets"]["SECRET_KEY"] == ""
+
+
+def test_job_get_with_missing_client_id(app_with_store):
+    """Test retrieving a job with secrets but missing client_id."""
+    # GIVEN: an app with a secrets store
+    mock_secrets_store = app_with_store.application.secrets_store
+
+    # Manually insert a job with secrets but no client_id
+    job_id = "test-job-id-1234"
+    job_data = {
+        "job_queue": "test",
+        "test_data": {"secrets": {"SECRET_KEY": "path/to/secret"}},
+    }
+    database.mongo.db.jobs.insert_one({
+        "job_id": job_id,
+        "job_data": job_data,
+        "created_at": datetime.now(timezone.utc),
+        "result_data": {"job_state": "waiting"},
+        "job_priority": 0,
+    })
+
+    # WHEN: a job is retrieved from the queue
+    response = app_with_store.get("/v1/job?queue=test")
+
+    # THEN: the job is returned with empty secret values
+    assert response.status_code == HTTPStatus.OK
+    job = response.get_json()
+    assert "secrets" in job["test_data"]
+    assert job["test_data"]["secrets"]["SECRET_KEY"] == ""
+
+    # AND: the secrets store should not have been called
+    mock_secrets_store.read.assert_not_called()
