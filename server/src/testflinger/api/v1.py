@@ -82,6 +82,9 @@ def job_post(json_data: dict):
         job_queue = ""
     if not job_queue:
         abort(422, message="Invalid data or no job_queue specified")
+
+    validate_secrets(json_data)
+
     try:
         job = job_builder(json_data)
     except ValueError:
@@ -95,6 +98,46 @@ def job_post(json_data: dict):
     # because it will get modified by submit_job and other things it calls
     database.add_job(job)
     return jsonify(job_id=job.get("job_id"))
+
+
+def validate_secrets(data: dict):
+    """Validate that all secret paths in the job exist in the secrets store."""
+    try:
+        secrets = data["test_data"]["secrets"]
+    except KeyError:
+        return
+
+    # a secrets store must be set up
+    if current_app.secrets_store is None:
+        abort(HTTPStatus.UNPROCESSABLE_ENTITY, message="No secrets store")
+
+    # the client must be authenticated in order to access their own secrets
+    if (client_id := g.client_id) is None:
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            message="Missing client ID (user not authenticated)",
+        )
+
+    # check that all secrets paths correspond to stored secrets
+    # (i.e. a job containing secrets cannot be submitted unless all its secrets
+    # are accessible.)
+    inaccessible_paths = []
+    for secret_path in secrets.values():
+        try:
+            current_app.secrets_store.read(client_id, secret_path)
+        except (AccessError, StoreError, UnexpectedError):
+            inaccessible_paths.append(secret_path)
+    if inaccessible_paths:
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            message=(
+                "Inaccessible secret paths: "
+                + ", ".join(sorted(inaccessible_paths))
+            ),
+        )
+
+    # side-effect: store client ID with job (so that secrets are retrievable)
+    data["client_id"] = client_id
 
 
 def has_attachments(data: dict) -> bool:
@@ -149,12 +192,48 @@ def job_get():
     """Request a job to run from supported queues."""
     queue_list = request.args.getlist("queue")
     if not queue_list:
-        return "No queue(s) specified in request", 400
+        return "No queue(s) specified in request", HTTPStatus.BAD_REQUEST
     job = database.pop_job(queue_list=queue_list)
-    if job:
-        job["started_at"] = datetime.now(timezone.utc)
-        return jsonify(job)
-    return {}, 204
+    if not job:
+        return jsonify({}), HTTPStatus.NO_CONTENT
+    if (secrets := retrieve_secrets(job)) is not None:
+        job["test_data"]["secrets"] = secrets
+    job["started_at"] = datetime.now(timezone.utc)
+    return jsonify(job)
+
+
+def retrieve_secrets(data: dict) -> dict | None:
+    """
+    Retrieve all secrets from the secrets store.
+
+    Any secrets that are not accessible at the time of retrieval will be
+    resolved to the empty string, instead of the retrieval failing.
+    It is the responsibility of the consumer of the secrets to account for
+    this possibility. This is a design decision and it mirrors how undefined
+    secrets are handled in other platforms such as GitHub.
+    """
+    try:
+        secrets = data["test_data"]["secrets"]
+    except KeyError:
+        return None
+
+    # a secrets store must be set up and the client_id must have been specified
+    if (
+        current_app.secrets_store is None
+        or (client_id := data.get("client_id")) is None
+    ):
+        return dict.fromkeys(secrets, "")
+
+    result = {}
+    for identifier, secret_path in secrets.items():
+        try:
+            secret_value = current_app.secrets_store.read(
+                client_id, secret_path
+            )
+        except (AccessError, StoreError, UnexpectedError):
+            secret_value = ""
+        result[identifier] = secret_value
+    return result
 
 
 @v1.get("/job/<job_id>")
