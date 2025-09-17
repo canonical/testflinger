@@ -47,9 +47,6 @@ class TestflingerCliAuth:
         config_home.mkdir(parents=True, exist_ok=True)
         self.auth_config = config_home / "testflinger-cli-auth.conf"
 
-        # Fetch JWT token to fail fast in case of any auth error.
-        _ = self.jwt_token
-
     def is_authenticated(self) -> bool:
         """Validate if user is currently authenticated.
 
@@ -111,6 +108,10 @@ class TestflingerCliAuth:
             refresh_token = config_file.get(
                 "AUTH", "refresh_token", fallback=None
             )
+            # Set client_id from config file to keep token owner
+            self.client_id = config_file.get(
+                "AUTH", "client_id", fallback=None
+            )
             return refresh_token
         return None
 
@@ -120,7 +121,7 @@ class TestflingerCliAuth:
         :param refresh_token: refresh token to store in SNAP_USER_DATA
         """
         config_file = configparser.ConfigParser()
-        config_file["AUTH"] = {"refresh_token": refresh_token}
+        config_file["AUTH"] = {"client_id": self.client_id, "refresh_token": refresh_token}
         try:
             with self.auth_config.open("w") as file:
                 config_file.write(file)
