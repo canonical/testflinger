@@ -278,7 +278,7 @@ class TestData(Schema):
     test_password = fields.String(required=False)
     secrets = fields.Dict(
         keys=fields.String(validate=Regexp(r"^[a-zA-Z_][a-zA-Z0-9_]*$")),
-        values=fields.String(validate=Regexp(r"^[a-zA-Z0-9._/-]+$")),
+        values=fields.String(validate=Regexp(r"^[a-zA-Z0-9_/-]+$")),
         required=False,
     )
 
