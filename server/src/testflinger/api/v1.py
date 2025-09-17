@@ -118,15 +118,6 @@ def validate_secrets(data: dict):
             message="Missing client ID (user not authenticated)",
         )
 
-    '''
-    inaccessible_paths = [
-        secret_path
-        for secret_path in secrets.values()
-        if not current_app.secrets_store.is_accessible(client_id, secret_path)
-    ]
-    print(f"DEBUG: {inaccessible_paths=}")
-    '''
-
     # check that all secrets paths correspond to stored secrets
     inaccessible_paths = []
     for secret_path in secrets.values():
@@ -217,16 +208,18 @@ def retrieve_secrets(data: dict) -> dict | None:
         return None
 
     # a secrets store must be set up and the client_id must have been specified
-    if current_app.secrets_store is None or (client_id := data.get("client_id")) is None:
-        return {
-            identifier: ""
-            for identifier in secrets.keys()
-        }
+    if (
+        current_app.secrets_store is None
+        or (client_id := data.get("client_id")) is None
+    ):
+        return dict.fromkeys(secrets, "")
 
     result = {}
     for identifier, secret_path in secrets.items():
         try:
-            secret_value = current_app.secrets_store.read(client_id, secret_path)
+            secret_value = current_app.secrets_store.read(
+                client_id, secret_path
+            )
         except (AccessError, StoreError, UnexpectedError):
             secret_value = ""
         result[identifier] = secret_value
