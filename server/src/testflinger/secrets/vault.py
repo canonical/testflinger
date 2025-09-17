@@ -41,7 +41,6 @@ class VaultStore(SecretsStore):
 
     def read(self, namespace: str, key: str) -> str:
         """Return the stored value for `key` under `namespace`."""
-        print(f"DEBUG: Reading {namespace}/{key}")
         # read the corresponding entry from the Vault API
         try:
             response = self.client.secrets.kv.v2.read_secret_version(
