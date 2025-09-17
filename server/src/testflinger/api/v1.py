@@ -119,6 +119,8 @@ def validate_secrets(data: dict):
         )
 
     # check that all secrets paths correspond to stored secrets
+    # (i.e. a job containing secrets cannot be submitted unless all its secrets
+    # are accessible.)
     inaccessible_paths = []
     for secret_path in secrets.values():
         try:
@@ -201,7 +203,15 @@ def job_get():
 
 
 def retrieve_secrets(data: dict) -> dict | None:
-    """Retrieve all secrets from the secrets store."""
+    """
+    Retrieve all secrets from the secrets store.
+
+    Any secrets that are not accessible at the time of retrieval will be
+    resolved to the empty string, instead of the retrieval failing.
+    It is the responsibility of the consumer of the secrets to account for
+    this possibility. This is a design decision and it mirrors how undefined
+    secrets are handled in other platforms such as GitHub.
+    """
     try:
         secrets = data["test_data"]["secrets"]
     except KeyError:
