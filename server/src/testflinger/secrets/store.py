@@ -34,11 +34,6 @@ class SecretsStore(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def is_accessible(self, namespace: str, key: str) -> bool:
-        """Check if there is a stored value for `key` under `namespace`."""
-        raise NotImplementedError
-
-    @abstractmethod
     def write(self, namespace: str, key: str, value: str):
         """Write the `value` for `key` under `namespace`."""
         raise NotImplementedError

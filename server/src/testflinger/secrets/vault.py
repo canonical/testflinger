@@ -63,16 +63,6 @@ class VaultStore(SecretsStore):
                 f"Unable to process response for '{key}' under '{namespace}'"
             ) from error
 
-    def is_accessible(self, namespace: str, key: str) -> bool:
-        """Check if there is a stored value for `key` under `namespace`."""
-        print(f"DEBUG: Checking if {namespace}/{key} is accessible")
-        try:
-            value = self.read(namespace, key)
-            print(f"DEBUG: {value}")
-            return True
-        except (AccessError, StoreError):
-            return False
-
     def write(self, namespace: str, key: str, value: str) -> bool:
         """Write the `value` for `key` under `namespace`."""
         # write (or update) the secret value using the Vault API
