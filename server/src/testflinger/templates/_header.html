@@ -49,6 +49,16 @@
           </li>
         {%- endfor %}
       </ul>
+      {% if config.OIDC_CLIENT_ID %}
+      <ul class="p-navigation__items u-float-right">
+        <li class="p-navigation__item">
+          <a class="p-navigation__link" href="{{ url_for('oidc.login') }}" id="sign-in-button">
+            Sign In
+            <i class="p-icon--user"></i>
+          </a>
+        </li>
+      </ul>
+      {% endif %}
     </nav>
   </div>
 </header>

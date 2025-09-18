@@ -23,6 +23,10 @@ services:
       MONGODB_USERNAME: testflinger
       TESTFLINGER_VAULT_TOKEN: myroot
       TESTFLINGER_VAULT_URL: http://vault:8200
+      WEB_SECRET_KEY: my_web_secret_key
+      OIDC_CLIENT_ID: testflinger-client
+      OIDC_CLIENT_SECRET: my-oidc-secret
+      OIDC_PROVIDER_DOMAIN: http://dex:5556/dex
     command: --reload
     ports:
       - 5000:5000
@@ -40,3 +44,12 @@ services:
       - IPC_LOCK
     ports:
       - 8200:8200
+  dex:
+    container_name: dex
+    image: dexidp/dex:latest
+    ports:
+      - "5556:5556"
+    volumes:
+      - ./devel/dex-config.yaml:/etc/dex/config.yaml
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+  
