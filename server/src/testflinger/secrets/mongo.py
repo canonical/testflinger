@@ -35,12 +35,12 @@ class MongoStore(SecretsStore):
     def __init__(
         self,
         client: MongoClient,
-        client_encryption: ClientEncryption,
+        cipher: ClientEncryption,
         data_key_name: str,
     ):
-        """Initialize MongoStore with client, encryption, and data key name."""
+        """Initialize MongoStore with client, cipher, and data key name."""
         self.database = client.get_default_database()
-        self.client_encryption = client_encryption
+        self.cipher = cipher
         self.data_key_name = data_key_name
         self.algorithm = Algorithm.AEAD_AES_256_CBC_HMAC_SHA_512_Random
 
@@ -61,35 +61,33 @@ class MongoStore(SecretsStore):
 
         encrypted_value = result["value"]
         try:
-            decrypted_value = self.client_encryption.decrypt(encrypted_value)
+            decrypted_value = self.cipher.decrypt(encrypted_value)
         except EncryptionError as error:
             raise StoreError(
                 f"Failed to decrypt value for '{key}' under '{namespace}'"
             ) from error
-        except (UnicodeDecodeError, AttributeError) as error:
+        if decrypted_value is None:
             raise StoreError(
-                f"Invalid decrypted data format for '{key}' under "
-                f"'{namespace}'"
+                f"Failed to decrypt value for '{key}' under '{namespace}'"
+            )
+        try:
+            return decrypted_value.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise StoreError(
+                f"Failed to decrypt value for '{key}' under '{namespace}'"
             ) from error
-
-        return decrypted_value.decode("utf-8")
 
     def write(self, namespace: str, key: str, value: str):
         """Write the `value` for `key` under `namespace`."""
-        # Encrypt the value before storing
         try:
-            encrypted_value = self.client_encryption.encrypt(
+            encrypted_value = self.cipher.encrypt(
                 value=value.encode("utf-8"),
                 algorithm=self.algorithm,
                 key_alt_name=self.data_key_name,
             )
-        except EncryptionError as error:
+        except (EncryptionError, UnicodeEncodeError) as error:
             raise StoreError(
                 f"Failed to encrypt value for '{key}' under '{namespace}'"
-            ) from error
-        except UnicodeEncodeError as error:
-            raise StoreError(
-                f"Invalid string format for '{key}' under '{namespace}'"
             ) from error
 
         try:

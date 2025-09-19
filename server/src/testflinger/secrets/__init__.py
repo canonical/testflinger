@@ -18,8 +18,6 @@
 import base64
 import os
 
-import pymongo.errors
-from bson.binary import STANDARD, Binary
 from bson.codec_options import CodecOptions
 from hvac import Client
 from pymongo import MongoClient
@@ -49,49 +47,18 @@ def setup_vault_store() -> VaultStore | None:
 def setup_mongo_store() -> MongoStore | None:
     mongo_url = get_mongo_uri()
 
-    # Get master key from environment
     master_key_b64 = os.environ.get("MONGO_MASTER_KEY")
-
     if not master_key_b64:
         raise StoreError("MONGO_MASTER_KEY environment variable not set")
-
     try:
         master_key = base64.b64decode(master_key_b64)
     except Exception as error:
         raise StoreError("Invalid MONGO_MASTER_KEY format") from error
 
-    # Create regular client without auto-encryption for explicit CSFLE
+    # Explit Client-Side Field-Level Encryption
     # Reference: https://www.mongodb.com/docs/manual/core/csfle/fundamentals/manual-encryption/
     # PyMongo docs: https://pymongo.readthedocs.io/en/stable/examples/encryption.html#explicit-encryption-and-decryption
     client = MongoClient(mongo_url)
-
-    # Set up key vault and client encryption for explicit encryption
-    kms_providers = {"local": {"key": master_key}}
-    key_vault_db = "encryption"
-    key_vault_collection = "__keyVault"
-    key_alt_name = "testflinger-secrets"
-
-    client = MongoClient(mongo_url)
-
-    client_encryption = ClientEncryption(
-        kms_providers=kms_providers,
-        key_vault_namespace=f"{key_vault_db}.{key_vault_collection}",
-        key_vault_client=client,
-        codec_options=CodecOptions(),
-    )
-
-    key_vault = client[key_vault_db][key_vault_collection]
-
-    existing_key = key_vault.find_one({"keyAltNames": key_alt_name})
-    if not existing_key:
-        try:
-            client_encryption.create_data_key(
-                "local", key_alt_names=[key_alt_name]
-            )
-        except EncryptionError as error:
-            raise StoreError(
-                f"Failed to create data encryption key: {error}"
-            ) from error
 
     """
     try:
@@ -102,11 +69,41 @@ def setup_mongo_store() -> MongoStore | None:
          ) from error
     """
 
-    client_encryption.rewrap_many_data_key(
-        filter={"keyAltNames": [key_alt_name]}
+    kms_providers = {"local": {"key": master_key}}
+    # database and collection where secrets are stored (the "vault")
+    key_vault_db = "encryption"
+    key_vault_collection = "__keyVault"
+    # human-readable name for the data key that encrypts the secrets
+    key_name = "testflinger-secrets"
+    # all encryption/decryption of secret values goes through the cipher
+    # (i.e. a `ClientEncryption` object)
+    cipher = ClientEncryption(
+        kms_providers=kms_providers,
+        key_vault_namespace=f"{key_vault_db}.{key_vault_collection}",
+        key_vault_client=client,
+        codec_options=CodecOptions(),
     )
-    print(client_encryption, client_encryption.__dict__)
-    return MongoStore(client, client_encryption, key_alt_name)
+
+    # create data encryption key, if none exists
+    key_vault = client[key_vault_db][key_vault_collection]
+    existing_key = key_vault.find_one({"keyAltNames": key_name})
+    if not existing_key:
+        try:
+            cipher.create_data_key(
+                "local", key_alt_names=[key_name]
+            )
+        except EncryptionError as error:
+            raise StoreError(
+                f"Failed to create data encryption key: {error}"
+            ) from error
+
+    # re-encrypt the data encryption key using the master key
+    # (because the latter may have been rotated)
+    cipher.rewrap_many_data_key(
+        filter={"keyAltNames": [key_name]}
+    )
+
+    return MongoStore(client, cipher, key_name)
 
 
 def setup_secrets_store() -> SecretsStore | None:
@@ -118,5 +115,7 @@ def setup_secrets_store() -> SecretsStore | None:
     Not setting up a secrets store is not an error: it just means that
     Testflinger jobs will not be able to use secrets.
     """
-    # return setup_vault_store()
-    return setup_mongo_store()
+    try:
+        return setup_vault_store()
+    except StoreError:
+        return setup_mongo_store()
