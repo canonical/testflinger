@@ -26,7 +26,7 @@ import pytest
 
 from testflinger import application, database
 from testflinger.secrets.exceptions import AccessError, StoreError
-from testflinger.secrets.vault import VaultStore
+from testflinger.secrets.store import SecretsStore
 
 
 @pytest.fixture
@@ -56,12 +56,12 @@ def app_with_store(mocker):
         )
 
     # mock store
-    mock_vault_store = mocker.Mock(spec=VaultStore)
+    mock_secrets_store = mocker.Mock(spec=SecretsStore)
 
     # create app
     flask_app = application.create_flask_app(
         type("", (), {"TESTING": True})(),
-        secrets_store=mock_vault_store,
+        secrets_store=mock_secrets_store,
     )
     yield flask_app.test_client()
 
