@@ -170,6 +170,7 @@ class TestflingerCli:
         self._add_results_args(subparsers)
         self._add_show_args(subparsers)
         self._add_submit_args(subparsers)
+        self._add_secret_args(subparsers)
 
         argcomplete.autocomplete(parser)
         try:
@@ -403,6 +404,34 @@ class TestflingerCli:
             dest="relative",
             help="The reference directory for relative attachment paths",
         )
+
+    def _add_secret_args(self, subparsers):
+        """Command line arguments for secret management."""
+        parser = subparsers.add_parser(
+            "secret", help="Manage secrets. Requires authentication"
+        )
+        secret_subparser = parser.add_subparsers(
+            dest="secret_command", required=True
+        )
+
+        # secret write command
+        write_parser = secret_subparser.add_parser(
+            "write", help="Write a secret value"
+        )
+        write_parser.set_defaults(func=self.secret_write)
+        write_parser.add_argument("path", help="Path for the secret")
+        write_parser.add_argument("value", help="Value of the secret")
+        self._add_auth_args(write_parser)
+
+        # secret delete command
+        delete_parser = secret_subparser.add_parser(
+            "delete", help="Delete a secret"
+        )
+        delete_parser.set_defaults(func=self.secret_delete)
+        delete_parser.add_argument(
+            "path", help="Path for the secret to delete"
+        )
+        self._add_auth_args(delete_parser)
 
     def status(self):
         """Show the status of a specified JOB_ID."""
@@ -1227,4 +1256,45 @@ class TestflingerCli:
                 # authenticate can return None if no credentials were provided
                 sys.exit("Please provide credentials and reattempt login")
         except (AuthenticationError, AuthorizationError) as exc:
+            sys.exit(exc)
+
+    def secret_write(self):
+        """Write a secret value for the authenticated client."""
+        if not self.client_id:
+            sys.exit("Client ID is required for secret operations")
+
+        try:
+            auth_headers = self.auth.build_headers()
+            secret_data = {"value": self.args.value}
+            endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
+
+            self.client.put(endpoint, secret_data, headers=auth_headers)
+            print(f"Secret '{self.args.path}' written successfully")
+        except client.HTTPError as exc:
+            sys.exit(f"Error writing secret: [{exc.status}] {exc.msg}")
+        except (
+            AuthenticationError,
+            AuthorizationError,
+            InvalidTokenError,
+        ) as exc:
+            sys.exit(exc)
+
+    def secret_delete(self):
+        """Delete a secret for the authenticated client."""
+        if not self.client_id:
+            sys.exit("Client ID is required for secret operations")
+
+        try:
+            auth_headers = self.auth.build_headers()
+            endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
+
+            self.client.delete(endpoint, headers=auth_headers)
+            print(f"Secret '{self.args.path}' deleted successfully")
+        except client.HTTPError as exc:
+            sys.exit(f"Error deleting secret: [{exc.status}] {exc.msg}")
+        except (
+            AuthenticationError,
+            AuthorizationError,
+            InvalidTokenError,
+        ) as exc:
             sys.exit(exc)
