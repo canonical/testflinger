@@ -18,10 +18,40 @@
 import os
 
 from hvac import Client
+from pymongo import MongoClient
+import pymongo.errors
 
+from testflinger.database import get_mongo_uri
 from testflinger.secrets.exceptions import StoreError
 from testflinger.secrets.store import SecretsStore
+from testflinger.secrets.mongo import MongoStore
 from testflinger.secrets.vault import VaultStore
+
+
+def setup_vault_store() -> VaultStore | None:
+    vault_url = os.environ.get("TESTFLINGER_VAULT_URL")
+    vault_token = os.environ.get("TESTFLINGER_VAULT_TOKEN")
+    if not vault_url or not vault_token:
+        return None
+
+    client = Client(url=vault_url, token=vault_token)
+    if not client.is_authenticated():
+        raise StoreError("Vault client not authenticated")
+
+    return VaultStore(client)
+
+
+def setup_mongo_store() -> MongoStore | None:
+    client = MongoClient(mongo_url := get_mongo_uri())
+    '''
+    try:
+        client.admin.command('ping')
+    except pymongo.errors.ConnectionFailure as error:
+        raise StoreError(
+            f"Mongo client unable to ping database at {mongo_url}"
+        ) from error
+    '''
+    return MongoStore(client)
 
 
 def setup_secrets_store() -> SecretsStore | None:
@@ -33,13 +63,5 @@ def setup_secrets_store() -> SecretsStore | None:
     Not setting up a secrets store is not an error: it just means that
     Testflinger jobs will not be able to use secrets.
     """
-    vault_url = os.environ.get("TESTFLINGER_VAULT_URL")
-    vault_token = os.environ.get("TESTFLINGER_VAULT_TOKEN")
-    if not vault_url or not vault_token:
-        return None
-
-    client = Client(url=vault_url, token=vault_token)
-    if not client.is_authenticated():
-        raise StoreError("Vault client not authenticated")
-
-    return VaultStore(client)
+    #return setup_vault_store()
+    return setup_mongo_store()
