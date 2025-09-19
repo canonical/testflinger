@@ -14,5 +14,5 @@ enablePasswordDB: true
 staticPasswords:
   - email: "testflinger@example.com"
     hash: "$2a$10$FWI.y.8Zpa9PhTTcV6GDIuxPzrwYJoiVCimgCA427HoyR5FR50mBu"
-    username: "testflinger"
+    username: "testflinger-admin"
     userID: "1234"
