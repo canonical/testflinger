@@ -23,6 +23,8 @@ from typing import Any
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
 
+from testflinger.enums import ServerRoles
+
 # Constants for TTL indexes
 REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
@@ -540,3 +542,40 @@ def delete_refresh_token(token: str) -> None:
     :param token: The refresh token to delete.
     """
     mongo.db.refresh_tokens.delete_one({"refresh_token": token})
+
+def check_web_client_exists(sub: str):
+    """Validate the existance of a web client.
+
+    :param sub: Unique subject identifier returned by OIDC provider
+    :return: True or False based on client existance
+    """
+    return (
+        mongo.db.web_clients.find_one({"openid_sub": sub}, {"_id": False})
+        is not None
+    )
+
+
+def register_web_client(oidc_token: dict):
+    """Create a new web client upon first authentication.
+
+    If client already exists, will update the last login.
+
+    :param oidc_token: User information returned from OIDC provider.
+    """
+    sub = oidc_token["userinfo"]["sub"]
+    if check_web_client_exists(sub):
+        mongo.db.web_clients.update_one(
+            {"openid_sub": sub},
+            {"$set": {"last_login": datetime.now(timezone.utc)}},
+        )
+    else:
+        mongo.db.web_clients.insert_one(
+            {
+                "openid_sub": sub,
+                "email": oidc_token["userinfo"]["email"],
+                "name": oidc_token["userinfo"]["name"],
+                "created_at": datetime.now(timezone.utc),
+                "last_login": datetime.now(timezone.utc),
+                "role": ServerRoles.CONTRIBUTOR,
+            }
+        )

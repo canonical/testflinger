@@ -23,6 +23,8 @@ from flask import (
     url_for,
 )
 
+from testflinger.database import register_web_client
+
 oidc_views = Blueprint("oidc", __name__)
 
 
@@ -31,6 +33,7 @@ def callback():
     """Redirect callback from OIDC Provider."""
     token = current_app.oauth.oidc.authorize_access_token()
     session["user"] = token.get("userinfo", {}).get("name")
+    register_web_client(token)
     return redirect(url_for("testflinger.home"))
 
 
