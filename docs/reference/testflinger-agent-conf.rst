@@ -15,7 +15,9 @@ The following configuration options are supported by the Testflinger Agent:
     * - ``identifier``
       - Additional identifier such as a serial number that will be sent to the server and can be used for cross-referencing with other systems
     * - ``polling_interval``
-      - Time to sleep between polling for new tests (default: 10s)
+      - Time to sleep between polling the server for new tests (default: 10s)
+    * - ``output_polling_interval``
+      - Time to sleep between polling for output from the process running the phase command (default: 10s)
     * - ``server_address``
       - Host/IP and port of the Testflinger server
     * - ``execution_basedir``
