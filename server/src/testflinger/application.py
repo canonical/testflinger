@@ -91,6 +91,10 @@ def create_flask_app(config=None, secrets_store=None):
         tf_log.exception("Unhandled Exception: %s", (exc))
         return f"Unhandled Exception: {exc}\n", 500
 
+    @tf_app.context_processor
+    def inject_oidc_status():
+        return {"oidc_enabled": tf_app.oauth is not None}
+
     tf_app.register_blueprint(views)
     tf_app.register_blueprint(v1, url_prefix="/v1")
     if tf_app.oauth:

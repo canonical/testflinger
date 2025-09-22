@@ -49,7 +49,7 @@
           </li>
         {%- endfor %}
       </ul>
-      {% if config.OIDC_CLIENT_ID %}
+      {% if oidc_enabled %}
         <ul class="p-navigation__items u-float-right">
           {% if session.user %}
             <li class="p-navigation__item--dropdown-toggle" id="user-menu">
