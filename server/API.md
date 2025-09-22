@@ -21,6 +21,7 @@ Returns:
 Status Codes:
 
 - `HTTP 200 (OK)`
+- `HTTP 422 (Unprocessable Content)`: The submitted job contains references to secrets and these secrets are, for any reason, inaccessible.
 
 Examples:
 
@@ -58,6 +59,12 @@ Example:
 ```shell
 curl http://localhost:8000/v1/job?queue=foo\&queue=bar
 ```
+
+> [!NOTE]
+> Any secrets that are referenced in the job are "resolved" when
+> the job is retrieved by an agent through this endpoint. Any secrets
+> that are inaccessible at the time of retrieval will be resolved to the
+> empty string.
 
 ## `[GET] /v1/job/search`
 
