@@ -336,6 +336,14 @@ class TestflingerCli:
         parser.add_argument(
             "--json", action="store_true", help="Print output in JSON format"
         )
+        parser.add_argument(
+            "--all",
+            action="store_true",
+            help=(
+                "Print all the information from the API, "
+                "only if --json is also specified"
+            ),
+        )
 
     def _add_queue_status_args(self, subparsers):
         """Command line arguments for queue status."""
@@ -435,7 +443,9 @@ class TestflingerCli:
         except UnknownStatusError as exc:
             sys.exit(exc)
 
-        if self.args.json:
+        if self.args.json and self.args.all:
+            output = json.dumps(agent_status)
+        elif self.args.json:
             output = json.dumps(
                 {
                     "agent": self.args.agent_name,
