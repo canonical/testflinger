@@ -151,7 +151,7 @@ def test_secret_write_no_client_id(monkeypatch, requests_mock):
     with pytest.raises(SystemExit) as exc_info:
         tfcli.run()
 
-    assert "Client ID is required for secret operations" in str(exc_info.value)
+    assert "Authentication is required" in str(exc_info.value)
 
 
 def test_secret_delete_no_client_id(monkeypatch, requests_mock):
@@ -168,7 +168,7 @@ def test_secret_delete_no_client_id(monkeypatch, requests_mock):
     with pytest.raises(SystemExit) as exc_info:
         tfcli.run()
 
-    assert "Client ID is required for secret operations" in str(exc_info.value)
+    assert "Authentication is required" in str(exc_info.value)
 
 
 def test_secret_write_path_with_slashes(auth_fixture, capsys, requests_mock):

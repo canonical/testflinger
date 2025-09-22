@@ -1261,9 +1261,6 @@ class TestflingerCli:
 
     def secret_write(self):
         """Write a secret value for the authenticated client."""
-        if not self.client_id:
-            sys.exit("Client ID is required for secret operations")
-
         try:
             auth_headers = self.auth.build_headers()
         except (
@@ -1272,6 +1269,9 @@ class TestflingerCli:
             InvalidTokenError,
         ) as exc:
             sys.exit(exc)
+
+        if auth_headers is None:
+            sys.exit("Error writing secret: Authentication is required")
 
         secret_data = {"value": self.args.value}
         endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
@@ -1283,9 +1283,6 @@ class TestflingerCli:
 
     def secret_delete(self):
         """Delete a secret for the authenticated client."""
-        if not self.client_id:
-            sys.exit("Client ID is required for secret operations")
-
         try:
             auth_headers = self.auth.build_headers()
         except (
@@ -1294,6 +1291,9 @@ class TestflingerCli:
             InvalidTokenError,
         ) as exc:
             sys.exit(exc)
+
+        if auth_headers is None:
+            sys.exit("Error deleting secret: Authentication is required")
 
         endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
         try:
