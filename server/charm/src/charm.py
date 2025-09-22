@@ -328,7 +328,7 @@ class TestflingerCharm(ops.CharmBase):
         # Determine if we are already connected to database
         db_relation = self.model.get_relation("mongodb_client")
         if not db_relation:
-            return
+            return None
 
         # Get the relation data from the remote application
         for unit in db_relation.units:
