@@ -18,11 +18,13 @@
 
 import sys
 from http import HTTPStatus
+from unittest.mock import mock_open, patch
 
 import pytest
 
 import testflinger_cli
 from testflinger_cli.consts import ServerRoles
+
 from .test_cli import URL
 
 
@@ -46,8 +48,7 @@ def test_secret_write_success(auth_fixture, capsys, requests_mock):
         test_value,
     ]
 
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.secret_write()
+    testflinger_cli.TestflingerCli().run()
 
     std = capsys.readouterr()
     assert f"Secret '{test_path}' written successfully" in std.out
@@ -78,9 +79,8 @@ def test_secret_write_http_error(auth_fixture, requests_mock):
     ]
 
     tfcli = testflinger_cli.TestflingerCli()
-
     with pytest.raises(SystemExit) as exc_info:
-        tfcli.secret_write()
+        tfcli.run()
 
     assert "Error writing secret: [403] Access denied" in str(exc_info.value)
 
@@ -103,8 +103,7 @@ def test_secret_delete_success(auth_fixture, capsys, requests_mock):
         test_path,
     ]
 
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.secret_delete()
+    testflinger_cli.TestflingerCli().run()
 
     std = capsys.readouterr()
     assert f"Secret '{test_path}' deleted successfully" in std.out
@@ -129,9 +128,8 @@ def test_secret_delete_http_error(auth_fixture, requests_mock):
     ]
 
     tfcli = testflinger_cli.TestflingerCli()
-
     with pytest.raises(SystemExit) as exc_info:
-        tfcli.secret_delete()
+        tfcli.run()
 
     assert "Error deleting secret: [404] Secret not found" in str(
         exc_info.value
@@ -150,9 +148,8 @@ def test_secret_write_no_client_id(monkeypatch, requests_mock):
     ]
 
     tfcli = testflinger_cli.TestflingerCli()
-
     with pytest.raises(SystemExit) as exc_info:
-        tfcli.secret_write()
+        tfcli.run()
 
     assert "Client ID is required for secret operations" in str(exc_info.value)
 
@@ -168,9 +165,8 @@ def test_secret_delete_no_client_id(monkeypatch, requests_mock):
     ]
 
     tfcli = testflinger_cli.TestflingerCli()
-
     with pytest.raises(SystemExit) as exc_info:
-        tfcli.secret_delete()
+        tfcli.run()
 
     assert "Client ID is required for secret operations" in str(exc_info.value)
 
@@ -195,8 +191,7 @@ def test_secret_write_path_with_slashes(auth_fixture, capsys, requests_mock):
         test_value,
     ]
 
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.secret_write()
+    testflinger_cli.TestflingerCli().run()
 
     std = capsys.readouterr()
     assert f"Secret '{test_path}' written successfully" in std.out
@@ -220,8 +215,81 @@ def test_secret_delete_path_with_slashes(auth_fixture, capsys, requests_mock):
         test_path,
     ]
 
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.secret_delete()
+    testflinger_cli.TestflingerCli().run()
 
     std = capsys.readouterr()
     assert f"Secret '{test_path}' deleted successfully" in std.out
+
+
+@pytest.mark.parametrize("subcommand", ["write", "delete"])
+@pytest.mark.parametrize(
+    "status_code,error_message,expected_text",
+    [
+        (
+            HTTPStatus.UNAUTHORIZED,
+            "Invalid credentials",
+            "Authentication with Testflinger server failed",
+        ),
+        (
+            HTTPStatus.FORBIDDEN,
+            "Insufficient permissions",
+            "Authorization error received from server",
+        ),
+    ],
+)
+def test_secret_auth_errors(
+    monkeypatch,
+    requests_mock,
+    subcommand,
+    status_code,
+    error_message,
+    expected_text,
+):
+    """Test secret operations fail with authentication/authorization errors."""
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "test_client")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "test_secret")
+
+    # Mock authentication to fail
+    requests_mock.post(
+        f"{URL}/v1/oauth2/token",
+        json={"message": error_message},
+        status_code=status_code,
+    )
+
+    if subcommand == "write":
+        sys.argv = ["", "secret", "write", "test/path", "test_value"]
+    else:
+        sys.argv = ["", "secret", "delete", "test/path"]
+
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+
+    assert expected_text in str(exc_info.value)
+
+
+@pytest.mark.parametrize("subcommand", ["write", "delete"])
+@patch(
+    "builtins.open",
+    mock_open(read_data="[AUTH]\nrefresh_token = expired_token\n"),
+)
+def test_secret_invalid_token_error(monkeypatch, requests_mock, subcommand):
+    """Test secret operations fail with invalid token error during refresh."""
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "test_client")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "test_secret")
+
+    # Mock refresh endpoint to fail
+    requests_mock.post(
+        f"{URL}/v1/oauth2/refresh",
+        text="Refresh token expired",
+        status_code=HTTPStatus.BAD_REQUEST,
+    )
+
+    if subcommand == "write":
+        sys.argv = ["", "secret", "write", "test/path", "test_value"]
+    else:
+        sys.argv = ["", "secret", "delete", "test/path"]
+
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+
+    assert "Please reauthenticate with server" in str(exc_info.value)

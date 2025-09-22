@@ -133,9 +133,10 @@ class TestflingerCli:
 
     def run(self):
         """Run the subcommand specified in command line arguments."""
-        if hasattr(self.args, "func"):
-            sys.exit(self.args.func())
-        print(self.help)
+        if not hasattr(self.args, "func"):
+            print(self.help)
+            return
+        self.args.func()
 
     def get_args(self):
         """Handle command line arguments."""
@@ -1265,19 +1266,20 @@ class TestflingerCli:
 
         try:
             auth_headers = self.auth.build_headers()
-            secret_data = {"value": self.args.value}
-            endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
-
-            self.client.put(endpoint, secret_data, headers=auth_headers)
-            print(f"Secret '{self.args.path}' written successfully")
-        except client.HTTPError as exc:
-            sys.exit(f"Error writing secret: [{exc.status}] {exc.msg}")
         except (
             AuthenticationError,
             AuthorizationError,
             InvalidTokenError,
         ) as exc:
             sys.exit(exc)
+
+        secret_data = {"value": self.args.value}
+        endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
+        try:
+            self.client.put(endpoint, secret_data, headers=auth_headers)
+        except client.HTTPError as exc:
+            sys.exit(f"Error writing secret: [{exc.status}] {exc.msg}")
+        print(f"Secret '{self.args.path}' written successfully")
 
     def secret_delete(self):
         """Delete a secret for the authenticated client."""
@@ -1286,15 +1288,16 @@ class TestflingerCli:
 
         try:
             auth_headers = self.auth.build_headers()
-            endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
-
-            self.client.delete(endpoint, headers=auth_headers)
-            print(f"Secret '{self.args.path}' deleted successfully")
-        except client.HTTPError as exc:
-            sys.exit(f"Error deleting secret: [{exc.status}] {exc.msg}")
         except (
             AuthenticationError,
             AuthorizationError,
             InvalidTokenError,
         ) as exc:
             sys.exit(exc)
+
+        endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
+        try:
+            self.client.delete(endpoint, headers=auth_headers)
+        except client.HTTPError as exc:
+            sys.exit(f"Error deleting secret: [{exc.status}] {exc.msg}")
+        print(f"Secret '{self.args.path}' deleted successfully")
