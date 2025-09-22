@@ -15,6 +15,12 @@
 #
 """OIDC related views for authenticated application."""
 
+import logging
+
+from authlib.integrations.base_client.errors import (
+    MismatchingStateError,
+    OAuthError,
+)
 from flask import (
     Blueprint,
     current_app,
@@ -27,22 +33,30 @@ from testflinger.database import register_web_client
 
 oidc_views = Blueprint("oidc", __name__)
 
+logger = logging.getLogger(__name__)
+
 
 @oidc_views.route("/callback")
 def callback():
     """Redirect callback from OIDC Provider."""
-    token = current_app.oauth.oidc.authorize_access_token()
-    session["user"] = token["userinfo"]["name"]
-    register_web_client(token)
+    try:
+        token = current_app.oauth.oidc.authorize_access_token()
+        session["user"] = token["userinfo"]["name"]
+        register_web_client(token)
+    except (MismatchingStateError, OAuthError) as err:
+        logger.warning("Oauth error during authentication: %s", str(err))
     return redirect(url_for("testflinger.home"))
 
 
 @oidc_views.route("/login")
 def login():
     """Redirects user to OIDC provider for authentication."""
-    return current_app.oauth.oidc.authorize_redirect(
-        redirect_uri=url_for("oidc.callback", _external=True)
-    )
+    try:
+        return current_app.oauth.oidc.authorize_redirect(
+            redirect_uri=url_for("oidc.callback", _external=True)
+        )
+    except OAuthError:
+        return redirect(url_for("testflinger.home"))
 
 
 @oidc_views.route("/logout")

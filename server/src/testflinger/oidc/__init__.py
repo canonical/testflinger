@@ -13,10 +13,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 import os
 
 from apiflask import APIFlask
 from authlib.integrations.flask_client import OAuth
+
+logger = logging.getLogger(__name__)
 
 
 def setup_oidc_config(tf_app: APIFlask):
@@ -46,6 +49,7 @@ def app_register_oidc(tf_app: APIFlask) -> OAuth | None:
 
     # If provider is not set, app will run without web authentication
     if not all([client_id, client_secret, issuer, secret_key]):
+        logger.info("OIDC disabled due to missing configuration parameters")
         return None
 
     # Register app with OIDC provider based on configuration values
@@ -59,4 +63,5 @@ def app_register_oidc(tf_app: APIFlask) -> OAuth | None:
         },
         server_metadata_url=f"{issuer}/.well-known/openid-configuration",
     )
+    logger.info("Configured OIDC with issuer: %s", issuer)
     return oauth
