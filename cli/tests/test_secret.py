@@ -28,10 +28,16 @@ from testflinger_cli.consts import ServerRoles
 from .test_cli import URL
 
 
-def test_secret_write_success(auth_fixture, capsys, requests_mock):
+@pytest.mark.parametrize(
+    "test_path",
+    [
+        "path",
+        "my/secret/path",
+    ],
+)
+def test_secret_write(auth_fixture, capsys, requests_mock, test_path):
     """Test successful secret write operation."""
     auth_fixture(ServerRoles.CONTRIBUTOR)
-    test_path = "my/secret/path"
     test_value = "secret_value_123"
 
     requests_mock.put(
@@ -85,10 +91,16 @@ def test_secret_write_http_error(auth_fixture, requests_mock):
     assert "Error writing secret: [403] Access denied" in str(exc_info.value)
 
 
-def test_secret_delete_success(auth_fixture, capsys, requests_mock):
+@pytest.mark.parametrize(
+    "test_path",
+    [
+        "path"
+        "my/secret/path",
+    ],
+)
+def test_secret_delete(auth_fixture, capsys, requests_mock, test_path):
     """Test successful secret delete operation."""
     auth_fixture(ServerRoles.CONTRIBUTOR)
-    test_path = "my/secret/path"
 
     requests_mock.delete(
         f"{URL}/v1/secrets/my_client_id/{test_path}",
@@ -136,89 +148,19 @@ def test_secret_delete_http_error(auth_fixture, requests_mock):
     )
 
 
-def test_secret_write_no_client_id(monkeypatch, requests_mock):
-    """Test secret write fails when no client_id is configured."""
-    # Don't set any environment variables for client_id
-    sys.argv = [
-        "",
-        "secret",
-        "write",
-        "test/path",
-        "test_value",
-    ]
+@pytest.mark.parametrize("subcommand", ["write", "delete"])
+def test_secret_no_authentication(subcommand):
+    """Test secret operations fail when authentication is not configured."""
+    if subcommand == "write":
+        sys.argv = ["", "secret", "write", "test/path", "test_value"]
+    else:
+        sys.argv = ["", "secret", "delete", "test/path"]
 
     tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as exc_info:
         tfcli.run()
 
     assert "Authentication is required" in str(exc_info.value)
-
-
-def test_secret_delete_no_client_id(monkeypatch, requests_mock):
-    """Test secret delete fails when no client_id is configured."""
-    # Don't set any environment variables for client_id
-    sys.argv = [
-        "",
-        "secret",
-        "delete",
-        "test/path",
-    ]
-
-    tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(SystemExit) as exc_info:
-        tfcli.run()
-
-    assert "Authentication is required" in str(exc_info.value)
-
-
-def test_secret_write_path_with_slashes(auth_fixture, capsys, requests_mock):
-    """Test secret write with complex path containing slashes."""
-    auth_fixture(ServerRoles.CONTRIBUTOR)
-    test_path = "namespace/service/environment/key"
-    test_value = "complex_secret_value"
-
-    requests_mock.put(
-        f"{URL}/v1/secrets/my_client_id/{test_path}",
-        text="OK",
-        status_code=HTTPStatus.OK,
-    )
-
-    sys.argv = [
-        "",
-        "secret",
-        "write",
-        test_path,
-        test_value,
-    ]
-
-    testflinger_cli.TestflingerCli().run()
-
-    std = capsys.readouterr()
-    assert f"Secret '{test_path}' written successfully" in std.out
-
-
-def test_secret_delete_path_with_slashes(auth_fixture, capsys, requests_mock):
-    """Test secret delete with complex path containing slashes."""
-    auth_fixture(ServerRoles.CONTRIBUTOR)
-    test_path = "namespace/service/environment/key"
-
-    requests_mock.delete(
-        f"{URL}/v1/secrets/my_client_id/{test_path}",
-        text="OK",
-        status_code=HTTPStatus.OK,
-    )
-
-    sys.argv = [
-        "",
-        "secret",
-        "delete",
-        test_path,
-    ]
-
-    testflinger_cli.TestflingerCli().run()
-
-    std = capsys.readouterr()
-    assert f"Secret '{test_path}' deleted successfully" in std.out
 
 
 @pytest.mark.parametrize("subcommand", ["write", "delete"])
