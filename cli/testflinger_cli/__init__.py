@@ -1270,7 +1270,7 @@ class TestflingerCli:
         ) as exc:
             sys.exit(exc)
 
-        if auth_headers is None:
+        if auth_headers is None or self.client_id is None:
             sys.exit("Error writing secret: Authentication is required")
 
         secret_data = {"value": self.args.value}
@@ -1292,7 +1292,7 @@ class TestflingerCli:
         ) as exc:
             sys.exit(exc)
 
-        if auth_headers is None:
+        if auth_headers is None or self.client_id is None:
             sys.exit("Error deleting secret: Authentication is required")
 
         endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
