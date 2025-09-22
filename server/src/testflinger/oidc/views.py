@@ -32,7 +32,7 @@ oidc_views = Blueprint("oidc", __name__)
 def callback():
     """Redirect callback from OIDC Provider."""
     token = current_app.oauth.oidc.authorize_access_token()
-    session["user"] = token.get("userinfo", {}).get("name")
+    session["user"] = token["userinfo"]["name"]
     register_web_client(token)
     return redirect(url_for("testflinger.home"))
 
@@ -40,10 +40,6 @@ def callback():
 @oidc_views.route("/login")
 def login():
     """Redirects user to OIDC provider for authentication."""
-    if not current_app.oauth:
-        # OIDC not configured - redirect to home or show error
-        return redirect(url_for("testflinger.home"))
-
     return current_app.oauth.oidc.authorize_redirect(
         redirect_uri=url_for("oidc.callback", _external=True)
     )

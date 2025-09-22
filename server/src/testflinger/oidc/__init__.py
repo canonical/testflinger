@@ -27,8 +27,8 @@ def setup_oidc_config(tf_app: APIFlask):
     tf_app.config["SECRET_KEY"] = os.environ.get("WEB_SECRET_KEY")
     tf_app.config["OIDC_CLIENT_ID"] = os.environ.get("OIDC_CLIENT_ID")
     tf_app.config["OIDC_CLIENT_SECRET"] = os.environ.get("OIDC_CLIENT_SECRET")
-    tf_app.config["OIDC_PROVIDER_DOMAIN"] = os.environ.get(
-        "OIDC_PROVIDER_DOMAIN"
+    tf_app.config["OIDC_PROVIDER_ISSUER"] = os.environ.get(
+        "OIDC_PROVIDER_ISSUER"
     )
 
 
@@ -41,14 +41,14 @@ def app_register_oidc(tf_app: APIFlask) -> OAuth | None:
 
     client_id = tf_app.config["OIDC_CLIENT_ID"]
     client_secret = tf_app.config["OIDC_CLIENT_SECRET"]
-    domain = tf_app.config["OIDC_PROVIDER_DOMAIN"]
+    issuer = tf_app.config["OIDC_PROVIDER_ISSUER"]
     secret_key = tf_app.config["SECRET_KEY"]
 
     # If provider is not set, app will run without web authentication
-    if not all([client_id, client_secret, domain, secret_key]):
+    if not all([client_id, client_secret, issuer, secret_key]):
         return None
 
-    # Register app with OID based on configuration values
+    # Register app with OIDC provider based on configuration values
     oauth = OAuth(tf_app)
     oauth.register(
         "oidc",
@@ -57,6 +57,6 @@ def app_register_oidc(tf_app: APIFlask) -> OAuth | None:
         client_kwargs={
             "scope": "openid profile email",
         },
-        server_metadata_url=f"{domain}/.well-known/openid-configuration",
+        server_metadata_url=f"{issuer}/.well-known/openid-configuration",
     )
     return oauth

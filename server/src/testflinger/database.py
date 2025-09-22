@@ -543,6 +543,7 @@ def delete_refresh_token(token: str) -> None:
     """
     mongo.db.refresh_tokens.delete_one({"refresh_token": token})
 
+
 def check_web_client_exists(sub: str):
     """Validate the existance of a web client.
 

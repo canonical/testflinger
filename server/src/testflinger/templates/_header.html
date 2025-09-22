@@ -49,29 +49,34 @@
           </li>
         {%- endfor %}
       </ul>
-        {% if config.OIDC_CLIENT_ID %}
-          <ul class="p-navigation__items u-float-right">
-            {% if session.user %}
-              <li class="p-navigation__item--dropdown-toggle" id="user-menu">
-                <a class="p-navigation__link" href="#user-dropdown" aria-controls="user-dropdown">
-                  {{ session.user }}
-                </a>
-                <ul class="p-navigation__dropdown--right" id="user-dropdown" aria-hidden="true">
-                  <li>
-                    <a href="{{ url_for('oidc.logout') }}" class="p-navigation__dropdown-item">Sign out</a>
-                  </li>
-                </ul>
-              </li>
-            {% else %}
-              <li class="p-navigation__item">
-                <a class="p-navigation__link" href="{{ url_for('oidc.login') }}" id="sign-in-button">
-                  Sign In
-                  <i class="p-icon--user"></i>
-                </a>
-              </li>
-            {% endif %}
-          </ul>
-        {% endif %}
+      {% if config.OIDC_CLIENT_ID %}
+        <ul class="p-navigation__items u-float-right">
+          {% if session.user %}
+            <li class="p-navigation__item--dropdown-toggle" id="user-menu">
+              <a class="p-navigation__link"
+                 href="#user-dropdown"
+                 aria-controls="user-dropdown">{{ session.user }}</a>
+              <ul class="p-navigation__dropdown--right"
+                  id="user-dropdown"
+                  aria-hidden="true">
+                <li>
+                  <a href="{{ url_for('oidc.logout') }}"
+                     class="p-navigation__dropdown-item">Sign out</a>
+                </li>
+              </ul>
+            </li>
+          {% else %}
+            <li class="p-navigation__item">
+              <a class="p-navigation__link"
+                 href="{{ url_for('oidc.login') }}"
+                 id="sign-in-button">
+                Sign In
+                <i class="p-icon--user"></i>
+              </a>
+            </li>
+          {% endif %}
+        </ul>
+      {% endif %}
     </nav>
   </div>
 </header>
