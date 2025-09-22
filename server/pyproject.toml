@@ -29,6 +29,7 @@ dependencies = [
     "marshmallow-oneofschema>=3.1.1",
     "strenum>=0.4.15",
     "authlib>=1.6.3",
+    "pytest-iam>=0.2.4",
 ]
 
 [project.scripts]
