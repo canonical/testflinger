@@ -59,6 +59,186 @@ from testflinger_cli.errors import (
 
 logger = logging.getLogger(__name__)
 
+# Define all args we'll allow with argparse
+ARGUMENTS = {
+    "artifacts": {
+        "help": "Download a tarball of artifacts saved for a specified job",
+        "func": "artifacts",
+        "args": [
+            {
+                "name": "--filename",
+                "type": helpers.parse_filename,
+                "default": "artifacts.tgz",
+            },
+            {"name": "job_id", "completer": "job_ids"},
+        ],
+    },
+    "cancel": {
+        "help": "Tell the server to cancel a specified JOB_ID",
+        "func": "cancel",
+        "args": [{"name": "job_id", "completer": "job_ids"}],
+    },
+    "config": {
+        "help": "Get or set configuration options",
+        "func": "configure",
+        "args": [{"name": "setting", "nargs": "?", "help": "setting=value"}],
+    },
+    "jobs": {
+        "help": "List the previously started test jobs",
+        "func": "jobs",
+        "args": [
+            {
+                "name": ["--status", "-s"],
+                "action": "store_true",
+                "help": "Include job status (may add delay)",
+            }
+        ],
+    },
+    "list-queues": {
+        "help": "List the advertised queues on the Testflinger server",
+        "func": "list_queues",
+        "args": [
+            {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print output in JSON format",
+            }
+        ],
+    },
+    "login": {
+        "help": "Authenticate with server",
+        "func": "login",
+        "extra_setup": "_add_auth_args",
+    },
+    "poll": {
+        "help": "Poll for output from a job until it is completed",
+        "func": "poll",
+        "args": [
+            {
+                "name": ["--oneshot", "-o"],
+                "action": "store_true",
+                "help": "Get latest output and exit immediately",
+            },
+            {"name": "job_id", "completer": "job_ids"},
+        ],
+    },
+    "poll-serial": {
+        "help": "Poll for output from a job until it is completed",
+        "func": "poll_serial",
+        "args": [
+            {
+                "name": ["--oneshot", "-o"],
+                "action": "store_true",
+                "help": "Get latest serial log output and exit immediately",
+            },
+            {"name": "job_id", "completer": "job_ids"},
+        ],
+    },
+    "reserve": {
+        "help": "Install and reserve a system",
+        "func": "reserve",
+        "args": [
+            {
+                "name": ["--dry-run", "-d"],
+                "action": "store_true",
+                "help": "Only show the job data, don't submit it",
+            },
+            {
+                "name": ["--queue", "-q"],
+                "help": "Name of the queue to use",
+            },
+            {
+                "name": ["--image", "-i"],
+                "help": "Name of the image to use for provisioning",
+            },
+            {
+                "name": ["--key", "-k"],
+                "nargs": "*",
+                "help": (
+                    "Ssh key(s) to use for reservation "
+                    "(ex: -k lp:userid -k gh:userid)"
+                ),
+            },
+        ],
+    },
+    "status": {
+        "help": "Show the status of a specified JOB_ID",
+        "func": "status",
+        "args": [{"name": "job_id", "completer": "job_ids"}],
+    },
+    "agent-status": {
+        "help": "Show the status of a specified agent",
+        "func": "agent_status",
+        "args": [
+            {"name": "agent_name"},
+            {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print output in JSON format",
+            },
+        ],
+    },
+    "queue-status": {
+        "help": "Show the status of the agents in a specified queue",
+        "func": "queue_status",
+        "args": [
+            {"name": "queue_name"},
+            {
+                "name": ["--verbose", "-v"],
+                "action": "store_true",
+                "help": "Show individual jobs with details",
+            },
+            {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print output in JSON format",
+            },
+        ],
+    },
+    "results": {
+        "help": "Get results JSON for a completed JOB_ID",
+        "func": "results",
+        "args": [{"name": "job_id", "completer": "job_ids"}],
+    },
+    "show": {
+        "help": "Show the requested job JSON for a specified JOB_ID",
+        "func": "show",
+        "args": [
+            {"name": "job_id", "completer": "job_ids"},
+            {
+                "name": "--yaml",
+                "action": "store_true",
+                "help": (
+                    "Print the job as a YAML document instead of a JSON object"
+                ),
+            },
+        ],
+    },
+    "submit": {
+        "help": "Submit a new test job to the server",
+        "func": "submit",
+        "args": [
+            {"name": ["--poll", "-p"], "action": "store_true"},
+            {"name": ["--quiet", "-q"], "action": "store_true"},
+            {
+                "name": "--wait-for-available-agents",
+                "action": "store_true",
+            },
+            {
+                "name": "filename",
+                "type": partial(helpers.parse_filename, parse_stdin=True),
+                "help": (
+                    "YAML or JSON file with your job definition, '-' for stdin"
+                ),
+                "completer": argcomplete.completers.FilesCompleter(
+                    allowednames=("*.yaml", "*.yml", "*.json")
+                ),
+            },
+        ],
+        "extra_setup": "add_auth_and_attachments_args",
+    },
+}
+
 # Make it easier to run from a checkout
 basedir = os.path.abspath(os.path.join(__file__, ".."))
 if os.path.exists(os.path.join(basedir, "setup.py")):
@@ -131,6 +311,72 @@ class TestflingerCli:
         ) as exc:
             sys.exit(exc)
 
+    def _setup_commands(self, subparsers):
+        """Build out all commands and args defined earlier with argparse."""
+        for command_name, command_config in ARGUMENTS.items():
+            parser = subparsers.add_parser(
+                command_name, help=command_config["help"]
+            )
+
+            # Set the handler function
+            func = getattr(self, command_config["func"])
+            parser.set_defaults(func=func)
+
+            # Add all arguments
+            for arg_config in command_config.get("args", []):
+                self._add_argument(parser, arg_config.copy())
+
+            # Handle special cases if needed
+            if "extra_setup" in command_config:
+                setup_method = getattr(self, command_config["extra_setup"])
+                setup_method(parser)
+
+    def _add_argument(self, parser, arg_config):
+        """Add a single argument to a parser based on configuration."""
+        name = arg_config.pop("name")
+
+        # Handle completer separately since it needs special treatment
+        completer = arg_config.pop("completer", None)
+
+        # Add the argument
+        if isinstance(name, list):
+            arg = parser.add_argument(*name, **arg_config)
+        else:
+            arg = parser.add_argument(name, **arg_config)
+
+        # Set up completer if provided
+        if completer == "job_ids":
+            arg.completer = partial(
+                autocomplete.job_ids_completer, history=self.history
+            )
+        elif completer and not isinstance(completer, str):
+            arg.completer = completer
+
+    def _add_auth_args(self, parser):
+        """Add authentication arguments to a parser."""
+        parser.add_argument(
+            "--client-id",
+            "--client_id",
+            default=None,
+            help="Client ID to authenticate with Testflinger server",
+        )
+        parser.add_argument(
+            "--secret-key",
+            "--secret_key",
+            default=None,
+            help="Secret key to be used with client id for authentication",
+        )
+
+    def add_auth_and_attachments_args(self, parser):
+        """Add both the authentication and attachment args for submit."""
+        self._add_auth_args(parser)
+        relative = parser.add_mutually_exclusive_group()
+        relative.add_argument(
+            "--attachments-relative-to",
+            dest="relative",
+            help="The reference directory for relative attachment paths",
+        )
+
     def run(self):
         """Run the subcommand specified in command line arguments."""
         if hasattr(self.args, "func"):
@@ -155,21 +401,7 @@ class TestflingerCli:
         )
         subparsers = parser.add_subparsers()
         self.admin_cli = TestflingerAdminCLI(subparsers, self)
-        self._add_artifacts_args(subparsers)
-        self._add_cancel_args(subparsers)
-        self._add_config_args(subparsers)
-        self._add_jobs_args(subparsers)
-        self._add_list_queues_args(subparsers)
-        self._add_login_args(subparsers)
-        self._add_poll_args(subparsers)
-        self._add_poll_serial_args(subparsers)
-        self._add_reserve_args(subparsers)
-        self._add_status_args(subparsers)
-        self._add_agent_status_args(subparsers)
-        self._add_queue_status_args(subparsers)
-        self._add_results_args(subparsers)
-        self._add_show_args(subparsers)
-        self._add_submit_args(subparsers)
+        self._setup_commands(subparsers)
 
         argcomplete.autocomplete(parser)
         try:
@@ -177,232 +409,6 @@ class TestflingerCli:
         except SnapPrivateFileError as exc:
             parser.error(exc)
         self.help = parser.format_help()
-
-    def _add_auth_args(self, parser):
-        parser.add_argument(
-            "--client-id",
-            "--client_id",
-            default=None,
-            help="Client ID to authenticate with Testflinger server",
-        )
-        parser.add_argument(
-            "--secret-key",
-            "--secret_key",
-            default=None,
-            help="Secret key to be used with client id for authentication",
-        )
-
-    def _add_artifacts_args(self, subparsers):
-        """Command line arguments for artifacts."""
-        parser = subparsers.add_parser(
-            "artifacts",
-            help="Download a tarball of artifacts saved for a specified job",
-        )
-        parser.set_defaults(func=self.artifacts)
-        parser.add_argument(
-            "--filename", type=helpers.parse_filename, default="artifacts.tgz"
-        )
-        parser.add_argument("job_id").completer = partial(
-            autocomplete.job_ids_completer, history=self.history
-        )
-
-    def _add_cancel_args(self, subparsers):
-        """Command line arguments for cancel."""
-        parser = subparsers.add_parser(
-            "cancel", help="Tell the server to cancel a specified JOB_ID"
-        )
-        parser.set_defaults(func=self.cancel)
-        parser.add_argument("job_id").completer = partial(
-            autocomplete.job_ids_completer, history=self.history
-        )
-
-    def _add_config_args(self, subparsers):
-        """Command line arguments for config."""
-        parser = subparsers.add_parser(
-            "config", help="Get or set configuration options"
-        )
-        parser.set_defaults(func=self.configure)
-        parser.add_argument("setting", nargs="?", help="setting=value")
-
-    def _add_jobs_args(self, subparsers):
-        """Command line arguments for jobs."""
-        parser = subparsers.add_parser(
-            "jobs", help="List the previously started test jobs"
-        )
-        parser.set_defaults(func=self.jobs)
-        parser.add_argument(
-            "--status",
-            "-s",
-            action="store_true",
-            help="Include job status (may add delay)",
-        )
-
-    def _add_list_queues_args(self, subparsers):
-        """Command line arguments for list-queues."""
-        parser = subparsers.add_parser(
-            "list-queues",
-            help="List the advertised queues on the Testflinger server",
-        )
-        parser.set_defaults(func=self.list_queues)
-        parser.add_argument(
-            "--json", action="store_true", help="Print output in JSON format"
-        )
-
-    def _add_login_args(self, subparsers):
-        """Command line arguments for login."""
-        parser = subparsers.add_parser(
-            "login",
-            help="Authenticate with server",
-        )
-        parser.set_defaults(func=self.login)
-        self._add_auth_args(parser)
-
-    def _add_poll_args(self, subparsers):
-        """Command line arguments for poll."""
-        parser = subparsers.add_parser(
-            "poll", help="Poll for output from a job until it is completed"
-        )
-        parser.set_defaults(func=self.poll)
-        parser.add_argument(
-            "--oneshot",
-            "-o",
-            action="store_true",
-            help="Get latest output and exit immediately",
-        )
-        parser.add_argument("job_id").completer = partial(
-            autocomplete.job_ids_completer, history=self.history
-        )
-
-    def _add_poll_serial_args(self, subparsers):
-        """Command line arguments for poll-serial."""
-        parser = subparsers.add_parser(
-            "poll-serial",
-            help="Poll for output from a job until it is completed",
-        )
-        parser.set_defaults(func=self.poll_serial)
-        parser.add_argument(
-            "--oneshot",
-            "-o",
-            action="store_true",
-            help="Get latest serial log output and exit immediately",
-        )
-        parser.add_argument("job_id").completer = partial(
-            autocomplete.job_ids_completer, history=self.history
-        )
-
-    def _add_reserve_args(self, subparsers):
-        """Command line arguments for reserve."""
-        parser = subparsers.add_parser(
-            "reserve", help="Install and reserve a system"
-        )
-        parser.set_defaults(func=self.reserve)
-        parser.add_argument(
-            "--dry-run",
-            "-d",
-            action="store_true",
-            help="Only show the job data, don't submit it",
-        )
-        parser.add_argument("--queue", "-q", help="Name of the queue to use")
-        parser.add_argument(
-            "--image", "-i", help="Name of the image to use for provisioning"
-        )
-        parser.add_argument(
-            "--key",
-            "-k",
-            nargs="*",
-            help=(
-                "Ssh key(s) to use for reservation "
-                "(ex: -k lp:userid -k gh:userid)"
-            ),
-        )
-
-    def _add_status_args(self, subparsers):
-        """Command line arguments for status."""
-        parser = subparsers.add_parser(
-            "status", help="Show the status of a specified JOB_ID"
-        )
-        parser.set_defaults(func=self.status)
-        parser.add_argument("job_id").completer = partial(
-            autocomplete.job_ids_completer, history=self.history
-        )
-
-    def _add_agent_status_args(self, subparsers):
-        """Command line arguments for agent status."""
-        parser = subparsers.add_parser(
-            "agent-status", help="Show the status of a specified agent"
-        )
-        parser.set_defaults(func=self.agent_status)
-        parser.add_argument("agent_name")
-        parser.add_argument(
-            "--json", action="store_true", help="Print output in JSON format"
-        )
-
-    def _add_queue_status_args(self, subparsers):
-        """Command line arguments for queue status."""
-        parser = subparsers.add_parser(
-            "queue-status",
-            help="Show the status of the agents in a specified queue",
-        )
-        parser.set_defaults(func=self.queue_status)
-        parser.add_argument("queue_name")
-        parser.add_argument(
-            "--verbose",
-            "-v",
-            action="store_true",
-            help="Show individual jobs with details",
-        )
-        parser.add_argument(
-            "--json", action="store_true", help="Print output in JSON format"
-        )
-
-    def _add_results_args(self, subparsers):
-        """Command line arguments for results."""
-        parser = subparsers.add_parser(
-            "results", help="Get results JSON for a completed JOB_ID"
-        )
-        parser.set_defaults(func=self.results)
-        parser.add_argument("job_id").completer = partial(
-            autocomplete.job_ids_completer, history=self.history
-        )
-
-    def _add_show_args(self, subparsers):
-        """Command line arguments for show."""
-        parser = subparsers.add_parser(
-            "show", help="Show the requested job JSON for a specified JOB_ID"
-        )
-        parser.set_defaults(func=self.show)
-        parser.add_argument("job_id").completer = partial(
-            autocomplete.job_ids_completer, history=self.history
-        )
-        parser.add_argument(
-            "--yaml",
-            action="store_true",
-            help="Print the job as a YAML document instead of a JSON object",
-        )
-
-    def _add_submit_args(self, subparsers):
-        """Command line arguments for submit."""
-        parser = subparsers.add_parser(
-            "submit", help="Submit a new test job to the server"
-        )
-        parser.set_defaults(func=self.submit)
-        parser.add_argument("--poll", "-p", action="store_true")
-        parser.add_argument("--quiet", "-q", action="store_true")
-        parser.add_argument("--wait-for-available-agents", action="store_true")
-        parser.add_argument(
-            "filename",
-            type=partial(helpers.parse_filename, parse_stdin=True),
-            help="YAML or JSON file with your job definition, '-' for stdin",
-        ).completer = argcomplete.completers.FilesCompleter(
-            allowednames=("*.yaml", "*.yml", "*.json")
-        )
-        self._add_auth_args(parser)
-        relative = parser.add_mutually_exclusive_group()
-        relative.add_argument(
-            "--attachments-relative-to",
-            dest="relative",
-            help="The reference directory for relative attachment paths",
-        )
 
     def status(self):
         """Show the status of a specified JOB_ID."""
