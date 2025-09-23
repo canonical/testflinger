@@ -42,12 +42,10 @@ class TestflingerCliAuth:
         client_id: str,
         secret_key: str,
         tf_client,
-        args_from_cli: bool = False,
     ):
         self.client_id = client_id
         self.secret_key = secret_key
         self.client = tf_client
-        self.args_from_cli = args_from_cli
 
         # Refresh token relevant configuration
         config_home = xdg_config_home()
@@ -65,25 +63,21 @@ class TestflingerCliAuth:
         """Authenticate with server and retrieve access and refresh tokens.
 
         Authentication can be made via explicit command line arguments,
-        refresh token or environment variables in that order of priority.
+        environment variables or refresh token in that order of priority.
 
         :raises AuthenticationError: Invalid credentials were provided
         :raises AuthorizationError: User is not authorized
         :raises InvalidTokenError: Refresh token already expired
         :return: string with access token (jwt token)
         """
-        # Authenticate with credentials if cli arguments explicitely set
-        if self.args_from_cli and self.client_id and self.secret_key:
+        # Authenticate with credentials if provided in args or env file
+        if self.client_id and self.secret_key:
             return self._authenticate_with_credentials()
 
         # Authenticate with refresh token if available
         refresh_token = self.get_stored_refresh_token()
         if refresh_token:
             return self._authenticate_with_refresh_token(refresh_token)
-
-        # Authenticate with credentials retrieved from environment variables
-        if self.client_id and self.secret_key:
-            return self._authenticate_with_credentials()
 
         return None
 
