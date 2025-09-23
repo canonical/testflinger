@@ -37,12 +37,7 @@ from testflinger_cli.errors import (
 class TestflingerCliAuth:
     """Class to handle authentication and authorisation for Testflinger CLI."""
 
-    def __init__(
-        self,
-        client_id: str,
-        secret_key: str,
-        tf_client,
-    ):
+    def __init__(self, client_id: str, secret_key: str, tf_client):
         self.client_id = client_id
         self.secret_key = secret_key
         self.client = tf_client
@@ -87,6 +82,7 @@ class TestflingerCliAuth:
             response = self.client.authenticate(
                 self.client_id, self.secret_key
             )
+            # Store refresh token for persistent login
             self.store_refresh_token(response["refresh_token"])
             return response["access_token"]
         except client.HTTPError as exc:

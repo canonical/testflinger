@@ -76,6 +76,8 @@ def cli():
         tfcli.run()
     except KeyboardInterrupt:
         sys.exit("Received KeyboardInterrupt")
+    except CredentialsError as exc:
+        sys.exit(exc)
 
 
 class TestflingerCli:
