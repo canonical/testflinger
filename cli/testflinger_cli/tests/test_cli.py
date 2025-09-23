@@ -658,9 +658,8 @@ def test_agent_status_json(capsys, requests_mock):
         "provision_streak_type": "pass",
     }
     requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
-    sys.argv = ["", "agent-status", fake_agent]
+    sys.argv = ["", "agent-status", fake_agent, "--json"]
     tfcli = testflinger_cli.TestflingerCli()
-    tfcli.args.json = True
     tfcli.agent_status()
     std = capsys.readouterr()
     expected_out = {
