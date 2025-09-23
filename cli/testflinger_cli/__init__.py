@@ -29,7 +29,7 @@ import time
 from argparse import ArgumentParser
 from collections import Counter
 from datetime import datetime, timezone
-from functools import partial
+from functools import cached_property, partial
 from http import HTTPStatus
 from pathlib import Path
 from typing import Optional
@@ -119,17 +119,18 @@ class TestflingerCli:
                 f'- currently set to: "{server}"'
             )
         self.client = client.Client(server, error_threshold=error_threshold)
-        # Initialize Auth module
-        try:
-            self.auth = TestflingerCliAuth(
-                self.client_id, self.secret_key, self.client
-            )
-        except (
-            AuthenticationError,
-            AuthorizationError,
-            InvalidTokenError,
-        ) as exc:
-            sys.exit(exc)
+
+    @cached_property
+    def auth(self):
+        """Initialize auth module when first accessed."""
+        # Check if credentials came from CLI args
+        cli_client_id = getattr(self.args, "client_id", None)
+        cli_secret_key = getattr(self.args, "secret_key", None)
+        args_from_cli = bool(cli_client_id and cli_secret_key)
+
+        return TestflingerCliAuth(
+            self.client_id, self.secret_key, self.client, args_from_cli
+        )
 
     def run(self):
         """Run the subcommand specified in command line arguments."""

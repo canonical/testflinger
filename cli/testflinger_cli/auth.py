@@ -37,10 +37,17 @@ from testflinger_cli.errors import (
 class TestflingerCliAuth:
     """Class to handle authentication and authorisation for Testflinger CLI."""
 
-    def __init__(self, client_id: str, secret_key: str, tf_client):
+    def __init__(
+        self,
+        client_id: str,
+        secret_key: str,
+        tf_client,
+        args_from_cli: bool = False,
+    ):
         self.client_id = client_id
         self.secret_key = secret_key
         self.client = tf_client
+        self.args_from_cli = args_from_cli
 
         # Refresh token relevant configuration
         config_home = xdg_config_home()
@@ -57,40 +64,57 @@ class TestflingerCliAuth:
     def authenticate(self) -> str | None:
         """Authenticate with server and retrieve access and refresh tokens.
 
+        Authentication can be made via explicit command line arguments,
+        refresh token or environment variables in that order of priority.
+
         :raises AuthenticationError: Invalid credentials were provided
         :raises AuthorizationError: User is not authorized
         :raises InvalidTokenError: Refresh token already expired
         :return: string with access token (jwt token)
         """
-        # Attempt to get the refresh token from snap directory
+        # Authenticate with credentials if cli arguments explicitely set
+        if self.args_from_cli and self.client_id and self.secret_key:
+            return self._authenticate_with_credentials()
+
+        # Authenticate with refresh token if available
         refresh_token = self.get_stored_refresh_token()
         if refresh_token:
-            try:
-                # Use refresh token to get new access_token
-                response = self.client.refresh_authentication(refresh_token)
-                return response["access_token"]
-            except client.HTTPError as exc:
-                if exc.status == HTTPStatus.BAD_REQUEST:
-                    # Token is already expired or revoked, clear to force login
-                    self.clear_refresh_token()
-                    raise InvalidTokenError(exc.msg) from exc
+            return self._authenticate_with_refresh_token(refresh_token)
 
-        # Attempt login with credentials if no refresh token
-        if self.client_id is None or self.secret_key is None:
-            return None
+        # Authenticate with credentials retrieved from environment variables
+        if self.client_id and self.secret_key:
+            return self._authenticate_with_credentials()
+
+        return None
+
+    def _authenticate_with_credentials(self) -> str:
+        """Authenticate using client_id and secret_key."""
         try:
             response = self.client.authenticate(
                 self.client_id, self.secret_key
             )
-            # Store refresh token for persistent login
             self.store_refresh_token(response["refresh_token"])
             return response["access_token"]
         except client.HTTPError as exc:
-            if exc.status == HTTPStatus.UNAUTHORIZED:
-                raise AuthenticationError from exc
-            if exc.status == HTTPStatus.FORBIDDEN:
-                raise AuthorizationError from exc
-        return None
+            self._handle_auth_error(exc)
+
+    def _authenticate_with_refresh_token(self, refresh_token: str) -> str:
+        """Authenticate using stored refresh token."""
+        try:
+            response = self.client.refresh_authentication(refresh_token)
+            return response["access_token"]
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.BAD_REQUEST:
+                self.clear_refresh_token()
+                raise InvalidTokenError(exc.msg) from exc
+            self._handle_auth_error(exc)
+
+    def _handle_auth_error(self, exc: client.HTTPError) -> None:
+        """Handle authentication HTTP errors."""
+        if exc.status == HTTPStatus.UNAUTHORIZED:
+            raise AuthenticationError from exc
+        if exc.status == HTTPStatus.FORBIDDEN:
+            raise AuthorizationError from exc
 
     @cached_property
     def jwt_token(self) -> str | None:
@@ -121,7 +145,10 @@ class TestflingerCliAuth:
         :param refresh_token: refresh token to store in SNAP_USER_DATA
         """
         config_file = configparser.ConfigParser()
-        config_file["AUTH"] = {"client_id": self.client_id, "refresh_token": refresh_token}
+        config_file["AUTH"] = {
+            "client_id": self.client_id,
+            "refresh_token": refresh_token,
+        }
         try:
             with self.auth_config.open("w") as file:
                 config_file.write(file)
