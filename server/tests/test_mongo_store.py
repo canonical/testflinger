@@ -15,12 +15,16 @@
 
 """Tests for the MongoDB-based implementation of the secrets store."""
 
+import base64
+import os
+
 import pytest
 from bson.binary import Binary
 from pymongo import MongoClient
 from pymongo.encryption import ClientEncryption
 from pymongo.errors import ConnectionFailure, EncryptionError, OperationFailure
 
+from testflinger.secrets import setup_mongo_store
 from testflinger.secrets.exceptions import (
     AccessError,
     StoreError,
@@ -142,33 +146,29 @@ class TestMongoStore:
             "key": "test-key",
             "value": encrypted_value,
         }
-        mock_client_encryption.decrypt.side_effect = UnicodeDecodeError(
-            "utf-8", b"", 0, 1, "Invalid encoding"
-        )
+        mock_client_encryption.decrypt.return_value = b"\xff\xfe"
 
         with pytest.raises(
             StoreError,
-            match="Invalid decrypted data format for 'test-key' under "
+            match="Failed to decrypt value for 'test-key' under "
             "'test-namespace'",
         ):
             mongo_store.read("test-namespace", "test-key")
 
-    def test_read_attribute_error(
+    def test_read_decrypt_none(
         self, mongo_store, mock_collection, mock_client_encryption
     ):
-        """Test read with AttributeError raises StoreError."""
+        """Test read when decrypt returns None raises StoreError."""
         encrypted_value = Binary(b"encrypted_data")
         mock_collection.find_one.return_value = {
             "key": "test-key",
             "value": encrypted_value,
         }
-        mock_client_encryption.decrypt.side_effect = AttributeError(
-            "'NoneType' object has no attribute 'decode'"
-        )
+        mock_client_encryption.decrypt.return_value = None
 
         with pytest.raises(
             StoreError,
-            match="Invalid decrypted data format for 'test-key' under "
+            match="Failed to decrypt value for 'test-key' under "
             "'test-namespace'",
         ):
             mongo_store.read("test-namespace", "test-key")
@@ -183,7 +183,7 @@ class TestMongoStore:
         mongo_store.write("test-namespace", "test-key", "test-value")
 
         mock_client_encryption.encrypt.assert_called_once_with(
-            value=b"test-value",
+            value="test-value".encode("utf-8"),
             algorithm=mongo_store.algorithm,
             key_alt_name="test-key",
         )
@@ -218,7 +218,7 @@ class TestMongoStore:
 
         with pytest.raises(
             StoreError,
-            match="Invalid string format for 'test-key' under "
+            match="Failed to encrypt value for 'test-key' under "
             "'test-namespace'",
         ):
             mongo_store.write("test-namespace", "test-key", "test-value")
@@ -308,7 +308,7 @@ class TestMongoStore:
         )
 
         assert store.database == mock_database
-        assert store.client_encryption == mock_client_encryption
+        assert store.cipher == mock_client_encryption
         assert store.data_key_name == "test-data-key"
         assert store.algorithm is not None
 
@@ -330,3 +330,145 @@ class TestMongoStore:
 
         mock_database.secrets.__getitem__.assert_called_with(namespace)
         mock_collection.find_one.assert_called_once_with({"key": key})
+
+
+class TestSetupMongoStore:
+    """Test cases for setup_mongo_store function."""
+
+    @pytest.fixture
+    def valid_master_key(self, mocker):
+        """Set up valid master key in environment."""
+        key = base64.b64encode(os.urandom(96)).decode("utf-8")
+        mocker.patch.dict("os.environ", {"MONGO_MASTER_KEY": key}, clear=True)
+        return key
+
+    @pytest.fixture
+    def mock_mongo_setup(self, mocker):
+        """Mock common setup for setup_mongo_store tests."""
+        mocker.patch(
+            "testflinger.secrets.get_mongo_uri",
+            return_value="mongodb://localhost:27017/test",
+        )
+
+        mock_client = mocker.Mock(spec=MongoClient)
+        mock_cipher = mocker.Mock(spec=ClientEncryption)
+        mock_store = mocker.Mock(spec=MongoStore)
+
+        mocker.patch(
+            "testflinger.secrets.MongoClient", return_value=mock_client
+        )
+        mocker.patch(
+            "testflinger.secrets.ClientEncryption", return_value=mock_cipher
+        )
+        mocker.patch("testflinger.secrets.MongoStore", return_value=mock_store)
+
+        return mock_client, mock_cipher, mock_store
+
+    @pytest.mark.parametrize(
+        "env_vars,expected_error",
+        [
+            (
+                {},
+                "Environment variables with Mongo credentials are incomplete",
+            ),
+            (
+                {"MONGO_MASTER_KEY": ""},
+                "Environment variables with Mongo credentials are incomplete",
+            ),
+            (
+                {"MONGO_MASTER_KEY": "invalid-base64!"},
+                "Environment variables with Mongo credentials are incorrect",
+            ),
+        ],
+    )
+    def test_setup_mongo_store_error_cases(
+        self, mocker, mock_mongo_setup, env_vars, expected_error
+    ):
+        """Test setup_mongo_store error cases."""
+        mocker.patch.dict("os.environ", env_vars, clear=True)
+
+        with pytest.raises(StoreError, match=expected_error):
+            setup_mongo_store()
+
+    def test_setup_mongo_store_success_with_existing_key(
+        self, mocker, valid_master_key, mock_mongo_setup
+    ):
+        """Test successful setup when data encryption key already exists."""
+        mock_client, mock_cipher, mock_store = mock_mongo_setup
+
+        # Mock the key vault to return an existing key
+        mock_key_vault = mocker.Mock()
+        mock_key_vault.find_one.return_value = {"_id": "existing-key"}
+        mock_database = mocker.Mock()
+        mock_database.__getitem__ = mocker.Mock(return_value=mock_key_vault)
+        mock_client.__getitem__ = mocker.Mock(return_value=mock_database)
+
+        result = setup_mongo_store()
+
+        # Verify key vault access
+        mock_key_vault.find_one.assert_called_once_with(
+            {"keyAltNames": "testflinger-secrets"}
+        )
+
+        # Verify no new key creation (existing key found)
+        mock_cipher.create_data_key.assert_not_called()
+
+        # Verify key rewrapping
+        mock_cipher.rewrap_many_data_key.assert_called_once_with(
+            filter={"keyAltNames": ["testflinger-secrets"]}
+        )
+
+        # Verify MongoStore creation
+        assert result == mock_store
+
+    def test_setup_mongo_store_success_with_new_key(
+        self, mocker, valid_master_key, mock_mongo_setup
+    ):
+        """Test successful setup when creating new data encryption key."""
+        mock_client, mock_cipher, mock_store = mock_mongo_setup
+
+        # Mock the key vault to return no existing key
+        mock_key_vault = mocker.Mock()
+        mock_key_vault.find_one.return_value = None
+        mock_database = mocker.Mock()
+        mock_database.__getitem__ = mocker.Mock(return_value=mock_key_vault)
+        mock_client.__getitem__ = mocker.Mock(return_value=mock_database)
+
+        result = setup_mongo_store()
+
+        # Verify new key creation
+        mock_cipher.create_data_key.assert_called_once_with(
+            "local", key_alt_names=["testflinger-secrets"]
+        )
+
+        # Verify key rewrapping
+        mock_cipher.rewrap_many_data_key.assert_called_once_with(
+            filter={"keyAltNames": ["testflinger-secrets"]}
+        )
+
+        # Verify MongoStore creation
+        assert result == mock_store
+
+    def test_setup_mongo_store_key_creation_error(
+        self, mocker, valid_master_key, mock_mongo_setup
+    ):
+        """Test setup_mongo_store handles EncryptionError in key creation."""
+        mock_client, mock_cipher, mock_store = mock_mongo_setup
+
+        # Mock the key vault to return no existing key
+        mock_key_vault = mocker.Mock()
+        mock_key_vault.find_one.return_value = None
+        mock_database = mocker.Mock()
+        mock_database.__getitem__ = mocker.Mock(return_value=mock_key_vault)
+        mock_client.__getitem__ = mocker.Mock(return_value=mock_database)
+
+        # Mock cipher to raise EncryptionError on key creation
+        mock_cipher.create_data_key.side_effect = EncryptionError(
+            "Key creation failed"
+        )
+
+        with pytest.raises(
+            StoreError,
+            match="Failed to create data encryption key: Key creation failed",
+        ):
+            setup_mongo_store()

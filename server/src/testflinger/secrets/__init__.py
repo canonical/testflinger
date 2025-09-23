@@ -31,11 +31,21 @@ from testflinger.secrets.store import SecretsStore
 from testflinger.secrets.vault import VaultStore
 
 
-def setup_vault_store() -> VaultStore | None:
+def setup_vault_store() -> VaultStore:
+    """Set up HashiCorp Vault-based secrets store.
+
+    Creates a VaultStore instance using environment variables for
+    configuration.
+
+    Raises:
+        StoreError: If Vault client authentication fails
+    """
     vault_url = os.environ.get("TESTFLINGER_VAULT_URL")
     vault_token = os.environ.get("TESTFLINGER_VAULT_TOKEN")
     if not vault_url or not vault_token:
-        return None
+        raise StoreError(
+            "Environment variables with Vault credentials are incomplete"
+        )
 
     client = Client(url=vault_url, token=vault_token)
     if not client.is_authenticated():
@@ -44,16 +54,29 @@ def setup_vault_store() -> VaultStore | None:
     return VaultStore(client)
 
 
-def setup_mongo_store() -> MongoStore | None:
+def setup_mongo_store() -> MongoStore:
+    """
+    Set up MongoDB-based secrets store with Client-Side Field Level Encryption.
+
+    Creates a MongoStore instance using explicit CSFLE for secret storage.
+    The function handles data encryption key creation/rotation.
+
+    Raises:
+        StoreError: If master key is missing/invalid or encryption setup fails
+    """
     mongo_url = get_mongo_uri()
 
     master_key_b64 = os.environ.get("MONGO_MASTER_KEY")
     if not master_key_b64:
-        raise StoreError("MONGO_MASTER_KEY environment variable not set")
+        raise StoreError(
+            "Environment variables with Mongo credentials are incomplete"
+        )
     try:
         master_key = base64.b64decode(master_key_b64)
     except Exception as error:
-        raise StoreError("Invalid MONGO_MASTER_KEY format") from error
+        raise StoreError(
+            "Environment variables with Mongo credentials are incorrect"
+        ) from error
 
     # Explit Client-Side Field-Level Encryption
     # Reference: https://www.mongodb.com/docs/manual/core/csfle/fundamentals/manual-encryption/
@@ -89,9 +112,7 @@ def setup_mongo_store() -> MongoStore | None:
     existing_key = key_vault.find_one({"keyAltNames": key_name})
     if not existing_key:
         try:
-            cipher.create_data_key(
-                "local", key_alt_names=[key_name]
-            )
+            cipher.create_data_key("local", key_alt_names=[key_name])
         except EncryptionError as error:
             raise StoreError(
                 f"Failed to create data encryption key: {error}"
@@ -99,9 +120,7 @@ def setup_mongo_store() -> MongoStore | None:
 
     # re-encrypt the data encryption key using the master key
     # (because the latter may have been rotated)
-    cipher.rewrap_many_data_key(
-        filter={"keyAltNames": [key_name]}
-    )
+    cipher.rewrap_many_data_key(filter={"keyAltNames": [key_name]})
 
     return MongoStore(client, cipher, key_name)
 
