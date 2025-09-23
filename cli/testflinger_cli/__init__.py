@@ -436,13 +436,12 @@ class TestflingerCli:
             sys.exit(exc)
 
         if self.args.json:
-            output = json.dumps(
-                {
-                    "agent": self.args.agent_name,
-                    "status": agent_status["state"],
-                    "queues": agent_status["queues"],
-                }
-            )
+            # For unclear historical reasons,
+            # the "name" and "state" fields were renamed,
+            # so we maintain that for compatibility
+            agent_status["agent"] = agent_status.pop("name")
+            agent_status["status"] = agent_status.pop("state")
+            output = json.dumps(agent_status, sort_keys=True)
         else:
             output = agent_status["state"]
         print(output)
