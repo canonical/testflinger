@@ -326,17 +326,16 @@ class TestflingerCharm(ops.CharmBase):
     def connect_to_mongodb(self):
         """Get Mongo credentials from relation data and setup connection."""
         # Determine if we are already connected to database
-        db_relation = self.model.get_relation("mongodb_client")
-        if not db_relation:
+        relation_data = self.mongodb.fetch_relation_data()
+        if not relation_data:
+            logger.error("Unable to retrieve database information")
             return None
 
-        # Get the relation data from the remote application
-        for unit in db_relation.units:
-            remote_app = unit.app
-            remote_app_databag = db_relation.data[remote_app]
-            if "uris" in remote_app_databag:
-                mongo_client = MongoClient(host=remote_app_databag["uris"])
-                return mongo_client[remote_app_databag["database"]]
+        # Get db_data from relation.
+        db_data = next(iter(relation_data.values()))
+        if db_data and "uris" in db_data:
+            mongo_client = MongoClient(host=db_data["uris"])
+            return mongo_client[db_data["database"]]
 
         return None
 
