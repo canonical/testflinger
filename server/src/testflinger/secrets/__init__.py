@@ -16,6 +16,8 @@
 """Default setup for the Testflinger secrets store."""
 
 import base64
+from contextlib import suppress
+import logging
 import os
 
 from bson.codec_options import CodecOptions
@@ -29,6 +31,17 @@ from testflinger.secrets.exceptions import StoreError
 from testflinger.secrets.mongo import MongoStore
 from testflinger.secrets.store import SecretsStore
 from testflinger.secrets.vault import VaultStore
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter(
+    '[%(asctime)s] [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%dT%H:%M:%S %z'
+)
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
 def setup_vault_store() -> VaultStore:
@@ -120,6 +133,7 @@ def setup_mongo_store() -> MongoStore:
 
     # re-encrypt the data encryption key using the master key
     # (because the latter may have been rotated)
+    # https://pymongo.readthedocs.io/en/stable/api/pymongo/encryption.html#pymongo.encryption.ClientEncryption.rewrap_many_data_key
     cipher.rewrap_many_data_key(filter={"keyAltNames": [key_name]})
 
     return MongoStore(client, cipher, key_name)
@@ -134,7 +148,14 @@ def setup_secrets_store() -> SecretsStore | None:
     Not setting up a secrets store is not an error: it just means that
     Testflinger jobs will not be able to use secrets.
     """
-    try:
-        return setup_vault_store()
-    except StoreError:
-        return setup_mongo_store()
+    with suppress(StoreError):
+        store = setup_vault_store()
+        logger.info("Successfully initialized the secrets store (Vault-based)")
+        return store
+
+    with suppress(StoreError):
+        store = setup_mongo_store()
+        logger.info("Successfully initialized the secrets store (Mongo-based)")
+        return store
+
+    logger.warning("The secrets store has not been initialized")
