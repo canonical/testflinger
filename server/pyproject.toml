@@ -42,6 +42,7 @@ dev = [
     "mongomock>=4.3.0",
     "pytest>=8.3.5",
     "pytest-cov>=5.0.0",
+    "pytest-iam>=0.2.4",
     "pytest-mock>=3.14.0",
     "requests>=2.32.3",
     "requests-mock>=1.12.1",

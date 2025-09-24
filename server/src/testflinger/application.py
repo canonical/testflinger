@@ -26,6 +26,8 @@ from werkzeug.exceptions import NotFound
 from testflinger.api.v1 import v1
 from testflinger.database import setup_mongodb
 from testflinger.extensions import metrics
+from testflinger.oidc import app_register_oidc
+from testflinger.oidc.views import oidc_views
 from testflinger.providers import ISODatetimeProvider
 from testflinger.views import views
 
@@ -62,6 +64,9 @@ def create_flask_app(config=None, secrets_store=None):
 
     tf_app.secrets_store = secrets_store
 
+    # Attempt to register app with OIDC
+    tf_app.oauth = app_register_oidc(tf_app=tf_app)
+
     sentry_dsn = tf_app.config.get("SENTRY_DSN")
     if sentry_dsn and "sentry_sdk" in globals():
         sentry_sdk.init(  # pylint: disable=abstract-class-instantiated
@@ -86,7 +91,13 @@ def create_flask_app(config=None, secrets_store=None):
         tf_log.exception("Unhandled Exception: %s", (exc))
         return f"Unhandled Exception: {exc}\n", 500
 
+    @tf_app.context_processor
+    def inject_oidc_status():
+        return {"oidc_enabled": tf_app.oauth is not None}
+
     tf_app.register_blueprint(views)
     tf_app.register_blueprint(v1, url_prefix="/v1")
+    if tf_app.oauth:
+        tf_app.register_blueprint(oidc_views, url_prefix="/auth")
 
     return tf_app
