@@ -18,3 +18,4 @@ Work with jobs via Testflinger CLI
     job-priority
     authentication
     manage-client-permissions
+    create-admin-user
