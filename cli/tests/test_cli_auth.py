@@ -25,7 +25,7 @@ import pytest
 
 import testflinger_cli
 from testflinger_cli.consts import ServerRoles
-from testflinger_cli.tests.test_cli import URL
+from .test_cli import URL
 
 
 def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):

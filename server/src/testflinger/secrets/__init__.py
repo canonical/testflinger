@@ -17,6 +17,7 @@
 
 import os
 
+import requests
 from hvac import Client
 
 from testflinger.secrets.exceptions import StoreError
@@ -39,7 +40,10 @@ def setup_secrets_store() -> SecretsStore | None:
         return None
 
     client = Client(url=vault_url, token=vault_token)
-    if not client.is_authenticated():
-        raise StoreError("Vault client not authenticated")
+    try:
+        if not client.is_authenticated():
+            raise StoreError("Vault client not authenticated")
+    except requests.exceptions.ConnectionError as error:
+        raise StoreError("Unable to create Vault client") from error
 
     return VaultStore(client)

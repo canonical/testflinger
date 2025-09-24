@@ -116,18 +116,15 @@ class TestflingerCliAuth:
 
         :return: refresh token if any, otherwise None
         """
-        if self.auth_config.exists():
-            config_file = configparser.ConfigParser()
+        config_file = configparser.ConfigParser()
+        try:
             config_file.read(self.auth_config)
-            refresh_token = config_file.get(
-                "AUTH", "refresh_token", fallback=None
-            )
-            # Set client_id from config file to keep token owner
-            self.client_id = config_file.get(
-                "AUTH", "client_id", fallback=None
-            )
-            return refresh_token
-        return None
+        except FileNotFoundError:
+            return None
+
+        # Set client_id from config file to keep token owner
+        self.client_id = config_file.get("AUTH", "client_id", fallback=None)
+        return config_file.get("AUTH", "refresh_token", fallback=None)
 
     def store_refresh_token(self, refresh_token: str) -> None:
         """Store refresh token for persistent login.

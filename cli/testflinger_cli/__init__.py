@@ -124,9 +124,10 @@ class TestflingerCli:
 
     def run(self):
         """Run the subcommand specified in command line arguments."""
-        if hasattr(self.args, "func"):
-            sys.exit(self.args.func())
-        print(self.help)
+        if not hasattr(self.args, "func"):
+            print(self.help)
+            return
+        self.args.func()
 
     def get_args(self):
         """Handle command line arguments."""
@@ -161,6 +162,7 @@ class TestflingerCli:
         self._add_results_args(subparsers)
         self._add_show_args(subparsers)
         self._add_submit_args(subparsers)
+        self._add_secret_args(subparsers)
 
         argcomplete.autocomplete(parser)
         try:
@@ -394,6 +396,34 @@ class TestflingerCli:
             dest="relative",
             help="The reference directory for relative attachment paths",
         )
+
+    def _add_secret_args(self, subparsers):
+        """Command line arguments for secret management."""
+        parser = subparsers.add_parser(
+            "secret", help="Manage secrets. Requires authentication"
+        )
+        secret_subparser = parser.add_subparsers(
+            dest="secret_command", required=True
+        )
+
+        # secret write command
+        write_parser = secret_subparser.add_parser(
+            "write", help="Write a secret value"
+        )
+        write_parser.set_defaults(func=self.secret_write)
+        write_parser.add_argument("path", help="Path for the secret")
+        write_parser.add_argument("value", help="Value of the secret")
+        self._add_auth_args(write_parser)
+
+        # secret delete command
+        delete_parser = secret_subparser.add_parser(
+            "delete", help="Delete a secret"
+        )
+        delete_parser.set_defaults(func=self.secret_delete)
+        delete_parser.add_argument(
+            "path", help="Path for the secret to delete"
+        )
+        self._add_auth_args(delete_parser)
 
     def status(self):
         """Show the status of a specified JOB_ID."""
@@ -1220,3 +1250,38 @@ class TestflingerCli:
                 sys.exit("Please provide credentials and reattempt login")
         except CredentialsError as exc:
             sys.exit(exc)
+
+    def secret_write(self):
+        """Write a secret value for the authenticated client."""
+        try:
+            auth_headers = self.auth.build_headers()
+        except CredentialsError as exc:
+            sys.exit(exc)
+
+        if auth_headers is None or self.client_id is None:
+            sys.exit("Error writing secret: Authentication is required")
+
+        secret_data = {"value": self.args.value}
+        endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
+        try:
+            self.client.put(endpoint, secret_data, headers=auth_headers)
+        except client.HTTPError as exc:
+            sys.exit(f"Error writing secret: [{exc.status}] {exc.msg}")
+        print(f"Secret '{self.args.path}' written successfully")
+
+    def secret_delete(self):
+        """Delete a secret for the authenticated client."""
+        try:
+            auth_headers = self.auth.build_headers()
+        except CredentialsError as exc:
+            sys.exit(exc)
+
+        if auth_headers is None or self.client_id is None:
+            sys.exit("Error deleting secret: Authentication is required")
+
+        endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
+        try:
+            self.client.delete(endpoint, headers=auth_headers)
+        except client.HTTPError as exc:
+            sys.exit(f"Error deleting secret: [{exc.status}] {exc.msg}")
+        print(f"Secret '{self.args.path}' deleted successfully")

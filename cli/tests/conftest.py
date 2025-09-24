@@ -6,7 +6,7 @@ import uuid
 import jwt
 import pytest
 
-from testflinger_cli.tests.test_cli import URL
+from .test_cli import URL
 
 # Mock required authentication
 TEST_CLIENT_ID = "my_client_id"
