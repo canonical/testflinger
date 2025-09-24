@@ -17,7 +17,9 @@
 
 import hvac
 import pytest
+import requests.exceptions
 
+from testflinger.secrets import setup_secrets_store
 from testflinger.secrets.exceptions import (
     AccessError,
     StoreError,
@@ -69,6 +71,15 @@ class TestVaultStore:
         with pytest.raises(StoreError):
             vault_store.read("test-namespace", "test-key")
 
+    def test_read_connection_error(self, vault_store, mock_client):
+        """Test read with ConnectionError raises StoreError."""
+        mock_client.secrets.kv.v2.read_secret_version.side_effect = (
+            requests.exceptions.ConnectionError()
+        )
+
+        with pytest.raises(StoreError):
+            vault_store.read("test-namespace", "test-key")
+
     def test_read_missing_data_key(self, vault_store, mock_client):
         """Test read with missing nested 'data' key raises UnexpectedError."""
         mock_client.secrets.kv.v2.read_secret_version.return_value = {
@@ -103,6 +114,14 @@ class TestVaultStore:
         with pytest.raises(StoreError):
             vault_store.write("test-namespace", "test-key", "test-value")
 
+    def test_write_connection_error(self, vault_store, mock_client):
+        """Test write with ConnectionError raises StoreError."""
+        mock_client.secrets.kv.v2.create_or_update_secret.side_effect = (
+            requests.exceptions.ConnectionError()
+        )
+        with pytest.raises(StoreError):
+            vault_store.write("test-namespace", "test-key", "test-value")
+
     def test_delete_success(self, vault_store, mock_client):
         """Test successful secret delete."""
         vault_store.delete("test-namespace", "test-key")
@@ -127,6 +146,13 @@ class TestVaultStore:
         with pytest.raises(StoreError):
             vault_store.delete("test-namespace", "test-key")
 
+    def test_delete_connection_error(self, vault_store, mock_client):
+        """Test delete with ConnectionError raises StoreError."""
+        mock_client.secrets.kv.v2.delete_metadata_and_all_versions.side_effect = requests.exceptions.ConnectionError()  # noqa: E501
+
+        with pytest.raises(StoreError):
+            vault_store.delete("test-namespace", "test-key")
+
     def test_delete_invalid_path_ignored(self, vault_store, mock_client):
         """Test delete with InvalidPath error is ignored."""
         mock_client.secrets.kv.v2.delete_metadata_and_all_versions.side_effect = hvac.exceptions.InvalidPath()  # noqa: E501
@@ -134,3 +160,102 @@ class TestVaultStore:
         mock_client.secrets.kv.v2.delete_metadata_and_all_versions.assert_called_once_with(
             path="test-namespace/test-key"
         )
+
+
+class TestSecretsInit:
+    """Test cases for secrets module initialization."""
+
+    @pytest.mark.parametrize(
+        "env_vars",
+        [
+            {},  # no environment variables
+            {"TESTFLINGER_VAULT_TOKEN": "token"},  # missing URL
+            {"TESTFLINGER_VAULT_URL": "http://vault"},  # missing token
+        ],
+    )
+    def test_setup_secrets_store_missing_config(self, mocker, env_vars):
+        """Test setup_secrets_store returns None when config is incomplete."""
+        # Given: incomplete environment configuration
+        mocker.patch.dict("os.environ", env_vars, clear=True)
+
+        # When: setup_secrets_store is called
+        result = setup_secrets_store()
+
+        # Then: it returns None
+        assert result is None
+
+    def test_setup_secrets_store_success(self, mocker):
+        """Test successful setup_secrets_store."""
+        # Given: environment variables are set and client is authenticated
+        token = "token"  # noqa: S105
+        mocker.patch.dict(
+            "os.environ",
+            {
+                "TESTFLINGER_VAULT_URL": "http://vault",
+                "TESTFLINGER_VAULT_TOKEN": token,
+            },
+            clear=True,
+        )
+        mock_client_instance = mocker.Mock(spec=hvac.Client)
+        mock_client_instance.is_authenticated.return_value = True
+        mock_client_class = mocker.patch(
+            "testflinger.secrets.Client", return_value=mock_client_instance
+        )
+
+        # When: setup_secrets_store is called
+        result = setup_secrets_store()
+
+        # Then: it returns a VaultStore instance and creates client correctly
+        assert isinstance(result, VaultStore)
+        mock_client_class.assert_called_once_with(
+            url="http://vault", token=token
+        )
+
+    def test_setup_secrets_store_not_authenticated(self, mocker):
+        """
+        Test setup_secrets_store raises StoreError when the client is not
+        properly authenticated.
+        """
+        # Given: environment variables are set but client is not authenticated
+        mocker.patch.dict(
+            "os.environ",
+            {
+                "TESTFLINGER_VAULT_URL": "http://vault",
+                "TESTFLINGER_VAULT_TOKEN": "token",
+            },
+            clear=True,
+        )
+        mock_client_instance = mocker.Mock(spec=hvac.Client)
+        mock_client_instance.is_authenticated.return_value = False
+        mocker.patch(
+            "testflinger.secrets.Client", return_value=mock_client_instance
+        )
+
+        # When: setup_secrets_store is called
+        # Then: it raises StoreError about authentication
+        with pytest.raises(StoreError, match="Vault client not authenticated"):
+            setup_secrets_store()
+
+    def test_setup_secrets_store_connection_error(self, mocker):
+        """Test setup_secrets_store raises StoreError on ConnectionError."""
+        # Given: environment variables are set but connection fails
+        mocker.patch.dict(
+            "os.environ",
+            {
+                "TESTFLINGER_VAULT_URL": "http://vault",
+                "TESTFLINGER_VAULT_TOKEN": "token",
+            },
+            clear=True,
+        )
+        mock_client_instance = mocker.Mock(spec=hvac.Client)
+        mock_client_instance.is_authenticated.side_effect = (
+            requests.exceptions.ConnectionError()
+        )
+        mocker.patch(
+            "testflinger.secrets.Client", return_value=mock_client_instance
+        )
+
+        # When: setup_secrets_store is called
+        # Then: it raises StoreError about unable to create client
+        with pytest.raises(StoreError, match="Unable to create Vault client"):
+            setup_secrets_store()
