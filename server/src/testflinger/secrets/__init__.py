@@ -131,11 +131,6 @@ def setup_mongo_store() -> MongoStore:
                 f"Failed to create data encryption key: {error}"
             ) from error
 
-    # re-encrypt the data encryption key using the master key
-    # (because the latter may have been rotated)
-    # https://pymongo.readthedocs.io/en/stable/api/pymongo/encryption.html#pymongo.encryption.ClientEncryption.rewrap_many_data_key
-    cipher.rewrap_many_data_key(filter={"keyAltNames": [key_name]})
-
     return MongoStore(client, cipher, key_name)
 
 
