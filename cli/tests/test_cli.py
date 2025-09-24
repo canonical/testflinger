@@ -647,6 +647,31 @@ def test_agent_status(capsys, requests_mock):
     assert "waiting" in std.out
 
 
+def test_agent_status_json(capsys, requests_mock):
+    """Validate that the status of the agent is retrieved."""
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": "fake_agent",
+        "queues": ["fake"],
+        "state": "waiting",
+        "provision_streak_count": 1,
+        "provision_streak_type": "pass",
+    }
+    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    sys.argv = ["", "agent-status", fake_agent, "--json"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.agent_status()
+    std = capsys.readouterr()
+    expected_out = {
+        "agent": "fake_agent",
+        "status": "waiting",
+        "queues": ["fake"],
+        "provision_streak_count": 1,
+        "provision_streak_type": "pass",
+    }
+    assert std.out.strip() == json.dumps(expected_out, sort_keys=True)
+
+
 def test_queue_status(capsys, requests_mock):
     """Validate that the status for the queue is retrieved."""
     fake_queue = "fake"
