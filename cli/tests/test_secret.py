@@ -203,8 +203,9 @@ def test_secret_auth_errors(
     else:
         sys.argv = ["", "secret", "delete", "test/path"]
 
+    tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as exc_info:
-        testflinger_cli.TestflingerCli().run()
+        tfcli.run()
 
     assert expected_text in str(exc_info.value)
 
@@ -214,11 +215,8 @@ def test_secret_auth_errors(
     "builtins.open",
     mock_open(read_data="[AUTH]\nrefresh_token = expired_token\n"),
 )
-def test_secret_invalid_token_error(monkeypatch, requests_mock, subcommand):
+def test_secret_invalid_token_error(requests_mock, subcommand):
     """Test secret operations fail with invalid token error during refresh."""
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "test_client")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "test_secret")
-
     # Mock refresh endpoint to fail
     requests_mock.post(
         f"{URL}/v1/oauth2/refresh",
@@ -231,7 +229,8 @@ def test_secret_invalid_token_error(monkeypatch, requests_mock, subcommand):
     else:
         sys.argv = ["", "secret", "delete", "test/path"]
 
+    tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as exc_info:
-        testflinger_cli.TestflingerCli().run()
+        tfcli.run()
 
     assert "Please reauthenticate with server" in str(exc_info.value)

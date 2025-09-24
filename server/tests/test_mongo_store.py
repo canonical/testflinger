@@ -365,30 +365,17 @@ class TestSetupMongoStore:
         return mock_client, mock_cipher, mock_store
 
     @pytest.mark.parametrize(
-        "env_vars,expected_error",
+        "env_vars",
         [
-            (
-                {},
-                "Environment variables with Mongo credentials are incomplete",
-            ),
-            (
-                {"MONGO_MASTER_KEY": ""},
-                "Environment variables with Mongo credentials are incomplete",
-            ),
-            (
-                {"MONGO_MASTER_KEY": "invalid-base64!"},
-                "Environment variables with Mongo credentials are incorrect",
-            ),
+            {},
+            {"MONGO_MASTER_KEY": ""},
+            {"MONGO_MASTER_KEY": "invalid-base64!"},
         ],
     )
-    def test_setup_mongo_store_error_cases(
-        self, mocker, mock_mongo_setup, env_vars, expected_error
-    ):
+    def test_setup_mongo_store_error_cases(self, mocker, env_vars):
         """Test setup_mongo_store error cases."""
         mocker.patch.dict("os.environ", env_vars, clear=True)
-
-        with pytest.raises(StoreError, match=expected_error):
-            setup_mongo_store()
+        assert setup_mongo_store() is None
 
     def test_setup_mongo_store_success_with_existing_key(
         self, mocker, valid_master_key, mock_mongo_setup
@@ -413,11 +400,6 @@ class TestSetupMongoStore:
         # Verify no new key creation (existing key found)
         mock_cipher.create_data_key.assert_not_called()
 
-        # Verify key rewrapping
-        mock_cipher.rewrap_many_data_key.assert_called_once_with(
-            filter={"keyAltNames": ["testflinger-secrets"]}
-        )
-
         # Verify MongoStore creation
         assert result == mock_store
 
@@ -439,11 +421,6 @@ class TestSetupMongoStore:
         # Verify new key creation
         mock_cipher.create_data_key.assert_called_once_with(
             "local", key_alt_names=["testflinger-secrets"]
-        )
-
-        # Verify key rewrapping
-        mock_cipher.rewrap_many_data_key.assert_called_once_with(
-            filter={"keyAltNames": ["testflinger-secrets"]}
         )
 
         # Verify MongoStore creation

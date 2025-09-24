@@ -16,10 +16,11 @@
 """Default setup for the Testflinger secrets store."""
 
 import base64
-from contextlib import suppress
 import logging
 import os
+from contextlib import suppress
 
+import requests
 from bson.codec_options import CodecOptions
 from hvac import Client
 from pymongo import MongoClient
@@ -32,23 +33,27 @@ from testflinger.secrets.mongo import MongoStore
 from testflinger.secrets.store import SecretsStore
 from testflinger.secrets.vault import VaultStore
 
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 formatter = logging.Formatter(
-    '[%(asctime)s] [%(levelname)s] %(name)s: %(message)s',
-    datefmt='%Y-%m-%dT%H:%M:%S %z'
+    "[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S %z",
 )
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 
 def setup_vault_store() -> VaultStore:
-    """Set up HashiCorp Vault-based secrets store.
+    """
+    Set up HashiCorp Vault-based secrets store.
 
     Creates a VaultStore instance using environment variables for
     configuration.
+
+    Returns:
+        A VaultStore, if the appropriate environment variables have been set
+        or None otherwise.
 
     Raises:
         StoreError: If Vault client authentication fails
@@ -56,34 +61,41 @@ def setup_vault_store() -> VaultStore:
     vault_url = os.environ.get("TESTFLINGER_VAULT_URL")
     vault_token = os.environ.get("TESTFLINGER_VAULT_TOKEN")
     if not vault_url or not vault_token:
-        raise StoreError(
-            "Environment variables with Vault credentials are incomplete"
-        )
+        return None
 
     client = Client(url=vault_url, token=vault_token)
-    if not client.is_authenticated():
-        raise StoreError("Vault client not authenticated")
+    try:
+        if not client.is_authenticated():
+            raise StoreError("Vault client not authenticated")
+    except requests.exceptions.ConnectionError as error:
+        raise StoreError("Vault client unable to connect") from error
 
     return VaultStore(client)
 
 
-def setup_mongo_store() -> MongoStore:
+def setup_mongo_store() -> MongoStore | None:
     """
     Set up MongoDB-based secrets store with Client-Side Field Level Encryption.
 
     Creates a MongoStore instance using explicit CSFLE for secret storage.
     The function handles data encryption key creation/rotation.
 
+    Returns:
+        A MongoStore, if the appropriate environment variables have been set
+        or None otherwise.
+
     Raises:
         StoreError: If master key is missing/invalid or encryption setup fails
     """
-    mongo_url = get_mongo_uri()
+    try:
+        mongo_url = get_mongo_uri()
+    except SystemExit:
+        return None
 
     master_key_b64 = os.environ.get("MONGO_MASTER_KEY")
     if not master_key_b64:
-        raise StoreError(
-            "Environment variables with Mongo credentials are incomplete"
-        )
+        return None
+
     try:
         master_key = base64.b64decode(master_key_b64)
     except Exception as error:
@@ -145,12 +157,18 @@ def setup_secrets_store() -> SecretsStore | None:
     """
     with suppress(StoreError):
         store = setup_vault_store()
-        logger.info("Successfully initialized the secrets store (Vault-based)")
-        return store
+        if store is not None:
+            logger.info(
+                "Successfully initialized the secrets store (Vault-based)"
+            )
+            return store
 
     with suppress(StoreError):
         store = setup_mongo_store()
-        logger.info("Successfully initialized the secrets store (Mongo-based)")
-        return store
+        if store is not None:
+            logger.info(
+                "Successfully initialized the secrets store (Mongo-based)"
+            )
+            return store
 
     logger.warning("The secrets store has not been initialized")

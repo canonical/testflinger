@@ -15,6 +15,7 @@
 #
 """Unit Test for all cli commands that require authentication."""
 
+import configparser
 import json
 import sys
 import uuid
@@ -24,7 +25,6 @@ import pytest
 
 import testflinger_cli
 from testflinger_cli.consts import ServerRoles
-from testflinger_cli.errors import InvalidTokenError
 from .test_cli import URL
 
 
@@ -60,7 +60,7 @@ def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):
     tfcli.submit()
     history = requests_mock.request_history
     assert len(history) == 3
-    assert history[0].path == "/v1/oauth2/token"
+    assert history[1].path == "/v1/oauth2/token"
     assert history[2].path == "/v1/job"
     assert history[2].headers.get("Authorization") == "Bearer fake_jwt_token"
 
@@ -84,7 +84,6 @@ def test_submit_token_timeout_retry(tmp_path, requests_mock, monkeypatch):
         "refresh_token": "fake_refresh_token",
     }
     requests_mock.post(f"{URL}/v1/oauth2/token", json=fake_return)
-    requests_mock.post(f"{URL}/v1/oauth2/refresh", json=fake_return)
 
     sys.argv = ["", "submit", str(job_file)]
     tfcli = testflinger_cli.TestflingerCli()
@@ -92,7 +91,7 @@ def test_submit_token_timeout_retry(tmp_path, requests_mock, monkeypatch):
         f"{URL}/v1/job", text="Token has expired", status_code=401
     )
     requests_mock.get(
-        URL + "/v1/queues/fake/agents",
+        f"{URL}/v1/queues/fake/agents",
         json=[{"name": "fake_agent", "state": "waiting"}],
     )
     with pytest.raises(SystemExit) as exc_info:
@@ -101,11 +100,14 @@ def test_submit_token_timeout_retry(tmp_path, requests_mock, monkeypatch):
 
     history = requests_mock.request_history
     assert len(history) == 7
-    assert history[0].path == "/v1/oauth2/token"
+
+    # Authentication is made with env variables.
+    # This auth type only uses token endpoint.
+    assert history[1].path == "/v1/oauth2/token"
     assert history[2].path == "/v1/job"
-    assert history[3].path == "/v1/oauth2/refresh"
+    assert history[3].path == "/v1/oauth2/token"
     assert history[4].path == "/v1/job"
-    assert history[5].path == "/v1/oauth2/refresh"
+    assert history[5].path == "/v1/oauth2/token"
     assert history[6].path == "/v1/job"
 
 
@@ -183,10 +185,15 @@ def test_authorization_error(tmp_path, requests_mock, monkeypatch):
     requests_mock.post(
         f"{URL}/v1/oauth2/token", status_code=HTTPStatus.FORBIDDEN
     )
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
 
     sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as err:
-        testflinger_cli.TestflingerCli()
+        tfcli.submit()
     assert "Authorization error received from server" in str(err.value)
 
 
@@ -206,10 +213,15 @@ def test_authentication_error(tmp_path, requests_mock, monkeypatch):
     requests_mock.post(
         f"{URL}/v1/oauth2/token", status_code=HTTPStatus.UNAUTHORIZED
     )
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
 
     sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as err:
-        testflinger_cli.TestflingerCli()
+        tfcli.submit()
     assert "Authentication with Testflinger server failed" in str(err.value)
 
 
@@ -256,27 +268,20 @@ def test_refresh_token_expired(tmp_path, requests_mock, monkeypatch):
     job_file = tmp_path / "test.json"
     job_file.write_text(json.dumps(job_data))
 
-    # Define variables for authentication, not using fixture to mock fail auth
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-    fake_return = {
-        "access_token": "fake_jwt_token",
-        "token_type": "Bearer",
-        "expires_in": 30,
+    # Create mock config file with refresh token
+    config_file = configparser.ConfigParser()
+    config_file["AUTH"] = {
+        "client_id": "my_client_id",
         "refresh_token": "fake_refresh_token",
     }
-    requests_mock.post(f"{URL}/v1/oauth2/token", json=fake_return)
+    auth_config_path = tmp_path / "testflinger-cli-auth.conf"
+    with auth_config_path.open("w") as file:
+        config_file.write(file)
 
     sys.argv = ["", "submit", str(job_file)]
     tfcli = testflinger_cli.TestflingerCli()
 
-    # Mock job submission to fail due to expired access_token
-    requests_mock.post(
-        f"{URL}/v1/job",
-        text="Token has expired",
-        status_code=HTTPStatus.UNAUTHORIZED,
-    )
-    # Mock refresh endpoint attempts to get new access_token fails
+    # Mock refresh endpoint
     requests_mock.post(
         f"{URL}/v1/oauth2/refresh",
         text="Refresh token expired",
@@ -284,17 +289,15 @@ def test_refresh_token_expired(tmp_path, requests_mock, monkeypatch):
     )
     # Mock agents endpoint for available agents
     requests_mock.get(
-        URL + "/v1/queues/fake/agents",
+        f"{URL}/v1/queues/fake/agents",
         json=[{"name": "fake_agent", "state": "waiting"}],
     )
 
-    with pytest.raises(InvalidTokenError) as exc:
+    with pytest.raises(SystemExit) as exc:
         tfcli.submit()
 
     assert "Please reauthenticate with server" in str(exc.value)
 
     history = requests_mock.request_history
-    assert len(history) >= 3
-    assert history[0].path == "/v1/oauth2/token"
-    assert history[2].path == "/v1/job"
-    assert any(req.path == "/v1/oauth2/refresh" for req in history)
+    assert len(history) == 2
+    assert history[1].path == "/v1/oauth2/refresh"
