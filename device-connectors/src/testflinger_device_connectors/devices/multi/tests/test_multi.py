@@ -14,6 +14,9 @@
 
 """Unit tests for multi-device support code."""
 
+import json
+import tempfile
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -98,3 +101,124 @@ def test_this_job_completed():
     incomplete_client.get_status = lambda job_id: "something else"
     test_agent = Multi(test_config, job_data, incomplete_client)
     assert test_agent.this_job_completed() is False
+
+
+@patch(
+    "testflinger_device_connectors.devices.multi.multi.copy_ssh_keys_to_devices"
+)
+@patch("time.sleep")
+def test_multi_reserve(mock_sleep, mock_copy_keys):
+    """Test Multi.reserve method functionality."""
+    test_config = {"agent_name": "test_agent"}
+    job_data = {
+        "job_id": "test-job-123",
+        "reserve_data": {"ssh_keys": ["key1", "key2"], "timeout": "1800"},
+        "test_data": {"test_username": "testuser"},
+    }
+
+    # Create job_list.json file with mock data
+    job_list = [
+        {"device_info": {"device_ip": "192.168.1.1"}},
+        {"device_info": {"device_ip": "192.168.1.2"}},
+    ]
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".json", delete=False
+    ) as tmp_file:
+        json.dump(job_list, tmp_file)
+
+    # Mock builtins.open to return our temp file
+    # when job_list.json is requested
+    with patch("builtins.open", create=True) as mo:
+        mo.return_value.__enter__.return_value.read.return_value = json.dumps(
+            job_list
+        )
+
+        # Mock print to capture output
+        with patch("builtins.print") as mock_print:
+            test_agent = Multi(
+                test_config, job_data, MockTFClient("http://localhost")
+            )
+            test_agent.reserve()
+
+    # Verify copy_ssh_keys_to_devices was called with correct parameters
+    mock_copy_keys.assert_called_once_with(
+        ["key1", "key2"], ["192.168.1.1", "192.168.1.2"], "testuser"
+    )
+
+    # Verify time.sleep was called with timeout
+    mock_sleep.assert_called_once_with(1800)
+
+    # Verify print statements were made
+    assert (
+        mock_print.call_count >= 5
+    )  # Multiple print statements in reserve method
+
+
+@patch(
+    "testflinger_device_connectors.devices.multi.multi.copy_ssh_keys_to_devices"
+)
+@patch("time.sleep")
+def test_multi_reserve_default_username(mock_sleep, mock_copy_keys):
+    """Test Multi.reserve method with default username."""
+    test_config = {"agent_name": "test_agent"}
+    job_data = {
+        "job_id": "test-job-123",
+        "reserve_data": {"ssh_keys": ["key1"], "timeout": "3600"},
+        # No test_data section - should default to ubuntu
+    }
+
+    job_list = [{"device_info": {"device_ip": "192.168.1.1"}}]
+
+    with patch("builtins.open", create=True) as mock_open:
+        mock_open.return_value.__enter__.return_value.read.return_value = (
+            json.dumps(job_list)
+        )
+
+        with patch("builtins.print"):
+            test_agent = Multi(
+                test_config, job_data, MockTFClient("http://localhost")
+            )
+            test_agent.reserve()
+
+    # Verify copy_ssh_keys_to_devices was called
+    mock_copy_keys.assert_called_once_with(["key1"], ["192.168.1.1"], "ubuntu")
+
+    # Verify time.sleep was called with timeout
+    mock_sleep.assert_called_once_with(3600)
+
+
+@patch(
+    "testflinger_device_connectors.devices.multi.multi.copy_ssh_keys_to_devices"
+)
+@patch("time.sleep")
+def test_multi_reserve_no_ssh_keys(mock_sleep, mock_copy_keys):
+    """Test Multi.reserve method with no SSH keys."""
+    test_config = {"agent_name": "test_agent"}
+    job_data = {
+        "job_id": "test-job-123",
+        "reserve_data": {
+            "timeout": "1800"
+            # No ssh_keys provided
+        },
+        "test_data": {"test_username": "testuser"},
+    }
+
+    job_list = [{"device_info": {"device_ip": "192.168.1.1"}}]
+
+    with patch("builtins.open", create=True) as mock_open:
+        mock_open.return_value.__enter__.return_value.read.return_value = (
+            json.dumps(job_list)
+        )
+
+        with patch("builtins.print"):
+            test_agent = Multi(
+                test_config, job_data, MockTFClient("http://localhost")
+            )
+            test_agent.reserve()
+
+    # Verify copy_ssh_keys_to_devices was called with empty list
+    mock_copy_keys.assert_called_once_with([], ["192.168.1.1"], "testuser")
+
+    # Verify time.sleep was called with timeout
+    mock_sleep.assert_called_once_with(1800)
