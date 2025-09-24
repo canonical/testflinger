@@ -50,9 +50,8 @@ from testflinger_cli.admin import TestflingerAdminCLI
 from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.errors import (
     AttachmentError,
-    AuthenticationError,
     AuthorizationError,
-    InvalidTokenError,
+    CredentialsError,
     SnapPrivateFileError,
     UnknownStatusError,
 )
@@ -77,7 +76,7 @@ def cli():
         tfcli.run()
     except KeyboardInterrupt:
         sys.exit("Received KeyboardInterrupt")
-    except (AuthenticationError, AuthorizationError, InvalidTokenError) as exc:
+    except CredentialsError as exc:
         sys.exit(exc)
 
 
@@ -119,17 +118,9 @@ class TestflingerCli:
                 f'- currently set to: "{server}"'
             )
         self.client = client.Client(server, error_threshold=error_threshold)
-        # Initialize Auth module
-        try:
-            self.auth = TestflingerCliAuth(
-                self.client_id, self.secret_key, self.client
-            )
-        except (
-            AuthenticationError,
-            AuthorizationError,
-            InvalidTokenError,
-        ) as exc:
-            sys.exit(exc)
+        self.auth = TestflingerCliAuth(
+            self.client_id, self.secret_key, self.client
+        )
 
     def run(self):
         """Run the subcommand specified in command line arguments."""
@@ -793,20 +784,22 @@ class TestflingerCli:
                 auth_headers = self.auth.build_headers()
                 job_id = self.client.submit_job(data, headers=auth_headers)
                 break
+            except CredentialsError as auth_exc:
+                sys.exit(auth_exc)
             except client.HTTPError as exc:
-                if exc.status == 400:
+                if exc.status == HTTPStatus.BAD_REQUEST:
                     sys.exit(
                         "The job you submitted contained bad data or "
                         "bad formatting, or did not specify a "
                         "job_queue."
                     )
-                if exc.status == 404:
+                if exc.status == HTTPStatus.NOT_FOUND:
                     sys.exit(
                         "Received 404 error from server. Are you "
                         "sure this is a testflinger server?"
                     )
 
-                if exc.status == 403:
+                if exc.status == HTTPStatus.FORBIDDEN:
                     sys.exit(
                         "Received 403 error from server with reason: "
                         f"{exc.msg}\n"
@@ -814,7 +807,7 @@ class TestflingerCli:
                         "sufficient permissions for the resource(s) "
                         "you are trying to access."
                     )
-                if exc.status == 401:
+                if exc.status == HTTPStatus.UNAUTHORIZED:
                     if "expired" in exc.msg:
                         if retry_count < 2:
                             retry_count += 1
@@ -1225,5 +1218,5 @@ class TestflingerCli:
             else:
                 # authenticate can return None if no credentials were provided
                 sys.exit("Please provide credentials and reattempt login")
-        except (AuthenticationError, AuthorizationError) as exc:
+        except CredentialsError as exc:
             sys.exit(exc)
