@@ -140,6 +140,34 @@ wheels = [
 ]
 
 [[package]]
+name = "boto3"
+version = "1.40.36"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botocore" },
+    { name = "jmespath" },
+    { name = "s3transfer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8d/21/7bc857b155e8264c92b6fa8e0860a67dc01a19cbe6ba4342500299f2ae5b/boto3-1.40.36.tar.gz", hash = "sha256:bfc1f3d5c4f5d12b8458406b8972f8794ac57e2da1ee441469e143bc0440a5c3", size = 111552, upload-time = "2025-09-22T19:26:17.357Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/70/4c/428b728d5cf9003f83f735d10dd522945ab20c7d67e6c987909f29be12a0/boto3-1.40.36-py3-none-any.whl", hash = "sha256:d7c1fe033f491f560cd26022a9dcf28baf877ae854f33bc64fffd0df3b9c98be", size = 139345, upload-time = "2025-09-22T19:26:15.194Z" },
+]
+
+[[package]]
+name = "botocore"
+version = "1.40.36"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jmespath" },
+    { name = "python-dateutil" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4b/30/75fdc75933d3bc1c8dd7fbaee771438328b518936906b411075b1eacac93/botocore-1.40.36.tar.gz", hash = "sha256:93386a8dc54173267ddfc6cd8636c9171e021f7c032aa1df3af7de816e3df616", size = 14349583, upload-time = "2025-09-22T19:26:05.957Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d8/51/95c0324ac20b5bbafad4c89dd610c8e0dd6cbadbb2c8ca66dc95ccde98b8/botocore-1.40.36-py3-none-any.whl", hash = "sha256:d6edf75875e4013cb7078875a1d6c289afb4cc6675d99d80700c692d8d8e0b72", size = 14020478, upload-time = "2025-09-22T19:26:02.054Z" },
+]
+
+[[package]]
 name = "cachelib"
 version = "0.13.0"
 source = { registry = "https://pypi.org/simple" }
@@ -822,6 +850,15 @@ wheels = [
 ]
 
 [[package]]
+name = "jmespath"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/00/2a/e867e8531cf3e36b41201936b7fa7ba7b5702dbef42922193f05c8976cd6/jmespath-1.0.1.tar.gz", hash = "sha256:90261b206d6defd58fdd5e85f478bf633a2901798906be2ad389150c5c60edbe", size = 25843, upload-time = "2022-06-17T18:00:12.224Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/31/b4/b9b800c45527aadd64d5b442f9b932b00648617eb5d63d2c7a6587b7cafc/jmespath-1.0.1-py3-none-any.whl", hash = "sha256:02e2e4cc71b5bcab88332eebf907519190dd9e6e82107fa7f83b1003a6252980", size = 20256, upload-time = "2022-06-17T18:00:10.251Z" },
+]
+
+[[package]]
 name = "joserfc"
 version = "1.3.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1236,6 +1273,44 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/99/1c/f5108dc39450077556844abfd92b768c57775f85270fc0b1dc834ad18113/pymongo-4.8.0-cp312-cp312-win_amd64.whl", hash = "sha256:e84bc7707492f06fbc37a9f215374d2977d21b72e10a67f1b31893ec5a140ad8", size = 680400, upload-time = "2024-06-26T18:46:19.241Z" },
 ]
 
+[package.optional-dependencies]
+encryption = [
+    { name = "certifi", marker = "os_name == 'nt' or sys_platform == 'darwin'" },
+    { name = "pymongo-auth-aws" },
+    { name = "pymongocrypt" },
+]
+
+[[package]]
+name = "pymongo-auth-aws"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "boto3" },
+    { name = "botocore" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c7/37/ca8d840f322f0047b71afcec7a489b1ea1f59a5f6d29f91ad8004024736f/pymongo_auth_aws-1.3.0.tar.gz", hash = "sha256:d0fa893958dc525ca29f601c34f2ca73c860f66bc6511ec0a7da6eb7ea44e94f", size = 18559, upload-time = "2024-09-11T20:29:17.668Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f4/12/a997fc108416f31fac55748e5406c1c8c4e976a4073f07b5553825641611/pymongo_auth_aws-1.3.0-py3-none-any.whl", hash = "sha256:367f6d853da428a02e9e450422756133715d40f8141f47ae5d98f139a88c0ce5", size = 15470, upload-time = "2024-09-11T20:29:16.637Z" },
+]
+
+[[package]]
+name = "pymongocrypt"
+version = "1.16.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cffi" },
+    { name = "cryptography" },
+    { name = "httpx" },
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fb/8e/dd9ed710e8fd4eec127dac1db3b3e9156ffcf340a0463a82087a12ae924e/pymongocrypt-1.16.0.tar.gz", hash = "sha256:0db0812055d00e6f5562a8d66711c4cba4b75014c363306c9b298a9fd68fccdd", size = 65354, upload-time = "2025-09-09T18:54:25.531Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fb/8b/dda0f19ce16f7b257e4aa2a8831a1a1307c1ea124a00f571cda83a04adcb/pymongocrypt-1.16.0-py3-none-macosx_11_0_universal2.whl", hash = "sha256:fbd85534880ea8525956b96e583a7021c721abbf3b51a6dbe48a57d7eba8e74a", size = 4721169, upload-time = "2025-09-09T18:54:18.642Z" },
+    { url = "https://files.pythonhosted.org/packages/99/48/512a5b597d71407f9b06a14cd8e5ac376e06b780d4d54a4e69726bd48703/pymongocrypt-1.16.0-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:85df0a78480e91bdd3a5a6da3e4cdc7d9700de8a871aa8168588981c041f1914", size = 4038242, upload-time = "2025-09-09T18:54:20.496Z" },
+    { url = "https://files.pythonhosted.org/packages/3f/67/3bdeda347191d6c1ee257eb3da8c85f1278d86dfb493cc9bc26352a41d0a/pymongocrypt-1.16.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b8d2ebeb1b5e4f4554bf44f726e8009c59c4d7d0b412beebfece875991714676", size = 3775742, upload-time = "2025-09-09T18:54:22.254Z" },
+    { url = "https://files.pythonhosted.org/packages/dc/81/70f6947afbd1ac7be54482b44cb1b99e8e9b9cac41985e6250c4fc279e58/pymongocrypt-1.16.0-py3-none-win_amd64.whl", hash = "sha256:c20afcd89ec5fc53305e924c05c4a0321ddc73f1e4e7c8240ee2fd0123e23609", size = 1607917, upload-time = "2025-09-09T18:54:24.182Z" },
+]
+
 [[package]]
 name = "pytest"
 version = "8.3.5"
@@ -1291,6 +1366,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/71/28/67172c96ba684058a4d24ffe144d64783d2a270d0af0d9e792737bddc75c/pytest_mock-3.14.1.tar.gz", hash = "sha256:159e9edac4c451ce77a5cdb9fc5d1100708d2dd4ba3c3df572f14097351af80e", size = 33241, upload-time = "2025-05-26T13:58:45.167Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b2/05/77b60e520511c53d1c1ca75f1930c7dd8e971d0c4379b7f4b3f9644685ba/pytest_mock-3.14.1-py3-none-any.whl", hash = "sha256:178aefcd11307d874b4cd3100344e7e2d888d9791a6a1d9bfe90fbc1b74fd1d0", size = 9923, upload-time = "2025-05-26T13:58:43.487Z" },
+]
+
+[[package]]
+name = "python-dateutil"
+version = "2.9.0.post0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
 ]
 
 [[package]]
@@ -1477,6 +1564,18 @@ wheels = [
 ]
 
 [[package]]
+name = "s3transfer"
+version = "0.14.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botocore" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/62/74/8d69dcb7a9efe8baa2046891735e5dfe433ad558ae23d9e3c14c633d1d58/s3transfer-0.14.0.tar.gz", hash = "sha256:eff12264e7c8b4985074ccce27a3b38a485bb7f7422cc8046fee9be4983e4125", size = 151547, upload-time = "2025-09-09T19:23:31.089Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/48/f0/ae7ca09223a81a1d890b2557186ea015f6e0502e9b8cb8e1813f1d8cfa4e/s3transfer-0.14.0-py3-none-any.whl", hash = "sha256:ea3b790c7077558ed1f02a3072fb3cb992bbbd253392f4b6e9e8976941c7d456", size = 85712, upload-time = "2025-09-09T19:23:30.041Z" },
+]
+
+[[package]]
 name = "sentinels"
 version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1542,7 +1641,7 @@ wheels = [
 
 [[package]]
 name = "testflinger"
-version = "1.3.0"
+version = "1.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "apiflask" },
@@ -1557,7 +1656,7 @@ dependencies = [
     { name = "prometheus-client" },
     { name = "prometheus-flask-exporter" },
     { name = "pyjwt" },
-    { name = "pymongo" },
+    { name = "pymongo", extra = ["encryption"] },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "sentry-sdk" },
@@ -1597,7 +1696,7 @@ requires-dist = [
     { name = "prometheus-client", specifier = ">=0.21.0" },
     { name = "prometheus-flask-exporter", specifier = ">=0.23.1" },
     { name = "pyjwt", specifier = ">=2.8.0" },
-    { name = "pymongo", specifier = "<4.9.0" },
+    { name = "pymongo", extras = ["encryption"], specifier = "<4.9.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "sentry-sdk", specifier = ">=2.0.1" },
