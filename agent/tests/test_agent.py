@@ -376,7 +376,8 @@ class TestClient:
 
     def test_phase_timeout(self, agent, requests_mock):
         # Make sure the status code of a timed-out phase is correct
-        self.config["test_command"] = "sleep 12"
+        self.config["output_polling_interval"] = 0.1
+        self.config["test_command"] = "sleep 2"
         mock_job_data = {
             "job_id": str(uuid.uuid1()),
             "job_queue": "test",
@@ -588,7 +589,8 @@ class TestClient:
     def test_post_agent_status_update_global_timeout(
         self, agent, requests_mock
     ):
-        self.config["test_command"] = "sleep 12"
+        self.config["output_polling_interval"] = 0.1
+        self.config["test_command"] = "sleep 2"
         job_id = str(uuid.uuid1())
         fake_job_data = {
             "job_id": job_id,
@@ -625,7 +627,8 @@ class TestClient:
     def test_post_agent_status_update_output_timeout(
         self, agent, requests_mock
     ):
-        self.config["test_command"] = "sleep 12"
+        self.config["output_polling_interval"] = 0.1
+        self.config["test_command"] = "sleep 2"
         job_id = str(uuid.uuid1())
         fake_job_data = {
             "job_id": job_id,

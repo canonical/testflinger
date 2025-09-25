@@ -46,13 +46,19 @@ class CommandRunner:
     known event types are defined in RunnerEvents.
     """
 
-    def __init__(self, cwd: Optional[str], env: Optional[dict]):
+    def __init__(
+        self,
+        cwd: Optional[str],
+        env: Optional[dict],
+        output_polling_interval: float = 10.0,
+    ):
         self.output_handlers: List[OutputHandlerType] = []
         self.stop_condition_checkers: List[StopConditionType] = []
         self.process: Optional[subprocess.Popen] = None
         self.cwd = cwd
         self.env = os.environ.copy()
         self.events = defaultdict(list)
+        self.output_polling_interval = output_polling_interval
         if env:
             self.env.update(
                 {k: str(v) for k, v in env.items() if isinstance(v, str)}
@@ -134,7 +140,7 @@ class CommandRunner:
             time.sleep(1)
 
         while self.process.poll() is None:
-            time.sleep(10)
+            time.sleep(self.output_polling_interval)
 
             stop_event, stop_reason = self.check_stop_conditions()
             if stop_event is not None:

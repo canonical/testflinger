@@ -87,7 +87,14 @@ class TestflingerJob:
         serial_log = os.path.join(rundir, phase + "-serial.log")
 
         logger.info("Running %s_command: %s", phase, cmd)
-        runner = CommandRunner(cwd=rundir, env=self.client.config)
+        output_polling_interval = self.client.config.get(
+            "output_polling_interval", 10.0
+        )
+        runner = CommandRunner(
+            cwd=rundir,
+            env=self.client.config,
+            output_polling_interval=output_polling_interval,
+        )
         output_log_handler = LogUpdateHandler(output_log)
         live_output_handler = LiveOutputHandler(self.client, self.job_id)
         runner.register_output_handler(output_log_handler)
