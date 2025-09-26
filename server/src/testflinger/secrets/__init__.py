@@ -110,7 +110,10 @@ def setup_mongo_store() -> MongoStore | None:
 
     kms_providers = {"local": {"key": master_key}}
     # database and collection where secrets are stored (the "vault")
-    key_vault_db = "encryption"
+    ### key_vault_db = "encryption"
+    # [CAUTION] You should not use the same database for the encryption keys
+    # This is only for testing in staging, not to release in production
+    key_vault_db = client.get_default_database().name
     key_vault_collection = "__keyVault"
     # human-readable name for the data key that encrypts the secrets
     key_name = "testflinger-secrets"
