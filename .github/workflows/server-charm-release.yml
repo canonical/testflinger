@@ -78,7 +78,7 @@ jobs:
       - name: Modify charmcraft.yaml OCI Image
         if: fromJSON(inputs.release-from-branch)
         env:
-          IMAGE_FROM_BRANCH: fromJSON(steps.meta.outputs.json).tags[0]
+          IMAGE_FROM_BRANCH: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
         run: sed -i "s|ghcr.io/canonical/testflinger:main|$IMAGE_FROM_BRANCH|g" server/charm/charmcraft.yaml
 
       - name: Upload charm to charmhub
