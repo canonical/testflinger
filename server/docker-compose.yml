@@ -21,7 +21,7 @@ services:
       MONGODB_HOST: mongo
       MONGODB_PASSWORD: testflinger
       MONGODB_USERNAME: testflinger
-      MONGO_MASTER_KEY: +HQgnGBgPmmvoYB82nGbKERUp15bZOrNyDxHb3mMfx8+jrn4KbPBGOh7GRWDSGrSa1qOq/ibTThG+b7JGDRo0hgLinpFz5uz+8TWJdXbTGb24Qw+tuyH7kcPRPBMU3br
+      TESTFLINGER_SECRETS_MASTER_KEY: +HQgnGBgPmmvoYB82nGbKERUp15bZOrNyDxHb3mMfx8+jrn4KbPBGOh7GRWDSGrSa1qOq/ibTThG+b7JGDRo0hgLinpFz5uz+8TWJdXbTGb24Qw+tuyH7kcPRPBMU3br
       # TESTFLINGER_VAULT_TOKEN: myroot
       # TESTFLINGER_VAULT_URL: http://vault:8200
       WEB_SECRET_KEY: my_web_secret_key

@@ -92,7 +92,7 @@ def setup_mongo_store() -> MongoStore | None:
     except SystemExit:
         return None
 
-    master_key_b64 = os.environ.get("MONGO_MASTER_KEY")
+    master_key_b64 = os.environ.get("TESTFLINGER_SECRETS_MASTER_KEY")
     if not master_key_b64:
         return None
 
