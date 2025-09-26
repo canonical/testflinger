@@ -339,7 +339,9 @@ class TestSetupMongoStore:
     def valid_master_key(self, mocker):
         """Set up valid master key in environment."""
         key = base64.b64encode(os.urandom(96)).decode("utf-8")
-        mocker.patch.dict("os.environ", {"MONGO_MASTER_KEY": key}, clear=True)
+        mocker.patch.dict(
+            "os.environ", {"TESTFLINGER_SECRETS_MASTER_KEY": key}, clear=True
+        )
         return key
 
     @pytest.fixture
@@ -368,8 +370,8 @@ class TestSetupMongoStore:
         "env_vars",
         [
             {},
-            {"MONGO_MASTER_KEY": ""},
-            {"MONGO_MASTER_KEY": "invalid-base64!"},
+            {"TESTFLINGER_SECRETS_MASTER_KEY": ""},
+            {"TESTFLINGER_SECRETS_MASTER_KEY": "invalid-base64!"},
         ],
     )
     def test_setup_mongo_store_error_cases(self, mocker, env_vars):
