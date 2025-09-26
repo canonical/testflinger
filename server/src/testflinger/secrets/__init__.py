@@ -103,19 +103,10 @@ def setup_mongo_store() -> MongoStore | None:
             "Environment variables with Mongo credentials are incorrect"
         ) from error
 
-    # Explit Client-Side Field-Level Encryption
+    # Explicit Client-Side Field-Level Encryption
     # Reference: https://www.mongodb.com/docs/manual/core/csfle/fundamentals/manual-encryption/
     # PyMongo docs: https://pymongo.readthedocs.io/en/stable/examples/encryption.html#explicit-encryption-and-decryption
     client = MongoClient(mongo_url)
-
-    """
-    try:
-        client.admin.command('ping')
-    except pymongo.errors.ConnectionFailure as error:
-         raise StoreError(
-            f"Mongo client unable to ping database at {mongo_url}"
-         ) from error
-    """
 
     kms_providers = {"local": {"key": master_key}}
     # database and collection where secrets are stored (the "vault")
