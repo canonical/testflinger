@@ -12,12 +12,13 @@ resource "juju_application" "testflinger" {
   }
 
   config = {
-    external_hostname = var.external_ingress_hostname
-    max_pool_size     = var.max_pool_size
-    jwt_signing_key   = var.jwt_signing_key
-    http_proxy        = var.http_proxy
-    https_proxy       = var.https_proxy
-    no_proxy          = var.no_proxy
+    external_hostname              = var.external_ingress_hostname
+    max_pool_size                  = var.max_pool_size
+    jwt_signing_key                = var.jwt_signing_key
+    testflinger_secrets-master-key = var.testflinger_secrets_master_key
+    http_proxy                     = var.http_proxy
+    https_proxy                    = var.https_proxy
+    no_proxy                       = var.no_proxy
   }
 }
 

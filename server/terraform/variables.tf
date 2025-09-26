@@ -65,6 +65,12 @@ variable "jwt_signing_key" {
   default     = "secret"
 }
 
+variable "testflinger_secrets_master_key" {
+  description = "Master key for Testflinger secrets encryption"
+  type        = string
+  sensitive   = true
+}
+
 variable "http_proxy" {
   description = "HTTP proxy for accessing external HTTP resources"
   type        = string
