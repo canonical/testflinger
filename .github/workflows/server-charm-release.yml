@@ -17,6 +17,11 @@ on:
         options:
           - latest/beta
           - latest/edge
+      release-from-branch:
+        description: Use the Docker image built from the current branch
+        required: false
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -69,6 +74,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Modify charmcraft.yaml OCI Image
+        if: fromJSON(inputs.release-from-branch)
+        run: sed -i "s|ghcr.io/canonical/testflinger:main|${{ fromJSON(steps.meta.outputs.json).tags[0] }}|g" server/charm/charmcraft.yaml
 
       - name: Upload charm to charmhub
         uses: canonical/charming-actions/upload-charm@1753e0803f70445132e92acd45c905aba6473225 # 2.7.0
