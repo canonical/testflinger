@@ -226,6 +226,9 @@ class TestflingerCharm(ops.CharmBase):
             "MONGODB_DATABASE": db_data.get("db_database"),
             "MONGODB_MAX_POOL_SIZE": str(self.config["max_pool_size"]),
             "JWT_SIGNING_KEY": self.config["jwt_signing_key"],
+            "TESTFLINGER_SECRETS_MASTER_KEY": self.config[
+                "testflinger_secrets_master_key"
+            ],
             "HTTP_PROXY": self.config["http_proxy"],
             "HTTPS_PROXY": self.config["https_proxy"],
             "NO_PROXY": self.config["no_proxy"],
