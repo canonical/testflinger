@@ -19,11 +19,17 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from testflinger_agent.errors import TFServerError
+from testflinger_common.enums import TestPhase
 
-from .handlers import LiveOutputHandler, LogUpdateHandler
-from .runner import CommandRunner, RunnerEvents
-from .stop_condition_checkers import (
+from testflinger_agent.errors import TFServerError
+from testflinger_agent.handlers import LiveOutputHandler, LogUpdateHandler
+from testflinger_agent.masking import Masker
+from testflinger_agent.runner import (
+    CommandRunner,
+    MaskingCommandRunner,
+    RunnerEvents,
+)
+from testflinger_agent.stop_condition_checkers import (
     GlobalTimeoutChecker,
     JobCancelledChecker,
     OutputTimeoutChecker,
@@ -36,6 +42,9 @@ class TestflingerJob:
     __test__ = False
     """This prevents pytest from trying to run this class as a test."""
 
+    # secrets are masked with a hash of this length
+    _hash_length: int = 6
+
     def __init__(self, job_data, client):
         """
         :param job_data:
@@ -47,6 +56,28 @@ class TestflingerJob:
         self.job_data = job_data
         self.job_id = job_data.get("job_id")
         self.phase = "unknown"
+
+    def get_runner(self, rundir: str, phase: TestPhase):
+        try:
+            secrets = self.job_data[f"{phase}_data"]["secrets"]
+        except KeyError:
+            return CommandRunner(cwd=rundir, env=self.client.config)
+
+        # inject phase secrets into the environment
+        environment = {
+            **self.client.config,
+            **secrets,
+        }
+        # remove phase secrets from the job data
+        del self.job_data[f"{phase}_data"]["secrets"]
+
+        return MaskingCommandRunner(
+            cwd=rundir,
+            env=environment,
+            masker=Masker(
+                patterns=list(secrets.values()), hash_length=self._hash_length
+            ),
+        )
 
     def run_test_phase(self, phase, rundir):
         """Run the specified test phase in rundir.
@@ -87,7 +118,7 @@ class TestflingerJob:
         serial_log = os.path.join(rundir, phase + "-serial.log")
 
         logger.info("Running %s_command: %s", phase, cmd)
-        runner = CommandRunner(cwd=rundir, env=self.client.config)
+        runner = self.get_runner(rundir, phase)
         output_log_handler = LogUpdateHandler(output_log)
         live_output_handler = LiveOutputHandler(self.client, self.job_id)
         runner.register_output_handler(output_log_handler)
