@@ -13,7 +13,7 @@ jobs:
     name: Create version tag for the submit action
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # necessary for writing tag
 
     steps:
       - name: Checkout code

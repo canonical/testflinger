@@ -23,9 +23,9 @@ jobs:
     name: Build and Push Charm
     runs-on: [self-hosted, linux, jammy, X64]
     permissions:
-      actions: read
-      contents: write
-      packages: write
+      actions: read  # necessary to get the runner information
+      contents: write  # necessary to create tag(s)
+      packages: write  # necessary to upload image
 
     steps:
       - name: Checkout

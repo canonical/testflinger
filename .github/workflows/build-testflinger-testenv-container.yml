@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      packages: write  # necessary to upload package to ghcr
 
     strategy:
       matrix:
