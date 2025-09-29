@@ -65,6 +65,10 @@ config:
       type: string
       default: ""
       description: The secret key used for signing authorization tokens
+    testflinger_secrets_master_key:
+      type: string
+      default: ""
+      description: The master key used for encrypting secrets data keys
     http_proxy:
       type: string
       default: ""
