@@ -1253,22 +1253,3 @@ def secrets_delete(client_id, path):
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
     return "OK"
-
-
-@v1.get("/secrets/<client_id>/<path:path>")
-@authenticate
-def secrets_get(client_id, path):
-    """Read a secret value for the specified client_id and path."""
-    if current_app.secrets_store is None:
-        abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
-    if client_id != g.client_id:
-        abort(
-            HTTPStatus.FORBIDDEN,
-            message=f"'{client_id}' doesn't match authenticated client id",
-        )
-    try:
-        return current_app.secrets_store.read(client_id, path)
-    except AccessError as error:
-        abort(HTTPStatus.BAD_REQUEST, message=str(error))
-    except (StoreError, UnexpectedError) as error:
-        abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
