@@ -37,12 +37,15 @@ class MongoStore(SecretsStore):
         client: MongoClient,
         cipher: ClientEncryption,
         data_key_name: str,
+        algorithm: Algorithm = Algorithm.AEAD_AES_256_CBC_HMAC_SHA_512_Random,
     ):
-        """Initialize MongoStore with client, cipher, and data key name."""
+        """Initialize MongoStore with client, cipher, data key name and
+        (optionally) the algorithm used for encryption.
+        """
         self.database = client.get_default_database()
         self.cipher = cipher
         self.data_key_name = data_key_name
-        self.algorithm = Algorithm.AEAD_AES_256_CBC_HMAC_SHA_512_Random
+        self.algorithm = algorithm
 
     def read(self, namespace: str, key: str) -> str:
         """Return the stored value for `key` under `namespace`."""

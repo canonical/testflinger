@@ -310,7 +310,6 @@ class TestMongoStore:
         assert store.database == mock_database
         assert store.cipher == mock_client_encryption
         assert store.data_key_name == "test-data-key"
-        assert store.algorithm is not None
 
     def test_namespace_collection_access(
         self, mongo_store, mock_database, mocker
