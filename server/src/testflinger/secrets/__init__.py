@@ -16,6 +16,7 @@
 """Default setup for the Testflinger secrets store."""
 
 import base64
+import binascii
 import logging
 import os
 from contextlib import suppress
@@ -98,7 +99,7 @@ def setup_mongo_store() -> MongoStore | None:
 
     try:
         master_key = base64.b64decode(master_key_b64)
-    except Exception as error:
+    except (binascii.Error, ValueError) as error:
         raise StoreError(
             "Environment variables with Mongo credentials are incorrect"
         ) from error

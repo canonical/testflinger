@@ -370,13 +370,28 @@ class TestSetupMongoStore:
         [
             {},
             {"TESTFLINGER_SECRETS_MASTER_KEY": ""},
-            {"TESTFLINGER_SECRETS_MASTER_KEY": "invalid-base64!"},
         ],
     )
-    def test_setup_mongo_store_error_cases(self, mocker, env_vars):
-        """Test setup_mongo_store error cases."""
+    def test_setup_mongo_store_no_master_key(self, mocker, env_vars):
+        """Test setup_mongo_store returns None when master key is not set."""
         mocker.patch.dict("os.environ", env_vars, clear=True)
         assert setup_mongo_store() is None
+
+    def test_setup_mongo_store_invalid_master_key(
+        self, mocker, mock_mongo_setup
+    ):
+        """Test setup_mongo_store raises StoreError for invalid master key."""
+        mocker.patch.dict(
+            "os.environ",
+            {"TESTFLINGER_SECRETS_MASTER_KEY": "invalid-base64!"},
+            clear=True,
+        )
+
+        with pytest.raises(
+            StoreError,
+            match="Environment variables with Mongo credentials are incorrect",
+        ):
+            setup_mongo_store()
 
     def test_setup_mongo_store_success_with_existing_key(
         self, mocker, valid_master_key, mock_mongo_setup
