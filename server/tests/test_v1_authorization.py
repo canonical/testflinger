@@ -24,6 +24,7 @@ from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
 import jwt
+import pytest
 
 from testflinger.enums import ServerRoles
 
@@ -747,16 +748,36 @@ def test_delete_client_permissions(mongo_app_with_permissions):
     assert "clientA" not in client_ids
 
 
-def test_delete_testflinger_admin(mongo_app_with_permissions):
-    """Test deleting testflinger-admin is unsuccessful."""
+@pytest.mark.parametrize("method", ["post", "put", "delete"])
+def test_api_methods_for_testflinger_admin(mongo_app_with_permissions, method):
+    """Test specified API methods are rejected for testflinger-admin client."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     token = get_access_token(app, client_id, client_key)
 
-    # No need to mock this client_id creation, request should be rejected
-    output = app.delete(
-        "/v1/client-permissions/testflinger-admin",
-        headers={"Authorization": token},
-    )
+    # Define permission to set if POST or PUT request
+    permissions = {
+        "client_id": "testflinger-admin",
+        "client_secret": "test-secret",
+        "max_priority": {"*": 10},
+        "max_reservation_time": {"*": 40000},
+        "role": ServerRoles.CONTRIBUTOR,
+    }
+
+    # Determine endpoint to be used for request
+    if method == "post":
+        endpoint = "/v1/client-permissions"
+    else:
+        endpoint = "/v1/client-permissions/testflinger-admin"
+
+    # Call the appropriate HTTP method
+    http_method = getattr(app, method)
+    if method in ["post", "put"]:
+        output = http_method(
+            endpoint, json=permissions, headers={"Authorization": token}
+        )
+    else:
+        output = http_method(endpoint, headers={"Authorization": token})
+
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 

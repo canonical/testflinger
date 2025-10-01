@@ -499,7 +499,8 @@ class TestflingerCli:
                         f"queue '{self.args.queue_name}'."
                     )
                 if exc.status == HTTPStatus.NOT_FOUND:
-                    sys.exit(f"Queue '{self.args.queue_name}' does not exist.")
+                    # Error message is specified on server side
+                    sys.exit(exc.msg)
                 # If any other HTTP error, raise UnknownStatusError
                 raise UnknownStatusError("queue") from exc
             except (IOError, ValueError) as exc:

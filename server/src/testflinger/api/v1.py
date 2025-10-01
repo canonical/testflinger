@@ -40,6 +40,8 @@ from testflinger.secrets.exceptions import (
     UnexpectedError,
 )
 
+TESTFLINGER_ADMIN_ID = "testflinger-admin"
+
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
 )
@@ -839,7 +841,10 @@ def queue_wait_time_percentiles_get():
 def get_agents_on_queue(queue_name):
     """Get the list of all data for agents listening to a specified queue."""
     if not database.queue_exists(queue_name):
-        return [], HTTPStatus.NOT_FOUND
+        abort(
+            HTTPStatus.NOT_FOUND,
+            message=f"Queue '{queue_name}' does not exist.",
+        )
 
     agents = database.get_agents_on_queue(queue_name)
     if not agents:
@@ -1110,6 +1115,13 @@ def create_client_permissions(json_data: dict) -> str:
             "Error: Missing client_id or client_secret in request body",
         )
 
+    # Testflinger Admin credential can't be created from API!'
+    if client_id == TESTFLINGER_ADMIN_ID:
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            "Error: System admin client cannot by created from API.",
+        )
+
     if database.check_client_exists(client_id):
         abort(HTTPStatus.CONFLICT, "Error: Client already exists")
 
@@ -1144,6 +1156,13 @@ def create_client_permissions(json_data: dict) -> str:
 @v1.input(schemas.ClientPermissionsIn)
 def edit_client_permissions(client_id: str, json_data: dict) -> str:
     """Edit client permissions for a specified user."""
+    # Testflinger Admin credential can't be edited from API!'
+    if client_id == TESTFLINGER_ADMIN_ID:
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            "Error: System admin client cannot by updated from API.",
+        )
+
     if not database.check_client_exists(client_id):
         abort(
             HTTPStatus.NOT_FOUND,
@@ -1165,9 +1184,16 @@ def edit_client_permissions(client_id: str, json_data: dict) -> str:
             ),
         )
 
-    # Remove client_credentials if exist in json_data
+    # Remove client_id if exist in json_data
     json_data.pop("client_id", None)
-    json_data.pop("client_secret", None)
+
+    # Hash the client_secret if provided for password rotation
+    if "client_secret" in json_data:
+        client_secret = json_data.pop("client_secret")
+        client_secret_hash = bcrypt.hashpw(
+            client_secret.encode("utf-8"), bcrypt.gensalt()
+        ).decode()
+        json_data["client_secret_hash"] = client_secret_hash
 
     # Retrieve non null values
     update_fields = {
@@ -1195,7 +1221,7 @@ def edit_client_permissions(client_id: str, json_data: dict) -> str:
 def delete_client_permissions(client_id: str) -> str:
     """Delete client id along with its permissions."""
     # Testflinger Admin credential can't be removed from API!'
-    if client_id == "testflinger-admin":
+    if client_id == TESTFLINGER_ADMIN_ID:
         abort(
             HTTPStatus.UNPROCESSABLE_ENTITY,
             "Error: System admin client cannot by deleted from API.",
