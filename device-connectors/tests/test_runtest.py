@@ -16,6 +16,36 @@
 from testflinger_device_connectors.devices import DefaultDevice
 
 
+def test_runtest_no_secrets(mocker):
+    """Test that runtest does not require secrets."""
+    config_data = {}
+    job_data = {
+        "test_data": {
+            "test_cmds": "echo 'test'",
+        }
+    }
+
+    args = mocker.Mock()
+
+    mocker.patch("builtins.open", mocker.mock_open())
+    mocker.patch("yaml.safe_load", return_value=config_data)
+    mocker.patch(
+        "testflinger_device_connectors.get_test_opportunity",
+        return_value=job_data,
+    )
+    # Patch run_test_cmds to capture the config argument that gets passed to it
+    mock_run_test_cmds = mocker.patch(
+        "testflinger_device_connectors.run_test_cmds", return_value=0
+    )
+
+    DefaultDevice({}).runtest(args)
+
+    call_args = mock_run_test_cmds.call_args
+    config = call_args[0][1]
+
+    assert config["env"]
+
+
 def test_runtest_injects_secrets(mocker):
     """Test that runtest injects secrets from test_data into env."""
     config_data = {}
