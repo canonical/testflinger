@@ -338,34 +338,43 @@ class TestflingerAdminCLI:
         if not tf_client_id:
             sys.exit("Error: client_id cannot be empty")
 
-        # Check if client exists by trying to get its permissions
+        # Check if client already exists
         try:
             self.main_cli.client.get_client_permissions(
                 auth_header, tf_client_id
             )
+
+            # Client exists if check suceeds, log an error and exit
+            logger.error(
+                "Client id %s already exists. For updating "
+                "client permissions, please use the update command.",
+                tf_client_id,
+            )
+            return
         except client.HTTPError as exc:
-            if exc.status == HTTPStatus.NOT_FOUND:
-                # Client doesn't exist, try to create
-                print(f"Creating new client '{tf_client_id}'...")
-                try:
-                    self.main_cli.client.create_client_permissions(
-                        auth_header, json_data
-                    )
-                    print(f"Client '{tf_client_id}' created successfully")
-                except client.HTTPError as create_exc:
-                    logger.error(
-                        "Failed to create client: %s",
-                        create_exc.msg,
-                    )
-            elif exc.status == HTTPStatus.UNPROCESSABLE_ENTITY:
+            if exc.status != HTTPStatus.NOT_FOUND:
+                # If any other HTTP error, checking client existance failed
+                logger.error(
+                    "Error while trying to check client existence: %s", exc.msg
+                )
+                return
+
+        # If we got here, the client id doesn't exist, attempt to create
+        print(f"Creating new client '{tf_client_id}'...")
+        try:
+            self.main_cli.client.create_client_permissions(
+                auth_header, json_data
+            )
+            print(f"Client '{tf_client_id}' created successfully")
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.UNPROCESSABLE_ENTITY:
                 # Schema validation failed
                 # Failure reason is clearly stated in msg from server
                 logger.error(exc.msg)
             else:
-                # Other HTTP error
                 logger.error(
-                    "Failed to set client permissions: %s",
-                    {exc.msg},
+                    "Failed to create client: %s",
+                    exc.msg,
                 )
 
     @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)

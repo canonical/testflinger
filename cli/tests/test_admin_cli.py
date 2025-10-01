@@ -503,10 +503,14 @@ def test_failed_client_creation_schema_validation(
     requests_mock.post(
         URL + "/v1/client-permissions",
         status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        text=(
+            "Validation error - max_reservation_time: "
+            "['Missing data for required field.']"
+        ),
     )
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_client_permissions()
     std = capsys.readouterr()
     print(std.out)
     assert f"Creating new client '{fake_client_id}'..." in std.out
-    assert "Failed to create client:" in caplog.text
+    assert "Validation error - max_reservation_time:" in caplog.text

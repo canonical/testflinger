@@ -832,8 +832,9 @@ def test_queue_status_nonexistent_queue(requests_mock):
     fake_queue = "nonexistent"
 
     requests_mock.get(
-        URL + "/v1/queues/" + fake_queue + "/agents",
+        f"{URL}/v1/queues/{fake_queue}/agents",
         status_code=HTTPStatus.NOT_FOUND,
+        text=f"Queue '{fake_queue}' does not exist.",
     )
     sys.argv = ["", "queue-status", fake_queue]
     tfcli = testflinger_cli.TestflingerCli()
