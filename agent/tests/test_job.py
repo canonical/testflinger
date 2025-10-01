@@ -165,6 +165,7 @@ class TestJob:
 
         self.config["setup_command"] = "fake_setup_command"
         requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.get(rmock.ANY, json={}, status_code=200)
         job = _TestflingerJob({}, client)
         job.phase = "setup"
         # Don't raise the exception on the 3 banner lines
