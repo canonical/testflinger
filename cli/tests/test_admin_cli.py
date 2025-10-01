@@ -511,6 +511,32 @@ def test_failed_client_creation_schema_validation(
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_client_permissions()
     std = capsys.readouterr()
-    print(std.out)
     assert f"Creating new client '{fake_client_id}'..." in std.out
     assert "Validation error - max_reservation_time:" in caplog.text
+
+
+@pytest.mark.parametrize("command", ["set", "update"])
+def test_client_id_missing_from_permissions(
+    auth_fixture, capsys, command, caplog
+):
+    """Validate creation and update of client_id fails due to missing id."""
+    auth_fixture(ServerRoles.ADMIN)
+    # missing client_id from permission JSON
+    fake_permissions = {
+        "max_reservation_time": {},
+        "max_priority": {"q1": 10},
+        "role": ServerRoles.CONTRIBUTOR,
+    }
+
+    # Using JSON for creation/update
+    sys.argv = [
+        "",
+        "admin",
+        command,
+        "client-permissions",
+        "--json",
+        json.dumps(fake_permissions),
+    ]
+    with pytest.raises(SystemExit) as exc:
+        testflinger_cli.TestflingerCli().run()
+    assert "Error: client_id cannot be empty" in str(exc.value)
