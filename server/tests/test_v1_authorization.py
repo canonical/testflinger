@@ -968,6 +968,57 @@ def test_role_hierachy_create_permissions(mongo_app_with_permissions):
     mongo.client_permissions.delete_one({"client_id": "test_manager"})
 
 
+def test_update_secret_for_client_id(mongo_app_with_permissions):
+    """Test client secret is modified if provided during update."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, client_id, client_key)
+
+    client_permissions = {
+        "client_id": "test_user",
+        "client_secret": "my-secret-password",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.MANAGER,
+    }
+
+    # First create client_id
+    output1 = app.post(
+        "/v1/client-permissions",
+        json=client_permissions,
+        headers={"Authorization": token},
+    )
+    assert output1.status_code == HTTPStatus.OK
+
+    # Get the original hashed password
+    original_record = mongo.client_permissions.find_one(
+        {"client_id": "test_user"}
+    )
+    original_hash = original_record["client_secret_hash"]
+
+    # Modify only secret key for client id
+    updated_permissions = {
+        "client_id": "test_user",
+        "client_secret": "updated-password",
+        "max_priority": {},
+        "max_reservation_time": {},
+    }
+
+    # Send PUT request
+    output2 = app.put(
+        "/v1/client-permissions/test_user",
+        json=updated_permissions,
+        headers={"Authorization": token},
+    )
+    assert output2.status_code == HTTPStatus.OK
+
+    # Verify the hashed password has changed
+    updated_record = mongo.client_permissions.find_one(
+        {"client_id": "test_user"}
+    )
+    updated_hash = updated_record["client_secret_hash"]
+    assert updated_hash != original_hash
+
+
 def test_refresh_access_token(mongo_app_with_permissions):
     """Test refreshing an access token with a valid refresh token."""
     app, _, client_id, client_key, max_priority = mongo_app_with_permissions
