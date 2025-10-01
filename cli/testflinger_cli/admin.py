@@ -344,7 +344,7 @@ class TestflingerAdminCLI:
                 auth_header, tf_client_id
             )
 
-            # Client exists if check suceeds, log an error and exit
+            # Client exists if check succeeds, log an error and exit
             logger.error(
                 "Client id %s already exists. For updating "
                 "client permissions, please use the update command.",
@@ -406,8 +406,8 @@ class TestflingerAdminCLI:
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.NOT_FOUND:
                 logger.error(
-                    "Provided tesflinger client_id does not exists. "
-                    "For creating a new client, plese use the set command."
+                    "Provided testflinger client_id does not exists. "
+                    "For creating a new client, please use the set command."
                 )
             elif exc.status == HTTPStatus.UNPROCESSABLE_ENTITY:
                 # Schema validation failed
