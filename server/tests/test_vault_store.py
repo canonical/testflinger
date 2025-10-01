@@ -19,7 +19,7 @@ import hvac
 import pytest
 import requests.exceptions
 
-from testflinger.secrets import setup_secrets_store
+from testflinger.secrets import setup_secrets_store, setup_vault_store
 from testflinger.secrets.exceptions import (
     AccessError,
     StoreError,
@@ -174,12 +174,12 @@ class TestSecretsInit:
         ],
     )
     def test_setup_secrets_store_missing_config(self, mocker, env_vars):
-        """Test setup_secrets_store returns None when config is incomplete."""
+        """Test setup_vault_store returns None when config is incomplete."""
         # Given: incomplete environment configuration
         mocker.patch.dict("os.environ", env_vars, clear=True)
 
         # When: setup_secrets_store is called
-        result = setup_secrets_store()
+        result = setup_vault_store()
 
         # Then: it returns None
         assert result is None
@@ -211,9 +211,9 @@ class TestSecretsInit:
             url="http://vault", token=token
         )
 
-    def test_setup_secrets_store_not_authenticated(self, mocker):
+    def test_setup_vault_store_not_authenticated(self, mocker):
         """
-        Test setup_secrets_store raises StoreError when the client is not
+        Test setup_vault_store raises StoreError when the client is not
         properly authenticated.
         """
         # Given: environment variables are set but client is not authenticated
@@ -234,7 +234,7 @@ class TestSecretsInit:
         # When: setup_secrets_store is called
         # Then: it raises StoreError about authentication
         with pytest.raises(StoreError, match="Vault client not authenticated"):
-            setup_secrets_store()
+            setup_vault_store()
 
     def test_setup_secrets_store_connection_error(self, mocker):
         """Test setup_secrets_store raises StoreError on ConnectionError."""
@@ -257,5 +257,5 @@ class TestSecretsInit:
 
         # When: setup_secrets_store is called
         # Then: it raises StoreError about unable to create client
-        with pytest.raises(StoreError, match="Unable to create Vault client"):
-            setup_secrets_store()
+        with pytest.raises(StoreError, match="Vault client unable to connect"):
+            setup_vault_store()
