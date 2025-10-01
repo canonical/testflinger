@@ -47,6 +47,14 @@ base: ubuntu@22.04
 platforms:
   amd64:
 
+actions:
+  set-admin-password:
+    description: Update or set a password for admin user
+    params:
+      password:
+        type: string
+        description: The password to set to admin user.
+
 config:
   options:
     external_hostname:

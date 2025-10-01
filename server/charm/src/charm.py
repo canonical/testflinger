@@ -19,6 +19,7 @@
 import logging
 import sys
 
+import bcrypt
 import ops
 from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseCreatedEvent,
@@ -28,8 +29,12 @@ from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
 from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 from ops.main import main
 from ops.pebble import Layer
+from pymongo import MongoClient
+from pymongo.errors import PyMongoError
 
 logger = logging.getLogger(__name__)
+
+TESTFLINGER_ADMIN_ID = "testflinger-admin"
 
 
 class TestflingerCharm(ops.CharmBase):
@@ -81,6 +86,9 @@ class TestflingerCharm(ops.CharmBase):
             self.on.testflinger_pebble_ready, self._on_testflinger_pebble_ready
         )
         self.framework.observe(self.on.config_changed, self._on_config_changed)
+        self.framework.observe(
+            self.on.set_admin_password_action, self.on_set_admin_password
+        )
 
     @property
     def version(self) -> str:
@@ -269,6 +277,79 @@ class TestflingerCharm(ops.CharmBase):
             "db_database": database,
         }
         return db_data
+
+    def on_set_admin_password(self, event: ops.ActionEvent):
+        """Update or set admin password to admin user."""
+        # Do not perform action if we are not application leader
+        if not self.unit.is_leader():
+            event.fail("Action can only be executed on leader unit")
+            return
+
+        admin_secret = event.params.get("password")
+        if not admin_secret:
+            event.fail("Password parameter is required")
+            return
+
+        try:
+            db = self.connect_to_mongodb()
+            if db is None:
+                event.fail("Unable to connect to MongoDB")
+                return
+
+            admin_secret_hash = bcrypt.hashpw(
+                admin_secret.encode("utf-8"), bcrypt.gensalt()
+            ).decode()
+
+            if self.check_client_exist(db):
+                # Update existing admin user to rotate its password
+                db.client_permissions.update_one(
+                    {"client_id": TESTFLINGER_ADMIN_ID},
+                    {"$set": {"client_secret_hash": admin_secret_hash}},
+                )
+                event.set_results(
+                    {"result": "Admin password updated successfully"}
+                )
+            else:
+                # Create new admin user
+                db.client_permissions.insert_one(
+                    {
+                        "client_id": TESTFLINGER_ADMIN_ID,
+                        "client_secret_hash": admin_secret_hash,
+                        "role": "admin",
+                    }
+                )
+                event.set_results(
+                    {"result": "Admin user created successfully"}
+                )
+
+        except PyMongoError as e:
+            logger.error("MongoDB operation failed: %s", str(e))
+            event.fail(f"MongoDB operation failed: {str(e)}")
+
+    def connect_to_mongodb(self):
+        """Get Mongo credentials from relation data and setup connection."""
+        # Determine if we are already connected to database
+        relation_data = self.mongodb.fetch_relation_data()
+        if not relation_data:
+            logger.error("Unable to retrieve database information")
+            return None
+
+        # Get db_data from relation.
+        db_data = next(iter(relation_data.values()))
+        if db_data and "uris" in db_data:
+            mongo_client = MongoClient(host=db_data["uris"])
+            return mongo_client[db_data["database"]]
+
+        return None
+
+    def check_client_exist(self, db: MongoClient):
+        """Validate if client_id already exists in collection."""
+        return (
+            db.client_permissions.count_documents(
+                {"client_id": TESTFLINGER_ADMIN_ID}, limit=1
+            )
+            != 0
+        )
 
 
 if __name__ == "__main__":
