@@ -25,6 +25,7 @@ import pytest
 import testflinger_cli
 from testflinger_cli.consts import ServerRoles
 from testflinger_cli.errors import AuthorizationError
+
 from .test_cli import URL
 
 
@@ -424,7 +425,7 @@ def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
     sys.argv = [
         "",
         "admin",
-        "set",
+        "update",
         "client-permissions",
         "--testflinger-client-id",
         fake_client_id,
@@ -433,7 +434,7 @@ def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
     ]
 
     # Mock that the client exists with all permissions
-    existing_permissions = {
+    existing_data = {
         "client_id": fake_client_id,
         "max_priority": {"q1": 10},
         "allowed_queues": [],
@@ -443,21 +444,32 @@ def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
     requests_mock.get(
         URL + f"/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.OK,
-        json=existing_permissions,
+        json=existing_data,
     )
     # Mock the PUT request for editing
-    requests_mock.put(
+    put_mock = requests_mock.put(
         URL + f"/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.OK,
     )
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.admin_cli.set_client_permissions()
+    tfcli = testflinger_cli.TestflingerCli().run()
     std = capsys.readouterr()
-    assert f"Updating existing client '{fake_client_id}'..." in std.out
     assert (
         f"Client '{fake_client_id}' permissions updated successfully"
         in std.out
     )
+    # Verify all permissions remain the same except the role
+    updated_data = put_mock.last_request.json()
+
+    # Verify existing fields are preserved and only role is updated
+    for permission in [
+        "max_priority",
+        "allowed_queues",
+        "max_reservation_time",
+    ]:
+        assert updated_data[permission] == existing_data[permission]
+
+    # Only role should be updated
+    assert updated_data["role"] == ServerRoles.MANAGER
 
 
 def test_failed_client_creation_schema_validation(
