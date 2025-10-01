@@ -26,6 +26,8 @@ from typing import Callable, List, Optional, Tuple
 
 from testflinger_common.enums import TestEvent
 
+from testflinger_agent.masking import Masker
+
 logger = logging.getLogger(__name__)
 
 OutputHandlerType = Callable[[str], None]
@@ -152,6 +154,19 @@ class CommandRunner:
             stop_reason = get_stop_reason(self.process.returncode, "")
 
         return self.process.returncode, stop_event, stop_reason
+
+
+class MaskingCommandRunner(CommandRunner):
+    """A CommandRunner that masks sensitive information in the output."""
+
+    def __init__(self, *args, masker: Masker, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.masker = masker
+
+    def post_output(self, data: str):
+        # mask sensitive information before posting output data
+        data = self.masker.apply(data)
+        super().post_output(data)
 
 
 def get_stop_reason(returncode: int, stop_reason: str) -> str:
