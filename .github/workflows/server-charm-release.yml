@@ -17,11 +17,6 @@ on:
         options:
           - latest/beta
           - latest/edge
-      release-from-branch:
-        description: Use the Docker image built from the current branch
-        required: false
-        type: boolean
-        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -76,7 +71,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Modify charmcraft.yaml OCI Image
-        if: fromJSON(inputs.release-from-branch)
+        if: github.event_name == 'workflow_dispatch'
         env:
           IMAGE_FROM_BRANCH: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
         run: sed -i "s|ghcr.io/canonical/testflinger:main|$IMAGE_FROM_BRANCH|g" server/charm/charmcraft.yaml
