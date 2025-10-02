@@ -291,11 +291,13 @@ class TestflingerAdminCLI:
 
         # Validate if client exist, this is for logging purposes
         try:
-            client_exist = self.main_cli.client.get_client_permissions(
-                auth_header, tf_client_id
+            client_exist = bool(
+                self.main_cli.client.get_client_permissions(
+                    auth_header, tf_client_id
+                )
             )
         except client.HTTPError:
-            client_exist = None
+            client_exist = False
 
         try:
             self.main_cli.client.set_client_permissions(auth_header, json_data)
