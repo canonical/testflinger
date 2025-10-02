@@ -353,7 +353,7 @@ class TestflingerAdminCLI:
             return
         except client.HTTPError as exc:
             if exc.status != HTTPStatus.NOT_FOUND:
-                # If any other HTTP error, checking client existance failed
+                # If any other HTTP error, checking client existence failed
                 logger.error(
                     "Error while trying to check client existence: %s", exc.msg
                 )
