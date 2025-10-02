@@ -45,7 +45,6 @@ class TestflingerAdminCLI:
         self._add_set_args(admin_subparser)
         self._add_get_args(admin_subparser)
         self._add_delete_args(admin_subparser)
-        self._add_update_args(admin_subparser)
 
     def _add_set_args(self, subparsers):
         """Command line arguments for set action."""
@@ -77,16 +76,6 @@ class TestflingerAdminCLI:
             dest="delete_command", required=True
         )
         self._add_delete_client_permissions_args(delete_subparser)
-
-    def _add_update_args(self, subparsers):
-        """Command line arguments for update action."""
-        parser = subparsers.add_parser(
-            "update", help="Perform update action on subcommand"
-        )
-        update_subparser = parser.add_subparsers(
-            dest="update_command", required=True
-        )
-        self._add_update_client_permissions_args(update_subparser)
 
     def _add_set_agent_status_args(self, subparsers):
         """Command line arguments for agent status."""
@@ -129,12 +118,10 @@ class TestflingerAdminCLI:
         parser.add_argument(
             "--max-priority",
             help="Max priority defined for specified queues for client_id",
-            default="{}",
         )
         parser.add_argument(
             "--max-reservation",
             help="Max reservation time defined specified queues for client_id",
-            default="{}",
         )
         parser.add_argument(
             "--role",
@@ -144,7 +131,6 @@ class TestflingerAdminCLI:
                 ServerRoles.MANAGER,
                 ServerRoles.CONTRIBUTOR,
             ],
-            default=ServerRoles.CONTRIBUTOR,
         )
         parser.add_argument(
             "--json", help="Optional JSON data with client_permissions"
@@ -172,41 +158,6 @@ class TestflingerAdminCLI:
             "--testflinger-client-id",
             required=True,
             help="client_id to delete from database",
-        )
-        self.main_cli._add_auth_args(parser)
-
-    def _add_update_client_permissions_args(self, subparsers):
-        parser = subparsers.add_parser(
-            "client-permissions", help="Set permissions for a client_id"
-        )
-        parser.set_defaults(func=self.update_client_permissions)
-        parser.add_argument(
-            "--testflinger-client-id",
-            help="Client_id to set permissions",
-        )
-        parser.add_argument(
-            "--testflinger-client-secret",
-            help="Secret key to be defined for client_id",
-        )
-        parser.add_argument(
-            "--max-priority",
-            help="Max priority defined for specified queues for client_id",
-        )
-        parser.add_argument(
-            "--max-reservation",
-            help="Max reservation time defined specified queues for client_id",
-        )
-        parser.add_argument(
-            "--role",
-            help="Role defined for client_id",
-            choices=[
-                ServerRoles.ADMIN,
-                ServerRoles.MANAGER,
-                ServerRoles.CONTRIBUTOR,
-            ],
-        )
-        parser.add_argument(
-            "--json", help="Optional JSON data with client_permissions"
         )
         self.main_cli._add_auth_args(parser)
 
@@ -338,81 +289,40 @@ class TestflingerAdminCLI:
         if not tf_client_id:
             sys.exit("Error: client_id cannot be empty")
 
-        # Check if client already exists
+        # Validate if client exist, this is for logging purposes
         try:
-            self.main_cli.client.get_client_permissions(
+            client_exist = self.main_cli.client.get_client_permissions(
                 auth_header, tf_client_id
             )
+        except client.HTTPError:
+            client_exist = None
 
-            # Client exists if check succeeds, log an error and exit
-            logger.error(
-                "Client id %s already exists. For updating "
-                "client permissions, please use the update command.",
-                tf_client_id,
-            )
-            return
-        except client.HTTPError as exc:
-            if exc.status != HTTPStatus.NOT_FOUND:
-                # If any other HTTP error, checking client existence failed
-                logger.error(
-                    "Error while trying to check client existence: %s", exc.msg
-                )
-                return
-
-        # If we got here, the client id doesn't exist, attempt to create
-        print(f"Creating new client '{tf_client_id}'...")
         try:
-            self.main_cli.client.create_client_permissions(
-                auth_header, json_data
-            )
-            print(f"Client '{tf_client_id}' created successfully")
+            self.main_cli.client.set_client_permissions(auth_header, json_data)
         except client.HTTPError as exc:
-            if exc.status == HTTPStatus.UNPROCESSABLE_ENTITY:
-                # Schema validation failed
+            if exc.status in [
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                HTTPStatus.BAD_REQUEST,
+                HTTPStatus.FORBIDDEN,
+            ]:
                 # Failure reason is clearly stated in msg from server
+                # Unprocessable entity: Schema Validation
+                # Bad Request: Missing client secret for new client
+                # Forbidden: User is not entitled to modify account
                 logger.error(exc.msg)
             else:
+                # Any other HTTP errors
                 logger.error(
-                    "Failed to create client: %s",
+                    "Failed to set client permissions: %s",
                     exc.msg,
                 )
+            return
 
-    @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
-    def update_client_permissions(self):
-        """Update provided permissions for specified client."""
-        # Get the authentication header to perform authenticated PUT request
-        auth_header = self.main_cli.auth.build_headers()
-
-        # Provided JSON data can be single or multiple values to edit
-        json_data = self._parse_client_permissions()
-        tf_client_id = json_data.get("client_id")
-
-        if not tf_client_id:
-            sys.exit("Error: client_id cannot be empty")
-
-        try:
-            # Get current client permissions
-            current_permissions = self.main_cli.client.get_client_permissions(
-                auth_header, tf_client_id
-            )
-
-            updated_permissions = current_permissions.copy()
-            updated_permissions.update(json_data)
-
-            self.main_cli.client.edit_client_permissions(
-                auth_header, updated_permissions
-            )
-            print(f"Client '{tf_client_id}' permissions updated successfully")
-        except client.HTTPError as exc:
-            if exc.status == HTTPStatus.NOT_FOUND:
-                logger.error(
-                    "Provided testflinger client_id does not exists. "
-                    "For creating a new client, please use the set command."
-                )
-            elif exc.status == HTTPStatus.UNPROCESSABLE_ENTITY:
-                # Schema validation failed
-                # Failure reason is clearly stated in msg from server
-                logger.error(exc.msg)
+        # Log client_permission status
+        if not client_exist:
+            print(f"Client '{tf_client_id}' created successfully")
+        else:
+            print(f"Client '{tf_client_id}' updated successfully")
 
     @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
     def get_client_permissions(self):

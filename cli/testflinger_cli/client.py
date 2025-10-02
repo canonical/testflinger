@@ -447,16 +447,7 @@ class Client:
         data = {"state": status, "comment": comment}
         self.post(endpoint, data)
 
-    def create_client_permissions(self, auth_header: dict, json_data: dict):
-        """Create new client_id with specified permissions.
-
-        :param auth_header: Auth header required to perform POST request
-        :param json_data: JSON with all client permissions
-        """
-        endpoint = "/v1/client-permissions"
-        self.post(endpoint, data=json_data, headers=auth_header)
-
-    def edit_client_permissions(self, auth_header: dict, json_data: dict):
+    def set_client_permissions(self, auth_header: dict, json_data: dict):
         """Edit existing client_id permissions.
 
         :param auth_header: Auth header required to perform PUT request
