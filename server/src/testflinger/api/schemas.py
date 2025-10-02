@@ -485,15 +485,17 @@ images_out = {
 class ClientPermissionsIn(Schema):
     """Client Permissions output schema."""
 
-    client_id = fields.String(required=False)  # Optional for schema reuse
     client_secret = fields.String(required=False)  # Optional for schema reuse
     max_priority = fields.Dict(
         keys=fields.String(),
         values=fields.Integer(),
-        required=True,
-        allow_none=True,
+        required=False,
     )
-    max_reservation_time = fields.Dict(required=True, allow_none=True)
+    max_reservation_time = fields.Dict(
+        keys=fields.String(),
+        values=fields.Integer(),
+        required=False,
+    )
     role = fields.String(
         required=False, validate=OneOf([role.value for role in ServerRoles])
     )

@@ -24,8 +24,8 @@ from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
 import jwt
-import pytest
 
+from testflinger.api.v1 import TESTFLINGER_ADMIN_ID
 from testflinger.enums import ServerRoles
 
 
@@ -640,24 +640,22 @@ def test_add_client_permissions(mongo_app_with_permissions):
     token = get_access_token(app, client_id, client_key)
 
     # Define client_id and permissions
+    client_id = "test_client"
     client_permissions = {
-        "client_id": "test_client",
         "client_secret": "my-secret-password",
         "max_priority": {"*": 10},
         "max_reservation_time": {"*": 40000},
         "role": ServerRoles.CONTRIBUTOR,
     }
 
-    output = app.post(
-        "/v1/client-permissions",
+    output = app.put(
+        f"/v1/client-permissions/{client_id}",
         json=client_permissions,
         headers={"Authorization": token},
     )
 
     # Retrieve data from Database
-    client_entry = mongo.client_permissions.find_one(
-        {"client_id": "test_client"}
-    )
+    client_entry = mongo.client_permissions.find_one({"client_id": client_id})
 
     assert output.status_code == HTTPStatus.OK
     assert client_entry is not None
@@ -748,13 +746,43 @@ def test_delete_client_permissions(mongo_app_with_permissions):
     assert "clientA" not in client_ids
 
 
-@pytest.mark.parametrize("method", ["post", "put", "delete"])
-def test_api_methods_for_testflinger_admin(mongo_app_with_permissions, method):
-    """Test specified API methods are rejected for testflinger-admin client."""
+def test_delete_non_existing_client(mongo_app_with_permissions):
+    """Test deleting a a non existing client_id fails."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, client_id, client_key)
+
+    output = app.delete(
+        "/v1/client-permissions/test_client", headers={"Authorization": token}
+    )
+    assert output.status_code == HTTPStatus.NOT_FOUND
+
+    # Validate it was aborted with correct message
+    error_response = output.json
+    assert (
+        "Error: Specified client_id does not exist."
+        in error_response["message"]
+    )
+
+
+def test_delete_testflinger_admin(mongo_app_with_permissions):
+    """Test deleting testflinger-admin is unsuccessful."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     token = get_access_token(app, client_id, client_key)
 
-    # Define permission to set if POST or PUT request
+    # No need to mock this client_id creation, request should be rejected
+    output = app.delete(
+        f"/v1/client-permissions/{TESTFLINGER_ADMIN_ID}",
+        headers={"Authorization": token},
+    )
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_create_edit_fail_for_testflinger_admin(mongo_app_with_permissions):
+    """Test creation/update fails for testflinger admin client id."""
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, client_id, client_key)
+
+    # Define permission to set for PUT request
     permissions = {
         "client_id": "testflinger-admin",
         "client_secret": "test-secret",
@@ -763,21 +791,11 @@ def test_api_methods_for_testflinger_admin(mongo_app_with_permissions, method):
         "role": ServerRoles.CONTRIBUTOR,
     }
 
-    # Determine endpoint to be used for request
-    if method == "post":
-        endpoint = "/v1/client-permissions"
-    else:
-        endpoint = "/v1/client-permissions/testflinger-admin"
-
-    # Call the appropriate HTTP method
-    http_method = getattr(app, method)
-    if method in ["post", "put"]:
-        output = http_method(
-            endpoint, json=permissions, headers={"Authorization": token}
-        )
-    else:
-        output = http_method(endpoint, headers={"Authorization": token})
-
+    output = app.put(
+        f"/v1/client-permissions/{TESTFLINGER_ADMIN_ID}",
+        json=permissions,
+        headers={"Authorization": token},
+    )
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
@@ -787,16 +805,16 @@ def test_create_client_permissions_invalid_role(mongo_app_with_permissions):
     token = get_access_token(app, client_id, client_key)
 
     # Send invalid role
+    client_id = "test_client"
     client_permissions = {
-        "client_id": "test_client",
         "client_secret": "my-secret-password",
         "max_priority": {"*": 10},
         "max_reservation_time": {"*": 40000},
         "role": "invalid_role",
     }
 
-    output = app.post(
-        "/v1/client-permissions",
+    output = app.put(
+        f"/v1/client-permissions/{client_id}",
         json=client_permissions,
         headers={"Authorization": token},
     )
@@ -807,6 +825,32 @@ def test_create_client_permissions_invalid_role(mongo_app_with_permissions):
     assert "Must be one of" in str(error_response["detail"]["json"]["role"])
 
 
+def test_create_client_with_missing_secret(mongo_app_with_permissions):
+    """Test creating client fails due to missing secret."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, client_id, client_key)
+
+    # Malformed max_priority and max_reservation_time
+    client_id = "test_client"
+    client_permissions = {
+        "max_priority": {},
+        "max_reservation_time": {},
+    }
+    output = app.put(
+        f"/v1/client-permissions/{client_id}",
+        json=client_permissions,
+        headers={"Authorization": token},
+    )
+    assert output.status_code == HTTPStatus.BAD_REQUEST
+
+    # Validate it was aborted with correct message
+    error_response = output.json
+    assert (
+        "Missing client_secret in request body for new client"
+        in error_response["message"]
+    )
+
+
 def test_create_client_permissions_missing_required_fields(
     mongo_app_with_permissions,
 ):
@@ -814,14 +858,16 @@ def test_create_client_permissions_missing_required_fields(
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
     token = get_access_token(app, client_id, client_key)
 
-    # Missing required fields (max_priority, max_reservation_time)
+    # Malformed max_priority and max_reservation_time
+    client_id = "test_client"
     client_permissions = {
-        "client_id": "test_client",
         "client_secret": "my-secret-password",
+        "max_priority": "q1:1000",
+        "max_reservation_time": "",
     }
 
-    output = app.post(
-        "/v1/client-permissions",
+    output = app.put(
+        f"/v1/client-permissions/{client_id}",
         json=client_permissions,
         headers={"Authorization": token},
     )
@@ -834,42 +880,8 @@ def test_create_client_permissions_missing_required_fields(
     assert "max_priority" in json_errors
     assert "max_reservation_time" in json_errors
 
-
-def test_create_client_permissions_duplicate_client(
-    mongo_app_with_permissions,
-):
-    """Test creating duplicate client fails with conflict error."""
-    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-    token = get_access_token(app, client_id, client_key)
-
-    client_permissions = {
-        "client_id": "test_client",
-        "client_secret": "my-secret-password",
-        "max_priority": {"*": 10},
-        "max_reservation_time": {"*": 40000},
-        "role": ServerRoles.CONTRIBUTOR,
-    }
-
-    # Create client
-    output1 = app.post(
-        "/v1/client-permissions",
-        json=client_permissions,
-        headers={"Authorization": token},
-    )
-    assert output1.status_code == HTTPStatus.OK
-
-    # Attempt to create same client
-    output2 = app.post(
-        "/v1/client-permissions",
-        json=client_permissions,
-        headers={"Authorization": token},
-    )
-    assert output2.status_code == HTTPStatus.CONFLICT
-    error_response = output2.json
-    assert "Client already exists" in error_response["message"]
-
     # Cleanup
-    mongo.client_permissions.delete_one({"client_id": "test_client"})
+    mongo.client_permissions.delete_one({"client_id": client_id})
 
 
 def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
@@ -877,8 +889,8 @@ def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
     token = get_access_token(app, client_id, client_key)
 
+    manager_id = "test_manager"
     manager_permissions = {
-        "client_id": "test_manager",
         "client_secret": "my-secret-password",
         "max_priority": {},
         "max_reservation_time": {},
@@ -886,8 +898,8 @@ def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
     }
 
     # First create manager client_id
-    output1 = app.post(
-        "/v1/client-permissions",
+    output1 = app.put(
+        f"/v1/client-permissions/{manager_id}",
         json=manager_permissions,
         headers={"Authorization": token},
     )
@@ -896,7 +908,7 @@ def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
     # Get manager token
     manager_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header("test_manager", "my-secret-password"),
+        headers=create_auth_header(manager_id, "my-secret-password"),
     )
     manager_token = manager_auth_output.get_json()["access_token"]
 
@@ -916,7 +928,7 @@ def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
     assert "Insufficient permissions to modify" in error_response["message"]
 
     # Cleanup
-    mongo.client_permissions.delete_one({"client_id": "test_manager"})
+    mongo.client_permissions.delete_one({"client_id": manager_id})
 
 
 def test_role_hierachy_create_permissions(mongo_app_with_permissions):
@@ -924,8 +936,8 @@ def test_role_hierachy_create_permissions(mongo_app_with_permissions):
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
     token = get_access_token(app, client_id, client_key)
 
+    manager_id = "test_manager"
     manager_permissions = {
-        "client_id": "test_manager",
         "client_secret": "my-secret-password",
         "max_priority": {},
         "max_reservation_time": {},
@@ -933,8 +945,8 @@ def test_role_hierachy_create_permissions(mongo_app_with_permissions):
     }
 
     # First create manager client_id
-    output1 = app.post(
-        "/v1/client-permissions",
+    output1 = app.put(
+        f"/v1/client-permissions/{manager_id}",
         json=manager_permissions,
         headers={"Authorization": token},
     )
@@ -943,29 +955,31 @@ def test_role_hierachy_create_permissions(mongo_app_with_permissions):
     # Get manager token
     manager_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header("test_manager", "my-secret-password"),
+        headers=create_auth_header(manager_id, "my-secret-password"),
     )
     manager_token = manager_auth_output.get_json()["access_token"]
 
     # Attempt to create new admin account
+    fake_admin = "new_admin"
     admin_permissions = {
-        "client_id": "new_admin",
         "client_secret": "my-admin-secret",
         "role": ServerRoles.ADMIN,
         "max_priority": {"*": 100},
         "max_reservation_time": {"*": 20000},
     }
-    output2 = app.post(
-        "/v1/client-permissions",
+    output2 = app.put(
+        f"/v1/client-permissions/{fake_admin}",
         json=admin_permissions,
         headers={"Authorization": manager_token},
     )
     assert output2.status_code == HTTPStatus.FORBIDDEN
     error_response = output2.json
-    assert "Insufficient permissions to create" in error_response["message"]
+    assert (
+        "Insufficient permissions to assign role" in error_response["message"]
+    )
 
     # Cleanup
-    mongo.client_permissions.delete_one({"client_id": "test_manager"})
+    mongo.client_permissions.delete_one({"client_id": manager_id})
 
 
 def test_update_secret_for_client_id(mongo_app_with_permissions):
@@ -973,8 +987,8 @@ def test_update_secret_for_client_id(mongo_app_with_permissions):
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
     token = get_access_token(app, client_id, client_key)
 
+    client_id = "test_user"
     client_permissions = {
-        "client_id": "test_user",
         "client_secret": "my-secret-password",
         "max_priority": {},
         "max_reservation_time": {},
@@ -982,8 +996,8 @@ def test_update_secret_for_client_id(mongo_app_with_permissions):
     }
 
     # First create client_id
-    output1 = app.post(
-        "/v1/client-permissions",
+    output1 = app.put(
+        f"/v1/client-permissions/{client_id}",
         json=client_permissions,
         headers={"Authorization": token},
     )
@@ -991,13 +1005,12 @@ def test_update_secret_for_client_id(mongo_app_with_permissions):
 
     # Get the original hashed password
     original_record = mongo.client_permissions.find_one(
-        {"client_id": "test_user"}
+        {"client_id": client_id}
     )
     original_hash = original_record["client_secret_hash"]
 
     # Modify only secret key for client id
     updated_permissions = {
-        "client_id": "test_user",
         "client_secret": "updated-password",
         "max_priority": {},
         "max_reservation_time": {},
@@ -1005,7 +1018,7 @@ def test_update_secret_for_client_id(mongo_app_with_permissions):
 
     # Send PUT request
     output2 = app.put(
-        "/v1/client-permissions/test_user",
+        f"/v1/client-permissions/{client_id}",
         json=updated_permissions,
         headers={"Authorization": token},
     )
@@ -1013,7 +1026,7 @@ def test_update_secret_for_client_id(mongo_app_with_permissions):
 
     # Verify the hashed password has changed
     updated_record = mongo.client_permissions.find_one(
-        {"client_id": "test_user"}
+        {"client_id": client_id}
     )
     updated_hash = updated_record["client_secret_hash"]
     assert updated_hash != original_hash
@@ -1111,15 +1124,15 @@ def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
     admin_token = get_access_token(app, client_id, client_key)
 
+    client_id = "test_user"
     contributor_permissions = {
-        "client_id": "test_user",
         "client_secret": "user-secret",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
     }
-    authenticate_output = app.post(
-        "/v1/client-permissions",
+    authenticate_output = app.put(
+        f"/v1/client-permissions/{client_id}",
         json=contributor_permissions,
         headers={"Authorization": admin_token},
     )
@@ -1127,7 +1140,7 @@ def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
 
     output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header("test_user", "user-secret"),
+        headers=create_auth_header(client_id, "user-secret"),
     )
     assert output.status_code == HTTPStatus.OK
     refresh_token = output.get_json()["refresh_token"]
@@ -1135,8 +1148,8 @@ def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
     stored = mongo.refresh_tokens.find_one({"refresh_token": refresh_token})
     assert stored.get("expires_at") is not None
 
-    mongo.client_permissions.delete_one({"client_id": "test_user"})
-    mongo.refresh_tokens.delete_many({"client_id": "test_user"})
+    mongo.client_permissions.delete_one({"client_id": client_id})
+    mongo.refresh_tokens.delete_many({"client_id": client_id})
 
 
 def test_revoke_refresh_token(mongo_app_with_permissions):
@@ -1144,15 +1157,15 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
     admin_token = get_access_token(app, client_id, client_key)
 
+    client_id = "test_user"
     contributor_permissions = {
-        "client_id": "test_user",
         "client_secret": "user-secret",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
     }
-    output = app.post(
-        "/v1/client-permissions",
+    output = app.put(
+        f"/v1/client-permissions/{client_id}",
         json=contributor_permissions,
         headers={"Authorization": admin_token},
     )
@@ -1160,7 +1173,7 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
 
     contributor_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header("test_user", "user-secret"),
+        headers=create_auth_header(client_id, "user-secret"),
     )
     assert contributor_auth_output.status_code == HTTPStatus.OK
     refresh_token = contributor_auth_output.get_json()["refresh_token"]
@@ -1179,8 +1192,8 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
     )
     assert refreshed.status_code == HTTPStatus.BAD_REQUEST
 
-    mongo.client_permissions.delete_one({"client_id": "test_user"})
-    mongo.refresh_tokens.delete_one({"client_id": "test_user"})
+    mongo.client_permissions.delete_one({"client_id": client_id})
+    mongo.refresh_tokens.delete_one({"client_id": client_id})
 
 
 def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
@@ -1188,22 +1201,22 @@ def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
     admin_token = get_access_token(app, client_id, client_key)
 
+    client_id = "test_user"
     user_perm = {
-        "client_id": "test_user",
         "client_secret": "user-secret",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
     }
-    app.post(
-        "/v1/client-permissions",
+    app.put(
+        f"/v1/client-permissions/{client_id}",
         json=user_perm,
         headers={"Authorization": admin_token},
     )
 
     contributor_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header("test_user", "user-secret"),
+        headers=create_auth_header(client_id, "user-secret"),
     )
     user_json = contributor_auth_output.get_json()
     user_access_token = user_json["access_token"]
@@ -1216,8 +1229,8 @@ def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
     )
     assert attempt.status_code == HTTPStatus.FORBIDDEN
 
-    mongo.client_permissions.delete_one({"client_id": "test_user"})
-    mongo.refresh_tokens.delete_many({"client_id": "test_user"})
+    mongo.client_permissions.delete_one({"client_id": client_id})
+    mongo.refresh_tokens.delete_many({"client_id": client_id})
 
 
 def test_revoke_with_missing_token_field(mongo_app_with_permissions):
@@ -1236,22 +1249,22 @@ def test_revoke_already_revoked_token(mongo_app_with_permissions):
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
     token = get_access_token(app, client_id, client_key)
 
+    client_id = "test_user"
     user_perm = {
-        "client_id": "test_user",
         "client_secret": "user-secret",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
     }
-    app.post(
-        "/v1/client-permissions",
+    app.put(
+        f"/v1/client-permissions/{client_id}",
         json=user_perm,
         headers={"Authorization": token},
     )
 
     user_auth = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header("test_user", "user-secret"),
+        headers=create_auth_header(client_id, "user-secret"),
     )
     refresh_token = user_auth.get_json()["refresh_token"]
 
