@@ -448,7 +448,7 @@ class Client:
         self.post(endpoint, data)
 
     def set_client_permissions(self, auth_header: dict, json_data: dict):
-        """Edit existing client_id permissions.
+        """Set existing client_id permissions.
 
         :param auth_header: Auth header required to perform PUT request
         :param json_data: JSON with updated client permissions

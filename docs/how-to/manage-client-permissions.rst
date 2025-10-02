@@ -53,20 +53,20 @@ You can create a new ``client_id`` by using individual arguments or by using ``j
 Update ``client_id``
 ~~~~~~~~~~~~~~~~~~~~
 
-You can edit an existing ``client_id`` by using the ``update`` subcommand with only the necessary modifications. 
+You can edit an existing ``client_id`` by using the same ``set`` subcommand with only the necessary modifications. 
 
 In the following examples, both max_priority and max_reservation are to be updated but providing single argument is also valid.
-This can be useful for secret rotation (by specifying ``--testflinger-client-secret``) without modifying the other permissions.
+This can be useful for secret rotation (by specifying just ``--testflinger-client-secret``) without modifying the other permissions.
 
 .. code-block:: shell
 
-    testflinger-cli admin update client-permissions \
+    testflinger-cli admin set client-permissions \
     --testflinger-client-id "clientA" \
     --max-priority '{"q2": 10}' --max-reservation '{"q2": 43200}'
 
 .. code-block:: shell
 
-    testflinger-cli admin update client-permissions \
+    testflinger-cli admin set client-permissions \
     --json '{"client_id": "clientA", "max_priority": {"q2": 10}, "max_reservation_time": {"q2": 43200}}'
 
 .. tip::
