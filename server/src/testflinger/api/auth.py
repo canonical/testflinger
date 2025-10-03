@@ -288,28 +288,6 @@ def require_role(*roles):
     return decorator
 
 
-def check_role_hierarchy(user_role: str, target_role: str) -> bool:
-    """
-    Check role of current user to validate if authorized to perform action.
-
-    :param user_role: Role of the user making the request.
-    :param target_role: Role being assigned or modified.
-    :return: True if allowed, False otherwise.
-    """
-    role_levels = {
-        ServerRoles.USER: 1,
-        ServerRoles.CONTRIBUTOR: 2,
-        ServerRoles.MANAGER: 3,
-        ServerRoles.ADMIN: 4,
-    }
-
-    current_level = role_levels.get(user_role, 0)
-    target_level = role_levels.get(target_role, 0)
-
-    # Users can modify roles at their level or below
-    return current_level >= target_level
-
-
 def generate_refresh_token(client_id: str, expires_in: int | None) -> str:
     """
     Generate opaque string as a new refresh token.
