@@ -245,6 +245,15 @@ class DefaultDevice:
         if "env" not in config:
             config["env"] = {}
         config["env"].update(extra_env)
+
+        # inject test phase secrets into the environment
+        try:
+            secrets = test_opportunity["test_data"]["secrets"]
+        except KeyError:
+            pass
+        else:
+            config["env"].update(secrets)
+
         try:
             exitcode = testflinger_device_connectors.run_test_cmds(
                 test_cmds, config
