@@ -1115,7 +1115,7 @@ def create_client_permissions(json_data: dict) -> str:
 
     # Check role hierarchy
     target_role = json_data.get("role", ServerRoles.CONTRIBUTOR)
-    if not auth.check_role_hierarchy(g.role, target_role):
+    if ServerRoles(g.role) < ServerRoles(target_role):
         abort(
             HTTPStatus.FORBIDDEN,
             (
@@ -1156,7 +1156,7 @@ def edit_client_permissions(client_id: str, json_data: dict) -> str:
     current_role = current_permissions.get("role", ServerRoles.CONTRIBUTOR)
 
     # Check role hierarchy
-    if not auth.check_role_hierarchy(g.role, current_role):
+    if ServerRoles(g.role) < ServerRoles(current_role):
         abort(
             HTTPStatus.FORBIDDEN,
             (
@@ -1177,7 +1177,7 @@ def edit_client_permissions(client_id: str, json_data: dict) -> str:
     # Check role hierarchy for new role if being updated
     if "role" in update_fields:
         new_role = update_fields["role"]
-        if not auth.check_role_hierarchy(g.role, new_role):
+        if ServerRoles(g.role) < ServerRoles(new_role):
             abort(
                 HTTPStatus.FORBIDDEN,
                 f"Insufficient permissions to assign role: {new_role}",
