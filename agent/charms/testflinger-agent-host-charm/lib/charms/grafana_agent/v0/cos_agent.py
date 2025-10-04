@@ -254,16 +254,12 @@ if TYPE_CHECKING:
 
 LIBID = "dc15fa84cef84ce58155fb84f6c6213a"
 LIBAPI = 0
-LIBPATCH = 20
+LIBPATCH = 22
 
 PYDEPS = ["cosl >= 0.0.50", "pydantic"]
 
 DEFAULT_RELATION_NAME = "cos-agent"
 DEFAULT_PEER_RELATION_NAME = "peers"
-DEFAULT_SCRAPE_CONFIG = {
-    "static_configs": [{"targets": ["localhost:80"]}],
-    "metrics_path": "/metrics",
-}
 
 logger = logging.getLogger(__name__)
 SnapEndpoint = namedtuple("SnapEndpoint", "owner, name")
@@ -472,7 +468,7 @@ else:
             return databag
 
 
-class CosAgentProviderUnitData(DatabagModel):
+class CosAgentProviderUnitData(DatabagModel):  # type: ignore
     """Unit databag model for `cos-agent` relation."""
 
     # The following entries are the same for all units of the same principal.
@@ -499,7 +495,7 @@ class CosAgentProviderUnitData(DatabagModel):
     KEY: ClassVar[str] = "config"
 
 
-class CosAgentPeersUnitData(DatabagModel):
+class CosAgentPeersUnitData(DatabagModel):  # type: ignore
     """Unit databag model for `peers` cos-agent machine charm peer relation."""
 
     # We need the principal unit name and relation metadata to be able to render identifiers
@@ -598,7 +594,7 @@ class Receiver(pydantic.BaseModel):
     )
 
 
-class CosAgentRequirerUnitData(DatabagModel):  # noqa: D101
+class CosAgentRequirerUnitData(DatabagModel):  # type: ignore
     """Application databag model for the COS-agent requirer."""
 
     receivers: List[Receiver] = pydantic.Field(
@@ -714,7 +710,7 @@ class COSAgentProvider(Object):
                 }
             )
 
-        scrape_configs = scrape_configs or [DEFAULT_SCRAPE_CONFIG]
+        scrape_configs = scrape_configs or []
 
         # Augment job name to include the app name and a unique id (index)
         for idx, scrape_config in enumerate(scrape_configs):
@@ -923,6 +919,7 @@ class COSAgentRequirer(Object):
         relation_name: str = DEFAULT_RELATION_NAME,
         peer_relation_name: str = DEFAULT_PEER_RELATION_NAME,
         refresh_events: Optional[List[str]] = None,
+        is_tracing_ready: Optional[Callable] = None,
     ):
         """Create a COSAgentRequirer instance.
 
@@ -931,12 +928,14 @@ class COSAgentRequirer(Object):
             relation_name: The name of the relation to communicate over.
             peer_relation_name: The name of the peer relation to communicate over.
             refresh_events: List of events on which to refresh relation data.
+            is_tracing_ready: Custom function to evaluate whether the trace receiver url should be sent.
         """
         super().__init__(charm, relation_name)
         self._charm = charm
         self._relation_name = relation_name
         self._peer_relation_name = peer_relation_name
         self._refresh_events = refresh_events or [self._charm.on.config_changed]
+        self._is_tracing_ready = is_tracing_ready
 
         events = self._charm.on[relation_name]
         self.framework.observe(
@@ -1046,6 +1045,9 @@ class COSAgentRequirer(Object):
 
     def update_tracing_receivers(self):
         """Updates the list of exposed tracing receivers in all relations."""
+        tracing_ready = (
+            self._is_tracing_ready if self._is_tracing_ready else self._charm.tracing.is_ready  # type: ignore
+        )
         try:
             for relation in self._charm.model.relations[self._relation_name]:
                 CosAgentRequirerUnitData(
@@ -1059,7 +1061,7 @@ class COSAgentRequirer(Object):
                             # databag contents (as it expects a string in URL) but that won't cause any errors as
                             # tracing endpoints are the only content in the grafana-agent's side of the databag.
                             url=f"{self._get_tracing_receiver_url(protocol)}"
-                            if self._charm.tracing.is_ready()  # type: ignore
+                            if tracing_ready()
                             else None,
                             protocol=ProtocolType(
                                 name=protocol,
