@@ -362,17 +362,18 @@ def test_create_client_permissions_json(auth_fixture, capsys, requests_mock):
 
     # We need to mock that the client does not exists first
     requests_mock.get(
-        URL + f"/v1/client-permissions/{fake_client_id}",
+        f"{URL}/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.NOT_FOUND,
     )
     requests_mock.put(
         f"{URL}/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.OK,
+        text=f"Created permissions for client '{fake_client_id}'",
     )
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_client_permissions()
     std = capsys.readouterr()
-    assert f"Client '{fake_client_id}' created successfully" in std.out
+    assert f"Created permissions for client '{fake_client_id}'" in std.out
 
 
 def test_create_client_permissions_arguments(
@@ -407,11 +408,12 @@ def test_create_client_permissions_arguments(
     requests_mock.put(
         f"{URL}/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.OK,
+        text=f"Created permissions for client '{fake_client_id}'",
     )
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_client_permissions()
     std = capsys.readouterr()
-    assert f"Client '{fake_client_id}' created successfully" in std.out
+    assert f"Created permissions for client '{fake_client_id}'" in std.out
 
 
 def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
@@ -440,7 +442,7 @@ def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
         "role": ServerRoles.CONTRIBUTOR,
     }
     requests_mock.get(
-        URL + f"/v1/client-permissions/{fake_client_id}",
+        f"{URL}/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.OK,
         json=existing_data,
     )
@@ -448,10 +450,11 @@ def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
     put_mock = requests_mock.put(
         URL + f"/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.OK,
+        text=f"Updated permissions for client '{fake_client_id}'",
     )
-    tfcli = testflinger_cli.TestflingerCli().run()
+    testflinger_cli.TestflingerCli().run()
     std = capsys.readouterr()
-    assert f"Client '{fake_client_id}' updated successfully" in std.out
+    assert f"Updated permissions for client '{fake_client_id}'" in std.out
     # Verify all permissions remain the same except the role
     updated_data = put_mock.last_request.json()
 

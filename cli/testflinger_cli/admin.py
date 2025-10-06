@@ -289,18 +289,13 @@ class TestflingerAdminCLI:
         if not tf_client_id:
             sys.exit("Error: client_id cannot be empty")
 
-        # Validate if client exist, this is for logging purposes
         try:
-            client_exist = bool(
-                self.main_cli.client.get_client_permissions(
-                    auth_header, tf_client_id
+            # Response include if we are creating or updating
+            print(
+                self.main_cli.client.set_client_permissions(
+                    auth_header, json_data
                 )
             )
-        except client.HTTPError:
-            client_exist = False
-
-        try:
-            self.main_cli.client.set_client_permissions(auth_header, json_data)
         except client.HTTPError as exc:
             if exc.status in [
                 HTTPStatus.UNPROCESSABLE_ENTITY,
@@ -319,12 +314,6 @@ class TestflingerAdminCLI:
                     exc.msg,
                 )
             return
-
-        # Log client_permission status
-        if not client_exist:
-            print(f"Client '{tf_client_id}' created successfully")
-        else:
-            print(f"Client '{tf_client_id}' updated successfully")
 
     @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
     def get_client_permissions(self):

@@ -21,7 +21,6 @@ import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
 
-import bcrypt
 import requests
 from apiflask import APIBlueprint, abort
 from flask import current_app, g, jsonify, request, send_file
@@ -841,10 +840,7 @@ def queue_wait_time_percentiles_get():
 def get_agents_on_queue(queue_name):
     """Get the list of all data for agents listening to a specified queue."""
     if not database.queue_exists(queue_name):
-        abort(
-            HTTPStatus.NOT_FOUND,
-            message=f"Queue '{queue_name}' does not exist.",
-        )
+        return [], HTTPStatus.NOT_FOUND
 
     agents = database.get_agents_on_queue(queue_name)
     if not agents:
@@ -1112,67 +1108,50 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
             "Error: System admin client cannot by modified from API.",
         )
 
-    # Attempt to get client_secret from JSON Data
-    try:
-        client_secret = json_data.pop("client_secret")
-    except KeyError:
-        client_secret = None
-        if not database.check_client_exists(client_id):
-            # If client does not exists, abort as secret is required
-            abort(
-                HTTPStatus.BAD_REQUEST,
-                "Error: Missing client_secret in request body for new client",
-            )
-
-    # Hash the client_secret if provided
-    if client_secret:
-        client_secret_hash = bcrypt.hashpw(
-            client_secret.encode("utf-8"), bcrypt.gensalt()
-        ).decode()
-        json_data["client_secret_hash"] = client_secret_hash
-
-    # Define current client permissions otherwise, set default values
-    default_permissions = {
-        "max_reservation_time": {},
-        "max_priority": {},
-        "allowed_queues": [],
-        "role": ServerRoles.CONTRIBUTOR,
-    }
-    current_permissions = (
-        database.get_client_permissions(client_id) or default_permissions
-    )
+    client_secret = json_data.pop("client_secret", None)
+    permissions = database.get_client_permissions(client_id) or {}
+    client_exist = bool(permissions)
     # Default role for for backward compatibility
-    current_client_role = current_permissions.get(
-        "role", ServerRoles.CONTRIBUTOR
-    )
+    current_role = permissions.get("role", ServerRoles.CONTRIBUTOR)
 
-    # Check role hierarchy
-    if ServerRoles(g.role) < ServerRoles(current_client_role):
+    # validation: client secret is required when creating permissions
+    if not client_exist and not client_secret:
         abort(
-            HTTPStatus.FORBIDDEN,
-            (
-                "Insufficient permissions to modify "
-                f"client with role: {current_client_role}"
-            ),
+            HTTPStatus.BAD_REQUEST,
+            "Error: Missing client_secret in request body for new client",
         )
 
-    # Define permissions to set for client_id
-    client_permissions = current_permissions.copy()
-    client_permissions.update(json_data)
+    if client_secret:
+        client_secret_hash = auth.hash_secret(client_secret)
+        json_data["client_secret_hash"] = client_secret_hash
 
-    # Check role hierarchy for new role if being updated
-    if "role" in client_permissions:
-        new_role = client_permissions["role"]
-        if ServerRoles(g.role) < ServerRoles(new_role):
-            abort(
-                HTTPStatus.FORBIDDEN,
-                f"Insufficient permissions to assign role: {new_role}",
-            )
+    # validation: the requesting client can modify the client't permissions
+    # only if its role is not inferior to the client's role
+    if ServerRoles(g.role) < ServerRoles(current_role):
+        abort(
+            HTTPStatus.FORBIDDEN,
+            f"{g.client_id} has insufficient permissions "
+            f"to modify client '{client_id}'",
+        )
 
-    # Set permissions in database
-    database.set_client_permissions(client_id, client_permissions)
+    # validation: the requesting client can modify the client't role
+    # only if its role is not inferior to the client's new role
+    new_role = json_data.get("role", None)
+    if new_role and ServerRoles(g.role) < ServerRoles(new_role):
+        abort(
+            HTTPStatus.FORBIDDEN,
+            f"{g.client_id} has insufficient permissions "
+            f"to assign role '{new_role}' to client '{client_id}'",
+        )
 
-    return "OK"
+    # Update permissions from json data
+    permissions.update(json_data)
+    database.create_or_update_client_permissions(client_id, permissions)
+
+    if client_exist:
+        return f"Updated permissions for client '{client_id}'"
+    else:
+        return f"Created permissions for client '{client_id}'"
 
 
 @v1.delete("/client-permissions/<client_id>")

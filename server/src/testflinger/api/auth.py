@@ -31,6 +31,14 @@ from testflinger import database
 from testflinger.enums import ServerRoles
 
 
+def hash_secret(secret: str):
+    """Securely hash a secret before storing in database.
+
+    :param secret: Secret to be hashed with bcrypt library
+    """
+    return bcrypt.hashpw(secret.encode("utf-8"), bcrypt.gensalt()).decode()
+
+
 def validate_client_key_pair(
     client_id: str | None, client_key: str | None
 ) -> dict | None:

@@ -457,8 +457,10 @@ def get_client_permissions(client_id: str | None = None) -> dict | list[dict]:
         return mongo.db.client_permissions.find({}, {"_id": False})
 
 
-def set_client_permissions(client_id: str, client_permissions: dict) -> None:
-    """Set client_id with specified permissions.
+def create_or_update_client_permissions(
+    client_id: str, client_permissions: dict
+) -> None:
+    """Create or update client_id with specified permissions.
 
     :param client_id: client_id to set permissions
     :param client_permissions: Permissions to set to client_id.

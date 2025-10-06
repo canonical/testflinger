@@ -925,7 +925,10 @@ def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
     )
     assert output2.status_code == HTTPStatus.FORBIDDEN
     error_response = output2.json
-    assert "Insufficient permissions to modify" in error_response["message"]
+    assert (
+        f"{manager_id} has insufficient permissions to modify client"
+        in error_response["message"]
+    )
 
     # Cleanup
     mongo.client_permissions.delete_one({"client_id": manager_id})
@@ -975,7 +978,8 @@ def test_role_hierachy_create_permissions(mongo_app_with_permissions):
     assert output2.status_code == HTTPStatus.FORBIDDEN
     error_response = output2.json
     assert (
-        "Insufficient permissions to assign role" in error_response["message"]
+        f"{manager_id} has insufficient permissions to assign role"
+        in error_response["message"]
     )
 
     # Cleanup
@@ -1023,6 +1027,9 @@ def test_update_secret_for_client_id(mongo_app_with_permissions):
         headers={"Authorization": token},
     )
     assert output2.status_code == HTTPStatus.OK
+    assert f"Updated permissions for client '{client_id}'" in output2.get_data(
+        as_text=True
+    )
 
     # Verify the hashed password has changed
     updated_record = mongo.client_permissions.find_one(
@@ -1030,6 +1037,31 @@ def test_update_secret_for_client_id(mongo_app_with_permissions):
     )
     updated_hash = updated_record["client_secret_hash"]
     assert updated_hash != original_hash
+
+
+def test_create_new_client_without_permissions(mongo_app_with_permissions):
+    """Test new client id is successfully created with only id and secret."""
+    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, client_id, client_key)
+
+    fake_client = "fake-client"
+    client_permissions = {
+        "client_secret": "my-secret-password",
+    }
+
+    # Create new client_id
+    output = app.put(
+        f"/v1/client-permissions/{fake_client}",
+        json=client_permissions,
+        headers={"Authorization": token},
+    )
+
+    # Validate correct message is displayed
+    assert output.status_code == HTTPStatus.OK
+    assert (
+        f"Created permissions for client '{fake_client}'"
+        in output.get_data(as_text=True)
+    )
 
 
 def test_refresh_access_token(mongo_app_with_permissions):

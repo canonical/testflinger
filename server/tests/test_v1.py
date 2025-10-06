@@ -1156,10 +1156,10 @@ def test_get_agents_on_queue(mongo_app):
     assert len(output.json) == 1
     assert output.json[0]["name"] == agent_name
 
-    # Should be aborted by the server if queue does not exist
+    # Should get an empty list and not found if the queue not exists
     output = app.get("/v1/queues/q3/agents")
     assert output.status_code == HTTPStatus.NOT_FOUND
-    assert "Queue 'q3' does not exist." in output.json["message"]
+    assert len(output.json) == 0
 
 
 def test_serial_output(mongo_app):
