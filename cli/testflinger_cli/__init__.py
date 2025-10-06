@@ -787,8 +787,7 @@ class TestflingerCli:
                 sys.exit(exc.msg)
             if exc.status == HTTPStatus.FORBIDDEN:
                 sys.exit(str(AuthorizationError()))
-            if exc.status == HTTPStatus.NO_CONTENT:
-                agents = []
+            agents = []
         online_agents = [
             agent for agent in agents if agent["state"] != "offline"
         ]
