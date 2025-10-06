@@ -839,7 +839,10 @@ def queue_wait_time_percentiles_get():
 def get_agents_on_queue(queue_name):
     """Get the list of all data for agents listening to a specified queue."""
     if not database.queue_exists(queue_name):
-        return [], HTTPStatus.NOT_FOUND
+        abort(
+            HTTPStatus.NOT_FOUND,
+            message=f"Queue '{queue_name}' does not exist.",
+        )
 
     agents = database.get_agents_on_queue(queue_name)
     if not agents:
