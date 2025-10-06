@@ -499,7 +499,8 @@ class TestflingerCli:
                         f"queue '{self.args.queue_name}'."
                     )
                 if exc.status == HTTPStatus.NOT_FOUND:
-                    sys.exit(f"Queue '{self.args.queue_name}' does not exist.")
+                    # Error message is specified on server side
+                    sys.exit(exc.msg)
                 # If any other HTTP error, raise UnknownStatusError
                 raise UnknownStatusError("queue") from exc
             except (IOError, ValueError) as exc:
@@ -744,10 +745,7 @@ class TestflingerCli:
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
         queue = job_dict.get("job_queue")
-        try:
-            self.check_online_agents_available(queue)
-        except AuthorizationError as exc:
-            sys.exit(exc)
+        self.check_online_agents_available(queue)
 
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
@@ -785,9 +783,12 @@ class TestflingerCli:
         try:
             agents = self.client.get_agents_on_queue(queue)
         except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NOT_FOUND:
+                sys.exit(exc.msg)
             if exc.status == HTTPStatus.FORBIDDEN:
-                raise AuthorizationError from exc
-            agents = []
+                sys.exit(str(AuthorizationError()))
+            if exc.status == HTTPStatus.NO_CONTENT:
+                agents = []
         online_agents = [
             agent for agent in agents if agent["state"] != "offline"
         ]

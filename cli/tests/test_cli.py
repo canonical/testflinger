@@ -585,6 +585,25 @@ def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
         in capsys.readouterr().out
     )
 
+def test_submit_to_non_existing_queue(tmp_path, requests_mock):
+    """Test submitting a job fails if queue does not exist."""
+    jobid = str(uuid.uuid1())
+    fake_queue = "fake"
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        status_code=HTTPStatus.NOT_FOUND,
+        text=f"Queue '{fake_queue}' does not exist.",
+    )
+    fake_data = {"job_queue": fake_queue, "provision_data": {"distro": "fake"}}
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file), "--wait-for-available-agents"]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    assert f"Queue '{fake_queue}' does not exist." in str(exc_info.value)
+
 
 def test_reserve(capsys, requests_mock):
     """Ensure reserve command generates correct yaml."""
@@ -834,10 +853,11 @@ def test_queue_status_nonexistent_queue(requests_mock):
     requests_mock.get(
         URL + "/v1/queues/" + fake_queue + "/agents",
         status_code=HTTPStatus.NOT_FOUND,
+        text=f"Queue '{fake_queue}' does not exist.",
     )
     sys.argv = ["", "queue-status", fake_queue]
     tfcli = testflinger_cli.TestflingerCli()
 
     with pytest.raises(SystemExit) as exc_info:
         tfcli.queue_status()
-    assert "does not exist" in str(exc_info.value)
+    assert f"Queue '{fake_queue}' does not exist." in str(exc_info.value)
