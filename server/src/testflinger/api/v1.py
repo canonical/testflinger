@@ -1111,7 +1111,7 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
     client_secret = json_data.pop("client_secret", None)
     permissions = database.get_client_permissions(client_id) or {}
     client_exist = bool(permissions)
-    # Default role for for backward compatibility
+    # Default role for backward compatibility
     current_role = permissions.get("role", ServerRoles.CONTRIBUTOR)
 
     # validation: client secret is required when creating permissions
