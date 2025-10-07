@@ -190,19 +190,19 @@ runs:
         job_result=$(testflinger --server $SERVER results $JOB_ID)
         
         setup_status=$(echo "$job_result" | jq '.setup_status')
-        [[ $setup_status -ne 0 ]] && echo "::error::Setup failed for job: $JOB_ID"
+        [[ $setup_status -ne 0 ]] && echo "::error::Setup phase failed for job: $JOB_ID"
         
         provision_status=$(echo "$job_result" | jq '.provision_status')
-        [[ $provision_status -ne 0 ]] && echo "::error::Provision failed for job: $JOB_ID"
+        [[ $provision_status -ne 0 ]] && echo "::error::Provision phase failed for job: $JOB_ID"
         
         test_status=$(echo "$job_result" | jq '.test_status')
-        [[ $test_status -ne 0 ]] && echo "::error::Test failed for job: $JOB_ID"
+        [[ $test_status -ne 0 ]] && echo "::error::Test phase failed for job: $JOB_ID"
         
         reserve_status=$(echo "$job_result" | jq '.reserve_status')
-        [[ $reserve_status -ne 0 ]] && echo "::error::Reservation failed for job: $JOB_ID"
+        [[ $reserve_status -ne 0 ]] && echo "::error::Reservation phase failed for job: $JOB_ID"
         
         cleanup_status=$(echo "$job_result" | jq '.cleanup_status')
-        [[ $cleanup_status -ne 0 ]] && echo "::error::Cleanup failed for job: $JOB_ID"
+        [[ $cleanup_status -ne 0 ]] && echo "::error::Cleanup phase failed for job: $JOB_ID"
         
         # the exit status is the maximum status of the individual test phases
         # (excluding the setup and cleanup phases)
