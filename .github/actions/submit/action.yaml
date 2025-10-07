@@ -172,6 +172,7 @@ runs:
         )
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
         echo "::endgroup::"
+        echo "Submitted job $JOB_ID"
 
     - name: Track the status of the job (non-reservation)
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.outputs.reservation != 'true'
