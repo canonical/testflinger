@@ -290,11 +290,8 @@ class TestflingerAdminCLI:
             sys.exit("Error: client_id cannot be empty")
 
         try:
-            # Response include if we are creating or updating
-            print(
-                self.main_cli.client.set_client_permissions(
-                    auth_header, json_data
-                )
+            response = self.main_cli.client.set_client_permissions(
+                auth_header, json_data
             )
         except client.HTTPError as exc:
             if exc.status in [
@@ -314,6 +311,9 @@ class TestflingerAdminCLI:
                     exc.msg,
                 )
             return
+
+        # Response indicates if we are creating or updating
+        print(response)
 
     @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
     def get_client_permissions(self):
