@@ -744,7 +744,10 @@ class TestflingerCli:
 
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
-        queue = job_dict.get("job_queue")
+        try:
+            queue = job_dict["job_queue"]
+        except KeyError:
+            sys.exit("Error: Queue was not specified in job")
         self.check_online_agents_available(queue)
 
         attachments_data = self.extract_attachment_data(job_dict)

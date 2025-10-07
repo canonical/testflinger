@@ -585,6 +585,7 @@ def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
         in capsys.readouterr().out
     )
 
+
 def test_submit_to_non_existing_queue(tmp_path, requests_mock):
     """Test submitting a job fails if queue does not exist."""
     jobid = str(uuid.uuid1())
@@ -603,6 +604,17 @@ def test_submit_to_non_existing_queue(tmp_path, requests_mock):
     with pytest.raises(SystemExit) as exc_info:
         testflinger_cli.TestflingerCli().run()
     assert f"Queue '{fake_queue}' does not exist." in str(exc_info.value)
+
+
+def test_submit_without_queue(tmp_path):
+    """Test submitting a job fails if queue is not specified."""
+    fake_data = {"provision_data": {"distro": "fake"}}
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file)]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    assert "Queue was not specified in job" in str(exc_info.value)
 
 
 def test_reserve(capsys, requests_mock):
