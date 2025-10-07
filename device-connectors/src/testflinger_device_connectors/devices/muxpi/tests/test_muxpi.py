@@ -96,7 +96,7 @@ def test_check_test_image_booted_fails(mocker):
     muxpi = MuxPi()
     muxpi.config = {"device_ip": "1.2.3.4"}
     muxpi.job_data = {}
-    mocker.patch("time.time", side_effect=[0, 1300, 1300, 1300])
+    mocker.patch("time.time", side_effect=[0, 1300])
     mocker.patch("time.sleep")
     mocker.patch(
         "subprocess.check_output",
