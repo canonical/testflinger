@@ -201,7 +201,7 @@ runs:
               | max'
         )
         echo "::endgroup::"
-        [ $EXIT_STATUS -ne 0 ] && echo "::error::Test exit status: $EXIT_STATUS"
+        [ $EXIT_STATUS -ne 0 ] && echo "::error::Test failed for job: $JOB_ID"
         exit $EXIT_STATUS
 
     - name: Track the status of the job (reservation)
@@ -239,7 +239,7 @@ runs:
         [ "$?" -eq 0 ] && DEVICE_IP_FLAG=true
         [ -n "$DEVICE_IP_FLAG" ] && echo "ip=$DEVICE_IP" >> $GITHUB_OUTPUT
         echo "::endgroup::"
-        [ $EXIT_STATUS -ne 0 ] && echo "::error::Reserve exit status: $EXIT_STATUS"
+        [ $EXIT_STATUS -ne 0 ] && echo "::error::Reservation failed for job: $JOB_ID"
         [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP: $DEVICE_IP"
         exit $EXIT_STATUS
 
