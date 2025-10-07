@@ -13,13 +13,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for muxpi device connector."""
 
-import urllib.error
-import pytest
-from subprocess import CalledProcessError
+
+import subprocess
 from unittest.mock import MagicMock
+
+import pytest
+
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
-
 
 def test_check_ce_oem_iot_image(mocker):
     """Test check_ce_oem_iot_image."""
