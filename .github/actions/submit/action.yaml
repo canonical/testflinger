@@ -200,9 +200,7 @@ runs:
               | max'
         )
         echo "::endgroup::"
-        if [ $EXIT_STATUS -ne 0 ]; then
-          echo "::error::Test exit status: $EXIT_STATUS"
-        fi
+        [ $EXIT_STATUS -ne 0 ] && echo "::error::Test exit status: $EXIT_STATUS"
         exit $EXIT_STATUS
 
     - name: Track the status of the job (reservation)
@@ -240,9 +238,7 @@ runs:
         [ "$?" -eq 0 ] && DEVICE_IP_FLAG=true
         [ -n "$DEVICE_IP_FLAG" ] && echo "ip=$DEVICE_IP" >> $GITHUB_OUTPUT
         echo "::endgroup::"
-        if [ $EXIT_STATUS -ne 0 ]; then
-          echo "::error::Reserve exit status: $EXIT_STATUS"
-        fi
+        [ $EXIT_STATUS -ne 0 ] && echo "::error::Reserve exit status: $EXIT_STATUS"
         [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP: $DEVICE_IP"
         exit $EXIT_STATUS
 
