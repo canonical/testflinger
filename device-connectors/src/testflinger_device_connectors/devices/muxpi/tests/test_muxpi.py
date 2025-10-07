@@ -58,7 +58,7 @@ def test_check_ce_oem_iot_image(mocker):
 
     mocker.patch(
         "subprocess.check_output",
-        side_effect=CalledProcessError(1, "cmd"),
+        side_effect=subprocess.CalledProcessError(1, "cmd"),
     )
     muxpi = MuxPi()
     assert muxpi.check_ce_oem_iot_image() is False
@@ -99,7 +99,8 @@ def test_check_test_image_booted_fails(mocker):
     mocker.patch("time.time", side_effect=[0, 1300, 1300, 1300])
     mocker.patch("time.sleep")
     mocker.patch(
-        "subprocess.check_output", side_effect=CalledProcessError(1, "cmd")
+        "subprocess.check_output",
+        side_effect=subprocess.CalledProcessError(1, "cmd"),
     )
     with pytest.raises(ProvisioningError, match="Failed to boot test image!"):
         muxpi.check_test_image_booted()
