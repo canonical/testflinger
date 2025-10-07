@@ -67,7 +67,9 @@ def test_check_test_image_booted_with_url(mocker):
     """Test check_test_image_booted with a boot_check_url."""
     muxpi = MuxPi()
     muxpi.config = {"device_ip": "1.2.3.4"}
-    muxpi.job_data = {"provision_data": {"boot_check_url": "http://$DEVICE_IP"}}
+    muxpi.job_data = {
+        "provision_data": {"boot_check_url": "http://$DEVICE_IP"}
+    }
     mocker.patch("time.sleep")
     mock_urlopen = mocker.patch("urllib.request.urlopen")
     mock_response = MagicMock()
@@ -87,6 +89,7 @@ def test_check_test_image_booted_with_ssh(mocker):
     assert muxpi.check_test_image_booted() is True
     assert mock_check_output.call_count == 1
 
+
 def test_check_test_image_booted_fails(mocker):
     """Test check_test_image_booted when it fails."""
     muxpi = MuxPi()
@@ -94,7 +97,8 @@ def test_check_test_image_booted_fails(mocker):
     muxpi.job_data = {}
     mocker.patch("time.time", side_effect=[0, 1300, 1300, 1300])
     mocker.patch("time.sleep")
-    mocker.patch("subprocess.check_output", side_effect=CalledProcessError(1, "cmd"))
+    mocker.patch(
+        "subprocess.check_output", side_effect=CalledProcessError(1, "cmd")
+    )
     with pytest.raises(ProvisioningError, match="Failed to boot test image!"):
         muxpi.check_test_image_booted()
-
