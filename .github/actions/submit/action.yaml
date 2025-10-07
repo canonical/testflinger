@@ -154,6 +154,7 @@ runs:
         CLIENT_ID: ${{ inputs.client-id }}
         SECRET_KEY: ${{ inputs.secret-key }}
         JOB: ${{ steps.create-job-file.outputs.job }}
+        POLL: ${{ inputs.poll }}
       run: |
         echo "::group::Submit job to the Testflinger server"
         AUTH_ARGS_COUNT=0
@@ -172,7 +173,12 @@ runs:
         )
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
         echo "::endgroup::"
-        echo "Submitted job $JOB_ID"
+        
+        if [[ $POLL == "true" ]]; then
+          echo "Testflinger job id: $JOB_ID"
+        else
+          echo "::notice::Testflinger job id: $JOB_ID"
+        fi
 
     - name: Track the status of the job (non-reservation)
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.outputs.reservation != 'true'
