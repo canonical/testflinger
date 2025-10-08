@@ -172,7 +172,7 @@ runs:
         )
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
         echo "::endgroup::"
-        echo "::notice::Submitted job $JOB_ID"
+        echo "::notice::Testflinger job id: $JOB_ID"
 
     - name: Track the status of the job (non-reservation)
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.outputs.reservation != 'true'
@@ -185,23 +185,24 @@ runs:
         # poll
         PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
         echo "::endgroup::"
+        
         echo "::group::Retrieve job results, determine exit status"
         # the exit status is the maximum status of the individual test phases
         # (excluding the setup and cleanup phases)
-        EXIT_STATUS=$(\
-          testflinger --server $SERVER results $JOB_ID  \
-          | jq 'to_entries
-              | map(
-                  select(
-                    (.key | endswith("_status"))
-                    and .key != "setup_status"
-                    and .key != "cleanup_status"
-                  ).value
-                )
-              | max'
+        read PHASE EXIT_STATUS <<< $(\
+          testflinger --server "$SERVER" results "$JOB_ID"  \
+          | jq -r 'to_entries
+            | map(
+              select(
+                (.key | endswith("_status"))
+                and .key != "setup_status"
+                and .key != "cleanup_status"
+              )
+            )
+          | max_by(.value) | [.[]] | join(" ")'
         )
+        [[ $EXIT_STATUS -ne 0 ]] && echo "::error::Testflinger ${PHASE%_status} phase failed"
         echo "::endgroup::"
-        echo "::notice::Test exit status: $EXIT_STATUS"
         exit $EXIT_STATUS
 
     - name: Track the status of the job (reservation)
@@ -239,7 +240,7 @@ runs:
         [ "$?" -eq 0 ] && DEVICE_IP_FLAG=true
         [ -n "$DEVICE_IP_FLAG" ] && echo "ip=$DEVICE_IP" >> $GITHUB_OUTPUT
         echo "::endgroup::"
-        echo "::notice::Reserve exit status: $EXIT_STATUS"
+        [ $EXIT_STATUS -ne 0 ] && echo "::error::Testflinger reservation phase failed"
         [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP: $DEVICE_IP"
         exit $EXIT_STATUS
 
