@@ -441,14 +441,6 @@ def check_client_exists(client_id: str) -> bool:
     )
 
 
-def add_client_permissions(data: dict) -> None:
-    """Create a new client_id along with its permissions.
-
-    :param data: client_id along with its permissions
-    """
-    mongo.db.client_permissions.insert_one(data)
-
-
 def get_client_permissions(client_id: str | None = None) -> dict | list[dict]:
     """Retrieve the client permissions for a specified user.
 
@@ -465,14 +457,16 @@ def get_client_permissions(client_id: str | None = None) -> dict | list[dict]:
         return mongo.db.client_permissions.find({}, {"_id": False})
 
 
-def edit_client_permissions(client_id: str, update_fields: dict) -> None:
-    """Edit client_id with specified new permissions.
+def create_or_update_client_permissions(
+    client_id: str, client_permissions: dict
+) -> None:
+    """Create or update client_id with specified permissions.
 
-    :param client_id: client_id to update permissions
-    :param update_fields: Updated permissions.
+    :param client_id: client_id to set permissions
+    :param client_permissions: Permissions to set to client_id.
     """
     mongo.db.client_permissions.update_one(
-        {"client_id": client_id}, {"$set": update_fields}
+        {"client_id": client_id}, {"$set": client_permissions}, upsert=True
     )
 
 

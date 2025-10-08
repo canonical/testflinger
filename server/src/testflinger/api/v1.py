@@ -21,7 +21,6 @@ import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
 
-import bcrypt
 import requests
 from apiflask import APIBlueprint, abort
 from flask import current_app, g, jsonify, request, send_file
@@ -39,6 +38,8 @@ from testflinger.secrets.exceptions import (
     StoreError,
     UnexpectedError,
 )
+
+TESTFLINGER_ADMIN_ID = "testflinger-admin"
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -1094,99 +1095,63 @@ def get_client_permissions(client_id) -> list[dict]:
     return database.get_client_permissions(client_id)
 
 
-@v1.post("/client-permissions")
-@authenticate
-@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
-@v1.input(schemas.ClientPermissionsIn)
-def create_client_permissions(json_data: dict) -> str:
-    """Set client permissions for a specified user."""
-    # Validate data include client credentials as those are not Schema required
-    try:
-        client_id = json_data["client_id"]
-        client_secret = json_data.pop("client_secret")
-    except KeyError:
-        abort(
-            HTTPStatus.BAD_REQUEST,
-            "Error: Missing client_id or client_secret in request body",
-        )
-
-    if database.check_client_exists(client_id):
-        abort(HTTPStatus.CONFLICT, "Error: Client already exists")
-
-    # Check role hierarchy
-    target_role = json_data.get("role", ServerRoles.CONTRIBUTOR)
-    if ServerRoles(g.role) < ServerRoles(target_role):
-        abort(
-            HTTPStatus.FORBIDDEN,
-            (
-                "Insufficient permissions to create "
-                f"client with role: {target_role}"
-            ),
-        )
-
-    # If role was not specified, use default role specified in target role
-    json_data["role"] = target_role
-    # Hash the password and add it to json_data
-    client_secret_hash = bcrypt.hashpw(
-        client_secret.encode("utf-8"), bcrypt.gensalt()
-    ).decode()
-    json_data["client_secret_hash"] = client_secret_hash
-
-    # Add client_id and its permissions in database
-    database.add_client_permissions(json_data)
-
-    return "OK"
-
-
 @v1.put("/client-permissions/<client_id>")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
 @v1.input(schemas.ClientPermissionsIn)
-def edit_client_permissions(client_id: str, json_data: dict) -> str:
-    """Edit client permissions for a specified user."""
-    if not database.check_client_exists(client_id):
+def set_client_permissions(client_id: str, json_data: dict) -> str:
+    """Add or create client permissions for a specified user."""
+    # Testflinger Admin credential can't be modified from API!'
+    if client_id == TESTFLINGER_ADMIN_ID:
         abort(
-            HTTPStatus.NOT_FOUND,
-            "Error: Specified client_id does not exist.",
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            "Error: System admin client cannot by modified from API.",
         )
 
-    # Get current client permissions to check current role
-    current_permissions = database.get_client_permissions(client_id)
-    # If role not in permissions, will set default for backward compatibility
-    current_role = current_permissions.get("role", ServerRoles.CONTRIBUTOR)
+    client_secret = json_data.pop("client_secret", None)
+    permissions = database.get_client_permissions(client_id) or {}
+    client_exist = bool(permissions)
+    # Default role for backward compatibility
+    current_role = permissions.get("role", ServerRoles.CONTRIBUTOR)
 
-    # Check role hierarchy
+    # validation: client secret is required when creating permissions
+    if not client_exist and not client_secret:
+        abort(
+            HTTPStatus.BAD_REQUEST,
+            "Error: Missing client_secret in request body for new client",
+        )
+
+    if client_secret:
+        client_secret_hash = auth.hash_secret(client_secret)
+        json_data["client_secret_hash"] = client_secret_hash
+
+    # validation: the requesting client can modify the client't permissions
+    # only if its role is not inferior to the client's role
     if ServerRoles(g.role) < ServerRoles(current_role):
         abort(
             HTTPStatus.FORBIDDEN,
-            (
-                "Insufficient permissions to modify "
-                f"client with role: {current_role}"
-            ),
+            f"{g.client_id} has insufficient permissions "
+            f"to modify client '{client_id}'",
         )
 
-    # Remove client_credentials if exist in json_data
-    json_data.pop("client_id", None)
-    json_data.pop("client_secret", None)
+    # validation: the requesting client can modify the client't role
+    # only if its role is not inferior to the client's new role
+    new_role = json_data.get("role", None)
+    if new_role and ServerRoles(g.role) < ServerRoles(new_role):
+        abort(
+            HTTPStatus.FORBIDDEN,
+            f"{g.client_id} has insufficient permissions "
+            f"to assign role '{new_role}' to client '{client_id}'",
+        )
 
-    # Retrieve non null values
-    update_fields = {
-        key: value for key, value in json_data.items() if value is not None
-    }
+    # Update permissions from json data
+    permissions.update(json_data)
+    database.create_or_update_client_permissions(client_id, permissions)
 
-    # Check role hierarchy for new role if being updated
-    if "role" in update_fields:
-        new_role = update_fields["role"]
-        if ServerRoles(g.role) < ServerRoles(new_role):
-            abort(
-                HTTPStatus.FORBIDDEN,
-                f"Insufficient permissions to assign role: {new_role}",
-            )
-
-    # Edit permissions in database
-    database.edit_client_permissions(client_id, update_fields)
-
-    return "OK"
+    if client_exist:
+        return f"Updated permissions for client '{client_id}'"
+    else:
+        return f"Created permissions for client '{client_id}'"
 
 
 @v1.delete("/client-permissions/<client_id>")
@@ -1195,7 +1160,7 @@ def edit_client_permissions(client_id: str, json_data: dict) -> str:
 def delete_client_permissions(client_id: str) -> str:
     """Delete client id along with its permissions."""
     # Testflinger Admin credential can't be removed from API!'
-    if client_id == "testflinger-admin":
+    if client_id == TESTFLINGER_ADMIN_ID:
         abort(
             HTTPStatus.UNPROCESSABLE_ENTITY,
             "Error: System admin client cannot by deleted from API.",

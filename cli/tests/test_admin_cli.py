@@ -25,6 +25,7 @@ import pytest
 import testflinger_cli
 from testflinger_cli.consts import ServerRoles
 from testflinger_cli.errors import AuthorizationError
+
 from .test_cli import URL
 
 
@@ -361,18 +362,18 @@ def test_create_client_permissions_json(auth_fixture, capsys, requests_mock):
 
     # We need to mock that the client does not exists first
     requests_mock.get(
-        URL + f"/v1/client-permissions/{fake_client_id}",
+        f"{URL}/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.NOT_FOUND,
     )
-    requests_mock.post(
-        URL + "/v1/client-permissions",
+    requests_mock.put(
+        f"{URL}/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.OK,
+        text=f"Created permissions for client '{fake_client_id}'",
     )
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_client_permissions()
     std = capsys.readouterr()
-    assert f"Creating new client '{fake_client_id}'..." in std.out
-    assert f"Client '{fake_client_id}' created successfully" in std.out
+    assert f"Created permissions for client '{fake_client_id}'" in std.out
 
 
 def test_create_client_permissions_arguments(
@@ -401,18 +402,18 @@ def test_create_client_permissions_arguments(
 
     # We need to mock that the client does not exists first
     requests_mock.get(
-        URL + f"/v1/client-permissions/{fake_client_id}",
+        f"{URL}/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.NOT_FOUND,
     )
-    requests_mock.post(
-        URL + "/v1/client-permissions",
+    requests_mock.put(
+        f"{URL}/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.OK,
+        text=f"Created permissions for client '{fake_client_id}'",
     )
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_client_permissions()
     std = capsys.readouterr()
-    assert f"Creating new client '{fake_client_id}'..." in std.out
-    assert f"Client '{fake_client_id}' created successfully" in std.out
+    assert f"Created permissions for client '{fake_client_id}'" in std.out
 
 
 def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
@@ -433,7 +434,7 @@ def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
     ]
 
     # Mock that the client exists with all permissions
-    existing_permissions = {
+    existing_data = {
         "client_id": fake_client_id,
         "max_priority": {"q1": 10},
         "allowed_queues": [],
@@ -441,29 +442,31 @@ def test_edit_client_permissions(auth_fixture, capsys, requests_mock):
         "role": ServerRoles.CONTRIBUTOR,
     }
     requests_mock.get(
-        URL + f"/v1/client-permissions/{fake_client_id}",
+        f"{URL}/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.OK,
-        json=existing_permissions,
+        json=existing_data,
     )
     # Mock the PUT request for editing
-    requests_mock.put(
+    put_mock = requests_mock.put(
         URL + f"/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.OK,
+        text=f"Updated permissions for client '{fake_client_id}'",
     )
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.admin_cli.set_client_permissions()
+    testflinger_cli.TestflingerCli().run()
     std = capsys.readouterr()
-    assert f"Updating existing client '{fake_client_id}'..." in std.out
-    assert (
-        f"Client '{fake_client_id}' permissions updated successfully"
-        in std.out
-    )
+    assert f"Updated permissions for client '{fake_client_id}'" in std.out
+    # Verify all permissions remain the same except the role
+    updated_data = put_mock.last_request.json()
+
+    # Only role should be updated
+    assert len(updated_data) == 1
+    assert updated_data["role"] == ServerRoles.MANAGER
 
 
-def test_failed_client_creation_schema_validation(
-    auth_fixture, capsys, requests_mock, caplog
+def test_failed_set_client_due_schema_validation(
+    auth_fixture, requests_mock, caplog
 ):
-    """Validate creation of client_id fails due to schema validation."""
+    """Test set permissions for client_id fails due to schema validation."""
     auth_fixture(ServerRoles.ADMIN)
     fake_client_id = "clientA"
     # missing max_reservation_time for creation
@@ -485,16 +488,43 @@ def test_failed_client_creation_schema_validation(
 
     # We need to mock that the client does not exists first
     requests_mock.get(
-        URL + f"/v1/client-permissions/{fake_client_id}",
+        f"{URL}/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.NOT_FOUND,
     )
-    requests_mock.post(
-        URL + "/v1/client-permissions",
+    requests_mock.put(
+        f"{URL}/v1/client-permissions/{fake_client_id}",
         status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        json={
+            "message": (
+                "Validation error - max_reservation_time: "
+                "['Missing data for required field.']"
+            )
+        },
     )
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_client_permissions()
-    std = capsys.readouterr()
-    print(std.out)
-    assert f"Creating new client '{fake_client_id}'..." in std.out
-    assert "Failed to create client:" in caplog.text
+    assert "Validation error - max_reservation_time:" in caplog.text
+
+
+def test_client_id_missing_from_permissions(auth_fixture):
+    """Validate creation and update of client_id fails due to missing id."""
+    auth_fixture(ServerRoles.ADMIN)
+    # missing client_id from permission JSON
+    fake_permissions = {
+        "max_reservation_time": {},
+        "max_priority": {"q1": 10},
+        "role": ServerRoles.CONTRIBUTOR,
+    }
+
+    # Using JSON for creation/update
+    sys.argv = [
+        "",
+        "admin",
+        "set",
+        "client-permissions",
+        "--json",
+        json.dumps(fake_permissions),
+    ]
+    with pytest.raises(SystemExit) as exc:
+        testflinger_cli.TestflingerCli().run()
+    assert "Error: client_id cannot be empty" in str(exc.value)
