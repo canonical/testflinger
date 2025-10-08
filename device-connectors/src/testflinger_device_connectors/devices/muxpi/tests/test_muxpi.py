@@ -13,8 +13,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for muxpi device connector."""
 
-from subprocess import CalledProcessError
+import subprocess
+from unittest.mock import MagicMock
 
+import pytest
+
+from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
 
 
@@ -54,6 +58,49 @@ def test_check_ce_oem_iot_image(mocker):
 
     mocker.patch(
         "subprocess.check_output",
-        side_effect=CalledProcessError(1, "cmd"),
+        side_effect=subprocess.CalledProcessError(1, "cmd"),
     )
+    muxpi = MuxPi()
     assert muxpi.check_ce_oem_iot_image() is False
+
+
+def test_check_test_image_booted_with_url(mocker):
+    """Test check_test_image_booted with a boot_check_url."""
+    muxpi = MuxPi()
+    muxpi.config = {"device_ip": "1.2.3.4"}
+    muxpi.job_data = {
+        "provision_data": {"boot_check_url": "http://$DEVICE_IP"}
+    }
+    mocker.patch("time.sleep")
+    mock_urlopen = mocker.patch("urllib.request.urlopen")
+    mock_response = MagicMock()
+    mock_response.status = 200
+    mock_urlopen.return_value.__enter__.return_value = mock_response
+    assert muxpi.check_test_image_booted() is True
+    mock_urlopen.assert_called_once_with("http://1.2.3.4", timeout=5)
+
+
+def test_check_test_image_booted_with_ssh(mocker):
+    """Test check_test_image_booted with ssh."""
+    muxpi = MuxPi()
+    muxpi.config = {"device_ip": "1.2.3.4"}
+    muxpi.job_data = {}
+    mocker.patch("time.sleep")
+    mock_check_output = mocker.patch("subprocess.check_output")
+    assert muxpi.check_test_image_booted() is True
+    assert mock_check_output.call_count == 1
+
+
+def test_check_test_image_booted_fails(mocker):
+    """Test check_test_image_booted when it fails."""
+    muxpi = MuxPi()
+    muxpi.config = {"device_ip": "1.2.3.4"}
+    muxpi.job_data = {}
+    mocker.patch("time.time", side_effect=[0, 1300])
+    mocker.patch("time.sleep")
+    mocker.patch(
+        "subprocess.check_output",
+        side_effect=subprocess.CalledProcessError(1, "cmd"),
+    )
+    with pytest.raises(ProvisioningError, match="Failed to boot test image!"):
+        muxpi.check_test_image_booted()
