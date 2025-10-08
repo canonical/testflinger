@@ -190,19 +190,19 @@ runs:
         job_result=$(testflinger --server $SERVER results $JOB_ID)
         
         setup_status=$(echo "$job_result" | jq '.setup_status')
-        [[ $setup_status -ne 0 ]] && echo "::error::Setup phase failed for job: $JOB_ID"
+        [[ $setup_status -ne 0 ]] && echo "::error::Testflinger setup phase failed"
         
         provision_status=$(echo "$job_result" | jq '.provision_status')
-        [[ $provision_status -ne 0 ]] && echo "::error::Provision phase failed for job: $JOB_ID"
+        [[ $provision_status -ne 0 ]] && echo "::error::Testflinger provision phase failed"
         
         test_status=$(echo "$job_result" | jq '.test_status')
-        [[ $test_status -ne 0 ]] && echo "::error::Test phase failed for job: $JOB_ID"
+        [[ $test_status -ne 0 ]] && echo "::error::Testflinger test phase failed"
         
         reserve_status=$(echo "$job_result" | jq '.reserve_status')
-        [[ $reserve_status -ne 0 ]] && echo "::error::Reservation phase failed for job: $JOB_ID"
+        [[ $reserve_status -ne 0 ]] && echo "::error::Testflinger reservation phase failed"
         
         cleanup_status=$(echo "$job_result" | jq '.cleanup_status')
-        [[ $cleanup_status -ne 0 ]] && echo "::error::Cleanup phase failed for job: $JOB_ID"
+        [[ $cleanup_status -ne 0 ]] && echo "::error::Testflinger cleanup phase failed"
         
         # the exit status is the maximum status of the individual test phases
         # (excluding the setup and cleanup phases)
@@ -256,7 +256,7 @@ runs:
         [ "$?" -eq 0 ] && DEVICE_IP_FLAG=true
         [ -n "$DEVICE_IP_FLAG" ] && echo "ip=$DEVICE_IP" >> $GITHUB_OUTPUT
         echo "::endgroup::"
-        [ $EXIT_STATUS -ne 0 ] && echo "::error::Reservation failed for job: $JOB_ID"
+        [ $EXIT_STATUS -ne 0 ] && echo "::error::Testflinger reservation phase failed"
         [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP: $DEVICE_IP"
         exit $EXIT_STATUS
 
