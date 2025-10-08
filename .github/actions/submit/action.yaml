@@ -187,37 +187,21 @@ runs:
         echo "::endgroup::"
         
         echo "::group::Retrieve job results, determine exit status"
-        job_result=$(testflinger --server $SERVER results $JOB_ID)
-        
-        setup_status=$(echo "$job_result" | jq '.setup_status')
-        [[ $setup_status -ne 0 ]] && echo "::error::Testflinger setup phase failed"
-        
-        provision_status=$(echo "$job_result" | jq '.provision_status')
-        [[ $provision_status -ne 0 ]] && echo "::error::Testflinger provision phase failed"
-        
-        test_status=$(echo "$job_result" | jq '.test_status')
-        [[ $test_status -ne 0 ]] && echo "::error::Testflinger test phase failed"
-        
-        reserve_status=$(echo "$job_result" | jq '.reserve_status')
-        [[ $reserve_status -ne 0 ]] && echo "::error::Testflinger reservation phase failed"
-        
-        cleanup_status=$(echo "$job_result" | jq '.cleanup_status')
-        [[ $cleanup_status -ne 0 ]] && echo "::error::Testflinger cleanup phase failed"
-        
         # the exit status is the maximum status of the individual test phases
         # (excluding the setup and cleanup phases)
-        EXIT_STATUS=$(\
-          echo $job_result  \
-          | jq 'to_entries
-              | map(
-                  select(
-                    (.key | endswith("_status"))
-                    and .key != "setup_status"
-                    and .key != "cleanup_status"
-                  ).value
-                )
-              | max'
+        read PHASE EXIT_STATUS <<< $(\
+          testflinger --server "$SERVER" results "$JOB_ID"  \
+          | jq -r 'to_entries
+            | map(
+              select(
+                (.key | endswith("_status"))
+                and .key != "setup_status"
+                and .key != "cleanup_status"
+              )
+            )
+          | max_by(.value) | [.[]] | join(" ")'
         )
+        [[ $EXIT_STATUS -ne 0 ]] && echo "::error::Testflinger ${PHASE%_status} phase failed"
         echo "::endgroup::"
         exit $EXIT_STATUS
 
