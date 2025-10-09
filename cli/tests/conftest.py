@@ -2,6 +2,7 @@
 """Shared pytest fixtures and configuration."""
 
 import uuid
+from http import HTTPStatus
 
 import jwt
 import pytest
@@ -25,6 +26,12 @@ def mock_xdg_config(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "testflinger_cli.auth.xdg_config_home", lambda: tmp_path
     )
+
+
+@pytest.fixture(autouse=True)
+def mock_connectivity_check(requests_mock):
+    """Mock the connectivity check endpoint for all tests."""
+    requests_mock.get(f"{URL}/v1/agents/queues", status_code=HTTPStatus.OK)
 
 
 @pytest.fixture

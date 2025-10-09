@@ -534,17 +534,6 @@ def test_list_queues(capsys, requests_mock):
     assert "queue2 - description2" in std.out
 
 
-def test_list_queues_connection_error(caplog, requests_mock):
-    """list_queues should report queues."""
-    requests_mock.get(
-        URL + "/v1/agents/queues", status_code=HTTPStatus.NOT_FOUND
-    )
-    sys.argv = ["", "list-queues"]
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.list_queues()
-    assert "Unable to get a list of queues from the server." in caplog.text
-
-
 def test_submit_no_agents_fails(capsys, tmp_path, requests_mock):
     """Test that submitting a job without online agents fails."""
     requests_mock.get(URL + "/v1/queues/fake/agents", json=[])
@@ -841,3 +830,41 @@ def test_queue_status_nonexistent_queue(requests_mock):
     with pytest.raises(SystemExit) as exc_info:
         tfcli.queue_status()
     assert "does not exist" in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "command", ["status", "agent-status", "queue-status", "submit"]
+)
+def test_commands_fails_if_connection_errors(command, requests_mock):
+    """Test network connectivity problems results in SystemExit."""
+    requests_mock.get(
+        f"{URL}/v1/agents/queues",
+        exc=requests.exceptions.ConnectionError("Couldn't connect to server"),
+    )
+
+    # Command list is not exhaustive but indicates other will fail as well
+    sys.argv = ["", command, ""]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    assert "Server may be inaccessible, please try again later" in str(
+        exc_info.value
+    )
+
+
+@pytest.mark.parametrize(
+    "command", ["status", "agent-status", "queue-status", "submit"]
+)
+def test_commands_fails_if_incorrect_network(command, requests_mock):
+    """Test VPN errors results in SystemExit."""
+    requests_mock.get(
+        f"{URL}/v1/agents/queues",
+        status_code=HTTPStatus.FORBIDDEN,
+    )
+
+    # Command list is not exhaustive but indicates other will fail as well
+    sys.argv = ["", command, ""]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    assert "Please make sure you are connected to the right network" in str(
+        exc_info.value
+    )

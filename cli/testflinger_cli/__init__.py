@@ -50,8 +50,8 @@ from testflinger_cli.admin import TestflingerAdminCLI
 from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.errors import (
     AttachmentError,
-    AuthorizationError,
     CredentialsError,
+    NetworkError,
     SnapPrivateFileError,
     UnknownStatusError,
 )
@@ -122,11 +122,42 @@ class TestflingerCli:
             self.client_id, self.secret_key, self.client
         )
 
+    def do_server_health_check(self):
+        """Validate server is accessible before attempting to run any command.
+
+        :raises: NetworkError if error was found while contacting the server
+        """
+        try:
+            # Using get_queues as a simple request to validate server status
+            self.client.get_queues()
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.FORBIDDEN:
+                raise NetworkError(
+                    "Authorization error received from server.\n"
+                    "Please make sure you are connected to the right network."
+                ) from exc
+            # Any other HTTPError should report status and error message
+            raise NetworkError(
+                f"Received {exc.status} from server "
+                f"due to following exception: {exc.msg}"
+            ) from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise NetworkError(
+                "Unable to communicate with server after "
+                f"{self.client.error_threshold} attempts.\n"
+                "Server may be inaccessible, please try again later."
+            ) from exc
+
     def run(self):
         """Run the subcommand specified in command line arguments."""
         if not hasattr(self.args, "func"):
             print(self.help)
             return
+        # Perform a health check before executing the command
+        try:
+            self.do_server_health_check()
+        except NetworkError as exc:
+            sys.exit(exc)
         self.args.func()
 
     def get_args(self):
@@ -623,15 +654,10 @@ class TestflingerCli:
             self.client.post(f"/v1/job/{job_id}/action", {"action": "cancel"})
             self.history.update(job_id, "cancelled")
         except client.HTTPError as exc:
-            if exc.status == 400:
+            if exc.status == HTTPStatus.BAD_REQUEST:
                 sys.exit(
                     "Invalid job ID specified or the job is already "
                     "completed/cancelled."
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
                 )
             raise
 
@@ -744,10 +770,7 @@ class TestflingerCli:
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
         queue = job_dict.get("job_queue")
-        try:
-            self.check_online_agents_available(queue)
-        except AuthorizationError as exc:
-            sys.exit(exc)
+        self.check_online_agents_available(queue)
 
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
@@ -784,9 +807,7 @@ class TestflingerCli:
         """Exit or warn if no online agents available for a specified queue."""
         try:
             agents = self.client.get_agents_on_queue(queue)
-        except client.HTTPError as exc:
-            if exc.status == HTTPStatus.FORBIDDEN:
-                raise AuthorizationError from exc
+        except client.HTTPError:
             agents = []
         online_agents = [
             agent for agent in agents if agent["state"] != "offline"
@@ -823,12 +844,6 @@ class TestflingerCli:
                         "bad formatting, or did not specify a "
                         "job_queue."
                     )
-                if exc.status == HTTPStatus.NOT_FOUND:
-                    sys.exit(
-                        "Received 404 error from server. Are you "
-                        "sure this is a testflinger server?"
-                    )
-
                 if exc.status == HTTPStatus.FORBIDDEN:
                     sys.exit(
                         "Received 403 error from server with reason: "
@@ -888,16 +903,10 @@ class TestflingerCli:
                 ) from error
             except requests.HTTPError as error:
                 # we can't recover from these errors, give up without retrying
-                if error.response.status_code == 400:
+                if error.response.status_code == HTTPStatus.BAD_REQUEST:
                     raise AttachmentError(
                         f"Unable to submit attachment archive for {job_id}: "
                         f"{error.response.text}"
-                    ) from error
-                if error.response.status_code == 404:
-                    raise AttachmentError(
-                        "Received 404 error from server. Are you "
-                        "sure this is a testflinger server and "
-                        "that it supports attachments?"
                     ) from error
                 # This shouldn't happen, so let's get more information
                 sys.exit(
@@ -925,15 +934,10 @@ class TestflingerCli:
         except client.HTTPError as exc:
             if exc.status == 204:
                 sys.exit("No data found for that job id.")
-            if exc.status == 400:
+            if exc.status == HTTPStatus.BAD_REQUEST:
                 sys.exit(
                     "Invalid job id specified. Check the job id "
                     "to be sure it is correct"
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
                 )
             # This shouldn't happen, so let's get more information
             logger.error(
@@ -954,17 +958,12 @@ class TestflingerCli:
         try:
             results = self.client.get_results(self.args.job_id)
         except client.HTTPError as exc:
-            if exc.status == 204:
+            if exc.status == HTTPStatus.NO_CONTENT:
                 sys.exit("No results found for that job id.")
-            if exc.status == 400:
+            if exc.status == HTTPStatus.BAD_REQUEST:
                 sys.exit(
                     "Invalid job id specified. Check the job id "
                     "to be sure it is correct"
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
                 )
             # This shouldn't happen, so let's get more information
             logger.error(
@@ -981,17 +980,12 @@ class TestflingerCli:
         try:
             self.client.get_artifact(self.args.job_id, self.args.filename)
         except client.HTTPError as exc:
-            if exc.status == 204:
+            if exc.status == HTTPStatus.NO_CONTENT:
                 sys.exit("No artifacts tarball found for that job id.")
-            if exc.status == 400:
+            if exc.status == HTTPStatus.BAD_REQUEST:
                 sys.exit(
                     "Invalid job id specified. Check the job id "
                     "to be sure it is correct"
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
                 )
             # This shouldn't happen, so let's get more information
             logger.error(
@@ -1216,20 +1210,15 @@ class TestflingerCli:
         try:
             return self.client.get_status(job_id)
         except client.HTTPError as exc:
-            if exc.status == 204:
+            if exc.status == HTTPStatus.NO_CONTENT:
                 sys.exit(
                     "No data found for that job id. Check the "
                     "job id to be sure it is correct"
                 )
-            if exc.status == 400:
+            if exc.status == HTTPStatus.BAD_REQUEST:
                 sys.exit(
                     "Invalid job id specified. Check the job id "
                     "to be sure it is correct"
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
                 )
         except (IOError, ValueError) as exc:
             # For other types of network errors, or JSONDecodeError if we got
