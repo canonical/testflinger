@@ -50,8 +50,8 @@ from testflinger_cli.admin import TestflingerAdminCLI
 from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.errors import (
     AttachmentError,
-    AuthorizationError,
     CredentialsError,
+    NetworkError,
     SnapPrivateFileError,
     UnknownStatusError,
 )
@@ -122,11 +122,42 @@ class TestflingerCli:
             self.client_id, self.secret_key, self.client
         )
 
+    def do_server_health_check(self):
+        """Validate server is accessible before attempting to run any command.
+
+        :raises: NetworkError if error was found while contacting the server
+        """
+        try:
+            # Using get_queues as a simple request to validate server status
+            self.client.get_queues()
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.FORBIDDEN:
+                raise NetworkError(
+                    "Authorization error received from server.\n"
+                    "Please make sure you are connected to the right network."
+                ) from exc
+            # Any other HTTPError should report status and error message
+            raise NetworkError(
+                f"Received {exc.status} from server "
+                f"due to following exception: {exc.msg}"
+            ) from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise NetworkError(
+                "Unable to communicate with server after "
+                f"{self.client.error_threshold} attempts.\n"
+                "Server may be inaccessible, please try again later."
+            ) from exc
+
     def run(self):
         """Run the subcommand specified in command line arguments."""
         if not hasattr(self.args, "func"):
             print(self.help)
             return
+        # Perform a health check before executing the command
+        try:
+            self.do_server_health_check()
+        except NetworkError as exc:
+            sys.exit(exc)
         self.args.func()
 
     def get_args(self):
@@ -744,10 +775,7 @@ class TestflingerCli:
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
         queue = job_dict.get("job_queue")
-        try:
-            self.check_online_agents_available(queue)
-        except AuthorizationError as exc:
-            sys.exit(exc)
+        self.check_online_agents_available(queue)
 
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
@@ -784,9 +812,7 @@ class TestflingerCli:
         """Exit or warn if no online agents available for a specified queue."""
         try:
             agents = self.client.get_agents_on_queue(queue)
-        except client.HTTPError as exc:
-            if exc.status == HTTPStatus.FORBIDDEN:
-                raise AuthorizationError from exc
+        except client.HTTPError:
             agents = []
         online_agents = [
             agent for agent in agents if agent["state"] != "offline"

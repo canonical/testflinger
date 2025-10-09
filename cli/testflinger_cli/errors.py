@@ -72,3 +72,7 @@ class InvalidTokenError(CredentialsError):
             f"following reason: {reason} "
             "Please reauthenticate with server."
         )
+
+
+class NetworkError(Exception):
+    """Exception thrown when unable to communicate with server."""
