@@ -26,6 +26,8 @@ from pathlib import Path
 
 import requests
 
+from testflinger_cli.errors import NetworkError
+
 logger = logging.getLogger(__name__)
 
 
@@ -72,7 +74,15 @@ class Client:
                     )
                     error_message = f"{error_message} - {error_details}"
 
-        except ValueError:
+        except ValueError as exc:
+            # If server sent 403 without JSON object, this means that request
+            # was aborted by a VPN issue rather than an actual server response
+            if req.status_code == HTTPStatus.FORBIDDEN:
+                raise NetworkError(
+                    "Authorization error received from server.\n"
+                    "Please make sure you are connected to the right network."
+                ) from exc
+
             # Return clear text if output is not JSON
             error_message = req.text
         raise HTTPError(status=req.status_code, msg=error_message)

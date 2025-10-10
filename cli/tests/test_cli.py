@@ -28,10 +28,12 @@ from pathlib import Path
 
 import pytest
 import requests
+import requests_mock as rmock
 from requests_mock import Mocker
 
 import testflinger_cli
 from testflinger_cli.client import HTTPError
+from testflinger_cli.errors import NetworkError
 
 URL = "https://testflinger.canonical.com"
 
@@ -873,3 +875,18 @@ def test_queue_status_nonexistent_queue(requests_mock):
     with pytest.raises(SystemExit) as exc_info:
         tfcli.queue_status()
     assert f"Queue '{fake_queue}' does not exist." in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "command", ["status", "agent-status", "queue-status", "show"]
+)
+def test_get_commands_fails_if_incorrect_network(command, requests_mock):
+    """Test VPN errors results in SystemExit."""
+    requests_mock.get(rmock.ANY, status_code=HTTPStatus.FORBIDDEN)
+    # Command list is not exhaustive but indicates others will fail as well
+    sys.argv = ["", command, ""]
+    with pytest.raises(NetworkError) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    assert "Please make sure you are connected to the right network" in str(
+        exc_info.value
+    )
