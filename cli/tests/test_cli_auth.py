@@ -197,7 +197,10 @@ def test_authorization_error(tmp_path, requests_mock, monkeypatch):
     tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(NetworkError) as err:
         tfcli.run()
-    assert "Authorization error received from server" in str(err.value)
+    assert (
+        "403 Forbidden Error: Server access requires a VPN connection."
+        in str(err.value)
+    )
 
 
 def test_authentication_error(tmp_path, requests_mock, monkeypatch):

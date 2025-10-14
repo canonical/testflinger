@@ -887,6 +887,12 @@ def test_get_commands_fails_if_incorrect_network(command, requests_mock):
     sys.argv = ["", command, ""]
     with pytest.raises(NetworkError) as exc_info:
         testflinger_cli.TestflingerCli().run()
-    assert "Please make sure you are connected to the right network" in str(
-        exc_info.value
+
+    assert (
+        "403 Forbidden Error: Server access requires a VPN connection."
+        in str(exc_info.value)
+    )
+    assert (
+        "Please make sure you are connected to the VPN and try again."
+        in str(exc_info.value)
     )

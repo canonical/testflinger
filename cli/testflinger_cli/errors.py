@@ -76,3 +76,13 @@ class InvalidTokenError(CredentialsError):
 
 class NetworkError(Exception):
     """Exception thrown when unable to communicate with server."""
+
+
+class VPNError(NetworkError):
+    """Exception for when a VPN connection is required but not established."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "403 Forbidden Error: Server access requires a VPN connection.\n"
+            "Please make sure you are connected to the VPN and try again."
+        )
