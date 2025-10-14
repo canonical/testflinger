@@ -91,8 +91,6 @@ autoinstall:
     allow-pw: true
     authorized-keys:
       - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCYYa9VOGB5NBJzRQ7OnxG4Z6ynBs+B2+A49RVcNWhzWtwPkEEefsHDIz0VLbVSfGJGQMF2Dsw8PVJWBRTBvc1bkHt3sUCZklAmGVbOhXEaXS/GzCjMEb0Kg8jvEzH3WxLm0X4fIQeIDAE6Za/t5ix3uNwYgzZiGT7isx7aDQtpOrZD+y2n3F1xvDPdySJ304hAkAvMGnkwstNXduUXrnOEoPeOrQbk+k85otyaGqL0C/U+SkeeAKnzikkmvxrZlcp2zxow8iGMTfVNY15nA9BKx4v21nnIKnhVdWZ43ltp9dQoafOXbNtYTxTnFvmaHQ1WFGJ+1/fDAY8tfbjbQaIxPvPJ ubuntu@juju-machine-8-lxc-0
-  early-commands:
-    - "nmcli networking off"  # to prevent online checks and speed up intallation
   late-commands:
     # enable autologin
     - curtin in-target -- sed -i 's/^#.*AutomaticLoginEnable.*/AutomaticLoginEnable = true/' /etc/gdm3/custom.conf
