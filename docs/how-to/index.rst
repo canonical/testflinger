@@ -12,6 +12,7 @@ Work with jobs via Testflinger CLI
     install-cli
     change-server
     submit-job
+    retrieve-logs
     cancel-job
     reserve-job
     search-job
