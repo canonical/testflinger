@@ -122,13 +122,13 @@ class DeviceConnector(ZapperConnector):
                 "preset"
             ]
 
-        if "alloem_url" in self.job_data["provision_data"]:
+        elif "alloem_url" in self.job_data["provision_data"]:
             provisioning_data["url"] = self.job_data["provision_data"][
                 "alloem_url"
             ]
             provisioning_data["username"] = "ubuntu"
             provisioning_data["password"] = "u"
-            provisioning_data["retries"] = max(
+            provisioning_data["robot_retries"] = max(
                 2, self.job_data["provision_data"].get("robot_retries", 1)
             )
             provisioning_data["autoinstall_conf"] = (
@@ -145,9 +145,9 @@ class DeviceConnector(ZapperConnector):
             provisioning_data["password"] = self.job_data.get(
                 "test_data", {}
             ).get("test_password", "ubuntu")
-            provisioning_data["retries"] = self.job_data["provision_data"].get(
-                "robot_retries", 1
-            )
+            provisioning_data["robot_retries"] = self.job_data[
+                "provision_data"
+            ].get("robot_retries", 1)
             provisioning_data["autoinstall_conf"] = (
                 self._get_autoinstall_conf()
             )
