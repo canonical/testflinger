@@ -26,6 +26,8 @@ from pathlib import Path
 
 import requests
 
+from testflinger_cli.errors import VPNError
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,27 +56,26 @@ class Client:
         """
         try:
             error_json = req.json()
-            error_message = error_json.get("message", req.text)
+        except ValueError as exc:
+            # If server sent 403 without JSON object, this means that request
+            # was aborted by a VPN issue rather than an actual server response
+            if req.status_code == HTTPStatus.FORBIDDEN:
+                raise VPNError from exc
 
-            # For schema validation errors, try to get detailed error info
-            if (
-                req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-                and "detail" in error_json
-            ):
-                detail = error_json["detail"]
-                if isinstance(detail, dict) and "json" in detail:
-                    validation_errors = detail["json"]
-                    error_details = ", ".join(
-                        [
-                            f"{field}: {msg}"
-                            for field, msg in validation_errors.items()
-                        ]
-                    )
-                    error_message = f"{error_message} - {error_details}"
+            # Raise HTTPError with clear text message if any other ValueError
+            raise HTTPError(status=req.status_code, msg=req.text) from exc
 
-        except ValueError:
-            # Return clear text if output is not JSON
-            error_message = req.text
+        # flask `abort` returns a JSON object with error message
+        error_message = error_json.get("message", req.text)
+        # For schema validation errors, try to get detailed error info
+        if req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY and (
+            validation_errors := error_json.get("detail", {}).get("json", {})
+        ):
+            error_details = ", ".join(
+                f"{field}: {msg}" for field, msg in validation_errors.items()
+            )
+            error_message = f"{error_message} - {error_details}"
+
         raise HTTPError(status=req.status_code, msg=error_message)
 
     def get(

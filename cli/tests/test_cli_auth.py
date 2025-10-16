@@ -25,6 +25,8 @@ import pytest
 
 import testflinger_cli
 from testflinger_cli.consts import ServerRoles
+from testflinger_cli.errors import NetworkError
+
 from .test_cli import URL
 
 
@@ -183,7 +185,8 @@ def test_authorization_error(tmp_path, requests_mock, monkeypatch):
     monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
 
     requests_mock.post(
-        f"{URL}/v1/oauth2/token", status_code=HTTPStatus.FORBIDDEN
+        f"{URL}/v1/oauth2/token",
+        status_code=HTTPStatus.FORBIDDEN,
     )
     requests_mock.get(
         f"{URL}/v1/queues/fake/agents",
@@ -192,9 +195,12 @@ def test_authorization_error(tmp_path, requests_mock, monkeypatch):
 
     sys.argv = ["", "submit", str(job_file)]
     tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(SystemExit) as err:
-        tfcli.submit()
-    assert "Authorization error received from server" in str(err.value)
+    with pytest.raises(NetworkError) as err:
+        tfcli.run()
+    assert (
+        "403 Forbidden Error: Server access requires a VPN connection."
+        in str(err.value)
+    )
 
 
 def test_authentication_error(tmp_path, requests_mock, monkeypatch):

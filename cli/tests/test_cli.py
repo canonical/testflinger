@@ -28,10 +28,12 @@ from pathlib import Path
 
 import pytest
 import requests
+import requests_mock as rmock
 from requests_mock import Mocker
 
 import testflinger_cli
 from testflinger_cli.client import HTTPError
+from testflinger_cli.errors import NetworkError
 
 URL = "https://testflinger.canonical.com"
 
@@ -586,6 +588,37 @@ def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
     )
 
 
+def test_submit_to_non_existing_queue(tmp_path, requests_mock):
+    """Test submitting a job fails if queue does not exist."""
+    jobid = str(uuid.uuid1())
+    fake_queue = "fake"
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        status_code=HTTPStatus.NOT_FOUND,
+        text=f"Queue '{fake_queue}' does not exist.",
+    )
+    fake_data = {"job_queue": fake_queue, "provision_data": {"distro": "fake"}}
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file), "--wait-for-available-agents"]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    assert f"Queue '{fake_queue}' does not exist." in str(exc_info.value)
+
+
+def test_submit_without_queue(tmp_path):
+    """Test submitting a job fails if queue is not specified."""
+    fake_data = {"provision_data": {"distro": "fake"}}
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file)]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    assert "Queue was not specified in job" in str(exc_info.value)
+
+
 def test_reserve(capsys, requests_mock):
     """Ensure reserve command generates correct yaml."""
     requests_mock.get(URL + "/v1/agents/queues", json={})
@@ -834,10 +867,32 @@ def test_queue_status_nonexistent_queue(requests_mock):
     requests_mock.get(
         URL + "/v1/queues/" + fake_queue + "/agents",
         status_code=HTTPStatus.NOT_FOUND,
+        text=f"Queue '{fake_queue}' does not exist.",
     )
     sys.argv = ["", "queue-status", fake_queue]
     tfcli = testflinger_cli.TestflingerCli()
 
     with pytest.raises(SystemExit) as exc_info:
         tfcli.queue_status()
-    assert "does not exist" in str(exc_info.value)
+    assert f"Queue '{fake_queue}' does not exist." in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "command", ["status", "agent-status", "queue-status", "show"]
+)
+def test_get_commands_fails_if_incorrect_network(command, requests_mock):
+    """Test VPN errors results in SystemExit."""
+    requests_mock.get(rmock.ANY, status_code=HTTPStatus.FORBIDDEN)
+    # Command list is not exhaustive but indicates others will fail as well
+    sys.argv = ["", command, ""]
+    with pytest.raises(NetworkError) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+
+    assert (
+        "403 Forbidden Error: Server access requires a VPN connection."
+        in str(exc_info.value)
+    )
+    assert (
+        "Please make sure you are connected to the VPN and try again."
+        in str(exc_info.value)
+    )
