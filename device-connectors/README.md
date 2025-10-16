@@ -42,7 +42,13 @@ testflinger-device-connector $PROVISION_TYPE allocate -c /path/to/default.yaml j
 You can reserve a device with:
 
 ```shell
-testflinger-device-connectors $PROVISION_TYPE reserve -c /path/to/default.yaml job.json
+testflinger-device-connector $PROVISION_TYPE reserve -c /path/to/default.yaml job.json
+```
+
+For more information about what is supported under each provision type, please run:
+
+```
+testflinger-device-connector $PROVISION_TYPE --help
 ```
 
 To learn more about the different test phases, refer to the
@@ -59,7 +65,7 @@ attempting to run tests on it until it's fixed.
 
 Testflinger is available on all major Linux distributions.
 
-You can install `testflinger-device-connectors` with `pip`:
+You can install `testflinger-device-connector` with `pip`:
 
 ```shell
 pip install "testflinger-device-connectors @ git+https://github.com/canonical/testflinger#subdirectory=device-connectors"
