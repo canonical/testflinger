@@ -81,6 +81,32 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
+    def test_validate_configuration_preset_with_overriding_items(self):
+        """Test whether the validate_configuration function returns
+        the expected data merging the relevant bits from conf and job
+        data when passing only the required arguments.
+        """
+        connector = DeviceConnector({})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "preset": "preset-test",
+                "username": "custom-user",
+                "password": "custom-password",
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        args, kwargs = connector._validate_configuration()
+
+        expected = {
+            "preset": "preset-test",
+            "username": "custom-user",
+            "password": "custom-password",
+        }
+        self.assertEqual(args, ())
+        self.assertDictEqual(kwargs, expected)
+
     def test_validate_configuration_w_opt(self):
         """Test whether the validate_configuration function returns
         the expected data merging the relevant bits from conf and job

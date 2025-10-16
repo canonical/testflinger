@@ -118,9 +118,8 @@ class DeviceConnector(ZapperConnector):
         """
         provisioning_data = {}
         if "preset" in self.job_data["provision_data"]:
-            provisioning_data["preset"] = self.job_data["provision_data"][
-                "preset"
-            ]
+            for key, value in self.job_data["provision_data"].items():
+                provisioning_data[key] = value
 
         elif "alloem_url" in self.job_data["provision_data"]:
             provisioning_data["url"] = self.job_data["provision_data"][
