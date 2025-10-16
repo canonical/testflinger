@@ -1,0 +1,7 @@
+{
+    "job_queue": "202406-34127",
+    "provision_data": {
+        "preset": "desktop-jammy-oem",
+        "password": "testtesttest"
+    }
+}
