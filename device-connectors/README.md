@@ -14,9 +14,6 @@ Given a device's [provision type][provision-types], device connector
 [configuration][config-schema], and [job][job-schema], you can provision a
 device with the following commands.
 
-> [!NOTE]
-> If you are looking for a configuration of an existing machine in our lab, please visit the [Testflinger agent charm configs repository][testflinger-agent-charm-configs].
-
 ```shell
 testflinger-device-connector $PROVISION_TYPE allocate -c /path/to/default.yaml job.json
 ```
