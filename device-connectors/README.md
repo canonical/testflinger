@@ -42,6 +42,12 @@ You can reserve a device with:
 testflinger-device-connector $DEVICE_CONNECTOR_TYPE reserve -c /path/to/default.yaml job.json
 ```
 
+You can provision a device with:
+
+```shell
+testflinger-device-connector $DEVICE_CONNECTOR_TYPE provision -c /path/to/default.yaml job.json
+```
+
 For more information about what is supported under each provision type, please run:
 
 ```
