@@ -10,42 +10,42 @@ maintaining, and running tests on devices with different provision types.
 
 ## Basic Usage
 
-Given a device's [provision type][provision-types], device connector
-[configuration][config-schema], and [job][job-schema], you can provision a
+Given a device's [device connector type][device-connector-types], it's
+[configuration][config-schema], and [job][job-schema], you can connect a
 device with the following commands.
 
 ```shell
-testflinger-device-connector $PROVISION_TYPE allocate -c /path/to/default.yaml job.json
+testflinger-device-connector $DEVICE_CONNECTOR_TYPE allocate -c /path/to/default.yaml job.json
 ```
 
 You can update firmware with:
 
 ```shell
-testflinger-device-connector $PROVISION_TYPE firmware_update -c /path/to/default.yaml job.json
+testflinger-device-connector $DEVICE_CONNECTOR_TYPE firmware_update -c /path/to/default.yaml job.json
 ```
 
 You can run a test on a device with:
 
 ```shell
-testflinger-device-connector $PROVISION_TYPE runtest -c /path/to/default.yaml job.json
+testflinger-device-connector $DEVICE_CONNECTOR_TYPE runtest -c /path/to/default.yaml job.json
 ```
 
 You can allocate a device with:
 
 ```shell
-testflinger-device-connector $PROVISION_TYPE allocate -c /path/to/default.yaml job.json
+testflinger-device-connector $DEVICE_CONNECTOR_TYPE allocate -c /path/to/default.yaml job.json
 ```
 
 You can reserve a device with:
 
 ```shell
-testflinger-device-connector $PROVISION_TYPE reserve -c /path/to/default.yaml job.json
+testflinger-device-connector $DEVICE_CONNECTOR_TYPE reserve -c /path/to/default.yaml job.json
 ```
 
 For more information about what is supported under each provision type, please run:
 
 ```
-testflinger-device-connector $PROVISION_TYPE --help
+testflinger-device-connector $DEVICE_CONNECTOR_TYPE --help
 ```
 
 To learn more about the different test phases, refer to the
@@ -100,7 +100,7 @@ Testflinger Device Connectors is released under the [GPL-3.0 license](COPYING).
 [cov-latest]: https://codecov.io/gh/canonical/testflinger
 [uv-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json
 [uv-site]: https://github.com/astral-sh/uv
-[provision-types]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/device-connector-types
+[device-connector-types]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/device-connector-types
 [config-schema]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/device-connector-conf
 [job-schema]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema
 [test-phases]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/test-phases.html
