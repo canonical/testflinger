@@ -11,7 +11,7 @@ maintaining, and running tests on devices with different provision types.
 ## Basic Usage
 
 Given a device's [device connector type][device-connector-types], it's
-[configuration][config-schema], and [job][job-schema], you can connect a
+[configuration][config-schema], and [job][job-schema], you can interact with a
 device with the following commands.
 
 ```shell
