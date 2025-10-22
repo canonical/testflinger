@@ -110,6 +110,21 @@ class DeviceConnector(ZapperConnector):
             Path("~/.ssh/id_rsa.pub").expanduser().read_text(encoding="utf-8")
         )
 
+    def _get_credentials(
+        self, provisioning_type: str | None = None
+    ) -> tuple[str, str]:
+        if provisioning_type == "alloem_url":
+            return "ubuntu", "u"
+        else:
+            return (
+                self.job_data.get("test_data", {}).get(
+                    "test_username", "ubuntu"
+                ),
+                self.job_data.get("test_data", {}).get(
+                    "test_password", "ubuntu"
+                ),
+            )
+
     def _validate_configuration(
         self,
     ) -> Tuple[Tuple, Dict[str, Any]]:
@@ -119,14 +134,22 @@ class DeviceConnector(ZapperConnector):
         provisioning_data = {}
         if "preset" in self.job_data["provision_data"]:
             for key, value in self.job_data["provision_data"].items():
-                provisioning_data[key] = value
+                if key == "autoinstall_conf":
+                    provisioning_data[key] = self._get_autoinstall_conf()
+                else:
+                    provisioning_data[key] = value
+
+            provisioning_data["username"], provisioning_data["password"] = (
+                self._get_credentials("preset")
+            )
 
         elif "alloem_url" in self.job_data["provision_data"]:
             provisioning_data["url"] = self.job_data["provision_data"][
                 "alloem_url"
             ]
-            provisioning_data["username"] = "ubuntu"
-            provisioning_data["password"] = "u"
+            provisioning_data["username"], provisioning_data["password"] = (
+                self._get_credentials("alloem_url")
+            )
             provisioning_data["robot_retries"] = max(
                 2, self.job_data["provision_data"].get("robot_retries", 1)
             )
@@ -138,12 +161,9 @@ class DeviceConnector(ZapperConnector):
             ]
         else:
             provisioning_data["url"] = self.job_data["provision_data"]["url"]
-            provisioning_data["username"] = self.job_data.get(
-                "test_data", {}
-            ).get("test_username", "ubuntu")
-            provisioning_data["password"] = self.job_data.get(
-                "test_data", {}
-            ).get("test_password", "ubuntu")
+            provisioning_data["username"], provisioning_data["password"] = (
+                self._get_credentials()
+            )
             provisioning_data["robot_retries"] = self.job_data[
                 "provision_data"
             ].get("robot_retries", 1)
