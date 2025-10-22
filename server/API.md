@@ -31,6 +31,43 @@ curl http://localhost:8000/v1/job -X POST \
   --data '{ "job_queue": "myqueue", "option":"foo" }'
 ```
 
+## `[POST] /v1/agent/jobs`
+
+Create a child job with credential inheritance from a parent job
+
+This endpoint is designed specifically for agents submitting child jobs on behalf of multi-device parent jobs. Child jobs automatically inherit authentication permissions from the parent job, including extended reservation times, job priority, and restricted queue access.
+
+Parameters:
+
+- `job_queue` (JSON): queue name to use for processing the job (required)
+- `parent_job_id` (JSON): UUID of the parent job from which to inherit credentials (required)
+
+Returns:
+
+```json
+{ "job_id": "<job_id (UUID)>" }
+```
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 400 (Bad Request)`: Invalid UUID format for `parent_job_id`
+- `HTTP 422 (Unprocessable Content)`: Missing required fields (`job_queue` or `parent_job_id`)
+
+Notes:
+
+- Child jobs inherit `auth_permissions` from the parent job stored in the database
+- If the parent job has no authentication permissions, the child job is created without them (no error)
+- The `parent_job_id` field is stored in the child job document for audit trail purposes
+
+Examples:
+
+```shell
+curl http://localhost:8000/v1/agent/jobs -X POST \
+  --header "Content-Type: application/json" \
+  --data '{ "job_queue": "device-queue", "parent_job_id": "550e8400-e29b-41d4-a716-446655440000" }'
+```
+
 ## `[GET] /v1/job`
 
 Get a test job from the specified queue(s)
