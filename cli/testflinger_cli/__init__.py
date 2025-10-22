@@ -1007,10 +1007,20 @@ class TestflingerCli:
                 if job_state in ("cancelled", "complete", "completed"):
                     break
                 if job_state == "waiting":
-                    queue_pos = self.client.get_job_position(job_id)
-                    if int(queue_pos) != prev_queue_pos:
-                        prev_queue_pos = int(queue_pos)
-                        print(f"Jobs ahead in queue: {queue_pos}")
+                    queue_pos = int(self.client.get_job_position(job_id))
+                    if queue_pos != prev_queue_pos:
+                        prev_queue_pos = queue_pos
+                        if queue_pos == 0:
+                            print(
+                                "This job will be picked up after the "
+                                "current job is complete (it is next in line)"
+                            )
+                        else:
+                            print(
+                                f"This job will be picked up after the "
+                                f"current job and {queue_pos} job(s) ahead "
+                                f"of it in the queue are complete"
+                            )
                 time.sleep(10)
                 output = ""
                 output = self.get_latest_output(job_id)

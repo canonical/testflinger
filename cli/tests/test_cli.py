@@ -662,6 +662,110 @@ def test_poll_serial(capsys, requests_mock):
     assert "serial output" in std.out
 
 
+def test_poll_queue_position_first_in_line(capsys, requests_mock, monkeypatch):
+    """Test that queue position shows 'next in line' when position is 0."""
+    job_id = str(uuid.uuid1())
+
+    # Mock job state as waiting twice, then complete to exit loop
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}",
+        2 * [{"json": {"job_state": "waiting"}}]
+        + [{"json": {"job_state": "complete"}}],
+    )
+    # Mock queue position as 0 (first in line)
+    requests_mock.get(URL + f"/v1/job/{job_id}/position", text="0")
+    # Mock output endpoint
+    requests_mock.get(URL + f"/v1/result/{job_id}/output", text="")
+
+    # Mock sleep to avoid actual waiting
+    monkeypatch.setattr("time.sleep", lambda x: None)
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    tfcli.do_poll(job_id)
+    std = capsys.readouterr()
+    assert "This job is waiting on a node to become available." in std.out
+    assert (
+        "This job will be picked up after the current job is complete "
+        "(it is next in line)"
+    ) in std.out
+
+
+def test_poll_queue_position_with_jobs_ahead(
+    capsys, requests_mock, monkeypatch
+):
+    """Test that queue position shows correct position when jobs are ahead."""
+    job_id = str(uuid.uuid1())
+
+    # Mock job state as waiting twice, then complete to exit loop
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}",
+        2 * [{"json": {"job_state": "waiting"}}]
+        + [{"json": {"job_state": "complete"}}],
+    )
+    # Mock queue position as 2 (third in line, 2 jobs ahead)
+    requests_mock.get(URL + f"/v1/job/{job_id}/position", text="2")
+    # Mock output endpoint
+    requests_mock.get(URL + f"/v1/result/{job_id}/output", text="")
+
+    # Mock sleep to avoid actual waiting
+    monkeypatch.setattr("time.sleep", lambda x: None)
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    tfcli.do_poll(job_id)
+    std = capsys.readouterr()
+    assert "This job is waiting on a node to become available." in std.out
+    assert (
+        "This job will be picked up after the current job and 2 job(s) "
+        "ahead of it in the queue are complete"
+    ) in std.out
+
+
+def test_poll_queue_position_changes(capsys, requests_mock, monkeypatch):
+    """Test that queue position updates are shown when position changes."""
+    job_id = str(uuid.uuid1())
+
+    # Mock job state as waiting 4 times, then complete to exit loop
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}",
+        4 * [{"json": {"job_state": "waiting"}}]
+        + [{"json": {"job_state": "complete"}}],
+    )
+    # Mock output endpoint
+    requests_mock.get(URL + f"/v1/result/{job_id}/output", text="")
+
+    # Mock queue position to change from 2 to 1 to 0
+    requests_mock.get(
+        URL + f"/v1/job/{job_id}/position",
+        [{"text": str(position)} for position in range(2, -1, -1)],
+    )
+
+    # Mock sleep to avoid actual waiting
+    monkeypatch.setattr("time.sleep", lambda x: None)
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    tfcli.do_poll(job_id)
+    std = capsys.readouterr()
+    assert "This job is waiting on a node to become available." in std.out
+    assert (
+        "This job will be picked up after the current job and 2 job(s) "
+        "ahead of it in the queue are complete"
+    ) in std.out
+    assert (
+        "This job will be picked up after the current job and 1 job(s) "
+        "ahead of it in the queue are complete"
+    ) in std.out
+    assert (
+        "This job will be picked up after the current job is complete "
+        "(it is next in line)"
+    ) in std.out
+
+
 def test_agent_status(capsys, requests_mock):
     """Validate that the status of the agent is retrieved."""
     fake_agent = "fake_agent"
