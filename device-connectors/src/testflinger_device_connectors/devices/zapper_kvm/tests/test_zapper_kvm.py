@@ -31,7 +31,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
     def test_get_credentials(self) -> None:
         connector = DeviceConnector({})
         connector.job_data = {}
-        assert connector._get_credentials("alloem_url") == ("ubuntu", "u")
+        assert connector._get_credentials("jammy-oem") == ("ubuntu", "u")
         assert connector._get_credentials("preset") == ("ubuntu", "ubuntu")
         assert connector._get_credentials() == ("ubuntu", "ubuntu")
 
