@@ -110,10 +110,8 @@ class DeviceConnector(ZapperConnector):
             Path("~/.ssh/id_rsa.pub").expanduser().read_text(encoding="utf-8")
         )
 
-    def _get_credentials(
-        self, target: str | None = None
-    ) -> tuple[str, str]:
-        if provisioning_type == "jammy-oem":
+    def _get_credentials(self, target: str | None = None) -> tuple[str, str]:
+        if target == "jammy-oem":
             return "ubuntu", "u"
         else:
             return (
@@ -133,15 +131,21 @@ class DeviceConnector(ZapperConnector):
         """
         provisioning_data = {}
         if "preset" in self.job_data["provision_data"]:
+            has_autoinstall = False
             for key, value in self.job_data["provision_data"].items():
-                if key == "autoinstall_conf":
-                    provisioning_data[key] = self._get_autoinstall_conf()
+                if key.startswith("autoinstall"):
+                    has_autoinstall = True
                 else:
                     provisioning_data[key] = value
 
             provisioning_data["username"], provisioning_data["password"] = (
                 self._get_credentials("preset")
             )
+
+            if has_autoinstall:
+                provisioning_data["autoinstall_conf"] = (
+                    self._get_autoinstall_conf()
+                )
 
         elif "alloem_url" in self.job_data["provision_data"]:
             provisioning_data["url"] = self.job_data["provision_data"][
