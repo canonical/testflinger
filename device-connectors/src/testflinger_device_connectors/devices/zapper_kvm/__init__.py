@@ -111,9 +111,9 @@ class DeviceConnector(ZapperConnector):
         )
 
     def _get_credentials(
-        self, provisioning_type: str | None = None
+        self, target: str | None = None
     ) -> tuple[str, str]:
-        if provisioning_type == "alloem_url":
+        if provisioning_type == "jammy-oem":
             return "ubuntu", "u"
         else:
             return (
