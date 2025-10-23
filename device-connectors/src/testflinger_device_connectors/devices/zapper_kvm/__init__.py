@@ -148,7 +148,7 @@ class DeviceConnector(ZapperConnector):
                 "alloem_url"
             ]
             provisioning_data["username"], provisioning_data["password"] = (
-                self._get_credentials("alloem_url")
+                self._get_credentials("jammy-oem")
             )
             provisioning_data["robot_retries"] = max(
                 2, self.job_data["provision_data"].get("robot_retries", 1)
