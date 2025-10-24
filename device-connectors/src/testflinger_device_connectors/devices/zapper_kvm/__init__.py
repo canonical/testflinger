@@ -110,37 +110,73 @@ class DeviceConnector(ZapperConnector):
             Path("~/.ssh/id_rsa.pub").expanduser().read_text(encoding="utf-8")
         )
 
+    def _get_credentials(self, target: str | None = None) -> tuple[str, str]:
+        if target == "jammy-oem":
+            return "ubuntu", "u"
+        else:
+            return (
+                self.job_data.get("test_data", {}).get(
+                    "test_username", "ubuntu"
+                ),
+                self.job_data.get("test_data", {}).get(
+                    "test_password", "ubuntu"
+                ),
+            )
+
     def _validate_configuration(
         self,
     ) -> Tuple[Tuple, Dict[str, Any]]:
         """Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
-        if "alloem_url" in self.job_data["provision_data"]:
-            url = self.job_data["provision_data"]["alloem_url"]
-            username = "ubuntu"
-            password = "u"
-            retries = max(
+        provisioning_data = {}
+        if "preset" in self.job_data["provision_data"]:
+            has_autoinstall = False
+            for key, value in self.job_data["provision_data"].items():
+                if key.startswith("autoinstall"):
+                    has_autoinstall = True
+                else:
+                    provisioning_data[key] = value
+
+            provisioning_data["username"], provisioning_data["password"] = (
+                self._get_credentials("preset")
+            )
+
+            if has_autoinstall:
+                provisioning_data["autoinstall_conf"] = (
+                    self._get_autoinstall_conf()
+                )
+
+        elif "alloem_url" in self.job_data["provision_data"]:
+            provisioning_data["url"] = self.job_data["provision_data"][
+                "alloem_url"
+            ]
+            provisioning_data["username"], provisioning_data["password"] = (
+                self._get_credentials("jammy-oem")
+            )
+            provisioning_data["robot_retries"] = max(
                 2, self.job_data["provision_data"].get("robot_retries", 1)
             )
+            provisioning_data["autoinstall_conf"] = (
+                self._get_autoinstall_conf()
+            )
+            provisioning_data["robot_tasks"] = self.job_data["provision_data"][
+                "robot_tasks"
+            ]
         else:
-            url = self.job_data["provision_data"]["url"]
-            username = self.job_data.get("test_data", {}).get(
-                "test_username", "ubuntu"
+            provisioning_data["url"] = self.job_data["provision_data"]["url"]
+            provisioning_data["username"], provisioning_data["password"] = (
+                self._get_credentials()
             )
-            password = self.job_data.get("test_data", {}).get(
-                "test_password", "ubuntu"
+            provisioning_data["robot_retries"] = self.job_data[
+                "provision_data"
+            ].get("robot_retries", 1)
+            provisioning_data["autoinstall_conf"] = (
+                self._get_autoinstall_conf()
             )
-            retries = self.job_data["provision_data"].get("robot_retries", 1)
-
-        provisioning_data = {
-            "url": url,
-            "username": username,
-            "password": password,
-            "robot_retries": retries,
-            "autoinstall_conf": self._get_autoinstall_conf(),
-            "robot_tasks": self.job_data["provision_data"]["robot_tasks"],
-        }
+            provisioning_data["robot_tasks"] = self.job_data["provision_data"][
+                "robot_tasks"
+            ]
 
         # Let's handle defaults on the Zapper side adding only the explicitly
         # specified keys to the `provision_data` dict.
