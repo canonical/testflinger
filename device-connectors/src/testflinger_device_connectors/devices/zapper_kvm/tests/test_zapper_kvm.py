@@ -99,6 +99,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
+                "url": "http://test",
                 "preset": "preset-test",
                 "username": "custom-user",
                 "password": "custom-password",
@@ -109,6 +110,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         args, kwargs = connector._validate_configuration()
 
         expected = {
+            "url": "http://test",
             "preset": "preset-test",
             "username": "ubuntu",
             "password": "ubuntu",
