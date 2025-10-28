@@ -92,6 +92,7 @@ class AgentState(StrEnum):
     RESTART = "restart"
     UNKNOWN = "unknown"
 
+
 class LogType(StrEnum):
     """
     Enum of different output types
