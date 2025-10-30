@@ -71,6 +71,6 @@ If you wish to define your job inline, you can use the following step:
 
 [^auth]: Both client-id and secret-key must be provided, or neither.
 
-[job]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema.html
+[job]: https://canonical-testflinger.readthedocs-hosted.com/en/latest/reference/job-schema/
 [cli]: ../../../cli/
 [poll-multi-action]: ../poll-multi/
