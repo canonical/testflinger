@@ -161,6 +161,13 @@ class BaseZapperProvisionData(Schema):
 
     zapper_provisioning_timeout = fields.Integer(required=False)
 
+class ZapperKVMPresetProvisionData(BaseZapperProvisionData):
+    """Schema for the `provision_data` section of a Zapper KVM job.
+
+    This schema is used when using a preset for provisioning.
+    """
+
+    preset = fields.String(required=True)
 
 class ZapperIoTPresetProvisionData(BaseZapperProvisionData):
     """Schema for the `provision_data` section of a Zapper IoT job.
@@ -235,6 +242,7 @@ class ProvisionData(OneOfSchema):
         "noprovision": NoProvisionData,
         "oem_autoinstall": OEMAutoinstallProvisionData,
         "oem_script": OEMScriptProvisionData,
+        "zapper_kvm_preset": ZapperKVMPresetProvisionData,
         "zapper_iot_preset": ZapperIoTPresetProvisionData,
         "zapper_iot_custom": ZapperIoTCustomProvisionData,
         "zapper_kvm_autoinstall": ZapperKVMAutoinstallProvisionData,
