@@ -224,6 +224,26 @@ class ZapperKVMGenericProvisionData(BaseZapperProvisionData):
     wait_until_ssh = fields.Boolean(required=True)
 
 
+class ZapperKVMPresetProvisionData(BaseZapperProvisionData):
+    """Schema for the `provision_data` section of a Zapper KVM job.
+
+    This schema is used when using a preset for provisioning.
+    """
+
+    alloem_url = fields.URL(required=False)
+    autoinstall_base_user_data = fields.String(required=False)
+    autoinstall_oem = fields.Boolean(required=False)
+    autoinstall_storage_layout = fields.String(required=False)
+    cmdline_append = fields.String(required=False)
+    live_image = fields.Boolean(required=False)
+    oem = fields.String(required=False)
+    preset = fields.String(required=True)
+    robot_tasks = fields.List(fields.String(), required=False)
+    ubuntu_sso_email = fields.Email(required=False)
+    url = fields.URL(required=False)
+    wait_until_ssh = fields.Boolean(required=False)
+
+
 class ProvisionData(OneOfSchema):
     """Polymorphic schema for the `provision_data` section of a job."""
 
@@ -235,11 +255,12 @@ class ProvisionData(OneOfSchema):
         "noprovision": NoProvisionData,
         "oem_autoinstall": OEMAutoinstallProvisionData,
         "oem_script": OEMScriptProvisionData,
-        "zapper_iot_preset": ZapperIoTPresetProvisionData,
         "zapper_iot_custom": ZapperIoTCustomProvisionData,
+        "zapper_iot_preset": ZapperIoTPresetProvisionData,
         "zapper_kvm_autoinstall": ZapperKVMAutoinstallProvisionData,
-        "zapper_kvm_oem_2204": ZapperKVMOEM2204ProvisionData,
         "zapper_kvm_generic": ZapperKVMGenericProvisionData,
+        "zapper_kvm_oem_2204": ZapperKVMOEM2204ProvisionData,
+        "zapper_kvm_preset": ZapperKVMPresetProvisionData,
     }
 
     def get_obj_type(self, obj):
