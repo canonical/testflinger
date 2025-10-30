@@ -162,15 +162,6 @@ class BaseZapperProvisionData(Schema):
     zapper_provisioning_timeout = fields.Integer(required=False)
 
 
-class ZapperKVMPresetProvisionData(BaseZapperProvisionData):
-    """Schema for the `provision_data` section of a Zapper KVM job.
-
-    This schema is used when using a preset for provisioning.
-    """
-
-    preset = fields.String(required=True)
-
-
 class ZapperIoTPresetProvisionData(BaseZapperProvisionData):
     """Schema for the `provision_data` section of a Zapper IoT job.
 
@@ -231,6 +222,26 @@ class ZapperKVMGenericProvisionData(BaseZapperProvisionData):
     robot_tasks = fields.List(fields.String(), required=True)
     live_image = fields.Boolean(required=True)
     wait_until_ssh = fields.Boolean(required=True)
+
+
+class ZapperKVMPresetProvisionData(BaseZapperProvisionData):
+    """Schema for the `provision_data` section of a Zapper KVM job.
+
+    This schema is used when using a preset for provisioning.
+    """
+
+    alloem_url = fields.URL(required=False)
+    autoinstall_base_user_data = fields.String(required=False)
+    autoinstall_oem = fields.Boolean(required=False)
+    autoinstall_storage_layout = fields.String(required=False)
+    cmdline_append = fields.String(required=False)
+    live_image = fields.Boolean(required=False)
+    oem = fields.String(required=False)
+    preset = fields.String(required=True)
+    robot_tasks = fields.List(fields.String(), required=False)
+    ubuntu_sso_email = fields.Email(required=False)
+    url = fields.URL(required=False)
+    wait_until_ssh = fields.Boolean(required=False)
 
 
 class ProvisionData(OneOfSchema):
