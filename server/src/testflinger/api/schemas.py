@@ -244,11 +244,11 @@ class ProvisionData(OneOfSchema):
         "noprovision": NoProvisionData,
         "oem_autoinstall": OEMAutoinstallProvisionData,
         "oem_script": OEMScriptProvisionData,
-        "zapper_iot_preset": ZapperIoTPresetProvisionData,
         "zapper_iot_custom": ZapperIoTCustomProvisionData,
+        "zapper_iot_preset": ZapperIoTPresetProvisionData,
         "zapper_kvm_autoinstall": ZapperKVMAutoinstallProvisionData,
-        "zapper_kvm_oem_2204": ZapperKVMOEM2204ProvisionData,
         "zapper_kvm_generic": ZapperKVMGenericProvisionData,
+        "zapper_kvm_oem_2204": ZapperKVMOEM2204ProvisionData,
         "zapper_kvm_preset": ZapperKVMPresetProvisionData,
     }
 
