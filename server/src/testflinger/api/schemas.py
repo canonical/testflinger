@@ -161,6 +161,7 @@ class BaseZapperProvisionData(Schema):
 
     zapper_provisioning_timeout = fields.Integer(required=False)
 
+
 class ZapperKVMPresetProvisionData(BaseZapperProvisionData):
     """Schema for the `provision_data` section of a Zapper KVM job.
 
@@ -168,6 +169,7 @@ class ZapperKVMPresetProvisionData(BaseZapperProvisionData):
     """
 
     preset = fields.String(required=True)
+
 
 class ZapperIoTPresetProvisionData(BaseZapperProvisionData):
     """Schema for the `provision_data` section of a Zapper IoT job.
