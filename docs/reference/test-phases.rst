@@ -330,12 +330,58 @@ The presence of *either* `url` or `use_attachment` is required.
 
 At the moment, only the :ref:`muxpi` device connector supports provisioning using an attached image.
 
-Output 
-------------
+Output and logging
+------------------
 
-When running Testflinger, your output will be automatically accumulated for each stage (setup, provision, test, cleanup) and sent to the Testflinger server, along with an exit status for each stage. 
+When running Testflinger, your output is automatically captured for each test phase and streamed to the Testflinger server in real-time as log fragments.
 
-If any stage encounters a non-zero exit code, no further stages will be executed, but the outcome will still be sent to the server.
+Log capture and streaming
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The agent captures two types of logs for each phase:
+
+**Standard output logs**
+  All console output from commands executed during the phase is captured and sent to the server as fragments. This includes:
+
+  - Setup and cleanup command output
+  - Device connector provisioning output
+  - Test command results
+  - Any stderr output from commands
+
+**Serial console logs**
+  For device connectors that support serial console access, the serial output is also captured during provisioning and testing. After each phase completes, the agent reads the serial log file and streams it to the server in chunks.
+
+Log fragment structure
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Each log fragment includes:
+
+- **fragment_number**: Sequential number starting from 0
+- **timestamp**: ISO 8601 timestamp when the fragment was created
+- **phase**: The test phase name (setup, provision, test, etc.)
+- **log_data**: The actual log content
+
+This structured approach allows you to:
+
+- Query logs by specific test phase
+- Retrieve logs from a specific time range
+- Get incremental updates using fragment numbers
+- Access logs multiple times (they are stored persistently)
+
+Exit status tracking
+~~~~~~~~~~~~~~~~~~~~
+
+Along with logs, each test phase records an exit status code:
+
+- **0**: Phase completed successfully
+- **Non-zero**: Phase failed
+
+If any stage encounters a non-zero exit code, no further stages will be executed, but the logs and outcome will still be sent to the server.
+
+Retrieving logs
+~~~~~~~~~~~~~~~
+
+See :doc:`../how-to/retrieve-logs` for detailed information on how to retrieve and query logs using the CLI or API.
 
 Artifact
 ---------

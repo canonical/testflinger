@@ -12,7 +12,7 @@ from unittest.mock import patch
 import prometheus_client
 import pytest
 import requests_mock as rmock
-from testflinger_common.enums import AgentState, TestEvent, TestPhase
+from testflinger_common.enums import AgentState, LogType, TestEvent, TestPhase
 
 import testflinger_agent
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
@@ -371,8 +371,8 @@ class TestClient:
         )
         with open(outcome_file) as f:
             outcome_data = json.load(f)
-        assert outcome_data.get("provision_status") == 1
-        assert outcome_data.get("test_status") is None
+        assert outcome_data.get("status").get("provision") == 1
+        assert outcome_data.get("status").get("test") is None
 
     def test_phase_timeout(self, agent, requests_mock):
         # Make sure the status code of a timed-out phase is correct
@@ -403,7 +403,7 @@ class TestClient:
         )
         with open(outcome_file) as f:
             outcome_data = json.load(f)
-        assert outcome_data.get("test_status") == 247
+        assert outcome_data.get("status").get("test") == 247
 
     def test_retry_transmit(self, agent, requests_mock):
         # Make sure we retry sending test results
@@ -463,7 +463,7 @@ class TestClient:
             m.get("http://127.0.0.1:8000/v1/result/" + job_id, text="{}")
             m.post("http://127.0.0.1:8000/v1/result/" + job_id, text="{}")
             m.post(
-                "http://127.0.0.1:8000/v1/result/" + job_id + "/output",
+                f"http://127.0.0.1:8000/v1/result/{job_id}/log/{LogType.STANDARD_OUTPUT}",
                 text="{}",
             )
             m.post(

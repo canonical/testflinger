@@ -12,12 +12,9 @@ from testflinger_common.enums import TestEvent, TestPhase
 
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
-from testflinger_agent.handlers import LogUpdateHandler
+from testflinger_agent.handlers import FileLogHandler
 from testflinger_agent.job import (
     TestflingerJob as _TestflingerJob,
-)
-from testflinger_agent.job import (
-    read_truncated,
 )
 from testflinger_agent.runner import CommandRunner
 from testflinger_agent.schema import validate
@@ -79,7 +76,7 @@ class TestJob:
         timeout_str = "ERROR: Global timeout reached! (1s)"
         logfile = tmp_path / "testlog"
         runner = CommandRunner(tmp_path, env={})
-        log_handler = LogUpdateHandler(logfile)
+        log_handler = FileLogHandler(logfile)
         runner.register_output_handler(log_handler)
         global_timeout_checker = GlobalTimeoutChecker(1)
         runner.register_stop_condition_checker(global_timeout_checker)
@@ -104,7 +101,7 @@ class TestJob:
         timeout_str = "ERROR: Output timeout reached! (1s)"
         logfile = tmp_path / "testlog"
         runner = CommandRunner(tmp_path, env={})
-        log_handler = LogUpdateHandler(logfile)
+        log_handler = FileLogHandler(logfile)
         runner.register_output_handler(log_handler)
         output_timeout_checker = OutputTimeoutChecker(1)
         runner.register_stop_condition_checker(output_timeout_checker)
@@ -179,26 +176,6 @@ class TestJob:
         assert exit_code == 100
         assert exit_event == "setup_fail"
         assert exit_reason == "failed"
-
-    def test_read_truncated(self, client, tmp_path):
-        """Test the read_truncated function."""
-        # First check that a small file doesn't get truncated
-        short_file = tmp_path / "short"
-        short_file.write_text("x" * 100)
-        contents = read_truncated(short_file, size=100)
-        assert len(contents) == 100
-        assert "WARNING" not in contents
-
-        # Now check that a larger file does get truncated
-        long_file = tmp_path / "long"
-        long_file.write_text("x" * 200)
-        contents = read_truncated(long_file, size=100)
-        # It won't be exactly 100 bytes, because a warning is added
-        assert len(contents) < 150
-        assert "WARNING" in contents
-
-        # Check that a default value exists for `output_bytes`
-        assert "output_bytes" in client.config
 
     @pytest.mark.timeout(1)
     def test_wait_for_completion(self, client):
@@ -281,7 +258,7 @@ class TestJob:
             outcome_data = json.load(outcome_file)
 
         print(outcome_data)
-        assert outcome_data.get(f"{phase}_status") == 0
+        assert outcome_data.get("status").get(phase) == 0
 
     def run_testcmds(self, job_data, client, tmp_path) -> str:
         # create the outcome file manually
@@ -313,6 +290,7 @@ class TestJob:
 
     def test_run_test_phase_secret(self, client, tmp_path, requests_mock):
         requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.get(rmock.ANY, json={}, status_code=200)
 
         # create the job data
         job_data = {
@@ -334,3 +312,44 @@ class TestJob:
         assert match is not None
         first, second = match.groups()
         assert first == second
+
+    def test_serial_log_to_endpoint(self, client, tmp_path, requests_mock):
+        """
+        Test that serial log file data are written to the serial log
+        endpoint.
+        """
+        phase = "provision"
+        output = "a" * 2048
+        serial_log = tmp_path / f"{phase}-serial.log"
+        with open(serial_log, "w") as f:
+            f.write(output)
+
+        # create the outcome file since we bypassed that
+        with open(tmp_path / "testflinger-outcome.json", "w") as outcome_file:
+            outcome_file.write("{}")
+
+        job_id = str(uuid.uuid1())
+        fake_job_data = {
+            "job_id": job_id,
+            "output_timeout": 1,
+            f"{phase}_data": {"url": "foo"},
+        }
+
+        job = _TestflingerJob(fake_job_data, client)
+        self.config[f"{phase}_command"] = "/bin/true"
+        requests_mock.post(rmock.ANY, status_code=200)
+        return_value, exit_event, exit_reason = job.run_test_phase(
+            phase, tmp_path
+        )
+        serial_url = f"http://127.0.0.1:8000/v1/result/{job_id}/log/serial"
+        requests = list(
+            filter(
+                lambda req: req.url == serial_url,
+                requests_mock.request_history,
+            )
+        )
+        assert len(requests) == 2
+        for i in range(2):
+            assert requests[i].json()["fragment_number"] == i
+            assert requests[i].json()["phase"] == phase
+            assert requests[i].json()["log_data"] == "a" * 1024
