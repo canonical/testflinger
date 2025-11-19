@@ -8,6 +8,10 @@ on:
     paths:
       - .github/actions/submit/action.yaml
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   auto-tag-submit-action:
     name: Create version tag for the submit action

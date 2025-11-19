@@ -8,6 +8,10 @@ on:
       - server/charm/**
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Check charm libraries

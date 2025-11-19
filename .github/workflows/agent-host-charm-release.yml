@@ -18,6 +18,10 @@ on:
           - latest/beta
           - latest/edge
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   agent-build-and-push-charm:
     name: Build and Push Charm
