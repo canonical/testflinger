@@ -92,4 +92,15 @@ config:
 
 parts:
   charm:
-    build-packages: [cargo, rustc, pkg-config, libffi-dev, libssl-dev]
+    plugin: charm
+    source: .
+    build-packages: [pkg-config, libffi-dev, libssl-dev]
+    build-snaps: [rustup]
+    override-build: |
+      # pydantic requires a higher version of rustc than what is in the archive
+      # for 22.04
+      # Install rustc and cargo using rustup instead of the Ubuntu archive
+      rustup set profile minimal
+      rustup default 1.83.0  # renovate: charmcraft-rust-latest
+
+      craftctl default
