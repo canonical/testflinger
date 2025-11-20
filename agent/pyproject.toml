@@ -23,7 +23,6 @@ testflinger-agent = "testflinger_agent.cmd:main"
 
 [dependency-groups]
 charm = [
-    "charmcraft>=2.7.3",
     "cosl",
     "gitpython==3.1.44",
     "jinja2==3.1.6",
