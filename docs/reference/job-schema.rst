@@ -36,7 +36,16 @@ The following table lists the key elements that a job definition file should con
     - integer
     - | 7200
       | (2 hours)
-    - (Optional) Maximum time (in seconds) Testflinger should wait in the ``allocate`` phase for multi-device jobs to reach the ``allocated`` state. If the timeout is reached before all devices are allocated, Testflinger will cancel the job.
+    - (Optional) Maximum time (in seconds) Testflinger should wait in the ``allocate`` phase for multi-device jobs to reach the ``allocated`` state. If the timeout is reached before all devices are allocated, Testflinger will cancel the job. This timeout only applies to multi-device jobs that use the ``multi`` device connector.
+  * - ``parent_job_id``
+    - string (UUID)
+    - /
+    - | (Internal field) UUID of the parent job for child jobs created by multi-device workflows. This field is automatically injected by the multi device connector when creating child jobs and should not be manually specified by users.
+      | Child jobs automatically inherit authentication permissions (``auth_permissions``) from their parent job, including:
+      |   - Extended reservation time limits
+      |   - Job priority settings
+      |   - Restricted queue access
+      | This field enables audit trail tracking and credential inheritance for multi-device workflows.
   * - ``<phase>_data``
     - dictionary
     - /

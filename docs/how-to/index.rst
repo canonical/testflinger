@@ -15,6 +15,7 @@ Work with jobs via Testflinger CLI
     cancel-job
     reserve-job
     search-job
+    multi-device-jobs
     job-priority
     authentication
     manage-client-permissions

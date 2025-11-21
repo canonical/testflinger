@@ -16,8 +16,8 @@ To specify the commands to run by the device in each test phase, set the ``testf
      - Qualcomm Dragonboard 410c setup to boot from both a special image on a USB stick when the SD card is erased, as well as an SD card that can be provisioned by booting the stable image on a USB stick and then flashing the new image to the SD card.
    * - ``maas2`` 
      - Uses `MAAS <https://maas.io/>`_ to provision supported images on devices that are capable of being controlled by a MAAS server.
-   * - ``multi`` 
-     - Experimental device type that is used for provisioning multiple other devices in order to coordinate a job across multiple devices at the same time.
+   * - ``multi``
+     - Device connector for coordinating multi-device jobs. Provisions multiple devices simultaneously and optionally reserves them for SSH access. Supports credential inheritance, allowing child jobs to inherit authentication permissions from the parent job. See :doc:`../how-to/multi-device-jobs` for detailed usage.
    * - ``muxpi`` 
      - MuxPi or SDWire device capable of multiplexing the SD card so that it can be written, then control can be switched to the DUT to boot the image, see :ref:`muxpi`.
    * - ``netboot`` 
@@ -77,6 +77,87 @@ fake_connector
 --------------
 
 The ``fake_connector`` device connector doesn't actually provision any devices, but is useful for testing the Testflinger without needing to have any real devices connected.
+
+.. _multi:
+
+multi
+-----
+
+The ``multi`` device connector is used for coordinating multi-device jobs across multiple devices simultaneously. It creates child jobs for each device, waits for them to be allocated, and optionally reserves them for SSH access.
+
+**Workflow:**
+
+1. **Provision phase**: Creates and submits child jobs via the ``/v1/agent/jobs`` endpoint with credential inheritance
+2. **Allocate phase**: Waits for all child jobs to reach ``allocated`` state
+3. **Reserve phase** (optional): Copies SSH keys to all allocated devices
+4. **Test phase** (optional): Executes coordinated tests across devices
+5. **Cleanup phase**: Cancels all child jobs
+
+The ``multi`` device connector supports the following ``provision_data`` keys:
+
+.. list-table:: Supported ``provision_data`` keys for ``multi``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``jobs``
+     - List of child job definitions. Each entry must contain:
+
+       - ``job_queue``: Queue name for the child device
+       - ``provision_data``: Device-specific provisioning parameters (varies by device connector type)
+
+The ``multi`` device connector supports the following ``reserve_data`` keys:
+
+.. list-table:: Supported ``reserve_data`` keys for ``multi``
+   :header-rows: 1
+
+   * - Key
+     - Description
+   * - ``ssh_keys``
+     - List of SSH key identifiers to import and copy to all devices. Format: ``provider:username`` (e.g., ``gh:username`` for GitHub or ``lp:username`` for Launchpad). Uses ``ssh-import-id`` to retrieve keys.
+   * - ``timeout``
+     - Reservation duration in seconds. Default: 3600 (1 hour). Can also use duration format (e.g., ``2h30m``). This timeout is independent from ``global_timeout``.
+
+**Additional fields:**
+
+- ``allocation_timeout``: Maximum time (in seconds) to wait for all child jobs to reach allocated state. Default: 7200 (2 hours)
+- ``test_data.test_username``: SSH username for device connections. Default: ``ubuntu``
+
+**Credential inheritance:**
+
+Child jobs automatically inherit authentication permissions (``auth_permissions``) from the parent job, including:
+
+- Extended reservation time limits (``max_reservation_time``)
+- Job priority settings (``max_priority``)
+- Restricted queue access (``allowed_queues``)
+
+This enables authenticated users to submit multi-device jobs with elevated privileges that apply to all child jobs.
+
+**Example:**
+
+.. code-block:: yaml
+
+  job_queue: multi
+  allocation_timeout: 7200
+  provision_data:
+    jobs:
+      - job_queue: rpi4b
+        provision_data:
+          url: https://cdimage.ubuntu.com/ubuntu-core/22/stable/current/ubuntu-core-22-arm64+raspi.img.xz
+      - job_queue: maas-x86
+        provision_data:
+          distro: jammy
+  reserve_data:
+    ssh_keys:
+      - "gh:your-username"
+    timeout: "3600"
+  test_data:
+    test_username: ubuntu
+    test_cmds: |
+      # Access device IPs from job_list.json
+      jq '.[].device_info.device_ip' job_list.json
+
+For comprehensive documentation on multi-device jobs, see :doc:`../how-to/multi-device-jobs`.
 
 .. _maas2:
 

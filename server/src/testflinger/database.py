@@ -574,3 +574,19 @@ def register_web_client(oidc_token: dict):
                 "role": ServerRoles.CONTRIBUTOR,
             }
         )
+
+def retrieve_parent_permissions(parent_job_id: str) -> dict:
+    """Retrieve auth permissions from parent job for credential inheritance.
+
+    :param parent_job_id: UUID of the parent job to inherit permissions from.
+    :return: Dictionary with parent job's auth permissions,
+    or empty dict if none.
+    """
+    parent_job = mongo.db.jobs.find_one(
+        {"job_id": parent_job_id}, {"auth_permissions": True, "_id": False}
+    )
+
+    if not parent_job:
+        return {}
+
+    return parent_job.get("auth_permissions", {})
