@@ -403,15 +403,21 @@ class LogTypeConverter(BaseConverter):
 @v1.get("/result/<job_id>/log/<log_type:log_type>")
 @v1.output(schemas.LogGet)
 def log_get(job_id: str, log_type: LogType):
-    """Get logs for a specified job_id."""
+    """Get logs for a specified job_id.
+
+    :param job_id: UUID as a string for the job
+    :param log_type: LogType enum value for the type of log requested
+    :raises HTTPError: If the job_id is not a valid UUID or if invalid query
+    :return: Dictionary with log data
+    """
     args = request.args
     if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job id\n")
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job id\n")
     query_schema = schemas.LogQueryParams()
     try:
         query_params = query_schema.load(args)
     except ValidationError as err:
-        abort(400, message=err.messages)
+        abort(HTTPStatus.BAD_REQUEST, message=err.messages)
     start_fragment = query_params.get("start_fragment", 0)
     start_timestamp = query_params.get("start_timestamp")
     phase = query_params.get("phase")
@@ -439,10 +445,16 @@ def log_get(job_id: str, log_type: LogType):
 
 @v1.post("/result/<job_id>/log/<log_type:log_type>")
 @v1.input(schemas.LogPost, location="json")
-def log_post(job_id: str, log_type: LogType, json_data: dict):
-    """Post logs for a specified job ID."""
+def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
+    """Post logs for a specified job ID.
+
+    :param job_id: UUID as a string for the job
+    :param log_type: LogType enum value for the type of log being posted
+    :raises HTTPError: If the job_id is not a valid UUID
+    :param json_data: Dictionary with log data
+    """
     if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
     log_fragment = LogFragment(
         job_id,
         log_type,
@@ -458,14 +470,14 @@ def log_post(job_id: str, log_type: LogType, json_data: dict):
 
 @v1.post("/result/<job_id>")
 @v1.input(schemas.ResultPost, location="json")
-def result_post(job_id, json_data):
+def result_post(job_id: str, json_data: dict) -> str:
     """Post a result for a specified job_id.
 
-    :param job_id:
-        UUID as a string for the job
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: If the job_id is not a valid UUID
     """
     if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
 
     database.add_job_results(job_id, json_data)
     return "OK"
@@ -473,19 +485,19 @@ def result_post(job_id, json_data):
 
 @v1.get("/result/<job_id>")
 @v1.output(schemas.ResultGet)
-def result_get(job_id):
+def result_get(job_id: str):
     """Return results for a specified job_id.
 
-    :param job_id:
-        UUID as a string for the job
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: If the job_id is not a valid UUID
     """
     if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
 
     response = database.get_job_results(job_id)
 
     if not response or not (result_data := response.get("result_data")):
-        return "", 204
+        return "", HTTPStatus.NO_CONTENT
     log_handler = MongoLogHandler(database.mongo)
     result_logs = {
         phase + "_" + log_type: log_data
