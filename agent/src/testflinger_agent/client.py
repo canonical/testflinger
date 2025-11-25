@@ -316,22 +316,48 @@ class TestflingerClient:
     ):
         """Post log data to the testflinger server for this job.
 
-        :param job_id
-            id for the job
-        :param log_input
-            Dataclass with all of the keys for the log endpoint
-        :param log_type
-            Enum of different log types the server accepts
+        :param job_id: id for the job
+        :param log_input: Dataclass with all of the keys for the log endpoint
+        :param log_type: Enum of different log types the server accepts
         """
         endpoint = urljoin(self.server, f"/v1/result/{job_id}/log/{log_type}")
+
+        # Enum is "serial", for compatibility, define "serial_output" instead
+        suffix = (
+            "serial_output"
+            if log_type == LogType.SERIAL_OUTPUT
+            else log_type.value
+        )
+        legacy_endpoint = urljoin(self.server, f"/v1/result/{job_id}/{suffix}")
+
+        # Define request and legacy_request success flags
+        legacy_request = None
+        request = None
+
+        # Prioritize writing to legacy endpoint
+        # TODO: Remove legacy endpoint support in future versions
         try:
-            job_request = self.session.post(
+            legacy_request = self.session.post(
+                legacy_endpoint,
+                data=log_input.log_data.encode("utf-8"),
+                timeout=60,
+            )
+        except requests.exceptions.RequestException as exc:
+            logger.error(exc)
+            logger.info("Fallback to new log endpoint")
+
+        # Write logs to new endpoint
+        try:
+            request = self.session.post(
                 endpoint, json=asdict(log_input), timeout=60
             )
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
-            return False
-        return bool(job_request)
+
+        # Return True if either request was successful
+        return any(
+            req is not None and req.ok for req in (legacy_request, request)
+        )
 
     def post_advertised_queues(self):
         """Post the list of advertised queues to testflinger server."""

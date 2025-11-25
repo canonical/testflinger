@@ -1219,3 +1219,88 @@ def secrets_delete(client_id, path):
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
     return "OK"
+
+@v1.get("/result/<job_id>/output")
+def legacy_output_get(job_id: str) -> str:
+    """Legacy endpoint to get job output for a specified job_id.
+
+    TODO: Remove after CLI/agent migration completes.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: BAD_REQUEST when job_id is invalid
+    :return: Plain text output
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    response = database.mongo.db.output.find_one_and_delete(
+        {"job_id": job_id}, {"_id": False}
+    )
+    output = response.get("output", []) if response else None
+    if output:
+        return "\n".join(output)
+    return "", HTTPStatus.NO_CONTENT
+
+
+@v1.post("/result/<job_id>/output")
+def legacy_output_post(job_id: str) -> str:
+    """Legacy endpoint to post output for a specified job_id.
+
+    TODO: Remove after CLI/agent migration completes.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: BAD_REQUEST when job_id is invalid
+    :return: "OK" on success
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    data = request.get_data().decode("utf-8")
+    timestamp = datetime.now(timezone.utc)
+    database.mongo.db.output.update_one(
+        {"job_id": job_id},
+        {"$set": {"updated_at": timestamp}, "$push": {"output": data}},
+        upsert=True,
+    )
+    return "OK"
+
+
+@v1.get("/result/<job_id>/serial_output")
+def legacy_serial_output_get(job_id: str) -> str:
+    """Legacy endpoint to get latest serial output for a specified job ID.
+
+    TODO: Remove after CLI/agent migration completes.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: BAD_REQUEST when job_id is invalid
+    :return: Plain text serial output
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    response = database.mongo.db.serial_output.find_one_and_delete(
+        {"job_id": job_id}, {"_id": False}
+    )
+    output = response.get("serial_output", []) if response else None
+    if output:
+        return "\n".join(output)
+    return "", HTTPStatus.NO_CONTENT
+
+
+@v1.post("/result/<job_id>/serial_output")
+def legacy_serial_output_post(job_id: str) -> str:
+    """Legacy endpoint to post serial output for a specified job ID.
+
+    TODO: Remove after CLI/agent migration completes.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: BAD_REQUEST when job_id is invalid
+    :return: "OK" on success
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    data = request.get_data().decode("utf-8")
+    timestamp = datetime.now(timezone.utc)
+    database.mongo.db.serial_output.update_one(
+        {"job_id": job_id},
+        {"$set": {"updated_at": timestamp}, "$push": {"serial_output": data}},
+        upsert=True,
+    )
+    return "OK"
