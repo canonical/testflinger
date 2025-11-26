@@ -1086,9 +1086,8 @@ class TestflingerCli:
         job_state = self.get_job_state(job_id)
         self.history.update(job_id, job_state)
         prev_queue_pos = None
-        if job_state == "waiting":
-            print("This job is waiting on a node to become available.")
         cur_fragment = start_fragment
+        consecutive_empty_polls = 0
         while True:
             try:
                 job_state = self.get_job_state(job_id)
@@ -1117,8 +1116,16 @@ class TestflingerCli:
                                 f"of it in the queue are complete"
                             )
                 elif last_fragment_number < 0:
-                    print("Waiting on output...")
+                    consecutive_empty_polls += 1
+                    # Only show message after 90 seconds of no output
+                    # Indicates the CLI is actively attempting to poll data
+                    if consecutive_empty_polls == 9:
+                        print("Waiting on output...")
                 else:
+                    # Reset counter when we get data
+                    consecutive_empty_polls = 0
+
+                    # Print the retrieved log data
                     print(log_data, end="", flush=True)
                     cur_fragment = last_fragment_number + 1
                 time.sleep(10)
