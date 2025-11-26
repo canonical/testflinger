@@ -637,18 +637,31 @@ class ResultSchema(OneOfSchema):
     }
 
     def get_obj_type(self, obj):
-        """Determine the schema type based on the presence of keys."""
-        if any(
-            key in obj
-            for key in [
-                "setup_status",
-                "provision_status",
-                "firmware_update_status",
-                "test_status",
-                "allocate_status",
-                "reserve_status",
-                "cleanup_status",
-            ]
-        ):
+        """Get object type depending on which schema is correctly parsed."""
+        return self.get_data_type(obj)
+
+    def get_data_type(self, data):
+        """Get schema type depending on which schema is correctly parsed."""
+        # Try legacy first
+        try:
+            ResultLegacy().load(data)
             return "legacy"
-        return "new"
+        except ValidationError:
+            # If legacy fails, try new format
+            try:
+                ResultPost().load(data)
+                return "new"
+            except ValidationError as err:
+                # Re-raise the last validation error with more context
+                raise ValidationError(
+                    "Invalid result data schema. "
+                    f"Data does not match either legacy or new format: {err}"
+                ) from err
+
+    def _dump(self, obj, **kwargs):
+        result = super()._dump(obj, **kwargs)
+        # Parent dump injects the type field:
+        #   result[self.type_field] = self.get_obj_type(obj)
+        # So we need to remove it
+        result.pop(self.type_field)
+        return result
