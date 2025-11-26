@@ -469,7 +469,7 @@ def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
 
 
 @v1.post("/result/<job_id>")
-@v1.input(schemas.ResultPost, location="json")
+@v1.input(schemas.ResultSchema, location="json")
 def result_post(job_id: str, json_data: dict) -> str:
     """Post a result for a specified job_id.
 
@@ -478,6 +478,12 @@ def result_post(job_id: str, json_data: dict) -> str:
     """
     if not check_valid_uuid(job_id):
         abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+
+    # fail if input payload is larger than the BSON size limit
+    # https://www.mongodb.com/docs/manual/reference/limits/
+    content_length = request.content_length
+    if content_length and content_length >= 16 * 1024 * 1024:
+        abort(HTTPStatus.CONTENT_TOO_LARGE, message="Payload too large")
 
     database.add_job_results(job_id, json_data)
     return "OK"
@@ -498,24 +504,31 @@ def result_get(job_id: str):
 
     if not response or not (result_data := response.get("result_data")):
         return "", HTTPStatus.NO_CONTENT
-    log_handler = MongoLogHandler(database.mongo)
-    result_logs = {
-        phase + "_" + log_type: log_data
-        for log_type in LogType
-        for phase in TestPhase
-        if (
-            log_data := log_handler.retrieve_logs(job_id, log_type, phase)[
-                "log_data"
-            ]
-        )
-    }
-    phase_status = result_data.pop("status", {})
-    result_status = {
-        phase + "_status": status
-        for phase in TestPhase
-        if (status := phase_status.get(phase))
-    }
-    return result_logs | result_status | result_data
+
+    if any(key.endswith(("_output", "_serial")) for key in result_data.keys()):
+        # Legacy result format detected; return as-is
+        # TODO: Remove this path after deprecating legacy endpoints
+        return result_data
+    else:
+        # Reconstruct result format with logs and phase statuses
+        log_handler = MongoLogHandler(database.mongo)
+        result_logs = {
+            phase + "_" + log_type: log_data
+            for log_type in LogType
+            for phase in TestPhase
+            if (
+                log_data := log_handler.retrieve_logs(job_id, log_type, phase)[
+                    "log_data"
+                ]
+            )
+        }
+        phase_status = result_data.pop("status", {})
+        result_status = {
+            phase + "_status": status
+            for phase in TestPhase
+            if (status := phase_status.get(phase))
+        }
+        return result_logs | result_status | result_data
 
 
 @v1.post("/job/<job_id>/action")
