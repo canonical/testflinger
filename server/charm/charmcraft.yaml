@@ -43,7 +43,7 @@ charm-libs:
   - lib: observability_libs.juju_topology
     version: "0"
 
-base: ubuntu@22.04
+base: ubuntu@24.04
 platforms:
   amd64:
 
