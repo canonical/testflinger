@@ -1245,6 +1245,7 @@ def secrets_delete(client_id, path):
 
     return "OK"
 
+
 @v1.get("/result/<job_id>/output")
 def legacy_output_get(job_id: str) -> str:
     """Legacy endpoint to get job output for a specified job_id.
