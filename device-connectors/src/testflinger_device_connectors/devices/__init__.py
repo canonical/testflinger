@@ -417,52 +417,36 @@ class DefaultDevice:
         )
         time.sleep(int(timeout))
 
-    def pre_provision_hook(self):
-        """Execute control host reboot script before provisioning."""
-
-        control_host: str = str(self.config.get("control_host", ""))
-        if not control_host:
-            logger.debug("No control host configured for this agent.")
-            return
-
-        def ping(control_host: str) -> None:
-            try:
-                subprocess.run(
-                    ["/usr/bin/ping", "-c", "1", "-W", "2", control_host],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
-                logger.info(
-                    "Control host %s is responding to ping", control_host
-                )
-            except subprocess.CalledProcessError as e:
-                raise FileNotFoundError from e
-
-        def wait_back_alive(control_host: str, timeout: int) -> None:
-            logger.info(
-                "Waiting for control host %s to respond to ping", control_host
+    @staticmethod
+    def __ping(host: str) -> None:
+        try:
+            subprocess.run(
+                ["/usr/bin/ping", "-c", "1", "-W", "2", host],
+                check=True,
+                capture_output=True,
+                text=True,
             )
-            start_time = time.time()
-            while time.time() - start_time < timeout:
-                try:
-                    ping(control_host)
-                    break
-                except FileNotFoundError:
-                    # Ping failed, continue waiting
-                    time.sleep(2)
-            else:
-                # Timeout reached
-                msg = (
-                    "Control host %s did not respond to ping within %d seconds"
-                )
-                logger.error(msg, control_host, timeout)
+            logger.info("Control host %s is responding to ping", host)
+        except subprocess.CalledProcessError as e:
+            raise FileNotFoundError from e
 
-        with contextlib.suppress(FileNotFoundError):
-            ping(control_host)
-            logger.debug("The control host is already up and running.")
-            return
+    @staticmethod
+    def __wait_back_alive(host: str, timeout: int) -> None:
+        logger.info("Waiting for control host %s to respond to ping", host)
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                __ping(host)
+                break
+            except FileNotFoundError:
+                # Ping failed, continue waiting
+                time.sleep(2)
+        else:
+            # Timeout reached
+            msg = "Control host %s did not respond to ping within %d seconds"
+            logger.error(msg, host, timeout)
 
+    def __reboot_control_host(self) -> None:
         control_host_reboot_script: list[str] = [
             str(cmd)
             for cmd in self.config.get("control_host_reboot_script", [])
@@ -501,8 +485,23 @@ class DefaultDevice:
                     "Unexpected error running command %s: %s", cmd, str(e)
                 )
 
+    def pre_provision_hook(self):
+        """Execute control host reboot script before provisioning."""
+
+        control_host: str = str(self.config.get("control_host", ""))
+        if not control_host:
+            logger.debug("No control host configured for this agent.")
+            return
+
+        with contextlib.suppress(FileNotFoundError):
+            self.__ping(control_host)
+            logger.debug("The control host is already up and running.")
+            return
+
+        self.__reboot_control_host()
+
         # Wait for control host to be reachable via ping
-        wait_back_alive(control_host, 60)
+        self.__wait_back_alive(control_host, 60)
 
     def provision(self, args):
         """Run pre-provision hook."""
