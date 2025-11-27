@@ -330,3 +330,34 @@ class TestClient:
             with pytest.raises(TFServerError, match="No response received"):
                 client.repost_job(job_data)
             assert "No response received" in caplog.text
+
+    def test_repost_job_error_response(self, client, requests_mock, caplog):
+        """Test that repost_job handles HTTP error response correctly."""
+        job_id = str(uuid.uuid1())
+        job_data = {"job_id": job_id, "test": "data"}
+
+        # Mock both endpoints: post_live_output and the actual repost
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/result/{job_id}/output", status_code=200
+        )
+        requests_mock.post("http://127.0.0.1:8000/v1/job", status_code=500)
+        with pytest.raises(TFServerError):
+            client.repost_job(job_data)
+        assert "Unable to re-post job" in caplog.text
+
+    def test_save_artifacts_error_response(
+        self, client, requests_mock, tmp_path, caplog
+    ):
+        """Test that save_artifacts handles HTTP error response correctly."""
+        job_id = str(uuid.uuid1())
+
+        # Create artifacts directory with a file
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        (artifacts_dir / "test.txt").write_text("test content")
+
+        artifact_uri = f"http://127.0.0.1:8000/v1/result/{job_id}/artifact"
+        requests_mock.post(artifact_uri, status_code=500)
+        with pytest.raises(TFServerError):
+            client.save_artifacts(tmp_path, job_id)
+        assert "Unable to post results" in caplog.text
