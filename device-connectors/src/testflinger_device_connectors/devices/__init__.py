@@ -417,8 +417,7 @@ class DefaultDevice:
         )
         time.sleep(int(timeout))
 
-    @staticmethod
-    def __ping(host: str) -> None:
+    def __ping(self, host: str) -> None:
         try:
             subprocess.run(
                 ["/usr/bin/ping", "-c", "1", "-W", "2", host],
@@ -430,13 +429,12 @@ class DefaultDevice:
         except subprocess.CalledProcessError as e:
             raise FileNotFoundError from e
 
-    @staticmethod
-    def __wait_back_alive(host: str, timeout: int) -> None:
+    def __wait_back_alive(self, host: str, timeout: int) -> None:
         logger.info("Waiting for control host %s to respond to ping", host)
         start_time = time.time()
         while time.time() - start_time < timeout:
             try:
-                __ping(host)
+                self.__ping(host)
                 break
             except FileNotFoundError:
                 # Ping failed, continue waiting
@@ -487,7 +485,6 @@ class DefaultDevice:
 
     def pre_provision_hook(self):
         """Execute control host reboot script before provisioning."""
-
         control_host: str = str(self.config.get("control_host", ""))
         if not control_host:
             logger.debug("No control host configured for this agent.")
