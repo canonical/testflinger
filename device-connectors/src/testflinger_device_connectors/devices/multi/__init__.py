@@ -47,6 +47,8 @@ class DeviceConnector(DefaultDevice):
 
     def provision(self, args):
         """Provision device when the command is invoked.."""
+        super().provision(args)
+
         self.init_device(args)
         logger.info("BEGIN provision")
         logger.info("Provisioning device")
