@@ -23,7 +23,7 @@ import pytest
 import requests
 
 from testflinger_cli.client import Client, HTTPError
-from testflinger_cli.tests.test_cli import URL
+from .test_cli import URL
 
 
 def test_get_error_threshold(caplog, requests_mock):

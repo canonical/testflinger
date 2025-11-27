@@ -7,11 +7,15 @@ on:
     # Checks regularly the upstream every four hours
     - cron: "0 */4 * * *"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   update-lib:
     permissions:
-      contents: write
-      pull-requests: write
+      contents: write  # necessary to create branches
+      pull-requests: write  # necessary to create PR with updated libs
     strategy:
       fail-fast: false  # Allow all jobs to run even if one fails
       matrix:

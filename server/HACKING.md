@@ -10,24 +10,24 @@ contribution and development recommendations, refer to the
 
 Testflinger server can be deployed using Docker, and it makes a nice setup
 for local development. There's a Dockerfile for building the container and
-a `docker-compose.yml` which can be used as a basis for any kind of
-deployment. For development purposes, there's a `docker-compose.override.yml`
-under the `devel/` directory. This will setup Testflinger running on port
-5000, along with MongoDB, and a tool called "Express" on port 8081 for
-inspecting and modifying values directly in MongoDB. If you use the override
-file, then it will also point the code directory for Testflinger to the local
-code in this directory, and it runs gunicorn with `--reload` so that any changes
-you make locally will be immediately reflected in what's running. To get all
-this running on your system:
+a `docker-compose.yml` which can be used as a basis for development purposes.
+This will setup Testflinger running on port 5000, along with MongoDB and Vault.
+
+To get this running on your system:
 
 ```shell
-cp devel/docker-compose.override.yml .
-docker-compose build
-docker-compose up -d
+docker-compose up -d --build
 ```
 
-If you want to add some sample data to your local dev environment created
-using the commands above, there's a helper script for this.
+If you want to manage client credentials in your local database, you can use
+a purpose-built tool:
+
+```shell
+docker exec -it testflinger-server client_credentials_admin
+```
+
+Also, if you want to add some sample data to your local development environment,
+there's another helper script:
 
 ```console
 $ devel/create_sample_data.py -h
@@ -51,6 +51,22 @@ The defaults are intended to be used with a server running on
 `http://localhost:5000` which is what will be deployed by default if you use
 the docker-compose setup above. So if this is what you want, you can just
 call it with no options.
+
+For testing routes that require SSO, the above docker-compose file also includes a development setup by using a generic IdP provider. 
+The following entry must be added to `/etc/hosts` to allow localhost to perform the callback redirection to `dex` container:
+
+```
+127.0.0.1 localhost dex
+```
+
+Users and OIDC values can be easily configured through `devel/dex-config.yaml`. 
+For testing a sample user is already added with the following credentials:
+
+```
+email: testlinger@example.com
+username: "testflinger-admin"
+password: testflinger
+```
 
 ### Multipass
 

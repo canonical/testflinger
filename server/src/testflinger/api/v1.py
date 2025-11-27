@@ -1,4 +1,4 @@
-# Copyright (C) 2022 Canonical
+# Copyright (C) 2022-2025 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,10 +21,9 @@ import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
 
-import bcrypt
 import requests
 from apiflask import APIBlueprint, abort
-from flask import g, jsonify, request, send_file
+from flask import current_app, g, jsonify, request, send_file
 from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -34,6 +33,13 @@ from testflinger import database
 from testflinger.api import auth, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.enums import ServerRoles
+from testflinger.secrets.exceptions import (
+    AccessError,
+    StoreError,
+    UnexpectedError,
+)
+
+TESTFLINGER_ADMIN_ID = "testflinger-admin"
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -77,6 +83,9 @@ def job_post(json_data: dict):
         job_queue = ""
     if not job_queue:
         abort(422, message="Invalid data or no job_queue specified")
+
+    validate_secrets(json_data)
+
     try:
         job = job_builder(json_data)
     except ValueError:
@@ -90,6 +99,46 @@ def job_post(json_data: dict):
     # because it will get modified by submit_job and other things it calls
     database.add_job(job)
     return jsonify(job_id=job.get("job_id"))
+
+
+def validate_secrets(data: dict):
+    """Validate that all secret paths in the job exist in the secrets store."""
+    try:
+        secrets = data["test_data"]["secrets"]
+    except KeyError:
+        return
+
+    # a secrets store must be set up
+    if current_app.secrets_store is None:
+        abort(HTTPStatus.UNPROCESSABLE_ENTITY, message="No secrets store")
+
+    # the client must be authenticated in order to access their own secrets
+    if (client_id := g.client_id) is None:
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            message="Missing client ID (user not authenticated)",
+        )
+
+    # check that all secrets paths correspond to stored secrets
+    # (i.e. a job containing secrets cannot be submitted unless all its secrets
+    # are accessible.)
+    inaccessible_paths = []
+    for secret_path in secrets.values():
+        try:
+            current_app.secrets_store.read(client_id, secret_path)
+        except (AccessError, StoreError, UnexpectedError):
+            inaccessible_paths.append(secret_path)
+    if inaccessible_paths:
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            message=(
+                "Inaccessible secret paths: "
+                + ", ".join(sorted(inaccessible_paths))
+            ),
+        )
+
+    # side-effect: store client ID with job (so that secrets are retrievable)
+    data["client_id"] = client_id
 
 
 def has_attachments(data: dict) -> bool:
@@ -144,12 +193,48 @@ def job_get():
     """Request a job to run from supported queues."""
     queue_list = request.args.getlist("queue")
     if not queue_list:
-        return "No queue(s) specified in request", 400
+        return "No queue(s) specified in request", HTTPStatus.BAD_REQUEST
     job = database.pop_job(queue_list=queue_list)
-    if job:
-        job["started_at"] = datetime.now(timezone.utc)
-        return jsonify(job)
-    return {}, 204
+    if not job:
+        return jsonify({}), HTTPStatus.NO_CONTENT
+    if (secrets := retrieve_secrets(job)) is not None:
+        job["test_data"]["secrets"] = secrets
+    job["started_at"] = datetime.now(timezone.utc)
+    return jsonify(job)
+
+
+def retrieve_secrets(data: dict) -> dict | None:
+    """
+    Retrieve all secrets from the secrets store.
+
+    Any secrets that are not accessible at the time of retrieval will be
+    resolved to the empty string, instead of the retrieval failing.
+    It is the responsibility of the consumer of the secrets to account for
+    this possibility. This is a design decision and it mirrors how undefined
+    secrets are handled in other platforms such as GitHub.
+    """
+    try:
+        secrets = data["test_data"]["secrets"]
+    except KeyError:
+        return None
+
+    # a secrets store must be set up and the client_id must have been specified
+    if (
+        current_app.secrets_store is None
+        or (client_id := data.get("client_id")) is None
+    ):
+        return dict.fromkeys(secrets, "")
+
+    result = {}
+    for identifier, secret_path in secrets.items():
+        try:
+            secret_value = current_app.secrets_store.read(
+                client_id, secret_path
+            )
+        except (AccessError, StoreError, UnexpectedError):
+            secret_value = ""
+        result[identifier] = secret_value
+    return result
 
 
 @v1.get("/job/<job_id>")
@@ -755,7 +840,10 @@ def queue_wait_time_percentiles_get():
 def get_agents_on_queue(queue_name):
     """Get the list of all data for agents listening to a specified queue."""
     if not database.queue_exists(queue_name):
-        return [], HTTPStatus.NOT_FOUND
+        abort(
+            HTTPStatus.NOT_FOUND,
+            message=f"Queue '{queue_name}' does not exist.",
+        )
 
     agents = database.get_agents_on_queue(queue_name)
     if not agents:
@@ -799,6 +887,8 @@ def get_jobs_by_queue(queue_name):
 @v1.post("/oauth2/token")
 def retrieve_token():
     """
+    Issue both access token and refresh token for a client.
+
     Get JWT with priority and queue permissions.
 
     Before being encrypted, the JWT can contain fields like:
@@ -816,6 +906,7 @@ def retrieve_token():
     auth_header = request.authorization
     if auth_header is None:
         return "No authorization header specified", 401
+
     client_id = auth_header["username"]
     client_key = auth_header["password"]
     if client_id is None or client_key is None:
@@ -827,9 +918,70 @@ def retrieve_token():
     allowed_resources = auth.validate_client_key_pair(client_id, client_key)
     if allowed_resources is None:
         return "Invalid client id or client key", 401
+
     secret_key = os.environ.get("JWT_SIGNING_KEY")
-    token = auth.generate_token(allowed_resources, secret_key)
-    return token
+    access_token = auth.generate_access_token(allowed_resources, secret_key)
+
+    role = allowed_resources.get("role")
+    if role in (ServerRoles.ADMIN, ServerRoles.MANAGER):
+        refresh_expires_in = None
+    else:
+        refresh_expires_in = 30 * 24 * 60 * 60  # 30 days in seconds
+
+    refresh_token = auth.generate_refresh_token(
+        client_id, expires_in=refresh_expires_in
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "Bearer",
+        "expires_in": 30,
+        "refresh_token": refresh_token,
+    }
+
+
+@v1.post("/oauth2/refresh")
+def refresh_access_token():
+    """Refresh access token using a valid refresh token."""
+    data = request.get_json()
+    refresh_token = data.get("refresh_token")
+    if not refresh_token:
+        abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
+
+    token_entry = auth.validate_refresh_token(refresh_token)
+    client_id = token_entry["client_id"]
+
+    client_permissions = database.get_client_permissions(client_id)
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    access_token = auth.generate_access_token(client_permissions, secret_key)
+
+    return {
+        "access_token": access_token,
+        "token_type": "Bearer",
+        "expires_in": 30,
+    }
+
+
+@v1.post("/oauth2/revoke")
+@authenticate
+@require_role(ServerRoles.ADMIN)
+def revoke_refresh_token():
+    """Revoke a refresh token. Only admins can perform this action."""
+    data = request.get_json()
+    token = data.get("refresh_token")
+    if not token:
+        abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
+
+    token_entry = database.get_refresh_token_by_token(token)
+    if not token_entry:
+        abort(HTTPStatus.BAD_REQUEST, "Refresh token not found")
+
+    if token_entry.get("revoked"):
+        abort(HTTPStatus.BAD_REQUEST, "Refresh token has already been revoked")
+
+    database.edit_refresh_token(token, {"revoked": True})
+
+    return {"status": "OK"}
 
 
 @v1.get("/restricted-queues")
@@ -946,99 +1098,63 @@ def get_client_permissions(client_id) -> list[dict]:
     return database.get_client_permissions(client_id)
 
 
-@v1.post("/client-permissions")
-@authenticate
-@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
-@v1.input(schemas.ClientPermissionsIn)
-def create_client_permissions(json_data: dict) -> str:
-    """Set client permissions for a specified user."""
-    # Validate data include client credentials as those are not Schema required
-    try:
-        client_id = json_data["client_id"]
-        client_secret = json_data.pop("client_secret")
-    except KeyError:
-        abort(
-            HTTPStatus.BAD_REQUEST,
-            "Error: Missing client_id or client_secret in request body",
-        )
-
-    if database.check_client_exists(client_id):
-        abort(HTTPStatus.CONFLICT, "Error: Client already exists")
-
-    # Check role hierarchy
-    target_role = json_data.get("role", ServerRoles.CONTRIBUTOR)
-    if not auth.check_role_hierarchy(g.role, target_role):
-        abort(
-            HTTPStatus.FORBIDDEN,
-            (
-                "Insufficient permissions to create "
-                f"client with role: {target_role}"
-            ),
-        )
-
-    # If role was not specified, use default role specified in target role
-    json_data["role"] = target_role
-    # Hash the password and add it to json_data
-    client_secret_hash = bcrypt.hashpw(
-        client_secret.encode("utf-8"), bcrypt.gensalt()
-    ).decode()
-    json_data["client_secret_hash"] = client_secret_hash
-
-    # Add client_id and its permissions in database
-    database.add_client_permissions(json_data)
-
-    return "OK"
-
-
 @v1.put("/client-permissions/<client_id>")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
 @v1.input(schemas.ClientPermissionsIn)
-def edit_client_permissions(client_id: str, json_data: dict) -> str:
-    """Edit client permissions for a specified user."""
-    if not database.check_client_exists(client_id):
+def set_client_permissions(client_id: str, json_data: dict) -> str:
+    """Add or create client permissions for a specified user."""
+    # Testflinger Admin credential can't be modified from API!'
+    if client_id == TESTFLINGER_ADMIN_ID:
         abort(
-            HTTPStatus.NOT_FOUND,
-            "Error: Specified client_id does not exist.",
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            "Error: System admin client cannot by modified from API.",
         )
 
-    # Get current client permissions to check current role
-    current_permissions = database.get_client_permissions(client_id)
-    # If role not in permissions, will set default for backward compatibility
-    current_role = current_permissions.get("role", ServerRoles.CONTRIBUTOR)
+    client_secret = json_data.pop("client_secret", None)
+    permissions = database.get_client_permissions(client_id) or {}
+    client_exist = bool(permissions)
+    # Default role for backward compatibility
+    current_role = permissions.get("role", ServerRoles.CONTRIBUTOR)
 
-    # Check role hierarchy
-    if not auth.check_role_hierarchy(g.role, current_role):
+    # validation: client secret is required when creating permissions
+    if not client_exist and not client_secret:
+        abort(
+            HTTPStatus.BAD_REQUEST,
+            "Error: Missing client_secret in request body for new client",
+        )
+
+    if client_secret:
+        client_secret_hash = auth.hash_secret(client_secret)
+        json_data["client_secret_hash"] = client_secret_hash
+
+    # validation: the requesting client can modify the client't permissions
+    # only if its role is not inferior to the client's role
+    if ServerRoles(g.role) < ServerRoles(current_role):
         abort(
             HTTPStatus.FORBIDDEN,
-            (
-                "Insufficient permissions to modify "
-                f"client with role: {current_role}"
-            ),
+            f"{g.client_id} has insufficient permissions "
+            f"to modify client '{client_id}'",
         )
 
-    # Remove client_credentials if exist in json_data
-    json_data.pop("client_id", None)
-    json_data.pop("client_secret", None)
+    # validation: the requesting client can modify the client't role
+    # only if its role is not inferior to the client's new role
+    new_role = json_data.get("role", None)
+    if new_role and ServerRoles(g.role) < ServerRoles(new_role):
+        abort(
+            HTTPStatus.FORBIDDEN,
+            f"{g.client_id} has insufficient permissions "
+            f"to assign role '{new_role}' to client '{client_id}'",
+        )
 
-    # Retrieve non null values
-    update_fields = {
-        key: value for key, value in json_data.items() if value is not None
-    }
+    # Update permissions from json data
+    permissions.update(json_data)
+    database.create_or_update_client_permissions(client_id, permissions)
 
-    # Check role hierarchy for new role if being updated
-    if "role" in update_fields:
-        new_role = update_fields["role"]
-        if not auth.check_role_hierarchy(g.role, new_role):
-            abort(
-                HTTPStatus.FORBIDDEN,
-                f"Insufficient permissions to assign role: {new_role}",
-            )
-
-    # Edit permissions in database
-    database.edit_client_permissions(client_id, update_fields)
-
-    return "OK"
+    if client_exist:
+        return f"Updated permissions for client '{client_id}'"
+    else:
+        return f"Created permissions for client '{client_id}'"
 
 
 @v1.delete("/client-permissions/<client_id>")
@@ -1047,7 +1163,7 @@ def edit_client_permissions(client_id: str, json_data: dict) -> str:
 def delete_client_permissions(client_id: str) -> str:
     """Delete client id along with its permissions."""
     # Testflinger Admin credential can't be removed from API!'
-    if client_id == "testflinger-admin":
+    if client_id == TESTFLINGER_ADMIN_ID:
         abort(
             HTTPStatus.UNPROCESSABLE_ENTITY,
             "Error: System admin client cannot by deleted from API.",
@@ -1060,5 +1176,48 @@ def delete_client_permissions(client_id: str) -> str:
 
     # Delete entry from database
     database.delete_client_permissions(client_id)
+
+    return "OK"
+
+
+@v1.put("/secrets/<client_id>/<path:path>")
+@authenticate
+@v1.input(schemas.SecretIn, location="json")
+def secrets_put(client_id, path, json_data):
+    """Store a secret value for the specified client_id and path."""
+    if current_app.secrets_store is None:
+        abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
+    if client_id != g.client_id:
+        abort(
+            HTTPStatus.FORBIDDEN,
+            message=f"'{client_id}' doesn't match authenticated client id",
+        )
+    try:
+        current_app.secrets_store.write(client_id, path, json_data["value"])
+    except AccessError as error:
+        abort(HTTPStatus.BAD_REQUEST, message=str(error))
+    except (StoreError, UnexpectedError) as error:
+        abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
+
+    return "OK"
+
+
+@v1.delete("/secrets/<client_id>/<path:path>")
+@authenticate
+def secrets_delete(client_id, path):
+    """Remove a secret value for the specified client_id and path."""
+    if current_app.secrets_store is None:
+        abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
+    if client_id != g.client_id:
+        abort(
+            HTTPStatus.FORBIDDEN,
+            message=f"'{client_id}' doesn't match authenticated client id",
+        )
+    try:
+        current_app.secrets_store.delete(client_id, path)
+    except AccessError as error:
+        abort(HTTPStatus.BAD_REQUEST, message=str(error))
+    except (StoreError, UnexpectedError) as error:
+        abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
     return "OK"

@@ -26,6 +26,8 @@ from pathlib import Path
 
 import requests
 
+from testflinger_cli.errors import VPNError
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,27 +56,26 @@ class Client:
         """
         try:
             error_json = req.json()
-            error_message = error_json.get("message", req.text)
+        except ValueError as exc:
+            # If server sent 403 without JSON object, this means that request
+            # was aborted by a VPN issue rather than an actual server response
+            if req.status_code == HTTPStatus.FORBIDDEN:
+                raise VPNError from exc
 
-            # For schema validation errors, try to get detailed error info
-            if (
-                req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-                and "detail" in error_json
-            ):
-                detail = error_json["detail"]
-                if isinstance(detail, dict) and "json" in detail:
-                    validation_errors = detail["json"]
-                    error_details = ", ".join(
-                        [
-                            f"{field}: {msg}"
-                            for field, msg in validation_errors.items()
-                        ]
-                    )
-                    error_message = f"{error_message} - {error_details}"
+            # Raise HTTPError with clear text message if any other ValueError
+            raise HTTPError(status=req.status_code, msg=req.text) from exc
 
-        except ValueError:
-            # Return clear text if output is not JSON
-            error_message = req.text
+        # flask `abort` returns a JSON object with error message
+        error_message = error_json.get("message", req.text)
+        # For schema validation errors, try to get detailed error info
+        if req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY and (
+            validation_errors := error_json.get("detail", {}).get("json", {})
+        ):
+            error_details = ", ".join(
+                f"{field}: {msg}" for field, msg in validation_errors.items()
+            )
+            error_message = f"{error_message} - {error_details}"
+
         raise HTTPError(status=req.status_code, msg=error_message)
 
     def get(
@@ -291,12 +292,11 @@ class Client:
 
     def authenticate(self, client_id: str, secret_key: str) -> dict:
         """Authenticate client id and secret key with the server
-        and returns JWT with allowed permissions.
+        and returns access and refresh tokens.
 
-        :param job_data:
-            Dictionary containing data for the job to submit
-        :return:
-            ID for the test job
+        :param client_id: user used for authentication
+        :param secret_key: secret used to authenticate user
+        :return: access_token, token_type, expiration and refresh token
         """
         endpoint = "/v1/oauth2/token"
         id_key_pair = f"{client_id}:{secret_key}"
@@ -305,7 +305,17 @@ class Client:
         ).decode("utf-8")
         headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
         response = self.post(endpoint, {}, headers=headers)
-        return response
+        return json.loads(response)
+
+    def refresh_authentication(self, refresh_token: str) -> dict:
+        """Refresh access_token by using stored refresh_token.
+
+        :param refresh_token: Opaque token used for refreshing access_token
+        :return: access_token with token type and expiration
+        """
+        endpoint = "/v1/oauth2/refresh"
+        response = self.post(endpoint, data={"refresh_token": refresh_token})
+        return json.loads(response)
 
     def post_attachment(self, job_id: str, path: Path, timeout: int):
         """Send a test job attachment to the testflinger server.
@@ -437,3 +447,40 @@ class Client:
         endpoint = f"/v1/agents/data/{agent}"
         data = {"state": status, "comment": comment}
         self.post(endpoint, data)
+
+    def set_client_permissions(self, auth_header: dict, json_data: dict):
+        """Set existing client_id permissions.
+
+        :param auth_header: Auth header required to perform PUT request
+        :param json_data: JSON with updated client permissions
+        """
+        client_id = json_data.pop("client_id")
+        endpoint = f"/v1/client-permissions/{client_id}"
+        return self.put(endpoint, data=json_data, headers=auth_header)
+
+    def get_client_permissions(
+        self, auth_header: dict, tf_client_id: str | None = None
+    ) -> list[dict] | None:
+        """Get the permissions from specified client.
+
+        If no client specified, will provide all client permissions.
+
+        :param auth_header: Auth header required to perform GET request
+        :param tf_client_id: Specified client to retrieve permissions from
+        """
+        if tf_client_id:
+            endpoint = f"/v1/client-permissions/{tf_client_id}"
+        else:
+            endpoint = "/v1/client-permissions"
+        return json.loads(self.get(endpoint, headers=auth_header))
+
+    def delete_client_permissions(
+        self, auth_header: dict, tf_client_id: str
+    ) -> None:
+        """Delete a client_id along with its permissions.
+
+        :param auth_header: Auth header required to perform DELETE request
+        :param tf_client_id: Specified client to delete permissions from
+        """
+        endpoint = f"/v1/client-permissions/{tf_client_id}"
+        self.delete(endpoint, headers=auth_header)

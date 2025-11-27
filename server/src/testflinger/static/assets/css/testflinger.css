@@ -99,3 +99,7 @@ main {
     max-width: 80%;
     overflow: auto;
 }
+
+.p-navigation__nav {
+    overflow: visible !important;
+}

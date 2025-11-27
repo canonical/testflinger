@@ -23,7 +23,10 @@ from typing import Any
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
 
+from testflinger.enums import ServerRoles
+
 # Constants for TTL indexes
+REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 
@@ -103,6 +106,11 @@ def create_indexes():
     # Remove advertised queues that haven't updated in over 7 days
     mongo.db.queues.create_index(
         "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
+    # Remove refresh tokens that haven't been accessed over 90 days
+    mongo.db.refresh_tokens.create_index(
+        "last_accessed", expireAfterSeconds=REFRESH_TOKEN_IDEL_EXPIRATION
     )
 
     # Faster lookups for common queries
@@ -394,22 +402,6 @@ def get_agents() -> list[dict]:
     return list(agents)
 
 
-def get_client_permissions(client_id: str | None = None) -> dict | list[dict]:
-    """Retrieve the client permissions for a specified user.
-
-    If no client_id is specified, will return the permissions from all users.
-
-    :param client_id: User to retrieve permissions from.
-    :return: Dictionary with the permissions for the user.
-    """
-    if client_id:
-        return mongo.db.client_permissions.find_one(
-            {"client_id": client_id}, {"_id": False}
-        )
-    else:
-        return mongo.db.client_permissions.find({}, {"_id": False})
-
-
 def add_restricted_queue(queue: str, client_id: str):
     """Add a restricted queue for a client.
 
@@ -449,28 +441,136 @@ def check_client_exists(client_id: str) -> bool:
     )
 
 
-def add_client_permissions(data: dict) -> None:
-    """Create a new client_id along with its permissions.
+def get_client_permissions(client_id: str | None = None) -> dict | list[dict]:
+    """Retrieve the client permissions for a specified user.
 
-    :param data: client_id along with its permissions
+    If no client_id is specified, will return the permissions from all users.
+
+    :param client_id: User to retrieve permissions from.
+    :return: Dictionary with the permissions for the user.
     """
-    mongo.db.client_permissions.insert_one(data)
+    if client_id:
+        return mongo.db.client_permissions.find_one(
+            {"client_id": client_id}, {"_id": False}
+        )
+    else:
+        return mongo.db.client_permissions.find({}, {"_id": False})
 
 
-def edit_client_permissions(client_id: str, update_fields: dict) -> None:
-    """Edit client_id with specified new permissions.
+def create_or_update_client_permissions(
+    client_id: str, client_permissions: dict
+) -> None:
+    """Create or update client_id with specified permissions.
 
-    :param client_id: client_id to update permissions
-    :param update_fields: Updated permissions.
+    :param client_id: client_id to set permissions
+    :param client_permissions: Permissions to set to client_id.
     """
     mongo.db.client_permissions.update_one(
-        {"client_id": client_id}, {"$set": update_fields}
+        {"client_id": client_id}, {"$set": client_permissions}, upsert=True
     )
 
 
-def delete_client_permissions(client_id: dict) -> None:
-    """Edit client_id with specified new permissions.
+def delete_client_permissions(client_id: str) -> None:
+    """Delete a client_permissions entry with given client_id.
 
-    :param update_fields: client_id along with update permissions.
+    :param client_id: client_id to delete
     """
     mongo.db.client_permissions.delete_one({"client_id": client_id})
+
+
+def add_refresh_token(data: dict) -> None:
+    """Create a new refresh_token for a client_id.
+
+    :param data: refresh_token along with its client_id.
+    """
+    mongo.db.refresh_tokens.insert_one(data)
+
+
+def get_refresh_token(
+    client_id: str | None = None,
+) -> dict | list[dict] | None:
+    """Retrieve refresh tokens for a specified client_id.
+
+    If no client_id is specified, will return the refresh tokens from
+    all client_ids.
+
+    Returns None if no token is found for the specified client_id.
+
+    :param client_id: The client ID to search for.
+    """
+    if client_id:
+        return mongo.db.refresh_tokens.find_one(
+            {"client_id": client_id}, {"_id": False}
+        )
+    else:
+        return list(mongo.db.refresh_tokens.find({}, {"_id": False}))
+
+
+def get_refresh_token_by_token(token: str) -> dict | None:
+    """
+    Retrieve a refresh token entry using the refresh token string itself.
+
+    :param token: The refresh token string to search for.
+
+    :return: Dictionary with refresh token data, or None if not found.
+    """
+    return mongo.db.refresh_tokens.find_one(
+        {"refresh_token": token}, {"_id": False}
+    )
+
+
+def edit_refresh_token(token: str, update_fields: dict) -> None:
+    """Update refresh token with specified fields.
+
+    :param token: The refresh token to update.
+    :param update_fields: Dictionary of fields to update.
+    """
+    mongo.db.refresh_tokens.update_one(
+        {"refresh_token": token}, {"$set": update_fields}
+    )
+
+
+def delete_refresh_token(token: str) -> None:
+    """Delete a refresh token entry.
+
+    :param token: The refresh token to delete.
+    """
+    mongo.db.refresh_tokens.delete_one({"refresh_token": token})
+
+
+def check_web_client_exists(sub: str):
+    """Validate the existance of a web client.
+
+    :param sub: Unique subject identifier returned by OIDC provider
+    :return: True or False based on client existance
+    """
+    return (
+        mongo.db.web_clients.find_one({"openid_sub": sub}, {"_id": False})
+        is not None
+    )
+
+
+def register_web_client(oidc_token: dict):
+    """Create a new web client upon first authentication.
+
+    If client already exists, will update the last login.
+
+    :param oidc_token: User information returned from OIDC provider.
+    """
+    sub = oidc_token["userinfo"]["sub"]
+    if check_web_client_exists(sub):
+        mongo.db.web_clients.update_one(
+            {"openid_sub": sub},
+            {"$set": {"last_login": datetime.now(timezone.utc)}},
+        )
+    else:
+        mongo.db.web_clients.insert_one(
+            {
+                "openid_sub": sub,
+                "email": oidc_token["userinfo"]["email"],
+                "name": oidc_token["userinfo"]["name"],
+                "created_at": datetime.now(timezone.utc),
+                "last_login": datetime.now(timezone.utc),
+                "role": ServerRoles.CONTRIBUTOR,
+            }
+        )

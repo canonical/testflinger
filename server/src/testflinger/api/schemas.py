@@ -224,6 +224,26 @@ class ZapperKVMGenericProvisionData(BaseZapperProvisionData):
     wait_until_ssh = fields.Boolean(required=True)
 
 
+class ZapperKVMPresetProvisionData(BaseZapperProvisionData):
+    """Schema for the `provision_data` section of a Zapper KVM job.
+
+    This schema is used when using a preset for provisioning.
+    """
+
+    alloem_url = fields.URL(required=False)
+    autoinstall_base_user_data = fields.String(required=False)
+    autoinstall_oem = fields.Boolean(required=False)
+    autoinstall_storage_layout = fields.String(required=False)
+    cmdline_append = fields.String(required=False)
+    live_image = fields.Boolean(required=False)
+    oem = fields.String(required=False)
+    preset = fields.String(required=True)
+    robot_tasks = fields.List(fields.String(), required=False)
+    ubuntu_sso_email = fields.Email(required=False)
+    url = fields.URL(required=False)
+    wait_until_ssh = fields.Boolean(required=False)
+
+
 class ProvisionData(OneOfSchema):
     """Polymorphic schema for the `provision_data` section of a job."""
 
@@ -235,11 +255,12 @@ class ProvisionData(OneOfSchema):
         "noprovision": NoProvisionData,
         "oem_autoinstall": OEMAutoinstallProvisionData,
         "oem_script": OEMScriptProvisionData,
-        "zapper_iot_preset": ZapperIoTPresetProvisionData,
         "zapper_iot_custom": ZapperIoTCustomProvisionData,
+        "zapper_iot_preset": ZapperIoTPresetProvisionData,
         "zapper_kvm_autoinstall": ZapperKVMAutoinstallProvisionData,
-        "zapper_kvm_oem_2204": ZapperKVMOEM2204ProvisionData,
         "zapper_kvm_generic": ZapperKVMGenericProvisionData,
+        "zapper_kvm_oem_2204": ZapperKVMOEM2204ProvisionData,
+        "zapper_kvm_preset": ZapperKVMPresetProvisionData,
     }
 
     def get_obj_type(self, obj):
@@ -276,6 +297,11 @@ class TestData(Schema):
     # that specifies values for environment variables
     test_username = fields.String(required=False)
     test_password = fields.String(required=False)
+    secrets = fields.Dict(
+        keys=fields.String(validate=Regexp(r"^[a-zA-Z_][a-zA-Z0-9_]*$")),
+        values=fields.String(validate=Regexp(r"^[a-zA-Z0-9_/-]+$")),
+        required=False,
+    )
 
 
 class DurationField(fields.Field):
@@ -480,15 +506,17 @@ images_out = {
 class ClientPermissionsIn(Schema):
     """Client Permissions output schema."""
 
-    client_id = fields.String(required=False)  # Optional for schema reuse
     client_secret = fields.String(required=False)  # Optional for schema reuse
     max_priority = fields.Dict(
         keys=fields.String(),
         values=fields.Integer(),
-        required=True,
-        allow_none=True,
+        required=False,
     )
-    max_reservation_time = fields.Dict(required=True, allow_none=True)
+    max_reservation_time = fields.Dict(
+        keys=fields.String(),
+        values=fields.Integer(),
+        required=False,
+    )
     role = fields.String(
         required=False, validate=OneOf([role.value for role in ServerRoles])
     )
@@ -509,3 +537,9 @@ class ClientPermissionsOut(Schema):
     )
     max_reservation_time = fields.Dict(required=True, allow_none=True)
     role = fields.String(required=True)
+
+
+class SecretIn(Schema):
+    """Secret input schema."""
+
+    value = fields.String(required=True)

@@ -1,28 +1,56 @@
-version: '3.8'
-
+name: server
 services:
   mongo:
+    container_name: mongo
     image: mongo:5
-    env_file:
-      - testflinger.env
+    environment:
+      MONGO_INITDB_ROOT_PASSWORD: testflinger
+      MONGO_INITDB_ROOT_USERNAME: testflinger
     ports:
       - 27017:27017
-    volumes:
-      - mongodb_data:/data/db
-
   testflinger:
+    container_name: testflinger-server
     build:
       context: .
       additional_contexts:
         common: ../common
-    image: testflinger:latest
-    restart: always
-    env_file:
-      - testflinger.env
+    environment:
+      JWT_SIGNING_KEY: my_secret_key
+      MONGODB_AUTH_SOURCE: admin
+      MONGODB_DATABASE: testflinger_db
+      MONGODB_HOST: mongo
+      MONGODB_PASSWORD: testflinger
+      MONGODB_USERNAME: testflinger
+      TESTFLINGER_SECRETS_MASTER_KEY: +HQgnGBgPmmvoYB82nGbKERUp15bZOrNyDxHb3mMfx8+jrn4KbPBGOh7GRWDSGrSa1qOq/ibTThG+b7JGDRo0hgLinpFz5uz+8TWJdXbTGb24Qw+tuyH7kcPRPBMU3br
+      # TESTFLINGER_VAULT_TOKEN: myroot
+      # TESTFLINGER_VAULT_URL: http://vault:8200
+      WEB_SECRET_KEY: my_web_secret_key
+      OIDC_CLIENT_ID: testflinger-client
+      OIDC_CLIENT_SECRET: my-oidc-secret
+      OIDC_PROVIDER_ISSUER: http://dex:5556/dex
+    command: --reload
     ports:
       - 5000:5000
     depends_on:
       - mongo
-
-volumes:
-  mongodb_data:
+    restart: always
+  vault:
+    container_name: vault
+    image: hashicorp/vault:latest
+    environment:
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+      VAULT_DEV_ROOT_TOKEN_ID: myroot
+    command: ["vault", "server", "-dev"]
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - 8200:8200
+  dex:
+    container_name: dex
+    image: dexidp/dex:latest
+    ports:
+      - "5556:5556"
+    volumes:
+      - ./devel/dex-config.yaml:/etc/dex/config.yaml
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+  

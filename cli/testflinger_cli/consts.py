@@ -1,6 +1,18 @@
 # Copyright (C) 2025 Canonical Ltd.
 """Constants for the Testflinger CLI."""
 
+from strenum import StrEnum
+
+
+class ServerRoles(StrEnum):
+    """Define roles for restricted endpoints."""
+
+    ADMIN = "admin"
+    MANAGER = "manager"
+    CONTRIBUTOR = "contributor"
+    USER = "user"
+
+
 SNAP_NAME = "testflinger-cli"
 SNAP_PRIVATE_DIRS = [
     "/tmp",  # noqa: S108

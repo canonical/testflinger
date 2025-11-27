@@ -26,14 +26,14 @@ import uuid
 from http import HTTPStatus
 from pathlib import Path
 
-import jwt
 import pytest
 import requests
+import requests_mock as rmock
 from requests_mock import Mocker
 
 import testflinger_cli
 from testflinger_cli.client import HTTPError
-from testflinger_cli.errors import AuthorizationError
+from testflinger_cli.errors import NetworkError
 
 URL = "https://testflinger.canonical.com"
 
@@ -488,76 +488,6 @@ def test_submit_attachments_timeout(tmp_path):
         assert history[4].path == f"/v1/job/{job_id}/action"
 
 
-def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):
-    """Tests authorization of jobs submitted with priority."""
-    job_id = str(uuid.uuid1())
-    job_data = {
-        "job_queue": "fake",
-        "job_priority": 100,
-    }
-    job_file = tmp_path / "test.json"
-    job_file.write_text(json.dumps(job_data))
-
-    # Define variables for authentication
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-    fake_jwt = "my_jwt"
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt)
-
-    sys.argv = ["", "submit", str(job_file)]
-    tfcli = testflinger_cli.TestflingerCli()
-    mock_response = {"job_id": job_id}
-    requests_mock.post(f"{URL}/v1/job", json=mock_response)
-    requests_mock.get(
-        URL + "/v1/queues/fake/agents",
-        json=[{"name": "fake_agent", "state": "waiting"}],
-    )
-    tfcli.submit()
-    history = requests_mock.request_history
-    assert len(history) == 3
-    assert history[0].path == "/v1/oauth2/token"
-    assert history[2].path == "/v1/job"
-    assert history[2].headers.get("Authorization") == fake_jwt
-
-
-def test_submit_token_timeout_retry(tmp_path, requests_mock, monkeypatch):
-    """Tests job submission retries 3 times when token has expired."""
-    job_data = {
-        "job_queue": "fake",
-        "job_priority": 100,
-    }
-    job_file = tmp_path / "test.json"
-    job_file.write_text(json.dumps(job_data))
-
-    # Define variables for authentication
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-    fake_jwt = "my_jwt"
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt)
-
-    sys.argv = ["", "submit", str(job_file)]
-    tfcli = testflinger_cli.TestflingerCli()
-    requests_mock.post(
-        f"{URL}/v1/job", text="Token has expired", status_code=401
-    )
-    requests_mock.get(
-        URL + "/v1/queues/fake/agents",
-        json=[{"name": "fake_agent", "state": "waiting"}],
-    )
-    with pytest.raises(SystemExit) as exc_info:
-        tfcli.submit()
-        assert "Token has expired" in exc_info.value
-
-    history = requests_mock.request_history
-    assert len(history) == 7
-    assert history[0].path == "/v1/oauth2/token"
-    assert history[2].path == "/v1/job"
-    assert history[3].path == "/v1/oauth2/token"
-    assert history[4].path == "/v1/job"
-    assert history[5].path == "/v1/oauth2/token"
-    assert history[6].path == "/v1/job"
-
-
 def test_show(capsys, requests_mock):
     """Exercise show command."""
     jobid = str(uuid.uuid1())
@@ -658,6 +588,37 @@ def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
     )
 
 
+def test_submit_to_non_existing_queue(tmp_path, requests_mock):
+    """Test submitting a job fails if queue does not exist."""
+    jobid = str(uuid.uuid1())
+    fake_queue = "fake"
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        status_code=HTTPStatus.NOT_FOUND,
+        text=f"Queue '{fake_queue}' does not exist.",
+    )
+    fake_data = {"job_queue": fake_queue, "provision_data": {"distro": "fake"}}
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file), "--wait-for-available-agents"]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    assert f"Queue '{fake_queue}' does not exist." in str(exc_info.value)
+
+
+def test_submit_without_queue(tmp_path):
+    """Test submitting a job fails if queue is not specified."""
+    fake_data = {"provision_data": {"distro": "fake"}}
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file)]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    assert "Queue was not specified in job" in str(exc_info.value)
+
+
 def test_reserve(capsys, requests_mock):
     """Ensure reserve command generates correct yaml."""
     requests_mock.get(URL + "/v1/agents/queues", json={})
@@ -701,6 +662,110 @@ def test_poll_serial(capsys, requests_mock):
     assert "serial output" in std.out
 
 
+def test_poll_queue_position_first_in_line(capsys, requests_mock, monkeypatch):
+    """Test that queue position shows 'next in line' when position is 0."""
+    job_id = str(uuid.uuid1())
+
+    # Mock job state as waiting twice, then complete to exit loop
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}",
+        2 * [{"json": {"job_state": "waiting"}}]
+        + [{"json": {"job_state": "complete"}}],
+    )
+    # Mock queue position as 0 (first in line)
+    requests_mock.get(URL + f"/v1/job/{job_id}/position", text="0")
+    # Mock output endpoint
+    requests_mock.get(URL + f"/v1/result/{job_id}/output", text="")
+
+    # Mock sleep to avoid actual waiting
+    monkeypatch.setattr("time.sleep", lambda x: None)
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    tfcli.do_poll(job_id)
+    std = capsys.readouterr()
+    assert "This job is waiting on a node to become available." in std.out
+    assert (
+        "This job will be picked up after the current job is complete "
+        "(it is next in line)"
+    ) in std.out
+
+
+def test_poll_queue_position_with_jobs_ahead(
+    capsys, requests_mock, monkeypatch
+):
+    """Test that queue position shows correct position when jobs are ahead."""
+    job_id = str(uuid.uuid1())
+
+    # Mock job state as waiting twice, then complete to exit loop
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}",
+        2 * [{"json": {"job_state": "waiting"}}]
+        + [{"json": {"job_state": "complete"}}],
+    )
+    # Mock queue position as 2 (third in line, 2 jobs ahead)
+    requests_mock.get(URL + f"/v1/job/{job_id}/position", text="2")
+    # Mock output endpoint
+    requests_mock.get(URL + f"/v1/result/{job_id}/output", text="")
+
+    # Mock sleep to avoid actual waiting
+    monkeypatch.setattr("time.sleep", lambda x: None)
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    tfcli.do_poll(job_id)
+    std = capsys.readouterr()
+    assert "This job is waiting on a node to become available." in std.out
+    assert (
+        "This job will be picked up after the current job and 2 job(s) "
+        "ahead of it in the queue are complete"
+    ) in std.out
+
+
+def test_poll_queue_position_changes(capsys, requests_mock, monkeypatch):
+    """Test that queue position updates are shown when position changes."""
+    job_id = str(uuid.uuid1())
+
+    # Mock job state as waiting 4 times, then complete to exit loop
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}",
+        4 * [{"json": {"job_state": "waiting"}}]
+        + [{"json": {"job_state": "complete"}}],
+    )
+    # Mock output endpoint
+    requests_mock.get(URL + f"/v1/result/{job_id}/output", text="")
+
+    # Mock queue position to change from 2 to 1 to 0
+    requests_mock.get(
+        URL + f"/v1/job/{job_id}/position",
+        [{"text": str(position)} for position in range(2, -1, -1)],
+    )
+
+    # Mock sleep to avoid actual waiting
+    monkeypatch.setattr("time.sleep", lambda x: None)
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    tfcli.do_poll(job_id)
+    std = capsys.readouterr()
+    assert "This job is waiting on a node to become available." in std.out
+    assert (
+        "This job will be picked up after the current job and 2 job(s) "
+        "ahead of it in the queue are complete"
+    ) in std.out
+    assert (
+        "This job will be picked up after the current job and 1 job(s) "
+        "ahead of it in the queue are complete"
+    ) in std.out
+    assert (
+        "This job will be picked up after the current job is complete "
+        "(it is next in line)"
+    ) in std.out
+
+
 def test_agent_status(capsys, requests_mock):
     """Validate that the status of the agent is retrieved."""
     fake_agent = "fake_agent"
@@ -719,6 +784,31 @@ def test_agent_status(capsys, requests_mock):
     assert "waiting" in std.out
 
 
+def test_agent_status_json(capsys, requests_mock):
+    """Validate that the status of the agent is retrieved."""
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": "fake_agent",
+        "queues": ["fake"],
+        "state": "waiting",
+        "provision_streak_count": 1,
+        "provision_streak_type": "pass",
+    }
+    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    sys.argv = ["", "agent-status", fake_agent, "--json"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.agent_status()
+    std = capsys.readouterr()
+    expected_out = {
+        "agent": "fake_agent",
+        "status": "waiting",
+        "queues": ["fake"],
+        "provision_streak_count": 1,
+        "provision_streak_type": "pass",
+    }
+    assert std.out.strip() == json.dumps(expected_out, sort_keys=True)
+
+
 def test_queue_status(capsys, requests_mock):
     """Validate that the status for the queue is retrieved."""
     fake_queue = "fake"
@@ -727,8 +817,23 @@ def test_queue_status(capsys, requests_mock):
         {"name": "fake_agent2", "state": "offline", "queues": ["fake"]},
     ]
 
-    job_id = str(uuid.uuid1())
-    fake_job_data = [{"job_id": job_id, "job_state": "waiting"}]
+    fake_job_data = [
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "waiting",
+            "created_at": "2023-10-13T15:22:46Z",
+        },
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "running",
+            "created_at": "2023-10-13T15:22:40Z",
+        },
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "complete",
+            "created_at": "2023-10-13T15:22:30Z",
+        },
+    ]
 
     requests_mock.get(
         URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
@@ -745,394 +850,153 @@ def test_queue_status(capsys, requests_mock):
     assert "Busy:            1" in std.out
     assert "Offline:         1" in std.out
     assert "Jobs waiting:    1" in std.out
+    assert "Jobs running:    1" in std.out
+    assert "Jobs completed:  1" in std.out
 
 
-def test_retrieve_regular_user_role(tmp_path, requests_mock):
-    """Test that we get a regular user if no auth is made."""
-    job_data = {
-        "job_queue": "fake",
-        "job_priority": 100,
-    }
-    job_file = tmp_path / "test.json"
-    job_file.write_text(json.dumps(job_data))
-
-    requests_mock.post(f"{URL}/v1/oauth2/token")
-    sys.argv = ["", "submit", str(job_file)]
-    tfcli = testflinger_cli.TestflingerCli()
-    role = tfcli.auth.get_user_role()
-
-    assert tfcli.auth.is_authenticated() is False
-    assert role == "user"
-
-
-def test_user_authenticated_with_role(tmp_path, requests_mock, monkeypatch):
-    """Test user is able to authenticate and there is role defined."""
-    job_data = {
-        "job_queue": "fake",
-        "job_priority": 100,
-    }
-    job_file = tmp_path / "test.json"
-    job_file.write_text(json.dumps(job_data))
-
-    # Define variables for authentication
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-
-    expected_role = "admin"
-    fake_payload = {
-        "permissions": {"client_id": "my_client_id", "role": expected_role}
-    }
-    fake_jwt_signing_key = "my-secret"
-    fake_jwt_token = jwt.encode(
-        fake_payload, fake_jwt_signing_key, algorithm="HS256"
-    )
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
-
-    sys.argv = ["", "submit", str(job_file)]
-    tfcli = testflinger_cli.TestflingerCli()
-    role = tfcli.auth.get_user_role()
-
-    assert tfcli.auth.is_authenticated() is True
-    assert role == expected_role
-
-
-def test_default_auth_user_role(tmp_path, requests_mock, monkeypatch):
-    """Test we are able to get default user for legacy users."""
-    job_data = {
-        "job_queue": "fake",
-        "job_priority": 100,
-    }
-    job_file = tmp_path / "test.json"
-    job_file.write_text(json.dumps(job_data))
-
-    # Define variables for authentication
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-
-    expected_role = "contributor"
-    fake_payload = {"permissions": {"client_id": "my_client_id"}}
-    fake_jwt_signing_key = "my-secret"
-    fake_jwt_token = jwt.encode(
-        fake_payload, fake_jwt_signing_key, algorithm="HS256"
-    )
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
-
-    sys.argv = ["", "submit", str(job_file)]
-    tfcli = testflinger_cli.TestflingerCli()
-    role = tfcli.auth.get_user_role()
-
-    assert tfcli.auth.is_authenticated() is True
-    assert role == expected_role
-
-
-def test_authorization_error(tmp_path, requests_mock, monkeypatch):
-    """Test authorization error raises if received 403 from server."""
-    job_data = {
-        "job_queue": "fake",
-        "job_priority": 100,
-    }
-    job_file = tmp_path / "test.json"
-    job_file.write_text(json.dumps(job_data))
-
-    # Define variables for authentication
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-
-    requests_mock.post(
-        f"{URL}/v1/oauth2/token", status_code=HTTPStatus.FORBIDDEN
-    )
-
-    sys.argv = ["", "submit", str(job_file)]
-    with pytest.raises(SystemExit) as err:
-        testflinger_cli.TestflingerCli()
-    assert "Authorization error received from server" in str(err.value)
-
-
-def test_authentication_error(tmp_path, requests_mock, monkeypatch):
-    """Test authentication error raises if received 401 from server."""
-    job_data = {
-        "job_queue": "fake",
-        "job_priority": 100,
-    }
-    job_file = tmp_path / "test.json"
-    job_file.write_text(json.dumps(job_data))
-
-    # Define variables for authentication
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-
-    requests_mock.post(
-        f"{URL}/v1/oauth2/token", status_code=HTTPStatus.UNAUTHORIZED
-    )
-
-    sys.argv = ["", "submit", str(job_file)]
-    with pytest.raises(SystemExit) as err:
-        testflinger_cli.TestflingerCli()
-    assert "Authentication with Testflinger server failed" in str(err.value)
-
-
-@pytest.mark.parametrize("state", ["offline", "maintenance"])
-def test_set_agent_status_online(capsys, requests_mock, state, monkeypatch):
-    """Validate we are able to change agent status to online."""
-    fake_agent = "fake_agent"
-    fake_return = {
-        "name": "fake_agent",
-        "queues": ["fake"],
-        "state": state,
-    }
-    fake_send_agent_data = [{"state": "waiting", "comment": ""}]
-
-    sys.argv = [
-        "",
-        "admin",
-        "set",
-        "agent-status",
-        "--status",
-        "online",
-        "--agents",
-        fake_agent,
+def test_queue_status_verbose(capsys, requests_mock):
+    """Test verbose queue status shows individual job details."""
+    fake_queue = "fake"
+    fake_queue_data = [
+        {"name": "fake_agent1", "state": "provision", "queues": ["fake"]},
+        {"name": "fake_agent2", "state": "offline", "queues": ["fake"]},
     ]
 
-    # Define variables for authentication
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-
-    expected_role = "admin"
-    fake_payload = {
-        "permissions": {"client_id": "my_client_id", "role": expected_role}
-    }
-    fake_jwt_signing_key = "my-secret"
-    fake_jwt_token = jwt.encode(
-        fake_payload, fake_jwt_signing_key, algorithm="HS256"
-    )
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
-
-    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
-    requests_mock.post(
-        URL + "/v1/agents/data/" + fake_agent, json=fake_send_agent_data
-    )
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.admin_cli.set_agent_status()
-    std = capsys.readouterr()
-    assert "Agent fake_agent status is now: waiting" in std.out
-
-
-@pytest.mark.parametrize(
-    "state", ["setup", "provision", "test", "allocate", "reserve"]
-)
-def test_set_incorrect_agent_status(capsys, requests_mock, state, monkeypatch):
-    """Validate we can't modify status to online if at any testing stage."""
-    fake_agent = "fake_agent"
-    fake_return = {
-        "name": fake_agent,
-        "queues": ["fake"],
-        "state": state,
-    }
-    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
-    sys.argv = [
-        "",
-        "admin",
-        "set",
-        "agent-status",
-        "--status",
-        "online",
-        "--agents",
-        fake_agent,
+    fake_job_data = [
+        {
+            "job_id": "de153d8f-7d32-47d7-9a05-a20f2ef6bb35",
+            "job_state": "waiting",
+            "created_at": "2023-10-13T15:22:46Z",
+        },
+        {
+            "job_id": "ba73620d-6d1a-45ab-bb68-a640e4e4c489",
+            "job_state": "running",
+            "created_at": "2023-10-13T15:22:40Z",
+        },
+        {
+            "job_id": "8b0bb52f-08d8-4671-b275-55d84a965f7c",
+            "job_state": "complete",
+            "created_at": "2023-10-13T15:22:30Z",
+        },
     ]
 
-    # Define variables for authentication
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-
-    expected_role = "admin"
-    fake_payload = {
-        "permissions": {"client_id": "my_client_id", "role": expected_role}
-    }
-    fake_jwt_signing_key = "my-secret"
-    fake_jwt_token = jwt.encode(
-        fake_payload, fake_jwt_signing_key, algorithm="HS256"
-    )
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
-
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.admin_cli.set_agent_status()
-    std = capsys.readouterr()
-    assert f"Could not modify {fake_agent} in its current state" in std.out
-
-
-def test_set_offline_without_comments(requests_mock, monkeypatch):
-    """Validate status can't change to offline without comments."""
-    fake_agent = "fake_agent"
-    fake_return = {
-        "name": "fake_agent",
-        "queues": ["fake"],
-        "state": "waiting",
-    }
-    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
-    sys.argv = [
-        "",
-        "admin",
-        "set",
-        "agent-status",
-        "--status",
-        "offline",
-        "--agents",
-        fake_agent,
-    ]
-
-    # Define variables for authentication
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-
-    expected_role = "admin"
-    fake_payload = {
-        "permissions": {"client_id": "my_client_id", "role": expected_role}
-    }
-    fake_jwt_signing_key = "my-secret"
-    fake_jwt_token = jwt.encode(
-        fake_payload, fake_jwt_signing_key, algorithm="HS256"
-    )
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
-
-    tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(SystemExit) as excinfo:
-        tfcli.admin_cli.set_agent_status()
-    assert "Comment is required when setting agent status to offline" in str(
-        excinfo.value
-    )
-
-
-@pytest.mark.parametrize("role", ["user", "contributor"])
-def test_set_agent_status_with_unprivileged_user(
-    requests_mock, monkeypatch, role
-):
-    """Validate status can't change if user doesn't have the right role."""
-    fake_agent = "fake_agent"
-    fake_return = {
-        "name": "fake_agent",
-        "queues": ["fake"],
-        "state": "waiting",
-    }
-    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
-    sys.argv = [
-        "",
-        "admin",
-        "set",
-        "agent-status",
-        "--status",
-        "offline",
-        "--agents",
-        fake_agent,
-    ]
-
-    # Define variables for authentication
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-
-    fake_payload = {"permissions": {"client_id": "my_client_id", "role": role}}
-    fake_jwt_signing_key = "my-secret"
-    fake_jwt_token = jwt.encode(
-        fake_payload, fake_jwt_signing_key, algorithm="HS256"
-    )
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
-
-    tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(AuthorizationError) as excinfo:
-        tfcli.admin_cli.set_agent_status()
-    assert "Authorization Error: Command requires role" in str(excinfo.value)
-
-
-@pytest.mark.parametrize(
-    "state", ["setup", "provision", "test", "allocate", "reserve"]
-)
-def test_deferred_offline_message(capsys, requests_mock, state, monkeypatch):
-    """Validate we receive a deffered message if agent under test phase."""
-    fake_agent = "fake_agent"
-    fake_return = {
-        "name": fake_agent,
-        "queues": ["fake"],
-        "state": state,
-    }
-    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
-    sys.argv = [
-        "",
-        "admin",
-        "set",
-        "agent-status",
-        "--status",
-        "maintenance",
-        "--agents",
-        fake_agent,
-    ]
-
-    # Define variables for authentication
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-
-    expected_role = "admin"
-    fake_payload = {
-        "permissions": {"client_id": "my_client_id", "role": expected_role}
-    }
-    fake_jwt_signing_key = "my-secret"
-    fake_jwt_token = jwt.encode(
-        fake_payload, fake_jwt_signing_key, algorithm="HS256"
-    )
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
-
-    fake_send_agent_data = [{"state": "maintenance", "comment": ""}]
-    requests_mock.post(
-        URL + "/v1/agents/data/" + fake_agent, json=fake_send_agent_data
-    )
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.admin_cli.set_agent_status()
-    std = capsys.readouterr()
-    assert "Status maintenance deferred until job completion" in std.out
-
-
-def test_set_status_unknown_agent(capsys, requests_mock, monkeypatch):
-    """Validate we skip non existing agents but modify the ones that exist."""
-    fake_agents = ["fake_agent1", "fake_agent2"]
-    fake_return = {
-        "name": "fake_agent1",
-        "queues": ["fake"],
-        "state": "waiting",
-    }
-    fake_send_agent_data = [{"state": "offline", "comment": ""}]
-
-    sys.argv = [
-        "",
-        "admin",
-        "set",
-        "agent-status",
-        "--status",
-        "online",
-        "--agents",
-        *fake_agents,
-    ]
-
-    # Define variables for authentication
-    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
-    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
-
-    expected_role = "admin"
-    fake_payload = {
-        "permissions": {"client_id": "my_client_id", "role": expected_role}
-    }
-    fake_jwt_signing_key = "my-secret"
-    fake_jwt_token = jwt.encode(
-        fake_payload, fake_jwt_signing_key, algorithm="HS256"
-    )
-    requests_mock.post(f"{URL}/v1/oauth2/token", text=fake_jwt_token)
-
-    requests_mock.get(URL + "/v1/agents/data/fake_agent1", json=fake_return)
     requests_mock.get(
-        URL + "/v1/agents/data/fake_agent2", status_code=HTTPStatus.NOT_FOUND
+        URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
     )
-    requests_mock.post(
-        URL + "/v1/agents/data/fake_agent1", json=fake_send_agent_data
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
     )
+    sys.argv = ["", "queue-status", "--verbose", fake_queue]
     tfcli = testflinger_cli.TestflingerCli()
-    tfcli.admin_cli.set_agent_status()
+    tfcli.queue_status()
     std = capsys.readouterr()
-    assert "Agent fake_agent1 status is now: waiting" in std.out
-    assert "Agent fake_agent2 does not exist." in std.out
+
+    # Should show agent status
+    assert "Agents in queue: 2" in std.out
+    assert "Available:       0" in std.out
+    assert "Busy:            1" in std.out
+    assert "Offline:         1" in std.out
+
+    # Should show individual job details (no counts in verbose mode)
+    assert "Jobs Waiting:" in std.out
+    assert "de153d8f-7d32-47d7-9a05-a20f2ef6bb35" in std.out
+    assert "Jobs Running:" in std.out
+    assert "ba73620d-6d1a-45ab-bb68-a640e4e4c489" in std.out
+    assert "Jobs Completed:" in std.out
+    assert "8b0bb52f-08d8-4671-b275-55d84a965f7c" in std.out
+
+
+def test_queue_status_json(capsys, requests_mock):
+    """Test JSON output for queue status."""
+    fake_queue = "fake"
+    fake_queue_data = [
+        {"name": "fake_agent1", "state": "provision", "queues": ["fake"]},
+        {"name": "fake_agent2", "state": "offline", "queues": ["fake"]},
+    ]
+
+    fake_job_data = [
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "waiting",
+            "created_at": "2023-10-13T15:22:46Z",
+        },
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "complete",
+            "created_at": "2023-10-13T15:22:30Z",
+        },
+    ]
+
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
+    )
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
+    )
+    sys.argv = ["", "queue-status", "--json", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.queue_status()
+    std = capsys.readouterr()
+
+    # Parse JSON output (non-verbose should only have jobs_waiting)
+    output_data = json.loads(std.out)
+    assert output_data["queue"] == fake_queue
+    assert len(output_data["agents"]) == 2
+    assert len(output_data["jobs_waiting"]) == 1
+    # Non-verbose mode should only include jobs_waiting
+    assert "jobs_completed" not in output_data
+    assert "jobs_running" not in output_data
+
+
+def test_queue_status_empty_queue(capsys, requests_mock):
+    """Test queue status with no agents (original behavior)."""
+    fake_queue = "empty"
+
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/agents",
+        status_code=HTTPStatus.NO_CONTENT,
+    )
+    sys.argv = ["", "queue-status", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.queue_status()
+    assert "No agent is listening on" in str(exc_info.value)
+
+
+def test_queue_status_nonexistent_queue(requests_mock):
+    """Test queue status with nonexistent queue (original behavior)."""
+    fake_queue = "nonexistent"
+
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/agents",
+        status_code=HTTPStatus.NOT_FOUND,
+        text=f"Queue '{fake_queue}' does not exist.",
+    )
+    sys.argv = ["", "queue-status", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.queue_status()
+    assert f"Queue '{fake_queue}' does not exist." in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "command", ["status", "agent-status", "queue-status", "show"]
+)
+def test_get_commands_fails_if_incorrect_network(command, requests_mock):
+    """Test VPN errors results in SystemExit."""
+    requests_mock.get(rmock.ANY, status_code=HTTPStatus.FORBIDDEN)
+    # Command list is not exhaustive but indicates others will fail as well
+    sys.argv = ["", command, ""]
+    with pytest.raises(NetworkError) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+
+    assert (
+        "403 Forbidden Error: Server access requires a VPN connection."
+        in str(exc_info.value)
+    )
+    assert (
+        "Please make sure you are connected to the VPN and try again."
+        in str(exc_info.value)
+    )

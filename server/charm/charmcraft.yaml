@@ -47,6 +47,14 @@ base: ubuntu@22.04
 platforms:
   amd64:
 
+actions:
+  set-admin-password:
+    description: Update or set a password for admin user
+    params:
+      password:
+        type: string
+        description: The password to set to admin user.
+
 config:
   options:
     external_hostname:
@@ -65,6 +73,10 @@ config:
       type: string
       default: ""
       description: The secret key used for signing authorization tokens
+    testflinger_secrets_master_key:
+      type: string
+      default: ""
+      description: The master key used for encrypting secrets data keys
     http_proxy:
       type: string
       default: ""
@@ -80,4 +92,15 @@ config:
 
 parts:
   charm:
-    build-packages: [cargo, rustc, pkg-config, libffi-dev, libssl-dev]
+    plugin: charm
+    source: .
+    build-packages: [pkg-config, libffi-dev, libssl-dev]
+    build-snaps: [rustup]
+    override-build: |
+      # pydantic requires a higher version of rustc than what is in the archive
+      # for 22.04
+      # Install rustc and cargo using rustup instead of the Ubuntu archive
+      rustup set profile minimal
+      rustup default 1.83.0  # renovate: charmcraft-rust-latest
+
+      craftctl default

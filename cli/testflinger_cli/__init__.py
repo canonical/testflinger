@@ -50,8 +50,8 @@ from testflinger_cli.admin import TestflingerAdminCLI
 from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.errors import (
     AttachmentError,
-    AuthenticationError,
-    AuthorizationError,
+    CredentialsError,
+    NetworkError,
     SnapPrivateFileError,
     UnknownStatusError,
 )
@@ -76,7 +76,7 @@ def cli():
         tfcli.run()
     except KeyboardInterrupt:
         sys.exit("Received KeyboardInterrupt")
-    except (AuthenticationError, AuthorizationError) as exc:
+    except (CredentialsError, NetworkError) as exc:
         sys.exit(exc)
 
 
@@ -118,19 +118,16 @@ class TestflingerCli:
                 f'- currently set to: "{server}"'
             )
         self.client = client.Client(server, error_threshold=error_threshold)
-        # Initialize Auth module
-        try:
-            self.auth = TestflingerCliAuth(
-                self.client_id, self.secret_key, self.client
-            )
-        except (AuthenticationError, AuthorizationError) as exc:
-            sys.exit(exc)
+        self.auth = TestflingerCliAuth(
+            self.client_id, self.secret_key, self.client
+        )
 
     def run(self):
         """Run the subcommand specified in command line arguments."""
-        if hasattr(self.args, "func"):
-            sys.exit(self.args.func())
-        print(self.help)
+        if not hasattr(self.args, "func"):
+            print(self.help)
+            return
+        self.args.func()
 
     def get_args(self):
         """Handle command line arguments."""
@@ -155,6 +152,7 @@ class TestflingerCli:
         self._add_config_args(subparsers)
         self._add_jobs_args(subparsers)
         self._add_list_queues_args(subparsers)
+        self._add_login_args(subparsers)
         self._add_poll_args(subparsers)
         self._add_poll_serial_args(subparsers)
         self._add_reserve_args(subparsers)
@@ -164,6 +162,7 @@ class TestflingerCli:
         self._add_results_args(subparsers)
         self._add_show_args(subparsers)
         self._add_submit_args(subparsers)
+        self._add_secret_args(subparsers)
 
         argcomplete.autocomplete(parser)
         try:
@@ -171,6 +170,20 @@ class TestflingerCli:
         except SnapPrivateFileError as exc:
             parser.error(exc)
         self.help = parser.format_help()
+
+    def _add_auth_args(self, parser):
+        parser.add_argument(
+            "--client-id",
+            "--client_id",
+            default=None,
+            help="Client ID to authenticate with Testflinger server",
+        )
+        parser.add_argument(
+            "--secret-key",
+            "--secret_key",
+            default=None,
+            help="Secret key to be used with client id for authentication",
+        )
 
     def _add_artifacts_args(self, subparsers):
         """Command line arguments for artifacts."""
@@ -227,6 +240,15 @@ class TestflingerCli:
         parser.add_argument(
             "--json", action="store_true", help="Print output in JSON format"
         )
+
+    def _add_login_args(self, subparsers):
+        """Command line arguments for login."""
+        parser = subparsers.add_parser(
+            "login",
+            help="Authenticate with server",
+        )
+        parser.set_defaults(func=self.login)
+        self._add_auth_args(parser)
 
     def _add_poll_args(self, subparsers):
         """Command line arguments for poll."""
@@ -317,6 +339,12 @@ class TestflingerCli:
         parser.set_defaults(func=self.queue_status)
         parser.add_argument("queue_name")
         parser.add_argument(
+            "--verbose",
+            "-v",
+            action="store_true",
+            help="Show individual jobs with details",
+        )
+        parser.add_argument(
             "--json", action="store_true", help="Print output in JSON format"
         )
 
@@ -361,24 +389,41 @@ class TestflingerCli:
         ).completer = argcomplete.completers.FilesCompleter(
             allowednames=("*.yaml", "*.yml", "*.json")
         )
-        parser.add_argument(
-            "--client-id",
-            "--client_id",
-            default=None,
-            help="Client ID to authenticate with Testflinger server",
-        )
-        parser.add_argument(
-            "--secret-key",
-            "--secret_key",
-            default=None,
-            help="Secret key to be used with client id for authentication",
-        )
+        self._add_auth_args(parser)
         relative = parser.add_mutually_exclusive_group()
         relative.add_argument(
             "--attachments-relative-to",
             dest="relative",
             help="The reference directory for relative attachment paths",
         )
+
+    def _add_secret_args(self, subparsers):
+        """Command line arguments for secret management."""
+        parser = subparsers.add_parser(
+            "secret", help="Manage secrets. Requires authentication"
+        )
+        secret_subparser = parser.add_subparsers(
+            dest="secret_command", required=True
+        )
+
+        # secret write command
+        write_parser = secret_subparser.add_parser(
+            "write", help="Write a secret value"
+        )
+        write_parser.set_defaults(func=self.secret_write)
+        write_parser.add_argument("path", help="Path for the secret")
+        write_parser.add_argument("value", help="Value of the secret")
+        self._add_auth_args(write_parser)
+
+        # secret delete command
+        delete_parser = secret_subparser.add_parser(
+            "delete", help="Delete a secret"
+        )
+        delete_parser.set_defaults(func=self.secret_delete)
+        delete_parser.add_argument(
+            "path", help="Path for the secret to delete"
+        )
+        self._add_auth_args(delete_parser)
 
     def status(self):
         """Show the status of a specified JOB_ID."""
@@ -412,24 +457,41 @@ class TestflingerCli:
             sys.exit(exc)
 
         if self.args.json:
-            output = json.dumps(
-                {
-                    "agent": self.args.agent_name,
-                    "status": agent_status["state"],
-                    "queues": agent_status["queues"],
-                }
-            )
+            # For unclear historical reasons,
+            # the "name" and "state" fields were renamed,
+            # so we maintain that for compatibility
+            agent_status["agent"] = agent_status.pop("name")
+            agent_status["status"] = agent_status.pop("state")
+            output = json.dumps(agent_status, sort_keys=True)
         else:
             output = agent_status["state"]
         print(output)
 
     def queue_status(self):
-        """Show the status of the agents in a specified queue."""
+        """Show agent and job status in a specified queue."""
+        # Get agent and job status data
+        agents_status = self._get_agents_status()
+        jobs_status = self._get_jobs_status()
+
+        if self.args.json:
+            output = self._queue_status_format_json_output(
+                agents_status, jobs_status
+            )
+        else:
+            output = self._queue_status_format_human_output(
+                agents_status, jobs_status
+            )
+
+        print(output)
+
+    def _get_agents_status(self):
+        """Retrieve the status of the agents in a specified queue."""
         try:
             try:
-                queue_status = self.client.get_agent_status_by_queue(
+                agents_status = self.client.get_agent_status_by_queue(
                     self.args.queue_name
                 )
+                return agents_status
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NO_CONTENT:
                     sys.exit(
@@ -437,7 +499,8 @@ class TestflingerCli:
                         f"queue '{self.args.queue_name}'."
                     )
                 if exc.status == HTTPStatus.NOT_FOUND:
-                    sys.exit(f"Queue '{self.args.queue_name}' does not exist.")
+                    # Error message is specified on server side
+                    sys.exit(exc.msg)
                 # If any other HTTP error, raise UnknownStatusError
                 raise UnknownStatusError("queue") from exc
             except (IOError, ValueError) as exc:
@@ -446,55 +509,109 @@ class TestflingerCli:
                 logger.debug("Unable to retrieve agent state: %s", exc)
                 raise UnknownStatusError("queue") from exc
 
-            try:
-                jobs_queued = [
-                    job["job_id"]
-                    for job in self.client.get_jobs_on_queue(
-                        self.args.queue_name
-                    )
-                    if job["job_state"] == "waiting"
-                ]
-            except client.HTTPError as exc:
-                if exc.status == HTTPStatus.NO_CONTENT:
-                    jobs_queued = []
-                else:
-                    # If any other HTTP error, raise UnknownStatusError
-                    raise UnknownStatusError("job") from exc
-            except (IOError, ValueError) as exc:
-                # For other types of network errors or JSONDecodeError
-                # if we got a bad return
-                logger.debug("Unable to retrieve job state: %s", exc)
-                raise UnknownStatusError("job") from exc
-
         except UnknownStatusError as exc:
             sys.exit(exc)
 
-        if self.args.json:
-            output = json.dumps(
-                {
-                    "queue": self.args.queue_name,
-                    "jobs waiting": jobs_queued,
-                    "agents": queue_status,
-                }
-            )
+    def _get_jobs_status(self):
+        """Retrieve the status of jobs in a specified queue."""
+        try:
+            jobs_data = self.client.get_jobs_on_queue(self.args.queue_name)
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NO_CONTENT:
+                jobs_data = []
+            else:
+                logger.debug("Unable to retrieve job data: %s", exc)
+                jobs_data = []
+        except (IOError, ValueError) as exc:
+            logger.debug("Unable to retrieve job data: %s", exc)
+            jobs_data = []
+
+        # Categorize jobs based on completion outcome
+        jobs_waiting = []
+        jobs_running = []
+        jobs_completed = []
+
+        for job in jobs_data:
+            # Handle MongoDB date structure or plain string
+            created_at = job.get("created_at", "")
+            if isinstance(created_at, dict) and "$date" in created_at:
+                created_at = created_at["$date"]
+
+            job_info = {
+                "job_id": job["job_id"],
+                "created_at": created_at,
+            }
+
+            job_state = job.get("job_state", "").lower()
+            if job_state == "waiting":
+                jobs_waiting.append(job_info)
+            elif job_state == "complete":
+                jobs_completed.append(job_info)
+            elif job_state not in ("cancelled",):  # Ignore cancelled jobs
+                # All non-waiting, non-complete, non-cancelled are "running"
+                jobs_running.append(job_info)
+
+        return {
+            "jobs_waiting": jobs_waiting,
+            "jobs_running": jobs_running,
+            "jobs_completed": jobs_completed,
+        }
+
+    def _queue_status_format_json_output(self, agents_status, jobs_status):
+        """Format queue status output as JSON."""
+        output_data = {
+            "queue": self.args.queue_name,
+            "agents": agents_status,
+        }
+
+        if self.args.verbose:
+            # In verbose mode, include all job details
+            output_data.update(jobs_status)
         else:
-            agents = Counter(
-                (
-                    agent["status"]
-                    if agent["status"] in ("waiting", "offline")
-                    else "busy"
-                )
-                for agent in queue_status
+            # In non-verbose mode, only include waiting jobs
+            output_data["jobs_waiting"] = jobs_status["jobs_waiting"]
+        return json.dumps(output_data, indent=2)
+
+    def _queue_status_format_human_output(self, agents_status, jobs_status):
+        """Format queue status output for human reading."""
+        # Get agent status count
+        agents = Counter(
+            (
+                agent["status"]
+                if agent["status"] in ("waiting", "offline")
+                else "busy"
+            )
+            for agent in agents_status
+        )
+
+        output_lines = [
+            f"Agents in queue: {agents.total()}",
+            f"Available:       {agents['waiting']}",
+            f"Busy:            {agents['busy']}",
+            f"Offline:         {agents['offline']}",
+        ]
+
+        if self.args.verbose:
+            # Add individual job details
+            for job_type, jobs in jobs_status.items():
+                if jobs:  # Only show if there are jobs
+                    job_type_display = job_type.replace("_", " ").title()
+                    output_lines.append(f"\n{job_type_display}:")
+                    for job in jobs:
+                        timestamp = helpers.format_timestamp(
+                            job.get("created_at", "")
+                        )
+                        output_lines.append(f"  {job['job_id']} - {timestamp}")
+        else:
+            output_lines.extend(
+                [
+                    f"Jobs waiting:    {len(jobs_status['jobs_waiting'])}",
+                    f"Jobs running:    {len(jobs_status['jobs_running'])}",
+                    f"Jobs completed:  {len(jobs_status['jobs_completed'])}",
+                ]
             )
 
-            output = (
-                f"Agents in queue: {agents.total()}\n"
-                f"Available:       {agents['waiting']}\n"
-                f"Busy:            {agents['busy']}\n"
-                f"Offline:         {agents['offline']}\n"
-                f"Jobs waiting:    {len(jobs_queued)}"
-            )
-        print(output)
+        return "\n".join(output_lines)
 
     def cancel(self, job_id=None):
         """Tell the server to cancel a specified JOB_ID."""
@@ -507,15 +624,10 @@ class TestflingerCli:
             self.client.post(f"/v1/job/{job_id}/action", {"action": "cancel"})
             self.history.update(job_id, "cancelled")
         except client.HTTPError as exc:
-            if exc.status == 400:
+            if exc.status == HTTPStatus.BAD_REQUEST:
                 sys.exit(
                     "Invalid job ID specified or the job is already "
                     "completed/cancelled."
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
                 )
             raise
 
@@ -627,11 +739,11 @@ class TestflingerCli:
 
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
-        queue = job_dict.get("job_queue")
         try:
-            self.check_online_agents_available(queue)
-        except AuthorizationError as exc:
-            sys.exit(exc)
+            queue = job_dict["job_queue"]
+        except KeyError:
+            sys.exit("Error: Queue was not specified in job")
+        self.check_online_agents_available(queue)
 
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
@@ -669,8 +781,8 @@ class TestflingerCli:
         try:
             agents = self.client.get_agents_on_queue(queue)
         except client.HTTPError as exc:
-            if exc.status == HTTPStatus.FORBIDDEN:
-                raise AuthorizationError from exc
+            if exc.status == HTTPStatus.NOT_FOUND:
+                sys.exit(exc.msg)
             agents = []
         online_agents = [
             agent for agent in agents if agent["state"] != "offline"
@@ -698,20 +810,16 @@ class TestflingerCli:
                 auth_headers = self.auth.build_headers()
                 job_id = self.client.submit_job(data, headers=auth_headers)
                 break
+            except CredentialsError as auth_exc:
+                sys.exit(auth_exc)
             except client.HTTPError as exc:
-                if exc.status == 400:
+                if exc.status == HTTPStatus.BAD_REQUEST:
                     sys.exit(
                         "The job you submitted contained bad data or "
                         "bad formatting, or did not specify a "
                         "job_queue."
                     )
-                if exc.status == 404:
-                    sys.exit(
-                        "Received 404 error from server. Are you "
-                        "sure this is a testflinger server?"
-                    )
-
-                if exc.status == 403:
+                if exc.status == HTTPStatus.FORBIDDEN:
                     sys.exit(
                         "Received 403 error from server with reason: "
                         f"{exc.msg}\n"
@@ -719,7 +827,7 @@ class TestflingerCli:
                         "sufficient permissions for the resource(s) "
                         "you are trying to access."
                     )
-                if exc.status == 401:
+                if exc.status == HTTPStatus.UNAUTHORIZED:
                     if "expired" in exc.msg:
                         if retry_count < 2:
                             retry_count += 1
@@ -770,16 +878,10 @@ class TestflingerCli:
                 ) from error
             except requests.HTTPError as error:
                 # we can't recover from these errors, give up without retrying
-                if error.response.status_code == 400:
+                if error.response.status_code == HTTPStatus.BAD_REQUEST:
                     raise AttachmentError(
                         f"Unable to submit attachment archive for {job_id}: "
                         f"{error.response.text}"
-                    ) from error
-                if error.response.status_code == 404:
-                    raise AttachmentError(
-                        "Received 404 error from server. Are you "
-                        "sure this is a testflinger server and "
-                        "that it supports attachments?"
                     ) from error
                 # This shouldn't happen, so let's get more information
                 sys.exit(
@@ -805,17 +907,12 @@ class TestflingerCli:
         try:
             results = self.client.show_job(self.args.job_id)
         except client.HTTPError as exc:
-            if exc.status == 204:
+            if exc.status == HTTPStatus.NO_CONTENT:
                 sys.exit("No data found for that job id.")
-            if exc.status == 400:
+            if exc.status == HTTPStatus.BAD_REQUEST:
                 sys.exit(
                     "Invalid job id specified. Check the job id "
                     "to be sure it is correct"
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
                 )
             # This shouldn't happen, so let's get more information
             logger.error(
@@ -836,17 +933,12 @@ class TestflingerCli:
         try:
             results = self.client.get_results(self.args.job_id)
         except client.HTTPError as exc:
-            if exc.status == 204:
+            if exc.status == HTTPStatus.NO_CONTENT:
                 sys.exit("No results found for that job id.")
-            if exc.status == 400:
+            if exc.status == HTTPStatus.NOT_FOUND:
                 sys.exit(
                     "Invalid job id specified. Check the job id "
                     "to be sure it is correct"
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
                 )
             # This shouldn't happen, so let's get more information
             logger.error(
@@ -863,17 +955,12 @@ class TestflingerCli:
         try:
             self.client.get_artifact(self.args.job_id, self.args.filename)
         except client.HTTPError as exc:
-            if exc.status == 204:
+            if exc.status == HTTPStatus.NO_CONTENT:
                 sys.exit("No artifacts tarball found for that job id.")
-            if exc.status == 400:
+            if exc.status == HTTPStatus.BAD_REQUEST:
                 sys.exit(
                     "Invalid job id specified. Check the job id "
                     "to be sure it is correct"
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
                 )
             # This shouldn't happen, so let's get more information
             logger.error(
@@ -920,10 +1007,20 @@ class TestflingerCli:
                 if job_state in ("cancelled", "complete", "completed"):
                     break
                 if job_state == "waiting":
-                    queue_pos = self.client.get_job_position(job_id)
-                    if int(queue_pos) != prev_queue_pos:
-                        prev_queue_pos = int(queue_pos)
-                        print(f"Jobs ahead in queue: {queue_pos}")
+                    queue_pos = int(self.client.get_job_position(job_id))
+                    if queue_pos != prev_queue_pos:
+                        prev_queue_pos = queue_pos
+                        if queue_pos == 0:
+                            print(
+                                "This job will be picked up after the "
+                                "current job is complete (it is next in line)"
+                            )
+                        else:
+                            print(
+                                f"This job will be picked up after the "
+                                f"current job and {queue_pos} job(s) ahead "
+                                f"of it in the queue are complete"
+                            )
                 time.sleep(10)
                 output = ""
                 output = self.get_latest_output(job_id)
@@ -1098,23 +1195,67 @@ class TestflingerCli:
         try:
             return self.client.get_status(job_id)
         except client.HTTPError as exc:
-            if exc.status == 204:
+            if exc.status == HTTPStatus.NO_CONTENT:
                 sys.exit(
                     "No data found for that job id. Check the "
                     "job id to be sure it is correct"
                 )
-            if exc.status == 400:
+            if exc.status == HTTPStatus.BAD_REQUEST:
                 sys.exit(
                     "Invalid job id specified. Check the job id "
                     "to be sure it is correct"
-                )
-            if exc.status == 404:
-                sys.exit(
-                    "Received 404 error from server. Are you "
-                    "sure this is a testflinger server?"
                 )
         except (IOError, ValueError) as exc:
             # For other types of network errors, or JSONDecodeError if we got
             # a bad return from get_status()
             logger.debug("Unable to retrieve job state: %s", exc)
         return "unknown"
+
+    def login(self):
+        """Authenticate using refresh_token or provided credentials."""
+        # Clear refresh token if user is attempting reauthentication
+        self.auth.clear_refresh_token()
+        try:
+            # Since refresh token was cleared, credentials are always needed
+            if self.auth.authenticate():
+                print(f"Successfully authenticated as user '{self.client_id}'")
+            else:
+                # authenticate can return None if no credentials were provided
+                sys.exit("Please provide credentials and reattempt login")
+        except CredentialsError as exc:
+            sys.exit(exc)
+
+    def secret_write(self):
+        """Write a secret value for the authenticated client."""
+        try:
+            auth_headers = self.auth.build_headers()
+        except CredentialsError as exc:
+            sys.exit(exc)
+
+        if auth_headers is None or self.client_id is None:
+            sys.exit("Error writing secret: Authentication is required")
+
+        secret_data = {"value": self.args.value}
+        endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
+        try:
+            self.client.put(endpoint, secret_data, headers=auth_headers)
+        except client.HTTPError as exc:
+            sys.exit(f"Error writing secret: [{exc.status}] {exc.msg}")
+        print(f"Secret '{self.args.path}' written successfully")
+
+    def secret_delete(self):
+        """Delete a secret for the authenticated client."""
+        try:
+            auth_headers = self.auth.build_headers()
+        except CredentialsError as exc:
+            sys.exit(exc)
+
+        if auth_headers is None or self.client_id is None:
+            sys.exit("Error deleting secret: Authentication is required")
+
+        endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
+        try:
+            self.client.delete(endpoint, headers=auth_headers)
+        except client.HTTPError as exc:
+            sys.exit(f"Error deleting secret: [{exc.status}] {exc.msg}")
+        print(f"Secret '{self.args.path}' deleted successfully")

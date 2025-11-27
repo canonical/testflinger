@@ -704,6 +704,8 @@ class MuxPi:
                     return True
                 except subprocess.CalledProcessError as e:
                     logger.info("ssh-id-copy failed with %s", e)
+                except subprocess.TimeoutExpired as e:
+                    logger.info("ssh-id-copy timed out after %s", e)
 
         # If we get here, then we didn't boot in time
         raise ProvisioningError("Failed to boot test image!")

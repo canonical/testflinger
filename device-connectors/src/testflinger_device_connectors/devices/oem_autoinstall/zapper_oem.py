@@ -35,7 +35,7 @@ class ZapperOem(ZapperConnector):
         for the Zapper `provision` API.
         """
         logger.info("Validating configuration")
-        supported_iso_types = {"bootstrap", "stock", "bios"}
+        supported_iso_types = {"bootstrap", "stock", "bios", "dummyefi"}
         provision_data = self.job_data["provision_data"]
 
         iso_type = provision_data.get("zapper_iso_type")

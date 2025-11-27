@@ -28,6 +28,13 @@ from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
 class ZapperKVMConnectorTests(unittest.TestCase):
     """Unit tests for ZapperConnector KVM class."""
 
+    def test_get_credentials(self) -> None:
+        connector = DeviceConnector({})
+        connector.job_data = {}
+        assert connector._get_credentials("jammy-oem") == ("ubuntu", "u")
+        assert connector._get_credentials("preset") == ("ubuntu", "ubuntu")
+        assert connector._get_credentials() == ("ubuntu", "ubuntu")
+
     def test_validate_configuration(self):
         """Test whether the validate_configuration function returns
         the expected data merging the relevant bits from conf and job
@@ -55,6 +62,58 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
             "robot_tasks": ["job.robot", "another.robot"],
             "robot_retries": 1,
+        }
+        self.assertEqual(args, ())
+        self.assertDictEqual(kwargs, expected)
+
+    def test_validate_configuration_preset(self):
+        """Test whether the validate_configuration function returns
+        the expected data merging the relevant bits from conf and job
+        data when passing only the required arguments.
+        """
+        connector = DeviceConnector({})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "preset": "preset-test",
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        args, kwargs = connector._validate_configuration()
+
+        expected = {
+            "preset": "preset-test",
+            "username": "ubuntu",
+            "password": "ubuntu",
+        }
+        self.assertEqual(args, ())
+        self.assertDictEqual(kwargs, expected)
+
+    def test_validate_configuration_preset_with_overriding_items(self):
+        """Test whether the validate_configuration function returns
+        the expected data merging the relevant bits from conf and job
+        data when passing only the required arguments.
+        """
+        connector = DeviceConnector({})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://test",
+                "preset": "preset-test",
+                "username": "custom-user",
+                "password": "custom-password",
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        args, kwargs = connector._validate_configuration()
+
+        expected = {
+            "url": "http://test",
+            "preset": "preset-test",
+            "username": "ubuntu",
+            "password": "ubuntu",
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)

@@ -13,6 +13,9 @@ Work with jobs via Testflinger CLI
     change-server
     submit-job
     cancel-job
+    reserve-job
     search-job
     job-priority
     authentication
+    manage-client-permissions
+    create-admin-user
