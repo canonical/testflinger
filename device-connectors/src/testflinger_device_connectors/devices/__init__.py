@@ -460,6 +460,7 @@ class DefaultDevice:
 
         with contextlib.suppress(FileNotFoundError):
             ping(control_host)
+            logger.debug("The control host is already up and running.")
             return
 
         control_host_reboot_script: list[str] = [
