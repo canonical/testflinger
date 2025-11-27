@@ -75,6 +75,17 @@ Once everything is settled, you should be able to point your web browser
 at the hostname you specified above and see the default Testflinger
 homepage.
 
+## Integrate (relate) to COS
+
+Testflinger can be integrated to Canonical Observability Stack (COS) to send metrics through a Prometheus endpoint
+for later visualization in Grafana. This can be made either via a direct relation between Testflinger and Prometheus/Grafana
+charms or using [Grafana Agent][grafana-agent] as an intermediate for example:
+
+```shell
+juju integrate testflinger-k8s:metrics-endpoint grafana-agent-k8s:metrics-endpoint
+juju integrate testflinger-k8s:grafana-dashboard grafana-agent-k8s:grafana-dashboards-provider
+```
+
 [mongodb-k8s]: https://charmhub.io/mongodb-k8s
 [nginx-ingress-integrator]: https://charmhub.io/nginx-ingress-integrator
 [testflinger-k8s]: https://charmhub.io/testflinger-k8s
@@ -86,3 +97,4 @@ homepage.
 [microk8s-hostpath-storage]: https://microk8s.io/docs/addon-hostpath-storage
 [microk8s-ingress]: https://microk8s.io/docs/addon-ingress
 [ingress-tls]: https://charmhub.io/nginx-ingress-integrator/docs/secure-an-ingress-with-tls
+[grafana-agent]: https://charmhub.io/grafana-agent-k8s
