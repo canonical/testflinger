@@ -417,6 +417,97 @@ class DefaultDevice:
         )
         time.sleep(int(timeout))
 
+    def pre_provision_hook(self):
+        """Execute control host reboot script before provisioning."""
+
+        control_host: str = str(self.config.get("control_host", ""))
+        if not control_host:
+            logger.debug("No control host configured for this agent.")
+            return
+
+        def ping(control_host: str) -> None:
+            try:
+                subprocess.run(
+                    ["/usr/bin/ping", "-c", "1", "-W", "2", control_host],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                logger.info(
+                    "Control host %s is responding to ping", control_host
+                )
+            except subprocess.CalledProcessError as e:
+                raise FileNotFoundError from e
+
+        def wait_back_alive(control_host: str, timeout: int) -> None:
+            logger.info(
+                "Waiting for control host %s to respond to ping", control_host
+            )
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                try:
+                    ping(control_host)
+                    break
+                except FileNotFoundError:
+                    # Ping failed, continue waiting
+                    time.sleep(2)
+            else:
+                # Timeout reached
+                msg = (
+                    "Control host %s did not respond to ping within %d seconds"
+                )
+                logger.error(msg, control_host, timeout)
+
+        with contextlib.suppress(FileNotFoundError):
+            ping(control_host)
+            return
+
+        control_host_reboot_script: list[str] = [
+            str(cmd)
+            for cmd in self.config.get("control_host_reboot_script", [])
+        ]
+        if not control_host_reboot_script:
+            logger.warning(
+                "No control_host_reboot_script configured, cannot reboot."
+            )
+            return
+
+        logger.info("Running control host reboot script")
+        for cmd in control_host_reboot_script:
+            try:
+                logger.info("Executing: %s", cmd)
+                subprocess.run(
+                    cmd,
+                    shell=True,
+                    check=True,
+                    timeout=300,
+                    capture_output=True,
+                    text=True,
+                )
+                logger.info("Command completed successfully: %s", cmd)
+            except subprocess.CalledProcessError as e:
+                logger.error(
+                    "Command failed: %s (exit code: %d)", cmd, e.returncode
+                )
+                if e.stdout:
+                    logger.error("stdout: %s", e.stdout)
+                if e.stderr:
+                    logger.error("stderr: %s", e.stderr)
+            except subprocess.TimeoutExpired:
+                logger.error("Command timed out after 300s: %s", cmd)
+            except Exception as e:
+                logger.error(
+                    "Unexpected error running command %s: %s", cmd, str(e)
+                )
+
+        # Wait for control host to be reachable via ping
+        wait_back_alive(control_host, 60)
+
+    def provision(self, args):
+        """Run pre-provision hook."""
+        logger.info("Running pre-provision hook")
+        self.pre_provision_hook()
+
     def cleanup(self, _):
         """Clean up devices (default method)."""
         pass
