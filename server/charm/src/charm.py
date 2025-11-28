@@ -25,6 +25,7 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseCreatedEvent,
     DatabaseRequires,
 )
+from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
 from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
 from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 from ops.main import main
@@ -63,6 +64,10 @@ class TestflingerCharm(ops.CharmBase):
             database_name="testflinger_db",
         )
 
+        # Initialize Grafana dashboard provider
+        self.grafana_dashboard_provider = GrafanaDashboardProvider(charm=self)
+
+        # Define Prometheus scrape endpoint
         self._prometheus_scraping = MetricsEndpointProvider(
             self,
             relation_name="metrics-endpoint",
