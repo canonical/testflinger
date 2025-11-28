@@ -23,7 +23,7 @@ from flask.logging import create_logger
 from pymongo.errors import ConnectionFailure
 from werkzeug.exceptions import NotFound
 
-from testflinger.api.v1 import v1
+from testflinger.api.v1 import LogTypeConverter, v1
 from testflinger.database import setup_mongodb
 from testflinger.extensions import metrics
 from testflinger.oidc import app_register_oidc
@@ -44,7 +44,7 @@ def create_flask_app(config=None, secrets_store=None):
 
     # Globally disable strict slashes
     tf_app.url_map.strict_slashes = False
-
+    tf_app.url_map.converters.update(log_type=LogTypeConverter)
     if config:
         tf_app.config.from_object(config)
     tf_log = create_logger(tf_app)

@@ -98,6 +98,12 @@ Parameters:
 
 - `job_id` (UUID): test job identifier
 
+Request Body:
+
+- `status` (object): Dictionary mapping phase names to exit codes
+- `device_info` (object, optional): Device information
+- `job_state` (string, optional): Current job state
+
 Status Codes:
 
 - `HTTP 200 (OK)`
@@ -107,12 +113,14 @@ Example:
 ```shell
 curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000 \
   -X POST --header "Content-Type: application/json" \
-  --data '{ "exit_code": 0, "output":"foo" }'
+  --data '{ "status": {"setup": 0, "provision": 0, "test": 0}, "device_info": {} }'
 ```
 
 ## `[GET] /v1/result/<job_id>`
 
 Return previously submitted job outcome data
+
+This endpoint reconstructs results from the new logging system to maintain backward compatibility. It combines phase status information with logs to provide a complete view of job results.
 
 Parameters:
 
@@ -125,12 +133,114 @@ Status Codes:
 
 Returns:
 
-JSON data previously submitted to this `job_id` via the POST API
+JSON data with flattened structure including:
+- `{phase}_status`: Exit code for each phase
+- `{phase}_output`: Standard output logs for each phase (if available)
+- `{phase}_serial`: Serial console logs for each phase (if available)
+- Additional metadata fields (device_info, job_state, etc.)
 
 Example:
 
 ```shell
 curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000 -X GET
+```
+
+## `[POST] /v1/result/<job_id>/log/<log_type>`
+
+Post a log fragment for the specified job_id and log type
+
+This is the new logging endpoint that agents use to stream log data in fragments. Each fragment includes metadata for tracking and querying.
+
+Parameters:
+
+- `job_id` (UUID): test job identifier
+- `log_type` (string): Type of log - either `output` or `serial`
+
+Request Body:
+
+- `fragment_number` (integer): Sequential fragment number starting from 0
+- `timestamp` (string): ISO 8601 timestamp when the fragment was created
+- `phase` (string): Test phase name (setup, provision, firmware_update, test, allocate, reserve, cleanup)
+- `log_data` (string): The log content for this fragment
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 400 (Bad Request)`: Invalid log_type or missing required fields
+
+Example:
+
+```shell
+curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output \
+  -X POST --header "Content-Type: application/json" \
+  --data '{
+    "fragment_number": 0,
+    "timestamp": "2025-10-15T10:00:00+00:00",
+    "phase": "setup",
+    "log_data": "Starting setup phase..."
+  }'
+```
+
+## `[GET] /v1/result/<job_id>/log/<log_type>`
+
+Retrieve logs for the specified job_id and log type
+
+This endpoint supports querying logs with optional filtering by phase, fragment number, or timestamp. Logs are persistent and can be retrieved multiple times.
+
+Parameters:
+
+- `job_id` (UUID): test job identifier
+- `log_type` (string): Type of log - either `output` or `serial`
+
+Query Parameters (all optional):
+
+- `phase` (string): Filter logs to a specific test phase
+- `start_fragment` (integer): Return only fragments from this number onwards
+- `start_timestamp` (string): Return only logs created after this ISO 8601 timestamp
+
+Status Codes:
+
+- `HTTP 200 (OK)`
+- `HTTP 204 (NO DATA)`: if there are no logs for that ID yet
+- `HTTP 400 (Bad Request)`: Invalid log_type or query parameters
+
+Returns:
+
+JSON object with logs organized by phase. Each phase includes:
+- `last_fragment_number`: The highest fragment number for this phase
+- `log_data`: Combined log text from all matching fragments
+
+Example:
+
+```shell
+# Get all output logs for a job
+curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output
+
+# Get only setup phase output logs
+curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output?phase=setup
+
+# Get logs from fragment 5 onwards
+curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output?start_fragment=5
+
+# Get logs after a specific timestamp
+curl "http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output?start_timestamp=2025-10-15T10:30:00Z"
+```
+
+Response example:
+
+```json
+{
+  "output": {
+    "setup": {
+      "last_fragment_number": 5,
+      "log_data": "Starting setup...\nSetup complete\n"
+    },
+    "provision": {
+      "last_fragment_number": 12,
+      "log_data": "Provisioning device...\nDevice ready\n"
+    }
+  }
+}
 ```
 
 ## `[POST] /v1/result/<job_id>/artifact`
