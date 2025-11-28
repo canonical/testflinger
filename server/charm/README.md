@@ -83,7 +83,7 @@ charms or using [Grafana Agent][grafana-agent] as an intermediate for example:
 
 ```shell
 juju integrate testflinger-k8s:metrics-endpoint grafana-agent-k8s:metrics-endpoint
-juju integrate testflinger-k8s:grafana-dashboard grafana-agent-k8s:grafana-dashboards-provider
+juju integrate testflinger-k8s:grafana-dashboard grafana-agent-k8s:grafana-dashboards-consumer
 ```
 
 [mongodb-k8s]: https://charmhub.io/mongodb-k8s
