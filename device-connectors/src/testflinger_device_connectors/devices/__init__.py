@@ -435,7 +435,7 @@ class DefaultDevice:
         except subprocess.CalledProcessError as e:
             raise ConnectionError from e
 
-    def __wait_back_alive(self, host: str, timeout: int) -> None:
+    def __wait_back_online(self, host: str, timeout: int) -> None:
         """Poll the host SSH server until it's available."""
         logger.info("Waiting for a running SSH server on host %s", host)
 
@@ -508,7 +508,7 @@ class DefaultDevice:
         self.__reboot_control_host()
 
         # Wait for control host to be reachable via ping
-        self.__wait_back_alive(control_host, 300)
+        self.__wait_back_online(control_host, 300)
 
     def provision(self, args):
         """Run pre-provision hook."""
