@@ -426,7 +426,7 @@ class DefaultDevice:
         timeout = 3
         try:
             subprocess.run(
-                ["nc", "-z", "-w", str(timeout), host, "22"],
+                ["/usr/bin/nc", "-z", "-w", str(timeout), host, "22"],
                 check=True,
                 capture_output=True,
                 text=True,
