@@ -291,3 +291,73 @@ class TestClient:
 
         data = client.get_agent_data("test_agent")
         assert data == agent_data
+
+    def test_post_status_update_none_response(self, client, caplog):
+        """
+        Test that post_status_update handles None response gracefully.
+        This simulates the case where retry exhaustion returns None.
+        """
+        job_id = str(uuid.uuid1())
+
+        # Mock the session.post to return None (simulating retry exhaustion)
+        with patch.object(client.session, "post", return_value=None):
+            client.post_status_update("myjobqueue", "http://foo", [], job_id)
+            assert "No response received" in caplog.text
+
+    def test_post_result_none_response(self, client, caplog):
+        """Test that post_result handles None response gracefully."""
+        job_id = str(uuid.uuid1())
+
+        with patch.object(client.session, "post", return_value=None):
+            with pytest.raises(TFServerError, match="No response received"):
+                client.post_result(job_id, {"test": "data"})
+            assert "No response received" in caplog.text
+
+    def test_get_result_none_response(self, client, caplog):
+        """Test that get_result handles None response gracefully."""
+        job_id = str(uuid.uuid1())
+
+        with patch.object(client.session, "get", return_value=None):
+            result = client.get_result(job_id)
+            assert result == {}
+            assert "No response received" in caplog.text
+
+    def test_repost_job_none_response(self, client, caplog):
+        """Test that repost_job handles None response gracefully."""
+        job_data = {"job_id": str(uuid.uuid1()), "test": "data"}
+
+        with patch.object(client.session, "post", return_value=None):
+            with pytest.raises(TFServerError, match="No response received"):
+                client.repost_job(job_data)
+            assert "No response received" in caplog.text
+
+    def test_repost_job_error_response(self, client, requests_mock, caplog):
+        """Test that repost_job handles HTTP error response correctly."""
+        job_id = str(uuid.uuid1())
+        job_data = {"job_id": job_id, "test": "data"}
+
+        # Mock both endpoints: post_live_output and the actual repost
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/result/{job_id}/output", status_code=200
+        )
+        requests_mock.post("http://127.0.0.1:8000/v1/job", status_code=500)
+        with pytest.raises(TFServerError):
+            client.repost_job(job_data)
+        assert "Unable to re-post job" in caplog.text
+
+    def test_save_artifacts_error_response(
+        self, client, requests_mock, tmp_path, caplog
+    ):
+        """Test that save_artifacts handles HTTP error response correctly."""
+        job_id = str(uuid.uuid1())
+
+        # Create artifacts directory with a file
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        (artifacts_dir / "test.txt").write_text("test content")
+
+        artifact_uri = f"http://127.0.0.1:8000/v1/result/{job_id}/artifact"
+        requests_mock.post(artifact_uri, status_code=500)
+        with pytest.raises(TFServerError):
+            client.save_artifacts(tmp_path, job_id)
+        assert "Unable to post results" in caplog.text
