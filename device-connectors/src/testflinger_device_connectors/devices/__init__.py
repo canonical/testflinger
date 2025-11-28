@@ -417,31 +417,41 @@ class DefaultDevice:
         )
         time.sleep(int(timeout))
 
-    def __ping(self, host: str) -> None:
+    def __check_ssh_server_on_host(self, host: str) -> None:
+        """
+        Check if the host has an active SSH server running.
+
+        :raises ConnectionError in case the server is not reachable.
+        """
+        timeout = 3
         try:
             subprocess.run(
-                ["/usr/bin/ping", "-c", "1", "-W", "2", host],
+                ["nc", "-z", "-w", str(timeout), host, "22"],
                 check=True,
                 capture_output=True,
                 text=True,
             )
-            logger.info("Control host %s is responding to ping", host)
+            logger.debug("The host %s has an available SSH server", host)
         except subprocess.CalledProcessError as e:
-            raise FileNotFoundError from e
+            raise ConnectionError from e
 
     def __wait_back_alive(self, host: str, timeout: int) -> None:
-        logger.info("Waiting for control host %s to respond to ping", host)
+        """Poll the host SSH server until it's available."""
+        logger.info("Waiting for a running SSH server on host %s", host)
+
         start_time = time.time()
         while time.time() - start_time < timeout:
             try:
-                self.__ping(host)
+                self.__check_ssh_server_on_host(host)
                 break
-            except FileNotFoundError:
-                # Ping failed, continue waiting
+            except ConnectionError:
                 time.sleep(2)
         else:
             # Timeout reached
-            msg = "Control host %s did not respond to ping within %d seconds"
+            msg = (
+                "Host %s is not available "
+                "or the SSH server it's not running after %d seconds"
+            )
             logger.error(msg, host, timeout)
 
     def __reboot_control_host(self) -> None:
@@ -463,7 +473,7 @@ class DefaultDevice:
                     cmd,
                     shell=True,
                     check=True,
-                    timeout=300,
+                    timeout=300,  # the reboot script often includes `sleep`
                     capture_output=True,
                     text=True,
                 )
@@ -490,15 +500,15 @@ class DefaultDevice:
             logger.debug("No control host configured for this agent.")
             return
 
-        with contextlib.suppress(FileNotFoundError):
-            self.__ping(control_host)
+        with contextlib.suppress(ConnectionError):
+            self.__check_ssh_server_on_host(control_host)
             logger.debug("The control host is already up and running.")
             return
 
         self.__reboot_control_host()
 
         # Wait for control host to be reachable via ping
-        self.__wait_back_alive(control_host, 60)
+        self.__wait_back_alive(control_host, 300)
 
     def provision(self, args):
         """Run pre-provision hook."""
