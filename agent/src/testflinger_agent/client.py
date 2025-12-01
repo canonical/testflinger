@@ -322,6 +322,13 @@ class TestflingerClient:
         """
         endpoint = urljoin(self.server, f"/v1/result/{job_id}/log/{log_type}")
 
+        # Define request success flags
+        request = None
+
+        # TODO: Remove legacy endpoint support in future versions
+        # Define legacy_request success flag
+        legacy_request = None
+
         # Enum is "serial", for compatibility, define "serial_output" instead
         suffix = (
             "serial_output"
@@ -329,13 +336,7 @@ class TestflingerClient:
             else log_type.value
         )
         legacy_endpoint = urljoin(self.server, f"/v1/result/{job_id}/{suffix}")
-
-        # Define request and legacy_request success flags
-        legacy_request = None
-        request = None
-
         # Prioritize writing to legacy endpoint
-        # TODO: Remove legacy endpoint support in future versions
         try:
             legacy_request = self.session.post(
                 legacy_endpoint,
