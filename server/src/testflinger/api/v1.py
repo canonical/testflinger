@@ -509,26 +509,26 @@ def result_get(job_id: str):
         # Legacy result format detected; return as-is
         # TODO: Remove this path after deprecating legacy endpoints
         return result_data
-    else:
-        # Reconstruct result format with logs and phase statuses
-        log_handler = MongoLogHandler(database.mongo)
-        result_logs = {
-            phase + "_" + log_type: log_data
-            for log_type in LogType
-            for phase in TestPhase
-            if (
-                log_data := log_handler.retrieve_logs(job_id, log_type, phase)[
-                    "log_data"
-                ]
-            )
-        }
-        phase_status = result_data.pop("status", {})
-        result_status = {
-            phase + "_status": status
-            for phase in TestPhase
-            if (status := phase_status.get(phase))
-        }
-        return result_logs | result_status | result_data
+
+    # Reconstruct result format with logs and phase statuses
+    log_handler = MongoLogHandler(database.mongo)
+    result_logs = {
+        phase + "_" + log_type: log_data
+        for log_type in LogType
+        for phase in TestPhase
+        if (
+            log_data := log_handler.retrieve_logs(job_id, log_type, phase)[
+                "log_data"
+            ]
+        )
+    }
+    phase_status = result_data.pop("status", {})
+    result_status = {
+        phase + "_status": status
+        for phase in TestPhase
+        if (status := phase_status.get(phase))
+    }
+    return result_logs | result_status | result_data
 
 
 @v1.post("/job/<job_id>/action")

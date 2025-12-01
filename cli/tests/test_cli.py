@@ -1320,5 +1320,5 @@ def test_live_polling_with_empty_poll(capsys, requests_mock, monkeypatch):
     tfcli.run()
 
     captured = capsys.readouterr()
-    assert "Waiting on output..." in captured.out
+    assert "Waiting on output..." in captured.err
     assert len(sleep_calls) >= 9
