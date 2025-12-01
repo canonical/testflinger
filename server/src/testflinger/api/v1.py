@@ -403,15 +403,21 @@ class LogTypeConverter(BaseConverter):
 @v1.get("/result/<job_id>/log/<log_type:log_type>")
 @v1.output(schemas.LogGet)
 def log_get(job_id: str, log_type: LogType):
-    """Get logs for a specified job_id."""
+    """Get logs for a specified job_id.
+
+    :param job_id: UUID as a string for the job
+    :param log_type: LogType enum value for the type of log requested
+    :raises HTTPError: If the job_id is not a valid UUID or if invalid query
+    :return: Dictionary with log data
+    """
     args = request.args
     if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job id\n")
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job id\n")
     query_schema = schemas.LogQueryParams()
     try:
         query_params = query_schema.load(args)
     except ValidationError as err:
-        abort(400, message=err.messages)
+        abort(HTTPStatus.BAD_REQUEST, message=err.messages)
     start_fragment = query_params.get("start_fragment", 0)
     start_timestamp = query_params.get("start_timestamp")
     phase = query_params.get("phase")
@@ -439,10 +445,16 @@ def log_get(job_id: str, log_type: LogType):
 
 @v1.post("/result/<job_id>/log/<log_type:log_type>")
 @v1.input(schemas.LogPost, location="json")
-def log_post(job_id: str, log_type: LogType, json_data: dict):
-    """Post logs for a specified job ID."""
+def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
+    """Post logs for a specified job ID.
+
+    :param job_id: UUID as a string for the job
+    :param log_type: LogType enum value for the type of log being posted
+    :raises HTTPError: If the job_id is not a valid UUID
+    :param json_data: Dictionary with log data
+    """
     if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
     log_fragment = LogFragment(
         job_id,
         log_type,
@@ -457,15 +469,21 @@ def log_post(job_id: str, log_type: LogType, json_data: dict):
 
 
 @v1.post("/result/<job_id>")
-@v1.input(schemas.ResultPost, location="json")
-def result_post(job_id, json_data):
+@v1.input(schemas.ResultSchema, location="json")
+def result_post(job_id: str, json_data: dict) -> str:
     """Post a result for a specified job_id.
 
-    :param job_id:
-        UUID as a string for the job
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: If the job_id is not a valid UUID
     """
     if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+
+    # fail if input payload is larger than the BSON size limit
+    # https://www.mongodb.com/docs/manual/reference/limits/
+    content_length = request.content_length
+    if content_length and content_length >= 16 * 1024 * 1024:
+        abort(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, message="Payload too large")
 
     database.add_job_results(job_id, json_data)
     return "OK"
@@ -473,19 +491,26 @@ def result_post(job_id, json_data):
 
 @v1.get("/result/<job_id>")
 @v1.output(schemas.ResultGet)
-def result_get(job_id):
+def result_get(job_id: str):
     """Return results for a specified job_id.
 
-    :param job_id:
-        UUID as a string for the job
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: If the job_id is not a valid UUID
     """
     if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
 
     response = database.get_job_results(job_id)
 
     if not response or not (result_data := response.get("result_data")):
-        return "", 204
+        return "", HTTPStatus.NO_CONTENT
+
+    if any(key.endswith(("_output", "_serial")) for key in result_data.keys()):
+        # Legacy result format detected; return as-is
+        # TODO: Remove this path after deprecating legacy endpoints
+        return result_data
+
+    # Reconstruct result format with logs and phase statuses
     log_handler = MongoLogHandler(database.mongo)
     result_logs = {
         phase + "_" + log_type: log_data
@@ -1218,4 +1243,90 @@ def secrets_delete(client_id, path):
     except (StoreError, UnexpectedError) as error:
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
+    return "OK"
+
+
+@v1.get("/result/<job_id>/output")
+def legacy_output_get(job_id: str) -> str:
+    """Legacy endpoint to get job output for a specified job_id.
+
+    TODO: Remove after CLI/agent migration completes.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: BAD_REQUEST when job_id is invalid
+    :return: Plain text output
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    response = database.mongo.db.output.find_one_and_delete(
+        {"job_id": job_id}, {"_id": False}
+    )
+    output = response.get("output", []) if response else None
+    if output:
+        return "\n".join(output)
+    return "", HTTPStatus.NO_CONTENT
+
+
+@v1.post("/result/<job_id>/output")
+def legacy_output_post(job_id: str) -> str:
+    """Legacy endpoint to post output for a specified job_id.
+
+    TODO: Remove after CLI/agent migration completes.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: BAD_REQUEST when job_id is invalid
+    :return: "OK" on success
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    data = request.get_data().decode("utf-8")
+    timestamp = datetime.now(timezone.utc)
+    database.mongo.db.output.update_one(
+        {"job_id": job_id},
+        {"$set": {"updated_at": timestamp}, "$push": {"output": data}},
+        upsert=True,
+    )
+    return "OK"
+
+
+@v1.get("/result/<job_id>/serial_output")
+def legacy_serial_output_get(job_id: str) -> str:
+    """Legacy endpoint to get latest serial output for a specified job ID.
+
+    TODO: Remove after CLI/agent migration completes.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: BAD_REQUEST when job_id is invalid
+    :return: Plain text serial output
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    response = database.mongo.db.serial_output.find_one_and_delete(
+        {"job_id": job_id}, {"_id": False}
+    )
+    output = response.get("serial_output", []) if response else None
+    if output:
+        return "\n".join(output)
+    return "", HTTPStatus.NO_CONTENT
+
+
+@v1.post("/result/<job_id>/serial_output")
+def legacy_serial_output_post(job_id: str) -> str:
+    """Legacy endpoint to post serial output for a specified job ID.
+
+    TODO: Remove after CLI/agent migration completes.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: BAD_REQUEST when job_id is invalid
+    :return: "OK" on success
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    data = request.get_data().decode("utf-8")
+    timestamp = datetime.now(timezone.utc)
+    database.mongo.db.serial_output.update_one(
+        {"job_id": job_id},
+        {"$set": {"updated_at": timestamp}, "$push": {"serial_output": data}},
+        upsert=True,
+    )
     return "OK"

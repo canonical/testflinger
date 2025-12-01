@@ -597,3 +597,71 @@ class SecretIn(Schema):
     """Secret input schema."""
 
     value = fields.String(required=True)
+
+
+class ResultLegacy(Schema):
+    """Legacy Result Post schema for backwards compatibility."""
+
+    # TODO: Remove this schema after deprecating legacy endpoints
+    setup_status = fields.Integer(required=False)
+    setup_output = fields.String(required=False)
+    setup_serial = fields.String(required=False)
+    provision_status = fields.Integer(required=False)
+    provision_output = fields.String(required=False)
+    provision_serial = fields.String(required=False)
+    firmware_update_status = fields.Integer(required=False)
+    firmware_update_output = fields.String(required=False)
+    firmware_update_serial = fields.String(required=False)
+    test_status = fields.Integer(required=False)
+    test_output = fields.String(required=False)
+    test_serial = fields.String(required=False)
+    allocate_status = fields.Integer(required=False)
+    allocate_output = fields.String(required=False)
+    allocate_serial = fields.String(required=False)
+    reserve_status = fields.Integer(required=False)
+    reserve_output = fields.String(required=False)
+    reserve_serial = fields.String(required=False)
+    cleanup_status = fields.Integer(required=False)
+    cleanup_output = fields.String(required=False)
+    cleanup_serial = fields.String(required=False)
+    device_info = fields.Dict(required=False)
+    job_state = fields.String(required=False)
+
+
+class ResultSchema(OneOfSchema):
+    """Polymorphic schema for posting results in new and legacy formats."""
+
+    type_schemas = {
+        "new": ResultPost,
+        "legacy": ResultLegacy,
+    }
+
+    def get_obj_type(self, obj):
+        """Get object type depending on which schema is correctly parsed."""
+        return self.get_data_type(obj)
+
+    def get_data_type(self, data):
+        """Get schema type depending on which schema is correctly parsed."""
+        # Try legacy first
+        try:
+            ResultLegacy().load(data)
+            return "legacy"
+        except ValidationError:
+            # If legacy fails, try new format
+            try:
+                ResultPost().load(data)
+                return "new"
+            except ValidationError as err:
+                # Re-raise the last validation error with more context
+                raise ValidationError(
+                    "Invalid result data schema. "
+                    f"Data does not match either legacy or new format: {err}"
+                ) from err
+
+    def _dump(self, obj, **kwargs):
+        result = super()._dump(obj, **kwargs)
+        # Parent dump injects the type field:
+        #   result[self.type_field] = self.get_obj_type(obj)
+        # So we need to remove it
+        result.pop(self.type_field)
+        return result

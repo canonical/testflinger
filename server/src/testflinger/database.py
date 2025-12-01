@@ -90,6 +90,11 @@ def create_indexes():
         "updated_at", expireAfterSeconds=OUTPUT_EXPIRATION
     )
 
+    # Remove logs after 7 days
+    mongo.db.logs.create_index(
+        "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
     # Remove artifacts after 7 days
     mongo.db.fs.chunks.create_index(
         "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
