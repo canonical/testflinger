@@ -1276,7 +1276,7 @@ def test_live_polling_with_fragments_progression(
     assert len(sleep_calls) >= 2
 
 def test_live_polling_with_empty_poll(capsys, requests_mock, monkeypatch):
-    """Test that 'Waiting on output...' appears after 9 consecutive empty polls."""
+    """Test that live output handles empty polls correctly."""
     job_id = str(uuid.uuid1())
 
     sleep_calls = []
