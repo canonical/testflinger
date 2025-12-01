@@ -22,6 +22,7 @@ import os
 import re
 import sys
 import tarfile
+import time
 import uuid
 from http import HTTPStatus
 from pathlib import Path
@@ -33,8 +34,8 @@ from requests_mock import Mocker
 
 import testflinger_cli
 from testflinger_cli.client import HTTPError
-from testflinger_cli.errors import AuthorizationError, NetworkError
 from testflinger_cli.enums import LogType
+from testflinger_cli.errors import NetworkError
 
 URL = "https://testflinger.canonical.com"
 
@@ -1193,8 +1194,6 @@ def test_live_polling_with_fragments_progression(
     capsys, requests_mock, monkeypatch
 ):
     """Test live polling uses cur_fragment and progresses through fragments."""
-    import time
-
     job_id = str(uuid.uuid1())
 
     # Mock time.sleep
@@ -1275,3 +1274,51 @@ def test_live_polling_with_fragments_progression(
 
     # Should have slept between iterations
     assert len(sleep_calls) >= 2
+
+def test_live_polling_with_empty_poll(capsys, requests_mock, monkeypatch):
+    """Test that 'Waiting on output...' appears after 9 consecutive empty polls."""
+    job_id = str(uuid.uuid1())
+
+    sleep_calls = []
+    monkeypatch.setattr(
+        time, "sleep", lambda duration: sleep_calls.append(duration)
+    )
+
+    # Mock job status
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}",
+        10 * [{"json": {"job_state": "active"}}]
+        + [{"json": {"job_state": "complete"}}],
+    )
+
+    # Mock log output with 10 empty responses
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}/log/output",
+        10
+        * [
+            {
+                "json": {
+                    "output": {
+                        "test": {"last_fragment_number": -1, "log_data": ""}
+                    }
+                }
+            }
+        ]
+        + [
+            {
+                "json": {
+                    "output": {
+                        "test": {"last_fragment_number": 0, "log_data": "data"}
+                    }
+                }
+            }
+        ],
+    )
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.run()
+
+    captured = capsys.readouterr()
+    assert "Waiting on output..." in captured.out
+    assert len(sleep_calls) >= 9

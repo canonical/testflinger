@@ -16,6 +16,7 @@
 """Unit tests for Testflinger v1 API results endpoint."""
 
 from datetime import datetime, timezone
+from http import HTTPStatus
 from io import BytesIO
 
 from testflinger_common.enums import LogType, TestPhase
@@ -135,3 +136,60 @@ def test_job_get_result_no_data(mongo_app):
     output = app.get(job_url)
     assert 204 == output.status_code
     assert "" == output.text
+
+
+def test_result_post_legacy_format(mongo_app):
+    """Test posting results in legacy format succeeds."""
+    app, _ = mongo_app
+    newjob = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = newjob.json.get("job_id")
+
+    # Lagacy format uses individual fields for each test phase
+    legacy_data = {
+        "setup_status": 0,
+        "setup_output": "Setup completed successfully.",
+        "test_status": 0,
+        "test_output": "All tests passed.",
+        "device_info": {"agent_name": "test", "device_ip": "1.1.1.1"},
+    }
+    response = app.post(f"/v1/result/{job_id}", json=legacy_data)
+    assert "OK" == response.text
+
+
+def test_result_post_invalid_format(mongo_app):
+    """Test posting results with invalid format fails due to ResultSchema."""
+    app, _ = mongo_app
+    newjob = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = newjob.json.get("job_id")
+
+    # Using an invalid field to fail validation
+    invalid_data = {
+        "invalid_field": 123,
+    }
+    response = app.post(f"/v1/result/{job_id}", json=invalid_data)
+    assert "Validation error" in response.text
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == response.status_code
+
+
+def test_result_get_legacy_format(mongo_app):
+    """Test getting results posted in legacy format."""
+    app, _ = mongo_app
+    newjob = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = newjob.json.get("job_id")
+
+    legacy_data = {
+        "setup_status": 0,
+        "setup_output": "Setup completed successfully.",
+        "test_status": 0,
+        "test_output": "All tests passed.",
+        "device_info": {"agent_name": "test", "device_ip": "1.1.1.1"},
+    }
+
+    # Post Legacy data to job results first
+    app.post(f"/v1/result/{job_id}", json=legacy_data)
+
+    # Retrieve results and verify it matches what was posted
+    response = app.get(f"/v1/result/{job_id}")
+    result_data = response.json
+    for key, value in legacy_data.items():
+        assert result_data[key] == value
