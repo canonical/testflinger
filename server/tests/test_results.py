@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from http import HTTPStatus
 from io import BytesIO
 
+import pytest
 from testflinger_common.enums import LogType, TestPhase
 
 
@@ -193,3 +194,69 @@ def test_result_get_legacy_format(mongo_app):
     result_data = response.json
     for key, value in legacy_data.items():
         assert result_data[key] == value
+
+
+def test_result_post_payload_too_large(mongo_app, monkeypatch):
+    """Test posting large payloads to results endpoint fails."""
+    app, _ = mongo_app
+    newjob = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = newjob.json.get("job_id")
+
+    large_data = {
+        "setup_status": 0,
+        "setup_output": "x" * (17 * 1024 * 1024),
+        "device_info": {"test": "device"},
+    }
+
+    response = app.post(
+        f"/v1/result/{job_id}",
+        json=large_data,
+    )
+    assert "Payload too large" in response.text
+    assert HTTPStatus.REQUEST_ENTITY_TOO_LARGE == response.status_code
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/v1/result/INVALID_UUID/log/output",
+        "/v1/result/INVALID_UUID/output",
+        "/v1/result/INVALID_UUID/serial_output",
+    ],
+)
+def test_invalid_uuid_get_endpoints(mongo_app, endpoint):
+    """Test that GET endpoints reject invalid UUIDs."""
+    app, _ = mongo_app
+    response = app.get(endpoint)
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "Invalid job" in response.text
+
+
+@pytest.mark.parametrize(
+    "endpoint,data",
+    [
+        (
+            "/v1/result/INVALID_UUID/log/output",
+            {
+                "fragment_number": 1,
+                "timestamp": "2023-01-01T00:00:00Z",
+                "phase": "test",
+                "log_data": "test",
+            },
+        ),
+        ("/v1/result/INVALID_UUID/output", None),
+        ("/v1/result/INVALID_UUID/serial_output", None),
+    ],
+)
+def test_invalid_uuid_post_endpoints(mongo_app, endpoint, data):
+    """Test that POST endpoints reject invalid UUIDs."""
+    app, _ = mongo_app
+
+    if data:
+        response = app.post(endpoint, json=data)
+    else:
+        response = app.post(endpoint, data="test")
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "Invalid job" in response.text or "Invalid job_id" in response.text

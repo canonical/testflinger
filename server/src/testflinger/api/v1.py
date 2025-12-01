@@ -483,7 +483,7 @@ def result_post(job_id: str, json_data: dict) -> str:
     # https://www.mongodb.com/docs/manual/reference/limits/
     content_length = request.content_length
     if content_length and content_length >= 16 * 1024 * 1024:
-        abort(HTTPStatus.CONTENT_TOO_LARGE, message="Payload too large")
+        abort(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, message="Payload too large")
 
     database.add_job_results(job_id, json_data)
     return "OK"
