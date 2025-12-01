@@ -32,6 +32,14 @@ requires:
 provides:
   metrics-endpoint:
     interface: prometheus_scrape
+    optional: true
+    description: |
+      Forwards the metrics to a Prometheus scrape endpoint.
+  grafana-dashboard:
+    interface: grafana_dashboard
+    optional: true
+    description: |
+      Forwards the built-in Grafana dashboard(s) for monitoring metrics.
 
 charm-libs:
   - lib: data_platform_libs.data_interfaces
@@ -41,6 +49,8 @@ charm-libs:
   - lib: prometheus_k8s.prometheus_scrape
     version: "0"
   - lib: observability_libs.juju_topology
+    version: "0"
+  - lib: grafana_k8s.grafana_dashboard
     version: "0"
 
 base: ubuntu@22.04
@@ -94,7 +104,7 @@ parts:
   charm:
     plugin: charm
     source: .
-    build-packages: [pkg-config, libffi-dev, libssl-dev]
+    build-packages: [pkg-config, libffi-dev, libssl-dev, build-essential]
     build-snaps: [rustup]
     override-build: |
       # pydantic requires a higher version of rustc than what is in the archive
