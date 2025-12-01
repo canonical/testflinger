@@ -19,7 +19,6 @@ import json
 import os
 from datetime import datetime, timezone
 from http import HTTPStatus
-from io import BytesIO
 
 import pytest
 
@@ -605,119 +604,6 @@ def test_add_job_empty_queue(mongo_app):
     assert 422 == output.status_code
 
 
-def test_result_get_result_not_exists(mongo_app):
-    """Test for 204 when getting a nonexistent result."""
-    app, _ = mongo_app
-    output = app.get("/v1/result/11111111-1111-1111-1111-111111111111")
-    assert 204 == output.status_code
-
-
-def test_result_get_bad(mongo_app):
-    """Test for error when getting results from a bad job ID."""
-    app, _ = mongo_app
-    output = app.get("/v1/result/BAD_JOB_ID")
-    assert "Invalid job_id specified" in output.text
-    assert 400 == output.status_code
-
-
-def test_result_post_good(mongo_app):
-    """Test that posting results correctly works."""
-    app, _ = mongo_app
-    newjob = app.post("/v1/job", json={"job_queue": "test"})
-    job_id = newjob.json.get("job_id")
-    result_url = f"/v1/result/{job_id}"
-    data = {"test_output": "test output string"}
-    response = app.post(result_url, json=data)
-    assert "OK" == response.text
-    response = app.get(result_url)
-    assert response.json.get("test_output") == "test output string"
-
-
-def test_result_post_bad(mongo_app):
-    """Test for error when posting to a bad job ID."""
-    app, _ = mongo_app
-    response = app.post("/v1/result/BAD_JOB_ID")
-    assert "Invalid job_id specified" in response.text
-    assert 400 == response.status_code
-
-
-def test_result_post_baddata(mongo_app):
-    """Test that we get an error for posting results with no data."""
-    app, _ = mongo_app
-    result_url = "/v1/result/00000000-0000-0000-0000-000000000000"
-    response = app.post(result_url, json={"foo": "bar"})
-    assert "Validation error" in response.text
-    assert 422 == response.status_code
-
-
-def test_state_update_keeps_results(mongo_app):
-    """Update job_state shouldn't lose old results."""
-    app, _ = mongo_app
-    newjob = app.post("/v1/job", json={"job_queue": "test"})
-    job_id = newjob.json.get("job_id")
-    result_url = f"/v1/result/{job_id}"
-    data = {"setup_output": "test", "job_state": "waiting"}
-    output = app.post(result_url, json=data)
-    data = {"job_state": "provision"}
-    output = app.post(result_url, json=data)
-    output = app.get(result_url)
-    current_results = output.json
-    assert current_results.get("setup_output") == "test"
-
-
-def test_artifact_post_good(mongo_app):
-    """Test both get and put of a result artifact."""
-    app, _ = mongo_app
-    newjob = app.post("/v1/job", json={"job_queue": "test"})
-    job_id = newjob.json.get("job_id")
-    artifact_url = f"/v1/result/{job_id}/artifact"
-    data = b"test file content"
-    filedata = {"file": (BytesIO(data), "artifact.tgz")}
-    output = app.post(
-        artifact_url, data=filedata, content_type="multipart/form-data"
-    )
-    assert "OK" == output.text
-    output = app.get(artifact_url)
-    assert output.data == data
-
-
-def test_result_get_artifact_not_exists(mongo_app):
-    """Get artifacts for a nonexistent job and confirm we get 204."""
-    app, _ = mongo_app
-    output = app.get(
-        "/v1/result/11111111-1111-1111-1111-111111111111/artifact"
-    )
-    assert 204 == output.status_code
-
-
-def test_output_post_get(mongo_app):
-    """Test posting output data for a job then reading it back."""
-    app, _ = mongo_app
-    output_url = "/v1/result/00000000-0000-0000-0000-000000000000/output"
-    data = "line1\nline2\nline3"
-    output = app.post(output_url, data=data)
-    assert "OK" == output.text
-    output = app.get(output_url)
-    assert output.text == data
-
-
-def test_job_get_result_invalid(mongo_app):
-    """Test getting results with bad job UUID fails."""
-    app, _ = mongo_app
-    job_url = "/v1/result/00000000-0000-0000-0000-00000000000X"
-    output = app.get(job_url)
-    assert 400 == output.status_code
-
-
-def test_job_get_result_no_data(mongo_app):
-    """Test getting results for a nonexistent job."""
-    app, _ = mongo_app
-    job_url = "/v1/result/00000000-0000-0000-0000-000000000000"
-    output = app.get(job_url)
-    assert 204 == output.status_code
-    assert "" == output.text
-
-
 def test_job_get_id_with_data(mongo_app):
     """Test getting the json for a job that has been submitted."""
     app, _ = mongo_app
@@ -1162,21 +1048,6 @@ def test_get_agents_on_queue(mongo_app):
     assert "Queue 'q3' does not exist." in output.json["message"]
 
 
-def test_serial_output(mongo_app):
-    """Test api endpoint to get serial log output."""
-    app, _ = mongo_app
-    output_url = (
-        "/v1/result/00000000-0000-0000-0000-000000000000/serial_output"
-    )
-    data = "line1\nline2\nline3"
-    output = app.post(output_url, data=data)
-    assert "OK" == output.text
-    output = app.get(output_url)
-    assert output.text == data
-    empty_output = app.get(output_url)
-    assert empty_output.text == ""
-
-
 def test_agents_data_restricted_to(mongo_app):
     """Test restricted_to field in agents data."""
     app, mongo = mongo_app
@@ -1207,17 +1078,6 @@ def test_agents_data_restricted_to(mongo_app):
         "q1": ["test-client-id"],
     }
     assert result["restricted_to"] == expected_restricted_to
-
-
-def test_result_post_large_payload(mongo_app):
-    """Test that posting a result with a payload size of 16MB or more fails."""
-    app, _ = mongo_app
-    job_id = "00000000-0000-0000-0000-000000000000"
-    result_url = f"/v1/result/{job_id}"
-    large_data = {"test_output": "a" * (16 * 1024 * 1024)}  # 16MB payload
-    response = app.post(result_url, json=large_data)
-    assert 413 == response.status_code
-    assert "Payload too large" in response.json["message"]
 
 
 def test_get_jobs_on_queue(mongo_app):

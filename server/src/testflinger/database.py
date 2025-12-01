@@ -574,3 +574,19 @@ def register_web_client(oidc_token: dict):
                 "role": ServerRoles.CONTRIBUTOR,
             }
         )
+
+
+def get_job_results(job_id: str):
+    """Retrieve results for a specific job id."""
+    return mongo.db.jobs.find_one(
+        {"job_id": job_id}, {"result_data": True, "_id": False}
+    )
+
+
+def add_job_results(job_id: str, json_data: dict):
+    """Add results to specified job id with "result_data" prepended."""
+    # First, we need to prepend "result_data" to each key in the result_data
+    for key in list(json_data):
+        json_data[f"result_data.{key}"] = json_data.pop(key)
+
+    mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})

@@ -18,11 +18,14 @@
 
 import logging
 from http import HTTPStatus
+import urllib.parse
+from datetime import datetime, timezone
 
 import pytest
 import requests
 
 from testflinger_cli.client import Client, HTTPError
+from testflinger_cli.enums import LogType, TestPhase
 from .test_cli import URL
 
 
@@ -123,3 +126,166 @@ def test_client_request_methods_schema_validation(requests_mock, method):
         ]
     )
     assert f"Validation error - {error_details}" == exc_info.value.msg
+
+
+def test_get_logs_normal_output(requests_mock):
+    """Test get_logs method for normal output."""
+    job_id = "test-job-123"
+    mock_response = {
+        "output": {
+            "test": {
+                "last_fragment_number": 10,
+                "log_data": "test output logs",
+            }
+        }
+    }
+
+    requests_mock.get(
+        f"http://testflinger/v1/result/{job_id}/log/output?start_fragment=0",
+        json=mock_response,
+    )
+
+    client = Client("http://testflinger")
+    result = client.get_logs(job_id, LogType.STANDARD_OUTPUT, None, 0, None)
+
+    assert result == mock_response
+
+
+def test_get_logs_serial_output(requests_mock):
+    """Test get_logs method for serial output."""
+    job_id = "test-job-456"
+    mock_response = {
+        "serial": {
+            "provision": {
+                "last_fragment_number": 5,
+                "log_data": "serial logs from provision",
+            }
+        }
+    }
+
+    requests_mock.get(
+        f"http://testflinger/v1/result/{job_id}/log/serial_output?start_fragment=0",
+        json=mock_response,
+    )
+
+    client = Client("http://testflinger")
+    result = client.get_logs(job_id, LogType.SERIAL_OUTPUT, None, 0, None)
+
+    assert result == mock_response
+
+
+def test_get_logs_with_start_fragment(requests_mock):
+    """Test get_logs method with start_fragment parameter."""
+    job_id = "test-job-789"
+    start_fragment = 15
+    mock_response = {
+        "output": {
+            "test": {"last_fragment_number": 20, "log_data": "partial logs"}
+        }
+    }
+
+    requests_mock.get(
+        f"http://testflinger/v1/result/{job_id}/log/output?start_fragment={start_fragment}",
+        json=mock_response,
+    )
+
+    client = Client("http://testflinger")
+    result = client.get_logs(
+        job_id, LogType.STANDARD_OUTPUT, None, start_fragment, None
+    )
+
+    assert result == mock_response
+
+
+def test_get_logs_with_timestamp(requests_mock):
+    """Test get_logs method with start_timestamp parameter."""
+    job_id = "test-job-timestamp"
+    start_timestamp = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    encoded_timestamp = urllib.parse.quote("2023-01-01T12:00:00+00:00")
+
+    mock_response = {
+        "output": {
+            "test": {"last_fragment_number": 8, "log_data": "timestamped logs"}
+        }
+    }
+
+    requests_mock.get(
+        f"http://testflinger/v1/result/{job_id}/log/output?start_fragment=0&start_timestamp={encoded_timestamp}",
+        json=mock_response,
+    )
+
+    client = Client("http://testflinger")
+    result = client.get_logs(
+        job_id, LogType.STANDARD_OUTPUT, None, 0, start_timestamp
+    )
+
+    assert result == mock_response
+
+
+def test_get_logs_with_phase_filter(requests_mock):
+    """Test get_logs method with phase filter."""
+    job_id = "test-job-phase"
+    phase = TestPhase.PROVISION
+
+    mock_response = {
+        "output": {
+            "provision": {
+                "last_fragment_number": 12,
+                "log_data": "provision phase logs only",
+            },
+        }
+    }
+
+    requests_mock.get(
+        f"http://testflinger/v1/result/{job_id}/log/output?start_fragment=0&phase={phase}",
+        json=mock_response,
+    )
+
+    client = Client("http://testflinger")
+    result = client.get_logs(job_id, LogType.STANDARD_OUTPUT, phase, 0, None)
+    assert result == mock_response
+
+
+def test_get_logs_with_all_parameters(requests_mock):
+    """Test get_logs method with all parameters."""
+    job_id = "test-job-all-params"
+    phase = TestPhase.TEST
+    start_fragment = 25
+    start_timestamp = datetime(2023, 6, 15, 9, 30, 0, tzinfo=timezone.utc)
+    encoded_timestamp = urllib.parse.quote("2023-06-15T09:30:00+00:00")
+
+    mock_response = {
+        "serial": {
+            "test": {
+                "last_fragment_number": 30,
+                "log_data": "comprehensive test logs",
+            }
+        }
+    }
+
+    requests_mock.get(
+        f"http://testflinger/v1/result/{job_id}/log/serial_output?start_fragment={start_fragment}&start_timestamp={encoded_timestamp}",
+        json=mock_response,
+    )
+
+    client = Client("http://testflinger")
+    result = client.get_logs(
+        job_id, LogType.SERIAL_OUTPUT, phase, start_fragment, start_timestamp
+    )
+
+    assert result == mock_response
+
+
+def test_get_logs_error_handling(requests_mock):
+    """Test get_logs method error handling."""
+    job_id = "test-job-error"
+
+    requests_mock.get(
+        f"http://testflinger/v1/result/{job_id}/log/output?start_fragment=0",
+        status_code=404,
+    )
+
+    client = Client("http://testflinger")
+
+    with pytest.raises(HTTPError):
+        client.get_logs(job_id, LogType.STANDARD_OUTPUT, None, 0, None)

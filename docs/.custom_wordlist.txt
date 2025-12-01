@@ -8,3 +8,7 @@ oemrecovery
 preloaded
 SDWire
 Tegra
+Queryable
+stderr
+fragment_number
+log_data
