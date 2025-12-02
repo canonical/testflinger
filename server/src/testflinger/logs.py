@@ -141,7 +141,14 @@ class MongoLogHandler(LogHandler):
         )
 
     def format_logs_as_results(self, job_id: str, result_data: dict) -> dict:
-        """Format logs stored in MongoDB into the result_data structure."""
+        """Format logs stored in MongoDB into the result_data structure.
+
+        side-effect: The provided result_data is also modified in-place.
+
+        :param job_id: The job identifier.
+        :param result_data: The original result_data structure.
+        :return: The modified result_data structure.
+        """
         # Reconstruct result format with logs and phase statuses
         result_logs = {
             f"{phase}_{log_type}": log_data

@@ -26,10 +26,9 @@
     </tbody>
   </table>
   <h2 class="p-muted-heading" id="job-definition">
-    Job Definition
     <a href="#job-definition"
-       class="p-icon--anchor"
-       aria-label="Link to Job Definition section">#</a>
+       class="p-link--anchor-heading"
+       aria-label="Link to Job Definition section">Job Definition</a>
   </h2>
   <div class="p-tabs">
     <div class="p-tabs__list" role="tablist" aria-label="Job Definition tabs">
@@ -110,10 +109,9 @@
   {% set phases_with_results = phases | selectattr("output") | selectattr("status", "!=", none) | list %}
   {% if phases_with_results %}
     <h2 class="p-muted-heading" id="phase-results">
-      Phase Results
       <a href="#phase-results"
-         class="p-icon--anchor"
-         aria-label="Link to Phase Results section">#</a>
+         class="p-link--anchor-heading"
+         aria-label="Link to Phase Results section">Phase Results</a>
     </h2>
     <div class="p-tabs">
       <div class="p-tabs__list" role="tablist" aria-label="Phase Results tabs">
