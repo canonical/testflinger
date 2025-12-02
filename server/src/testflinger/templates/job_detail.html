@@ -98,9 +98,9 @@
     {% endif %}
   </div>
   {% set phases = [
-      {"name": "Provision", "id": "provision", "status": job.result_data.provision_status, "output": job.result_data.provision_output},
-      {"name": "Firmware Update", "id": "firmware-update", "status": job.result_data.firmware_update_status, "output": job.result_data.firmware_output},
-      {"name": "Test", "id": "test", "status": job.result_data.test_status, "output": job.result_data.test_output}
+      {"name": "Provision", "id": "provision", "status": job.result_data.get('provision_status'), "output": job.result_data.get('provision_output')},
+      {"name": "Firmware Update", "id": "firmware-update", "status": job.result_data.get('firmware_update_status'), "output": job.result_data.get('firmware_output')},
+      {"name": "Test", "id": "test", "status": job.result_data.get('test_status'), "output": job.result_data.get('test_output')}
     ] %}
   {% set phases_with_output = phases | selectattr("output") | list %}
   {% if phases_with_output %}
@@ -123,16 +123,29 @@
              id="{{ phase.id }}-phase"
              aria-labelledby="{{ phase.id }}-phase-tab"
              {% if not loop.first %}hidden{% endif %}>
-          <div class="{{ 'p-notification--positive' if phase.status == 0 else 'p-notification--negative' }}">
-            <div class="p-code-snippet">
-              <div class="scrollable">
-                <pre class="p-code-snippet__block"><code>{{ phase.output }}</code></pre>
+          {% if phase.status is not none %}
+            <div class="{{ 'p-notification--positive' if phase.status == 0 else 'p-notification--negative' }}">
+              <div class="p-code-snippet">
+                <div class="scrollable">
+                  <pre class="p-code-snippet__block"><code>{{ phase.output }}</code></pre>
+                </div>
+              </div>
+              <p class="p-notification__response">
+                <span class="p-notification__status">Exit Status:</span> {{ phase.status }}
+              </p>
+            </div>
+          {% else %}
+            <div class="p-notification--information">
+              <p class="p-notification__response">
+                <span class="p-notification__status">Status:</span> Running...
+              </p>
+              <div class="p-code-snippet">
+                <div class="scrollable">
+                  <pre class="p-code-snippet__block"><code>{{ phase.output }}</code></pre>
+                </div>
               </div>
             </div>
-            <p class="p-notification__response">
-              <span class="p-notification__status">Exit Status:</span> {{ phase.status }}
-            </p>
-          </div>
+          {% endif %}
         </div>
       {% endfor %}
     </div>

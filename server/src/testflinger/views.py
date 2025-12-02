@@ -144,9 +144,7 @@ def job_detail(job_id):
             key.endswith(("_output", "_serial")) for key in result_data.keys()
         ):
             log_handler = MongoLogHandler(mongo)
-            result_data = log_handler.format_logs_as_results(
-                job_id, result_data
-            )
+            log_handler.format_logs_as_results(job_id, result_data)
     return render_template("job_detail.html", job=job_data)
 
 
