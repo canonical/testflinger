@@ -113,7 +113,18 @@
                     role="tab"
                     aria-selected="{{ 'true' if loop.first else 'false' }}"
                     aria-controls="{{ phase.id }}-phase"
-                    id="{{ phase.id }}-phase-tab">{{ phase.name }}</button>
+                    id="{{ phase.id }}-phase-tab">
+              {% if phase.status is not none %}
+                {% if phase.status == 0 %}
+                  <i class="p-icon--success" aria-label="Success"></i>
+                {% else %}
+                  <i class="p-icon--error" aria-label="Error"></i>
+                {% endif %}
+              {% else %}
+                <i class="p-icon--spinner u-animation--spin" aria-label="Running"></i>
+              {% endif %}
+              {{ phase.name }}
+            </button>
           </div>
         {% endfor %}
       </div>
