@@ -16,10 +16,12 @@
 """Unit tests for Testflinger views."""
 
 import re
+import uuid
 from datetime import datetime, timezone
 from unittest.mock import patch
 
 import mongomock
+from testflinger_common.enums import LogType, TestPhase
 
 from testflinger.views import agent_detail, job_detail, queues_data
 
@@ -159,3 +161,88 @@ def test_job_not_found(testapp):
 
     assert "Job not found: job1" in str(response.data)
     assert response.status_code == 404
+
+
+def test_job_results_legacy(testapp):
+    """Test that the job_detail view handles legacy result formats."""
+    mongo = mongomock.MongoClient()
+    job_id = str(uuid.uuid4())
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": job_id,
+            "created_at": datetime.now(timezone.utc),
+            "job_data": {"job_queue": "queue1", "provision_data": "skip"},
+            "result_data": {
+                "provision_output": "legacy provision output",
+                "provision_status": 0,
+                "test_output": "legacy test output",
+                "test_status": 1,
+                "job_state": "complete",
+            },
+        }
+    )
+    with (
+        patch("testflinger.views.mongo", mongo),
+    ):
+        with testapp.test_request_context():
+            response = job_detail(job_id)
+
+    html = str(response)
+    # Check that legacy logs are present as-is
+    assert "legacy provision output" in html
+    assert "legacy test output" in html
+
+
+def test_job_results_mongo_logs(testapp):
+    """Test that the job_detail view formats logs from MongoDB correctly."""
+    mongo = mongomock.MongoClient()
+    job_id = str(uuid.uuid4())
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": job_id,
+            "created_at": datetime.now(timezone.utc),
+            "job_data": {"job_queue": "queue1", "provision_data": "skip"},
+            "result_data": {
+                "status": {TestPhase.PROVISION: 0, TestPhase.TEST: 1},
+                "device_info": {
+                    "agent_name": "agent1",
+                    "device_ip": "1.1.1.1",
+                },
+                "job_state": "complete",
+            },
+        }
+    )
+    # Insert log fragments into the logs collection
+    mongo.db.logs.insert_many(
+        [
+            {
+                "job_id": job_id,
+                "log_type": LogType.STANDARD_OUTPUT,
+                "phase": TestPhase.PROVISION,
+                "fragment_number": 0,
+                "timestamp": datetime.now(tz=timezone.utc),
+                "log_data": "Provision log content",
+            },
+            {
+                "job_id": job_id,
+                "log_type": LogType.STANDARD_OUTPUT,
+                "phase": TestPhase.TEST,
+                "fragment_number": 0,
+                "timestamp": datetime.now(tz=timezone.utc),
+                "log_data": "Test log content",
+            },
+        ]
+    )
+    with (
+        patch("testflinger.views.mongo", mongo),
+    ):
+        with testapp.test_request_context():
+            response = job_detail(job_id)
+
+    html = str(response)
+    # Check that formatted logs are present
+    assert "Provision log content" in html
+    assert "Test log content" in html
+    # Check that phase statuses are present
+    assert "Exit Status:</span> 0" in html
+    assert "Exit Status:</span> 1" in html

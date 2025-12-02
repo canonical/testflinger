@@ -144,7 +144,7 @@ class MongoLogHandler(LogHandler):
         """Format logs stored in MongoDB into the result_data structure."""
         # Reconstruct result format with logs and phase statuses
         result_logs = {
-            phase + "_" + log_type: log_data
+            f"{phase}_{log_type}": log_data
             for log_type in LogType
             for phase in TestPhase
             if (
@@ -155,7 +155,7 @@ class MongoLogHandler(LogHandler):
         }
         phase_status = result_data.pop("status", {})
         result_status = {
-            phase + "_status": status
+            f"{phase}_status": status
             for phase in TestPhase
             if (status := phase_status.get(phase)) is not None
         }
