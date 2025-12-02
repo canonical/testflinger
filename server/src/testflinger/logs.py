@@ -139,3 +139,27 @@ class MongoLogHandler(LogHandler):
             )
             for fragment in log_collection.find(query).sort("fragment_number")
         )
+
+    def format_logs_as_results(self, job_id: str, result_data: dict) -> dict:
+        """Format logs stored in MongoDB into the result_data structure."""
+        # Reconstruct result format with logs and phase statuses
+        result_logs = {
+            phase + "_" + log_type: log_data
+            for log_type in LogType
+            for phase in TestPhase
+            if (
+                log_data := self.retrieve_logs(job_id, log_type, phase)[
+                    "log_data"
+                ]
+            )
+        }
+        phase_status = result_data.pop("status", {})
+        result_status = {
+            phase + "_status": status
+            for phase in TestPhase
+            if (status := phase_status.get(phase)) is not None
+        }
+
+        # Update result_data with reconstructed fields
+        result_data.update(result_logs | result_status)
+        return result_data
