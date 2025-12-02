@@ -25,7 +25,12 @@
       </tr>
     </tbody>
   </table>
-  <h2 class="p-muted-heading">Job Definition</h2>
+  <h2 class="p-muted-heading" id="job-definition">
+    Job Definition
+    <a href="#job-definition"
+       class="p-icon--anchor"
+       aria-label="Link to Job Definition section">#</a>
+  </h2>
   <div class="p-tabs">
     <div class="p-tabs__list" role="tablist" aria-label="Job Definition tabs">
       <div class="p-tabs__item">
@@ -102,61 +107,49 @@
       {"name": "Firmware Update", "id": "firmware-update", "status": job.result_data.get('firmware_update_status'), "output": job.result_data.get('firmware_output')},
       {"name": "Test", "id": "test", "status": job.result_data.get('test_status'), "output": job.result_data.get('test_output')}
     ] %}
-  {% set phases_with_output = phases | selectattr("output") | list %}
-  {% if phases_with_output %}
-    <h2 class="p-muted-heading">Phase Results</h2>
+  {% set phases_with_results = phases | selectattr("output") | selectattr("status", "!=", none) | list %}
+  {% if phases_with_results %}
+    <h2 class="p-muted-heading" id="phase-results">
+      Phase Results
+      <a href="#phase-results"
+         class="p-icon--anchor"
+         aria-label="Link to Phase Results section">#</a>
+    </h2>
     <div class="p-tabs">
       <div class="p-tabs__list" role="tablist" aria-label="Phase Results tabs">
-        {% for phase in phases_with_output %}
+        {% for phase in phases_with_results %}
           <div class="p-tabs__item">
             <button class="p-tabs__link"
                     role="tab"
                     aria-selected="{{ 'true' if loop.first else 'false' }}"
                     aria-controls="{{ phase.id }}-phase"
                     id="{{ phase.id }}-phase-tab">
-              {% if phase.status is not none %}
-                {% if phase.status == 0 %}
-                  <i class="p-icon--success" aria-label="Success"></i>
-                {% else %}
-                  <i class="p-icon--error" aria-label="Error"></i>
-                {% endif %}
+              {% if phase.status == 0 %}
+                <i class="p-icon--success" aria-label="Success"></i>
               {% else %}
-                <i class="p-icon--spinner u-animation--spin" aria-label="Running"></i>
+                <i class="p-icon--error" aria-label="Error"></i>
               {% endif %}
               {{ phase.name }}
             </button>
           </div>
         {% endfor %}
       </div>
-      {% for phase in phases_with_output %}
+      {% for phase in phases_with_results %}
         <div tabindex="0"
              role="tabpanel"
              id="{{ phase.id }}-phase"
              aria-labelledby="{{ phase.id }}-phase-tab"
              {% if not loop.first %}hidden{% endif %}>
-          {% if phase.status is not none %}
-            <div class="{{ 'p-notification--positive' if phase.status == 0 else 'p-notification--negative' }}">
-              <div class="p-code-snippet">
-                <div class="scrollable">
-                  <pre class="p-code-snippet__block"><code>{{ phase.output }}</code></pre>
-                </div>
-              </div>
-              <p class="p-notification__response">
-                <span class="p-notification__status">Exit Status:</span> {{ phase.status }}
-              </p>
-            </div>
-          {% else %}
-            <div class="p-notification--information">
-              <p class="p-notification__response">
-                <span class="p-notification__status">Status:</span> Running...
-              </p>
-              <div class="p-code-snippet">
-                <div class="scrollable">
-                  <pre class="p-code-snippet__block"><code>{{ phase.output }}</code></pre>
-                </div>
+          <div class="{{ 'p-notification--positive' if phase.status == 0 else 'p-notification--negative' }}">
+            <div class="p-code-snippet">
+              <div class="scrollable">
+                <pre class="p-code-snippet__block"><code>{{ phase.output }}</code></pre>
               </div>
             </div>
-          {% endif %}
+            <p class="p-notification__response">
+              <span class="p-notification__status">Exit Status:</span> {{ phase.status }}
+            </p>
+          </div>
         </div>
       {% endfor %}
     </div>
