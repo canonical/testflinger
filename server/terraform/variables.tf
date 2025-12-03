@@ -69,6 +69,7 @@ variable "testflinger_secrets_master_key" {
   description = "Master key for Testflinger secrets encryption"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "http_proxy" {
