@@ -16,6 +16,7 @@
 """Additional views not associated with the API."""
 
 from datetime import datetime, timedelta, timezone
+from http import HTTPStatus
 
 from flask import (
     Blueprint,
@@ -29,6 +30,7 @@ from prometheus_client import generate_latest
 
 from testflinger import database
 from testflinger.database import mongo
+from testflinger.logs import MongoLogHandler
 
 views = Blueprint("testflinger", __name__)
 
@@ -132,9 +134,17 @@ def job_detail(job_id):
     job_data = mongo.db.jobs.find_one({"job_id": job_id})
     if not job_data:
         response = make_response(
-            render_template("job_not_found.html", job_id=job_id), 404
+            render_template("job_not_found.html", job_id=job_id),
+            HTTPStatus.NOT_FOUND,
         )
         return response
+
+    if result_data := job_data.get("result_data"):
+        if not any(
+            key.endswith(("_output", "_serial")) for key in result_data.keys()
+        ):
+            log_handler = MongoLogHandler(mongo)
+            log_handler.format_logs_as_results(job_id, result_data)
     return render_template("job_detail.html", job=job_data)
 
 
