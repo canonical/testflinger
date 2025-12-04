@@ -67,6 +67,8 @@ topology = JujuTopology(
 ```
 
 """
+
+import warnings
 from collections import OrderedDict
 from typing import Dict, List, Optional
 from uuid import UUID
@@ -75,7 +77,7 @@ from uuid import UUID
 LIBID = "bced1658f20f49d28b88f61f83c2d232"
 
 LIBAPI = 0
-LIBPATCH = 6
+LIBPATCH = 7
 
 
 class InvalidUUIDError(Exception):
@@ -119,6 +121,13 @@ class JujuTopology:
             unit: a unit name as a string
             charm_name: name of charm as a string
         """
+        warnings.warn(
+            """
+            observability_libs.v0.juju_topology is deprecated. Please import the
+            library from `cosl` instead: https://github.com/canonical/cos-lib
+            """,
+            DeprecationWarning,
+        )
         if not self.is_valid_uuid(model_uuid):
             raise InvalidUUIDError(model_uuid)
 
@@ -215,7 +224,8 @@ class JujuTopology:
 
         if remapped_keys:
             ret = OrderedDict(
-                (remapped_keys.get(k), v) if remapped_keys.get(k) else (k, v) for k, v in ret.items()  # type: ignore
+                (remapped_keys.get(k), v) if remapped_keys.get(k) else (k, v)
+                for k, v in ret.items()  # type: ignore
             )
 
         return ret
