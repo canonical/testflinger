@@ -122,6 +122,11 @@ def create_indexes():
     mongo.db.jobs.create_index("job_id")
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
 
+    # Faster lookups for logs
+    mongo.db.logs.create_index(
+        ["job_id", "log_type", "phase", "fragment_number"]
+    )
+
 
 def save_file(data: Any, filename: str):
     """Store a file in the database (using GridFS)."""
