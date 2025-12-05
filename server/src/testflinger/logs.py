@@ -17,6 +17,7 @@
 """Handlers for storing/retrieving agent output and serial output."""
 
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Iterable
@@ -44,35 +45,52 @@ class LogHandler(ABC):
 
     @abstractmethod
     def store_log_fragment(self, log_fragment: LogFragment):
-        """Store log fragments in the handler-specific backend."""
+        """Store log fragments in the handler-specific backend.
+
+        :param log_fragment: The LogFragment object to store.
+        """
         raise NotImplementedError
 
     @abstractmethod
     def retrieve_log_fragments(
         self,
         job_id: str,
-        log_type: LogType,
-        phase: TestPhase,
+        log_type: LogType | None = None,
+        phase: TestPhase | None = None,
         start_fragment: int = 0,
-        start_timestamp: datetime = None,
+        start_timestamp: datetime | None = None,
     ) -> Iterable[LogFragment]:
         """
         Retrieve log fragments from the handler-specific backend.
         Log fragment schema can be found in schemas.py.
+
+        :param job_id: The job identifier.
+        :param log_type: The type of log to retrieve (optional).
+        :param phase: The test phase to retrieve logs from (optional).
+        :param start_fragment: The fragment number to start retrieving from.
+        :param start_timestamp: Timestamp to start retrieving from (optional).
+        :return: An iterable of LogFragment objects.
         """
         raise NotImplementedError
 
     def retrieve_logs(
         self,
         job_id: str,
-        log_type: LogType,
-        phase: TestPhase,
+        log_type: LogType | None = None,
+        phase: TestPhase | None = None,
         start_fragment: int = 0,
-        start_timestamp: datetime = None,
+        start_timestamp: datetime | None = None,
     ) -> dict:
         """
         Return a dictionary with the combined log fragments and the last
         fragment number retrieved.
+
+        :param job_id: The job identifier.
+        :param log_type: The type of log to retrieve (optional).
+        :param phase: The test phase to retrieve logs from (optional).
+        :param start_fragment: The fragment number to start retrieving from.
+        :param start_timestamp: Timestamp to start retrieving from (optional).
+        :return: A dictionary with 'last_fragment_number' and 'log_data'.
         """
         fragments = list(
             self.retrieve_log_fragments(
@@ -80,11 +98,24 @@ class LogHandler(ABC):
             )
         )
 
-        log_data = "".join([f.log_data for f in fragments])
-        if len(fragments) > 0:
-            last_fragment_number = fragments[-1].fragment_number
+        # Determine last fragment number
+        last_fragment_number = (
+            fragments[-1].fragment_number if fragments else -1
+        )
+
+        # If log type or phase is None, we retrieved all job matching fragments
+        # For expected return format, group fragments by phase and log type
+        if log_type is None or phase is None:
+            grouped_fragments = defaultdict(list)
+            for fragment in fragments:
+                key = f"{fragment.phase}_{fragment.log_type}"
+                grouped_fragments[key].append(fragment.log_data)
+
+            log_data = {
+                key: "".join(value) for key, value in grouped_fragments.items()
+            }
         else:
-            last_fragment_number = -1
+            log_data = "".join([f.log_data for f in fragments])
 
         return {
             "last_fragment_number": last_fragment_number,
@@ -100,7 +131,10 @@ class MongoLogHandler(LogHandler):
         self.mongo = mongo
 
     def store_log_fragment(self, log_fragment: LogFragment):
-        """Store logs in the approriate log collection in MongoDB."""
+        """Store logs in the approriate log collection in MongoDB.
+
+        :param log_fragment: The LogFragment object to store.
+        """
         log_collection = self.mongo.db.logs
         fragment_dict = asdict(log_fragment)
         timestamp = datetime.now(timezone.utc)
@@ -112,21 +146,36 @@ class MongoLogHandler(LogHandler):
     def retrieve_log_fragments(
         self,
         job_id: str,
-        log_type: LogType,
-        phase: TestPhase,
+        log_type: LogType | None = None,
+        phase: TestPhase | None = None,
         start_fragment: int = 0,
-        start_timestamp: datetime = None,
+        start_timestamp: datetime | None = None,
     ) -> Iterable[LogFragment]:
-        """Retrieve log fragments from MongoDB sorted by fragment number."""
+        """Retrieve log fragments from MongoDB sorted by fragment number.
+
+        :param job_id: The job identifier.
+        :param log_type: The type of log to retrieve (optional).
+        :param phase: The test phase to retrieve logs from (optional).
+        :param start_fragment: The fragment number to start retrieving from.
+        :param start_timestamp: Timestamp to start retrieving from (optional).
+        :return: An iterable of LogFragment objects.
+        """
         log_collection = self.mongo.db.logs
         query = {
             "job_id": job_id,
-            "log_type": log_type,
-            "phase": phase,
             "fragment_number": {"$gte": start_fragment},
         }
-        if start_timestamp is not None:
-            query["timestamp"] = {"$gte": start_timestamp}
+        optional_filters = {
+            "log_type": log_type,
+            "phase": phase,
+            "timestamp": {"$gte": start_timestamp}
+            if start_timestamp is not None
+            else None,
+        }
+        # Add optional filters to query if they are provided
+        for key, value in optional_filters.items():
+            if value is not None:
+                query[key] = value
 
         yield from (
             LogFragment(
@@ -149,17 +198,8 @@ class MongoLogHandler(LogHandler):
         :param result_data: The original result_data structure.
         :return: The modified result_data structure.
         """
-        # Reconstruct result format with logs and phase statuses
-        result_logs = {
-            f"{phase}_{log_type}": log_data
-            for log_type in LogType
-            for phase in TestPhase
-            if (
-                log_data := self.retrieve_logs(job_id, log_type, phase)[
-                    "log_data"
-                ]
-            )
-        }
+        # Retrieving all logs associated with the job
+        result_logs = self.retrieve_logs(job_id)["log_data"]
         phase_status = result_data.pop("status", {})
         result_status = {
             f"{phase}_status": status
