@@ -17,6 +17,7 @@ from abc import ABC, abstractmethod
 
 from prometheus_client import (
     Counter,
+    Histogram,
     disable_created_metrics,
     start_http_server,
 )
@@ -33,8 +34,25 @@ class MetricsHandler(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def report_job_failure(self):
-        """Report a job failure to the metrics backend."""
+    def report_job_failure(self, phase: str):
+        """Report a job failure to the metrics backend.
+
+        :param phase: The phase where the failure occurred
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def report_phase_duration(self, phase: str, duration: int):
+        """Report the duration of a job phase to the metrics backend.
+
+        :param phase: Phase that reports the duration
+        :param duration: The duration of the phase in seconds
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def report_recovery_failures(self):
+        """Report a recovery failure to the metrics backend."""
         raise NotImplementedError
 
 
@@ -52,6 +70,17 @@ class PrometheusHandler(MetricsHandler):
             "Total job failures since last agent restart",
             ["test_phase"],
         )
+        # Add custom buckets to handle longer test phases
+        self.phase_duration = Histogram(
+            "phase_duration_seconds",
+            "Duration of each job phase in seconds since last agent restart",
+            ["test_phase"],
+            buckets=(60, 120, 300, 600, 1800, 3600, 7200, 14400),
+        )
+        self.recovery_failures = Counter(
+            "recovery_failures",
+            "Total recovery failures since last agent restart",
+        )
         if port is None:
             return
 
@@ -66,5 +95,20 @@ class PrometheusHandler(MetricsHandler):
         self.total_jobs.inc()
 
     def report_job_failure(self, phase: str):
-        """Increase total failures counter and push to gateway."""
+        """Increase total failures counter and push to gateway.
+
+        :param phase: The phase where the failure occurred
+        """
         self.total_failures.labels(phase).inc()
+
+    def report_phase_duration(self, phase: str, duration: int):
+        """Track phase duration and push to gateway.
+
+        :param phase: Phase that reports the duration
+        :param duration: The duration of the phase in seconds
+        """
+        self.phase_duration.labels(phase).observe(duration)
+
+    def report_recovery_failures(self):
+        """Increase total recovery failures counter and push to gateway."""
+        self.recovery_failures.inc()
