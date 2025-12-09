@@ -31,6 +31,13 @@ You can also watch the output of the job as it runs by polling it with:
 testflinger-cli poll d14d2e31-f239-41b6-9a74-32f538e71cde
 ```
 
+> [!NOTE] If you are expecting to poll the job, you may wish to specify this from
+the beginning when submitting the job with the `--poll` flag:
+>
+> ```shell
+> testflinger-cli submit --poll job.yaml
+> ```
+
 After a job is finished, you can check the results of the test with:
 
 ```shell
