@@ -111,7 +111,7 @@ class TestflingerAgent:
         self.set_agent_state(AgentState.WAITING)
         self._post_initial_agent_data()
         self.metrics_handler = PrometheusHandler(
-            self.client.config.get("metrics_endpoint_port")
+            self.client.config.get("metrics_endpoint_port"), self.agent_id
         )
 
     def _post_initial_agent_data(self):
