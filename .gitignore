@@ -11,6 +11,7 @@ docs/.sphinx/.doctrees/
 .swp
 .tox
 .vscode
+.idea
 
 *.py[cod]
 *.egg*
