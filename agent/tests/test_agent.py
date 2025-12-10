@@ -862,10 +862,11 @@ class TestClient:
 
     def test_agent_metrics(self, agent, requests_mock):
         """
-        Tests that total job and total job failures metrics are increased
-        when running a job.
+        Tests that total job, total job failures, and phase duration metrics
+        are tracked when running a job.
         """
         self.config["provision_command"] = "/bin/false"
+        agent_id = self.config["agent_id"]
         mock_job_data = {
             "job_id": str(uuid.uuid1()),
             "job_queue": "test",
@@ -876,19 +877,68 @@ class TestClient:
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v1/agents/data/{agent_id}",
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"), patch("os.unlink"):
             agent.process_jobs()
 
-        total_jobs = prometheus_client.REGISTRY.get_sample_value("jobs_total")
+        total_jobs = prometheus_client.REGISTRY.get_sample_value(
+            "jobs_total", {"agent_id": agent_id}
+        )
         total_provision_failures = prometheus_client.REGISTRY.get_sample_value(
-            "failures_total", {"test_phase": "provision"}
+            "failures_total",
+            {"agent_id": agent_id, "test_phase": TestPhase.PROVISION},
+        )
+        provision_duration_count = prometheus_client.REGISTRY.get_sample_value(
+            "phase_duration_seconds_count",
+            {"agent_id": agent_id, "test_phase": TestPhase.PROVISION},
         )
         assert total_provision_failures == 1
         assert total_jobs == 1
+        assert provision_duration_count == 1
+
+    def test_agent_recovery_failure_metrics(self, agent, requests_mock):
+        """
+        Tests that recovery failure metrics are tracked when a phase
+        exits with code 46.
+        """
+        self.config["provision_command"] = "bash -c 'exit 46'"
+        agent_id = self.config["agent_id"]
+        job_id = str(uuid.uuid1())
+        mock_job_data = {
+            "job_id": job_id,
+            "job_queue": "test",
+            "provision_data": {"url": "foo"},
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test", json=mock_job_data
+        )
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/agents/data/{agent_id}",
+            [
+                {
+                    "text": json.dumps(
+                        {"state": AgentState.WAITING, "restricted_to": {}}
+                    )
+                },
+                {
+                    "text": json.dumps(
+                        {"state": AgentState.OFFLINE, "restricted_to": {}}
+                    )
+                },
+            ],
+        )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        with patch("shutil.rmtree"), patch("os.unlink"):
+            agent.process_jobs()
+
+        recovery_failures = prometheus_client.REGISTRY.get_sample_value(
+            "recovery_failures_total", {"agent_id": agent_id}
+        )
+        assert recovery_failures == 1
+        assert agent.check_offline()
 
     def test_missing_agent_state(self, agent, requests_mock, caplog):
         """Test default state for an agent is offline if unable to retrieve."""
