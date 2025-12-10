@@ -14,7 +14,6 @@
 
 import json
 import logging
-import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -123,9 +122,9 @@ class TestflingerJob:
                     "Skipping %s phase as requested in job data", phase
                 )
                 return 0, None, None
-        results_file = os.path.join(rundir, "testflinger-outcome.json")
-        output_log = os.path.join(rundir, phase + ".log")
-        serial_log = os.path.join(rundir, phase + "-serial.log")
+        results_file = Path(rundir) / "testflinger-outcome.json"
+        output_log = Path(rundir) / (phase + ".log")
+        serial_log = Path(rundir) / (phase + "-serial.log")
 
         logger.info("Running %s_command: %s", phase, cmd)
         runner = self.get_runner(rundir, phase)
@@ -193,41 +192,49 @@ class TestflingerJob:
             # Write serial log file generated in device connector to
             # the serial log endpoint if the file exists
             self.serial_output_handler.write_from_file(serial_log)
-            self._update_phase_results(
-                results_file, phase, exitcode, output_log, serial_log
+            self._send_phase_results(
+                results_file,
+                phase,
+                exitcode,
             )
         if phase == "allocate":
             self.allocate_phase(rundir)
         return exitcode, exit_event, exit_reason
 
-    def _update_phase_results(
-        self, results_file, phase, exitcode, output_log, serial_log
+    def _send_phase_results(
+        self, results_file: Path, phase: str, exitcode: int
     ):
-        """Update the results file with the results of the specified phase.
+        """Send the results of a test phase to the server.
 
-        :param results_file:
-            Path to the results file
-        :param phase:
-            Name of the phase
-        :param exitcode:
-            Exitcode from the device agent
-        :param output_log:
-            Path to the output log file
-        :param serial_log:
-            Path to the serial log file
+        This also stores the phase results to a local file in case we need to
+        retransmit them later.
+
+        :param results_file: Path to the results file
+        :param phase: Name of the phase to report results for
+        :param exitcode: Exit code from the phase
         """
-        # the default for `output_bytes` when it is not explicitly set
-        # in the agent config is specified in the config schema
-        with open(results_file, "r+") as results:
+        # serial and output logs are transmitted during the phase execution
+        # sending only the status for each phase
+        try:
+            self.client.post_result(
+                self.job_id,
+                {
+                    "status": {
+                        phase: exitcode,
+                    }
+                },
+            )
+        except TFServerError as exc:
+            logger.warning(
+                "Failed to post %s phase results for job %s: %s",
+                phase,
+                self.job_id,
+                exc,
+            )
+
+        # Store phase status results in file in case we need to retransmit them
+        with results_file.open("r+") as results:
             outcome_data = json.load(results)
-            if os.path.exists(output_log):
-                phase_outputs = outcome_data.setdefault("output", {})
-                with open(output_log, "r") as file:
-                    phase_outputs[phase] = file.read()
-            if os.path.exists(serial_log):
-                phase_serials = outcome_data.setdefault("serial", {})
-                with open(serial_log, "r") as file:
-                    phase_serials[phase] = file.read()
             phase_status = outcome_data.setdefault("status", {})
             phase_status[phase] = exitcode
             results.seek(0)
