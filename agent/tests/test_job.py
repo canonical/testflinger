@@ -4,6 +4,7 @@ import re
 import shutil
 import tempfile
 import uuid
+from http import HTTPStatus
 from unittest.mock import patch
 
 import pytest
@@ -229,18 +230,37 @@ class TestJob:
         job = _TestflingerJob(fake_job_data, client)
         job.run_test_phase("reserve", tmp_path)
 
+        # Determine the POST request that contains the device info
+        device_info_request = None
+        for req in post_mock.request_history:
+            try:
+                req_data = req.json()
+                if "device_ip" in req_data or "agent_name" in req_data:
+                    device_info_request = req_data
+                    break
+            except ValueError:
+                continue
+
+        assert device_info_request is not None
         # Compare retrieved data with expected data
         assert all(
-            post_mock.last_request.json()[key] == value
+            device_info_request[key] == value
             for key, value in fake_device.items()
         )
 
     @pytest.mark.parametrize(
         "phase",
-        ["setup", "provision", "test", "reserve"],
+        [
+            TestPhase.SETUP,
+            TestPhase.PROVISION,
+            TestPhase.TEST,
+            TestPhase.RESERVE,
+        ],
     )
-    def test_phase_results_file(self, client, phase, tmp_path, requests_mock):
-        """Validate that each phase return the expected outcome."""
+    def test_send_and_store_results(
+        self, client, phase, tmp_path, requests_mock
+    ):
+        """Validate each phase sends results and stores them correctly."""
         self.config[f"{phase}_command"] = "/bin/true"
         fake_job_data = {"global_timeout": 1, f"{phase}_data": {"foo": "foo"}}
         outcome_file_path = tmp_path / "testflinger-outcome.json"
@@ -249,15 +269,63 @@ class TestJob:
         with outcome_file_path.open("w") as outcome_file:
             outcome_file.write("{}")
 
-        requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
         job = _TestflingerJob(fake_job_data, client)
         job.run_test_phase(phase, tmp_path)
 
         with outcome_file_path.open() as outcome_file:
             outcome_data = json.load(outcome_file)
 
-        print(outcome_data)
+        # Validate phase status was also sent as POST to the server
+        phase_status_request = None
+        for req in requests_mock.request_history:
+            try:
+                req_data = req.json()
+                if "status" in req_data and phase in req_data["status"]:
+                    phase_status_request = req_data
+                    break
+            except ValueError:
+                continue
+
+        assert phase_status_request is not None
+        assert phase_status_request["status"][phase] == 0
+
+        # Validate phase status is stored in outcome file
+        assert outcome_data.get("status").get(phase) == 0
+
+    @pytest.mark.parametrize(
+        "phase",
+        [
+            TestPhase.SETUP,
+            TestPhase.PROVISION,
+            TestPhase.TEST,
+            TestPhase.RESERVE,
+        ],
+    )
+    def test_fail_to_send_results(
+        self, client, phase, tmp_path, requests_mock
+    ):
+        """Test results are still stored when sending to server fails."""
+        self.config[f"{phase}_command"] = "/bin/true"
+        fake_job_data = {"global_timeout": 1, f"{phase}_data": {"foo": "foo"}}
+        outcome_file = tmp_path / "testflinger-outcome.json"
+        outcome_file.write_text("{}")
+
+        # Simulate server failure by similating 422 response
+        requests_mock.post(
+            rmock.ANY, status_code=HTTPStatus.UNPROCESSABLE_ENTITY
+        )
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+        job = _TestflingerJob(fake_job_data, client)
+
+        # Should complete without raising exceptions
+        exitcode, _, _ = job.run_test_phase(phase, tmp_path)
+        assert exitcode == 0
+
+        # Validate phase status is stored in outcome file
+        with outcome_file.open() as outcome_f:
+            outcome_data = json.load(outcome_f)
         assert outcome_data.get("status").get(phase) == 0
 
     def run_testcmds(self, job_data, client, tmp_path) -> str:

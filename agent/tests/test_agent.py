@@ -360,7 +360,7 @@ class TestClient:
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
-        with patch("shutil.rmtree"), patch("os.unlink"):
+        with patch("shutil.rmtree"), patch("pathlib.Path.unlink"):
             agent.process_jobs()
         outcome_file = os.path.join(
             os.path.join(
@@ -392,7 +392,7 @@ class TestClient:
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.post(rmock.ANY, status_code=200)
-        with patch("shutil.rmtree"), patch("os.unlink"):
+        with patch("shutil.rmtree"), patch("pathlib.Path.unlink"):
             agent.process_jobs()
         outcome_file = os.path.join(
             os.path.join(
@@ -881,7 +881,7 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
-        with patch("shutil.rmtree"), patch("os.unlink"):
+        with patch("shutil.rmtree"), patch("pathlib.Path.unlink"):
             agent.process_jobs()
 
         total_jobs = prometheus_client.REGISTRY.get_sample_value(
@@ -931,7 +931,7 @@ class TestClient:
             ],
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
-        with patch("shutil.rmtree"), patch("os.unlink"):
+        with patch("shutil.rmtree"), patch("pathlib.Path.unlink"):
             agent.process_jobs()
 
         recovery_failures = prometheus_client.REGISTRY.get_sample_value(
