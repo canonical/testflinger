@@ -19,6 +19,7 @@ import shutil
 import signal
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from testflinger_common.enums import AgentState, JobState, TestEvent, TestPhase
@@ -110,7 +111,7 @@ class TestflingerAgent:
         self.set_agent_state(AgentState.WAITING)
         self._post_initial_agent_data()
         self.metrics_handler = PrometheusHandler(
-            self.client.config.get("metrics_endpoint_port")
+            self.client.config.get("metrics_endpoint_port"), self.agent_id
         )
 
     def _post_initial_agent_data(self):
@@ -371,8 +372,14 @@ class TestflingerAgent:
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase, self.status_handler.comment)
                     event_emitter.emit_event(TestEvent(phase + "_start"))
+                    # Register start time to measure phase duration
+                    phase_start = time.time()
                     exit_code, exit_event, exit_reason = job.run_test_phase(
                         phase, rundir
+                    )
+                    # Measure phase duration and report to metrics handler
+                    self.metrics_handler.report_phase_duration(
+                        phase, int(time.time() - phase_start)
                     )
                     self.client.post_influx(phase, exit_code)
                     event_emitter.emit_event(exit_event, exit_reason)
@@ -387,6 +394,8 @@ class TestflingerAgent:
                             )
                             self.offline_agent(comment)
                             exit_event = TestEvent.RECOVERY_FAIL
+                            # Report recovery failure in a dedicated metric
+                            self.metrics_handler.report_recovery_failures()
                         else:
                             exit_event = TestEvent(phase + "_fail")
                         detail = parse_error_logs(error_log_path, phase)
