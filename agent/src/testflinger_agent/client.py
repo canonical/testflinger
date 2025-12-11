@@ -255,18 +255,19 @@ class TestflingerClient:
             logger.exception("Unable to save artifacts")
 
         # Do not retransmit outcome if it's already been done and removed
-        outcome_file = os.path.join(rundir, "testflinger-outcome.json")
-        if os.path.isfile(outcome_file):
+        outcome_file = Path(rundir) / "testflinger-outcome.json"
+        if outcome_file.is_file():
             logger.info("Submitting job outcome for job: %s", job_id)
-            with open(outcome_file) as f:
+            with outcome_file.open() as f:
                 data = json.load(f)
                 # Only include status in posted results
+                # TODO: Remove pop once backward compatibility is not needed
                 data.pop("output", None)
                 data.pop("serial", None)
                 data["job_state"] = "complete"
                 self.post_result(job_id, data)
             # Remove the outcome file so we don't retransmit
-            os.unlink(outcome_file)
+            outcome_file.unlink()
         shutil.rmtree(rundir)
 
     def save_artifacts(self, rundir, job_id):
