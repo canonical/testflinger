@@ -328,6 +328,56 @@ class TestJob:
             outcome_data = json.load(outcome_f)
         assert outcome_data.get("status").get(phase) == 0
 
+    def test_incremental_status_updates(self, client, tmp_path, requests_mock):
+        """Test that cumulative status updates are sent and stored."""
+        # Configure multiple phases
+        self.config["provision_command"] = "/bin/true"
+        self.config["test_command"] = "/bin/true"
+        fake_job_data = {
+            "global_timeout": 1,
+            "provision_data": {"foo": "foo"},
+            "test_data": {"bar": "bar"},
+        }
+        outcome_file_path = tmp_path / "testflinger-outcome.json"
+        outcome_file_path.write_text("{}")
+
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+        job = _TestflingerJob(fake_job_data, client)
+
+        # Run provision phase
+        job.run_test_phase(TestPhase.PROVISION, tmp_path)
+
+        # Run test phase
+        job.run_test_phase(TestPhase.TEST, tmp_path)
+
+        # Find the POST request for the test phase
+        test_phase_request = None
+        for req in reversed(requests_mock.request_history):
+            try:
+                req_data = req.json()
+                if (
+                    "status" in req_data
+                    and TestPhase.TEST in req_data["status"]
+                ):
+                    test_phase_request = req_data
+                    break
+            except ValueError:
+                continue
+
+        # Verify that the test phase request includes both phase statuses
+        assert test_phase_request is not None
+        assert TestPhase.PROVISION in test_phase_request["status"]
+        assert TestPhase.TEST in test_phase_request["status"]
+        assert test_phase_request["status"][TestPhase.PROVISION] == 0
+        assert test_phase_request["status"][TestPhase.TEST] == 0
+
+        # Verify outcome file has both statuses
+        with outcome_file_path.open() as f:
+            outcome_data = json.load(f)
+        assert outcome_data["status"][TestPhase.PROVISION] == 0
+        assert outcome_data["status"][TestPhase.TEST] == 0
+
     def run_testcmds(self, job_data, client, tmp_path) -> str:
         # create the outcome file manually
         with open(tmp_path / "testflinger-outcome.json", "w") as outcome_file:

@@ -213,17 +213,17 @@ class TestflingerJob:
         :param phase: Name of the phase to report results for
         :param exitcode: Exit code from the phase
         """
-        # serial and output logs are transmitted during the phase execution
-        # sending only the status for each phase
+        # Store phase status results in file first to accumulate all statuses
+        with results_file.open("r+") as results:
+            outcome_data = json.load(results)
+            phase_status = outcome_data.setdefault("status", {})
+            phase_status[phase] = exitcode
+            results.seek(0)
+            json.dump(outcome_data, results)
+
+        # Send cumulative phase status to server
         try:
-            self.client.post_result(
-                self.job_id,
-                {
-                    "status": {
-                        phase: exitcode,
-                    }
-                },
-            )
+            self.client.post_result(self.job_id, outcome_data)
         except TFServerError as exc:
             logger.warning(
                 "Failed to post %s phase results for job %s: %s",
@@ -231,14 +231,6 @@ class TestflingerJob:
                 self.job_id,
                 exc,
             )
-
-        # Store phase status results in file in case we need to retransmit them
-        with results_file.open("r+") as results:
-            outcome_data = json.load(results)
-            phase_status = outcome_data.setdefault("status", {})
-            phase_status[phase] = exitcode
-            results.seek(0)
-            json.dump(outcome_data, results)
 
     def allocate_phase(self, rundir):
         """
