@@ -285,7 +285,7 @@ class TestJob:
                 if "status" in req_data and phase in req_data["status"]:
                     phase_status_request = req_data
                     break
-            except ValueError:
+            except (ValueError, TypeError):
                 continue
 
         assert phase_status_request is not None
