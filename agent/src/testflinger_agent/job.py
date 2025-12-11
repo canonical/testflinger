@@ -192,7 +192,7 @@ class TestflingerJob:
             # Write serial log file generated in device connector to
             # the serial log endpoint if the file exists
             self.serial_output_handler.write_from_file(serial_log)
-            self._send_phase_results(
+            self._update_phase_results(
                 results_file,
                 phase,
                 exitcode,
@@ -201,13 +201,12 @@ class TestflingerJob:
             self.allocate_phase(rundir)
         return exitcode, exit_event, exit_reason
 
-    def _send_phase_results(
+    def _update_phase_results(
         self, results_file: Path, phase: str, exitcode: int
     ):
-        """Send the results of a test phase to the server.
+        """Update the results file with the results of the specified phase.
 
-        This also stores the phase results to a local file in case we need to
-        retransmit them later.
+        This also sends the phase results to the server.
 
         :param results_file: Path to the results file
         :param phase: Name of the phase to report results for
