@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 class Maas2:
     """Device Connector for Maas2."""
 
-    def __init__(self, config, job_data):
+    def __init__(self, config, job_data, verbose=False):
         with open(config) as configfile:
             self.config = yaml.safe_load(configfile)
         with open(job_data) as j:
@@ -49,6 +49,7 @@ class Maas2:
         self.agent_name = self.config.get("agent_name")
         self.timeout_min = int(self.config.get("timeout_min", 60))
         self.maas_storage = MaasStorage(self.maas_user, self.node_id)
+        self.verbose = verbose
 
     def _logger_debug(self, message):
         logger.debug("MAAS: %s", message)
@@ -444,18 +445,31 @@ class Maas2:
     def node_release(self):
         """Release the node to make it available again."""
         cmd = ["maas", self.maas_user, "machine", "release", self.node_id]
-        subprocess.run(cmd, check=False)
+        proc = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        if self.verbose:
+            self._logger_debug(proc.stdout.decode())
         # Make sure the device is available before returning
         for _ in range(0, 30):
             time.sleep(10)
             status = self.node_status()
             if status == "Ready":
+                self._logger_info(
+                    "Successfully released {}".format(self.agent_name)
+                )
                 return
         self._logger_error(
             'Device {} still in "{}" state, could not recover!'.format(
                 self.agent_name, status
             )
         )
+        # If release was unsuccessful, also log any output from cmd if any
+        if error_msg := proc.stdout.decode():
+            self._logger_error(error_msg)
         raise RecoveryError("Device recovery failed!")
 
     def set_flat_storage_layout(self):

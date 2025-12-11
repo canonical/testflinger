@@ -15,6 +15,8 @@
 """Maas2 agent module unit tests."""
 
 import json
+import logging
+import subprocess
 import textwrap
 from collections import namedtuple
 from unittest.mock import patch
@@ -22,7 +24,10 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices import (
+    ProvisioningError,
+    RecoveryError,
+)
 from testflinger_device_connectors.devices.maas2 import Maas2
 from testflinger_device_connectors.devices.maas2.maas_storage import (
     MaasStorageError,
@@ -167,3 +172,129 @@ def test_reset_efi_handles_non_ipv4_current_boot(tmp_path):
             boot_order_arg = set_efi_call[0][0][-1]
             expected_order = "sudo efibootmgr -o 0001,0002,0000"
             assert expected_order in boot_order_arg
+
+
+def test_maas_release_succeeds(tmp_path, capsys, caplog):
+    """Test MAAS release succeeds and don't return any output."""
+    Process = namedtuple("Process", ["returncode", "stdout"])
+
+    # Both release and read return a huge JSON object
+    mock_maas_output = json.dumps(
+        {
+            "owner_data": {},
+            "hostname": "fake",
+            "system_id": "abc",
+            "status_name": "Ready",
+            "resource_uri": "/MAAS/api/2.0/machines/abc/",
+        }
+    )
+
+    with patch(
+        "testflinger_device_connectors.devices.maas2.maas2.MaasStorage",
+        return_value=None,
+    ):
+        with patch("subprocess.run") as mock_run, patch("time.sleep"):
+            mock_run.side_effect = [
+                Process(0, mock_maas_output.encode()),  # maas release
+                Process(0, mock_maas_output.encode()),  # maas read
+            ]
+
+            config_yaml = tmp_path / "config.yaml"
+            config = {
+                "maas_user": "user",
+                "node_id": "abc",
+                "agent_name": "agent001",
+                "device_ip": "10.10.10.10",
+            }
+            config_yaml.write_text(yaml.safe_dump(config))
+
+            job_json = tmp_path / "job.json"
+            job = {}
+            job_json.write_text(json.dumps(job))
+
+            maas2 = Maas2(config=config_yaml, job_data=job_json)
+            with caplog.at_level(
+                logging.INFO,
+                logger="testflinger_device_connectors.devices.maas2.maas2",
+            ):
+                maas2.node_release()
+
+    # Verify release and read where called
+    assert mock_run.call_count == 2
+
+    # Verify release command was called correctly and release is logged
+    first_call_args = mock_run.call_args_list[0][0][0]
+    assert first_call_args == [
+        "maas",
+        config["maas_user"],
+        "machine",
+        "release",
+        config["node_id"],
+    ]
+    assert f"Successfully released {config['agent_name']}" in caplog.text
+
+    # Verify release command output was captured but not printed
+    captured_output = capsys.readouterr()
+    assert mock_run.call_args_list[0][1]["stdout"] == subprocess.PIPE
+    assert captured_output.out == ""
+
+
+def test_maas_release_fails(tmp_path, capsys, caplog):
+    """Test MAAS release fails and output is properly logged."""
+    Process = namedtuple("Process", ["returncode", "stdout"])
+
+    # Both release and read return a huge JSON object
+    mock_maas_output = json.dumps(
+        {
+            "owner_data": {},
+            "hostname": "fake",
+            "system_id": "abc",
+            "status_name": "Deployed",
+            "resource_uri": "/MAAS/api/2.0/machines/abc/",
+        }
+    )
+
+    with patch(
+        "testflinger_device_connectors.devices.maas2.maas2.MaasStorage",
+        return_value=None,
+    ):
+        with patch("subprocess.run") as mock_run, patch("time.sleep"):
+            mock_run.side_effect = [
+                Process(0, mock_maas_output.encode()),  # maas release
+            ] + [
+                Process(0, mock_maas_output.encode())  # maas read (30 times)
+            ] * 30
+
+            config_yaml = tmp_path / "config.yaml"
+            config = {
+                "maas_user": "user",
+                "node_id": "abc",
+                "agent_name": "agent001",
+                "device_ip": "10.10.10.10",
+            }
+            config_yaml.write_text(yaml.safe_dump(config))
+
+            job_json = tmp_path / "job.json"
+            job = {}
+            job_json.write_text(json.dumps(job))
+
+            maas2 = Maas2(config=config_yaml, job_data=job_json)
+            with (
+                caplog.at_level(
+                    logging.ERROR,
+                    logger="testflinger_device_connectors.devices.maas2.maas2",
+                ),
+                pytest.raises(RecoveryError),
+            ):
+                maas2.node_release()
+
+    # Verify no output to console, this is handled by the logger
+    captured_output = capsys.readouterr()
+    assert captured_output.out == ""
+
+    # Verify errors were logged
+    assert (
+        f'Device {config["agent_name"]} still in "Deployed" state'
+        in caplog.text
+    )
+    assert mock_maas_output in caplog.text
