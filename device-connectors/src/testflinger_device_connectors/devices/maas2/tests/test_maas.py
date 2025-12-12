@@ -222,7 +222,7 @@ def test_maas_release_succeeds(tmp_path, capsys, caplog):
     # Verify release and read where called
     assert mock_run.call_count == 2
 
-    # Verify release command was called correctly and release is logged
+    # Verify release command was called correctly
     first_call_args = mock_run.call_args_list[0][0][0]
     assert first_call_args == [
         "maas",
@@ -231,7 +231,6 @@ def test_maas_release_succeeds(tmp_path, capsys, caplog):
         "release",
         config["node_id"],
     ]
-    assert f"Successfully released {config['agent_name']}" in caplog.text
 
     # Verify release command output was captured but not printed
     captured_output = capsys.readouterr()
@@ -298,3 +297,49 @@ def test_maas_release_fails(tmp_path, capsys, caplog):
         in caplog.text
     )
     assert mock_maas_output in caplog.text
+
+
+def test_set_flat_storage_layout_no_output(tmp_path, capsys):
+    """Test set_flat_storage_layout does not print any output."""
+    Process = namedtuple("Process", ["returncode", "stdout"])
+
+    with patch(
+        "testflinger_device_connectors.devices.maas2.maas2.MaasStorage",
+        return_value=None,
+    ):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = Process(0, b"storage layout set")
+
+            config_yaml = tmp_path / "config.yaml"
+            config = {
+                "maas_user": "user",
+                "node_id": "abc",
+                "agent_name": "agent001",
+            }
+            config_yaml.write_text(yaml.safe_dump(config))
+
+            job_json = tmp_path / "job.json"
+            job = {}
+            job_json.write_text(json.dumps(job))
+
+            maas2 = Maas2(config=config_yaml, job_data=job_json)
+            maas2.set_flat_storage_layout()
+
+    # Verify command was called
+    assert mock_run.call_count == 1
+
+    # Verify set-storage-layout command was called correctly
+    call_args = mock_run.call_args_list[0][0][0]
+    assert call_args == [
+        "maas",
+        config["maas_user"],
+        "machine",
+        "set-storage-layout",
+        config["node_id"],
+        "storage_layout=flat",
+    ]
+
+    # Verify output was captured and not printed to console
+    captured_output = capsys.readouterr()
+    assert mock_run.call_args_list[0][1]["stdout"] == subprocess.PIPE
+    assert captured_output.out == ""

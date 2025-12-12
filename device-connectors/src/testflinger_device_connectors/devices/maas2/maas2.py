@@ -451,16 +451,14 @@ class Maas2:
             stderr=subprocess.STDOUT,
             check=False,
         )
+        output = proc.stdout.decode()
         if self.verbose:
-            self._logger_debug(proc.stdout.decode())
+            self._logger_debug(output)
         # Make sure the device is available before returning
         for _ in range(0, 30):
             time.sleep(10)
             status = self.node_status()
             if status == "Ready":
-                self._logger_info(
-                    "Successfully released {}".format(self.agent_name)
-                )
                 return
         self._logger_error(
             'Device {} still in "{}" state, could not recover!'.format(
@@ -468,8 +466,8 @@ class Maas2:
             )
         )
         # If release was unsuccessful, also log any output from cmd if any
-        if error_msg := proc.stdout.decode():
-            self._logger_error(error_msg)
+        if output:
+            self._logger_error(output)
         raise RecoveryError("Device recovery failed!")
 
     def set_flat_storage_layout(self):
@@ -482,8 +480,12 @@ class Maas2:
             self.node_id,
             "storage_layout=flat",
         ]
-        proc = subprocess.run(cmd, check=False)
+        proc = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
+        )
         if proc.returncode:
             self._logger_error(
                 "Unable to set flat disk layout, attempting to continue anyway"
             )
+        if self.verbose:
+            self._logger_debug(proc.stdout.decode())
