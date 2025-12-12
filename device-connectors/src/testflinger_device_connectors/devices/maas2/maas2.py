@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 class Maas2:
     """Device Connector for Maas2."""
 
-    def __init__(self, config, job_data, verbose=False):
+    def __init__(self, config, job_data):
         with open(config) as configfile:
             self.config = yaml.safe_load(configfile)
         with open(job_data) as j:
@@ -49,7 +49,7 @@ class Maas2:
         self.agent_name = self.config.get("agent_name")
         self.timeout_min = int(self.config.get("timeout_min", 60))
         self.maas_storage = MaasStorage(self.maas_user, self.node_id)
-        self.verbose = verbose
+        self.debug = self.job_data.get("debug", False)
 
     def _logger_debug(self, message):
         logger.debug("MAAS: %s", message)
@@ -445,14 +445,10 @@ class Maas2:
     def node_release(self):
         """Release the node to make it available again."""
         cmd = ["maas", self.maas_user, "machine", "release", self.node_id]
-        proc = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            check=False,
-        )
+        # Use the retry method to validate if cmd execution succeded
+        proc = self.run_maas_cmd_with_retry(cmd)
         output = proc.stdout.decode()
-        if self.verbose:
+        if self.debug:
             self._logger_debug(output)
         # Make sure the device is available before returning
         for _ in range(0, 30):
@@ -465,8 +461,8 @@ class Maas2:
                 self.agent_name, status
             )
         )
-        # If release was unsuccessful, also log any output from cmd if any
-        if output:
+        # release was unsuccessful, log the output if not already done
+        if not self.debug:
             self._logger_error(output)
         raise RecoveryError("Device recovery failed!")
 
@@ -483,9 +479,14 @@ class Maas2:
         proc = subprocess.run(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
         )
+        output = proc.stdout.decode()
+        if self.debug:
+            self._logger_debug(output)
+
         if proc.returncode:
             self._logger_error(
                 "Unable to set flat disk layout, attempting to continue anyway"
             )
-        if self.verbose:
-            self._logger_debug(proc.stdout.decode())
+            # set-storage-layout failed, log the output if not already done
+            if not self.debug:
+                self._logger_error(output)
