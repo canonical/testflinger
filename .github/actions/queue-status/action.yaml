@@ -111,7 +111,7 @@ runs:
           'jobs_completed|Jobs completed'
         )
 
-       for line in "${MAP[@]}"; do
+        for line in "${MAP[@]}"; do
           IFS='|' read -r out_key label <<< "$line"
           value=$(printf '%s\n' "$RESULT" | awk -F': *' -v lbl="$label" '$1==lbl {print $2}')
           echo "${out_key}=${value}" >> "$GITHUB_OUTPUT"
