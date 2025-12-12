@@ -449,7 +449,8 @@ class Maas2:
         proc = self.run_maas_cmd_with_retry(cmd)
         output = proc.stdout.decode()
         if self.debug:
-            self._logger_debug(output)
+            # Use logger_info to not modify agent config file
+            self._logger_info(output)
         # Make sure the device is available before returning
         for _ in range(0, 30):
             time.sleep(10)
@@ -481,7 +482,8 @@ class Maas2:
         )
         output = proc.stdout.decode()
         if self.debug:
-            self._logger_debug(output)
+            # Use logger_info to not modify agent config file
+            self._logger_info(output)
 
         if proc.returncode:
             self._logger_error(
