@@ -112,7 +112,7 @@ class AgentDataGenerator:  # pylint: disable=too-few-public-methods
                 "state": random.choice(("waiting", "test", "provision")),
             }
             if self.queue_list:
-                agent_data["queues"] = [random.choice(self.queue_list)]
+                agent_data["queues"] = random.sample(self.queue_list, random.randint(1, len(self.queue_list)))
             yield (f"{self.prefix}{agent_num}", agent_data)
 
 

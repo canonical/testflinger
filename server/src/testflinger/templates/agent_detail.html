@@ -33,14 +33,28 @@
   </table>
   <h2 class="p-muted-heading">Queues</h2>
   <ul>
-    {% for queue in agent.queues %}
-      <li>
-        <a href="{{ url_for('testflinger.queue_detail', queue_name=queue) }}">{{ queue }}</a>
-        {% if agent.restricted_to[queue]|default([]) %}
-          <small>(restricted to: {{ agent.restricted_to[queue]|join(", ") }})</small>
-        {% endif %}
-      </li>
-    {% endfor %}
+    <table aria-label="Queues table" class="p-table--mobile-card">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Number of jobs</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for queue in agent.queues %}
+          <tr class="searchable-row">
+            <td data-heading="Name">
+              <a href="{{ url_for('testflinger.queue_detail', queue_name=queue.name) }}">{{ queue.name }}</a>
+              {% if agent.restricted_to[queue.name]|default([]) %}
+                <small>(restricted to: {{ agent.restricted_to[queue.name]|join(", ") }})</small>
+              {% endif %}
+            </td>
+            <td data-heading="Number of Unfinished Jobs">{{ queue.numjobs }}</td>
+            <td data-heading="Description">{{ queue.description }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
   </ul>
   <h2 class="p-muted-heading">Provision History</h2>
   <form action="" method="get" class="p-form--inline">

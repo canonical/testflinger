@@ -91,6 +91,23 @@ def agent_detail(agent_id):
         for queue in agent_info.get("queues", [])
     }
 
+    queue_info = []
+    for queue_name in agent_info.pop("queues", []):
+        queue_data = mongo.db.queues.find_one({"name": queue_name})
+        if queue_data:
+            queue_data["name"] = queue_name
+            queue_data["numjobs"] = mongo.db.jobs.count_documents(
+                {
+                    "job_data.job_queue": queue_name,
+                    "result_data.job_state": {
+                        "$nin": ["complete", "completed", "cancelled"]
+                    },
+                }
+            )
+            queue_info.append(queue_data)
+
+    agent_info["queues"] = queue_info
+
     # We want to include the start/stop dates so that default values
     # can be filled in for the date pickers
     agent_info["start"] = start_date
