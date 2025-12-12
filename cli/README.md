@@ -32,8 +32,7 @@ testflinger-cli poll d14d2e31-f239-41b6-9a74-32f538e71cde
 ```
 
 > [!TIP] 
-> If you are expecting to poll the job, you may wish to specify this from
-the beginning when submitting the job with the `--poll` flag:
+> If you are expecting to poll the job, you may wish to specify this from the beginning when submitting the job with the `--poll` flag:
 >
 > ```shell
 > testflinger-cli submit --poll job.yaml
