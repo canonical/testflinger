@@ -11,7 +11,7 @@ inputs:
 outputs:
   agents_in_queue:
     description: 'Number of agents in the queue'
-    value: ${{ steps.queue-status.outputs.agents-in-queue }}
+    value: ${{ steps.queue-status.outputs.agents_in_queue }}
   available:
     description: 'Number of agents with state "available"'
     value: ${{ steps.queue-status.outputs.available }}
