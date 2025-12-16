@@ -47,6 +47,8 @@ class ZapperConnector(ABC, DefaultDevice):
 
     def provision(self, args):
         """Provision device when the command is invoked."""
+        super().provision(args)
+
         with open(args.config, encoding="utf-8") as configfile:
             self.config = yaml.safe_load(configfile)
         with open(args.job_data, encoding="utf-8") as job_json:

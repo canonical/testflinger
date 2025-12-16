@@ -34,6 +34,8 @@ class DeviceConnector(DefaultDevice):
 
     def provision(self, args):
         """Provision device when the command is invoked."""
+        super().provision(args)
+
         device = HPOemScript(args.config, args.job_data)
         logger.info("BEGIN provision")
         logger.info("Provisioning device")

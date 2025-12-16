@@ -40,6 +40,8 @@ class DeviceConnector(DefaultDevice):
 
     def provision(self, args):
         """Provision device when the command is invoked."""
+        super().provision(args)
+
         with open(args.job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)
         provision_data = self.job_data.get("provision_data", {})
