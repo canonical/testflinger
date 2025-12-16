@@ -1,0 +1,66 @@
+/* Swagger UI theme overrides to match Furo documentation theme */
+
+/*** Font family ***/
+
+/* Base font for all elements */
+.swagger-ui,
+.swagger-ui .description p,
+.swagger-ui .opblock-description p,
+.swagger-ui .opblock-description-wrapper p,
+.swagger-ui .tab li button.tablinks {
+    font-family: var(--font-stack);
+}
+
+/* Monospace for code/technical elements */
+.swagger-ui code,
+.swagger-ui pre,
+.swagger-ui .microlight,
+.swagger-ui .opblock .opblock-summary-path,
+.swagger-ui .parameter__name,
+.swagger-ui .parameter__type,
+.swagger-ui .response .response-col_status,
+.swagger-ui .model-box,
+.swagger-ui .prop-type {
+    font-family: var(--font-stack--monospace) !important;
+}
+
+/* Headings */
+.swagger-ui .info .title,
+.swagger-ui h1,
+.swagger-ui h2,
+.swagger-ui h3,
+.swagger-ui h4,
+.swagger-ui h5 {
+    font-family: var(--font-stack--heading) !important;
+}
+
+/*** Color ***/
+
+/* Description text */
+.swagger-ui .info .title,
+.swagger-ui .info .description,
+.swagger-ui .info .description p,
+.swagger-ui .opblock-description p,
+.swagger-ui .opblock-description-wrapper p,
+.swagger-ui .tab li button.tablinks,
+.swagger-ui .model-box .json-schema-2020-12__title{
+    color: var(--color-content-foreground);
+}
+
+
+/* Operation blocks text */
+.swagger-ui .opblock-tag,
+.swagger-ui .opblock .opblock-summary-description,
+.swagger-ui .opblock .opblock-summary-path,
+.swagger-ui .parameter__type,
+.swagger-ui .response-header,
+.swagger-ui .response-col_status,
+.swagger-ui .response-col_description, 
+.swagger-ui .response-col_links {
+    color: var(--color-content-foreground) !important;
+}
+
+/* Operation blocks background */
+.swagger-ui .opblock {
+    border-color: var(--color-background-border);
+}

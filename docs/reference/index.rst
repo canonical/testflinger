@@ -32,3 +32,11 @@ Using the Command Line Interface
     :maxdepth: 1
 
     cli-config
+
+API Reference
+--------------
+
+.. toctree::
+    :maxdepth: 1
+
+    openapi
