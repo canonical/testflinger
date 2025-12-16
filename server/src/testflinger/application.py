@@ -40,7 +40,7 @@ except ImportError:
 
 def create_flask_app(config=None, secrets_store=None):
     """Create the flask app."""
-    tf_app = APIFlask(__name__)
+    tf_app = APIFlask(__name__, title="Testflinger API", version="1.0.0")
 
     # Globally disable strict slashes
     tf_app.url_map.strict_slashes = False
