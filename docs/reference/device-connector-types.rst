@@ -1,5 +1,5 @@
-Supported device connector types
-=================================
+Device connector types
+======================
 
 The following device connector types are currently supported. Note that with the exception of ``noprovision`` and ``maas2``, most of these device connectors require special hardware and/or configuration that is specific to our lab environment. However, the intent is that device connectors can be written to contain any amount of special handling necessary to handle any site-specific requirements.
  
