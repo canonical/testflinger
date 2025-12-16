@@ -770,7 +770,6 @@ def test_agents_post(mongo_app):
     }
     output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
 
-    print(vars(output))
     assert 200 == output.status_code
     assert "OK" == output.json.get("status")
 
