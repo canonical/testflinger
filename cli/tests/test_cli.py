@@ -1210,7 +1210,11 @@ def test_live_polling_with_fragments_progression(
         nonlocal iteration_count
         iteration_count += 1
         # Run for 3 iterations then complete
-        return "complete" if iteration_count > 3 else "running"
+        return (
+            {"job_state": "complete"}
+            if iteration_count > 3
+            else {"job_state": "running"}
+        )
 
     def mock_get_combined_log_output(
         self, job_id_arg, log_type, phase, fragment, timestamp
@@ -1322,3 +1326,82 @@ def test_live_polling_with_empty_poll(capsys, requests_mock, monkeypatch):
     captured = capsys.readouterr()
     assert "Waiting on output..." in captured.err
     assert len(sleep_calls) >= 9
+
+def test_live_polling_by_phase(capsys, requests_mock, monkeypatch):
+    """Test live polling by phase exits when target phase completes."""
+    job_id = str(uuid.uuid1())
+
+    # Mock time.sleep
+    sleep_calls = []
+    monkeypatch.setattr(
+        time, "sleep", lambda duration: sleep_calls.append(duration)
+    )
+
+    # Mock job status checks
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}",
+        2
+        * [
+            {
+                "json": {
+                    "job_state": "provision",
+                    "setup_status": 0,
+                    "provision_status": 0,
+                    "test_status": None,
+                }
+            }
+        ]
+        + [
+            {
+                "json": {
+                    "job_state": "test",
+                    "setup_status": 0,
+                    "provision_status": 0,
+                    "test_status": 0,
+                }
+            }
+        ],
+    )
+
+    # Mock log output for test phase
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}/log/output",
+        [
+            {
+                "json": {
+                    "output": {
+                        "test": {
+                            "last_fragment_number": 0,
+                            "log_data": "Running tests...\n",
+                        }
+                    }
+                }
+            },
+            {
+                "json": {
+                    "output": {
+                        "test": {
+                            "last_fragment_number": 1,
+                            "log_data": "Tests passed!\n",
+                        }
+                    }
+                }
+            },
+        ],
+    )
+
+    sys.argv = ["", "poll", "--phase", "test", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Run the polling
+    tfcli.do_poll(job_id)
+
+    captured = capsys.readouterr()
+
+    # Verify the output contains the phase completion message
+    assert "Phase 'test' completed with exit code: 0" in captured.out
+    assert f"testflinger poll {job_id} --start_fragment 2" in captured.out
+
+    # Verify logs were printed
+    assert "Running tests..." in captured.out
+    assert "Tests passed!" in captured.out
