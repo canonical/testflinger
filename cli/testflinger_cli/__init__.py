@@ -1116,11 +1116,13 @@ class TestflingerCli:
                     if phase_status is not None:
                         print(
                             f"\nPhase '{phase}' completed with "
-                            f"exit code: {phase_status}"
+                            f"exit code: {phase_status}",
+                            file=sys.stderr,
                         )
                         print(
                             f"Use 'testflinger poll {job_id} --start_fragment "
-                            f"{cur_fragment}' to continue polling."
+                            f"{cur_fragment}' to continue polling.",
+                            file=sys.stderr,
                         )
                         break
 
@@ -1162,7 +1164,7 @@ class TestflingerCli:
                 # Both y and n will allow the external handler deal with it
                 raise
 
-        print(f"Job state: {job_state}")
+        print(job_state)
 
     def jobs(self):
         """List the previously started test jobs."""
