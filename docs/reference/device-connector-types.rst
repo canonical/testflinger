@@ -288,25 +288,23 @@ The ``oem_autoinstall`` device connector supports the following ``provision_data
     * - ``token_file``
       - Optional credentials file in :ref:`file attachments <file_attachments>` when ``url``
         requires authentication. These credentials will be used with HTTPBasicAuth
-        to download the image from ``url``. It must contain:
+        to download the image from ``url``. It must contain::
 
           username: $MY_USERNAME
 
           token: $MY_TOKEN
 
-        If ``url`` requires webdav authentication, then device will use rclone to copy the file.
+        If ``url`` requires WebDAV authentication, then device will use ``rclone`` to copy the file.
         The rclone configurations must be provided in the following format:
+
+        .. code-block:: ini
 
           [$PROJECT]
 
           type = webdav
-
           url = $URL
-
           vendor = other
-
           user = $USER
-
           pass = $PASSWORD
 
     * - ``user_data``
