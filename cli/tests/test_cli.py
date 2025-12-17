@@ -1399,8 +1399,8 @@ def test_live_polling_by_phase(capsys, requests_mock, monkeypatch):
     captured = capsys.readouterr()
 
     # Verify the output contains the phase completion message
-    assert "Phase 'test' completed with exit code: 0" in captured.out
-    assert f"testflinger poll {job_id} --start_fragment 2" in captured.out
+    assert "Phase 'test' completed with exit code: 0" in captured.err
+    assert f"testflinger poll {job_id} --start_fragment 2" in captured.err
 
     # Verify logs were printed
     assert "Running tests..." in captured.out
