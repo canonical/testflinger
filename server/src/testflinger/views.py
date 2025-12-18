@@ -98,13 +98,8 @@ def agent_detail(agent_id):
             # If it's not an advertised queue, create some dummy data
             queue_data = {"description": ""}
         queue_data["name"] = queue_name
-        queue_data["numjobs"] = mongo.db.jobs.count_documents(
-            {
-                "job_data.job_queue": queue_name,
-                "result_data.job_state": {
-                    "$nin": ["complete", "completed", "cancelled"]
-                },
-            }
+        queue_data["numjobs"] = database.get_num_incomplete_jobs_on_queue(
+            queue_name
         )
         queue_info.append(queue_data)
 
@@ -205,13 +200,8 @@ def queues_data():
 
     # Get job counts for each queue
     for queue in queue_data:
-        queue["numjobs"] = mongo.db.jobs.count_documents(
-            {
-                "job_data.job_queue": queue["name"],
-                "result_data.job_state": {
-                    "$nin": ["complete", "completed", "cancelled"]
-                },
-            }
+        queue["numjobs"] = database.get_num_incomplete_jobs_on_queue(
+            queue["name"]
         )
     return queue_data
 
