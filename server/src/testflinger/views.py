@@ -96,7 +96,7 @@ def agent_detail(agent_id):
         queue_data = mongo.db.queues.find_one({"name": queue_name})
         if not queue_data:
             # If it's not an advertised queue, create some dummy data
-            queue_data = {"description": "No description"}
+            queue_data = {"description": ""}
         queue_data["name"] = queue_name
         queue_data["numjobs"] = mongo.db.jobs.count_documents(
             {

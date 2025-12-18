@@ -32,87 +32,86 @@
     </tbody>
   </table>
   <h2 class="p-muted-heading">Queues</h2>
-  <ul>
-    <table aria-label="Queues table" class="p-table--mobile-card">
+  <table aria-label="Queues table" class="p-table--mobile-card">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Number of jobs</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for queue in agent.queues %}
+        <tr class="searchable-row">
+          <td data-heading="Name">
+            <a href="{{ url_for('testflinger.queue_detail', queue_name=queue.name) }}">{{ queue.name }}</a>
+            {% if agent.restricted_to[queue.name]|default([]) %}
+              <small>(restricted to: {{ agent.restricted_to[queue.name]|join(", ") }})</small>
+            {% endif %}
+          </td>
+          <td data-heading="Number of Unfinished Jobs">{{ queue.numjobs }}</td>
+          <td data-heading="Description">{{ queue.description }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h2 class="p-muted-heading">Provision History</h2>
+  <form action="" method="get" class="p-form--inline">
+    <div class="p-form__group">
+      <label for="start-date" class="p-form__label">Start Date</label>
+      <input type="date"
+             id="start-date"
+             name="start"
+             class="p-form__control"
+             value="{{ request.args.get('start', agent.start) }}">
+    </div>
+    <div class="p-form__group">
+      <label for="stop-date" class="p-form__label">Stop Date</label>
+      <input type="date"
+             id="stop-date"
+             name="stop"
+             class="p-form__control"
+             value="{{ request.args.get('stop', agent.stop) }}">
+    </div>
+    <button type="submit" class="p-button--positive">Refresh</button>
+  </form>
+  <div>
+    <strong>Provision success rate for this range:</strong> {{ agent.provision_success_rate }}%
+  </div>
+  <div>
+    <table>
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Number of jobs</th>
-          <th>Description</th>
+          <th style="width: 150pt">Finished At</th>
+          <th style="width: 300pt">Job ID</th>
+          <th class="p-table__cell--icon-placeholder" style="width: 75pt">Status</th>
+          <th>Detail</th>
         </tr>
       </thead>
       <tbody>
-        {% for queue in agent.queues %}
-          <tr class="searchable-row">
-            <td data-heading="Name">
-              <a href="{{ url_for('testflinger.queue_detail', queue_name=queue.name) }}">{{ queue.name }}</a>
-              {% if agent.restricted_to[queue.name]|default([]) %}
-                <small>(restricted to: {{ agent.restricted_to[queue.name]|join(", ") }})</small>
-              {% endif %}
+        {% for log in agent.provision_log|reverse %}
+          <tr>
+            <td>{{ log.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+            <td>
+              <a href="{{ url_for('testflinger.job_detail', job_id=log.job_id) }}">{{ log.job_id }}</a>
             </td>
-            <td data-heading="Number of Unfinished Jobs">{{ queue.numjobs }}</td>
-            <td data-heading="Description">{{ queue.description }}</td>
+            <td class="u-align--right p-table__cell--icon-placeholder">
+              <i class="{{ 'p-icon--success' if log.exit_code==0 else 'p-icon--error' }}"></i>{{ log.exit_code }}
+            </td>
+            <td>{{ log.detail }}</td>
           </tr>
         {% endfor %}
       </tbody>
-    </ul>
-    <h2 class="p-muted-heading">Provision History</h2>
-    <form action="" method="get" class="p-form--inline">
-      <div class="p-form__group">
-        <label for="start-date" class="p-form__label">Start Date</label>
-        <input type="date"
-               id="start-date"
-               name="start"
-               class="p-form__control"
-               value="{{ request.args.get('start', agent.start) }}">
-      </div>
-      <div class="p-form__group">
-        <label for="stop-date" class="p-form__label">Stop Date</label>
-        <input type="date"
-               id="stop-date"
-               name="stop"
-               class="p-form__control"
-               value="{{ request.args.get('stop', agent.stop) }}">
-      </div>
-      <button type="submit" class="p-button--positive">Refresh</button>
-    </form>
-    <div>
-      <strong>Provision success rate for this range:</strong> {{ agent.provision_success_rate }}%
-    </div>
-    <div>
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 150pt">Finished At</th>
-            <th style="width: 300pt">Job ID</th>
-            <th class="p-table__cell--icon-placeholder" style="width: 75pt">Status</th>
-            <th>Detail</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for log in agent.provision_log|reverse %}
-            <tr>
-              <td>{{ log.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
-              <td>
-                <a href="{{ url_for('testflinger.job_detail', job_id=log.job_id) }}">{{ log.job_id }}</a>
-              </td>
-              <td class="u-align--right p-table__cell--icon-placeholder">
-                <i class="{{ 'p-icon--success' if log.exit_code==0 else 'p-icon--error' }}"></i>{{ log.exit_code }}
-              </td>
-              <td>{{ log.detail }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <h2 class="p-muted-heading">Agent Log</h2>
-    <div class="p-code-snippet">
-      <div class="scrollable">
-        <pre class="p-code-snippet__block">
+    </table>
+  </div>
+  <h2 class="p-muted-heading">Agent Log</h2>
+  <div class="p-code-snippet">
+    <div class="scrollable">
+      <pre class="p-code-snippet__block">
         <code>
             {{ agent.log|join('\n') }}
         </code>
-    </pre>
-      </div>
+        </pre>
     </div>
-  {% endblock content %}
+  </div>
+{% endblock content %}
