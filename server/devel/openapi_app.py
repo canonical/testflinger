@@ -19,15 +19,21 @@ Minimal Flask application for OpenAPI specification generation.
 This module creates a lightweight Testflinger server instance specifically
 for extracting the OpenAPI specification without requiring MongoDB or other
 external dependencies. 
-It's used by the Flask CLI command `flask spec` to generate the API spec in
-JSON format. (https://apiflask.com/openapi/#the-flask-spec-command)
+It's used by the APIFlask to generate the API spec in JSON format. 
+(https://apiflask.com/openapi/#the-flask-spec-command)
 
 Usage:
-    FLASK_APP=devel.openapi_app uv run flask spec --output ./openapi.json --quiet
+    uvx --with tox-uv tox -e openapi
 """
 
-from tests.conftest import TestingConfig 
+from dataclasses import dataclass 
 from testflinger.application import create_flask_app
 
+@dataclass
+class OpenAPIConfig:
+    """Config for Testing."""
+
+    TESTING = True
+
 # Create and expose the app in TESTING mode for Flask CLI to use
-app = create_flask_app(TestingConfig)
+app = create_flask_app(OpenAPIConfig)
