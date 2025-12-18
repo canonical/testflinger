@@ -23,7 +23,7 @@ It's used by the Flask CLI command `flask spec` to generate the API spec in
 JSON format. (https://apiflask.com/openapi/#the-flask-spec-command)
 
 Usage:
-    FLASK_APP=devel.openapi_app flask spec --output ../docs/reference/openapi.json
+    FLASK_APP=devel.openapi_app uv run flask spec --output ./openapi.json --quiet
 """
 
 from tests.conftest import TestingConfig 

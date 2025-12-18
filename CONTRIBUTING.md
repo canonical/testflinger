@@ -97,7 +97,9 @@ If you have `tox` installed, you can also just run `tox` from the subproject.
 
 ## Server API Changes
 
-If you modified the server API (endpoints, schemas, or parameters), you must update and commit the OpenAPI specification file (`docs/reference/openapi.json`) in the same pull request. The CI check will fail if the spec is out of sync.
+If you modified the server API (endpoints, schemas, or parameters), you must
+update and commit the OpenAPI specification file (`server/openapi.json`) in the
+same pull request. The CI check will fail if the spec is out of sync.
 
 To check if the specification is up-to-date, run:
 
