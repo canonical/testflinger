@@ -109,8 +109,7 @@ If the check fails, regenerate the spec from the `server/` directory:
 
 ```shell
 cd server/
-source .venv/bin/activate
-FLASK_APP=devel.openapi_app flask spec --output ./openapi.json --quiet
+FLASK_APP=devel.openapi_app uv run flask spec --output ./openapi.json --quiet
 ```
 
 Commit the updated spec file with your API changes.
