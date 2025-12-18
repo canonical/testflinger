@@ -23,7 +23,7 @@ It's used by the APIFlask to generate the API spec in JSON format.
 (https://apiflask.com/openapi/#the-flask-spec-command)
 
 Usage:
-    uvx --with tox-uv tox -e openapi
+    uvx --with tox-uv tox -e schema
 """
 
 from dataclasses import dataclass 
