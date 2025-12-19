@@ -15,6 +15,7 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from pathlib import Path
 
 from testflinger_common.enums import LogType
 
@@ -190,16 +191,28 @@ class EndpointLogHandler(LogHandler):
         self.write_to_endpoint(log_input)
         self.fragment_number += 1
 
-    def write_from_file(self, filename: str, chunk_size: int = 1024):
+    def write_from_file(self, filename: Path, chunk_size: int = 1024):
         """Write logs to endpoint from a file chunking by chunk_size."""
         try:
-            with open(filename, "r") as log:
+            # Attempt to read serial log file as text
+            with filename.open("r") as log:
                 while True:
                     data = log.read(chunk_size)
                     if not data:
                         break
                     self(data)
+        except UnicodeDecodeError:
+            # If file contains invalid UTF-8 characters, read as binary
+            with filename.open("rb") as log:
+                while True:
+                    data = log.read(chunk_size).decode(
+                        "utf-8", errors="replace"
+                    )
+                    if not data:
+                        break
+                    self(data)
         except FileNotFoundError:
+            # File doesn't exist
             pass
 
 

@@ -189,14 +189,15 @@ class TestflingerJob:
             exitcode = 100
             exit_reason = str(exc)  # noqa: F841 - ignore this until it's used
         finally:
-            # Write serial log file generated in device connector to
-            # the serial log endpoint if the file exists
-            self.serial_output_handler.write_from_file(serial_log)
+            # Update phase results first
             self._update_phase_results(
                 results_file,
                 phase,
                 exitcode,
             )
+            # Write serial log file generated in device connector to
+            # the serial log endpoint if the file exists
+            self.serial_output_handler.write_from_file(serial_log)
         if phase == "allocate":
             self.allocate_phase(rundir)
         return exitcode, exit_event, exit_reason
