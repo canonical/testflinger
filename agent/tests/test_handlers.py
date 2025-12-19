@@ -13,9 +13,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 import uuid
+from http import HTTPStatus
 
 import pytest
 import requests_mock as rmock
+from testflinger_common.enums import TestPhase
 
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
@@ -118,3 +120,29 @@ class TestHandler:
             assert requests[i].json()["fragment_number"] == i
             assert requests[i].json()["phase"] == "phase1"
             assert requests[i].json()["log_data"] == "a" * 1024
+
+    def test_endpoint_write_from_file_invalid_utf8(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test binary content is read correctly and sent to endpoint."""
+        job_id = str(uuid.uuid1())
+        phase = TestPhase.PROVISION
+        filename = tmp_path / "provision-serial.log"
+        filename.write_bytes(b"Boot OK\n\xff\xfe\nDone")
+
+        serial_log_handler = SerialLogHandler(client, job_id, phase)
+        serial_url = f"http://127.0.0.1:8000/v1/result/{job_id}/log/serial"
+        requests_mock.post(serial_url, status_code=HTTPStatus.OK)
+        serial_log_handler.write_from_file(filename)
+
+        requests = list(
+            filter(
+                lambda req: req.url == serial_url,
+                requests_mock.request_history,
+            )
+        )
+
+        assert len(requests) == 1
+        assert requests[0].json()["fragment_number"] == 0
+        assert requests[0].json()["phase"] == phase
+        assert requests[0].json()["log_data"] == "Boot OK\n\ufffd\ufffd\nDone"
