@@ -120,7 +120,9 @@ class AgentDataGenerator:  # pylint: disable=too-few-public-methods
                 "state": random.choice(("waiting", "test", "provision")),
             }
             if self.queue_list:
-                agent_data["queues"] = random.sample(self.queue_list, random.randint(1, len(self.queue_list)))
+                agent_data["queues"] = random.sample(
+                    self.queue_list, random.randint(1, len(self.queue_list))
+                )
             yield (f"{self.prefix}{agent_num}", agent_data)
 
 
@@ -250,7 +252,9 @@ def main():
 
     queues = QueueDataGenerator(num_queues=args.queues)
     # configure "advertised" queues:
-    testflinger_client.post_queue_data(random.sample(tuple(queues), random.randint(1, args.advertised_queues)))
+    testflinger_client.post_queue_data(
+        random.sample(tuple(queues), random.randint(1, args.advertised_queues))
+    )
     logging.info("Created %s queues", args.queues)
 
     valid_queue_names = extract_queue_names(queues=queues)

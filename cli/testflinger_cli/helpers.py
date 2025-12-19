@@ -157,13 +157,33 @@ def multiline_str_representer(dumper, data):
 yaml.add_representer(str, multiline_str_representer)
 
 
-def pretty_yaml_dump(obj, **kwargs) -> str:
+def pretty_yaml_dump(
+    obj: object,
+    sort_keys: bool = True,
+    indent: int = 2,
+    **kwargs,
+) -> str:
     """Create a pretty YAML representation of obj.
 
     :param obj: The object to be represented.
+    :param sort_keys: Whether to sort keys in the output (default: True).
+    :param indent: Number of spaces to use for indentation (default: 2).
+    :param kwargs: Additional keyword arguments to pass to yaml.dump().
     :return: A pretty representation of obj as a YAML string.
     """
-    return yaml.dump(obj, **kwargs)
+
+    class YamlDumper(yaml.Dumper):
+        def increase_indent(self, flow=False, indentless=False):
+            return super(YamlDumper, self).increase_indent(flow, False)
+
+    return yaml.dump(
+        obj,
+        Dumper=YamlDumper,
+        default_flow_style=False,
+        sort_keys=sort_keys,
+        indent=indent,
+        **kwargs,
+    )
 
 
 def format_timestamp(timestamp_str: str) -> str:

@@ -56,16 +56,34 @@ def test_queues():
     )
     mongo.db.jobs.insert_many(
         [
-            {"job_data": {"job_queue": "advertised_queue1"}},
-            {"job_data": {"job_queue": "advertised_queue1"}},
-            {"job_data": {"job_queue": "advertised_queue1"}},
-            {"job_data": {"job_queue": "advertised_queue2"}},
-            {"job_data": {"job_queue": "advertised_queue2"}},
+            {
+                "job_data": {"job_queue": "advertised_queue1"},
+                "result_data": {"job_state": "waiting"},
+            },
+            {
+                "job_data": {"job_queue": "advertised_queue1"},
+                "result_data": {"job_state": "running"},
+            },
+            {
+                "job_data": {"job_queue": "advertised_queue1"},
+                "result_data": {"job_state": "waiting"},
+            },
+            {
+                "job_data": {"job_queue": "advertised_queue2"},
+                "result_data": {"job_state": "running"},
+            },
+            {
+                "job_data": {"job_queue": "advertised_queue2"},
+                "result_data": {"job_state": "waiting"},
+            },
         ]
     )
 
     # Get the data from the function we use to generate the view
-    with patch("testflinger.views.mongo", mongo):
+    with (
+        patch("testflinger.views.mongo", mongo),
+        patch("testflinger.database.mongo", mongo),
+    ):
         data = queues_data()
 
     # Make sure we found all the queues, not just advertised ones

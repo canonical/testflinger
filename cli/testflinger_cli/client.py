@@ -244,14 +244,82 @@ class Client:
         data = json.loads(self.get(endpoint))
         return data.get("job_state")
 
-    def get_agent_data(self, agent_name: str) -> dict:
+    def get_agent_data(
+        self, agent_name: str, expanded_queue_info: bool = False
+    ) -> dict:
         """Get all the data for a specified agent.
 
         :param agent_name: Name of the agent to retrieve its data
+        :param expanded_queue_info: If True, expand queue info with job counts
+                                   (default: False)
         :return: Dict containing all the data from the agent.
         """
         endpoint = f"/v1/agents/data/{agent_name}"
-        return json.loads(self.get(endpoint))
+        data = json.loads(self.get(endpoint))
+        if expanded_queue_info:
+            # TODO: If get_jobs_on_queue could accept a filter to identify
+            #  jobs which are not finished running vs those that are we could
+            #  more readily get the information we need by filtering on the
+            #  server instead of here.
+            queues = data.pop("queues")
+            data["queues"] = {}
+            for queue in queues:
+                jobs = self.get_jobs_status(queue)
+                job_count = len(jobs["jobs_waiting"]) + len(
+                    jobs["jobs_running"]
+                )
+                data["queues"][queue] = {"num_jobs": job_count}
+        return data
+
+    def get_jobs_status(self, queue: str) -> dict:
+        """Retrieve the status of jobs in a specified queue.
+
+        :param queue: Name of the queue to retrieve job status from
+        :return: Dict containing categorized jobs with keys:
+                 'jobs_waiting', 'jobs_running', 'jobs_completed'
+        """
+        try:
+            jobs_data = self.get_jobs_on_queue(queue)
+        except HTTPError as exc:
+            if exc.status == HTTPStatus.NO_CONTENT:
+                jobs_data = []
+            else:
+                logger.debug("Unable to retrieve job data: %s", exc)
+                jobs_data = []
+        except (IOError, ValueError) as exc:
+            logger.debug("Unable to retrieve job data: %s", exc)
+            jobs_data = []
+
+        # Categorize jobs based on completion outcome
+        jobs_waiting = []
+        jobs_running = []
+        jobs_completed = []
+
+        for job in jobs_data:
+            # Handle MongoDB date structure or plain string
+            created_at = job.get("created_at", "")
+            if isinstance(created_at, dict) and "$date" in created_at:
+                created_at = created_at["$date"]
+
+            job_info = {
+                "job_id": job["job_id"],
+                "created_at": created_at,
+            }
+
+            job_state = job.get("job_state", "").lower()
+            if job_state == "waiting":
+                jobs_waiting.append(job_info)
+            elif job_state == "complete":
+                jobs_completed.append(job_info)
+            elif job_state not in ("cancelled",):  # Ignore cancelled jobs
+                # All non-waiting, non-complete, non-cancelled are "running"
+                jobs_running.append(job_info)
+
+        return {
+            "jobs_waiting": jobs_waiting,
+            "jobs_running": jobs_running,
+            "jobs_completed": jobs_completed,
+        }
 
     def get_agent_status_by_queue(self, queue: str) -> list[dict]:
         """Get the status of the agents by a specified queue.
@@ -410,7 +478,7 @@ class Client:
         return json.loads(self.get(complete_url_frag))
 
     def get_job_position(self, job_id):
-        """Get the status of a test job.
+        """Get the position of a test job.
 
         :param job_id:
             ID for the test job

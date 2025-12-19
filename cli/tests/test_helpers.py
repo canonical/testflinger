@@ -67,7 +67,4 @@ def test_pretty_yaml_dump():
             other
         """
     )
-    assert (
-        pretty_yaml_dump(multiline, indent=4, default_flow_style=False).strip()
-        == result.strip()
-    )
+    assert pretty_yaml_dump(multiline, indent=4).strip() == result.strip()
