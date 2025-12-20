@@ -363,6 +363,7 @@ class Job(Schema):
     reserve_data = fields.Nested(ReserveData, required=False)
     job_status_webhook = fields.String(required=False)
     job_priority = fields.Integer(required=False)
+    exclude_agents = fields.List(fields.String(), required=False)
     debug = fields.Boolean(required=False)
 
 
