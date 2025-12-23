@@ -76,10 +76,34 @@ def get_version():
 
 @v1.post("/job")
 @authenticate
-@v1.input(schemas.Job, location="json")
-@v1.output(schemas.JobId)
+@v1.input(schemas.Job, location="json", example={"job_queue": "queue001",
+        "name": "Example Test Job",
+        "tags": ["test", "sample"],
+        "provision_data": {
+            "url": "<url>"
+        },
+        "test_data": {
+            "test_cmds": "lsb_release -a"
+        },})
+@v1.output(schemas.JobId,
+    status_code=200,
+    example={"job_id": "550e8400-1234-1234-1234-446655440000"}
+)
+@v1.doc(
+    responses={
+        422: {
+            "description": "The submitted job contains references to secrets that are inaccessible"
+        }
+    }
+)
 def job_post(json_data: dict):
-    """Add a job to the queue."""
+    """
+    Create a test job request and place it on the specified queue
+
+    Most parameters passed in the data section of this API will be specific to the
+    type of agent receiving them. The `job_queue` parameter is used to designate the
+    queue used, but all others will be passed along to the agent.
+    """
     try:
         job_queue = json_data.get("job_queue")
     except (AttributeError, BadRequest):
