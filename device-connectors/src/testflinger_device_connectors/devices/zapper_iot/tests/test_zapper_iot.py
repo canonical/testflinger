@@ -58,7 +58,7 @@ class ZapperIoTTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
-    def test_validate_configuration_provision_plan(self):
+    def test_validate_configuration_provision_plan_without_test_data(self):
         """Test the function validates a custom test plan
         when provided.
         """
@@ -81,6 +81,63 @@ class ZapperIoTTests(unittest.TestCase):
                     ],
                 }
             }
+        }
+
+        args, kwargs = device._validate_configuration()
+
+        expected = {
+            "username": "admin",
+            "password": "admin",
+            "custom_provision_plan": {
+                "config": {
+                    "project_name": "name",
+                    "username": "admin",  # this gets overridden
+                    "password": "admin",
+                    "serial_console": {
+                        "port": "/dev/ttySanity1",
+                        "baud_rate": 115200,
+                    },
+                    "network": "eth0",
+                },
+                "run_stage": [
+                    {"initial_login": {"method": "system-user"}},
+                ],
+            },
+            "urls": [],
+            "preset": None,
+            "preset_kwargs": None,
+        }
+        self.maxDiff = None
+        self.assertEqual(args, ())
+        self.assertDictEqual(expected, kwargs)
+
+    def test_validate_configuration_provision_plan_with_test_data(self):
+        """Test the function validates a custom test plan
+        when provided.
+        """
+        device = DeviceConnector({})
+        device.job_data = {
+            "provision_data": {
+                "provision_plan": {
+                    "config": {
+                        "project_name": "name",
+                        "username": "admin",
+                        "password": "admin",
+                        "serial_console": {
+                            "port": "/dev/ttySanity1",
+                            "baud_rate": 115200,
+                        },
+                        "network": "eth0",
+                    },
+                    "run_stage": [
+                        {"initial_login": {"method": "system-user"}},
+                    ],
+                }
+            },
+            "test_data": {
+                "test_username": "ubuntu",
+                "test_password": "ubuntu",
+            },
         }
 
         args, kwargs = device._validate_configuration()
