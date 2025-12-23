@@ -21,6 +21,10 @@ This script extracts the OpenAPI specification from the Flask application
 without requiring MongoDB or OIDC services.
 
 Usage:
+
+Activate the server virtualenv first (uv sync && source .venv/bin/activate)
+or use the project uvx runner so imports and deps are available.
+
     # Generate schema to stdout
     python generate_openapi_schema.py
 
@@ -92,12 +96,14 @@ def main():
     )
     parser.add_argument(
         "--output",
+        "-o",
         type=Path,
-        default=Path("./openapi.json"),
-        help="Write schema to specified file (default: ./openapi.json)"
+        default=None,
+        help="Write schema to specified file (default is stdout)"
     )
     parser.add_argument(
         "--diff",
+        "-d",
         type=Path,
         help="Compare generated schema with the specified file for validation"
     )
