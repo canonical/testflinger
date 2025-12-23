@@ -1,0 +1,2414 @@
+{
+  "components": {
+    "schemas": {
+      "ActionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "cancel"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "AgentIn": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "log": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "provision_type": {
+            "type": "string"
+          },
+          "queues": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "AgentOut": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provision_type": {
+            "type": "string"
+          },
+          "queues": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "restricted_to": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "Attachment": {
+        "additionalProperties": false,
+        "properties": {
+          "agent": {
+            "type": "string"
+          },
+          "device": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent"
+        ],
+        "type": "object"
+      },
+      "ClientPermissionsIn": {
+        "additionalProperties": false,
+        "properties": {
+          "client_secret": {
+            "type": "string"
+          },
+          "max_priority": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "max_reservation_time": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "role": {
+            "enum": [
+              "admin",
+              "manager",
+              "contributor",
+              "user"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ClientPermissionsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_queues": {
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "client_id": {
+            "type": "string"
+          },
+          "max_priority": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "nullable": true,
+            "type": "object"
+          },
+          "max_reservation_time": {
+            "additionalProperties": {},
+            "nullable": true,
+            "type": "object"
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "allowed_queues",
+          "client_id",
+          "max_priority",
+          "max_reservation_time",
+          "role"
+        ],
+        "type": "object"
+      },
+      "HTTPError": {
+        "properties": {
+          "detail": {
+            "type": "object"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Job": {
+        "additionalProperties": false,
+        "properties": {
+          "allocate_data": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "allocation_timeout": {
+            "type": "integer"
+          },
+          "debug": {
+            "type": "boolean"
+          },
+          "firmware_update_data": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "global_timeout": {
+            "type": "integer"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "job_priority": {
+            "type": "integer"
+          },
+          "job_queue": {
+            "type": "string"
+          },
+          "job_status_webhook": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "output_timeout": {
+            "type": "integer"
+          },
+          "parent_job_id": {
+            "type": "string"
+          },
+          "provision_data": {
+            "anyOf": [
+              {
+                "nullable": true,
+                "type": "object"
+              },
+              {
+                "$ref": "#/components/schemas/ProvisionData"
+              }
+            ]
+          },
+          "reserve_data": {
+            "$ref": "#/components/schemas/ReserveData"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "test_data": {
+            "$ref": "#/components/schemas/TestData"
+          }
+        },
+        "required": [
+          "job_queue"
+        ],
+        "type": "object"
+      },
+      "JobEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "event_name": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_name",
+          "timestamp"
+        ],
+        "type": "object"
+      },
+      "JobId": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "type": "object"
+      },
+      "JobSearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/Job"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "jobs"
+        ],
+        "type": "object"
+      },
+      "LogGet": {
+        "additionalProperties": false,
+        "properties": {
+          "output": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LogGetItem"
+            },
+            "type": "object"
+          },
+          "serial": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LogGetItem"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "LogGetItem": {
+        "additionalProperties": false,
+        "properties": {
+          "last_fragment_number": {
+            "type": "integer"
+          },
+          "log_data": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "last_fragment_number",
+          "log_data"
+        ],
+        "type": "object"
+      },
+      "LogPost": {
+        "additionalProperties": false,
+        "properties": {
+          "fragment_number": {
+            "type": "integer"
+          },
+          "log_data": {
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "setup",
+              "provision",
+              "firmware_update",
+              "test",
+              "allocate",
+              "reserve",
+              "cleanup"
+            ],
+            "type": "string"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fragment_number",
+          "log_data",
+          "phase",
+          "timestamp"
+        ],
+        "type": "object"
+      },
+      "ProvisionData": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ProvisionLogsIn": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": "integer"
+          },
+          "job_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "exit_code",
+          "job_id"
+        ],
+        "type": "object"
+      },
+      "ReserveData": {
+        "additionalProperties": false,
+        "properties": {
+          "ssh_keys": {
+            "items": {
+              "pattern": "^(lp|gh):(\\S+)$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "timeout": {
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "RestrictedQueueIn": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_id"
+        ],
+        "type": "object"
+      },
+      "RestrictedQueueOut": {
+        "additionalProperties": false,
+        "properties": {
+          "owners": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "queue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "owners",
+          "queue"
+        ],
+        "type": "object"
+      },
+      "Result": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ResultGet": {
+        "additionalProperties": false,
+        "properties": {
+          "allocate_output": {
+            "type": "string"
+          },
+          "allocate_serial": {
+            "type": "string"
+          },
+          "allocate_status": {
+            "type": "integer"
+          },
+          "cleanup_output": {
+            "type": "string"
+          },
+          "cleanup_serial": {
+            "type": "string"
+          },
+          "cleanup_status": {
+            "type": "integer"
+          },
+          "device_info": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "firmware_update_output": {
+            "type": "string"
+          },
+          "firmware_update_serial": {
+            "type": "string"
+          },
+          "firmware_update_status": {
+            "type": "integer"
+          },
+          "job_state": {
+            "type": "string"
+          },
+          "provision_output": {
+            "type": "string"
+          },
+          "provision_serial": {
+            "type": "string"
+          },
+          "provision_status": {
+            "type": "integer"
+          },
+          "reserve_output": {
+            "type": "string"
+          },
+          "reserve_serial": {
+            "type": "string"
+          },
+          "reserve_status": {
+            "type": "integer"
+          },
+          "setup_output": {
+            "type": "string"
+          },
+          "setup_serial": {
+            "type": "string"
+          },
+          "setup_status": {
+            "type": "integer"
+          },
+          "test_output": {
+            "type": "string"
+          },
+          "test_serial": {
+            "type": "string"
+          },
+          "test_status": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "SecretIn": {
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "type": "object"
+      },
+      "StatusUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/JobEvent"
+            },
+            "type": "array"
+          },
+          "job_queue": {
+            "type": "string"
+          },
+          "job_status_webhook": {
+            "format": "url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_status_webhook"
+        ],
+        "type": "object"
+      },
+      "TestData": {
+        "additionalProperties": false,
+        "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            },
+            "type": "array"
+          },
+          "secrets": {
+            "additionalProperties": {
+              "pattern": "^[a-zA-Z0-9_/-]+$",
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "test_cmds": {
+            "type": "string"
+          },
+          "test_password": {
+            "type": "string"
+          },
+          "test_username": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "detail": {
+            "properties": {
+              "<location>": {
+                "properties": {
+                  "<field_name>": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Testflinger API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/metrics": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Prometheus Metrics"
+      }
+    },
+    "/v1/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Identify ourselves.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/agents/data": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AgentOut"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Get all agent data.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/agents/data/{agent_name}": {
+      "get": {
+        "description": ":param agent_name:\nString with the name of the agent to retrieve information from.\n:return:\nJSON data with the specified agent information.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentOut"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Get the information from a specified agent.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "description": "The json sent to this endpoint may contain data such as the following:\n{\n\"state\": string, # State the device is in\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string, # Location of the device\n\"job_id\": string, # Job ID the device is running, if any\n\"log\": array[string], # push and keep only the last 100 lines\n}",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Post information about the agent to the server.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/agents/images": {
+      "post": {
+        "description": "images will be stored in a dict of key/value pairs as part of the queues\ncollection. That dict will contain image_name:provision_data mappings, ex:\n{\n\"some_queue\": {\n\"core22\": \"http://cdimage.ubuntu.com/.../core-22.tar.gz\",\n\"jammy\": \"http://cdimage.ubuntu.com/.../ubuntu-22.04.tar.gz\"\n},\n\"other_queue\": {\n...\n}\n}.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Tell testflinger about known images for a specified queue",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/agents/images/{queue}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "example": {
+                    "core22": "url: http://.../core22.img.xz",
+                    "server-22.04": "url: http://.../ubuntu-22.04.img.xz"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Mapping of image names and provision data"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Get a dict of known images for a given queue.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/agents/provision_logs/{agent_name}": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisionLogsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Post provision logs for the agent to the server.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/agents/queues": {
+      "get": {
+        "description": "Returns a dict of queue names and descriptions, ex:\n{\n\"some_queue\": \"A queue for testing\",\n\"other_queue\": \"A queue for something else\"\n}",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "example": {
+                    "device001": "Queue for device001",
+                    "some-queue": "some other queue"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Mapping of queue names and descriptions"
+          }
+        },
+        "summary": "Get all advertised queues from this server.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "description": "Some agents may want to advertise some of the queues they listen on so that\nthe user can check which queues are valid to use.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Tell testflinger the queue names that are being serviced.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/client-permissions": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClientPermissionsOut"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Retrieve all client permissions from database.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/client-permissions/{client_id}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Delete client id along with its permissions.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientPermissionsOut"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Retrieve single client-permissions from database.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientPermissionsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Add or create client permissions for a specified user.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/job": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "204": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "No job found"
+          }
+        },
+        "summary": "Request a job to run from supported queues.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Job"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobId"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Add a job to the queue.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/job/search": {
+      "get": {
+        "parameters": [
+          {
+            "description": "List of tags to search for",
+            "explode": true,
+            "in": "query",
+            "name": "tags",
+            "required": false,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Match mode - 'all' or 'any' (default 'any')",
+            "in": "query",
+            "name": "match",
+            "required": false,
+            "schema": {
+              "enum": [
+                "any",
+                "all"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "List of job states to include",
+            "explode": true,
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "items": {
+                "enum": [
+                  "setup",
+                  "provision",
+                  "firmware_update",
+                  "test",
+                  "allocate",
+                  "allocated",
+                  "reserve",
+                  "cleanup",
+                  "cancelled",
+                  "completed",
+                  "active"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobSearchResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Search for jobs by tags.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/job/{job_id}": {
+      "get": {
+        "description": "already run.\n\n:param job_id:\nUUID as a string for the job\n:return:\nJSON data for the job or error string and http error",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Request the json job definition for a specified job, even if it has",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/job/{job_id}/action": {
+      "post": {
+        "description": ":param job_id:\nUUID as a string for the job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Take action on the job status for a specified job ID.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/job/{job_id}/attachments": {
+      "get": {
+        "description": ":param job_id:\nUUID as a string for the job\n:return:\nsend_file stream of attachment tarball to download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Return the attachments bundle for a specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "description": ":param job_id:\nUUID as a string for the job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Post attachment bundle for a specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/job/{job_id}/events": {
+      "post": {
+        "description": "to TestObserver.\n\nThe json sent to this endpoint may contain data such as the following:\n{\n\"agent_id\": \"<string>\",\n\"job_queue\": \"<string>\",\n\"job_status_webhook\": \"<URL as string>\",\n\"events\": [\n{\n\"event_name\": \"<string enum of events>\",\n\"timestamp\": \"<datetime>\",\n\"detail\": \"<string>\"\n},\n...\n]\n}",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Post status updates from the agent to the server to be forwarded",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/job/{job_id}/position": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Return the position of the specified jobid in the queue.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/oauth2/refresh": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Refresh access token using a valid refresh token.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/oauth2/revoke": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Revoke a refresh token. Only admins can perform this action.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/oauth2/token": {
+      "post": {
+        "description": "Get JWT with priority and queue permissions.\n\nBefore being encrypted, the JWT can contain fields like:\n{\nexp: <Expiration DateTime of Token>,\niat: <Issuance DateTime of Token>,\nsub: <Subject Field of Token>,\npermissions: {\nmax_priority: <Queue to Priority Level Dict>,\nallowed_queues: <List of Allowed Restricted Queues>,\nmax_reservation_time: <Queue to Max Reservation Time Dict>,\n}\n}",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Issue both access token and refresh token for a client.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/queues/wait_times": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Get wait time metrics - optionally take a list of queues.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/queues/{queue_name}/agents": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue_name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AgentOut"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Get the list of all data for agents listening to a specified queue.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/queues/{queue_name}/jobs": {
+      "get": {
+        "description": ":param queue_name\nString with the queue name where to perform the query.\n:return:\nJSON data with the jobs allocated to the specified queue.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue_name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Get the jobs in a specified queue along with its state.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/restricted-queues": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RestrictedQueueOut"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "List all agent's restricted queues and its owners.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/restricted-queues/{queue_name}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue_name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestrictedQueueIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Delete an owner from the specific restricted queue.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue_name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestrictedQueueOut"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Get restricted queues for a specific agent.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue_name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestrictedQueueIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Add an owner to the specific restricted queue.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/result/{job_id}": {
+      "get": {
+        "description": ":param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultGet"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Return results for a specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "description": ":param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Result"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Post a result for a specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/result/{job_id}/artifact": {
+      "get": {
+        "description": ":param job_id:\nUUID as a string for the job\n:return:\nsend_file stream of artifact tarball to download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Return artifact bundle for a specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "description": ":param job_id:\nUUID as a string for the job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Post artifact bundle for a specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/result/{job_id}/log/{log_type}": {
+      "get": {
+        "description": ":param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log requested\n:raises HTTPError: If the job_id is not a valid UUID or if invalid query\n:return: Dictionary with log data",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "log_type",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogGet"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Get logs for a specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "description": ":param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log being posted\n:raises HTTPError: If the job_id is not a valid UUID\n:param json_data: Dictionary with log data",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "log_type",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogPost"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Post logs for a specified job ID.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/result/{job_id}/output": {
+      "get": {
+        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: Plain text output",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Legacy endpoint to get job output for a specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: \"OK\" on success",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Legacy endpoint to post output for a specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/result/{job_id}/serial_output": {
+      "get": {
+        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: Plain text serial output",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Legacy endpoint to get latest serial output for a specified job ID.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: \"OK\" on success",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Legacy endpoint to post serial output for a specified job ID.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/secrets/{client_id}/{path}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Remove a secret value for the specified client_id and path.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecretIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Store a secret value for the specified client_id and path.",
+        "tags": [
+          "V1"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "V1"
+    }
+  ]
+}
