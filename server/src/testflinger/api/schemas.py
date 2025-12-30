@@ -444,9 +444,18 @@ class ResultPost(Schema):
         keys=fields.String(validate=OneOf(TestPhases)),
         values=fields.Integer(),
         required=False,
+        metadata={
+            "description": "Dictionary mapping phase names to exit codes"
+        },
     )
-    device_info = fields.Dict(required=False)
-    job_state = fields.String(required=False)
+    device_info = fields.Dict(
+        required=False,
+        metadata={"description": "Device information"},
+    )
+    job_state = fields.String(
+        required=False,
+        metadata={"description": "Current job state"},
+    )
 
 
 class JobEvent(Schema):
@@ -482,17 +491,44 @@ class RestrictedQueueOut(Schema):
 class LogPost(Schema):
     """Schema for POST of log fragments."""
 
-    fragment_number = fields.Integer(required=True)
-    timestamp = fields.DateTime(required=True)
-    phase = fields.String(required=True, validate=OneOf(TestPhases))
-    log_data = fields.String(required=True)
+    fragment_number = fields.Integer(
+        required=True,
+        metadata={
+            "description": "Sequential fragment number of the log fragment being posted, starting from 0"
+        },
+    )
+    timestamp = fields.DateTime(
+        required=True,
+        metadata={
+            "description": "Timestamp in ISO 8601 format of when the log fragment was created"
+        },
+    )
+    phase = fields.String(
+        required=True,
+        validate=OneOf(TestPhases),
+        metadata={
+            "description": "Test phase name Test phase name (setup, provision, firmware_update, test, allocate, reserve, cleanup)"
+        },
+    )
+    log_data = fields.String(
+        required=True,
+        metadata={"description": "The log content for this fragment"},
+    )
 
 
 class LogGetItem(Schema):
     """Schema for GET of logs for a single phase."""
 
-    last_fragment_number = fields.Integer(required=True)
-    log_data = fields.String(required=True)
+    last_fragment_number = fields.Integer(
+        required=True,
+        metadata={"description": "The highest fragment number for this phase"},
+    )
+    log_data = fields.String(
+        required=True,
+        metadata={
+            "description": "Combined log text from all matching fragments for this phase"
+        },
+    )
 
 
 class LogGet(Schema):
@@ -512,10 +548,23 @@ class LogQueryParams(Schema):
     """Schema for Log GET Query parameters."""
 
     start_fragment = fields.Integer(
-        required=False, validate=validators.Range(min=0)
+        required=False,
+        validate=validators.Range(min=0),
+        metadata={
+            "description": "Starting fragment number to query from, defaults to 0"
+        },
     )
-    start_timestamp = fields.DateTime(required=False)
-    phase = fields.String(required=False, validate=OneOf(TestPhases))
+    start_timestamp = fields.DateTime(
+        required=False,
+        metadata={
+            "description": "Starting timestamp to query from in ISO 8601 format"
+        },
+    )
+    phase = fields.String(
+        required=False,
+        validate=OneOf(TestPhases),
+        metadata={"description": "Test phase name to filter logs"},
+    )
 
 
 job_empty = {

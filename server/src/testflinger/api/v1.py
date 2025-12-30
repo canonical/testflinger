@@ -454,11 +454,25 @@ def search_jobs(query_data):
 
 
 @v1.post("/result/<job_id>/artifact")
+@v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
+@v1.input(
+    {},
+    location="files",
+    content_type="multipart/form-data",
+)
+@v1.output(
+    {},
+    status_code=200,
+    description="(OK) Artifact bundle successfully uploaded",
+)
+@v1.doc(
+    responses={
+        400: {"description": "(Bad Request) Invalid job_id specified"},
+    }
+)
 def artifacts_post(job_id):
-    """Post artifact bundle for a specified job_id.
-
-    :param job_id:
-        UUID as a string for the job
+    """
+    Upload a file artifact for the specified job_id
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
@@ -470,14 +484,21 @@ def artifacts_post(job_id):
 
 
 @v1.get("/result/<job_id>/artifact")
+@v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
+@v1.output(
+    {},
+    status_code=200,
+    content_type="application/gzip",
+    description="(OK) `send_file` stream of the artifact JSON data previously submitted to the specified job_id",
+)
+@v1.doc(
+    responses={
+        400: {"description": "(Bad Request) Invalid job_id specified"},
+        204: {"description": "(No Content) No artifact found for this job"},
+    }
+)
 def artifacts_get(job_id):
-    """Return artifact bundle for a specified job_id.
-
-    :param job_id:
-        UUID as a string for the job
-    :return:
-        send_file stream of artifact tarball to download
-    """
+    """Download previously submitted artifact for the specified job_id"""
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     try:
@@ -503,14 +524,64 @@ class LogTypeConverter(BaseConverter):
 
 
 @v1.get("/result/<job_id>/log/<log_type:log_type>")
-@v1.output(schemas.LogGet)
+@v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
+@v1.input(
+    schema=LogType,
+    location="path",
+    arg_name="log_type",
+    examples={
+        "Get all output logs for a job": {"log_type": "output"},
+    },
+)
+@v1.input(
+    schemas.LogQueryParams,
+    location="query",
+    examples={
+        "Get only setup phase output logs": {"phase": "setup"},
+        "Get logs from fragment 5 onwards": {"start_fragment": 5},
+        "Get logs after a specific timestamp": {
+            "start_timestamp": "2025-10-15T10:30:00Z"
+        },
+    },
+)
+@v1.output(
+    schemas.LogGet,
+    status_code=200,
+    description="(OK) JSON object with logs organized by phase",
+    example={
+        "output": {
+            "setup": {
+                "last_fragment_number": 5,
+                "log_data": "Starting setup...\nSetup complete\n",
+            },
+            "provision": {
+                "last_fragment_number": 12,
+                "log_data": "Provisioning device...\nDevice ready\n",
+            },
+        }
+    },
+)
+@v1.doc(
+    responses={
+        204: {
+            "description": "(No Content) No logs found for this job_id and log_type"
+        },
+        400: {
+            "description": "(Bad Request) Invalid job_id, log_type or query parameter specified"
+        },
+    }
+)
 def log_get(job_id: str, log_type: LogType):
-    """Get logs for a specified job_id.
+    """
+    Retrieve logs for the specified job_id and log type
 
-    :param job_id: UUID as a string for the job
-    :param log_type: LogType enum value for the type of log requested
-    :raises HTTPError: If the job_id is not a valid UUID or if invalid query
-    :return: Dictionary with log data
+    This endpoint supports querying logs with optional filtering by phase, fragment number, or timestamp. Logs are persistent and can be retrieved multiple times.
+
+    Query Parameters (all optional):
+
+    - `phase` (string): Filter logs to a specific test phase
+    - `start_fragment` (integer): Return only fragments from this number onwards
+    - `start_timestamp` (string): Return only logs created after this ISO 8601 timestamp
     """
     args = request.args
     if not check_valid_uuid(job_id):
@@ -546,14 +617,37 @@ def log_get(job_id: str, log_type: LogType):
 
 
 @v1.post("/result/<job_id>/log/<log_type:log_type>")
-@v1.input(schemas.LogPost, location="json")
+@v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
+@v1.input(
+    schema=LogType,
+    location="path",
+    arg_name="log_type",
+)
+@v1.input(
+    schemas.LogPost,
+    location="json",
+    example={
+        "fragment_number": 0,
+        "timestamp": "2025-10-15T10:00:00+00:00",
+        "phase": "setup",
+        "log_data": "Starting setup phase...",
+    },
+)
+@v1.output(
+    None, status_code=200, description="(OK) Log fragment posted successfully"
+)
+@v1.doc(
+    responses={
+        400: {
+            "description": "(Bad Request) Invalid job_id or log_type specified"
+        }
+    }
+)
 def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
-    """Post logs for a specified job ID.
+    """
+    Post a log fragment for the specified job_id and log type
 
-    :param job_id: UUID as a string for the job
-    :param log_type: LogType enum value for the type of log being posted
-    :raises HTTPError: If the job_id is not a valid UUID
-    :param json_data: Dictionary with log data
+    This is the new logging endpoint that agents use to stream log data in fragments. Each fragment includes metadata for tracking and querying.
     """
     if not check_valid_uuid(job_id):
         abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
@@ -571,12 +665,33 @@ def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
 
 
 @v1.post("/result/<job_id>")
-@v1.input(schemas.ResultSchema, location="json")
+@v1.input(schemas.JobId, location="path", arg_name="job_id")
+@v1.input(
+    schemas.ResultSchema,
+    location="json",
+    example={
+        "status": {"setup": 0, "provision": 0, "test": 0},
+        "device_info": {},
+    },
+)
+@v1.output(
+    None,
+    status_code=200,
+    description="(OK) Job outcome data posted successfully",
+)
+@v1.doc(
+    responses={
+        400: {"description": "(Bad Request) Invalid job_id specified"},
+        413: {
+            "description": "(Request Entity Too Large) Payload exceeds 16MB BSON size limit"
+        },
+    }
+)
 def result_post(job_id: str, json_data: dict) -> str:
-    """Post a result for a specified job_id.
+    """Post job outcome data for the specified job_id.
 
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: If the job_id is not a valid UUID
+    Submit test results including exit codes for each phase, device information,
+    and job state. The payload must not exceed the 16MB BSON size limit.
     """
     if not check_valid_uuid(job_id):
         abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
@@ -592,12 +707,31 @@ def result_post(job_id: str, json_data: dict) -> str:
 
 
 @v1.get("/result/<job_id>")
-@v1.output(schemas.ResultGet)
+@v1.input(schemas.JobId, location="path", arg_name="job_id")
+@v1.output(
+    schemas.ResultGet,
+    status_code=200,
+    description="(OK) JSON data with flattened structure",
+)
+@v1.doc(
+    responses={
+        400: {"description": "(Bad Request) Invalid job_id specified"},
+        204: {"description": "(No Content) No results found for this job_id"},
+    }
+)
 def result_get(job_id: str):
-    """Return results for a specified job_id.
+    """Return previously submitted job outcome data for the specified job_id.
 
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: If the job_id is not a valid UUID
+    This endpoint reconstructs results from the new logging system to maintain backward compatibility. It combines phase status information with logs to provide a complete view of job results.
+
+    Returns:
+
+    JSON data with flattened structure including:
+    - `{phase}_status`: Exit code for each phase
+    - `{phase}_output`: Standard output logs for each phase (if available)
+    - `{phase}_serial`: Serial console logs for each phase (if available)
+    - Additional metadata fields (device_info, job_state, etc.)
+
     """
     if not check_valid_uuid(job_id):
         abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
