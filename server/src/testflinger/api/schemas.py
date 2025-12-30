@@ -49,16 +49,37 @@ class ProvisionLogsIn(Schema):
     detail = fields.String(required=False)
 
 
+class AgentName(Schema):
+    """Agent name schema."""
+
+    agent_name = fields.String(required=True)
+
+
 class AgentIn(Schema):
     """Agent data input schema."""
 
     identifier = fields.String(required=False)
-    job_id = fields.String(required=False)
-    location = fields.String(required=False)
-    log = fields.List(fields.String(), required=False)
+    job_id = fields.String(
+        required=False,
+        metadata={"description": "Job ID the device is running, if any"},
+    )
+    location = fields.String(
+        required=False, metadata={"description": "Location of the device"}
+    )
+    log = fields.List(
+        fields.String(),
+        required=False,
+        metadata={"description": "Push and keep only the last 100 lines"},
+    )
     provision_type = fields.String(required=False)
-    queues = fields.List(fields.String(), required=False)
-    state = fields.String(required=False)
+    queues = fields.List(
+        fields.String(),
+        required=False,
+        metadata={"description": "Queues the device is listening on"},
+    )
+    state = fields.String(
+        required=False, metadata={"description": "State the device is in"}
+    )
     comment = fields.String(required=False)
 
 
@@ -90,6 +111,12 @@ class Attachment(Schema):
 
     agent = fields.String(required=True)
     device = fields.String(required=False)
+
+
+class FileUpload(Schema):
+    """Schema for file upload requests."""
+
+    file = fields.File(required=True)
 
 
 class CM3ProvisionData(Schema):
@@ -475,6 +502,22 @@ class StatusUpdate(Schema):
     events = fields.List(fields.Nested(JobEvent), required=False)
 
 
+class QueueName(Schema):
+    """Queue name schema."""
+
+    queue = fields.String(required=True)
+
+
+class QueueIn(Schema):
+    """Queue input schema."""
+
+    data = fields.Dict(
+        keys=fields.Nested(QueueName),
+        values=fields.String(metadata={"description": "Queue description"}),
+        required=True,
+    )
+
+
 class RestrictedQueueIn(Schema):
     """Restricted queue input schema."""
 
@@ -486,6 +529,16 @@ class RestrictedQueueOut(Schema):
 
     queue = fields.String(required=True)
     owners = fields.List(fields.String(), required=True)
+
+
+class LogTypeParam(Schema):
+    """Schema for Log type parameter."""
+
+    log_type = fields.String(
+        required=True,
+        validate=OneOf(["output", "serial"]),
+        metadata={"description": "Type of log to retrieve (output or serial)"},
+    )
 
 
 class LogPost(Schema):
@@ -617,6 +670,22 @@ images_out = {
         },
     },
 }
+
+
+class ImagePostIn(Schema):
+    """Agent image input schema."""
+
+    data = fields.Dict(
+        keys=fields.String(metadata={"description": "Queue name"}),
+        values=fields.Dict(
+            keys=fields.String(metadata={"description": "Image name"}),
+            values=fields.String(
+                metadata={"description": "Image provision data"}
+            ),
+            metadata={"description": "Image data for the queue"},
+        ),
+        required=True,
+    )
 
 
 class ClientPermissionsIn(Schema):

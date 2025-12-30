@@ -319,12 +319,6 @@ def job_get_id(job_id):
 
 @v1.get("/job/<job_id>/attachments")
 @v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
-@v1.output(
-    {},
-    status_code=200,
-    content_type="application/gzip",
-    description="(OK) `send_file` stream of the attachment tarball to download for the specified job",
-)
 @v1.doc(
     responses={
         400: {"description": "(Bad Request) Invalid job_id specified"},
@@ -332,7 +326,10 @@ def job_get_id(job_id):
     }
 )
 def attachment_get(job_id):
-    """Return the attachments bundle for a specified job_id."""
+    """Download the attachments bundle for a specified job_id.
+
+    Returns a gzip-compressed tarball containing all files that were uploaded as attachments.
+    """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     try:
@@ -345,14 +342,8 @@ def attachment_get(job_id):
 @v1.post("/job/<job_id>/attachments")
 @v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
 @v1.input(
-    {},
+    schema=schemas.FileUpload,
     location="files",
-    content_type="multipart/form-data",
-)
-@v1.output(
-    {},
-    status_code=200,
-    description="(OK) Attachments successfully uploaded",
 )
 @v1.doc(
     responses={
@@ -365,8 +356,8 @@ def attachment_get(job_id):
 def attachments_post(job_id):
     """Post attachment bundle for a specified job_id.
 
-    :param job_id:
-        UUID as a string for the job
+    Upload a gzip-compressed tarball containing files to be used as attachments for the job.
+    The job must be in a state where it's awaiting attachments.
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
@@ -456,14 +447,8 @@ def search_jobs(query_data):
 @v1.post("/result/<job_id>/artifact")
 @v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
 @v1.input(
-    {},
+    schema=schemas.FileUpload,
     location="files",
-    content_type="multipart/form-data",
-)
-@v1.output(
-    {},
-    status_code=200,
-    description="(OK) Artifact bundle successfully uploaded",
 )
 @v1.doc(
     responses={
@@ -471,8 +456,9 @@ def search_jobs(query_data):
     }
 )
 def artifacts_post(job_id):
-    """
-    Upload a file artifact for the specified job_id
+    """Upload a file artifact for the specified job_id.
+
+    Upload a gzip-compressed tarball containing test artifacts or results files.
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
@@ -485,12 +471,6 @@ def artifacts_post(job_id):
 
 @v1.get("/result/<job_id>/artifact")
 @v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
-@v1.output(
-    {},
-    status_code=200,
-    content_type="application/gzip",
-    description="(OK) `send_file` stream of the artifact JSON data previously submitted to the specified job_id",
-)
 @v1.doc(
     responses={
         400: {"description": "(Bad Request) Invalid job_id specified"},
@@ -498,7 +478,10 @@ def artifacts_post(job_id):
     }
 )
 def artifacts_get(job_id):
-    """Download previously submitted artifact for the specified job_id"""
+    """Download previously submitted artifact for the specified job_id.
+
+    Returns a gzip-compressed tarball containing test artifacts or results files.
+    """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     try:
@@ -526,7 +509,7 @@ class LogTypeConverter(BaseConverter):
 @v1.get("/result/<job_id>/log/<log_type:log_type>")
 @v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
 @v1.input(
-    schema=LogType,
+    schema=schemas.LogTypeParam,
     location="path",
     arg_name="log_type",
     examples={
@@ -572,16 +555,10 @@ class LogTypeConverter(BaseConverter):
     }
 )
 def log_get(job_id: str, log_type: LogType):
-    """
-    Retrieve logs for the specified job_id and log type
+    """Retrieve logs for the specified job_id and log type.
 
-    This endpoint supports querying logs with optional filtering by phase, fragment number, or timestamp. Logs are persistent and can be retrieved multiple times.
-
-    Query Parameters (all optional):
-
-    - `phase` (string): Filter logs to a specific test phase
-    - `start_fragment` (integer): Return only fragments from this number onwards
-    - `start_timestamp` (string): Return only logs created after this ISO 8601 timestamp
+    This endpoint supports querying logs with optional filtering by phase, fragment number,
+    or timestamp. Logs are persistent and can be retrieved multiple times.
     """
     args = request.args
     if not check_valid_uuid(job_id):
@@ -619,7 +596,7 @@ def log_get(job_id: str, log_type: LogType):
 @v1.post("/result/<job_id>/log/<log_type:log_type>")
 @v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
 @v1.input(
-    schema=LogType,
+    schema=schemas.LogTypeParam,
     location="path",
     arg_name="log_type",
 )
@@ -752,13 +729,19 @@ def result_get(job_id: str):
 
 
 @v1.post("/job/<job_id>/action")
+@v1.input(schemas.JobId, location="path", arg_name="job_id")
 @v1.input(schemas.ActionIn, location="json", example={"action": "cancel"})
+@v1.output(
+    None, status_code=200, description="(OK) Action executed successfully"
+)
 @v1.doc(
     responses={
-        400: {"description": "The job is already completed or cancelled"},
-        404: {"description": "The job isn't found"},
+        400: {
+            "description": " (Bad Request) The job is already completed or cancelled"
+        },
+        404: {"description": "(Not Found) The job isn't found"},
         422: {
-            "description": "The action or the argument to it could not be processed"
+            "description": "(Unprocessable Entity) The action or the argument to it could not be processed"
         },
     }
 )
@@ -800,6 +783,11 @@ def queues_get():
 
 
 @v1.post("/agents/queues")
+@v1.input(
+    schema=schemas.QueueIn,
+    location="json",
+    example={"myqueue": "queue 1", "myqueue2": "queue 2"},
+)
 def queues_post():
     """Tell testflinger the queue names that are being serviced.
 
@@ -818,9 +806,14 @@ def queues_post():
 
 
 @v1.get("/agents/images/<queue>")
+@v1.input(schema=schemas.QueueName, location="path", arg_name="queue")
 @v1.doc(responses=schemas.images_out)
 def images_get(queue):
-    """Get a dict of known images for a given queue."""
+    """Get a dict of all known image names and the associated provisioning data for a given queue.
+
+    Returns a dictionary mapping image names to their provisioning URLs or data.
+    Returns an empty dict if the queue doesn't exist or has no images.
+    """
     queue_data = database.mongo.db.queues.find_one(
         {"name": queue}, {"_id": False, "images": True}
     )
@@ -831,19 +824,21 @@ def images_get(queue):
 
 
 @v1.post("/agents/images")
+@v1.input(
+    schema=schemas.ImagePostIn,
+    location="json",
+    example={
+        "myqueue": {
+            "core22": "http://cdimage.ubuntu.com/.../core-22.tar.gz",
+            "jammy": "http://cdimage.ubuntu.com/.../ubuntu-22.04.tar.gz",
+        },
+        "other_queue": {"image1": "data1", "image2": "data2"},
+    },
+)
 def images_post():
     """Tell testflinger about known images for a specified queue
-    images will be stored in a dict of key/value pairs as part of the queues
-    collection. That dict will contain image_name:provision_data mappings, ex:
-    {
-        "some_queue": {
-            "core22": "http://cdimage.ubuntu.com/.../core-22.tar.gz",
-            "jammy": "http://cdimage.ubuntu.com/.../ubuntu-22.04.tar.gz"
-        },
-        "other_queue": {
-            ...
-        }
-    }.
+
+    Images will be stored in a dict of key/value pairs as part of the queues collection.
     """
     image_dict = request.get_json()
     # We need to delete and recreate the images in case some were removed
@@ -857,9 +852,17 @@ def images_post():
 
 
 @v1.get("/agents/data")
-@v1.output(schemas.AgentOut(many=True))
+@v1.output(
+    schemas.AgentOut(many=True),
+    status_code=200,
+    description="JSON data for all known agents, useful for external systems that need to gather this information",
+)
 def agents_get_all():
-    """Get all agent data."""
+    """Get all agent data.
+
+    Returns JSON data for all known agents, including their state, queues, location, and
+    information about restricted queue ownership. Useful for external systems monitoring agents.
+    """
     agents = database.get_agents()
     restricted_queues = database.get_restricted_queues()
     restricted_queues_owners = database.get_restricted_queues_owners()
@@ -876,14 +879,22 @@ def agents_get_all():
 
 
 @v1.get("/agents/data/<agent_name>")
-@v1.output(schemas.AgentOut)
+@v1.input(schemas.AgentName, location="path", arg_name="agent_name")
+@v1.output(
+    schemas.AgentOut,
+    status_code=200,
+    description="JSON data for the specified agent, useful for getting information from a single agent. ",
+)
+@v1.doc(
+    responses={
+        404: {"description": "(Not Found) The specified agent was not found"}
+    }
+)
 def agents_get_one(agent_name):
     """Get the information from a specified agent.
 
-    :param agent_name:
-        String with the name of the agent to retrieve information from.
-    :return:
-        JSON data with the specified agent information.
+    Returns JSON data for the specified agent, including state, queues, location, and
+    restricted queue ownership information.
     """
     agent_data = database.get_agent_info(agent_name)
 
@@ -930,9 +941,23 @@ def agents_post(agent_name, json_data):
 
 
 @v1.post("/agents/provision_logs/<agent_name>")
-@v1.input(schemas.ProvisionLogsIn, location="json")
+@v1.input(schemas.AgentName, location="path", arg_name="agent_name")
+@v1.input(
+    schemas.ProvisionLogsIn,
+    location="json",
+    example={
+        "job_id": "00000000-0000-0000-0000-000000000000",
+        "exit_code": 1,
+        "detail": "foo",
+    },
+)
 def agents_provision_logs_post(agent_name, json_data):
-    """Post provision logs for the agent to the server."""
+    """Post provision logs for the agent to the server.
+
+    Submit provision log entries including job_id, exit_code, and detail information.
+    The server maintains the last 100 provision log entries per agent and tracks provision
+    success/failure streaks.
+    """
     agent_record = {}
 
     # timestamp this agent record and provision log entry
@@ -971,25 +996,43 @@ def agents_provision_logs_post(agent_name, json_data):
 
 
 @v1.post("/job/<job_id>/events")
-@v1.input(schemas.StatusUpdate, location="json")
-def agents_status_post(job_id, json_data):
-    """Post status updates from the agent to the server to be forwarded
-    to TestObserver.
-
-    The json sent to this endpoint may contain data such as the following:
-    {
-        "agent_id": "<string>",
-        "job_queue": "<string>",
-        "job_status_webhook": "<URL as string>",
+@v1.input(schemas.JobId, location="path", arg_name="job_id")
+@v1.input(
+    schemas.StatusUpdate,
+    location="json",
+    example={
+        "agent_id": "agent-00",
+        "job_queue": "myqueue",
+        "job_status_webhook": "http://mywebhook",
         "events": [
-        {
-            "event_name": "<string enum of events>",
-            "timestamp": "<datetime>",
-            "detail": "<string>"
+            {
+                "event_name": "started_provisioning",
+                "timestamp": "2024-05-03T19:11:33.541130+00:00",
+                "detail": "my_detailed_message",
+            }
+        ],
+    },
+)
+@v1.output(
+    None,
+    status_code=200,
+    description="(OK) Text response from the webhook if the server was successfully able to post.",
+)
+@v1.doc(
+    responses={
+        400: {
+            "description": "(Bad Request) Invalid job_id or JSON data specified"
         },
-        ...
-        ]
+        504: {
+            "description": "(Gateway Timeout) The webhook did not respond in time"
+        },
     }
+)
+def agents_status_post(job_id, json_data):
+    """Post job status updates from the agent to the server and posts them to the specified webhook URL.
+
+    The `job_status_webhook` parameter is required for this endpoint. Other
+    parameters included here will be forwarded to the webhook.
 
     """
     _ = job_id
