@@ -1855,6 +1855,7 @@ def secrets_delete(client_id, path):
 
 
 @v1.get("/result/<job_id>/output")
+@v1.doc(deprecated=True)
 def legacy_output_get(job_id: str) -> str:
     """Legacy endpoint to get job output for a specified job_id.
 
@@ -1876,6 +1877,7 @@ def legacy_output_get(job_id: str) -> str:
 
 
 @v1.post("/result/<job_id>/output")
+@v1.doc(deprecated=True)
 def legacy_output_post(job_id: str) -> str:
     """Legacy endpoint to post output for a specified job_id.
 
@@ -1898,6 +1900,7 @@ def legacy_output_post(job_id: str) -> str:
 
 
 @v1.get("/result/<job_id>/serial_output")
+@v1.doc(deprecated=True)
 def legacy_serial_output_get(job_id: str) -> str:
     """Legacy endpoint to get latest serial output for a specified job ID.
 
@@ -1919,6 +1922,7 @@ def legacy_serial_output_get(job_id: str) -> str:
 
 
 @v1.post("/result/<job_id>/serial_output")
+@v1.doc(deprecated=True)
 def legacy_serial_output_post(job_id: str) -> str:
     """Legacy endpoint to post serial output for a specified job ID.
 
