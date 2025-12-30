@@ -502,22 +502,6 @@ class StatusUpdate(Schema):
     events = fields.List(fields.Nested(JobEvent), required=False)
 
 
-class QueueName(Schema):
-    """Queue name schema."""
-
-    queue = fields.String(required=True)
-
-
-class QueueIn(Schema):
-    """Queue input schema."""
-
-    data = fields.Dict(
-        keys=fields.Nested(QueueName),
-        values=fields.String(metadata={"description": "Queue description"}),
-        required=True,
-    )
-
-
 class RestrictedQueueIn(Schema):
     """Restricted queue input schema."""
 
@@ -650,6 +634,58 @@ queues_out = {
         },
     },
 }
+
+
+class QueueName(Schema):
+    """Queue name schema."""
+
+    queue = fields.String(required=True)
+
+
+class QueueDict(Schema):
+    """Queue input schema."""
+
+    data = fields.Dict(
+        keys=fields.Nested(QueueName),
+        values=fields.String(metadata={"description": "Queue description"}),
+        required=True,
+    )
+
+
+class QueueList(Schema):
+    """Queue list schema."""
+
+    queue = fields.List(
+        fields.Nested(QueueName),
+        required=False,
+        metadata={"description": "List of queue names"},
+    )
+
+
+class QueueWaitTimePercentilesOut(Schema):
+    """Queue wait time percentiles output schema."""
+
+    data = fields.Dict(
+        keys=fields.Nested(QueueName),
+        values=fields.Dict(
+            keys=fields.String(validate=OneOf(["5", "10", "50", "90", "95"])),
+            values=fields.Float(),
+            metadata={
+                "description": "Percentile statistics for job wait times in seconds"
+            },
+        ),
+        required=True,
+    )
+
+
+class JobInQueueOut(Schema):
+    """Job in queue output schema."""
+
+    job_id = fields.String(required=True)
+    created_at = fields.String(required=True)
+    job_state = fields.String(required=True)
+    job_queue = fields.String(required=True)
+
 
 images_out = {
     200: {

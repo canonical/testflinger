@@ -784,7 +784,7 @@ def queues_get():
 
 @v1.post("/agents/queues")
 @v1.input(
-    schema=schemas.QueueIn,
+    schema=schemas.QueueDict,
     location="json",
     example={"myqueue": "queue 1", "myqueue2": "queue 2"},
 )
@@ -1072,8 +1072,20 @@ def check_valid_uuid(job_id):
 
 
 @v1.get("/job/<job_id>/position")
+@v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
+@v1.output(
+    str,
+    status_code=200,
+    description="(OK) Zero-based position indicating how many jobs are ahead of this job in the queue.",
+)
+@v1.doc(
+    responses={
+        400: {"description": "(Bad Request) Invalid job_id specified"},
+        410: {"description": "(Gone) Job not found or already started"},
+    }
+)
 def job_position_get(job_id):
-    """Return the position of the specified jobid in the queue."""
+    """Return the position of the specified job_id in the queue."""
     job_data, status = job_get_id(job_id)
     if status == 204:
         return "Job not found or already started\n", 410
@@ -1118,8 +1130,22 @@ def cancel_job(job_id):
 
 
 @v1.get("/queues/wait_times")
+@v1.input(schema=schemas.QueueList, location="query", arg_name="queue")
+@v1.output(
+    schemas.QueueWaitTimePercentilesOut,
+    status_code=200,
+    description="(OK) JSON mapping of queue names to wait time metrics percentiles",
+    example={
+        "myqueue": {5: 10.5, 10: 15.2, 50: 30.0, 90: 60.8, 95: 75.3},
+        "otherqueue": {5: 8.0, 10: 12.5, 50: 25.0, 90: 50.0, 95: 65.0},
+    },
+)
 def queue_wait_time_percentiles_get():
-    """Get wait time metrics - optionally take a list of queues."""
+    """Get wait time metrics for queues, optionally take a list of queues.
+
+    Returns percentile statistics (p5, p10, p50, p90, p95) for job wait times in the specified queues.
+    If no queues are specified, returns metrics for all queues.
+    """
     queues = request.args.getlist("queue")
     wait_times = database.get_queue_wait_times(queues)
     queue_percentile_data = {}
@@ -1131,7 +1157,20 @@ def queue_wait_time_percentiles_get():
 
 
 @v1.get("/queues/<queue_name>/agents")
-@v1.output(schemas.AgentOut(many=True))
+@v1.input(schemas.QueueName, location="path", arg_name="queue_name")
+@v1.output(
+    schemas.AgentOut(many=True),
+    status_code=200,
+    description="JSON data with an array of agent objects listening to the specified queue, including the agent state, location, and current job information.",
+)
+@v1.doc(
+    responses={
+        204: {
+            "description": "(No Content) No agents found listening to the specified queue"
+        },
+        404: {"description": "(Not Found) The specified queue does not exist"},
+    }
+)
 def get_agents_on_queue(queue_name):
     """Get the list of all data for agents listening to a specified queue."""
     if not database.queue_exists(queue_name):
@@ -1147,13 +1186,24 @@ def get_agents_on_queue(queue_name):
 
 
 @v1.get("/queues/<queue_name>/jobs")
+@v1.input(schemas.QueueName, location="path", arg_name="queue_name")
+@v1.output(
+    schemas.JobInQueueOut(many=True),
+    status_code=200,
+    description="JSON data with an array of job objects including job_id, created_at timestamp, job_state, and job_queue for all jobs in the specified queue.",
+)
+@v1.doc(
+    responses={
+        204: {
+            "description": "(No Content) No jobs found in the specified queue"
+        },
+    }
+)
 def get_jobs_by_queue(queue_name):
-    """Get the jobs in a specified queue along with its state.
+    """Get the jobs in a specified queue along with their state.
 
-    :param queue_name
-        String with the queue name where to perform the query.
-    :return:
-        JSON data with the jobs allocated to the specified queue.
+    Returns JSON data with an array of job objects including job_id, created_at timestamp,
+    job_state, and job_queue for all jobs in the specified queue.
     """
     jobs = database.get_jobs_on_queue(queue_name)
 
