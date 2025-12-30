@@ -76,10 +76,36 @@ def get_version():
 
 @v1.post("/job")
 @authenticate
-@v1.input(schemas.Job, location="json")
-@v1.output(schemas.JobId)
+@v1.input(
+    schemas.Job,
+    location="json",
+    example={
+        "job_queue": "myqueue",
+        "name": "Example Test Job",
+        "tags": ["test", "sample"],
+        "provision_data": {"url": "<url>"},
+        "test_data": {"test_cmds": "lsb_release -a"},
+    },
+)
+@v1.output(
+    schemas.JobId,
+    status_code=200,
+    description="(OK) Returns the job_id (UUID) of the newly created job",
+    example={"job_id": "550e8400-1234-1234-1234-446655440000"},
+)
+@v1.doc(
+    responses={
+        422: {
+            "description": "(Unprocessable Content) The submitted job contains references to secrets that are inaccessible"
+        }
+    }
+)
 def job_post(json_data: dict):
-    """Add a job to the queue."""
+    """
+    Create a test job request and place it on the specified queue.
+
+    Most parameters passed in the data section of this API will be specific to the type of agent receiving them. The `job_queue` parameter is used to designate the queue used, but all others will be passed along to the agent.
+    """
     try:
         job_queue = json_data.get("job_queue")
     except (AttributeError, BadRequest):
@@ -191,10 +217,35 @@ def job_builder(data: dict):
 
 
 @v1.get("/job")
-@v1.output(schemas.Job)
-@v1.doc(responses=schemas.job_empty)
+@v1.input(
+    schema=schemas.JobGetQuery,
+    location="query",
+    arg_name="queue",
+    example=["foo", "bar"],
+)
+@v1.output(
+    schemas.Job,
+    status_code=200,
+    description="(OK) JSON job data that was submitted by the requester",
+)
+@v1.doc(
+    responses={
+        204: {
+            "description": "(No Content) No jobs available in the specified queues"
+        },
+        400: {
+            "description": "(Bad request) No queue is specified in the request"
+        },
+    }
+)
 def job_get():
-    """Request a job to run from supported queues."""
+    """Get a test job from the specified queue(s).
+
+    When an agent wants to request a job for processing, it can make this request along with a list of one or more queues that it is configured to process. The server will only return one job.
+
+    Note:
+        Any secrets that are referenced in the job are "resolved" when the job is retrieved by an agent through this endpoint. Any secrets that are inaccessible at the time of retrieval will be resolved to the empty string.
+    """
     queue_list = request.args.getlist("queue")
     if not queue_list:
         return "No queue(s) specified in request", HTTPStatus.BAD_REQUEST
@@ -242,16 +293,18 @@ def retrieve_secrets(data: dict) -> dict | None:
 
 
 @v1.get("/job/<job_id>")
-@v1.output(schemas.Job)
+@v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
+@v1.output(
+    schemas.Job, status_code=200, description="(OK) JSON data for the job"
+)
+@v1.doc(
+    responses={
+        400: {"description": "(Bad Request) Invalid job_id specified"},
+        204: {"description": "(No Content) Job not found"},
+    }
+)
 def job_get_id(job_id):
-    """Request the json job definition for a specified job, even if it has
-       already run.
-
-    :param job_id:
-        UUID as a string for the job
-    :return:
-        JSON data for the job or error string and http error
-    """
+    """Request the json job definition for a specified job, even if it has already run."""
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
     response = database.mongo.db.jobs.find_one(
@@ -265,14 +318,21 @@ def job_get_id(job_id):
 
 
 @v1.get("/job/<job_id>/attachments")
+@v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
+@v1.output(
+    {},
+    status_code=200,
+    content_type="application/gzip",
+    description="(OK) `send_file` stream of the attachment tarball to download for the specified job",
+)
+@v1.doc(
+    responses={
+        400: {"description": "(Bad Request) Invalid job_id specified"},
+        204: {"description": "(No Content) No attachments found for this job"},
+    }
+)
 def attachment_get(job_id):
-    """Return the attachments bundle for a specified job_id.
-
-    :param job_id:
-        UUID as a string for the job
-    :return:
-        send_file stream of attachment tarball to download
-    """
+    """Return the attachments bundle for a specified job_id."""
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     try:
@@ -283,6 +343,25 @@ def attachment_get(job_id):
 
 
 @v1.post("/job/<job_id>/attachments")
+@v1.input(schema=schemas.JobId, location="path", arg_name="job_id")
+@v1.input(
+    {},
+    location="files",
+    content_type="multipart/form-data",
+)
+@v1.output(
+    {},
+    status_code=200,
+    description="(OK) Attachments successfully uploaded",
+)
+@v1.doc(
+    responses={
+        400: {"description": "(Bad Request) Invalid job_id specified"},
+        422: {
+            "description": "(Unprocessable Entity) Job not awaiting attachments or the job_id is not valid"
+        },
+    }
+)
 def attachments_post(job_id):
     """Post attachment bundle for a specified job_id.
 
@@ -313,10 +392,33 @@ def attachments_post(job_id):
 
 
 @v1.get("/job/search")
-@v1.input(schemas.JobSearchRequest, location="query")
-@v1.output(schemas.JobSearchResponse)
+@v1.input(
+    schemas.JobSearchRequest,
+    location="query",
+    example={"tags": ["foo", "bar"], "match": "all"},
+)
+@v1.output(
+    schemas.JobSearchResponse,
+    status_code=200,
+    example={
+        "jobs": [
+            {
+                "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                "job_queue": "myqueue",
+            }
+        ]
+    },
+)
 def search_jobs(query_data):
-    """Search for jobs by tags."""
+    """Search for jobs by tag(s) and state(s).
+
+    Parameters:
+
+    - `tags` (array): List of string tags to search for
+    - `match` (string): Match mode for
+    - `tags` (string, "all" or "any", default: "any")
+    - `state` (array): List of job states to include (or "active" to search all states other than cancelled and completed)
+    """
     tags = query_data.get("tags")
     match = request.args.get("match", "any")
     states = request.args.getlist("state")
@@ -516,12 +618,21 @@ def result_get(job_id: str):
 
 
 @v1.post("/job/<job_id>/action")
-@v1.input(schemas.ActionIn, location="json")
+@v1.input(schemas.ActionIn, location="json", example={"action": "cancel"})
+@v1.doc(
+    responses={
+        400: {"description": "The job is already completed or cancelled"},
+        404: {"description": "The job isn't found"},
+        422: {
+            "description": "The action or the argument to it could not be processed"
+        },
+    }
+)
 def action_post(job_id, json_data):
-    """Take action on the job status for a specified job ID.
+    """Execute action for the specified job_id.
 
-    :param job_id:
-        UUID as a string for the job
+    Supported actions:
+    - cancel: Cancel a job that hasn't been completed yet
     """
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400

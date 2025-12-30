@@ -372,6 +372,18 @@ class JobId(Schema):
     job_id = fields.String(required=True)
 
 
+class JobGetQuery(Schema):
+    """SJob GET query schema"""
+
+    queue = fields.List(
+        fields.String(),
+        required=True,
+        metadata={
+            "description": "List of queue name(s) that the agent can process"
+        },
+    )
+
+
 class JobSearchRequest(Schema):
     """Job search request schema."""
 
