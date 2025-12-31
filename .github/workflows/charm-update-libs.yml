@@ -25,7 +25,7 @@ jobs:
           - charm-path: agent/charms/testflinger-agent-host-charm
             git-branch: chore/auto-libs-agent
     name: Check libraries
-    uses: canonical/observability/.github/workflows/charm-update-libs.yaml@615489cd6e9c46bec525afb49cf3e855c52e8530 # v1
+    uses: canonical/observability/.github/workflows/charm-update-libs.yaml@78f655bd7446ee040b26cfe5d2e095b6dfdc3423 # v1
     secrets:
       CHARMHUB_TOKEN: ${{ secrets.CHARMHUB_TOKEN }}
       OBSERVABILITY_NOCTUA_TOKEN: ${{ secrets.OBSERVABILITY_NOCTUA_TOKEN }}
