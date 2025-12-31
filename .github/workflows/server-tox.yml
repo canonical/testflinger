@@ -39,6 +39,8 @@ jobs:
         run: uvx --with tox-uv tox -e format
       - name: Check linting
         run: uvx --with tox-uv tox -e lint
+      - name: Check schemas
+        run: uvx --with tox-uv tox -e check-schema
       - name: Run unit tests
         run: uvx --with tox-uv tox -e unit
       - name: Upload coverage
