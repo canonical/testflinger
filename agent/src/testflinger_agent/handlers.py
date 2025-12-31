@@ -193,7 +193,7 @@ class EndpointLogHandler(LogHandler):
     def write_from_file(self, filename: str, chunk_size: int = 1024):
         """Write logs to endpoint from a file chunking by chunk_size."""
         try:
-            with open(filename, "r") as log:
+            with open(filename, "r", encoding="utf-8", errors="ignore") as log:
                 while True:
                     data = log.read(chunk_size)
                     if not data:
