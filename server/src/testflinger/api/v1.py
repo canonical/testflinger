@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from http import HTTPStatus
 
 import requests
-from apiflask import APIBlueprint, abort
+from apiflask import APIBlueprint, abort, security
 from flask import current_app, g, jsonify, request, send_file
 from marshmallow import ValidationError
 from prometheus_client import Counter
@@ -1230,6 +1230,27 @@ def get_jobs_by_queue(queue_name):
 
 
 @v1.post("/oauth2/token")
+@v1.auth_required(
+    auth=security.HTTPBasicAuth(
+        description="Base64 encoded pair of client_id:client_key"
+    )
+)
+@v1.output(
+    schemas.Oauth2Token,
+    status_code=200,
+    description="(OK) JSON object containing access token, token type, expiration time, and refresh token",
+    example={
+        "access_token": "<JWT Access Token>",
+        "token_type": "Bearer",
+        "expires_in": 30,
+        "refresh_token": "<Refresh Token>",
+    },
+)
+@v1.doc(
+    responses={
+        401: {"description": "(Unauthorized) Invalid client id or client key"},
+    }
+)
 def retrieve_token():
     """
     Issue both access token and refresh token for a client.
@@ -1247,6 +1268,10 @@ def retrieve_token():
             max_reservation_time: <Queue to Max Reservation Time Dict>,
         }
     }
+    Notes:
+    - `expires_in` is the lifetime (in seconds) of the access token.
+    - Refresh tokens default to 30 days; admin may issue non-expiring tokens for trusted integrations.
+
     """
     auth_header = request.authorization
     if auth_header is None:
@@ -1286,6 +1311,28 @@ def retrieve_token():
 
 
 @v1.post("/oauth2/refresh")
+@v1.input(
+    schema=schemas.Oauth2RefreshTokenIn,
+    location="json",
+    example={"refresh_token": "<opaque-refresh-token>"},
+)
+@v1.output(
+    schemas.Oauth2RefreshTokenOut,
+    status_code=200,
+    description="(OK) JSON object containing new access token, token type, and expiration time",
+    example={
+        "access_token": "<new-JWT-Access-Token>",
+        "token_type": "Bearer",
+        "expires_in": 30,
+    },
+)
+@v1.doc(
+    responses={
+        400: {
+            "description": "(Bad Request) Missing, invalid, revoked, or expired refresh token"
+        },
+    }
+)
 def refresh_access_token():
     """Refresh access token using a valid refresh token."""
     data = request.get_json()
@@ -1308,6 +1355,27 @@ def refresh_access_token():
 
 
 @v1.post("/oauth2/revoke")
+@v1.input(
+    schema=schemas.Oauth2RefreshTokenIn,
+    location="json",
+    example={"refresh_token": "<opaque-refresh-token>"},
+)
+@v1.output(
+    str,
+    status_code=200,
+    description="(OK) Text response indicating successful revocation of the refresh token",
+    example={"message": "Refresh token revoked successfully"},
+)
+@v1.doc(
+    responses={
+        400: {
+            "description": "(Bad Request) Missing, invalid, or already revoked refresh token"
+        },
+        401: {
+            "description": "(Unauthorized) Admin privileges required to revoke refresh tokens"
+        },
+    }
+)
 @authenticate
 @require_role(ServerRoles.ADMIN)
 def revoke_refresh_token():

@@ -832,3 +832,29 @@ class ResultSchema(OneOfSchema):
         # So we need to remove it
         result.pop(self.type_field)
         return result
+
+
+class Oauth2Token(Schema):
+    """Token output schema."""
+
+    access_token = fields.String(required=True)
+    token_type = fields.String(required=True)
+    expires_in = fields.Integer(required=True)
+    refresh_token = fields.String(required=True)
+
+
+class Oauth2RefreshTokenIn(Schema):
+    """Refresh token input schema."""
+
+    refresh_token = fields.String(
+        required=True,
+        metadata={"description": "Opaque refresh token"},
+    )
+
+
+class Oauth2RefreshTokenOut(Schema):
+    """Refresh token output schema."""
+
+    access_token = fields.String(required=True)
+    token_type = fields.String(required=True)
+    expires_in = fields.Integer(required=True)
