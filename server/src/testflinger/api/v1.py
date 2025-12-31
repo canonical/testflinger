@@ -1401,6 +1401,20 @@ def revoke_refresh_token():
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.RestrictedQueueOut(many=True))
+@v1.auth_required(
+    auth=security.HTTPTokenAuth(
+        scheme="Bearer",
+        description="Based64-encoded JWT access token with permissions to access restricted queues",
+    )
+)
+@v1.doc(
+    responses={
+        401: {"description": "(Unauthorized) Missing or invalid access token"},
+        403: {
+            "description": "(Forbidden) Insufficient permissions for the authenticated user to access restricted queues"
+        },
+    }
+)
 def get_all_restricted_queues() -> list[dict]:
     """List all agent's restricted queues and its owners."""
     restricted_queues = database.get_restricted_queues()
@@ -1423,6 +1437,24 @@ def get_all_restricted_queues() -> list[dict]:
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.RestrictedQueueOut)
+@v1.input(schemas.QueueName, location="path", arg_name="queue_name")
+@v1.auth_required(
+    auth=security.HTTPTokenAuth(
+        scheme="Bearer",
+        description="Based64-encoded JWT access token with permissions to access restricted queues",
+    )
+)
+@v1.doc(
+    responses={
+        401: {"description": "(Unauthorized) Missing or invalid access token"},
+        403: {
+            "description": "(Forbidden) Insufficient permissions for the authenticated user to access restricted queues"
+        },
+        404: {
+            "description": "(Not Found) The specified restricted queue was not found"
+        },
+    }
+)
 def get_restricted_queue(queue_name: str) -> dict:
     """Get restricted queues for a specific agent."""
     if not database.check_queue_restricted(queue_name):
@@ -1440,11 +1472,37 @@ def get_restricted_queue(queue_name: str) -> dict:
 
 
 @v1.post("/restricted-queues/<queue_name>")
+@v1.input(
+    schemas.RestrictedQueueIn,
+    location="json",
+    example={"client_id": "myclient"},
+)
+@v1.input(schemas.QueueName, location="path", arg_name="queue_name")
+@v1.auth_required(
+    auth=security.HTTPTokenAuth(
+        scheme="Bearer",
+        description="Based64-encoded JWT access token with admin or manager permissions",
+    )
+)
+@v1.doc(
+    responses={
+        400: {
+            "description": "(Bad Request) Missing client_id to set as owner of restricted queue"
+        },
+        401: {"description": "(Unauthorized) Missing or invalid access token"},
+        403: {
+            "description": "(Forbidden) Insufficient permissions for the authenticated user to associate restricted queues"
+        },
+        404: {
+            "description": "(Not Found) The specified restricted queue does not exist or is not associated to an agent"
+        },
+    }
+)
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
-@v1.input(schemas.RestrictedQueueIn, location="json")
 def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
-    """Add an owner to the specific restricted queue."""
+    """Add an owner to the specific restricted queue.
+    If the queue does not exist yet, it will be created automatically."""
     client_id = json_data.get("client_id", "")
 
     # Validate client ID is available in request data
@@ -1470,9 +1528,34 @@ def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
 
 
 @v1.delete("/restricted-queues/<queue_name>")
+@v1.input(
+    schemas.RestrictedQueueIn,
+    location="json",
+    example={"client_id": "myclient"},
+)
+@v1.input(schemas.QueueName, location="path", arg_name="queue_name")
+@v1.auth_required(
+    auth=security.HTTPTokenAuth(
+        scheme="Bearer",
+        description="Based64-encoded JWT access token with admin or manager permissions",
+    )
+)
+@v1.doc(
+    responses={
+        400: {
+            "description": "(Bad Request) Missing client_id to remove as owner of restricted queue"
+        },
+        401: {"description": "(Unauthorized) Missing or invalid access token"},
+        403: {
+            "description": "(Forbidden) Insufficient permissions for the authenticated user to remove restricted queues"
+        },
+        404: {
+            "description": "(Not Found) The specified queue was not found or it is not in the restricted queue list"
+        },
+    }
+)
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
-@v1.input(schemas.RestrictedQueueIn, location="json")
 def delete_restricted_queue(queue_name: str, json_data: dict) -> dict:
     """Delete an owner from the specific restricted queue."""
     if not database.check_queue_restricted(queue_name):
