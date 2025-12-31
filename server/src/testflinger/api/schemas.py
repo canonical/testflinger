@@ -724,6 +724,12 @@ class ImagePostIn(Schema):
     )
 
 
+class ClientId(Schema):
+    """Client ID input schema."""
+
+    client_id = fields.String(required=True)
+
+
 class ClientPermissionsIn(Schema):
     """Client Permissions output schema."""
 
@@ -764,6 +770,12 @@ class SecretIn(Schema):
     """Secret input schema."""
 
     value = fields.String(required=True)
+
+
+class SecretPath(Schema):
+    """Secret path schema."""
+
+    path = fields.String(required=True)
 
 
 class ResultLegacy(Schema):

@@ -1573,16 +1573,54 @@ def delete_restricted_queue(queue_name: str, json_data: dict) -> dict:
 @v1.get("/client-permissions")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
-@v1.output(schemas.ClientPermissionsOut(many=True))
+@v1.output(
+    schemas.ClientPermissionsOut(many=True),
+    description="JSON data with a list all client IDs and its permission excluding the hashed secret stored in database",
+)
+@v1.auth_required(
+    auth=security.HTTPTokenAuth(
+        scheme="Bearer",
+        description="Based64-encoded JWT access token with admin or manager permissions",
+    )
+)
+@v1.doc(
+    responses={
+        401: {"description": "(Unauthorized) Missing or invalid access token"},
+        403: {
+            "description": "(Forbidden) Insufficient permissions for the authenticated user"
+        },
+    }
+)
 def get_all_client_permissions() -> list[dict]:
-    """Retrieve all client permissions from database."""
+    """Retrieve all all client_id and their permissions from database."""
     return database.get_client_permissions()
 
 
 @v1.get("/client-permissions/<client_id>")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
-@v1.output(schemas.ClientPermissionsOut)
+@v1.output(
+    schemas.ClientPermissionsOut,
+    description="JSON data with the permissions of a specified client excluding the hashed secret stored in database",
+)
+@v1.input(schemas.ClientId, location="path", arg_name="client_id")
+@v1.auth_required(
+    auth=security.HTTPTokenAuth(
+        scheme="Bearer",
+        description="Based64-encoded JWT access token with admin or manager permissions",
+    )
+)
+@v1.doc(
+    responses={
+        401: {"description": "(Unauthorized) Missing or invalid access token"},
+        403: {
+            "description": "(Forbidden) Insufficient permissions for the authenticated user"
+        },
+        404: {
+            "description": "(Not Found) The specified client_id was not found"
+        },
+    }
+)
 def get_client_permissions(client_id) -> list[dict]:
     """Retrieve single client-permissions from database."""
     if not database.check_client_exists(client_id):
@@ -1597,7 +1635,41 @@ def get_client_permissions(client_id) -> list[dict]:
 @v1.put("/client-permissions/<client_id>")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
-@v1.input(schemas.ClientPermissionsIn)
+@v1.input(
+    schemas.ClientPermissionsIn,
+    location="json",
+    example={
+        "client_id": "myclient",
+        "client_secret": "my-secret-password",
+        "max_priority": {},
+        "max_reservation_time": {"*": 40000},
+        "role": "contributor",
+    },
+)
+@v1.input(schemas.ClientId, location="path", arg_name="client_id")
+@v1.auth_required(
+    auth=security.HTTPTokenAuth(
+        scheme="Bearer",
+        description="Based64-encoded JWT access token with admin or manager permissions",
+    )
+)
+@v1.doc(
+    responses={
+        400: {
+            "description": "(Bad Request) Missing client_secret when creating new client permissions"
+        },
+        401: {"description": "(Unauthorized) Missing or invalid access token"},
+        403: {
+            "description": "(Forbidden) Insufficient permissions for the authenticated user to modify client permissions"
+        },
+        404: {
+            "description": "(Not Found) The specified client_id was not found"
+        },
+        422: {
+            "description": "(Unprocessable Entity) System admin client cannot be modified using the API"
+        },
+    }
+)
 def set_client_permissions(client_id: str, json_data: dict) -> str:
     """Add or create client permissions for a specified user."""
     # Testflinger Admin credential can't be modified from API!'
@@ -1656,6 +1728,27 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
 @v1.delete("/client-permissions/<client_id>")
 @authenticate
 @require_role(ServerRoles.ADMIN)
+@v1.input(schemas.ClientId, location="path", arg_name="client_id")
+@v1.auth_required(
+    auth=security.HTTPTokenAuth(
+        scheme="Bearer",
+        description="Based64-encoded JWT access token with admin permissions",
+    )
+)
+@v1.doc(
+    responses={
+        401: {"description": "(Unauthorized) Missing or invalid access token"},
+        403: {
+            "description": "(Forbidden) Insufficient permissions for the authenticated user to delete client permissions"
+        },
+        404: {
+            "description": "(Not Found) The specified client_id was not found"
+        },
+        422: {
+            "description": "(Unprocessable Entity) System admin can't be removed using the API"
+        },
+    }
+)
 def delete_client_permissions(client_id: str) -> str:
     """Delete client id along with its permissions."""
     # Testflinger Admin credential can't be removed from API!'
@@ -1679,6 +1772,27 @@ def delete_client_permissions(client_id: str) -> str:
 @v1.put("/secrets/<client_id>/<path:path>")
 @authenticate
 @v1.input(schemas.SecretIn, location="json")
+@v1.input(schemas.ClientId, location="path", arg_name="client_id")
+@v1.input(schemas.SecretPath, location="path", arg_name="path")
+@v1.auth_required(
+    auth=security.HTTPTokenAuth(
+        scheme="Bearer",
+        description="Based64-encoded JWT access token with permissions to store secrets",
+    )
+)
+@v1.doc(
+    responses={
+        400: {
+            "description": "(Bad Request) No secrets store configured or access error"
+        },
+        403: {
+            "description": "(Forbidden) client_id does not match authenticated client id"
+        },
+        500: {
+            "description": "(Internal Server Error) Error storing the secret value"
+        },
+    }
+)
 def secrets_put(client_id, path, json_data):
     """Store a secret value for the specified client_id and path."""
     if current_app.secrets_store is None:
@@ -1700,6 +1814,27 @@ def secrets_put(client_id, path, json_data):
 
 @v1.delete("/secrets/<client_id>/<path:path>")
 @authenticate
+@v1.input(schemas.ClientId, location="path", arg_name="client_id")
+@v1.input(schemas.SecretPath, location="path", arg_name="path")
+@v1.auth_required(
+    auth=security.HTTPTokenAuth(
+        scheme="Bearer",
+        description="Based64-encoded JWT access token with permissions to delete secrets",
+    )
+)
+@v1.doc(
+    responses={
+        400: {
+            "description": "(Bad Request) No secrets store configured or access error"
+        },
+        403: {
+            "description": "(Forbidden) client_id does not match authenticated client id"
+        },
+        500: {
+            "description": "(Internal Server Error) Error deleting the secret value"
+        },
+    }
+)
 def secrets_delete(client_id, path):
     """Remove a secret value for the specified client_id and path."""
     if current_app.secrets_store is None:
