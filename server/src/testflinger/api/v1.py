@@ -789,7 +789,7 @@ def check_valid_uuid(job_id):
 #  this is an oversimplification as each agent listens to multiple queues.
 #  Therefore, there could be countless other jobs keeping the agents for the
 #  queue which this job is in busy rather than servicing this job.
-def job_position_get(job_id: str) -> tuple[str, int]:
+def job_position_get(job_id: str) -> dict | str | tuple[str, int]:
     """Return the position of the specified jobid in the queue.
 
     :param job_id: ID of the job to retrieve position for
