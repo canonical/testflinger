@@ -784,17 +784,8 @@ def check_valid_uuid(job_id):
 
 
 @v1.get("/job/<job_id>/position")
-# TODO: This is billed as providing the position in a queue describing at what
-#  point the job will be picked up, however there are certainly cases where
-#  this is an oversimplification as each agent listens to multiple queues.
-#  Therefore, there could be countless other jobs keeping the agents for the
-#  queue which this job is in busy rather than servicing this job.
-def job_position_get(job_id: str) -> tuple[str, int]:
-    """Return the position of the specified jobid in the queue.
-
-    :param job_id: ID of the job to retrieve position for
-    :return: Tuple containing position information and HTTP status code
-    """
+def job_position_get(job_id):
+    """Return the position of the specified jobid in the queue."""
     job_data, status = job_get_id(job_id)
     if status == 204:
         return "Job not found or already started\n", 410
