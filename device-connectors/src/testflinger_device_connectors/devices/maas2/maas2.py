@@ -49,6 +49,7 @@ class Maas2:
         self.agent_name = self.config.get("agent_name")
         self.timeout_min = int(self.config.get("timeout_min", 60))
         self.maas_storage = MaasStorage(self.maas_user, self.node_id)
+        self.debug = self.job_data.get("debug", False)
 
     def _logger_debug(self, message):
         logger.debug("MAAS: %s", message)
@@ -444,7 +445,12 @@ class Maas2:
     def node_release(self):
         """Release the node to make it available again."""
         cmd = ["maas", self.maas_user, "machine", "release", self.node_id]
-        subprocess.run(cmd, check=False)
+        # Use the retry method to validate if cmd execution succeded
+        proc = self.run_maas_cmd_with_retry(cmd)
+        output = proc.stdout.decode()
+        if self.debug:
+            # Use logger_info to not modify agent config file
+            self._logger_info(output)
         # Make sure the device is available before returning
         for _ in range(0, 30):
             time.sleep(10)
@@ -456,6 +462,9 @@ class Maas2:
                 self.agent_name, status
             )
         )
+        # release was unsuccessful, log the output if not already done
+        if not self.debug:
+            self._logger_error(output)
         raise RecoveryError("Device recovery failed!")
 
     def set_flat_storage_layout(self):
@@ -468,8 +477,18 @@ class Maas2:
             self.node_id,
             "storage_layout=flat",
         ]
-        proc = subprocess.run(cmd, check=False)
+        proc = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
+        )
+        output = proc.stdout.decode()
+        if self.debug:
+            # Use logger_info to not modify agent config file
+            self._logger_info(output)
+
         if proc.returncode:
             self._logger_error(
                 "Unable to set flat disk layout, attempting to continue anyway"
             )
+            # set-storage-layout failed, log the output if not already done
+            if not self.debug:
+                self._logger_error(output)
