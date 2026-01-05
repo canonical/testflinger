@@ -888,8 +888,7 @@ def test_poll_with_phase_filter(requests_mock):
         }
     }
     requests_mock.get(
-        URL
-        + f"/v1/result/{job_id}/log/output?start_fragment=0&phase=provision",
+        URL + f"/v1/result/{job_id}/log/output?start_fragment=0&phase=provision",
         json=mock_response,
     )
 
@@ -948,9 +947,7 @@ def test_agent_status_json(capsys, requests_mock):
         "provision_streak_count": 1,
         "provision_streak_type": "pass",
     }
-    fake_job_data = []
     requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
-    requests_mock.get(URL + "/v1/queues/fake/jobs", json=fake_job_data)
     sys.argv = ["", "agent-status", fake_agent, "--json"]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.agent_status()
@@ -958,7 +955,7 @@ def test_agent_status_json(capsys, requests_mock):
     expected_out = {
         "agent": "fake_agent",
         "status": "waiting",
-        "queues": {"fake": {"num_jobs": 0}},
+        "queues": ["fake"],
         "provision_streak_count": 1,
         "provision_streak_type": "pass",
     }
@@ -1281,7 +1278,6 @@ def test_live_polling_with_fragments_progression(
 
     # Should have slept between iterations
     assert len(sleep_calls) >= 2
-
 
 def test_live_polling_with_empty_poll(capsys, requests_mock, monkeypatch):
     """Test that live output handles empty polls correctly."""

@@ -350,9 +350,6 @@ class TestflingerCli:
         parser.add_argument(
             "--json", action="store_true", help="Print output in JSON format"
         )
-        parser.add_argument(
-            "--yaml", action="store_true", help="Print output in YAML format"
-        )
 
     def _add_queue_status_args(self, subparsers):
         """Command line arguments for queue status."""
@@ -465,10 +462,7 @@ class TestflingerCli:
         """Show the status of a specified agent."""
         try:
             try:
-                agent_status = self.client.get_agent_data(
-                    self.args.agent_name,
-                    expanded_queue_info=(self.args.json or self.args.yaml),
-                )
+                agent_status = self.client.get_agent_data(self.args.agent_name)
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NOT_FOUND:
                     sys.exit(f"Agent '{self.args.agent_name}' does not exist.")
@@ -483,16 +477,13 @@ class TestflingerCli:
         except UnknownStatusError as exc:
             sys.exit(exc)
 
-        if self.args.json or self.args.yaml:
+        if self.args.json:
             # For unclear historical reasons,
             # the "name" and "state" fields were renamed,
             # so we maintain that for compatibility
             agent_status["agent"] = agent_status.pop("name")
             agent_status["status"] = agent_status.pop("state")
-            if self.args.json:
-                output = json.dumps(agent_status, sort_keys=True)
-            else:  # yaml
-                output = helpers.pretty_yaml_dump(agent_status)
+            output = json.dumps(agent_status, sort_keys=True)
         else:
             output = agent_status["state"]
         print(output)
@@ -501,7 +492,7 @@ class TestflingerCli:
         """Show agent and job status in a specified queue."""
         # Get agent and job status data
         agents_status = self._get_agents_status()
-        jobs_status = self.client.get_jobs_status(self.args.queue_name)
+        jobs_status = self._get_jobs_status()
 
         if self.args.json:
             output = self._queue_status_format_json_output(
@@ -541,6 +532,51 @@ class TestflingerCli:
 
         except UnknownStatusError as exc:
             sys.exit(exc)
+
+    def _get_jobs_status(self):
+        """Retrieve the status of jobs in a specified queue."""
+        try:
+            jobs_data = self.client.get_jobs_on_queue(self.args.queue_name)
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NO_CONTENT:
+                jobs_data = []
+            else:
+                logger.debug("Unable to retrieve job data: %s", exc)
+                jobs_data = []
+        except (IOError, ValueError) as exc:
+            logger.debug("Unable to retrieve job data: %s", exc)
+            jobs_data = []
+
+        # Categorize jobs based on completion outcome
+        jobs_waiting = []
+        jobs_running = []
+        jobs_completed = []
+
+        for job in jobs_data:
+            # Handle MongoDB date structure or plain string
+            created_at = job.get("created_at", "")
+            if isinstance(created_at, dict) and "$date" in created_at:
+                created_at = created_at["$date"]
+
+            job_info = {
+                "job_id": job["job_id"],
+                "created_at": created_at,
+            }
+
+            job_state = job.get("job_state", "").lower()
+            if job_state == "waiting":
+                jobs_waiting.append(job_info)
+            elif job_state == "complete":
+                jobs_completed.append(job_info)
+            elif job_state not in ("cancelled",):  # Ignore cancelled jobs
+                # All non-waiting, non-complete, non-cancelled are "running"
+                jobs_running.append(job_info)
+
+        return {
+            "jobs_waiting": jobs_waiting,
+            "jobs_running": jobs_running,
+            "jobs_completed": jobs_completed,
+        }
 
     def _queue_status_format_json_output(self, agents_status, jobs_status):
         """Format queue status output as JSON."""
@@ -906,7 +942,9 @@ class TestflingerCli:
             )
             sys.exit(1)
         if self.args.yaml:
-            to_print = helpers.pretty_yaml_dump(results)
+            to_print = helpers.pretty_yaml_dump(
+                results, sort_keys=True, indent=4, default_flow_style=False
+            )
         else:
             to_print = json.dumps(results, sort_keys=True, indent=4)
         print(to_print)
@@ -1097,14 +1135,14 @@ class TestflingerCli:
                         prev_queue_pos = queue_pos
                         if queue_pos == 0:
                             print(
-                                "This job will be picked up after the current "
-                                "(1) job ahead of it is complete"
+                                "This job will be picked up after the "
+                                "current job is complete (it is next in line)"
                             )
                         else:
                             print(
                                 f"This job will be picked up after the "
-                                f"{queue_pos + 1} jobs ahead of it in the "
-                                f"queue are complete"
+                                f"current job and {queue_pos} job(s) ahead "
+                                f"of it in the queue are complete"
                             )
                 time.sleep(10)
             except (IOError, client.HTTPError):
