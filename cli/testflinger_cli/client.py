@@ -230,19 +230,20 @@ class Client:
                 raise
             response.raise_for_status()
 
-    def get_status(self, job_id):
+    def get_status(self, job_id: str) -> dict:
         """Get the status of a test job.
 
-        :param job_id:
-            ID for the test job
-        :return:
-            String containing the job_state for the specified ID
-            (waiting, setup, provision, test, reserved, released,
-             cancelled, completed)
+        :param job_id: ID for the test job
+        :return: data containing the job state and each test phase status
         """
         endpoint = "/v1/result/{}".format(job_id)
         data = json.loads(self.get(endpoint))
-        return data.get("job_state")
+        job_status = {
+            phase.value: data.get(f"{phase.value}_status")
+            for phase in TestPhase
+        }
+        job_status["job_state"] = data.get("job_state")
+        return job_status
 
     def get_agent_data(self, agent_name: str) -> dict:
         """Get all the data for a specified agent.

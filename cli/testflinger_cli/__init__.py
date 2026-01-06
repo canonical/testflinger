@@ -448,7 +448,7 @@ class TestflingerCli:
 
     def status(self):
         """Show the status of a specified JOB_ID."""
-        job_state = self.get_job_state(self.args.job_id)
+        job_state = self.get_job_state(self.args.job_id)["job_state"]
         if job_state != "unknown":
             self.history.update(self.args.job_id, job_state)
             print(job_state)
@@ -1090,7 +1090,8 @@ class TestflingerCli:
         start_timestamp = getattr(self.args, "start_timestamp", None)
         phase = getattr(self.args, "phase", None)
 
-        job_state = self.get_job_state(job_id)
+        job_state_data = self.get_job_state(job_id)
+        job_state = job_state_data["job_state"]
         self.history.update(job_id, job_state)
         prev_queue_pos = None
         if job_state == "waiting":
@@ -1099,14 +1100,40 @@ class TestflingerCli:
         consecutive_empty_polls = 0
         while True:
             try:
-                job_state = self.get_job_state(job_id)
+                job_state_data = self.get_job_state(job_id)
+                job_state = job_state_data["job_state"]
                 self.history.update(job_id, job_state)
                 last_fragment_number, log_data = self._get_combined_log_output(
                     job_id, log_type, phase, cur_fragment, start_timestamp
                 )
-                if job_state in ("cancelled", "complete", "completed"):
+
+                # Print logs before any check
+                if last_fragment_number >= 0 and log_data:
                     print(log_data, end="", flush=True)
                     cur_fragment = last_fragment_number + 1
+                    consecutive_empty_polls = 0
+                else:
+                    consecutive_empty_polls += 1
+                    if consecutive_empty_polls == 9:
+                        consecutive_empty_polls = 0
+                        print("Waiting on output...", file=sys.stderr)
+
+                if phase:
+                    phase_status = job_state_data.get(phase)
+                    if phase_status is not None:
+                        print(
+                            f"\nPhase '{phase}' completed with "
+                            f"exit code: {phase_status}",
+                            file=sys.stderr,
+                        )
+                        print(
+                            f"Use 'testflinger poll {job_id} --start_fragment "
+                            f"{cur_fragment}' to continue polling.",
+                            file=sys.stderr,
+                        )
+                        break
+
+                if job_state in ("cancelled", "complete", "completed"):
                     break
 
                 if job_state == "waiting":
@@ -1124,19 +1151,6 @@ class TestflingerCli:
                                 f"current job and {queue_pos} job(s) ahead "
                                 f"of it in the queue are complete"
                             )
-                elif last_fragment_number < 0:
-                    consecutive_empty_polls += 1
-                    # Only show message after 90 seconds of no output
-                    # Indicates the CLI is actively attempting to poll data
-                    if consecutive_empty_polls == 9:
-                        print("Waiting on output...", file=sys.stderr)
-                else:
-                    # Reset counter when we get data
-                    consecutive_empty_polls = 0
-
-                    # Print the retrieved log data
-                    print(log_data, end="", flush=True)
-                    cur_fragment = last_fragment_number + 1
                 time.sleep(10)
             except (IOError, client.HTTPError):
                 # Ignore/retry or debug any connection errors or timeouts
@@ -1169,7 +1183,7 @@ class TestflingerCli:
             if self.args.status:
                 job_state = jobdata.get("job_state")
                 if job_state not in ("cancelled", "complete", "completed"):
-                    job_state = self.get_job_state(job_id)
+                    job_state = self.get_job_state(job_id)["job_state"]
                     self.history.update(job_id, job_state)
             else:
                 job_state = ""
@@ -1251,12 +1265,12 @@ class TestflingerCli:
             return {}
         return queues
 
-    def get_job_state(self, job_id):
+    def get_job_state(self, job_id: str) -> dict:
         """Return the job state for the specified job_id.
 
-        :param str job_id: Job ID
+        :param job_id: Job ID
         :raises SystemExit: Exit with HTTP error code
-        :return str : Job state
+        :return: Job and phase statuses
         """
         try:
             return self.client.get_status(job_id)

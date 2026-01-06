@@ -122,6 +122,16 @@ If you have `tox` installed, you can also just run `tox` from the subproject.
   git config --global push.gpgSign if-asked
   ```
 
+## Pull Requests
+
+Pull Requests will be marked as stale after 60 days of inactivity and closed
+after another 7 days of inactivity.
+
+## Issues
+
+Issues will be marked as stale after a year of inactivity and closed after
+another 7 days of inactivity.
+
 ## Documentation
 
 Testflinger documentation is maintained under the [`docs/`](./docs/) subdirectory.
