@@ -773,6 +773,13 @@ def test_agents_post(mongo_app):
     assert 200 == output.status_code
     assert "OK" == output.json.get("status")
 
+    # Verify that agent_name cookie is set with correct attributes
+    assert "Set-Cookie" in output.headers
+    cookie_header = output.headers.get("Set-Cookie", "")
+    assert "agent_name=" in cookie_header
+    assert "HttpOnly" in cookie_header
+    assert "SameSite=Strict" in cookie_header
+
     # Test that the expected data was stored
     agent_record = mongo.agents.find_one({"name": agent_name})
     assert agent_data.items() <= agent_record.items()
@@ -1161,6 +1168,26 @@ def test_reserve_data_with_invalid_timeout(mongo_app, timeout):
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
+def test_job_post_exclude_agents_empty(mongo_app):
+    """Test that a job with an empty exclude_agents list works."""
+    app, mongo = mongo_app
+    # Setup agents on the queue
+    mongo.agents.insert_many(
+        [
+            {"name": "agent1", "queues": ["test"]},
+            {"name": "agent2", "queues": ["test"]},
+        ]
+    )
+
+    job_data = {
+        "job_queue": "test",
+        "exclude_agents": [],
+    }
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.OK
+    assert output.json.get("job_id")
+
+
 def test_job_post_exclude_agents_valid(mongo_app):
     """Test that a job with valid exclude_agents field works."""
     app, mongo = mongo_app
@@ -1179,6 +1206,32 @@ def test_job_post_exclude_agents_valid(mongo_app):
     output = app.post("/v1/job", json=job_data)
     assert output.status_code == HTTPStatus.OK
     assert output.json.get("job_id")
+
+
+def test_job_post_without_exclude_agents(mongo_app):
+    """Test job without exclude_agents field works (backward compatibility)."""
+    app, mongo = mongo_app
+    # Setup agents on the queue
+    mongo.agents.insert_many(
+        [
+            {"name": "agent1", "queues": ["test"]},
+            {"name": "agent2", "queues": ["test"]},
+        ]
+    )
+
+    # Submit job without exclude_agents field at all
+    job_data = {
+        "job_queue": "test",
+    }
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.OK
+    job_id = output.json.get("job_id")
+    assert job_id
+
+    # Verify job was created with default empty exclude_agents
+    mongo_job = mongo.jobs.find_one({"job_id": job_id})
+    assert "exclude_agents" in mongo_job["job_data"]
+    assert mongo_job["job_data"]["exclude_agents"] == []
 
 
 def test_job_post_exclude_agents_not_list(mongo_app):

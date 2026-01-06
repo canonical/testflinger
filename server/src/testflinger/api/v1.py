@@ -88,9 +88,7 @@ def job_post(json_data: dict) -> dict:
     if not job_queue:
         abort(422, message="Invalid data or no job_queue specified")
 
-    exclude_agents = json_data.get("exclude_agents", [])
-    if not isinstance(exclude_agents, list):
-        abort(422, message="exclude_agents must be a list if specified")
+    exclude_agents = json_data["exclude_agents"]
     if exclude_agents:
         # Make sure that there are at least some agents in the selected queue
         # which can run this job.
