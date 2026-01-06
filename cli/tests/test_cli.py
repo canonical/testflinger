@@ -123,7 +123,7 @@ def test_submit_some_agents_excluded(capsys, tmp_path, requests_mock):
     )
     sys.argv = ["", "submit", str(testfile)]
     tfcli = testflinger_cli.TestflingerCli()
-    tfcli.submit()
+    tfcli.run()
     std = capsys.readouterr()
     assert jobid in std.out
 
