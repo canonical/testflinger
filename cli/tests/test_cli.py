@@ -123,7 +123,7 @@ def test_submit_some_agents_excluded(capsys, tmp_path, requests_mock):
     )
     sys.argv = ["", "submit", str(testfile)]
     tfcli = testflinger_cli.TestflingerCli()
-    tfcli.submit()
+    tfcli.run()
     std = capsys.readouterr()
     assert jobid in std.out
 
@@ -150,7 +150,7 @@ def test_submit_exclude_agents_is_a_list(capsys, tmp_path, requests_mock):
     sys.argv = ["", "submit", str(testfile)]
     tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as err:
-        tfcli.submit()
+        tfcli.run()
     assert (
         "Error: exclude_agents must be a list if provided." in err.value.code
     )
