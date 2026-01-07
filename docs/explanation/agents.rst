@@ -46,7 +46,7 @@ interfere with a job currently running. To do this, you can use the following me
 1. Send a SIGUSR1 signal to the agent's process
 
 This method will cause the agent to exit when it is no longer running
-a job. You will need to ensure something like systemd or supervisord is watching
+a job. You will need to ensure something like ``systemd`` or ``supervisord`` is watching
 the agent process and restarting it if it exits in order to actually restart the
 agent.
 
