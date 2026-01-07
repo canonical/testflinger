@@ -1,5 +1,5 @@
-Testflinger server configuration options
-========================================
+Server configuration options
+============================
 
 The configuration values of Testflinger servers are read from environment variables. If you prefer to store the configuration in a config file, the config file should be sourced prior to running the server so that the values may still be read from the environment.
 
