@@ -95,6 +95,26 @@ uvx --with tox-uv tox
 
 If you have `tox` installed, you can also just run `tox` from the subproject.
 
+## Server API Changes
+
+If you modified the server API (endpoints, schemas, or parameters), you must
+update and commit the OpenAPI specification file (`server/schemas/openapi.json`) in the
+same pull request. The CI check will fail if the spec is out of sync.
+
+To check if the specification is up-to-date, run:
+
+```shell
+uvx --with tox-uv tox run -e check-schema
+```
+
+If the check fails, regenerate the spec from the `server/` directory:
+
+```shell
+uvx --with tox-uv tox run -e schema
+```
+
+Commit the updated spec file with your API changes.
+
 ## Signed Commits
 
 - To get your changes accepted, please [sign your commits][signing-commits].
