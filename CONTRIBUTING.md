@@ -104,13 +104,13 @@ same pull request. The CI check will fail if the spec is out of sync.
 To check if the specification is up-to-date, run:
 
 ```shell
-uvx --with tox-uv tox -e check-schema
+uvx --with tox-uv tox run -e check-schema
 ```
 
 If the check fails, regenerate the spec from the `server/` directory:
 
 ```shell
-uvx --with tox-uv tox -e schema
+uvx --with tox-uv tox run -e schema
 ```
 
 Commit the updated spec file with your API changes.

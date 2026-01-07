@@ -84,7 +84,7 @@ def diff_schemas(local_schema_path: Path) -> bool:
         print("Error: OpenAPI schema is out of date", file=sys.stderr)
         print("", file=sys.stderr)
         print("To update the schema, run from server/ directory:", file=sys.stderr)
-        print(f"  python scripts/generate_openapi_schema.py --output {local_schema_path}", file=sys.stderr)
+        print(f"  uvx --with tox-uv tox run -e schema", file=sys.stderr)
         return False
 
     return True
