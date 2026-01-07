@@ -7,7 +7,7 @@ on:
       - .github/workflows/stale.yaml
   workflow_dispatch:
   schedule:
-    - cron: "0 5 * * *"
+    - cron: "57 11 * * *"
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
