@@ -80,14 +80,7 @@ def get_version():
 @v1.output(schemas.JobId)
 def job_post(json_data: dict) -> dict:
     """Add a job to the queue."""
-    try:
-        job_queue = json_data.get("job_queue")
-    except (AttributeError, BadRequest):
-        # Set job_queue to None so we take the failure path below
-        job_queue = ""
-    if not job_queue:
-        abort(422, message="Invalid data or no job_queue specified")
-
+    job_queue = json_data["job_queue"]
     exclude_agents = json_data["exclude_agents"]
     if exclude_agents:
         # Make sure that there are at least some agents in the selected queue
@@ -193,10 +186,6 @@ def job_builder(data: dict) -> dict:
     # side effect: modify the job dict
     if has_attachments(data):
         data["attachments_status"] = "waiting"
-
-    # Ensure exclude_agents is always a list
-    if "exclude_agents" not in data:
-        data["exclude_agents"] = []
 
     priority_level = data.get("job_priority", 0)
     auth.check_permissions(
