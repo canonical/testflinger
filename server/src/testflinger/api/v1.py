@@ -29,7 +29,6 @@ from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
 from testflinger_common.enums import LogType, TestPhase
 from urllib3.util.retry import Retry
-from werkzeug.exceptions import BadRequest
 from werkzeug.routing import BaseConverter
 
 from testflinger import database
