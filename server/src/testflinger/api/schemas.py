@@ -400,7 +400,7 @@ class JobId(Schema):
 
 
 class JobGetQuery(Schema):
-    """SJob GET query schema"""
+    """Job GET query schema."""
 
     queue = fields.List(
         fields.String(),
@@ -531,20 +531,29 @@ class LogPost(Schema):
     fragment_number = fields.Integer(
         required=True,
         metadata={
-            "description": "Sequential fragment number of the log fragment being posted, starting from 0"
+            "description": (
+                "Sequential fragment number of the log fragment "
+                "being posted, starting from 0"
+            )
         },
     )
     timestamp = fields.DateTime(
         required=True,
         metadata={
-            "description": "Timestamp in ISO 8601 format of when the log fragment was created"
+            "description": (
+                "Timestamp in ISO 8601 format of when the log "
+                "fragment was created"
+            )
         },
     )
     phase = fields.String(
         required=True,
         validate=OneOf(TestPhases),
         metadata={
-            "description": "Test phase name Test phase name (setup, provision, firmware_update, test, allocate, reserve, cleanup)"
+            "description": (
+                "Test phase name (setup, provision, firmware_update, "
+                "test, allocate, reserve, cleanup)"
+            )
         },
     )
     log_data = fields.String(
@@ -563,7 +572,9 @@ class LogGetItem(Schema):
     log_data = fields.String(
         required=True,
         metadata={
-            "description": "Combined log text from all matching fragments for this phase"
+            "description": (
+                "Combined log text from all matching fragments for this phase"
+            )
         },
     )
 
@@ -588,13 +599,17 @@ class LogQueryParams(Schema):
         required=False,
         validate=validators.Range(min=0),
         metadata={
-            "description": "Starting fragment number to query from, defaults to 0"
+            "description": (
+                "Starting fragment number to query from, defaults to 0"
+            )
         },
     )
     start_timestamp = fields.DateTime(
         required=False,
         metadata={
-            "description": "Starting timestamp to query from in ISO 8601 format"
+            "description": (
+                "Starting timestamp to query from, in ISO 8601 format"
+            )
         },
     )
     phase = fields.String(
@@ -671,7 +686,9 @@ class QueueWaitTimePercentilesOut(Schema):
             keys=fields.String(validate=OneOf(["5", "10", "50", "90", "95"])),
             values=fields.Float(),
             metadata={
-                "description": "Percentile statistics for job wait times in seconds"
+                "description": (
+                    "Percentile statistics for job wait times in seconds"
+                )
             },
         ),
         required=True,
