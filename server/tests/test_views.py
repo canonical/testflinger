@@ -168,9 +168,7 @@ def test_agent_detail_with_restricted_to(testapp):
 
 
 def test_agent_detail_with_non_advertised_queue(testapp):
-    """
-    Test that agent detail page handles both advertised and non-advertised queues.
-    """
+    """Test agent detail with advertised and non-advertised queues."""
     mongo = mongomock.MongoClient()
     # Insert one advertised queue
     mongo.db.queues.insert_one(
