@@ -1,0 +1,19 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base"
+  ],
+  "dependencyDashboard": false,
+  "enabledManagers": ["regex"],
+  "customManagers": [
+    // Update rust version in charmcraft.yaml
+    {
+      "customType": "regex",
+      "fileMatch": ["(^|/)charmcraft\\.yaml$"],
+      "matchStrings": [" (?<currentValue>[^ ]+) +# renovate: charmcraft-rust-latest"],
+      "packageNameTemplate": "rust-lang/rust",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver"
+    }
+  ]
+}

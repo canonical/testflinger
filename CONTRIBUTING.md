@@ -95,6 +95,26 @@ uvx --with tox-uv tox
 
 If you have `tox` installed, you can also just run `tox` from the subproject.
 
+## Server API Changes
+
+If you modified the server API (endpoints, schemas, or parameters), you must
+update and commit the OpenAPI specification file (`server/schemas/openapi.json`) in the
+same pull request. The CI check will fail if the spec is out of sync.
+
+To check if the specification is up-to-date, run:
+
+```shell
+uvx --with tox-uv tox run -e check-schema
+```
+
+If the check fails, regenerate the spec from the `server/` directory:
+
+```shell
+uvx --with tox-uv tox run -e schema
+```
+
+Commit the updated spec file with your API changes.
+
 ## Signed Commits
 
 - To get your changes accepted, please [sign your commits][signing-commits].
@@ -121,6 +141,16 @@ If you have `tox` installed, you can also just run `tox` from the subproject.
   git config --global tag.gpgSign true
   git config --global push.gpgSign if-asked
   ```
+
+## Pull Requests
+
+Pull Requests will be marked as stale after 60 days of inactivity and closed
+after another 7 days of inactivity.
+
+## Issues
+
+Issues will be marked as stale after a year of inactivity and closed after
+another 7 days of inactivity.
 
 ## Documentation
 
