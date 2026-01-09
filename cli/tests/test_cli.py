@@ -51,7 +51,6 @@ def test_status(capsys, requests_mock):
     std = capsys.readouterr()
     assert std.out == "completed\n"
 
-
 def test_cancel_503(requests_mock):
     """Cancel should fail loudly if cancel action returns 503."""
     jobid = str(uuid.uuid1())
@@ -1405,3 +1404,62 @@ def test_live_polling_by_phase(capsys, requests_mock, monkeypatch):
     # Verify logs were printed
     assert "Running tests..." in captured.out
     assert "Tests passed!" in captured.out
+
+def test_get_job_state_network_error(requests_mock):
+    """Test get_job_state returns dict on network errors."""
+    jobid = str(uuid.uuid1())
+    requests_mock.get(
+        f"{URL}/v1/result/{jobid}", exc=requests.exceptions.ConnectionError
+    )
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    result = tfcli.get_job_state(jobid)
+
+    # Ensure the return type is dict
+    assert isinstance(result, dict)
+    assert result == {"job_state": "unknown"}
+
+
+def test_poll_exponential_backoff_on_network_errors(
+    capsys, requests_mock, monkeypatch
+):
+    """Test that polling uses exponential backoff on network errors."""
+    job_id = str(uuid.uuid1())
+
+    # Mock time.sleep to track backoff delays
+    sleep_calls = []
+    monkeypatch.setattr(
+        time, "sleep", lambda duration: sleep_calls.append(duration)
+    )
+
+    # Mock both endpoints to fail 5 times then succeed
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}",
+        [{"exc": requests.exceptions.ConnectionError}] * 5
+        + [{"json": {"job_state": "complete"}}],
+    )
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}/log/output?start_fragment=0",
+        [{"exc": requests.exceptions.ConnectionError}] * 5
+        + [
+            {
+                "json": {
+                    "output": {
+                        "test": {"last_fragment_number": 1, "log_data": ""}
+                    }
+                }
+            }
+        ],
+    )
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.do_poll(job_id)
+
+    # Verify exponential backoff pattern
+    assert len(sleep_calls) >= 5
+    assert sleep_calls[0] == 2  # 2^1 = 2
+    assert sleep_calls[1] == 4  # 2^2 = 4
+    assert sleep_calls[2] == 8  # 2^3 = 8
+    assert sleep_calls[3] == 16  # 2^4 = 16
+    assert sleep_calls[4] == 32  # 2^5 = 32

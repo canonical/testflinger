@@ -20,6 +20,7 @@ import base64
 import json
 import logging
 import sys
+import time
 import urllib.parse
 from http import HTTPStatus
 from pathlib import Path
@@ -30,6 +31,9 @@ from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import VPNError
 
 logger = logging.getLogger(__name__)
+
+# Maximum backoff delay in seconds
+MAX_BACKOFF_TIME = 60
 
 
 class HTTPError(Exception):
@@ -102,6 +106,9 @@ class Client:
                     self.error_count,
                     exc,
                 )
+            # Exponential backoff before re-raising exception
+            backoff_delay = min(2**self.error_count, MAX_BACKOFF_TIME)
+            time.sleep(backoff_delay)
             raise
         # If request was not successful, raise HTTPError with parsed response
         if req.status_code != HTTPStatus.OK:
