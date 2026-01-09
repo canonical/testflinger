@@ -1458,8 +1458,8 @@ def test_poll_exponential_backoff_on_network_errors(
 
     # Verify exponential backoff pattern
     assert len(sleep_calls) >= 5
-    assert sleep_calls[0] == 1  # 2^0 = 1
-    assert sleep_calls[1] == 2  # 2^1 = 2
-    assert sleep_calls[2] == 4  # 2^2 = 4
-    assert sleep_calls[3] == 8  # 2^3 = 8
-    assert sleep_calls[4] == 16  # 2^4 = 16
+    assert sleep_calls[0] == 2  # 2^1 = 2
+    assert sleep_calls[1] == 4  # 2^2 = 4
+    assert sleep_calls[2] == 8  # 2^3 = 8
+    assert sleep_calls[3] == 16  # 2^4 = 16
+    assert sleep_calls[4] == 32  # 2^5 = 32
