@@ -1282,7 +1282,7 @@ class TestflingerCli:
             # For other types of network errors, or JSONDecodeError if we got
             # a bad return from get_status()
             logger.debug("Unable to retrieve job state: %s", exc)
-        return "unknown"
+        return {"job_state": "unknown"}
 
     def login(self):
         """Authenticate using refresh_token or provided credentials."""
