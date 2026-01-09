@@ -1432,14 +1432,12 @@ def test_poll_exponential_backoff_on_network_errors(
         time, "sleep", lambda duration: sleep_calls.append(duration)
     )
 
-    # Mock job status to eventually complete
+    # Mock both endpoints to fail 5 times then succeed
     requests_mock.get(
         f"{URL}/v1/result/{job_id}",
-        [{"json": {"job_state": "test"}}] * 10
+        [{"exc": requests.exceptions.ConnectionError}] * 5
         + [{"json": {"job_state": "complete"}}],
     )
-
-    # Mock log output to fail 5 times then succeed
     requests_mock.get(
         f"{URL}/v1/result/{job_id}/log/output?start_fragment=0",
         [{"exc": requests.exceptions.ConnectionError}] * 5

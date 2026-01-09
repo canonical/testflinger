@@ -57,9 +57,6 @@ from testflinger_cli.errors import (
     UnknownStatusError,
 )
 
-# Maximum backoff time in seconds for retrying network operations
-MAX_BACKOFF_TIME = 60
-
 logger = logging.getLogger(__name__)
 
 # Make it easier to run from a checkout
@@ -1094,7 +1091,6 @@ class TestflingerCli:
             print("This job is waiting on a node to become available.")
         cur_fragment = start_fragment
         consecutive_empty_polls = 0
-        retry_count = 0
         while True:
             try:
                 job_state_data = self.get_job_state(job_id)
@@ -1104,9 +1100,6 @@ class TestflingerCli:
                 last_fragment_number, log_data = self._get_combined_log_output(
                     job_id, log_type, phase, cur_fragment, start_timestamp
                 )
-
-                # Reset retry count as there was a successful poll
-                retry_count = 0
 
                 # Print logs before any check
                 if last_fragment_number >= 0 and log_data:
@@ -1157,11 +1150,6 @@ class TestflingerCli:
                 # Ignore/retry or debug any connection errors or timeouts
                 if self.args.debug:
                     logger.exception("Error polling for job output")
-
-                # In case network errors, delay next status check
-                backoff_delay = min(2**retry_count, MAX_BACKOFF_TIME)
-                time.sleep(backoff_delay)
-                retry_count += 1
             except KeyboardInterrupt:
                 choice = input(
                     f"\nCancel job {job_id} before exiting "
