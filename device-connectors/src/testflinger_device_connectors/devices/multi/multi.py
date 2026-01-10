@@ -18,10 +18,14 @@ import json
 import logging
 import os
 import time
+from datetime import datetime, timedelta
 
 import requests
 
-from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices import (
+    ProvisioningError,
+    copy_ssh_keys_to_devices,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +83,45 @@ class Multi:
                 )
 
         self.save_job_list_file()
+
+    def reserve(self):
+        """Push ssh keys to each device in reservation phase."""
+        logger.info("BEGIN multi device reservation")
+        job_data = self.job_data
+        try:
+            test_username = job_data["test_data"]["test_username"]
+        except KeyError:
+            test_username = "ubuntu"
+        reserve_data = job_data["reserve_data"]
+        ssh_keys = reserve_data.get("ssh_keys", [])
+        with open("job_list.json", "r") as json_file:
+            job_list = json.load(json_file)
+            device_ips = [job["device_info"]["device_ip"] for job in job_list]
+        copy_ssh_keys_to_devices(ssh_keys, device_ips, test_username)
+        print("*** TESTFLINGER SYSTEMS RESERVED ***")
+        print("You can now connect to the following devices:")
+        for job in job_list:
+            device_ip = job["device_info"]["device_ip"]
+            print(f"{test_username}@{device_ip}")
+
+        timeout = int(reserve_data.get("timeout", "3600"))
+        now = datetime.now().astimezone().isoformat()
+        expire_time = (
+            datetime.now().astimezone() + timedelta(seconds=timeout)
+        ).isoformat()
+        print("Current time:           [{}]".format(now))
+        print("Reservation expires at: [{}]".format(expire_time))
+        print(
+            "Reservation will automatically timeout in {} seconds".format(
+                timeout
+            )
+        )
+        job_id = job_data.get("job_id", "<job_id>")
+        print(
+            "To end the reservation sooner use: "
+            + "testflinger-cli cancel {}".format(job_id)
+        )
+        time.sleep(timeout)
 
     def terminate_if_parent_completed(self):
         """If parent job is completed or cancelled, cancel sub jobs."""
