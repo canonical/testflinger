@@ -53,7 +53,7 @@ def generate_schema() -> dict:
 
 def normalize_json(data: dict) -> str:
     """Normalize JSON to compact form for comparison"""
-    return json.dumps(data, sort_keys=True, separators=(',', ':'))
+    return json.dumps(data, sort_keys=True, separators=(",", ":"))
 
 
 def diff_schemas(local_schema_path: Path) -> bool:
@@ -70,7 +70,10 @@ def diff_schemas(local_schema_path: Path) -> bool:
     generated = generate_schema()
 
     if not local_schema_path.exists():
-        print(f"Error: Expected schema file not found: {local_schema_path}", file=sys.stderr)
+        print(
+            f"Error: Expected schema file not found: {local_schema_path}",
+            file=sys.stderr,
+        )
         return False
 
     with local_schema_path.open() as f:
@@ -83,7 +86,10 @@ def diff_schemas(local_schema_path: Path) -> bool:
     if generated_normalized != local_normalized:
         print("Error: OpenAPI schema is out of date", file=sys.stderr)
         print("", file=sys.stderr)
-        print("To update the schema, run from server/ directory:", file=sys.stderr)
+        print(
+            "To update the schema, run from server/ directory:",
+            file=sys.stderr,
+        )
         print(f"  uvx --with tox-uv tox run -e schema", file=sys.stderr)
         return False
 
@@ -99,13 +105,13 @@ def main():
         "-o",
         type=Path,
         default=None,
-        help="Write schema to specified file (default is stdout)"
+        help="Write schema to specified file (default is stdout)",
     )
     parser.add_argument(
         "--diff",
         "-d",
         type=Path,
-        help="Compare generated schema with the specified file for validation"
+        help="Compare generated schema with the specified file for validation",
     )
 
     args = parser.parse_args()
@@ -124,7 +130,7 @@ def main():
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("w") as f:
             json.dump(schema, f, indent=2, sort_keys=True)
-            f.write("\n")       # trailing linebreak
+            f.write("\n")  # trailing linebreak
         print(f" Schema written to: {args.output}")
     else:
         print(json.dumps(schema, indent=2, sort_keys=True))
