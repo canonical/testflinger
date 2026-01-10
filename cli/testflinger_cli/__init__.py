@@ -764,7 +764,11 @@ class TestflingerCli:
             queue = job_dict["job_queue"]
         except KeyError:
             sys.exit("Error: Queue was not specified in job")
-        self.check_online_agents_available(queue)
+
+        exclude_agents = job_dict.get("exclude_agents", [])
+        if not (isinstance(exclude_agents, list)):
+            sys.exit("Error: exclude_agents must be a list if provided.")
+        self.check_online_agents_available(queue, exclude_agents)
 
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
@@ -797,7 +801,7 @@ class TestflingerCli:
         if self.args.poll:
             self.do_poll(job_id)
 
-    def check_online_agents_available(self, queue: str):
+    def check_online_agents_available(self, queue: str, exclude_agents: list):
         """Exit or warn if no online agents available for a specified queue."""
         try:
             agents = self.client.get_agents_on_queue(queue)
@@ -806,7 +810,10 @@ class TestflingerCli:
                 sys.exit(exc.msg)
             agents = []
         online_agents = [
-            agent for agent in agents if agent["state"] != "offline"
+            agent
+            for agent in agents
+            if agent["state"] != "offline"
+            and agent["name"] not in exclude_agents
         ]
         if len(online_agents) > 0:
             # If there are online agents, then we can proceed
