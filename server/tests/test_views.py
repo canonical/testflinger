@@ -56,16 +56,34 @@ def test_queues():
     )
     mongo.db.jobs.insert_many(
         [
-            {"job_data": {"job_queue": "advertised_queue1"}},
-            {"job_data": {"job_queue": "advertised_queue1"}},
-            {"job_data": {"job_queue": "advertised_queue1"}},
-            {"job_data": {"job_queue": "advertised_queue2"}},
-            {"job_data": {"job_queue": "advertised_queue2"}},
+            {
+                "job_data": {"job_queue": "advertised_queue1"},
+                "result_data": {"job_state": "waiting"},
+            },
+            {
+                "job_data": {"job_queue": "advertised_queue1"},
+                "result_data": {"job_state": "running"},
+            },
+            {
+                "job_data": {"job_queue": "advertised_queue1"},
+                "result_data": {"job_state": "waiting"},
+            },
+            {
+                "job_data": {"job_queue": "advertised_queue2"},
+                "result_data": {"job_state": "running"},
+            },
+            {
+                "job_data": {"job_queue": "advertised_queue2"},
+                "result_data": {"job_state": "waiting"},
+            },
         ]
     )
 
     # Get the data from the function we use to generate the view
-    with patch("testflinger.views.mongo", mongo):
+    with (
+        patch("testflinger.views.mongo", mongo),
+        patch("testflinger.database.mongo", mongo),
+    ):
         data = queues_data()
 
     # Make sure we found all the queues, not just advertised ones
@@ -147,6 +165,49 @@ def test_agent_detail_with_restricted_to(testapp):
 
     html = str(response)
     assert "(restricted to: test-client-id)" in html
+
+
+def test_agent_detail_with_non_advertised_queue(testapp):
+    """Test agent detail with advertised and non-advertised queues."""
+    mongo = mongomock.MongoClient()
+    # Insert one advertised queue
+    mongo.db.queues.insert_one(
+        {"name": "advertised_queue", "description": "advertised description"}
+    )
+    # Agent listens to both advertised and non-advertised queues
+    mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "queues": ["advertised_queue", "non_advertised_queue"],
+            "updated_at": datetime.now(tz=timezone.utc),
+        }
+    )
+    mongo.db.jobs.insert_many(
+        [
+            {
+                "job_data": {"job_queue": "advertised_queue"},
+                "result_data": {"job_state": "waiting"},
+            },
+            {
+                "job_data": {"job_queue": "non_advertised_queue"},
+                "result_data": {"job_state": "running"},
+            },
+        ]
+    )
+
+    with (
+        patch("testflinger.views.mongo", mongo),
+        patch("testflinger.database.mongo", mongo),
+    ):
+        with testapp.test_request_context():
+            response = agent_detail("agent1")
+
+    html = str(response)
+    # Should include both advertised and non-advertised queues
+    assert "advertised_queue" in html
+    assert "non_advertised_queue" in html
+    # Non-advertised queue creates dummy data with empty description
+    assert "advertised description" in html
 
 
 def test_job_not_found(testapp):

@@ -280,6 +280,18 @@ def get_jobs_on_queue(queue: str) -> list[dict]:
     return list(jobs)
 
 
+def get_num_incomplete_jobs_on_queue(queue: str) -> int:
+    """Get the number of incomplete jobs on a specific queue."""
+    return mongo.db.jobs.count_documents(
+        {
+            "job_data.job_queue": queue,
+            "result_data.job_state": {
+                "$nin": ["complete", "completed", "cancelled"]
+            },
+        }
+    )
+
+
 def calculate_percentiles(data: list) -> dict:
     """
     Calculate the percentiles of the wait times for each queue.
