@@ -1102,6 +1102,7 @@ class TestflingerCli:
             try:
                 job_state_data = self.get_job_state(job_id)
                 job_state = job_state_data["job_state"]
+
                 self.history.update(job_id, job_state)
                 last_fragment_number, log_data = self._get_combined_log_output(
                     job_id, log_type, phase, cur_fragment, start_timestamp
@@ -1289,7 +1290,7 @@ class TestflingerCli:
             # For other types of network errors, or JSONDecodeError if we got
             # a bad return from get_status()
             logger.debug("Unable to retrieve job state: %s", exc)
-        return "unknown"
+        return {"job_state": "unknown"}
 
     def login(self):
         """Authenticate using refresh_token or provided credentials."""

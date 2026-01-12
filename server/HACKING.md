@@ -16,7 +16,7 @@ This will setup Testflinger running on port 5000, along with MongoDB and Vault.
 To get this running on your system:
 
 ```shell
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 If you want to manage client credentials in your local database, you can use
