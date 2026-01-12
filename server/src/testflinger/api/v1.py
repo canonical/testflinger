@@ -205,10 +205,12 @@ def job_get():
     """Request a job to run from supported queues."""
     queue_list = request.args.getlist("queue")
     if not queue_list:
-        return "No queue(s) specified in request", HTTPStatus.BAD_REQUEST
+        abort(
+            HTTPStatus.BAD_REQUEST, message="No queue(s) specified in request"
+        )
     agent_name = request.cookies.get("agent_name")
     if not agent_name:
-        return "Agent not identified", HTTPStatus.UNAUTHORIZED
+        abort(HTTPStatus.UNAUTHORIZED, message="Agent not identified")
     job = database.pop_job(queue_list=queue_list, agent_name=agent_name)
     if not job:
         return jsonify({}), HTTPStatus.NO_CONTENT
