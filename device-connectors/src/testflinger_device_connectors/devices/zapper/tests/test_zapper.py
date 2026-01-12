@@ -13,8 +13,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for Zapper base device connector."""
 
+import subprocess
 import unittest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import (
@@ -107,3 +110,66 @@ class ZapperConnectorTests(unittest.TestCase):
         connector.copy_ssh_key.side_effect = RuntimeError
         with self.assertRaises(ProvisioningError):
             connector._copy_ssh_id()
+
+
+class TestZapperConnectorRpycCheck:
+    """Tests for ZapperConnector RPyC server check."""
+
+    def test_check_rpyc_server_on_host_success(self, mocker):
+        """Test __check_rpyc_server_on_host succeeds when port is open."""
+        fake_config = {"device_ip": "1.1.1.1", "agent_name": "test-agent"}
+        connector = MockConnector(fake_config)
+
+        mock_subprocess = mocker.patch("subprocess.run")
+
+        # Access the private method
+        connector._ZapperConnector__check_rpyc_server_on_host("test-host")
+
+        mock_subprocess.assert_called_once()
+        call_args = mock_subprocess.call_args
+        assert call_args[0][0] == [
+            "/usr/bin/nc",
+            "-z",
+            "-w",
+            "3",
+            "test-host",
+            "60000",
+        ]
+
+    def test_check_rpyc_server_on_host_raises_connection_error(self, mocker):
+        """Test connection check raises ConnectionError on failure."""
+        fake_config = {"device_ip": "1.1.1.1", "agent_name": "test-agent"}
+        connector = MockConnector(fake_config)
+
+        mocker.patch(
+            "subprocess.run",
+            side_effect=subprocess.CalledProcessError(1, "nc"),
+        )
+
+        with pytest.raises(ConnectionError):
+            connector._ZapperConnector__check_rpyc_server_on_host("test-host")
+
+    def test_init_waits_for_rpyc_when_control_host_configured(self, mocker):
+        """Test __init__ calls wait_online when control_host is in config."""
+        mock_wait_online = mocker.patch.object(ZapperConnector, "wait_online")
+
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "agent_name": "test-agent",
+            "control_host": "zapper-host",
+        }
+        MockConnector(fake_config)
+
+        mock_wait_online.assert_called_once()
+        call_args = mock_wait_online.call_args
+        assert call_args[0][1] == "zapper-host"
+        assert call_args[0][2] == 60
+
+    def test_init_skips_wait_when_no_control_host(self, mocker):
+        """Test __init__ does not call wait_online without control_host."""
+        mock_wait_online = mocker.patch.object(ZapperConnector, "wait_online")
+
+        fake_config = {"device_ip": "1.1.1.1", "agent_name": "test-agent"}
+        MockConnector(fake_config)
+
+        mock_wait_online.assert_not_called()

@@ -30,6 +30,7 @@ import requests
 import yaml
 
 from testflinger_device_connectors.devices import (
+    DefaultDevice,
     ProvisioningError,
     RecoveryError,
 )
@@ -210,10 +211,27 @@ class MuxPi:
                     f"but got {media!r}"
                 )
 
+    def __check_rpyc_server_on_host(self, host: str) -> None:
+        """
+        Check if the host has an active RPyC server running.
+
+        :raises ConnectionError in case the server is not reachable.
+        """
+        try:
+            self._run_control("zapper --help")
+            logger.debug("The host %s has an available RPyC server", host)
+        except ProvisioningError as e:
+            raise ConnectionError from e
+
     def provision(self):
         # If this is not a zapper, reboot before provisioning
         if "zapper" not in self.config.get("control_switch_local_cmd", ""):
             self.reboot_sdwire()
+        else:
+            _, control_host = self.get_credentials()
+            DefaultDevice.wait_online(
+                self.__check_rpyc_server_on_host, control_host, 60
+            )
         time.sleep(5)
 
         # determine where to get the provisioning image from

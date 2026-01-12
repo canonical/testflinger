@@ -22,11 +22,11 @@ validating the configuration and preparing the API arguments.
 
 import json
 import logging
+import subprocess
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import rpyc
-import yaml
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
@@ -45,12 +45,46 @@ class ZapperConnector(ABC, DefaultDevice):
     ZAPPER_REQUEST_TIMEOUT = 60 * 90
     ZAPPER_SERVICE_PORT = 60000
 
+    def __init__(self, config: dict):
+        super().__init__(config)
+
+        # Wait for control host to be reachable over RPyC
+        if "control_host" in self.config:
+            self.wait_online(
+                self.__check_rpyc_server_on_host,
+                self.config["control_host"],
+                60,
+            )
+
+    def __check_rpyc_server_on_host(self, host: str) -> None:
+        """
+        Check if the host has an active RPyC server running.
+
+        :raises ConnectionError in case the server is not reachable.
+        """
+        timeout = 3
+        try:
+            subprocess.run(
+                [
+                    "/usr/bin/nc",
+                    "-z",
+                    "-w",
+                    str(timeout),
+                    host,
+                    str(self.ZAPPER_SERVICE_PORT),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            logger.debug("The host %s has an available RPyC server", host)
+        except subprocess.CalledProcessError as e:
+            raise ConnectionError from e
+
     def provision(self, args):
         """Provision device when the command is invoked."""
         super().provision(args)
 
-        with open(args.config, encoding="utf-8") as configfile:
-            self.config = yaml.safe_load(configfile)
         with open(args.job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)
 

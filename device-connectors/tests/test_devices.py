@@ -15,12 +15,14 @@
 
 from importlib import import_module
 from itertools import product
+from unittest.mock import MagicMock
 
 import pytest
 
 from testflinger_device_connectors.cmd import STAGES
 from testflinger_device_connectors.devices import (
     DEVICE_CONNECTORS,
+    DefaultDevice,
     get_device_stage_func,
 )
 
@@ -37,3 +39,42 @@ def test_get_device_stage_func(stage, device):
     orig_func = getattr(connector_instance, stage)
     func = get_device_stage_func(device, stage, fake_config)
     assert func.__func__ is orig_func.__func__
+
+
+class TestWaitOnline:
+    """Tests for DefaultDevice.wait_online static method."""
+
+    def test_wait_online_succeeds_immediately(self, mocker):
+        """Test wait_online succeeds when check passes on first try."""
+        mocker.patch("time.sleep")
+        mock_check = MagicMock()
+
+        DefaultDevice.wait_online(mock_check, "test-host", 60)
+
+        mock_check.assert_called_once_with("test-host")
+
+    def test_wait_online_retries_then_succeeds(self, mocker):
+        """Test wait_online retries when check fails then succeeds."""
+        mocker.patch("time.sleep")
+        mock_check = MagicMock(
+            side_effect=[ConnectionError, ConnectionError, None]
+        )
+
+        DefaultDevice.wait_online(mock_check, "test-host", 60)
+
+        assert mock_check.call_count == 3
+
+    def test_wait_online_times_out(self, mocker):
+        """Test wait_online logs error when timeout is reached."""
+        mocker.patch("time.sleep")
+        # Simulate time progressing past timeout
+        mocker.patch("time.time", side_effect=[0, 1, 2, 100])
+        mock_check = MagicMock(side_effect=ConnectionError)
+        mock_logger = mocker.patch(
+            "testflinger_device_connectors.devices.logger"
+        )
+
+        DefaultDevice.wait_online(mock_check, "test-host", 10)
+
+        mock_logger.error.assert_called_once()
+        assert "not available" in mock_logger.error.call_args[0][0]

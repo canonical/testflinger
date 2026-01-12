@@ -18,7 +18,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices import (
+    DefaultDevice,
+    ProvisioningError,
+)
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
 
 
@@ -104,3 +107,98 @@ def test_check_test_image_booted_fails(mocker):
     )
     with pytest.raises(ProvisioningError, match="Failed to boot test image!"):
         muxpi.check_test_image_booted()
+
+
+class TestMuxPiRpycCheck:
+    """Tests for MuxPi RPyC server check."""
+
+    def test_check_rpyc_server_on_host_success(self, mocker):
+        """Test connection check succeeds when zapper is available."""
+        muxpi = MuxPi()
+        muxpi.config = {"control_host": "test-host", "control_user": "ubuntu"}
+        mock_run_control = mocker.patch.object(muxpi, "_run_control")
+
+        # Access the private method
+        muxpi._MuxPi__check_rpyc_server_on_host("test-host")
+
+        mock_run_control.assert_called_once_with("zapper --help")
+
+    def test_check_rpyc_server_on_host_raises_connection_error(self, mocker):
+        """Test connection check raises ConnectionError on failure."""
+        muxpi = MuxPi()
+        muxpi.config = {"control_host": "test-host", "control_user": "ubuntu"}
+        mocker.patch.object(
+            muxpi, "_run_control", side_effect=ProvisioningError("failed")
+        )
+
+        with pytest.raises(ConnectionError):
+            muxpi._MuxPi__check_rpyc_server_on_host("test-host")
+
+
+class TestMuxPiProvisionWithZapper:
+    """Tests for MuxPi provision method with zapper configuration."""
+
+    def test_provision_with_zapper_waits_for_rpyc(self, mocker):
+        """Test provision waits for RPyC server when using zapper."""
+        muxpi = MuxPi()
+        muxpi.config = {
+            "control_switch_local_cmd": "zapper sdwire set TS",
+            "control_host": "zapper-host",
+            "control_user": "ubuntu",
+            "device_ip": "1.2.3.4",
+            "test_device": "/dev/sda",
+        }
+        muxpi.job_data = {
+            "provision_data": {
+                "url": "http://example.com/image.img",
+                "create_user": False,
+            }
+        }
+
+        mocker.patch("time.sleep")
+        mock_wait_online = mocker.patch.object(DefaultDevice, "wait_online")
+        # Mock the rest of provision to avoid running actual provisioning
+        mocker.patch.object(muxpi, "flash_test_image")
+        mocker.patch.object(muxpi, "hardreset")
+        mocker.patch.object(muxpi, "check_test_image_booted")
+        mocker.patch.object(muxpi, "_run_control")
+        mocker.patch.object(muxpi, "run_post_provision_script")
+
+        muxpi.provision()
+
+        mock_wait_online.assert_called_once()
+        call_args = mock_wait_online.call_args
+        assert call_args[0][1] == "zapper-host"
+        assert call_args[0][2] == 60
+
+    def test_provision_without_zapper_reboots_sdwire(self, mocker):
+        """Test provision reboots sdwire when not using zapper."""
+        muxpi = MuxPi()
+        muxpi.config = {
+            "control_switch_local_cmd": "stm -ts",
+            "control_host": "control-host",
+            "control_user": "ubuntu",
+            "device_ip": "1.2.3.4",
+            "test_device": "/dev/sda",
+        }
+        muxpi.job_data = {
+            "provision_data": {
+                "url": "http://example.com/image.img",
+                "create_user": False,
+            }
+        }
+
+        mocker.patch("time.sleep")
+        mock_reboot_sdwire = mocker.patch.object(muxpi, "reboot_sdwire")
+        mock_wait_online = mocker.patch.object(DefaultDevice, "wait_online")
+        # Mock the rest of provision
+        mocker.patch.object(muxpi, "flash_test_image")
+        mocker.patch.object(muxpi, "hardreset")
+        mocker.patch.object(muxpi, "check_test_image_booted")
+        mocker.patch.object(muxpi, "_run_control")
+        mocker.patch.object(muxpi, "run_post_provision_script")
+
+        muxpi.provision()
+
+        mock_reboot_sdwire.assert_called_once()
+        mock_wait_online.assert_not_called()
