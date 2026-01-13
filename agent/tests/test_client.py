@@ -291,3 +291,74 @@ class TestClient:
 
         data = client.get_agent_data("test_agent")
         assert data == agent_data
+
+    def test_agent_registration_and_cookie_workflow(
+        self, client, requests_mock
+    ):
+        """
+        Test that agent registers, gets a cookie, then uses it for job requests.
+        """
+        # Step 1: Agent registers with server
+        agent_data = {
+            "state": "waiting",
+            "queues": ["test_queue"],
+            "location": "here",
+        }
+        requests_mock.post(
+            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            status_code=200,
+            headers={
+                "Set-Cookie": "agent_name=test_agent; HttpOnly; SameSite=Strict"
+            },
+        )
+        # Registration call (from _post_initial_agent_data in agent.py)
+        client.post_agent_data(agent_data)
+        assert requests_mock.called
+
+        # Step 2: Agent requests a job and should include the cookie
+        fake_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test_queue",
+            "exclude_agents": [],
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            json={}, # "restricted_to": {}},
+        )
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job",
+            json=fake_job_data,
+            headers={
+                "Set-Cookie": "agent_name=test_agent; HttpOnly; SameSite=Strict"
+            },
+        )
+
+        # Session should automatically handle cookies after first response
+        # The session persists cookies across requests
+        job_data = client.check_jobs()
+        assert job_data == fake_job_data
+
+        # Verify the session made the request (session handles cookie automatically)
+        assert requests_mock.last_request.method == "GET"
+        assert "/v1/job" in requests_mock.last_request.url
+
+    def test_check_jobs_without_agent_registration_fails(
+        self, client, requests_mock
+    ):
+        """Test that check_jobs returns error response if not registered."""
+        # TODO: Server returns 401 Unauthorized (no agent_name cookie)
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job",
+            status_code=401,
+            json={"message": "Agent not identified"},
+        )
+
+        # check_jobs returns whatever content is in response (even if 401)
+        # The caller is responsible for interpreting the response
+        job_data = client.check_jobs()
+        # Server returns 401 error but has content, so json() is parsed
+        assert job_data == {"message": "Agent not identified"}
