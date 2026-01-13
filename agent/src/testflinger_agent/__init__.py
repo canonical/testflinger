@@ -143,7 +143,10 @@ def start_agent():
         # Refresh the updated_at timestamp on advertised queues
         client.post_advertised_queues()
         logger.info("Checking jobs")
-        agent.process_jobs()
+        try:
+            agent.process_jobs()
+        except Exception as e:
+            logger.exception(e)
         logger.info("Sleeping for %d", check_interval)
         time.sleep(check_interval)
 

@@ -22,6 +22,7 @@ import tempfile
 import time
 from pathlib import Path
 
+from requests.exceptions import HTTPError
 from testflinger_common.enums import AgentState, JobState, TestEvent, TestPhase
 
 from testflinger_agent.config import ATTACHMENTS_DIR
@@ -253,6 +254,25 @@ class TestflingerAgent:
                 if not phase_data:
                     del job_data[phase_str]
 
+    def get_job_data(self):
+        job_data = None
+        try:
+            job_data = self.client.check_jobs()
+        except HTTPError as exc:
+            # If we receive an error that we were not authenticated, try
+            # registering again and then try to get a job.
+            if exc.response.status_code == 401:
+                self.client.post_agent_data({"job_id": ""})
+        if job_data is None:
+            # Try to get a job again; if we fail to get a job a second time,
+            # log the exception and skip the while loop, returning to the
+            # outer-most loop
+            try:
+                job_data = self.client.check_jobs()
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.exception(exc)
+        return job_data
+
     def process_jobs(self):
         """Coordinate checks for new jobs and handling them if they exists."""
         test_phases = [
@@ -290,7 +310,12 @@ class TestflingerAgent:
         if self.status_handler.needs_restart:
             self.restart_agent(self.status_handler.comment)
 
-        job_data = self.client.check_jobs()
+        rundir = None
+        job = None
+        event_emitter = None
+        job_end_reason = TestEvent.JOB_START
+        # Check for the first job before looping for more
+        job_data = self.get_job_data()
         while job_data:
             try:
                 job = TestflingerJob(job_data, self.client)
@@ -415,14 +440,18 @@ class TestflingerAgent:
                 logger.exception(e)
             finally:
                 # Always run the cleanup, even if the job was cancelled
-                event_emitter.emit_event(TestEvent.CLEANUP_START)
-                exit_code, _, _ = job.run_test_phase(TestPhase.CLEANUP, rundir)
-                if exit_code:
-                    logger.debug("Issue with cleanup phase")
-                    event_emitter.emit_event(TestEvent.CLEANUP_FAIL)
-                else:
-                    event_emitter.emit_event(TestEvent.CLEANUP_SUCCESS)
-                event_emitter.emit_event(TestEvent.JOB_END, job_end_reason)
+                if event_emitter:
+                    event_emitter.emit_event(TestEvent.CLEANUP_START)
+                    if job and rundir:
+                        exit_code, _, _ = job.run_test_phase(
+                            TestPhase.CLEANUP, rundir
+                        )
+                        if exit_code:
+                            logger.debug("Issue with cleanup phase")
+                            event_emitter.emit_event(TestEvent.CLEANUP_FAIL)
+                        else:
+                            event_emitter.emit_event(TestEvent.CLEANUP_SUCCESS)
+                    event_emitter.emit_event(TestEvent.JOB_END, job_end_reason)
 
             try:
                 self.client.transmit_job_outcome(rundir)
@@ -452,7 +481,7 @@ class TestflingerAgent:
 
             # If no restart or offline needed, set agent to wait for new job
             self.set_agent_state(AgentState.WAITING)
-            job_data = self.client.check_jobs()
+            job_data = self.get_job_data()
 
     def retry_old_results(self):
         """Retry sending results that we previously failed to send."""

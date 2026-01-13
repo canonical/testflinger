@@ -18,6 +18,7 @@ from unittest.mock import patch
 
 import pytest
 import requests_mock as rmock
+from requests.exceptions import HTTPError
 
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.errors import TFServerError
@@ -295,9 +296,7 @@ class TestClient:
     def test_agent_registration_and_cookie_workflow(
         self, client, requests_mock
     ):
-        """
-        Test that agent registers, gets a cookie, then uses it for job requests.
-        """
+        """Test agent registration and cookie workflow."""
         # Step 1: Agent registers with server
         agent_data = {
             "state": "waiting",
@@ -308,7 +307,9 @@ class TestClient:
             "http://127.0.0.1:8000/v1/agents/data/test_agent",
             status_code=200,
             headers={
-                "Set-Cookie": "agent_name=test_agent; HttpOnly; SameSite=Strict"
+                "Set-Cookie": (
+                    "agent_name=test_agent; HttpOnly; SameSite=Strict"
+                )
             },
         )
         # Registration call (from _post_initial_agent_data in agent.py)
@@ -323,13 +324,15 @@ class TestClient:
         }
         requests_mock.get(
             "http://127.0.0.1:8000/v1/agents/data/test_agent",
-            json={}, # "restricted_to": {}},
+            json={},  # "restricted_to": {}},
         )
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job",
             json=fake_job_data,
             headers={
-                "Set-Cookie": "agent_name=test_agent; HttpOnly; SameSite=Strict"
+                "Set-Cookie": (
+                    "agent_name=test_agent; HttpOnly; SameSite=Strict"
+                )
             },
         )
 
@@ -338,15 +341,17 @@ class TestClient:
         job_data = client.check_jobs()
         assert job_data == fake_job_data
 
-        # Verify the session made the request (session handles cookie automatically)
+        # Verify the session made the request (session handles cookies)
         assert requests_mock.last_request.method == "GET"
         assert "/v1/job" in requests_mock.last_request.url
 
     def test_check_jobs_without_agent_registration_fails(
         self, client, requests_mock
     ):
-        """Test that check_jobs returns error response if not registered."""
-        # TODO: Server returns 401 Unauthorized (no agent_name cookie)
+        """
+        Test that check_jobs raises HTTPError on status code 401,
+        (no agent_name cookie).
+        """
         requests_mock.get(
             "http://127.0.0.1:8000/v1/agents/data/test_agent",
             json={"restricted_to": {}},
@@ -357,8 +362,7 @@ class TestClient:
             json={"message": "Agent not identified"},
         )
 
-        # check_jobs returns whatever content is in response (even if 401)
-        # The caller is responsible for interpreting the response
-        job_data = client.check_jobs()
-        # Server returns 401 error but has content, so json() is parsed
-        assert job_data == {"message": "Agent not identified"}
+        # check_jobs raises HTTPError on 401, allows exception to
+        # propagate to caller for handling
+        with pytest.raises(HTTPError):
+            client.check_jobs()

@@ -1,3 +1,17 @@
+# Copyright (C) 2016 Canonical
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import json
 import os
 import re
@@ -7,11 +21,12 @@ import tempfile
 import uuid
 from http import HTTPStatus
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import prometheus_client
 import pytest
 import requests_mock as rmock
+from requests.exceptions import HTTPError
 from testflinger_common.enums import AgentState, LogType, TestEvent, TestPhase
 
 import testflinger_agent
@@ -985,3 +1000,33 @@ class TestClient:
             agent.client.wait_for_server_connectivity(interval=1)
             # First attempt is also unsuccessful
             assert "Testflinger server unreachable" in caplog.text
+
+    def test_get_job_data_success(self, agent):
+        """Test get_job_data returns job when successful."""
+        fake_job = {"job_id": "123", "job_queue": "test"}
+        with patch.object(agent.client, "check_jobs", return_value=fake_job):
+            result = agent.get_job_data()
+        assert result == fake_job
+
+    def test_get_job_data_401_retries(self, agent):
+        """Test get_job_data posts empty job_id on 401 then retries."""
+        fake_job = {"job_id": "123", "job_queue": "test"}
+        mock_response = Mock()
+        mock_response.status_code = 401
+        error_401 = HTTPError(response=mock_response)
+
+        # First call raises 401, post_agent_data called, second succeeds
+        with patch.object(
+            agent.client,
+            "check_jobs",
+            side_effect=[error_401, fake_job],
+        ):
+            with patch.object(
+                agent.client, "post_agent_data"
+            ) as mock_post_agent_data:
+                result = agent.get_job_data()
+
+        # verify retry after failing to get a job due to 401 error.
+        mock_post_agent_data.assert_called()
+        # and verify that after we retried we got the expected data.
+        assert result == fake_job

@@ -124,14 +124,16 @@ class TestflingerClient:
             job_request = self.session.get(
                 job_uri, params={"queue": queue_list}, timeout=30
             )
-            if job_request.content:
-                return job_request.json()
-            else:
-                return None
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
             # Wait a little extra before trying again
             time.sleep(60)
+        else:
+            job_request.raise_for_status()
+            if job_request.content:
+                return job_request.json()
+            else:
+                return None
 
     def get_attachments(self, job_id: str, path: Path):
         """Download the attachment archive associated with a job.
