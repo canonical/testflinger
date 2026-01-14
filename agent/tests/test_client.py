@@ -18,7 +18,7 @@ from unittest.mock import patch
 
 import pytest
 import requests_mock as rmock
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, RequestException
 
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.errors import TFServerError
@@ -366,3 +366,24 @@ class TestClient:
         # propagate to caller for handling
         with pytest.raises(HTTPError):
             client.check_jobs()
+
+    def test_check_jobs_request_exception(self, client):
+        """
+        Test that check_jobs handles RequestException (network failure)
+        by logging error and sleeping.
+        """
+        network_error = RequestException("Connection refused")
+
+        with patch.object(client.session, "get", side_effect=network_error):
+            with patch("testflinger_agent.client.logger") as mock_logger:
+                with patch(
+                    "testflinger_agent.client.time.sleep"
+                ) as mock_sleep:
+                    result = client.check_jobs()
+
+        # Verify logger.error was called with the exception
+        mock_logger.error.assert_called_with(network_error)
+        # Verify time.sleep(60) was called
+        mock_sleep.assert_called_with(60)
+        # Verify None is returned (no job available after network error)
+        assert result is None

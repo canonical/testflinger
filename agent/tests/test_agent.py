@@ -1030,3 +1030,52 @@ class TestClient:
         mock_post_agent_data.assert_called()
         # and verify that after we retried we got the expected data.
         assert result == fake_job
+
+    def test_get_job_data_non_http_error_on_retry(self, agent):
+        """Test get_job_data handles non-HTTPError on retry."""
+        mock_response = Mock()
+        mock_response.status_code = 401
+        error_401 = HTTPError(response=mock_response)
+        generic_error = RuntimeError("Network connection failed")
+
+        # First call raises 401, post_agent_data called, second raises generic
+        with patch.object(
+            agent.client,
+            "check_jobs",
+            side_effect=[error_401, generic_error],
+        ):
+            with patch.object(
+                agent.client, "post_agent_data"
+            ) as mock_post_agent_data:
+                with patch("testflinger_agent.agent.logger") as mock_logger:
+                    result = agent.get_job_data()
+
+        # Verify post_agent_data was called after 401
+        mock_post_agent_data.assert_called()
+        # Verify logger.exception was called for the generic error
+        mock_logger.exception.assert_called_with(generic_error)
+        # Verify None is returned when retry fails
+        assert result is None
+
+    def test_get_job_data_non_401_http_error(self, agent):
+        """Test get_job_data handles non-401 HTTPError and retries."""
+        fake_job = {"job_id": "456", "job_queue": "test"}
+        mock_response = Mock()
+        mock_response.status_code = 418
+        error_418 = HTTPError(response=mock_response)
+
+        # First call raises 418 (not 401), second succeeds
+        with patch.object(
+            agent.client,
+            "check_jobs",
+            side_effect=[error_418, fake_job],
+        ):
+            with patch.object(
+                agent.client, "post_agent_data"
+            ) as mock_post_agent_data:
+                result = agent.get_job_data()
+
+        # Verify post_agent_data was NOT called (only called on 401)
+        mock_post_agent_data.assert_not_called()
+        # Verify we still retried and got the job
+        assert result == fake_job
