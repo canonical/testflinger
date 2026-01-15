@@ -437,9 +437,7 @@ class DefaultDevice:
 
     @staticmethod
     def wait_online(check: Callable, host: str, timeout: int) -> None:
-        """Poll the host SSH server until it's available."""
-        logger.info("Waiting for a running SSH server on host %s", host)
-
+        """Poll the host server using `check` until it's available."""
         start_time = time.time()
         while time.time() - start_time < timeout:
             try:
@@ -448,12 +446,7 @@ class DefaultDevice:
             except ConnectionError:
                 time.sleep(2)
         else:
-            # Timeout reached
-            msg = (
-                "Host %s is not available "
-                "or the SSH server it's not running after %d seconds"
-            )
-            logger.error(msg, host, timeout)
+            raise TimeoutError
 
     def __reboot_control_host(self) -> None:
         control_host_reboot_script: list[str] = [
@@ -474,7 +467,7 @@ class DefaultDevice:
                     cmd,
                     shell=True,
                     check=True,
-                    timeout=300,  # the reboot script often includes `sleep`
+                    timeout=60,
                     capture_output=True,
                     text=True,
                 )
@@ -488,7 +481,7 @@ class DefaultDevice:
                 if e.stderr:
                     logger.error("stderr: %s", e.stderr)
             except subprocess.TimeoutExpired:
-                logger.error("Command timed out after 300s: %s", cmd)
+                logger.error("Command timed out after 60s: %s", cmd)
             except Exception as e:
                 logger.error(
                     "Unexpected error running command %s: %s", cmd, str(e)
@@ -501,15 +494,27 @@ class DefaultDevice:
             logger.debug("No control host configured for this agent.")
             return
 
+        logger.info(
+            "Waiting for a running SSH server on host %s", control_host
+        )
         with contextlib.suppress(ConnectionError):
             self.__check_ssh_server_on_host(control_host)
-            logger.debug("The control host is already up and running.")
+            logger.debug("The control host is reachable over SSH.")
             return
 
         self.__reboot_control_host()
 
-        # Wait for control host to be reachable via ping
-        self.wait_online(self.__check_ssh_server_on_host, control_host, 300)
+        timeout = 300
+        try:
+            self.wait_online(
+                self.__check_ssh_server_on_host, control_host, timeout
+            )
+        except TimeoutError:
+            msg = (
+                "Host %s is not available "
+                "or the SSH server is not running after %d seconds"
+            )
+            logger.error(msg, control_host, timeout)
 
     def provision(self, args):
         """Run pre-provision hook."""

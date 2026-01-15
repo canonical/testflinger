@@ -30,6 +30,7 @@ class ZapperOemTests(unittest.TestCase):
         if config is None:
             config = {
                 "device_ip": "192.168.1.100",
+                "control_host": "zapper-host",
                 "reboot_script": "snmp 1.2.3.4.5.6.7",
             }
         return ZapperOem(config)
@@ -139,19 +140,6 @@ class ZapperOemTests(unittest.TestCase):
         with self.assertRaises(ProvisioningError) as context:
             device._validate_configuration()
         self.assertIn("zapper_iso_type is required", str(context.exception))
-
-    def test_validate_configuration_missing_device_ip(self):
-        """Test _validate_configuration with missing device_ip."""
-        device = self._create_device(config={})  # Empty config
-        device.job_data = {
-            "provision_data": {
-                "zapper_iso_url": "http://example.com/image.iso",
-                "zapper_iso_type": "bootstrap",
-            }
-        }
-        with self.assertRaises(ProvisioningError) as context:
-            device._validate_configuration()
-        self.assertIn("device_ip is missing", str(context.exception))
 
     def test_validate_configuration_invalid_iso_type(self):
         """Test _validate_configuration with invalid ISO type."""

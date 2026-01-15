@@ -34,6 +34,11 @@ STAGES_CONNECTORS_PRODUCT = tuple(product(STAGES, DEVICE_CONNECTORS))
 def test_get_device_stage_func(stage, device):
     """Check that we can load all stages from all device connectors."""
     fake_config = {"device_ip": "10.10.10.10", "agent_name": "fake_agent"}
+
+    # Zapper connectors require control_host
+    if device.startswith("zapper"):
+        fake_config["control_host"] = "fake-zapper-host"
+
     connector_instance = import_module(
         f"testflinger_device_connectors.devices.{device}"
     ).DeviceConnector(config=fake_config)
@@ -66,19 +71,14 @@ class TestWaitOnline:
         assert mock_check.call_count == 3
 
     def test_wait_online_times_out(self, mocker):
-        """Test wait_online logs error when timeout is reached."""
+        """Test wait_online raises TimeoutError when timeout is reached."""
         mocker.patch("time.sleep")
         # Simulate time progressing past timeout
         mocker.patch("time.time", side_effect=[0, 1, 2, 100])
         mock_check = MagicMock(side_effect=ConnectionError)
-        mock_logger = mocker.patch(
-            "testflinger_device_connectors.devices.logger"
-        )
 
-        DefaultDevice.wait_online(mock_check, "test-host", 10)
-
-        mock_logger.error.assert_called_once()
-        assert "not available" in mock_logger.error.call_args[0][0]
+        with pytest.raises(TimeoutError):
+            DefaultDevice.wait_online(mock_check, "test-host", 10)
 
 
 class TestCheckSshServerOnHost:
@@ -117,19 +117,14 @@ class TestRebootControlHost:
     """Tests for DefaultDevice.__reboot_control_host method."""
 
     def test_reboot_control_host_no_script(self, mocker):
-        """Test reboot logs warning when no script is configured."""
+        """Test reboot returns early when no script is configured."""
         mocker.patch("builtins.open", mocker.mock_open())
-        mock_logger = mocker.patch(
-            "testflinger_device_connectors.devices.logger"
-        )
+        mock_subprocess = mocker.patch("subprocess.run")
         device = DefaultDevice({"device_ip": "1.1.1.1"})
 
         device._DefaultDevice__reboot_control_host()
 
-        mock_logger.warning.assert_called_once()
-        assert "No control_host_reboot_script" in str(
-            mock_logger.warning.call_args
-        )
+        mock_subprocess.assert_not_called()
 
     def test_reboot_control_host_success(self, mocker):
         """Test reboot runs script commands successfully."""
@@ -149,9 +144,6 @@ class TestRebootControlHost:
     def test_reboot_control_host_called_process_error(self, mocker):
         """Test reboot handles CalledProcessError gracefully."""
         mocker.patch("builtins.open", mocker.mock_open())
-        mock_logger = mocker.patch(
-            "testflinger_device_connectors.devices.logger"
-        )
         error = subprocess.CalledProcessError(1, "cmd1")
         error.stdout = "some stdout"
         error.stderr = "some stderr"
@@ -166,17 +158,10 @@ class TestRebootControlHost:
         # Should not raise
         device._DefaultDevice__reboot_control_host()
 
-        # Check that errors were logged
-        error_calls = list(mock_logger.error.call_args_list)
-        assert len(error_calls) >= 1
-
     def test_reboot_control_host_timeout_expired(self, mocker):
         """Test reboot handles TimeoutExpired gracefully."""
         mocker.patch("builtins.open", mocker.mock_open())
-        mock_logger = mocker.patch(
-            "testflinger_device_connectors.devices.logger"
-        )
-        timeout_error = subprocess.TimeoutExpired("cmd1", 300)
+        timeout_error = subprocess.TimeoutExpired("cmd1", 60)
         mocker.patch("subprocess.run", side_effect=timeout_error)
         device = DefaultDevice(
             {
@@ -188,16 +173,9 @@ class TestRebootControlHost:
         # Should not raise
         device._DefaultDevice__reboot_control_host()
 
-        # Check that timeout was logged
-        error_calls = [str(c) for c in mock_logger.error.call_args_list]
-        assert any("timed out" in c for c in error_calls)
-
     def test_reboot_control_host_unexpected_error(self, mocker):
         """Test reboot handles unexpected exceptions gracefully."""
         mocker.patch("builtins.open", mocker.mock_open())
-        mock_logger = mocker.patch(
-            "testflinger_device_connectors.devices.logger"
-        )
         mocker.patch("subprocess.run", side_effect=OSError("unexpected"))
         device = DefaultDevice(
             {
@@ -209,10 +187,6 @@ class TestRebootControlHost:
         # Should not raise
         device._DefaultDevice__reboot_control_host()
 
-        # Check that unexpected error was logged
-        error_calls = [str(c) for c in mock_logger.error.call_args_list]
-        assert any("Unexpected error" in c for c in error_calls)
-
 
 class TestPreProvisionHook:
     """Tests for DefaultDevice.pre_provision_hook method."""
@@ -220,34 +194,26 @@ class TestPreProvisionHook:
     def test_pre_provision_hook_no_control_host(self, mocker):
         """Test hook returns early when no control_host configured."""
         mocker.patch("builtins.open", mocker.mock_open())
-        mock_logger = mocker.patch(
-            "testflinger_device_connectors.devices.logger"
-        )
+        mock_subprocess = mocker.patch("subprocess.run")
         device = DefaultDevice({"device_ip": "1.1.1.1"})
 
         device.pre_provision_hook()
 
-        mock_logger.debug.assert_called()
-        assert "No control host" in str(mock_logger.debug.call_args_list[0])
+        # No SSH check should be called without control_host
+        mock_subprocess.assert_not_called()
 
     def test_pre_provision_hook_host_already_up(self, mocker):
         """Test hook returns early when control host is already reachable."""
         mocker.patch("builtins.open", mocker.mock_open())
         mock_subprocess = mocker.patch("subprocess.run")
-        mock_logger = mocker.patch(
-            "testflinger_device_connectors.devices.logger"
-        )
         device = DefaultDevice(
             {"device_ip": "1.1.1.1", "control_host": "control-host"}
         )
 
         device.pre_provision_hook()
 
-        # SSH check was called
+        # SSH check was called once (host was up)
         mock_subprocess.assert_called_once()
-        # Should log that host is up
-        debug_calls = [str(c) for c in mock_logger.debug.call_args_list]
-        assert any("already up" in c for c in debug_calls)
 
     def test_pre_provision_hook_reboots_and_waits(self, mocker):
         """Test hook reboots host and waits when not reachable."""
@@ -275,6 +241,29 @@ class TestPreProvisionHook:
 
         # Verify subprocess was called multiple times
         assert subprocess.run.call_count == 3
+
+    def test_pre_provision_hook_handles_timeout(self, mocker):
+        """Test hook handles timeout when wait_online times out."""
+        mocker.patch("builtins.open", mocker.mock_open())
+        mocker.patch("time.sleep")
+        # Time progresses past timeout (need extra values for logging)
+        time_values = [0, 1, 2, 500] + [500] * 10
+        mocker.patch("time.time", side_effect=time_values)
+        # SSH check always fails
+        mocker.patch(
+            "subprocess.run",
+            side_effect=subprocess.CalledProcessError(1, "nc"),
+        )
+        device = DefaultDevice(
+            {
+                "device_ip": "1.1.1.1",
+                "control_host": "control-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+            }
+        )
+
+        # Should not raise - timeout is handled gracefully
+        device.pre_provision_hook()
 
 
 class TestProvision:

@@ -227,12 +227,20 @@ class MuxPi:
         # If this is not a zapper, reboot before provisioning
         if "zapper" not in self.config.get("control_switch_local_cmd", ""):
             self.reboot_sdwire()
+            time.sleep(5)
         else:
             _, control_host = self.get_credentials()
-            DefaultDevice.wait_online(
-                self.__check_rpyc_server_on_host, control_host, 60
+            logger.info(
+                "Waiting for a running RPyC server on host %s", control_host
             )
-        time.sleep(5)
+            try:
+                DefaultDevice.wait_online(
+                    self.__check_rpyc_server_on_host, control_host, 60
+                )
+            except TimeoutError as e:
+                raise ProvisioningError(
+                    "Cannot reach out the service over RPyC"
+                ) from e
 
         # determine where to get the provisioning image from
         source = self.job_data["provision_data"].get("url")

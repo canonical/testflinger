@@ -45,17 +45,6 @@ class ZapperConnector(ABC, DefaultDevice):
     ZAPPER_REQUEST_TIMEOUT = 60 * 90
     ZAPPER_SERVICE_PORT = 60000
 
-    def __init__(self, config: dict):
-        super().__init__(config)
-
-        # Wait for control host to be reachable over RPyC
-        if "control_host" in self.config:
-            self.wait_online(
-                self.__check_rpyc_server_on_host,
-                self.config["control_host"],
-                60,
-            )
-
     def __check_rpyc_server_on_host(self, host: str) -> None:
         """
         Check if the host has an active RPyC server running.
@@ -84,6 +73,21 @@ class ZapperConnector(ABC, DefaultDevice):
     def provision(self, args):
         """Provision device when the command is invoked."""
         super().provision(args)
+
+        control_host = self.config["control_host"]
+        logger.info(
+            "Waiting for a running RPyC server on host %s", control_host
+        )
+        try:
+            self.wait_online(
+                self.__check_rpyc_server_on_host,
+                control_host,
+                60,
+            )
+        except TimeoutError as e:
+            raise ProvisioningError(
+                "Cannot reach out the Zapper service over RPyC"
+            ) from e
 
         with open(args.job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)

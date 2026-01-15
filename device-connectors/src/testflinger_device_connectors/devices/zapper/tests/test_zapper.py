@@ -50,6 +50,7 @@ class ZapperConnectorTests(unittest.TestCase):
         fake_config = {
             "device_ip": "1.1.1.1",
             "agent_name": "my-agent",
+            "control_host": "zapper-host",
             "reboot_script": ["cmd1", "cmd2"],
             "env": {"CID": "202507-01234"},
         }
@@ -75,7 +76,7 @@ class ZapperConnectorTests(unittest.TestCase):
         job and config and attempts to copy the agent SSH
         key to the DUT.
         """
-        fake_config = {"device_ip": "1.1.1.1"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
         connector = MockConnector(fake_config)
         connector.job_data = {
             "test_data": {
@@ -96,7 +97,7 @@ class ZapperConnectorTests(unittest.TestCase):
         """Test the function raises a ProvisioningError exception
         in case of failure.
         """
-        fake_config = {"device_ip": "1.1.1.1"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
         connector = MockConnector(fake_config)
         connector.job_data = {
             "test_data": {
@@ -117,7 +118,11 @@ class TestZapperConnectorRpycCheck:
 
     def test_check_rpyc_server_on_host_success(self, mocker):
         """Test __check_rpyc_server_on_host succeeds when port is open."""
-        fake_config = {"device_ip": "1.1.1.1", "agent_name": "test-agent"}
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "agent_name": "test-agent",
+            "control_host": "zapper-host",
+        }
         connector = MockConnector(fake_config)
 
         mock_subprocess = mocker.patch("subprocess.run")
@@ -138,7 +143,11 @@ class TestZapperConnectorRpycCheck:
 
     def test_check_rpyc_server_on_host_raises_connection_error(self, mocker):
         """Test connection check raises ConnectionError on failure."""
-        fake_config = {"device_ip": "1.1.1.1", "agent_name": "test-agent"}
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "agent_name": "test-agent",
+            "control_host": "zapper-host",
+        }
         connector = MockConnector(fake_config)
 
         mocker.patch(
@@ -148,28 +157,3 @@ class TestZapperConnectorRpycCheck:
 
         with pytest.raises(ConnectionError):
             connector._ZapperConnector__check_rpyc_server_on_host("test-host")
-
-    def test_init_waits_for_rpyc_when_control_host_configured(self, mocker):
-        """Test __init__ calls wait_online when control_host is in config."""
-        mock_wait_online = mocker.patch.object(ZapperConnector, "wait_online")
-
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "agent_name": "test-agent",
-            "control_host": "zapper-host",
-        }
-        MockConnector(fake_config)
-
-        mock_wait_online.assert_called_once()
-        call_args = mock_wait_online.call_args
-        assert call_args[0][1] == "zapper-host"
-        assert call_args[0][2] == 60
-
-    def test_init_skips_wait_when_no_control_host(self, mocker):
-        """Test __init__ does not call wait_online without control_host."""
-        mock_wait_online = mocker.patch.object(ZapperConnector, "wait_online")
-
-        fake_config = {"device_ip": "1.1.1.1", "agent_name": "test-agent"}
-        MockConnector(fake_config)
-
-        mock_wait_online.assert_not_called()
