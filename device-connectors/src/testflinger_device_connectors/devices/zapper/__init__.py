@@ -76,7 +76,8 @@ class ZapperConnector(ABC, DefaultDevice):
 
         control_host = self.config["control_host"]
         logger.info(
-            "Waiting for a running RPyC server on host %s", control_host
+            "Waiting for a running RPyC server on control host %s",
+            control_host,
         )
         try:
             self.wait_online(

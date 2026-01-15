@@ -231,7 +231,8 @@ class MuxPi:
         else:
             _, control_host = self.get_credentials()
             logger.info(
-                "Waiting for a running RPyC server on host %s", control_host
+                "Waiting for a running RPyC server on control host %s",
+                control_host,
             )
             try:
                 DefaultDevice.wait_online(

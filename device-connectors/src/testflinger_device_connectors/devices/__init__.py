@@ -431,7 +431,9 @@ class DefaultDevice:
                 capture_output=True,
                 text=True,
             )
-            logger.debug("The host %s has an available SSH server", host)
+            logger.debug(
+                "The control host %s has an available SSH server", host
+            )
         except subprocess.CalledProcessError as e:
             raise ConnectionError from e
 
@@ -495,7 +497,7 @@ class DefaultDevice:
             return
 
         logger.info(
-            "Waiting for a running SSH server on host %s", control_host
+            "Waiting for a running SSH server on control host %s", control_host
         )
         with contextlib.suppress(ConnectionError):
             self.__check_ssh_server_on_host(control_host)
@@ -511,7 +513,7 @@ class DefaultDevice:
             )
         except TimeoutError:
             msg = (
-                "Host %s is not available "
+                "Control host %s is not available "
                 "or the SSH server is not running after %d seconds"
             )
             logger.error(msg, control_host, timeout)
