@@ -26,12 +26,15 @@
             "type": "string"
           },
           "job_id": {
+            "description": "Job ID the device is running, if any",
             "type": "string"
           },
           "location": {
+            "description": "Location of the device",
             "type": "string"
           },
           "log": {
+            "description": "Push and keep only the last 100 lines",
             "items": {
               "type": "string"
             },
@@ -41,12 +44,14 @@
             "type": "string"
           },
           "queues": {
+            "description": "Queues the device is listening on",
             "items": {
               "type": "string"
             },
             "type": "array"
           },
           "state": {
+            "description": "State the device is in",
             "type": "string"
           }
         },
@@ -172,6 +177,19 @@
         ],
         "type": "object"
       },
+      "FileUpload": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "type": "object"
+      },
       "HTTPError": {
         "properties": {
           "detail": {
@@ -181,6 +199,26 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "ImagePostIn": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "description": "Image provision data",
+                "type": "string"
+              },
+              "description": "Image data for the queue",
+              "type": "object"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
+        ],
         "type": "object"
       },
       "Job": {
@@ -284,6 +322,30 @@
         ],
         "type": "object"
       },
+      "JobInQueueOut": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "job_queue": {
+            "type": "string"
+          },
+          "job_state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "created_at",
+          "job_id",
+          "job_queue",
+          "job_state"
+        ],
+        "type": "object"
+      },
       "JobSearchResponse": {
         "additionalProperties": false,
         "properties": {
@@ -321,9 +383,11 @@
         "additionalProperties": false,
         "properties": {
           "last_fragment_number": {
+            "description": "The highest fragment number for this phase",
             "type": "integer"
           },
           "log_data": {
+            "description": "Combined log text from all matching fragments for this phase",
             "type": "string"
           }
         },
@@ -337,12 +401,15 @@
         "additionalProperties": false,
         "properties": {
           "fragment_number": {
+            "description": "Sequential fragment number of the log fragment being posted, starting from 0",
             "type": "integer"
           },
           "log_data": {
+            "description": "The log content for this fragment",
             "type": "string"
           },
           "phase": {
+            "description": "Test phase name (setup, provision, firmware_update, test, allocate, reserve, cleanup)",
             "enum": [
               "setup",
               "provision",
@@ -355,6 +422,7 @@
             "type": "string"
           },
           "timestamp": {
+            "description": "Timestamp in ISO 8601 format of when the log fragment was created",
             "format": "date-time",
             "type": "string"
           }
@@ -364,6 +432,63 @@
           "log_data",
           "phase",
           "timestamp"
+        ],
+        "type": "object"
+      },
+      "Oauth2RefreshTokenIn": {
+        "additionalProperties": false,
+        "properties": {
+          "refresh_token": {
+            "description": "Opaque refresh token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "type": "object"
+      },
+      "Oauth2RefreshTokenOut": {
+        "additionalProperties": false,
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "expires_in": {
+            "type": "integer"
+          },
+          "token_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "token_type"
+        ],
+        "type": "object"
+      },
+      "Oauth2Token": {
+        "additionalProperties": false,
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "expires_in": {
+            "type": "integer"
+          },
+          "refresh_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "refresh_token",
+          "token_type"
         ],
         "type": "object"
       },
@@ -388,6 +513,53 @@
         "required": [
           "exit_code",
           "job_id"
+        ],
+        "type": "object"
+      },
+      "QueueDict": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "additionalProperties": {
+              "description": "Queue description",
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "QueueName": {
+        "additionalProperties": false,
+        "properties": {
+          "queue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue"
+        ],
+        "type": "object"
+      },
+      "QueueWaitTimePercentilesOut": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "description": "Percentile statistics for job wait times in seconds",
+              "type": "object"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       },
@@ -608,6 +780,63 @@
         },
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "BasicAuth": {
+        "description": "Base64 encoded pair of client_id:client_key",
+        "scheme": "basic",
+        "type": "http"
+      },
+      "BearerAuth": {
+        "description": "Based64-encoded JWT access token with permissions to access restricted queues",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "BearerAuth_10": {
+        "description": "Based64-encoded JWT access token with permissions to delete secrets",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "BearerAuth_2": {
+        "description": "Based64-encoded JWT access token with permissions to access restricted queues",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "BearerAuth_3": {
+        "description": "Based64-encoded JWT access token with admin or manager permissions",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "BearerAuth_4": {
+        "description": "Based64-encoded JWT access token with admin or manager permissions",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "BearerAuth_5": {
+        "description": "Based64-encoded JWT access token with admin or manager permissions",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "BearerAuth_6": {
+        "description": "Based64-encoded JWT access token with admin or manager permissions",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "BearerAuth_7": {
+        "description": "Based64-encoded JWT access token with admin or manager permissions",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "BearerAuth_8": {
+        "description": "Based64-encoded JWT access token with admin permissions",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "BearerAuth_9": {
+        "description": "Based64-encoded JWT access token with permissions to store secrets",
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -653,6 +882,7 @@
     },
     "/v1/agents/data": {
       "get": {
+        "description": "Returns JSON data for all known agents, including their state,\nqueues, location, and information about restricted queue ownership.\nUseful for external systems monitoring agents.",
         "parameters": [],
         "responses": {
           "200": {
@@ -666,7 +896,7 @@
                 }
               }
             },
-            "description": "Successful response"
+            "description": "JSON data for all known agents, useful for external systems that need to gather this information"
           }
         },
         "summary": "Get all agent data.",
@@ -677,7 +907,7 @@
     },
     "/v1/agents/data/{agent_name}": {
       "get": {
-        "description": ":param agent_name:\nString with the name of the agent to retrieve information from.\n:return:\nJSON data with the specified agent information.",
+        "description": "Returns JSON data for the specified agent, including state, queues,\nlocation, and restricted queue ownership information.",
         "parameters": [
           {
             "in": "path",
@@ -697,7 +927,7 @@
                 }
               }
             },
-            "description": "Successful response"
+            "description": "JSON data for the specified agent, useful for getting information from a single agent. "
           },
           "404": {
             "content": {
@@ -707,7 +937,17 @@
                 }
               }
             },
-            "description": "Not found"
+            "description": "(Not Found) The specified agent was not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Get the information from a specified agent.",
@@ -774,8 +1014,27 @@
     },
     "/v1/agents/images": {
       "post": {
-        "description": "images will be stored in a dict of key/value pairs as part of the queues\ncollection. That dict will contain image_name:provision_data mappings, ex:\n{\n\"some_queue\": {\n\"core22\": \"http://cdimage.ubuntu.com/.../core-22.tar.gz\",\n\"jammy\": \"http://cdimage.ubuntu.com/.../ubuntu-22.04.tar.gz\"\n},\n\"other_queue\": {\n...\n}\n}.",
+        "description": "Images will be stored in a dict of key/value pairs as part of the\nqueues collection.",
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "myqueue": {
+                  "core22": "http://cdimage.ubuntu.com/.../core-22.tar.gz",
+                  "jammy": "http://cdimage.ubuntu.com/.../ubuntu-22.04.tar.gz"
+                },
+                "other_queue": {
+                  "image1": "data1",
+                  "image2": "data2"
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ImagePostIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -784,9 +1043,19 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
-        "summary": "Tell testflinger about known images for a specified queue",
+        "summary": "Tell testflinger about known images for a specified queue.",
         "tags": [
           "V1"
         ]
@@ -794,6 +1063,7 @@
     },
     "/v1/agents/images/{queue}": {
       "get": {
+        "description": "Returns a dictionary mapping image names to their provisioning URLs\nor data. Returns an empty dict if the queue doesn't exist or has no\nimages.",
         "parameters": [
           {
             "in": "path",
@@ -831,9 +1101,19 @@
               }
             },
             "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
-        "summary": "Get a dict of known images for a given queue.",
+        "summary": "Get image names and provisioning data for a queue.",
         "tags": [
           "V1"
         ]
@@ -841,6 +1121,7 @@
     },
     "/v1/agents/provision_logs/{agent_name}": {
       "post": {
+        "description": "Submit provision log entries including job_id, exit_code, and detail\ninformation. The server maintains the last 100 provision log entries\nper agent and tracks provision success/failure streaks.",
         "parameters": [
           {
             "in": "path",
@@ -854,6 +1135,11 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "example": {
+                "detail": "foo",
+                "exit_code": 1,
+                "job_id": "00000000-0000-0000-0000-000000000000"
+              },
               "schema": {
                 "$ref": "#/components/schemas/ProvisionLogsIn"
               }
@@ -927,6 +1213,19 @@
       "post": {
         "description": "Some agents may want to advertise some of the queues they listen on so that\nthe user can check which queues are valid to use.",
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "myqueue": "queue 1",
+                "myqueue2": "queue 2"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/QueueDict"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -935,6 +1234,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Tell testflinger the queue names that are being serviced.",
@@ -958,10 +1267,29 @@
                 }
               }
             },
-            "description": "Successful response"
+            "description": "JSON data with a list all client IDs and its permission excluding the hashed secret stored in database"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "(Unauthorized) Missing or invalid access token"
+          },
+          "403": {
+            "content": {},
+            "description": "(Forbidden) Insufficient permissions for the authenticated user"
           }
         },
-        "summary": "Retrieve all client permissions from database.",
+        "security": [
+          {
+            "BearerAuth_5": []
+          }
+        ],
+        "summary": "Retrieve all all client_id and their permissions from database.",
         "tags": [
           "V1"
         ]
@@ -980,13 +1308,19 @@
           }
         ],
         "responses": {
-          "200": {
+          "401": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "(Unauthorized) Missing or invalid access token"
+          },
+          "403": {
+            "content": {},
+            "description": "(Forbidden) Insufficient permissions for the authenticated user to delete client permissions"
           },
           "404": {
             "content": {
@@ -996,9 +1330,24 @@
                 }
               }
             },
-            "description": "Not found"
+            "description": "(Not Found) The specified client_id was not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "(Unprocessable Entity) System admin can't be removed using the API"
           }
         },
+        "security": [
+          {
+            "BearerAuth_8": []
+          }
+        ],
         "summary": "Delete client id along with its permissions.",
         "tags": [
           "V1"
@@ -1024,7 +1373,21 @@
                 }
               }
             },
-            "description": "Successful response"
+            "description": "JSON data with the permissions of a specified client excluding the hashed secret stored in database"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "(Unauthorized) Missing or invalid access token"
+          },
+          "403": {
+            "content": {},
+            "description": "(Forbidden) Insufficient permissions for the authenticated user"
           },
           "404": {
             "content": {
@@ -1034,9 +1397,24 @@
                 }
               }
             },
-            "description": "Not found"
+            "description": "(Not Found) The specified client_id was not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "BearerAuth_6": []
+          }
+        ],
         "summary": "Retrieve single client-permissions from database.",
         "tags": [
           "V1"
@@ -1056,6 +1434,15 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "example": {
+                "client_id": "myclient",
+                "client_secret": "my-secret-password",
+                "max_priority": {},
+                "max_reservation_time": {
+                  "*": 40000
+                },
+                "role": "contributor"
+              },
               "schema": {
                 "$ref": "#/components/schemas/ClientPermissionsIn"
               }
@@ -1063,13 +1450,23 @@
           }
         },
         "responses": {
-          "200": {
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Missing client_secret when creating new client permissions"
+          },
+          "401": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "(Unauthorized) Missing or invalid access token"
+          },
+          "403": {
+            "content": {},
+            "description": "(Forbidden) Insufficient permissions for the authenticated user to modify client permissions"
           },
           "404": {
             "content": {
@@ -1079,7 +1476,67 @@
                 }
               }
             },
-            "description": "Not found"
+            "description": "(Not Found) The specified client_id was not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "(Unprocessable Entity) System admin client cannot be modified using the API"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth_7": []
+          }
+        ],
+        "summary": "Add or create client permissions for a specified user.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/job": {
+      "get": {
+        "description": "When an agent wants to request a job for processing, it can make this\nrequest along with a list of one or more queues that it is configured\nto process. The server will only return one job.\n\nNote:\nAny secrets that are referenced in the job are \"resolved\" when the\njob is retrieved by an agent through this endpoint. Any secrets that\nare inaccessible at the time of retrieval will be resolved to the\nempty string.",
+        "parameters": [
+          {
+            "description": "List of queue name(s) that the agent can process",
+            "explode": true,
+            "in": "query",
+            "name": "queue",
+            "required": true,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "description": "(OK) JSON job data that was submitted by the requester"
+          },
+          "204": {
+            "content": {},
+            "description": "(No Content) No jobs available in the specified queues"
+          },
+          "400": {
+            "content": {},
+            "description": "(Bad request) No queue is specified in the request"
           },
           "422": {
             "content": {
@@ -1092,48 +1549,31 @@
             "description": "Validation error"
           }
         },
-        "summary": "Add or create client permissions for a specified user.",
-        "tags": [
-          "V1"
-        ]
-      }
-    },
-    "/v1/job": {
-      "get": {
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Job"
-                }
-              }
-            },
-            "description": "Successful response"
-          },
-          "204": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {},
-                  "type": "object"
-                }
-              }
-            },
-            "description": "No job found"
-          }
-        },
-        "summary": "Request a job to run from supported queues.",
+        "summary": "Get a test job from the specified queue(s).",
         "tags": [
           "V1"
         ]
       },
       "post": {
+        "description": "Most parameters passed in the data section of this API will be specific\nto the type of agent receiving them. The `job_queue` parameter is used\nto designate the queue used, but all others will be passed along to\nthe agent.",
         "parameters": [],
         "requestBody": {
           "content": {
             "application/json": {
+              "example": {
+                "job_queue": "myqueue",
+                "name": "Example Test Job",
+                "provision_data": {
+                  "url": "<url>"
+                },
+                "tags": [
+                  "test",
+                  "sample"
+                ],
+                "test_data": {
+                  "test_cmds": "lsb_release -a"
+                }
+              },
               "schema": {
                 "$ref": "#/components/schemas/Job"
               }
@@ -1144,12 +1584,15 @@
           "200": {
             "content": {
               "application/json": {
+                "example": {
+                  "job_id": "550e8400-1234-1234-1234-446655440000"
+                },
                 "schema": {
                   "$ref": "#/components/schemas/JobId"
                 }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) Returns the job_id (UUID) of the newly created job"
           },
           "422": {
             "content": {
@@ -1159,10 +1602,10 @@
                 }
               }
             },
-            "description": "Validation error"
+            "description": "(Unprocessable Content) The submitted job contains references to secrets that are inaccessible"
           }
         },
-        "summary": "Add a job to the queue.",
+        "summary": "Create a test job request and place it on the specified queue.",
         "tags": [
           "V1"
         ]
@@ -1170,6 +1613,7 @@
     },
     "/v1/job/search": {
       "get": {
+        "description": "Parameters:\n- `tags` (array): List of string tags to search for\n- `match` (string): Match mode for\n- `tags` (string, \"all\" or \"any\", default: \"any\")\n- `state` (array): List of job states to include (or \"active\" to\nsearch all states other than cancelled and completed)",
         "parameters": [
           {
             "description": "List of tags to search for",
@@ -1230,6 +1674,14 @@
           "200": {
             "content": {
               "application/json": {
+                "example": {
+                  "jobs": [
+                    {
+                      "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                      "job_queue": "myqueue"
+                    }
+                  ]
+                },
                 "schema": {
                   "$ref": "#/components/schemas/JobSearchResponse"
                 }
@@ -1248,7 +1700,7 @@
             "description": "Validation error"
           }
         },
-        "summary": "Search for jobs by tags.",
+        "summary": "Search for jobs by tag(s) and state(s).",
         "tags": [
           "V1"
         ]
@@ -1256,7 +1708,7 @@
     },
     "/v1/job/{job_id}": {
       "get": {
-        "description": "already run.\n\n:param job_id:\nUUID as a string for the job\n:return:\nJSON data for the job or error string and http error",
+        "description": "Returns the job definition even if the job has already run.",
         "parameters": [
           {
             "in": "path",
@@ -1276,7 +1728,15 @@
                 }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) JSON data for the job"
+          },
+          "204": {
+            "content": {},
+            "description": "(No Content) Job not found"
+          },
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Invalid job_id specified"
           },
           "404": {
             "content": {
@@ -1287,9 +1747,19 @@
               }
             },
             "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
-        "summary": "Request the json job definition for a specified job, even if it has",
+        "summary": "Request the json job definition for a specified job.",
         "tags": [
           "V1"
         ]
@@ -1297,7 +1767,7 @@
     },
     "/v1/job/{job_id}/action": {
       "post": {
-        "description": ":param job_id:\nUUID as a string for the job",
+        "description": "Supported actions:\n- cancel: Cancel a job that hasn't been completed yet",
         "parameters": [
           {
             "in": "path",
@@ -1311,6 +1781,9 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "example": {
+                "action": "cancel"
+              },
               "schema": {
                 "$ref": "#/components/schemas/ActionIn"
               }
@@ -1321,10 +1794,65 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/None"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) Action executed successfully"
+          },
+          "400": {
+            "content": {},
+            "description": " (Bad Request) The job is already completed or cancelled"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "(Not Found) The job isn't found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "(Unprocessable Entity) The action or the argument to it could not be processed"
+          }
+        },
+        "summary": "Execute action for the specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/job/{job_id}/attachments": {
+      "get": {
+        "description": "Returns a gzip-compressed tarball containing all files that were\nuploaded as attachments.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {},
+            "description": "(No Content) No attachments found for this job"
+          },
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Invalid job_id specified"
           },
           "404": {
             "content": {
@@ -1347,52 +1875,13 @@
             "description": "Validation error"
           }
         },
-        "summary": "Take action on the job status for a specified job ID.",
-        "tags": [
-          "V1"
-        ]
-      }
-    },
-    "/v1/job/{job_id}/attachments": {
-      "get": {
-        "description": ":param job_id:\nUUID as a string for the job\n:return:\nsend_file stream of attachment tarball to download",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          }
-        },
-        "summary": "Return the attachments bundle for a specified job_id.",
+        "summary": "Download the attachments bundle for a specified job_id.",
         "tags": [
           "V1"
         ]
       },
       "post": {
-        "description": ":param job_id:\nUUID as a string for the job",
+        "description": "Upload a gzip-compressed tarball containing files to be used as\nattachments for the job.\nThe job must be in a state where it's awaiting attachments.",
         "parameters": [
           {
             "in": "path",
@@ -1403,14 +1892,19 @@
             }
           }
         ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/FileUpload"
               }
-            },
-            "description": "Successful response"
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Invalid job_id specified"
           },
           "404": {
             "content": {
@@ -1421,6 +1915,16 @@
               }
             },
             "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "(Unprocessable Entity) Job not awaiting attachments or the job_id is not valid"
           }
         },
         "summary": "Post attachment bundle for a specified job_id.",
@@ -1431,7 +1935,7 @@
     },
     "/v1/job/{job_id}/events": {
       "post": {
-        "description": "to TestObserver.\n\nThe json sent to this endpoint may contain data such as the following:\n{\n\"agent_id\": \"<string>\",\n\"job_queue\": \"<string>\",\n\"job_status_webhook\": \"<URL as string>\",\n\"events\": [\n{\n\"event_name\": \"<string enum of events>\",\n\"timestamp\": \"<datetime>\",\n\"detail\": \"<string>\"\n},\n...\n]\n}",
+        "description": "The `job_status_webhook` parameter is required for this endpoint.\nOther parameters included here will be forwarded to the webhook.",
         "parameters": [
           {
             "in": "path",
@@ -1445,6 +1949,18 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "example": {
+                "agent_id": "agent-00",
+                "events": [
+                  {
+                    "detail": "my_detailed_message",
+                    "event_name": "started_provisioning",
+                    "timestamp": "2024-05-03T19:11:33.541130+00:00"
+                  }
+                ],
+                "job_queue": "myqueue",
+                "job_status_webhook": "http://mywebhook"
+              },
               "schema": {
                 "$ref": "#/components/schemas/StatusUpdate"
               }
@@ -1455,10 +1971,16 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/None"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) Text response from the webhook if the server was successfully able to post."
+          },
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Invalid job_id or JSON data specified"
           },
           "404": {
             "content": {
@@ -1479,9 +2001,13 @@
               }
             },
             "description": "Validation error"
+          },
+          "504": {
+            "content": {},
+            "description": "(Gateway Timeout) The webhook did not respond in time"
           }
         },
-        "summary": "Post status updates from the agent to the server to be forwarded",
+        "summary": "Post job status updates to the specified webhook URL.",
         "tags": [
           "V1"
         ]
@@ -1503,10 +2029,16 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) Zero-based position indicating how many jobs are ahead of this job in the queue."
+          },
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Invalid job_id specified"
           },
           "404": {
             "content": {
@@ -1517,9 +2049,23 @@
               }
             },
             "description": "Not found"
+          },
+          "410": {
+            "content": {},
+            "description": "(Gone) Job not found or already started"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
-        "summary": "Return the position of the specified jobid in the queue.",
+        "summary": "Return the position of the specified job_id in the queue.",
         "tags": [
           "V1"
         ]
@@ -1528,14 +2074,47 @@
     "/v1/oauth2/refresh": {
       "post": {
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "refresh_token": "<opaque-refresh-token>"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/Oauth2RefreshTokenIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "example": {
+                  "access_token": "<new-JWT-Access-Token>",
+                  "expires_in": 30,
+                  "token_type": "Bearer"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Oauth2RefreshTokenOut"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) JSON object containing new access token, token type, and expiration time"
+          },
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Missing, invalid, revoked, or expired refresh token"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Refresh access token using a valid refresh token.",
@@ -1547,14 +2126,49 @@
     "/v1/oauth2/revoke": {
       "post": {
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "refresh_token": "<opaque-refresh-token>"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/Oauth2RefreshTokenIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "example": {
+                  "message": "Refresh token revoked successfully"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) Text response indicating successful revocation of the refresh token"
+          },
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Missing, invalid, or already revoked refresh token"
+          },
+          "401": {
+            "content": {},
+            "description": "(Unauthorized) Admin privileges required to revoke refresh tokens"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Revoke a refresh token. Only admins can perform this action.",
@@ -1565,18 +2179,41 @@
     },
     "/v1/oauth2/token": {
       "post": {
-        "description": "Get JWT with priority and queue permissions.\n\nBefore being encrypted, the JWT can contain fields like:\n{\nexp: <Expiration DateTime of Token>,\niat: <Issuance DateTime of Token>,\nsub: <Subject Field of Token>,\npermissions: {\nmax_priority: <Queue to Priority Level Dict>,\nallowed_queues: <List of Allowed Restricted Queues>,\nmax_reservation_time: <Queue to Max Reservation Time Dict>,\n}\n}",
+        "description": "Get JWT with priority and queue permissions.\n\nBefore being encrypted, the JWT can contain fields like:\n{\nexp: <Expiration DateTime of Token>,\niat: <Issuance DateTime of Token>,\nsub: <Subject Field of Token>,\npermissions: {\nmax_priority: <Queue to Priority Level Dict>,\nallowed_queues: <List of Allowed Restricted Queues>,\nmax_reservation_time: <Queue to Max Reservation Time Dict>,\n}\n}\nNotes:\n- `expires_in` is the lifetime (in seconds) of the access token.\n- Refresh tokens default to 30 days; admin may issue non-expiring\ntokens for trusted integrations.",
         "parameters": [],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "example": {
+                  "access_token": "<JWT Access Token>",
+                  "expires_in": 30,
+                  "refresh_token": "<Refresh Token>",
+                  "token_type": "Bearer"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Oauth2Token"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) JSON object containing access token, token type, expiration time, and refresh token"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "(Unauthorized) Invalid client id or client key"
           }
         },
+        "security": [
+          {
+            "BasicAuth": []
+          }
+        ],
         "summary": "Issue both access token and refresh token for a client.",
         "tags": [
           "V1"
@@ -1585,18 +2222,62 @@
     },
     "/v1/queues/wait_times": {
       "get": {
-        "parameters": [],
+        "description": "Returns percentile statistics (p5, p10, p50, p90, p95) for job wait\ntimes in the specified queues. If no queues are specified, returns\nmetrics for all queues.",
+        "parameters": [
+          {
+            "description": "List of queue names",
+            "explode": true,
+            "in": "query",
+            "name": "queue",
+            "required": false,
+            "schema": {
+              "items": {
+                "$ref": "#/components/schemas/QueueName"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "example": {
+                  "queue1": {
+                    "10": 5.0,
+                    "5": 2.0,
+                    "50": 15.0,
+                    "90": 45.0,
+                    "95": 60.0
+                  },
+                  "queue2": {
+                    "10": 20.0,
+                    "5": 9.0,
+                    "50": 60.0,
+                    "90": 80.0,
+                    "95": 90.0
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/QueueWaitTimePercentilesOut"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) JSON mapping of queue names to wait time metrics percentiles"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
-        "summary": "Get wait time metrics - optionally take a list of queues.",
+        "summary": "Get wait time metrics for queues.",
         "tags": [
           "V1"
         ]
@@ -1607,7 +2288,7 @@
         "parameters": [
           {
             "in": "path",
-            "name": "queue_name",
+            "name": "queue",
             "required": true,
             "schema": {
               "type": "string"
@@ -1626,7 +2307,11 @@
                 }
               }
             },
-            "description": "Successful response"
+            "description": "JSON data with an array of agent objects listening to the specified queue, including the agent state, location, and current job information."
+          },
+          "204": {
+            "content": {},
+            "description": "(No Content) No agents found listening to the specified queue"
           },
           "404": {
             "content": {
@@ -1636,7 +2321,17 @@
                 }
               }
             },
-            "description": "Not found"
+            "description": "(Not Found) The specified queue does not exist"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Get the list of all data for agents listening to a specified queue.",
@@ -1647,11 +2342,11 @@
     },
     "/v1/queues/{queue_name}/jobs": {
       "get": {
-        "description": ":param queue_name\nString with the queue name where to perform the query.\n:return:\nJSON data with the jobs allocated to the specified queue.",
+        "description": "Returns JSON data with an array of job objects including job_id,\ncreated_at timestamp, job_state, and job_queue for all jobs in the\nspecified queue.",
         "parameters": [
           {
             "in": "path",
-            "name": "queue_name",
+            "name": "queue",
             "required": true,
             "schema": {
               "type": "string"
@@ -1662,10 +2357,19 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/JobInQueueOut"
+                  },
+                  "type": "array"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "JSON data with an array of job objects including job_id, created_at timestamp, job_state, and job_queue for all jobs in the specified queue."
+          },
+          "204": {
+            "content": {},
+            "description": "(No Content) No jobs found in the specified queue"
           },
           "404": {
             "content": {
@@ -1676,9 +2380,19 @@
               }
             },
             "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
-        "summary": "Get the jobs in a specified queue along with its state.",
+        "summary": "Get the jobs in a specified queue along with their state.",
         "tags": [
           "V1"
         ]
@@ -1700,8 +2414,27 @@
               }
             },
             "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "(Unauthorized) Missing or invalid access token"
+          },
+          "403": {
+            "content": {},
+            "description": "(Forbidden) Insufficient permissions for the authenticated user to access restricted queues"
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "List all agent's restricted queues and its owners.",
         "tags": [
           "V1"
@@ -1713,7 +2446,7 @@
         "parameters": [
           {
             "in": "path",
-            "name": "queue_name",
+            "name": "queue",
             "required": true,
             "schema": {
               "type": "string"
@@ -1723,6 +2456,9 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "example": {
+                "client_id": "myclient"
+              },
               "schema": {
                 "$ref": "#/components/schemas/RestrictedQueueIn"
               }
@@ -1730,13 +2466,23 @@
           }
         },
         "responses": {
-          "200": {
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Missing client_id to remove as owner of restricted queue"
+          },
+          "401": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "(Unauthorized) Missing or invalid access token"
+          },
+          "403": {
+            "content": {},
+            "description": "(Forbidden) Insufficient permissions for the authenticated user to remove restricted queues"
           },
           "404": {
             "content": {
@@ -1746,7 +2492,7 @@
                 }
               }
             },
-            "description": "Not found"
+            "description": "(Not Found) The specified queue was not found or it is not in the restricted queue list"
           },
           "422": {
             "content": {
@@ -1759,6 +2505,11 @@
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "BearerAuth_4": []
+          }
+        ],
         "summary": "Delete an owner from the specific restricted queue.",
         "tags": [
           "V1"
@@ -1768,7 +2519,7 @@
         "parameters": [
           {
             "in": "path",
-            "name": "queue_name",
+            "name": "queue",
             "required": true,
             "schema": {
               "type": "string"
@@ -1786,7 +2537,7 @@
             },
             "description": "Successful response"
           },
-          "404": {
+          "401": {
             "content": {
               "application/json": {
                 "schema": {
@@ -1794,42 +2545,11 @@
                 }
               }
             },
-            "description": "Not found"
-          }
-        },
-        "summary": "Get restricted queues for a specific agent.",
-        "tags": [
-          "V1"
-        ]
-      },
-      "post": {
-        "parameters": [
-          {
-            "in": "path",
-            "name": "queue_name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RestrictedQueueIn"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
+            "description": "(Unauthorized) Missing or invalid access token"
+          },
+          "403": {
+            "content": {},
+            "description": "(Forbidden) Insufficient permissions for the authenticated user to access restricted queues"
           },
           "404": {
             "content": {
@@ -1839,7 +2559,7 @@
                 }
               }
             },
-            "description": "Not found"
+            "description": "(Not Found) The specified restricted queue was not found"
           },
           "422": {
             "content": {
@@ -1852,6 +2572,85 @@
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "BearerAuth_2": []
+          }
+        ],
+        "summary": "Get restricted queues for a specific agent.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "description": "If the queue does not exist yet, it will be created automatically.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "client_id": "myclient"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/RestrictedQueueIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Missing client_id to set as owner of restricted queue"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "(Unauthorized) Missing or invalid access token"
+          },
+          "403": {
+            "content": {},
+            "description": "(Forbidden) Insufficient permissions for the authenticated user to associate restricted queues"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "(Not Found) The specified restricted queue does not exist or is not associated to an agent"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth_3": []
+          }
+        ],
         "summary": "Add an owner to the specific restricted queue.",
         "tags": [
           "V1"
@@ -1860,7 +2659,7 @@
     },
     "/v1/result/{job_id}": {
       "get": {
-        "description": ":param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
+        "description": "This endpoint reconstructs results from the new logging system to\nmaintain backward compatibility. It combines phase status information\nwith logs to provide a complete view of job results.\n\nReturns:\nJSON data with flattened structure including:\n- `{phase}_status`: Exit code for each phase\n- `{phase}_output`: Standard output logs for each phase\n(if available)\n- `{phase}_serial`: Serial console logs for each phase\n(if available)\n- Additional metadata fields (device_info, job_state, etc.)",
         "parameters": [
           {
             "in": "path",
@@ -1880,7 +2679,15 @@
                 }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) JSON data with flattened structure"
+          },
+          "204": {
+            "content": {},
+            "description": "(No Content) No results found for this job_id"
+          },
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Invalid job_id specified"
           },
           "404": {
             "content": {
@@ -1891,15 +2698,25 @@
               }
             },
             "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
-        "summary": "Return results for a specified job_id.",
+        "summary": "Return job outcome data for the specified job_id.",
         "tags": [
           "V1"
         ]
       },
       "post": {
-        "description": ":param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
+        "description": "Submit test results including exit codes for each phase, device\ninformation, and job state. The payload must not exceed the\n16MB BSON size limit.",
         "parameters": [
           {
             "in": "path",
@@ -1913,6 +2730,14 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "example": {
+                "device_info": {},
+                "status": {
+                  "provision": 0,
+                  "setup": 0,
+                  "test": 0
+                }
+              },
               "schema": {
                 "$ref": "#/components/schemas/Result"
               }
@@ -1923,10 +2748,69 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/None"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) Job outcome data posted successfully"
+          },
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Invalid job_id specified"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "413": {
+            "content": {},
+            "description": "(Request Entity Too Large) Payload exceeds 16MB BSON size limit"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Post job outcome data for the specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/result/{job_id}/artifact": {
+      "get": {
+        "description": "Returns a gzip-compressed tarball containing test artifacts or results\nfiles.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {},
+            "description": "(No Content) No artifact found for this job"
+          },
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Invalid job_id specified"
           },
           "404": {
             "content": {
@@ -1949,52 +2833,13 @@
             "description": "Validation error"
           }
         },
-        "summary": "Post a result for a specified job_id.",
-        "tags": [
-          "V1"
-        ]
-      }
-    },
-    "/v1/result/{job_id}/artifact": {
-      "get": {
-        "description": ":param job_id:\nUUID as a string for the job\n:return:\nsend_file stream of artifact tarball to download",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          }
-        },
-        "summary": "Return artifact bundle for a specified job_id.",
+        "summary": "Download previously submitted artifact for the specified job_id.",
         "tags": [
           "V1"
         ]
       },
       "post": {
-        "description": ":param job_id:\nUUID as a string for the job",
+        "description": "Upload a gzip-compressed tarball containing test artifacts or results\nfiles.",
         "parameters": [
           {
             "in": "path",
@@ -2005,14 +2850,19 @@
             }
           }
         ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/FileUpload"
               }
-            },
-            "description": "Successful response"
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Invalid job_id specified"
           },
           "404": {
             "content": {
@@ -2023,9 +2873,19 @@
               }
             },
             "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
-        "summary": "Post artifact bundle for a specified job_id.",
+        "summary": "Upload a file artifact for the specified job_id.",
         "tags": [
           "V1"
         ]
@@ -2033,19 +2893,62 @@
     },
     "/v1/result/{job_id}/log/{log_type}": {
       "get": {
-        "description": ":param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log requested\n:raises HTTPError: If the job_id is not a valid UUID or if invalid query\n:return: Dictionary with log data",
+        "description": "This endpoint supports querying logs with optional filtering by phase,\nfragment number, or timestamp. Logs are persistent and can be\nretrieved multiple times.",
         "parameters": [
           {
+            "description": "Starting fragment number to query from, defaults to 0",
+            "in": "query",
+            "name": "start_fragment",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Starting timestamp to query from, in ISO 8601 format",
+            "in": "query",
+            "name": "start_timestamp",
+            "required": false,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Test phase name to filter logs",
+            "in": "query",
+            "name": "phase",
+            "required": false,
+            "schema": {
+              "enum": [
+                "setup",
+                "provision",
+                "firmware_update",
+                "test",
+                "allocate",
+                "reserve",
+                "cleanup"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Type of log to retrieve (output or serial)",
             "in": "path",
-            "name": "job_id",
+            "name": "log_type",
             "required": true,
             "schema": {
+              "enum": [
+                "output",
+                "serial"
+              ],
               "type": "string"
             }
           },
           {
             "in": "path",
-            "name": "log_type",
+            "name": "job_id",
             "required": true,
             "schema": {
               "type": "string"
@@ -2056,12 +2959,32 @@
           "200": {
             "content": {
               "application/json": {
+                "example": {
+                  "output": {
+                    "provision": {
+                      "last_fragment_number": 12,
+                      "log_data": "Provisioning device...\nDevice ready\n"
+                    },
+                    "setup": {
+                      "last_fragment_number": 5,
+                      "log_data": "Starting setup...\nSetup complete\n"
+                    }
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/LogGet"
                 }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) JSON object with logs organized by phase"
+          },
+          "204": {
+            "content": {},
+            "description": "(No Content) No logs found for this job_id and log_type"
+          },
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Invalid job_id, log_type or query parameter specified"
           },
           "404": {
             "content": {
@@ -2072,27 +2995,42 @@
               }
             },
             "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
-        "summary": "Get logs for a specified job_id.",
+        "summary": "Retrieve logs for the specified job_id and log type.",
         "tags": [
           "V1"
         ]
       },
       "post": {
-        "description": ":param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log being posted\n:raises HTTPError: If the job_id is not a valid UUID\n:param json_data: Dictionary with log data",
+        "description": "This is the new logging endpoint that agents use to stream log data\nin fragments. Each fragment includes metadata for tracking and\nquerying.",
         "parameters": [
           {
+            "description": "Type of log to retrieve (output or serial)",
             "in": "path",
-            "name": "job_id",
+            "name": "log_type",
             "required": true,
             "schema": {
+              "enum": [
+                "output",
+                "serial"
+              ],
               "type": "string"
             }
           },
           {
             "in": "path",
-            "name": "log_type",
+            "name": "job_id",
             "required": true,
             "schema": {
               "type": "string"
@@ -2102,6 +3040,12 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "example": {
+                "fragment_number": 0,
+                "log_data": "Starting setup phase...",
+                "phase": "setup",
+                "timestamp": "2025-10-15T10:00:00+00:00"
+              },
               "schema": {
                 "$ref": "#/components/schemas/LogPost"
               }
@@ -2112,10 +3056,16 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/None"
+                }
               }
             },
-            "description": "Successful response"
+            "description": "(OK) Log fragment posted successfully"
+          },
+          "400": {
+            "content": {},
+            "description": "(Bad Request) Invalid job_id or log_type specified"
           },
           "404": {
             "content": {
@@ -2138,7 +3088,7 @@
             "description": "Validation error"
           }
         },
-        "summary": "Post logs for a specified job ID.",
+        "summary": "Post a log fragment for the specified job_id and log type.",
         "tags": [
           "V1"
         ]
@@ -2146,6 +3096,7 @@
     },
     "/v1/result/{job_id}/output": {
       "get": {
+        "deprecated": true,
         "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: Plain text output",
         "parameters": [
           {
@@ -2183,6 +3134,7 @@
         ]
       },
       "post": {
+        "deprecated": true,
         "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: \"OK\" on success",
         "parameters": [
           {
@@ -2222,6 +3174,7 @@
     },
     "/v1/result/{job_id}/serial_output": {
       "get": {
+        "deprecated": true,
         "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: Plain text serial output",
         "parameters": [
           {
@@ -2259,6 +3212,7 @@
         ]
       },
       "post": {
+        "deprecated": true,
         "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: \"OK\" on success",
         "parameters": [
           {
@@ -2301,7 +3255,7 @@
         "parameters": [
           {
             "in": "path",
-            "name": "client_id",
+            "name": "path",
             "required": true,
             "schema": {
               "type": "string"
@@ -2309,7 +3263,7 @@
           },
           {
             "in": "path",
-            "name": "path",
+            "name": "client_id",
             "required": true,
             "schema": {
               "type": "string"
@@ -2317,15 +3271,11 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
+          "400": {
+            "content": {},
+            "description": "(Bad Request) No secrets store configured or access error"
           },
-          "404": {
+          "401": {
             "content": {
               "application/json": {
                 "schema": {
@@ -2333,50 +3283,11 @@
                 }
               }
             },
-            "description": "Not found"
-          }
-        },
-        "summary": "Remove a secret value for the specified client_id and path.",
-        "tags": [
-          "V1"
-        ]
-      },
-      "put": {
-        "parameters": [
-          {
-            "in": "path",
-            "name": "client_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "description": "Authentication error"
           },
-          {
-            "in": "path",
-            "name": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SecretIn"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
+          "403": {
+            "content": {},
+            "description": "(Forbidden) client_id does not match authenticated client id"
           },
           "404": {
             "content": {
@@ -2397,8 +3308,99 @@
               }
             },
             "description": "Validation error"
+          },
+          "500": {
+            "content": {},
+            "description": "(Internal Server Error) Error deleting the secret value"
           }
         },
+        "security": [
+          {
+            "BearerAuth_10": []
+          }
+        ],
+        "summary": "Remove a secret value for the specified client_id and path.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecretIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "content": {},
+            "description": "(Bad Request) No secrets store configured or access error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Authentication error"
+          },
+          "403": {
+            "content": {},
+            "description": "(Forbidden) client_id does not match authenticated client id"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "500": {
+            "content": {},
+            "description": "(Internal Server Error) Error storing the secret value"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth_9": []
+          }
+        ],
         "summary": "Store a secret value for the specified client_id and path.",
         "tags": [
           "V1"
