@@ -417,6 +417,112 @@ class DefaultDevice:
         )
         time.sleep(int(timeout))
 
+    def __check_ssh_server_on_host(self, host: str) -> None:
+        """
+        Check if the host has an active SSH server running.
+
+        :raises ConnectionError in case the server is not reachable.
+        """
+        timeout = 3
+        try:
+            subprocess.run(
+                ["/usr/bin/nc", "-z", "-w", str(timeout), host, "22"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            logger.debug(
+                "The control host %s has an available SSH server", host
+            )
+        except subprocess.CalledProcessError as e:
+            raise ConnectionError from e
+
+    @staticmethod
+    def wait_online(check: Callable, host: str, timeout: int) -> None:
+        """Poll the host server using `check` until it's available."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                check(host)
+                break
+            except ConnectionError:
+                time.sleep(2)
+        else:
+            raise TimeoutError
+
+    def __reboot_control_host(self) -> None:
+        control_host_reboot_script: list[str] = [
+            str(cmd)
+            for cmd in self.config.get("control_host_reboot_script", [])
+        ]
+        if not control_host_reboot_script:
+            logger.warning(
+                "No control_host_reboot_script configured, cannot reboot."
+            )
+            return
+
+        logger.info("Running control host reboot script")
+        for cmd in control_host_reboot_script:
+            try:
+                logger.info("Executing: %s", cmd)
+                subprocess.run(
+                    cmd,
+                    shell=True,
+                    check=True,
+                    timeout=60,
+                    capture_output=True,
+                    text=True,
+                )
+                logger.info("Command completed successfully: %s", cmd)
+            except subprocess.CalledProcessError as e:
+                logger.error(
+                    "Command failed: %s (exit code: %d)", cmd, e.returncode
+                )
+                if e.stdout:
+                    logger.error("stdout: %s", e.stdout)
+                if e.stderr:
+                    logger.error("stderr: %s", e.stderr)
+            except subprocess.TimeoutExpired:
+                logger.error("Command timed out after 60s: %s", cmd)
+            except Exception as e:
+                logger.error(
+                    "Unexpected error running command %s: %s", cmd, str(e)
+                )
+
+    def pre_provision_hook(self):
+        """Execute control host reboot script before provisioning."""
+        control_host: str = str(self.config.get("control_host", ""))
+        if not control_host:
+            logger.debug("No control host configured for this agent.")
+            return
+
+        logger.info(
+            "Waiting for a running SSH server on control host %s", control_host
+        )
+        with contextlib.suppress(ConnectionError):
+            self.__check_ssh_server_on_host(control_host)
+            logger.debug("The control host is reachable over SSH.")
+            return
+
+        self.__reboot_control_host()
+
+        timeout = 300
+        try:
+            self.wait_online(
+                self.__check_ssh_server_on_host, control_host, timeout
+            )
+        except TimeoutError:
+            msg = (
+                "Control host %s is not available "
+                "or the SSH server is not running after %d seconds"
+            )
+            logger.error(msg, control_host, timeout)
+
+    def provision(self, args):
+        """Run pre-provision hook."""
+        logger.info("Running pre-provision hook")
+        self.pre_provision_hook()
+
     def cleanup(self, _):
         """Clean up devices (default method)."""
         pass
