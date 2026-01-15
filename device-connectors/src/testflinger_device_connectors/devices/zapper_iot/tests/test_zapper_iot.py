@@ -111,9 +111,7 @@ class ZapperIoTTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(expected, kwargs)
 
-    def test_validate_configuration_ubuntu_sso_email_provision_plan(
-        self
-    ):
+    def test_validate_configuration_ubuntu_sso_email_provision_plan(self):
         """Test the function validates a custom test plan
         when provided and an ubuntu_sso_email is provided.
         The username should be overridden with the ubuntu_sso_email.
@@ -167,7 +165,7 @@ class ZapperIoTTests(unittest.TestCase):
         self.assertDictEqual(expected, kwargs)
 
     def test_validate_configuration_ubuntu_sso_email_missing_provision_plan(
-        self
+        self,
     ):
         """Test the function raises an exception if ubuntu_sso_email is not
         provided and the initial login method is console-conf.
@@ -218,9 +216,7 @@ class ZapperIoTTests(unittest.TestCase):
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
 
-    def test_validate_configuration_invalid_provision_plan_key_error(
-        self
-    ):
+    def test_validate_configuration_invalid_provision_plan_key_error(self):
         """Test the function raises an exception if the
         provided custom testplan is not valid.
         """
@@ -237,9 +233,7 @@ class ZapperIoTTests(unittest.TestCase):
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
 
-    def test_validate_configuration_invalid_provision_plan_value_error(
-        self
-    ):
+    def test_validate_configuration_invalid_provision_plan_value_error(self):
         """Test the function raises an exception if the
         provided custom testplan is not valid.
         """

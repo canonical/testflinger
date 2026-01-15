@@ -90,9 +90,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
-    def test_validate_configuration_preset_with_overriding_items(
-        self
-    ):
+    def test_validate_configuration_preset_with_overriding_items(self):
         """Test whether the validate_configuration function returns
         the expected data merging the relevant bits from conf and job
         data when passing only the required arguments.
