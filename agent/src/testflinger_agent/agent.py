@@ -261,7 +261,7 @@ class TestflingerAgent:
         except HTTPError as exc:
             # If we receive an error that we were not authenticated, try
             # registering again and then try to get a job.
-            if exc.response.status_code == 401:
+            if exc.response.status_code == HTTPStatus.UNAUTHORIZED:
                 self.client.post_agent_data({"job_id": ""})
         if job_data is None:
             # Try to get a job again; if we fail to get a job a second time,
