@@ -1008,74 +1008,24 @@ class TestClient:
             result = agent.get_job_data()
         assert result == fake_job
 
-    def test_get_job_data_401_retries(self, agent):
-        """Test get_job_data posts empty job_id on 401 then retries."""
-        fake_job = {"job_id": "123", "job_queue": "test"}
-        mock_response = Mock()
-        mock_response.status_code = 401
-        error_401 = HTTPError(response=mock_response)
-
-        # First call raises 401, post_agent_data called, second succeeds
+    def test_get_job_data_401_reregisters(self, agent):
+        """
+        When check_jobs returns 401, post_agent_data is called with empty
+        job_id to re-register, and None is returned.
+        """
         with patch.object(
             agent.client,
             "check_jobs",
-            side_effect=[error_401, fake_job],
+            side_effect=[
+                HTTPError(response=Mock(status_code=HTTPStatus.UNAUTHORIZED)),
+            ],
         ):
             with patch.object(
                 agent.client, "post_agent_data"
             ) as mock_post_agent_data:
                 result = agent.get_job_data()
 
-        # verify retry after failing to get a job due to 401 error.
+        # Verify post_agent_data was called to reregister
         mock_post_agent_data.assert_called()
-        # and verify that after we retried we got the expected data.
-        assert result == fake_job
-
-    def test_get_job_data_non_http_error_on_retry(self, agent):
-        """Test get_job_data handles non-HTTPError on retry."""
-        mock_response = Mock()
-        mock_response.status_code = 401
-        error_401 = HTTPError(response=mock_response)
-        generic_error = RuntimeError("Network connection failed")
-
-        # First call raises 401, post_agent_data called, second raises generic
-        with patch.object(
-            agent.client,
-            "check_jobs",
-            side_effect=[error_401, generic_error],
-        ):
-            with patch.object(
-                agent.client, "post_agent_data"
-            ) as mock_post_agent_data:
-                with patch("testflinger_agent.agent.logger") as mock_logger:
-                    result = agent.get_job_data()
-
-        # Verify post_agent_data was called after 401
-        mock_post_agent_data.assert_called()
-        # Verify logger.exception was called for the generic error
-        mock_logger.exception.assert_called_with(generic_error)
-        # Verify None is returned when retry fails
+        # Verify None is returned when unauthorized
         assert result is None
-
-    def test_get_job_data_non_401_http_error(self, agent):
-        """Test get_job_data handles non-401 HTTPError and retries."""
-        fake_job = {"job_id": "456", "job_queue": "test"}
-        mock_response = Mock()
-        mock_response.status_code = 418
-        error_418 = HTTPError(response=mock_response)
-
-        # First call raises 418 (not 401), second succeeds
-        with patch.object(
-            agent.client,
-            "check_jobs",
-            side_effect=[error_418, fake_job],
-        ):
-            with patch.object(
-                agent.client, "post_agent_data"
-            ) as mock_post_agent_data:
-                result = agent.get_job_data()
-
-        # Verify post_agent_data was NOT called (only called on 401)
-        mock_post_agent_data.assert_not_called()
-        # Verify we still retried and got the job
-        assert result == fake_job

@@ -20,6 +20,7 @@ import signal
 import sys
 import tempfile
 import time
+from http import HTTPStatus
 from pathlib import Path
 
 from requests.exceptions import HTTPError
@@ -263,14 +264,6 @@ class TestflingerAgent:
             # registering again and then try to get a job.
             if exc.response.status_code == HTTPStatus.UNAUTHORIZED:
                 self.client.post_agent_data({"job_id": ""})
-        if job_data is None:
-            # Try to get a job again; if we fail to get a job a second time,
-            # log the exception and skip the while loop, returning to the
-            # outer-most loop
-            try:
-                job_data = self.client.check_jobs()
-            except Exception as exc:  # pylint: disable=broad-except
-                logger.exception(exc)
         return job_data
 
     def process_jobs(self):
@@ -310,13 +303,12 @@ class TestflingerAgent:
         if self.status_handler.needs_restart:
             self.restart_agent(self.status_handler.comment)
 
-        rundir = None
-        job = None
-        event_emitter = None
-        job_end_reason = TestEvent.JOB_START
         # Check for the first job before looping for more
         job_data = self.get_job_data()
         while job_data:
+            rundir = None
+            job = None
+            event_emitter = None
             try:
                 job = TestflingerJob(job_data, self.client)
                 event_emitter = EventEmitter(
