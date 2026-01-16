@@ -21,6 +21,7 @@ from defaults import (
 )
 from git import GitCommandError, Repo
 from jinja2 import Template
+from ops import ActionEvent
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
@@ -91,7 +92,7 @@ class TestflingerAgentHostCharm(CharmBase):
         )
         run_with_logged_errors(["pipx", "install", "uv"])
 
-    def update_testflinger_repo(self, branch=None):
+    def update_testflinger_repo(self, branch: str | None = None):
         """Update the testflinger repo."""
         self.unit.status = MaintenanceStatus("Creating virtualenv")
         testflinger_source.create_virtualenv()
@@ -136,7 +137,7 @@ class TestflingerAgentHostCharm(CharmBase):
             shutil.rmtree(repo_path, ignore_errors=True)
         shutil.move(tmp_repo_path, repo_path)
 
-    def write_supervisor_service_files(self, initial_metrics_port=8000):
+    def write_supervisor_service_files(self):
         """
         Generate supervisord service files for all agents.
 
@@ -273,7 +274,7 @@ class TestflingerAgentHostCharm(CharmBase):
             logger.error("could not install package")
             self.unit.status = BlockedStatus("Failed to install packages")
 
-    def on_update_testflinger_action(self, event):
+    def on_update_testflinger_action(self, event: ActionEvent):
         """Update Testflinger agent code."""
         self.unit.status = MaintenanceStatus("Updating Testflinger Agent Code")
         branch = event.params.get("branch")
@@ -281,7 +282,7 @@ class TestflingerAgentHostCharm(CharmBase):
         supervisord.restart_agents()
         self.unit.status = ActiveStatus()
 
-    def on_update_configs_action(self, event):
+    def on_update_configs_action(self, event: ActionEvent):
         """Update agent configs."""
         self.unit.status = MaintenanceStatus(
             "Updating Testflinger Agent Configs"

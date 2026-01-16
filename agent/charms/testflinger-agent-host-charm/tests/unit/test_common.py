@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import common
 
+SSH_PUBLIC_KEY = "/home/ubuntu/.ssh/id_rsa.pub"
+SSH_PRIVATE_KEY = "/home/ubuntu/.ssh/id_rsa"
 
 @patch("os.chown")
 @patch("os.chmod")
@@ -24,10 +26,10 @@ def test_copy_ssh_keys(mock_write_file, mock_chmod, mock_chown):
     common.copy_ssh_keys(config)
 
     mock_write_file.assert_any_call(
-        "/home/ubuntu/.ssh/id_rsa", "ssh_private_key_content"
+        Path(SSH_PRIVATE_KEY), "ssh_private_key_content"
     )
     mock_write_file.assert_any_call(
-        "/home/ubuntu/.ssh/id_rsa.pub", "ssh_public_key_content"
+        Path(SSH_PUBLIC_KEY), "ssh_public_key_content"
     )
     assert mock_write_file.call_count == 3
 
