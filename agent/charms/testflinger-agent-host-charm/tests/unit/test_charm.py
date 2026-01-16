@@ -48,7 +48,7 @@ def test_blocked_on_no_config_dir(ctx):
 @patch("charm.copy_ssh_keys")
 @patch("charm.supervisord.supervisor_update")
 @patch("charm.TestflingerAgentHostCharm.write_supervisor_service_files")
-@patch("charm.TestflingerAgentHostCharm.restart_agents")
+@patch("charm.supervisord.restart_agents")
 @patch("charm.TestflingerAgentHostCharm.update_config_files")
 def test_update_tf_cmd_scripts_on_config_changed(
     mock_update_config,
