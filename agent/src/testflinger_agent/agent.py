@@ -388,7 +388,7 @@ class TestflingerAgent:
 
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase, self.status_handler.comment)
-                    event_emitter.emit_event(TestEvent(phase + "_start"))
+                    event_emitter.emit_event(TestEvent(f"{phase}_start"))
                     # Register start time to measure phase duration
                     phase_start = time.time()
                     exit_code, exit_event, exit_reason = job.run_test_phase(
@@ -414,11 +414,11 @@ class TestflingerAgent:
                             # Report recovery failure in a dedicated metric
                             self.metrics_handler.report_recovery_failures()
                         else:
-                            exit_event = TestEvent(phase + "_fail")
+                            exit_event = TestEvent(f"{phase}_fail")
                         detail = parse_error_logs(error_log_path, phase)
                         self.metrics_handler.report_job_failure(phase)
                     else:
-                        exit_event = TestEvent(phase + "_success")
+                        exit_event = TestEvent(f"{phase}_success")
                     event_emitter.emit_event(exit_event, detail)
                     if phase == TestPhase.PROVISION:
                         self.client.post_provision_log(
