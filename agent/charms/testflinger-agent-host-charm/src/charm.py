@@ -222,14 +222,6 @@ class TestflingerAgentHostCharm(CharmBase):
             ) as agent_file:
                 agent_file.write(rendered)
 
-    def restart_agents(self):
-        """
-        Mark all agents as needing a restart when they are not running a job
-        so that they read any updated config files and run the latest
-        version of the agent code.
-        """
-        run_with_logged_errors(["supervisorctl", "signal", "USR1", "all"])
-
     def setup_docker(self):
         passwd.add_group("docker")
         passwd.add_user_to_group("ubuntu", "docker")
@@ -264,7 +256,7 @@ class TestflingerAgentHostCharm(CharmBase):
         self.update_tf_cmd_scripts()
         self.write_supervisor_service_files()
         supervisord.supervisor_update()
-        self.restart_agents()
+        supervisord.restart_agents()
         self.unit.status = ActiveStatus()
 
     def install_apt_packages(self, packages: list):
@@ -286,7 +278,7 @@ class TestflingerAgentHostCharm(CharmBase):
         self.unit.status = MaintenanceStatus("Updating Testflinger Agent Code")
         branch = event.params.get("branch")
         self.update_testflinger_repo(branch)
-        self.restart_agents()
+        supervisord.restart_agents()
         self.unit.status = ActiveStatus()
 
     def on_update_configs_action(self, event):
@@ -303,7 +295,7 @@ class TestflingerAgentHostCharm(CharmBase):
             return
         self.write_supervisor_service_files()
         supervisord.supervisor_update()
-        self.restart_agents()
+        supervisord.restart_agents()
         self.unit.status = ActiveStatus()
 
     def get_scrape_jobs(self):
