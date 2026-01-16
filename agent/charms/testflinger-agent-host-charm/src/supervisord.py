@@ -161,7 +161,7 @@ def supervisor_update():
     run_with_logged_errors(["supervisorctl", "update"])
 
 
-def restart_agents(self):
+def restart_agents():
     """
     Mark all agents as needing a restart when they are not running a job
     so that they read any updated config files and run the latest
