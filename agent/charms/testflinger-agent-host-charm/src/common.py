@@ -15,6 +15,10 @@ from jinja2 import Template
 
 logger = logging.getLogger(__name__)
 
+SSH_CONFIG = "/home/ubuntu/.ssh/config"
+SSH_PUBLIC_KEY = "/home/ubuntu/.ssh/id_rsa.pub"
+SSH_PRIVATE_KEY = "/home/ubuntu/.ssh/id_rsa"
+
 
 def run_with_logged_errors(cmd: list) -> int:
     """Run a command, log output if errors, return exit code."""
@@ -32,19 +36,22 @@ def run_with_logged_errors(cmd: list) -> int:
 
 def copy_ssh_keys(config: dict) -> None:
     try:
-        ssh_config = config.get("ssh-config")
-        write_file("/home/ubuntu/.ssh/config", ssh_config)
-        os.chown("/home/ubuntu/.ssh/config", 1000, 1000)
-        os.chmod("/home/ubuntu/.ssh/config", 0o640)
+        ssh_config = config.get("ssh-config", "")
+        config_file = Path(SSH_CONFIG)
+        write_file(config_file, ssh_config)
+        os.chown(config_file, 1000, 1000)
+        os.chmod(config_file, 0o640)
 
         priv_key = config.get("ssh-private-key", "")
-        write_file("/home/ubuntu/.ssh/id_rsa", b64decode(priv_key).decode())
-        os.chown("/home/ubuntu/.ssh/id_rsa", 1000, 1000)
-        os.chmod("/home/ubuntu/.ssh/id_rsa", 0o600)
+        priv_key_file = Path(SSH_PRIVATE_KEY)
+        write_file(priv_key_file, b64decode(priv_key).decode())
+        os.chown(priv_key_file, 1000, 1000)
+        os.chmod(priv_key_file, 0o600)
 
         pub_key = config.get("ssh-public-key", "")
-        write_file("/home/ubuntu/.ssh/id_rsa.pub", b64decode(pub_key).decode())
-        os.chown("/home/ubuntu/.ssh/id_rsa.pub", 1000, 1000)
+        pub_key_file = Path(SSH_PUBLIC_KEY)
+        write_file(pub_key_file, b64decode(pub_key).decode())
+        os.chown(pub_key_file, 1000, 1000)
     except (TypeError, UnicodeDecodeError):
         logger.error(
             "Failed to decode ssh keys - ensure they are base64 encoded"
@@ -52,7 +59,7 @@ def copy_ssh_keys(config: dict) -> None:
         raise
 
 
-def write_file(location, contents):
+def write_file(location: Path, contents: str) -> None:
     with open(location, "w", encoding="utf-8", errors="ignore") as out:
         out.write(contents)
 
