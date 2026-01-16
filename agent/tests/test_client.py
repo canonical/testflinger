@@ -248,7 +248,8 @@ class TestClient:
         webhook = "http://foo"
         job_id = str(uuid.uuid1())
         requests_mock.post(
-            f"http://127.0.0.1:8000/v1/job/{job_id}/events", status_code=HTTPStatus.OK
+            f"http://127.0.0.1:8000/v1/job/{job_id}/events",
+            status_code=HTTPStatus.OK,
         )
         events = [
             {
@@ -271,7 +272,6 @@ class TestClient:
         }
         assert requests_mock.last_request.json() == expected_json
 
-
     def test_status_update_endpoint_error(self, client, requests_mock, caplog):
         """
         Test that the client handles the case where the server returns
@@ -279,11 +279,11 @@ class TestClient:
         """
         job_id = str(uuid.uuid1())
         requests_mock.post(
-            f"http://127.0.0.1:8000/v1/job/{job_id}/events", status_code=HTTPStatus.NOT_FOUND
+            f"http://127.0.0.1:8000/v1/job/{job_id}/events",
+            status_code=HTTPStatus.NOT_FOUND,
         )
         client.post_status_update("", "", [], job_id)
         assert "Unable to post status updates" in caplog.text
-
 
     def test_get_agent_data(self, client, requests_mock):
         agent_data = {
