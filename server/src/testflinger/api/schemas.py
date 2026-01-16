@@ -348,7 +348,7 @@ class Job(Schema):
     parent_job_id = fields.String(required=False)
     name = fields.String(required=False)
     tags = fields.List(fields.String(), required=False)
-    job_queue = fields.String(required=True)
+    job_queue = fields.String(required=True, validate=Length(min=1))
     global_timeout = fields.Integer(required=False)
     output_timeout = fields.Integer(required=False)
     allocation_timeout = fields.Integer(required=False)
@@ -363,6 +363,9 @@ class Job(Schema):
     reserve_data = fields.Nested(ReserveData, required=False)
     job_status_webhook = fields.String(required=False)
     job_priority = fields.Integer(required=False)
+    exclude_agents = fields.List(
+        fields.String(), required=False, load_default=list
+    )
     debug = fields.Boolean(required=False)
 
 

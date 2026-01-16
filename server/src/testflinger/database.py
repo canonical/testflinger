@@ -191,19 +191,30 @@ def add_job(job: dict):
     mongo.db.jobs.insert_one(job)
 
 
-def pop_job(queue_list):
-    """Get the next job in the queue."""
-    # The queue name and the job are returned, but we don't need the queue now
+def pop_job(queue_list: list[str], agent_name: str) -> dict | None:
+    """Get the next job in the queue.
+
+    :param queue_list: List of queues to search for jobs
+    :param agent_name: Name of the agent requesting the job (used to filter
+        and prevent excluded agents from taking work they shouldn't)
+
+    :returns: The next job in the queue, or None if no job is available.
+    """
     try:
+        # Allow an agent who's top job(s) would be excluded from running to
+        # reach deeper into the queue to find a job it can run.
+        query_filter = {
+            "result_data.job_state": "waiting",
+            "job_data.job_queue": {"$in": queue_list},
+            "$or": [
+                {"job_data.attachments_status": {"$exists": False}},
+                {"job_data.attachments_status": "complete"},
+            ],
+            "job_data.exclude_agents": {"$nin": [agent_name]},
+        }
+
         response = mongo.db.jobs.find_one_and_update(
-            {
-                "result_data.job_state": "waiting",
-                "job_data.job_queue": {"$in": queue_list},
-                "$or": [
-                    {"job_data.attachments_status": {"$exists": False}},
-                    {"job_data.attachments_status": "complete"},
-                ],
-            },
+            query_filter,
             {"$set": {"result_data.job_state": "running"}},
             projection={
                 "job_id": True,

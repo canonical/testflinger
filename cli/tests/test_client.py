@@ -17,15 +17,16 @@
 """Unit tests for the Client class."""
 
 import logging
-from http import HTTPStatus
 import urllib.parse
 from datetime import datetime, timezone
+from http import HTTPStatus
 
 import pytest
 import requests
 
 from testflinger_cli.client import Client, HTTPError
 from testflinger_cli.enums import LogType, TestPhase
+
 from .test_cli import URL
 
 
