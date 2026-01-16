@@ -364,7 +364,7 @@ class Job(Schema):
     job_status_webhook = fields.String(required=False)
     job_priority = fields.Integer(required=False)
     exclude_agents = fields.List(
-        fields.String(), required=False, load_default=lambda: []
+        fields.String(), required=False, load_default=list
     )
     debug = fields.Boolean(required=False)
 
