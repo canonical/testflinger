@@ -14,6 +14,7 @@
 
 import json
 import uuid
+from http import HTTPStatus
 from unittest.mock import patch
 
 import pytest
@@ -38,7 +39,7 @@ class TestClient:
         yield _TestflingerClient(config)
 
     def test_check_jobs_empty(self, client, requests_mock):
-        requests_mock.get(rmock.ANY, status_code=200)
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
         job_data = client.check_jobs()
         assert job_data is None
 
@@ -99,7 +100,7 @@ class TestClient:
         Ensure that the server api /v1/agents/queues was called with
         the correct queue data.
         """
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         client.post_advertised_queues()
         assert requests_mock.last_request.json() == {
             "test_queue": "test_queue"
@@ -110,7 +111,7 @@ class TestClient:
         Ensure that the server api /v1/agents/images was called with
         the correct image data.
         """
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         client.post_advertised_images()
         assert requests_mock.last_request.json() == {
             "test_queue": {"test_image": "url: http://foo"}
@@ -126,7 +127,7 @@ class TestClient:
         requests_mock.post(
             "http://127.0.0.1:8000/v1/agents/provision_logs/"
             f"{client.config['agent_id']}",
-            status_code=200,
+            status_code=HTTPStatus.OK,
         )
         client.post_provision_log(job_id, exit_code, detail)
         last_request = requests_mock.last_request.json()
@@ -163,7 +164,8 @@ class TestClient:
         testflinger_outcome_json = tmp_path / "testflinger-outcome.json"
         testflinger_outcome_json.write_text("{}")
         requests_mock.post(
-            f"http://127.0.0.1:8000/v1/result/{job_id}", status_code=200
+            f"http://127.0.0.1:8000/v1/result/{job_id}",
+            status_code=HTTPStatus.OK,
         )
 
         # Simulate an error during save_artifacts
@@ -179,7 +181,8 @@ class TestClient:
         """
         job_id = str(uuid.uuid1())
         requests_mock.post(
-            f"http://127.0.0.1:8000/v1/result/{job_id}", status_code=404
+            f"http://127.0.0.1:8000/v1/result/{job_id}",
+            status_code=HTTPStatus.NOT_FOUND,
         )
         with pytest.raises(TFServerError):
             client.post_result(job_id, {})
@@ -192,7 +195,8 @@ class TestClient:
         """
         job_id = str(uuid.uuid1())
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/result/{job_id}", status_code=404
+            f"http://127.0.0.1:8000/v1/result/{job_id}",
+            status_code=HTTPStatus.NOT_FOUND,
         )
         response = client.get_result(job_id)
         assert response == {}
@@ -206,7 +210,7 @@ class TestClient:
         job_id = str(uuid.uuid1())
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/job/{job_id}/attachments",
-            status_code=404,
+            status_code=HTTPStatus.NOT_FOUND,
         )
 
         with pytest.raises(TFServerError):
@@ -244,7 +248,7 @@ class TestClient:
         webhook = "http://foo"
         job_id = str(uuid.uuid1())
         requests_mock.post(
-            f"http://127.0.0.1:8000/v1/job/{job_id}/events", status_code=200
+            f"http://127.0.0.1:8000/v1/job/{job_id}/events", status_code=HTTPStatus.OK
         )
         events = [
             {
@@ -267,6 +271,7 @@ class TestClient:
         }
         assert requests_mock.last_request.json() == expected_json
 
+
     def test_status_update_endpoint_error(self, client, requests_mock, caplog):
         """
         Test that the client handles the case where the server returns
@@ -274,10 +279,11 @@ class TestClient:
         """
         job_id = str(uuid.uuid1())
         requests_mock.post(
-            f"http://127.0.0.1:8000/v1/job/{job_id}/events", status_code=404
+            f"http://127.0.0.1:8000/v1/job/{job_id}/events", status_code=HTTPStatus.NOT_FOUND
         )
         client.post_status_update("", "", [], job_id)
         assert "Unable to post status updates" in caplog.text
+
 
     def test_get_agent_data(self, client, requests_mock):
         agent_data = {
@@ -358,7 +364,7 @@ class TestClient:
         )
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job",
-            status_code=401,
+            status_code=HTTPStatus.UNAUTHORIZED,
             json={"message": "Agent not identified"},
         )
 
