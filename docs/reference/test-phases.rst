@@ -389,4 +389,35 @@ See :doc:`../how-to/retrieve-logs` for detailed information on how to retrieve a
 Artifact
 ---------
 
-If you want to save additional artifacts to the disk along with the output, create a directory for the artifacts from your test command. Any files in the artifacts directory under your test execution directory will automatically be compressed (``tar.gz``) and sent to the Testflinger server.
+You can save additional files from your test run by creating an ``artifacts`` directory in your test commands. 
+The Testflinger agent does not create this directory automatically so your test commands must create it and populate it with any files you want to preserve.
+
+After the job completes, the agent will:
+
+1. Check if an ``artifacts`` directory exists in the test execution directory
+2. Compress the directory into a ``tar.gz`` archive
+3. Upload the archive to the Testflinger server
+4. Delete the local ``artifacts`` directory from the agent host
+
+For example, under ``test_cmds``, you can create an artifacts directory and copy files there:
+
+.. code-block:: yaml
+    
+  job_queue: <queue>
+  provision_data:
+    <provision-data>
+  test_data:
+    test_cmds: |
+      ssh ubuntu@$DEVICE_IP 'uname -a > /tmp/system_info.txt'
+      mkdir -p artifacts
+      scp ubuntu@$DEVICE_IP:/tmp/system_info.txt artifacts/
+
+.. note::
+  
+  From the above example, the first command is executed on the remote device, while the next two commands are executed on the Testflinger Agent.
+
+Artifacts can later be retrieved using the CLI:
+
+.. code-block:: shell
+
+  testflinger-cli artifacts <job_id>
