@@ -10,6 +10,7 @@ import common
 SSH_PUBLIC_KEY = "/home/ubuntu/.ssh/id_rsa.pub"
 SSH_PRIVATE_KEY = "/home/ubuntu/.ssh/id_rsa"
 
+
 @patch("os.chown")
 @patch("os.chmod")
 @patch("common.write_file")
