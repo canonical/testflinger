@@ -23,7 +23,7 @@ APP_NAME = METADATA["name"]
 
 def test_deploy(charm_path: Path, juju: jubilant.Juju):
     """Deploy the charm under test."""
-    juju.deploy(charm_path.resolve(), application_name=APP_NAME)
+    juju.deploy(charm_path.resolve(), app=APP_NAME)
     juju.config(APP_NAME, TEST_CONFIG_01)
     juju.wait(jubilant.all_active)
 
@@ -36,11 +36,7 @@ def test_update_testflinger_action(juju: jubilant.Juju):
 
     # Ensure that Testflinger packages are installed properly
     pip_freeze = juju.exec(
-        command=[
-            f"{VIRTUAL_ENV_PATH}/bin/pip3",
-            "freeze",
-        ],
-        unit=f"{APP_NAME}/0",
+        f"{VIRTUAL_ENV_PATH}/bin/pip3", "freeze", unit=f"{APP_NAME}/0"
     )
     assert pip_freeze.return_code == 0
 
@@ -99,9 +95,7 @@ def test_supervisord_files_updated(juju: jubilant.Juju):
         "/srv/agent-configs/agent/charms/testflinger-agent-host-charm/tests/"
         "integration/data/test01/agent001/testflinger-agent.conf -p 8000\n"
     )
-    conf_file = juju.exec(
-        command=["cat", SUPERVISOR_CONF_FILE], unit=f"{APP_NAME}/0"
-    )
+    conf_file = juju.exec("cat", SUPERVISOR_CONF_FILE, unit=f"{APP_NAME}/0")
     assert conf_file.return_code == 0
     assert conf_file.stdout == expected_contents
 
@@ -114,7 +108,7 @@ def test_supervisord_agent_running(juju: jubilant.Juju):
 
     # check that agent001 is RUNNING in supervisord
     supervisor_status = juju.exec(
-        command=["supervisorctl", "status"], unit=f"{APP_NAME}/0"
+        "supervisorctl", "status", unit=f"{APP_NAME}/0"
     )
     assert supervisor_status.return_code == 0
     running_agents = [
@@ -131,7 +125,7 @@ def test_supervisord_agent_running(juju: jubilant.Juju):
 
     # Check that the number of running agents is now 2
     supervisor_status = juju.exec(
-        command=["supervisorctl", "status"], unit=f"{APP_NAME}/0"
+        "supervisorctl", "status", unit=f"{APP_NAME}/0"
     )
     assert supervisor_status.return_code == 0
     running_agents = [
