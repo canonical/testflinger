@@ -818,17 +818,43 @@ class TestflingerCli:
         if len(online_agents) > 0:
             # If there are online agents, then we can proceed
             return
+        message = f"No online agents available for queue {queue}. "
         if not self.args.wait_for_available_agents:
-            print(
-                f"ERROR: No online agents available for queue {queue}. "
-                "If you want to wait for agents to become available, use the "
-                "--wait-for-available-agents option."
+            message = f"ERROR: {message}"
+            # Since we're not waiting, we need to produce a good error message
+            # to assist in understanding why the job cannot be queued.
+            message += (
+                "If you want to wait for agents to become available, "
+                "use the --wait-for-available-agents option."
             )
+
+            # If some of the agents in the queue are excluded, let the user
+            # known, in case this is not intended.
+            online_excluded_agents = [
+                agent
+                for agent in agents
+                if agent["state"] != "offline"
+                and agent["name"] in exclude_agents
+            ]
+            print(agents)
+            print(exclude_agents)
+            print(online_excluded_agents)
+            if online_excluded_agents:
+                message += (
+                    "\nAdditionally, the following agents ARE online, "
+                    "but they have been excluded from running this job in the job "
+                    "definition file:"
+                )
+                for agent in online_excluded_agents:
+                    message += f"\n\t- {agent['name']}"
+            print(message)
             sys.exit(1)
-        print(
-            f"WARNING: No online agents available for queue {queue}. "
-            "Waiting for agents to become available..."
+
+        # else, wait_for_available_agents is set:
+        message = (
+            f"WARNING: {message} Waiting for agents to become available..."
         )
+        print(message)
 
     def submit_job_data(self, data: dict):
         """Submit data that was generated or read from a file as a test job."""
