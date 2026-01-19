@@ -43,6 +43,7 @@ from testflinger_cli import (
     client,
     config,
     consts,
+    errors,
     helpers,
     history,
 )
@@ -448,15 +449,18 @@ class TestflingerCli:
 
     def status(self):
         """Show the status of a specified JOB_ID."""
-        job_state = self.get_job_state(self.args.job_id)["job_state"]
-        if job_state != "unknown":
-            self.history.update(self.args.job_id, job_state)
-            print(job_state)
-        else:
-            print(
-                "Unable to retrieve job state from the server, check your "
-                "connection or try again later."
-            )
+        try:
+            job_state = self.get_job_state(self.args.job_id)["job_state"]
+            if job_state != "unknown":
+                self.history.update(self.args.job_id, job_state)
+                print(job_state)
+            else:
+                print(
+                    "Unable to retrieve job state from the server, check your "
+                    "connection or try again later."
+                )
+        except (errors.NoJobDataError, errors.InvalidJobIdError) as exc:
+            sys.exit(str(exc))
 
     def agent_status(self):
         """Show the status of a specified agent."""
@@ -1146,6 +1150,9 @@ class TestflingerCli:
                                 f"of it in the queue are complete"
                             )
                 time.sleep(10)
+            except (errors.NoJobDataError, errors.InvalidJobIdError):
+                # Job-specific errors should exit immediately
+                raise
             except (IOError, client.HTTPError):
                 # Ignore/retry or debug any connection errors or timeouts
                 if self.args.debug:
@@ -1177,8 +1184,17 @@ class TestflingerCli:
             if self.args.status:
                 job_state = jobdata.get("job_state")
                 if job_state not in ("cancelled", "complete", "completed"):
-                    job_state = self.get_job_state(job_id)["job_state"]
-                    self.history.update(job_id, job_state)
+                    try:
+                        job_state = self.get_job_state(job_id)["job_state"]
+                        self.history.update(job_id, job_state)
+                    except (
+                        errors.NoJobDataError,
+                        errors.InvalidJobIdError,
+                        IOError,
+                        ValueError,
+                    ):
+                        # Handle errors gracefully for job listings
+                        job_state = "unknown"
             else:
                 job_state = ""
             timestamp = datetime.fromtimestamp(
@@ -1263,22 +1279,21 @@ class TestflingerCli:
         """Return the job state for the specified job_id.
 
         :param job_id: Job ID
-        :raises SystemExit: Exit with HTTP error code
+        :raises NoJobDataError: When HTTP 204 (no data found)
+        :raises InvalidJobIdError: When HTTP 400 (invalid job ID)
+        :raises IOError: When network error occurs
+        :raises ValueError: When response cannot be parsed
         :return: Job and phase statuses
         """
         try:
             return self.client.get_status(job_id)
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.NO_CONTENT:
-                sys.exit(
-                    "No data found for that job id. Check the "
-                    "job id to be sure it is correct"
-                )
+                raise errors.NoJobDataError() from exc
             if exc.status == HTTPStatus.BAD_REQUEST:
-                sys.exit(
-                    "Invalid job id specified. Check the job id "
-                    "to be sure it is correct"
-                )
+                raise errors.InvalidJobIdError() from exc
+            # For other HTTP errors, log and return unknown state
+            logger.debug("HTTP error retrieving job state: %s", exc)
         except (IOError, ValueError) as exc:
             # For other types of network errors, or JSONDecodeError if we got
             # a bad return from get_status()
