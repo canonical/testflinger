@@ -311,7 +311,7 @@ class TestClient:
         }
         requests_mock.post(
             "http://127.0.0.1:8000/v1/agents/data/test_agent",
-            status_code=200,
+            status_code=HTTPStatus.OK,
             headers={
                 "Set-Cookie": (
                     "agent_name=test_agent; HttpOnly; SameSite=Strict"
