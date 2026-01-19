@@ -842,8 +842,8 @@ class TestflingerCli:
             if online_excluded_agents:
                 message += (
                     "\nAdditionally, the following agents ARE online, "
-                    "but they have been excluded from running this job in the job "
-                    "definition file:"
+                    "but they have been excluded from running this job in the "
+                    "job definition file:"
                 )
                 for agent in online_excluded_agents:
                     message += f"\n\t- {agent['name']}"
