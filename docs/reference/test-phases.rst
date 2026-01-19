@@ -414,7 +414,8 @@ For example, under ``test_cmds``, you can create an artifacts directory and copy
 
 .. note::
   
-  From the above example, the first command is executed on the remote device, while the next two commands are executed on the Testflinger Agent.
+  From the above example, the command enclosed in single quotes is executed on the remote device via SSH, 
+  while the next two commands are executed on the Testflinger Agent.
 
 Artifacts can later be retrieved using the CLI:
 
