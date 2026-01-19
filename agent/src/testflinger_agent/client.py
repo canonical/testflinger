@@ -29,8 +29,8 @@ from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
 from requests import HTTPError
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
 from testflinger_common.enums import LogType
+from urllib3.util import Retry
 
 from testflinger_agent.errors import TFServerError
 
