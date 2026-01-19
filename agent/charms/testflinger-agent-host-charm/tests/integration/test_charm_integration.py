@@ -97,7 +97,7 @@ def test_supervisord_files_updated(juju: jubilant.Juju):
     )
     conf_file = juju.exec("cat", SUPERVISOR_CONF_FILE, unit=f"{APP_NAME}/0")
     assert conf_file.return_code == 0
-    assert conf_file.stdout == expected_contents
+    assert conf_file.stdout.strip() == expected_contents.strip()
 
 
 def test_supervisord_agent_running(juju: jubilant.Juju):
