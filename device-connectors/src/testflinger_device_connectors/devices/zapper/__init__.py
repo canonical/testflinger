@@ -22,11 +22,11 @@ validating the configuration and preparing the API arguments.
 
 import json
 import logging
+import subprocess
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import rpyc
-import yaml
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
@@ -45,10 +45,51 @@ class ZapperConnector(ABC, DefaultDevice):
     ZAPPER_REQUEST_TIMEOUT = 60 * 90
     ZAPPER_SERVICE_PORT = 60000
 
+    def __check_rpyc_server_on_host(self, host: str) -> None:
+        """
+        Check if the host has an active RPyC server running.
+
+        :raises ConnectionError in case the server is not reachable.
+        """
+        timeout = 3
+        try:
+            subprocess.run(
+                [
+                    "/usr/bin/nc",
+                    "-z",
+                    "-w",
+                    str(timeout),
+                    host,
+                    str(self.ZAPPER_SERVICE_PORT),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            logger.debug("The host %s has an available RPyC server", host)
+        except subprocess.CalledProcessError as e:
+            raise ConnectionError from e
+
     def provision(self, args):
         """Provision device when the command is invoked."""
-        with open(args.config, encoding="utf-8") as configfile:
-            self.config = yaml.safe_load(configfile)
+        super().provision(args)
+
+        control_host = self.config["control_host"]
+        logger.info(
+            "Waiting for a running RPyC server on control host %s",
+            control_host,
+        )
+        try:
+            self.wait_online(
+                self.__check_rpyc_server_on_host,
+                control_host,
+                60,
+            )
+        except TimeoutError as e:
+            raise ProvisioningError(
+                "Cannot reach out the Zapper service over RPyC"
+            ) from e
+
         with open(args.job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)
 
