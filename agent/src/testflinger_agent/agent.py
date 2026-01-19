@@ -20,10 +20,8 @@ import signal
 import sys
 import tempfile
 import time
-from http import HTTPStatus
 from pathlib import Path
 
-from requests.exceptions import HTTPError
 from testflinger_common.enums import AgentState, JobState, TestEvent, TestPhase
 
 from testflinger_agent.config import ATTACHMENTS_DIR
@@ -256,14 +254,7 @@ class TestflingerAgent:
                     del job_data[phase_str]
 
     def get_job_data(self):
-        job_data = None
-        try:
-            job_data = self.client.check_jobs()
-        except HTTPError as exc:
-            # If we receive an error that we were not authenticated, try
-            # registering again and then try to get a job.
-            if exc.response.status_code == HTTPStatus.UNAUTHORIZED:
-                self.client.post_agent_data({"job_id": ""})
+        job_data = self.client.check_jobs()
         return job_data
 
     def process_jobs(self):

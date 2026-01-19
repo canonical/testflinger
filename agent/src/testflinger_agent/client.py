@@ -19,6 +19,7 @@ import shutil
 import tempfile
 import time
 from dataclasses import asdict, dataclass
+from http import HTTPStatus
 from pathlib import Path
 from typing import Dict, List
 from urllib.parse import urljoin
@@ -26,6 +27,7 @@ from urllib.parse import urljoin
 import requests
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
+from requests import HTTPError
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from testflinger_common.enums import LogType
@@ -124,16 +126,21 @@ class TestflingerClient:
             job_request = self.session.get(
                 job_uri, params={"queue": queue_list}, timeout=30
             )
+            job_request.raise_for_status()
+        except HTTPError as exc:
+            if exc.response.status_code == HTTPStatus.UNAUTHORIZED:
+                # Re-register the agent to authenticate it.
+                self.post_agent_data({"job_id": ""})
+                return None
+            logger.error(exc)
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
             # Wait a little extra before trying again
             time.sleep(60)
         else:
-            job_request.raise_for_status()
             if job_request.content:
                 return job_request.json()
-            else:
-                return None
+            return None
 
     def get_attachments(self, job_id: str, path: Path):
         """Download the attachment archive associated with a job.
