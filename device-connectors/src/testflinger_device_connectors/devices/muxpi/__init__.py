@@ -34,6 +34,9 @@ class DeviceConnector(DefaultDevice):
         """Provision device when the command is invoked."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
+
+        super().provision(args)
+
         device = MuxPi(args.config, args.job_data)
         logger.info("BEGIN provision")
         logger.info("Provisioning device")

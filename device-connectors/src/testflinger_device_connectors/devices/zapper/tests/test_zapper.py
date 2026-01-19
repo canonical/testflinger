@@ -13,8 +13,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for Zapper base device connector."""
 
+import subprocess
 import unittest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import (
@@ -47,6 +50,7 @@ class ZapperConnectorTests(unittest.TestCase):
         fake_config = {
             "device_ip": "1.1.1.1",
             "agent_name": "my-agent",
+            "control_host": "zapper-host",
             "reboot_script": ["cmd1", "cmd2"],
             "env": {"CID": "202507-01234"},
         }
@@ -72,7 +76,7 @@ class ZapperConnectorTests(unittest.TestCase):
         job and config and attempts to copy the agent SSH
         key to the DUT.
         """
-        fake_config = {"device_ip": "1.1.1.1"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
         connector = MockConnector(fake_config)
         connector.job_data = {
             "test_data": {
@@ -93,7 +97,7 @@ class ZapperConnectorTests(unittest.TestCase):
         """Test the function raises a ProvisioningError exception
         in case of failure.
         """
-        fake_config = {"device_ip": "1.1.1.1"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
         connector = MockConnector(fake_config)
         connector.job_data = {
             "test_data": {
@@ -107,3 +111,49 @@ class ZapperConnectorTests(unittest.TestCase):
         connector.copy_ssh_key.side_effect = RuntimeError
         with self.assertRaises(ProvisioningError):
             connector._copy_ssh_id()
+
+
+class TestZapperConnectorRpycCheck:
+    """Tests for ZapperConnector RPyC server check."""
+
+    def test_check_rpyc_server_on_host_success(self, mocker):
+        """Test __check_rpyc_server_on_host succeeds when port is open."""
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "agent_name": "test-agent",
+            "control_host": "zapper-host",
+        }
+        connector = MockConnector(fake_config)
+
+        mock_subprocess = mocker.patch("subprocess.run")
+
+        # Access the private method
+        connector._ZapperConnector__check_rpyc_server_on_host("test-host")
+
+        mock_subprocess.assert_called_once()
+        call_args = mock_subprocess.call_args
+        assert call_args[0][0] == [
+            "/usr/bin/nc",
+            "-z",
+            "-w",
+            "3",
+            "test-host",
+            "60000",
+        ]
+
+    def test_check_rpyc_server_on_host_raises_connection_error(self, mocker):
+        """Test connection check raises ConnectionError on failure."""
+        fake_config = {
+            "device_ip": "1.1.1.1",
+            "agent_name": "test-agent",
+            "control_host": "zapper-host",
+        }
+        connector = MockConnector(fake_config)
+
+        mocker.patch(
+            "subprocess.run",
+            side_effect=subprocess.CalledProcessError(1, "nc"),
+        )
+
+        with pytest.raises(ConnectionError):
+            connector._ZapperConnector__check_rpyc_server_on_host("test-host")
