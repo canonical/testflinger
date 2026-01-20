@@ -49,16 +49,37 @@ class ProvisionLogsIn(Schema):
     detail = fields.String(required=False)
 
 
+class AgentName(Schema):
+    """Agent name schema."""
+
+    agent_name = fields.String(required=True)
+
+
 class AgentIn(Schema):
     """Agent data input schema."""
 
     identifier = fields.String(required=False)
-    job_id = fields.String(required=False)
-    location = fields.String(required=False)
-    log = fields.List(fields.String(), required=False)
+    job_id = fields.String(
+        required=False,
+        metadata={"description": "Job ID the device is running, if any"},
+    )
+    location = fields.String(
+        required=False, metadata={"description": "Location of the device"}
+    )
+    log = fields.List(
+        fields.String(),
+        required=False,
+        metadata={"description": "Push and keep only the last 100 lines"},
+    )
     provision_type = fields.String(required=False)
-    queues = fields.List(fields.String(), required=False)
-    state = fields.String(required=False)
+    queues = fields.List(
+        fields.String(),
+        required=False,
+        metadata={"description": "Queues the device is listening on"},
+    )
+    state = fields.String(
+        required=False, metadata={"description": "State the device is in"}
+    )
     comment = fields.String(required=False)
 
 
@@ -90,6 +111,12 @@ class Attachment(Schema):
 
     agent = fields.String(required=True)
     device = fields.String(required=False)
+
+
+class FileUpload(Schema):
+    """Schema for file upload requests."""
+
+    file = fields.File(required=True)
 
 
 class CM3ProvisionData(Schema):
@@ -375,6 +402,18 @@ class JobId(Schema):
     job_id = fields.String(required=True)
 
 
+class JobGetQuery(Schema):
+    """Job GET query schema."""
+
+    queue = fields.List(
+        fields.String(),
+        required=True,
+        metadata={
+            "description": "List of queue name(s) that the agent can process"
+        },
+    )
+
+
 class JobSearchRequest(Schema):
     """Job search request schema."""
 
@@ -435,9 +474,18 @@ class ResultPost(Schema):
         keys=fields.String(validate=OneOf(TestPhases)),
         values=fields.Integer(),
         required=False,
+        metadata={
+            "description": "Dictionary mapping phase names to exit codes"
+        },
     )
-    device_info = fields.Dict(required=False)
-    job_state = fields.String(required=False)
+    device_info = fields.Dict(
+        required=False,
+        metadata={"description": "Device information"},
+    )
+    job_state = fields.String(
+        required=False,
+        metadata={"description": "Current job state"},
+    )
 
 
 class JobEvent(Schema):
@@ -470,20 +518,68 @@ class RestrictedQueueOut(Schema):
     owners = fields.List(fields.String(), required=True)
 
 
+class LogTypeParam(Schema):
+    """Schema for Log type parameter."""
+
+    log_type = fields.String(
+        required=True,
+        validate=OneOf(["output", "serial"]),
+        metadata={"description": "Type of log to retrieve (output or serial)"},
+    )
+
+
 class LogPost(Schema):
     """Schema for POST of log fragments."""
 
-    fragment_number = fields.Integer(required=True)
-    timestamp = fields.DateTime(required=True)
-    phase = fields.String(required=True, validate=OneOf(TestPhases))
-    log_data = fields.String(required=True)
+    fragment_number = fields.Integer(
+        required=True,
+        metadata={
+            "description": (
+                "Sequential fragment number of the log fragment "
+                "being posted, starting from 0"
+            )
+        },
+    )
+    timestamp = fields.DateTime(
+        required=True,
+        metadata={
+            "description": (
+                "Timestamp in ISO 8601 format of when the log "
+                "fragment was created"
+            )
+        },
+    )
+    phase = fields.String(
+        required=True,
+        validate=OneOf(TestPhases),
+        metadata={
+            "description": (
+                "Test phase name (setup, provision, firmware_update, "
+                "test, allocate, reserve, cleanup)"
+            )
+        },
+    )
+    log_data = fields.String(
+        required=True,
+        metadata={"description": "The log content for this fragment"},
+    )
 
 
 class LogGetItem(Schema):
     """Schema for GET of logs for a single phase."""
 
-    last_fragment_number = fields.Integer(required=True)
-    log_data = fields.String(required=True)
+    last_fragment_number = fields.Integer(
+        required=True,
+        metadata={"description": "The highest fragment number for this phase"},
+    )
+    log_data = fields.String(
+        required=True,
+        metadata={
+            "description": (
+                "Combined log text from all matching fragments for this phase"
+            )
+        },
+    )
 
 
 class LogGet(Schema):
@@ -503,10 +599,27 @@ class LogQueryParams(Schema):
     """Schema for Log GET Query parameters."""
 
     start_fragment = fields.Integer(
-        required=False, validate=validators.Range(min=0)
+        required=False,
+        validate=validators.Range(min=0),
+        metadata={
+            "description": (
+                "Starting fragment number to query from, defaults to 0"
+            )
+        },
     )
-    start_timestamp = fields.DateTime(required=False)
-    phase = fields.String(required=False, validate=OneOf(TestPhases))
+    start_timestamp = fields.DateTime(
+        required=False,
+        metadata={
+            "description": (
+                "Starting timestamp to query from, in ISO 8601 format"
+            )
+        },
+    )
+    phase = fields.String(
+        required=False,
+        validate=OneOf(TestPhases),
+        metadata={"description": "Test phase name to filter logs"},
+    )
 
 
 job_empty = {
@@ -540,6 +653,60 @@ queues_out = {
     },
 }
 
+
+class QueueName(Schema):
+    """Queue name schema."""
+
+    queue = fields.String(required=True)
+
+
+class QueueDict(Schema):
+    """Queue input schema."""
+
+    data = fields.Dict(
+        keys=fields.Nested(QueueName),
+        values=fields.String(metadata={"description": "Queue description"}),
+        required=True,
+    )
+
+
+class QueueList(Schema):
+    """Queue list schema."""
+
+    queue = fields.List(
+        fields.Nested(QueueName),
+        required=False,
+        metadata={"description": "List of queue names"},
+    )
+
+
+class QueueWaitTimePercentilesOut(Schema):
+    """Queue wait time percentiles output schema."""
+
+    data = fields.Dict(
+        keys=fields.Nested(QueueName),
+        values=fields.Dict(
+            keys=fields.String(validate=OneOf(["5", "10", "50", "90", "95"])),
+            values=fields.Float(),
+            metadata={
+                "description": (
+                    "Percentile statistics for job wait times in seconds"
+                )
+            },
+        ),
+        required=True,
+    )
+
+
+class JobInQueueOut(Schema):
+    """Job in queue output schema."""
+
+    job_id = fields.String(required=True)
+    created_at = fields.String(required=True)
+    job_state = fields.String(required=True)
+    job_queue = fields.String(required=True)
+
+
 images_out = {
     200: {
         "description": "Mapping of image names and provision data",
@@ -559,6 +726,28 @@ images_out = {
         },
     },
 }
+
+
+class ImagePostIn(Schema):
+    """Agent image input schema."""
+
+    data = fields.Dict(
+        keys=fields.String(metadata={"description": "Queue name"}),
+        values=fields.Dict(
+            keys=fields.String(metadata={"description": "Image name"}),
+            values=fields.String(
+                metadata={"description": "Image provision data"}
+            ),
+            metadata={"description": "Image data for the queue"},
+        ),
+        required=True,
+    )
+
+
+class ClientId(Schema):
+    """Client ID input schema."""
+
+    client_id = fields.String(required=True)
 
 
 class ClientPermissionsIn(Schema):
@@ -601,6 +790,12 @@ class SecretIn(Schema):
     """Secret input schema."""
 
     value = fields.String(required=True)
+
+
+class SecretPath(Schema):
+    """Secret path schema."""
+
+    path = fields.String(required=True)
 
 
 class ResultLegacy(Schema):
@@ -669,3 +864,29 @@ class ResultSchema(OneOfSchema):
         # So we need to remove it
         result.pop(self.type_field)
         return result
+
+
+class Oauth2Token(Schema):
+    """Token output schema."""
+
+    access_token = fields.String(required=True)
+    token_type = fields.String(required=True)
+    expires_in = fields.Integer(required=True)
+    refresh_token = fields.String(required=True)
+
+
+class Oauth2RefreshTokenIn(Schema):
+    """Refresh token input schema."""
+
+    refresh_token = fields.String(
+        required=True,
+        metadata={"description": "Opaque refresh token"},
+    )
+
+
+class Oauth2RefreshTokenOut(Schema):
+    """Refresh token output schema."""
+
+    access_token = fields.String(required=True)
+    token_type = fields.String(required=True)
+    expires_in = fields.Integer(required=True)
