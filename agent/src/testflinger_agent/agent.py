@@ -253,6 +253,9 @@ class TestflingerAgent:
                 if not phase_data:
                     del job_data[phase_str]
 
+    def get_job_data(self):
+        return self.client.check_jobs()
+
     def process_jobs(self):
         """Coordinate checks for new jobs and handling them if they exists."""
         test_phases = [
@@ -290,8 +293,12 @@ class TestflingerAgent:
         if self.status_handler.needs_restart:
             self.restart_agent(self.status_handler.comment)
 
-        job_data = self.client.check_jobs()
+        # Check for the first job before looping for more
+        job_data = self.get_job_data()
         while job_data:
+            rundir = None
+            job = None
+            event_emitter = None
             try:
                 job = TestflingerJob(job_data, self.client)
                 event_emitter = EventEmitter(
@@ -371,7 +378,7 @@ class TestflingerAgent:
 
                     self.client.post_job_state(job.job_id, phase)
                     self.set_agent_state(phase, self.status_handler.comment)
-                    event_emitter.emit_event(TestEvent(phase + "_start"))
+                    event_emitter.emit_event(TestEvent(f"{phase}_start"))
                     # Register start time to measure phase duration
                     phase_start = time.time()
                     exit_code, exit_event, exit_reason = job.run_test_phase(
@@ -397,11 +404,11 @@ class TestflingerAgent:
                             # Report recovery failure in a dedicated metric
                             self.metrics_handler.report_recovery_failures()
                         else:
-                            exit_event = TestEvent(phase + "_fail")
+                            exit_event = TestEvent(f"{phase}_fail")
                         detail = parse_error_logs(error_log_path, phase)
                         self.metrics_handler.report_job_failure(phase)
                     else:
-                        exit_event = TestEvent(phase + "_success")
+                        exit_event = TestEvent(f"{phase}_success")
                     event_emitter.emit_event(exit_event, detail)
                     if phase == TestPhase.PROVISION:
                         self.client.post_provision_log(
@@ -415,14 +422,18 @@ class TestflingerAgent:
                 logger.exception(e)
             finally:
                 # Always run the cleanup, even if the job was cancelled
-                event_emitter.emit_event(TestEvent.CLEANUP_START)
-                exit_code, _, _ = job.run_test_phase(TestPhase.CLEANUP, rundir)
-                if exit_code:
-                    logger.debug("Issue with cleanup phase")
-                    event_emitter.emit_event(TestEvent.CLEANUP_FAIL)
-                else:
-                    event_emitter.emit_event(TestEvent.CLEANUP_SUCCESS)
-                event_emitter.emit_event(TestEvent.JOB_END, job_end_reason)
+                if event_emitter:
+                    event_emitter.emit_event(TestEvent.CLEANUP_START)
+                    if job and rundir:
+                        exit_code, _, _ = job.run_test_phase(
+                            TestPhase.CLEANUP, rundir
+                        )
+                        if exit_code:
+                            logger.debug("Issue with cleanup phase")
+                            event_emitter.emit_event(TestEvent.CLEANUP_FAIL)
+                        else:
+                            event_emitter.emit_event(TestEvent.CLEANUP_SUCCESS)
+                    event_emitter.emit_event(TestEvent.JOB_END, job_end_reason)
 
             try:
                 self.client.transmit_job_outcome(rundir)
@@ -452,7 +463,7 @@ class TestflingerAgent:
 
             # If no restart or offline needed, set agent to wait for new job
             self.set_agent_state(AgentState.WAITING)
-            job_data = self.client.check_jobs()
+            job_data = self.get_job_data()
 
     def retry_old_results(self):
         """Retry sending results that we previously failed to send."""
