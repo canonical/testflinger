@@ -13,6 +13,8 @@ from pathlib import Path
 
 import supervisord
 import testflinger_source
+from charms.grafana_agent.v0.cos_agent import COSAgentProvider
+from charms.operator_libs_linux.v0 import apt, passwd
 from common import copy_ssh_keys, run_with_logged_errors, update_charm_scripts
 from defaults import (
     AGENT_CONFIGS_PATH,
@@ -25,9 +27,6 @@ from ops import ActionEvent
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
-
-from charms.grafana_agent.v0.cos_agent import COSAgentProvider
-from charms.operator_libs_linux.v0 import apt, passwd
 
 logger = logging.getLogger(__name__)
 
