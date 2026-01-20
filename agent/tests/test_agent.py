@@ -1008,24 +1008,16 @@ class TestClient:
             result = agent.get_job_data()
         assert result == fake_job
 
-    def test_get_job_data_401_reregisters(self, agent):
+    def test_get_job_data_returns_none(self, agent):
         """
-        When check_jobs returns 401, post_agent_data is called with empty
-        job_id to re-register, and None is returned.
+        When check_jobs returns None, get_job_data returns None.
         """
         with patch.object(
             agent.client,
             "check_jobs",
-            side_effect=[
-                HTTPError(response=Mock(status_code=HTTPStatus.UNAUTHORIZED)),
-            ],
+            return_value=None,
         ):
-            with patch.object(
-                agent.client, "post_agent_data"
-            ) as mock_post_agent_data:
-                result = agent.get_job_data()
+            result = agent.get_job_data()
 
-        # Verify post_agent_data was called to reregister
-        mock_post_agent_data.assert_called()
-        # Verify None is returned when unauthorized
+        # Verify None is returned when check_jobs returns None
         assert result is None

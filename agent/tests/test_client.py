@@ -351,12 +351,12 @@ class TestClient:
         assert requests_mock.last_request.method == "GET"
         assert "/v1/job" in requests_mock.last_request.url
 
-    def test_check_jobs_without_agent_registration_fails(
+    def test_check_jobs_without_agent_registration_reregisters(
         self, client, requests_mock
     ):
         """
-        Test that check_jobs raises HTTPError on status code 401,
-        (no agent_name cookie).
+        Test that check_jobs handles 401 (no agent_name cookie) by
+        re-registering the agent and returning None.
         """
         requests_mock.get(
             "http://127.0.0.1:8000/v1/agents/data/test_agent",
@@ -367,11 +367,23 @@ class TestClient:
             status_code=HTTPStatus.UNAUTHORIZED,
             json={"message": "Agent not identified"},
         )
+        requests_mock.post(
+            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            status_code=HTTPStatus.OK,
+        )
 
-        # check_jobs raises HTTPError on 401, allows exception to
-        # propagate to caller for handling
-        with pytest.raises(HTTPError):
-            client.check_jobs()
+        # check_jobs should handle 401 by re-registering and returning None
+        result = client.check_jobs()
+        assert result is None
+
+        # Verify that post_agent_data was called for re-registration, i.e.
+        # the POST /agents/data/<agent_name> endpoint was called, once.
+        post_requests = [
+            req for req in requests_mock.request_history
+            if req.method == "POST"
+        ]
+        assert len(post_requests) == 1
+        assert post_requests[0].json() == {"job_id": ""}
 
     def test_check_jobs_request_exception(self, client):
         """
