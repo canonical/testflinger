@@ -1039,6 +1039,18 @@ wheels = [
 ]
 
 [[package]]
+name = "jubilant"
+version = "1.6.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8c/7f/4b1a751930713ee585ea0a4dcf4af30d19f4af478cf7658376ca788adbf3/jubilant-1.6.2.tar.gz", hash = "sha256:d841610fd86f7d77419da8be08e6c936412e581652f55faa23c6c19536b87a8f", size = 32016, upload-time = "2025-12-17T21:20:04.382Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/78/13/22f29f41fc6e2467f039a2d38179f59c069245090524ebc3d8aaf64d3d4b/jubilant-1.6.2-py3-none-any.whl", hash = "sha256:fa81995b64e0519fa59407beabbbc2aae097437895addcb3df54f33ab207fbfb", size = 33034, upload-time = "2025-12-17T21:20:03.265Z" },
+]
+
+[[package]]
 name = "markupsafe"
 version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1959,6 +1971,7 @@ dependencies = [
 
 [package.dev-dependencies]
 charm = [
+    { name = "jubilant" },
     { name = "ops", extra = ["testing"] },
 ]
 dev = [
@@ -1998,7 +2011,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-charm = [{ name = "ops", extras = ["testing"] }]
+charm = [
+    { name = "jubilant", specifier = ">=1.6.2" },
+    { name = "ops", extras = ["testing"] },
+]
 dev = [
     { name = "cosl", specifier = ">=0.0.57" },
     { name = "djlint", specifier = ">=1.36.4" },

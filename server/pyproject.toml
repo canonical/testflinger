@@ -36,6 +36,7 @@ client_credentials_admin = "testflinger.tools.client_credentials_admin:main"
 
 [dependency-groups]
 charm = [
+    "jubilant>=1.6.2",
     "ops[testing]",
 ]
 dev = [
