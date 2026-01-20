@@ -254,8 +254,7 @@ class TestflingerAgent:
                     del job_data[phase_str]
 
     def get_job_data(self):
-        job_data = self.client.check_jobs()
-        return job_data
+        return self.client.check_jobs()
 
     def process_jobs(self):
         """Coordinate checks for new jobs and handling them if they exists."""
