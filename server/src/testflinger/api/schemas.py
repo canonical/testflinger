@@ -196,6 +196,7 @@ class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
 
     url = fields.URL(required=True)
     robot_tasks = fields.List(fields.String(), required=True)
+    robot_retries = fields.Integer(required=False)
     autoinstall_storage_layout = fields.String(required=False)
     ubuntu_sso_email = fields.Email(required=False)
     autoinstall_base_user_data = fields.String(required=False)
@@ -211,6 +212,7 @@ class ZapperKVMOEM2204ProvisionData(BaseZapperProvisionData):
 
     alloem_url = fields.URL(required=True)
     robot_tasks = fields.List(fields.String(), required=True)
+    robot_retries = fields.Integer(required=False)
     url = fields.URL(required=False)
     oem = fields.String(required=False)
 
@@ -223,6 +225,7 @@ class ZapperKVMGenericProvisionData(BaseZapperProvisionData):
 
     url = fields.URL(required=True)
     robot_tasks = fields.List(fields.String(), required=True)
+    robot_retries = fields.Integer(required=False)
     live_image = fields.Boolean(required=True)
     wait_until_ssh = fields.Boolean(required=True)
 
