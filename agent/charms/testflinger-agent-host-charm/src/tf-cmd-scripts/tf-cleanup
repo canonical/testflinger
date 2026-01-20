@@ -9,10 +9,10 @@ CONFIG_DIR="{{ config_dir }}"
 VIRTUAL_ENV_PATH="{{ virtual_env_path }}"
 
 if [ -d "$VIRTUAL_ENV_PATH" ]; then
-    echo Cleaning up container if it exists... && docker rm -f $agent_id 2> /dev/null || /bin/true
+    echo Cleaning up container if it exists... && docker rm -f $agent_id || /bin/true
     PYTHONUNBUFFERED=1 $VIRTUAL_ENV_PATH/bin/testflinger-device-connector $PROVISION_TYPE cleanup -c $AGENT_CONFIGS_PATH/$CONFIG_DIR/$agent_id/default.yaml testflinger.json
 else
-    echo Cleaning up container if it exists... && docker rm -f $AGENT 2> /dev/null || /bin/true
+    echo Cleaning up container if it exists... && docker rm -f $AGENT || /bin/true
     . /srv/testflinger-agent/$AGENT/env/bin/activate && PYTHONUNBUFFERED=1 testflinger-device-connector $PROVISION_TYPE cleanup -c /srv/testflinger-agent/$AGENT/default.yaml testflinger.json
 fi
 
