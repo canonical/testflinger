@@ -1087,7 +1087,10 @@ class TestflingerCli:
         start_timestamp = getattr(self.args, "start_timestamp", None)
         phase = getattr(self.args, "phase", None)
 
-        job_state_data = self.get_job_state(job_id)
+        try:
+            job_state_data = self.get_job_state(job_id)
+        except (errors.NoJobDataError, errors.InvalidJobIdError) as exc:
+            sys.exit(str(exc))
         job_state = job_state_data["job_state"]
         self.history.update(job_id, job_state)
         prev_queue_pos = None
