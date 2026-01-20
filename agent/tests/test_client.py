@@ -19,7 +19,7 @@ from unittest.mock import patch
 
 import pytest
 import requests_mock as rmock
-from requests.exceptions import HTTPError, RequestException
+from requests.exceptions import RequestException
 
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.errors import TFServerError
@@ -379,7 +379,8 @@ class TestClient:
         # Verify that post_agent_data was called for re-registration, i.e.
         # the POST /agents/data/<agent_name> endpoint was called, once.
         post_requests = [
-            req for req in requests_mock.request_history
+            req
+            for req in requests_mock.request_history
             if req.method == "POST"
         ]
         assert len(post_requests) == 1

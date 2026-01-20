@@ -21,12 +21,11 @@ import tempfile
 import uuid
 from http import HTTPStatus
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import prometheus_client
 import pytest
 import requests_mock as rmock
-from requests.exceptions import HTTPError
 from testflinger_common.enums import AgentState, LogType, TestEvent, TestPhase
 
 import testflinger_agent
@@ -1009,9 +1008,7 @@ class TestClient:
         assert result == fake_job
 
     def test_get_job_data_returns_none(self, agent):
-        """
-        When check_jobs returns None, get_job_data returns None.
-        """
+        """When check_jobs returns None, get_job_data returns None."""
         with patch.object(
             agent.client,
             "check_jobs",
