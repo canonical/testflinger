@@ -103,6 +103,63 @@ def test_submit(capsys, tmp_path, requests_mock):
     assert jobid in std.out
 
 
+def test_submit_some_agents_excluded(capsys, tmp_path, requests_mock):
+    """
+    Make sure job is submitted if there is at least one available agent with
+    excluded_agents specified.
+    """
+    jobid = str(uuid.uuid1())
+    fake_data = {
+        "job_queue": "fake",
+        "provision_data": {"distro": "fake"},
+        "exclude_agents": ["fake_agent"],
+    }
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[
+            {"name": "fake_agent", "state": "waiting"},
+            {"name": "fake_agent_2", "state": "waiting"},
+        ],
+    )
+    sys.argv = ["", "submit", str(testfile)]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.run()
+    std = capsys.readouterr()
+    assert jobid in std.out
+
+
+def test_submit_exclude_agents_is_a_list(capsys, tmp_path, requests_mock):
+    """Make sure proper error is generated if exclude_agents is not a list."""
+    jobid = str(uuid.uuid1())
+    fake_data = {
+        "job_queue": "fake",
+        "provision_data": {"distro": "fake"},
+        "exclude_agents": "fake_agent",
+    }
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[
+            {"name": "fake_agent", "state": "waiting"},
+            {"name": "fake_agent_2", "state": "waiting"},
+        ],
+    )
+    sys.argv = ["", "submit", str(testfile)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as err:
+        tfcli.run()
+    assert (
+        "Error: exclude_agents must be a list if provided." in err.value.code
+    )
+
+
 def test_submit_stdin(capsys, monkeypatch, requests_mock):
     """Make sure jobid is read back from submitted job via stdin."""
     jobid = str(uuid.uuid1())
@@ -570,6 +627,42 @@ def test_submit_no_agents_fails(capsys, tmp_path, requests_mock):
     )
 
 
+def test_submit_no_agents_fails_excluded(capsys, tmp_path, requests_mock):
+    """
+    Test that submitting a job where the only online agents are excluded from
+    running the job fails appropriately.
+    """
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[
+            {"name": "fake_agent", "state": "waiting"},
+            {"name": "fake_agent_2", "state": "waiting"},
+            {"name": "fake_agent_3", "state": "waiting"},
+        ],
+    )
+    fake_data = {
+        "job_queue": "fake",
+        "provision_data": {"distro": "fake"},
+        "exclude_agents": [
+            "fake_agent",
+            "fake_agent_2",
+            "fake_agent_3",
+            "fake_agent_4",
+        ],
+    }
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.submit()
+    assert exc_info.value.code == 1
+    assert (
+        "ERROR: No online agents available for queue fake"
+        in capsys.readouterr().out
+    )
+
+
 def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
     """
     Test that submitting a job without online agents succeeds with
@@ -577,9 +670,9 @@ def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
     """
     jobid = str(uuid.uuid1())
     fake_return = {"job_id": jobid}
-    requests_mock.post(URL + "/v1/job", json=fake_return)
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
     requests_mock.get(
-        URL + "/v1/queues/fake/agents",
+        f"{URL}/v1/queues/fake/agents",
         json=[],
     )
     fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}

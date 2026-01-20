@@ -56,6 +56,10 @@ The following table lists the key elements that a job definition file should con
     - integer
     - 0
     - | (Optional) Integer specifying how much priority this job has. Jobs with higher priority values will be selected by agents before other jobs. Specifying a non-zero job priority requires authorisation in the form of a JWT obtained by sending a POST request to /v1/oauth2/token with a client id and client key specified in an `Authorization` header. See :doc:`../how-to/authentication` for details.
+  * - ``exclude_agents``
+    - List of strings
+    - /
+    - | (Optional) List of agent names to exclude from running this job. This is useful when you want to prevent specific agents from processing the job. At least one available agent must be able to run the job after applying exclusions, otherwise the job submission will fail. For more details, see :doc:`../explanation/agents`.
 
 Example jobs in YAML
 ----------------------------

@@ -210,6 +210,12 @@ def test_job_get_with_priority(mongo_app_with_permissions):
         job_id = job_response.json.get("job_id")
         job_ids.append(job_id)
 
+    # Note: agents must register before they can be issued work:
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["myqueue2"], "location": "here"},
+    )
+
     returned_job_ids = []
     for _ in range(len(jobs)):
         job_get_response = app.get("/v1/job?queue=myqueue2")
@@ -242,6 +248,16 @@ def test_job_get_with_priority_multiple_queues(mongo_app_with_permissions):
         )
         job_id = job_response.json.get("job_id")
         job_ids.append(job_id)
+
+    # Note: agents must register before they can be issued work:
+    app.post(
+        "/v1/agents/data/agent1",
+        json={
+            "state": "waiting",
+            "queues": ["myqueue", "myqueue2", "myqueue3"],
+            "location": "here",
+        },
+    )
 
     returned_job_ids = []
     for _ in range(len(jobs)):

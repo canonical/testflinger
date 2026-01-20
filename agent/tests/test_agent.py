@@ -1,3 +1,17 @@
+# Copyright (C) 2016 Canonical
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import json
 import os
 import re
@@ -985,3 +999,22 @@ class TestClient:
             agent.client.wait_for_server_connectivity(interval=1)
             # First attempt is also unsuccessful
             assert "Testflinger server unreachable" in caplog.text
+
+    def test_get_job_data_success(self, agent):
+        """Test get_job_data returns job when successful."""
+        fake_job = {"job_id": "123", "job_queue": "test"}
+        with patch.object(agent.client, "check_jobs", return_value=fake_job):
+            result = agent.get_job_data()
+        assert result == fake_job
+
+    def test_get_job_data_returns_none(self, agent):
+        """When check_jobs returns None, get_job_data returns None."""
+        with patch.object(
+            agent.client,
+            "check_jobs",
+            return_value=None,
+        ):
+            result = agent.get_job_data()
+
+        # Verify None is returned when check_jobs returns None
+        assert result is None
