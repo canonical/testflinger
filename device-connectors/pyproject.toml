@@ -13,7 +13,7 @@ dependencies = [
     "jsonschema>=4.23.0",
     "pyyaml>=6.0.2",
     "requests>=2.32.3",
-    "rpyc<6",
+    "rpyc<7",
     "validators>=0.34.0",
 ]
 
