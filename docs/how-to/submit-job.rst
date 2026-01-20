@@ -34,3 +34,22 @@ If you will only need the ``job_id`` for the polling command, you can use:
    $ testflinger-cli submit --poll example-job.yaml
 
 This will submit and start polling right away.
+
+Excluding Agents from Running a Job
+------------------------------------
+
+You can optionally prevent specific agents from running your job by using the ``exclude_agents`` field in your job definition. This is useful when you want to avoid certain agents due to known issues, maintenance, or other testing requirements.
+
+.. code-block:: yaml
+
+  job_queue: my-queue
+  exclude_agents:
+    - agent-1
+    - agent-3
+  provision_data:
+    url: https://example.com/image.img
+  test_data:
+    test_cmds: |
+      echo "This job will not run on agent-1 or agent-3"
+
+When you exclude agents, Testflinger will validate that at least one available agent can still run the job. If all agents in the queue are excluded, the job submission will fail with an error.

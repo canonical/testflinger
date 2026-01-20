@@ -3,105 +3,70 @@
 #
 # Learn more about testing at: https://juju.is/docs/sdk/testing
 
-import base64
-import unittest
-from unittest.mock import mock_open, patch
 
+from unittest.mock import patch
+
+import pytest
 from charm import TestflingerAgentHostCharm
-from ops.testing import Harness
+from ops import testing
 
 
-class TestCharm(unittest.TestCase):
-    def setUp(self):
-        self.harness = Harness(TestflingerAgentHostCharm)
-        self.addCleanup(self.harness.cleanup)
-        self.harness.begin()
+@pytest.fixture
+def ctx() -> testing.Context:
+    return testing.Context(TestflingerAgentHostCharm)
 
-    @patch("charm.TestflingerAgentHostCharm.update_tf_cmd_scripts")
-    @patch("os.chown")
-    @patch("os.chmod")
-    @patch("shutil.move")
-    @patch("git.Repo.clone_from")
-    @patch("charm.TestflingerAgentHostCharm.write_file")
-    @patch("charm.TestflingerAgentHostCharm.restart_agents")
-    @patch("charm.TestflingerAgentHostCharm.supervisor_update")
-    @patch("charm.TestflingerAgentHostCharm.write_supervisor_service_files")
-    def test_copy_ssh_keys(
-        self,
-        _,
-        __,
-        ___,
-        mock_write_file,
-        mock_clone_from,
-        mock_move,
-        mock_chmod,
-        mock_chown,
-        mock_update_tf_cmd_scripts,
-    ):
-        """
-        Test the copy_ssh_keys method.
 
-        The commands like supervisorctl in write_supervisor_files,
-        restart_agents, and supervisor_update won't work here and
-        are mocked out, but are tested in the integration tests.
-        """
-        mock_clone_from.return_value = None
-        mock_move.return_value = None
-        self.harness.update_config(
-            {
-                "ssh-private-key": base64.b64encode(
-                    b"ssh_private_key_content"
-                ).decode(),
-                "ssh-public-key": base64.b64encode(
-                    b"ssh_public_key_content"
-                ).decode(),
-                "config-repo": "foo",
-                "config-dir": "bar",
-            }
-        )
-        mock_write_file.assert_any_call(
-            "/home/ubuntu/.ssh/id_rsa", "ssh_private_key_content"
-        )
-        mock_write_file.assert_any_call(
-            "/home/ubuntu/.ssh/id_rsa.pub", "ssh_public_key_content"
-        )
-        self.assertEqual(mock_write_file.call_count, 3)
+def test_blocked_on_no_config_repo(ctx):
+    """Test blocked status when config-repo is not set."""
+    state_in = testing.State(
+        config={
+            "config-repo": "",
+            "config-dir": "agent-configs",
+        }
+    )
+    state_out = ctx.run(ctx.on.config_changed(), state=state_in)
+    assert state_out.unit_status == testing.BlockedStatus(
+        "config-repo and config-dir must be set"
+    )
 
-    @patch("os.listdir")
-    @patch("builtins.open", new_callable=mock_open, read_data="test data")
-    @patch("pathlib.Path.write_text")
-    @patch("pathlib.Path.chmod")
-    def test_update_tf_cmd_scripts(
-        self,
-        mock_chmod,
-        mock_write_text,
-        mock_open,
-        mock_listdir,
-    ):
-        """Test the update_tf_cmd_scripts method."""
-        charm = self.harness.charm
-        tf_cmd_scripts_files = ["tf-setup"]
 
-        mock_listdir.side_effect = [tf_cmd_scripts_files]
+def test_blocked_on_no_config_dir(ctx):
+    """Test blocked status when config-dir is not set."""
+    state_in = testing.State(
+        config={
+            "config-repo": "some-repo",
+            "config-dir": "",
+        }
+    )
+    state_out = ctx.run(ctx.on.config_changed(), state=state_in)
+    assert state_out.unit_status == testing.BlockedStatus(
+        "config-repo and config-dir must be set"
+    )
 
-        charm.update_tf_cmd_scripts()
 
-        # Ensure it tried to write the file correctly
-        mock_write_text.assert_any_call("test data")
+@patch("charm.update_charm_scripts")
+@patch("charm.copy_ssh_keys")
+@patch("charm.supervisord.supervisor_update")
+@patch("charm.TestflingerAgentHostCharm.write_supervisor_service_files")
+@patch("charm.supervisord.restart_agents")
+@patch("charm.TestflingerAgentHostCharm.update_config_files")
+def test_update_tf_cmd_scripts_on_config_changed(
+    mock_update_config,
+    mock_restart,
+    mock_write_supervisor,
+    mock_supervisor_update,
+    mock_copy_ssh,
+    mock_update_scripts,
+    ctx,
+):
+    """Test update_tf_cmd_scripts is called during config_changed."""
+    state_in = testing.State(
+        config={
+            "config-repo": "some-repo",
+            "config-dir": "agent-configs",
+        }
+    )
 
-    def test_blocked_on_no_config_repo(self):
-        """Test the on_config_changed method with no config-repo."""
-        self.harness.update_config(
-            {"config-repo": "", "config-dir": "agent-configs"}
-        )
-        self.assertEqual(self.harness.charm.unit.status.name, "blocked")
+    ctx.run(ctx.on.config_changed(), state=state_in)
 
-    def test_blocked_on_no_config_dir(self):
-        """Test the on_config_changed method with no config-dir."""
-        self.harness.update_config(
-            {
-                "config-repo": "https://github.com/canonical/testflinger.git",
-                "config-dir": "",
-            }
-        )
-        self.assertEqual(self.harness.charm.unit.status.name, "blocked")
+    mock_update_scripts.assert_called_once()

@@ -29,7 +29,6 @@ from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
 from testflinger_common.enums import LogType, TestPhase
 from urllib3.util.retry import Retry
-from werkzeug.exceptions import BadRequest
 from werkzeug.routing import BaseConverter
 
 from testflinger import database
@@ -78,15 +77,24 @@ def get_version():
 @authenticate
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
-def job_post(json_data: dict):
+def job_post(json_data: dict) -> dict:
     """Add a job to the queue."""
-    try:
-        job_queue = json_data.get("job_queue")
-    except (AttributeError, BadRequest):
-        # Set job_queue to None so we take the failure path below
-        job_queue = ""
-    if not job_queue:
-        abort(422, message="Invalid data or no job_queue specified")
+    job_queue = json_data["job_queue"]
+    exclude_agents = json_data["exclude_agents"]
+    if exclude_agents:
+        # Make sure that there are at least some agents in the selected queue
+        # which can run this job.
+        agents_can_run = [
+            agent
+            for agent in database.get_agents_on_queue(job_queue)
+            if agent["name"] not in exclude_agents
+        ]
+        if not agents_can_run:
+            abort(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                message="There are no agents on the specified queue that are "
+                "allowed to run this job",
+            )
 
     validate_secrets(json_data)
 
@@ -155,7 +163,7 @@ def has_attachments(data: dict) -> bool:
     )
 
 
-def job_builder(data: dict):
+def job_builder(data: dict) -> dict:
     """Build a job from a dictionary of data."""
     job = {
         "created_at": datetime.now(timezone.utc),
@@ -197,8 +205,13 @@ def job_get():
     """Request a job to run from supported queues."""
     queue_list = request.args.getlist("queue")
     if not queue_list:
-        return "No queue(s) specified in request", HTTPStatus.BAD_REQUEST
-    job = database.pop_job(queue_list=queue_list)
+        abort(
+            HTTPStatus.BAD_REQUEST, message="No queue(s) specified in request"
+        )
+    agent_name = request.cookies.get("agent_name")
+    if not agent_name:
+        abort(HTTPStatus.UNAUTHORIZED, message="Agent not identified")
+    job = database.pop_job(queue_list=queue_list, agent_name=agent_name)
     if not job:
         return jsonify({}), HTTPStatus.NO_CONTENT
     if (secrets := retrieve_secrets(job)) is not None:
@@ -681,7 +694,13 @@ def agents_post(agent_name, json_data):
         {"$set": json_data, "$push": {"log": {"$each": log, "$slice": -100}}},
         upsert=True,
     )
-    return "OK"
+
+    # Set a session cookie to identify the agent for future requests
+    response = jsonify({"status": "OK"})
+    response.set_cookie(
+        "agent_name", agent_name, httponly=True, samesite="Strict"
+    )
+    return response
 
 
 @v1.post("/agents/provision_logs/<agent_name>")

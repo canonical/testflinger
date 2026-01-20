@@ -120,6 +120,11 @@ def test_add_job_noprovision_provision_data(mongo_app):
     job_data = {"job_queue": "test", "provision_data": None}
     output = app.post("/v1/job", json=job_data)
     assert HTTPStatus.OK == output.status_code
+    # Note: agents must register before they can be issued work:
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
     recovered_data = app.get("/v1/job?queue=test").json
     assert recovered_data["provision_data"] is None
     # Test with provision_data skip=True
@@ -420,6 +425,11 @@ def test_add_job_good(mongo_app):
     output = app.post("/v1/job", json=job_data)
     job_id = output.json.get("job_id")
     assert v1.check_valid_uuid(job_id)
+    # Note: agents must register before they can be issued work:
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
     # Now get the job and confirm it matches
     output = app.get("/v1/job?queue=test")
     # Ensure everything we submitted is in the job_data we got back
@@ -439,6 +449,12 @@ def test_add_job_good_with_attachments(mongo_app, tmp_path):
     output = app.post("/v1/job", json=job_data)
     job_id = output.json.get("job_id")
     assert v1.check_valid_uuid(job_id)
+
+    # Note: agents must register before they can be issued work:
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
 
     # confirm that the job cannot be processed yet (attachments pending)
     output = app.get("/v1/job?queue=test")
@@ -562,6 +578,11 @@ def test_resubmit_job_state(mongo_app):
 def test_get_nonexistant_job(mongo_app):
     """Test for 204 when getting from a nonexistent queue."""
     app, _ = mongo_app
+    # Note: agents must register before they can be issued work:
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
     output = app.get("/v1/job?queue=BAD_QUEUE_NAME")
     assert 204 == output.status_code
 
@@ -600,7 +621,7 @@ def test_add_job_empty_queue(mongo_app):
     """Test for error when adding a job with an empty queue."""
     app, _ = mongo_app
     output = app.post("/v1/job", json={"job_queue": ""})
-    assert "Invalid data or no job_queue specified" in output.text
+    assert "Shorter than minimum length" in output.text
     assert 422 == output.status_code
 
 
@@ -622,7 +643,9 @@ def test_job_get_id_with_data(mongo_app):
     # Inject the job_id into the expected job, since it will have that
     # added to it
     job_data["job_id"] = job_id
-    assert output.json == job_data
+    # The response may include exclude_agents field, verify submitted data
+    for key, value in job_data.items():
+        assert output.json[key] == value
 
 
 def test_job_position(mongo_app):
@@ -637,6 +660,12 @@ def test_job_position(mongo_app):
         output = app.get(f"/v1/job/{job_id[pos]}/position")
         # Initial position should increment for each job as we add them
         assert output.text == str(pos)
+
+    # Note: agents must register before they can be issued work:
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
 
     # Request a job from the queue to remove one
     output = app.get("/v1/job?queue=test")
@@ -742,7 +771,14 @@ def test_agents_post(mongo_app):
     output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
 
     assert 200 == output.status_code
-    assert "OK" == output.text
+    assert "OK" == output.json.get("status")
+
+    # Verify that agent_name cookie is set with correct attributes
+    assert "Set-Cookie" in output.headers
+    cookie_header = output.headers.get("Set-Cookie", "")
+    assert "agent_name=" in cookie_header
+    assert "HttpOnly" in cookie_header
+    assert "SameSite=Strict" in cookie_header
 
     # Test that the expected data was stored
     agent_record = mongo.agents.find_one({"name": agent_name})
@@ -1111,6 +1147,11 @@ def test_reserve_data_with_human_readable_timeout(mongo_app, timeout):
     app, _ = mongo_app
     output = app.post("/v1/job", json=job_data)
     assert output.status_code == HTTPStatus.OK
+    # Note: agents must register before they can be issued work:
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
     submitted_job = app.get("/v1/job?queue=test").json
     assert submitted_job["reserve_data"]["timeout"] == 1800
 
@@ -1125,3 +1166,155 @@ def test_reserve_data_with_invalid_timeout(mongo_app, timeout):
     app, _ = mongo_app
     output = app.post("/v1/job", json=job_data)
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_job_post_exclude_agents_empty(mongo_app):
+    """Test that a job with an empty exclude_agents list works."""
+    app, mongo = mongo_app
+    # Setup agents on the queue
+    mongo.agents.insert_many(
+        [
+            {"name": "agent1", "queues": ["test"]},
+            {"name": "agent2", "queues": ["test"]},
+        ]
+    )
+
+    job_data = {
+        "job_queue": "test",
+        "exclude_agents": [],
+    }
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.OK
+    assert output.json.get("job_id")
+
+
+def test_job_post_exclude_agents_valid(mongo_app):
+    """Test that a job with valid exclude_agents field works."""
+    app, mongo = mongo_app
+    # Setup agents on the queue
+    mongo.agents.insert_many(
+        [
+            {"name": "agent1", "queues": ["test"]},
+            {"name": "agent2", "queues": ["test"]},
+        ]
+    )
+
+    job_data = {
+        "job_queue": "test",
+        "exclude_agents": ["agent1"],
+    }
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.OK
+    assert output.json.get("job_id")
+
+
+def test_job_post_without_exclude_agents(mongo_app):
+    """Test job without exclude_agents field works (backward compatibility)."""
+    app, mongo = mongo_app
+    # Setup agents on the queue
+    mongo.agents.insert_many(
+        [
+            {"name": "agent1", "queues": ["test"]},
+            {"name": "agent2", "queues": ["test"]},
+        ]
+    )
+
+    # Submit job without exclude_agents field at all
+    job_data = {
+        "job_queue": "test",
+    }
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.OK
+    job_id = output.json.get("job_id")
+    assert job_id
+
+    # Verify job was created with default empty exclude_agents
+    mongo_job = mongo.jobs.find_one({"job_id": job_id})
+    assert "exclude_agents" in mongo_job["job_data"]
+    assert mongo_job["job_data"]["exclude_agents"] == []
+
+
+def test_job_post_exclude_agents_not_list(mongo_app):
+    """Test that exclude_agents must be a list."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "queues": ["test"]})
+
+    job_data = {
+        "job_queue": "test",
+        "exclude_agents": "agent1",  # Invalid: should be a list
+    }
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    msg = output.json.get("message", "").lower()
+    assert "must be a list" in msg or "list" in str(output.json).lower()
+
+
+def test_job_post_exclude_agents_all_excluded(mongo_app):
+    """Test that job submission fails if all agents are excluded."""
+    app, mongo = mongo_app
+    mongo.agents.insert_many(
+        [
+            {"name": "agent1", "queues": ["test"]},
+            {"name": "agent2", "queues": ["test"]},
+        ]
+    )
+
+    job_data = {
+        "job_queue": "test",
+        "exclude_agents": ["agent1", "agent2"],
+    }
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    msg = output.json.get("message", "").lower()
+    assert "no agents" in msg or "agent" in str(output.json).lower()
+
+
+def test_pop_job_respects_exclude_agents(mongo_app):
+    """Test that pop_job filters excluded agents correctly."""
+    app, mongo = mongo_app
+
+    # Setup agents in database (there must be available agents to post jobs).
+    mongo.agents.insert_many(
+        [
+            {"name": "agent1", "queues": ["test"]},
+            {"name": "agent2", "queues": ["test"]},
+        ]
+    )
+
+    # Submit a job that excludes agent1
+    job_data = {"job_queue": "test", "exclude_agents": ["agent1"]}
+    resp = app.post("/v1/job", json=job_data)
+    assert resp.status_code == HTTPStatus.OK
+    job_id = resp.json["job_id"]
+
+    # Register as agent1 - should NOT get the job (204 No Content)
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
+    output = app.get("/v1/job?queue=test")
+    assert output.status_code == HTTPStatus.NO_CONTENT
+
+    # Register as agent2 - should get the job
+    app.post(
+        "/v1/agents/data/agent2",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
+    output = app.get("/v1/job?queue=test")
+    assert output.status_code == HTTPStatus.OK
+    assert output.json["job_id"] == job_id
+
+
+def test_get_job_without_agent_id_fails(mongo_app):
+    """Test that getting a job without agent_id cookie fails."""
+    app, mongo = mongo_app
+
+    # Create a job
+    job_data = {"job_queue": "test"}
+    app.post("/v1/job", json=job_data)
+
+    # Try to get job without agent_id (test client won't have cookie)
+    # Make a raw request without any cookies
+    with app.application.test_client() as raw_client:
+        output = raw_client.get("/v1/job?queue=test")
+        assert output.status_code == HTTPStatus.UNAUTHORIZED

@@ -94,7 +94,7 @@ def test_secret_write_http_error(auth_fixture, requests_mock):
 @pytest.mark.parametrize(
     "test_path",
     [
-        "path"
+        "path",
         "my/secret/path",
     ],
 )
