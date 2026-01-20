@@ -51,10 +51,26 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   test_charm:
-    name: Run charm tests
+    name: Run charm unit tests
     defaults:
       run:
         working-directory: agent
+    runs-on: [self-hosted, linux, jammy, X64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
+      - name: Run charm unit tests
+        run: uvx --with tox-uv tox -e charm-unit
+
+  test_charm_integration:
+    name: Run charm integration tests
+    defaults:
+      run:
+        working-directory: agent/charms/testflinger-agent-host-charm
     runs-on: [self-hosted, linux, jammy, X64]
     steps:
       - name: Checkout
@@ -67,5 +83,14 @@ jobs:
         run: sudo snap install --classic concierge
       - name: Prepare Juju
         run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=latest/stable -p machine
-      - name: Run charm tests
-        run: uvx --with tox-uv tox -e charm
+      - name: Pack charm
+        run: charmcraft pack --verbose
+      - name: Upload charm as an artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: agent-charm
+          path: agent/charms/testflinger-agent-host-charm/*.charm
+          if-no-files-found: error
+          retention-days: 2
+      - name: Run charm integration tests
+        run: uvx --with tox-uv tox -e charm-integration
