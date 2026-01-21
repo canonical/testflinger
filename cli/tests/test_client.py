@@ -283,7 +283,7 @@ def test_get_logs_error_handling(requests_mock):
 
     requests_mock.get(
         f"http://testflinger/v1/result/{job_id}/log/output?start_fragment=0",
-        status_code=404,
+        status_code=HTTPStatus.NOT_FOUND,
     )
 
     client = Client("http://testflinger")

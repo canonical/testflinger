@@ -57,7 +57,7 @@ def test_cancel_503(requests_mock):
     jobid = str(uuid.uuid1())
     requests_mock.post(
         f"{URL}/v1/job/{jobid}/action",
-        status_code=503,
+        status_code=HTTPStatus.SERVICE_UNAVAILABLE,
     )
     sys.argv = ["", "cancel", jobid]
     tfcli = testflinger_cli.TestflingerCli()
@@ -71,7 +71,7 @@ def test_cancel(requests_mock):
     jobid = str(uuid.uuid1())
     requests_mock.post(
         f"{URL}/v1/job/{jobid}/action",
-        status_code=400,
+        status_code=HTTPStatus.BAD_REQUEST,
     )
     sys.argv = ["", "cancel", jobid]
     tfcli = testflinger_cli.TestflingerCli()
@@ -180,7 +180,11 @@ def test_submit_bad_data(tmp_path, requests_mock):
     testfile = tmp_path / "test.json"
     testfile.write_text(json.dumps(fake_data))
     # return 422 and "expected error"
-    requests_mock.post(f"{URL}/v1/job", status_code=422, text="expected error")
+    requests_mock.post(
+        f"{URL}/v1/job",
+        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        text="expected error",
+    )
     requests_mock.get(
         f"{URL}/v1/queues/fake/agents",
         json=[{"name": "fake_agent", "state": "waiting"}],

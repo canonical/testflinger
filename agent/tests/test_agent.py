@@ -87,7 +87,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"):
             agent.process_jobs()
         setuplog = open(
@@ -110,7 +110,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"):
             agent.process_jobs()
         provisionlog = open(
@@ -135,7 +135,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"):
             agent.process_jobs()
         testlog = open(
@@ -169,7 +169,7 @@ class TestClient:
         }
 
         with rmock.Mocker() as mocker:
-            mocker.post(rmock.ANY, status_code=200)
+            mocker.post(rmock.ANY, status_code=HTTPStatus.OK)
             # mock response to requesting jobs
             mocker.get(f"{agent.client.server}/v1", status_code=HTTPStatus.OK)
             mocker.get(
@@ -206,6 +206,7 @@ class TestClient:
             attachment = basepath / ATTACHMENTS_DIR / archive_name
             assert attachment.exists()
 
+
     def test_attachments_insecure_no_phase(self, agent, tmp_path):
         # create file to be used as attachment
         attachment = tmp_path / "random.bin"
@@ -233,7 +234,7 @@ class TestClient:
         }
 
         with rmock.Mocker() as mocker:
-            mocker.post(rmock.ANY, status_code=200)
+            mocker.post(rmock.ANY, status_code=HTTPStatus.OK)
             # mock response to requesting jobs
             mocker.get(f"{agent.client.server}/v1", status_code=HTTPStatus.OK)
             mocker.get(
@@ -296,7 +297,7 @@ class TestClient:
         }
 
         with rmock.Mocker() as mocker:
-            mocker.post(rmock.ANY, status_code=200)
+            mocker.post(rmock.ANY, status_code=HTTPStatus.OK)
             # mock response to requesting jobs
             mocker.get(f"{agent.client.server}/v1", status_code=HTTPStatus.OK)
             mocker.get(
@@ -347,7 +348,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"):
             agent.process_jobs()
         testlog = open(
@@ -373,7 +374,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"), patch("pathlib.Path.unlink"):
             agent.process_jobs()
         outcome_file = os.path.join(
@@ -405,7 +406,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"), patch("pathlib.Path.unlink"):
             agent.process_jobs()
         outcome_file = os.path.join(
@@ -437,7 +438,7 @@ class TestClient:
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch.object(
             testflinger_agent.client.TestflingerClient, "transmit_job_outcome"
         ) as mock_transmit_job_outcome:
@@ -538,7 +539,7 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
-        requests_mock.post(status_url, status_code=200)
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"):
             agent.process_jobs()
 
@@ -579,7 +580,7 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
-        requests_mock.post(status_url, status_code=200)
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         requests_mock.get(
             "http://127.0.0.1:8000/v1/result/" + job_id,
@@ -620,7 +621,7 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
-        requests_mock.post(status_url, status_code=200)
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         with patch("shutil.rmtree"):
             agent.process_jobs()
@@ -657,7 +658,7 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
-        requests_mock.post(status_url, status_code=200)
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         with patch("shutil.rmtree"):
             agent.process_jobs()
@@ -747,7 +748,7 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
-        requests_mock.post(status_url, status_code=200)
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         provision_exception_info = {
             "provision_exception_info": {
@@ -820,7 +821,7 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
-        requests_mock.post(status_url, status_code=200)
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         provision_exception_info = {
             "provision_exception_info": {
@@ -973,7 +974,7 @@ class TestClient:
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
             status_code=HTTPStatus.NOT_FOUND,
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"):
             agent.process_jobs()
         assert "Failed to retrieve agent data" in caplog.text
