@@ -83,6 +83,8 @@ jobs:
         run: sudo snap install --classic concierge
       - name: Prepare Juju
         run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=latest/stable -p microk8s
+      - name: Enable MicroK8s ingress
+        run: sudo microk8s enable ingress
       - name: Pack charm
         run: charmcraft pack --verbose
       - name: Upload charm as an artifact
