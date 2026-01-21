@@ -17,12 +17,10 @@
 from pathlib import Path
 
 import jubilant
-import yaml
 
-METADATA = yaml.safe_load(Path("charmcraft.yaml").read_text(encoding="utf-8"))
-APP_NAME = METADATA["name"]
-MONGODB_CHARM = "mongodb-k8s"
-NGINX_INGRESS_CHARM = "nginx-ingress-integrator"
+from .helpers import APP_NAME, METADATA, MONGODB_CHARM, app_is_up, retry
+
+DEFAULT_HTTP_PORT = 80
 
 
 def test_deploy(charm_path: Path, juju: jubilant.Juju):
@@ -47,11 +45,9 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     juju.wait(jubilant.all_active)
 
 
-def test_relate_ingress(juju: jubilant.Juju):
-    """Relate the charm under test to the nginx ingress integrator."""
-    # Deploy the nginx-ingress-integrator charm
-    juju.deploy(NGINX_INGRESS_CHARM, channel="latest/stable", trust=True)
-
-    # Establish the nginx-route relation
-    juju.integrate(APP_NAME, NGINX_INGRESS_CHARM)
-    juju.wait(jubilant.all_active)
+@retry(retry_num=10, retry_sleep_sec=3)
+def test_application_is_up(juju: jubilant.Juju):
+    """Test that the deployed application is up and responding."""
+    ip = juju.status().apps[APP_NAME].units[f"{APP_NAME}/0"].address
+    base_url = f"http://{ip}:{DEFAULT_HTTP_PORT}"
+    assert app_is_up(base_url)
