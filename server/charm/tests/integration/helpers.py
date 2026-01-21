@@ -59,6 +59,7 @@ class DNSResolverHTTPAdapter(HTTPAdapter):
                 f"{result.scheme}://{result.hostname}",
                 f"{result.scheme}://{self.ip}",
             )
+            request.headers["Host"] = self.hostname
             if result.scheme == "https":
                 self.poolmanager.connection_pool_kw["server_hostname"] = (
                     self.hostname
