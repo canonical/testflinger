@@ -51,13 +51,11 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     juju.wait(jubilant.all_active)
 
     # Deploy the nginx-ingress-integrator charm
-    config = {"external_hostname": DEFAULT_EXTERNAL_HOSTNAME}
     juju.deploy(
         NGINX_INGRESS_CHARM,
         app=INGRESS_NAME,
         channel="latest/stable",
         trust=True,
-        config=config,
     )
 
     # Establish the nginx-route relation

@@ -20,7 +20,7 @@ import jubilant
 
 from .helpers import APP_NAME, METADATA, MONGODB_CHARM, app_is_up, retry
 
-DEFAULT_HTTP_PORT = 80
+DEFAULT_HTTP_PORT = 5000
 
 
 def test_deploy(charm_path: Path, juju: jubilant.Juju):
