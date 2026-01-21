@@ -32,12 +32,6 @@ MONGO_DB_REMOTE_DATA = {
 }
 
 
-@pytest.fixture
-def ctx() -> testing.Context:
-    """Fixture for Charm context."""
-    return testing.Context(TestflingerCharm)
-
-
 def test_missing_mongodb_relation(ctx):
     """Test the charm is waiting a mongodb_client relation."""
     container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=False)
