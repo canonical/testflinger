@@ -82,5 +82,5 @@ def test_ingress_is_up(juju: jubilant.Juju):
         "https://",
         DNSResolverHTTPAdapter(DEFAULT_EXTERNAL_HOSTNAME, ingress_ip),
     )
-    base_url = f"http://{DEFAULT_EXTERNAL_HOSTNAME}/"
+    base_url = f"http://{DEFAULT_EXTERNAL_HOSTNAME}"
     assert app_is_up(base_url, session=session)
