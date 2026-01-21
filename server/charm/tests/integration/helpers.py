@@ -55,16 +55,17 @@ class DNSResolverHTTPAdapter(HTTPAdapter):
             and result.scheme in ("http", "https")
             and self.ip
         ):
-            request.url = request.url.replace(  # type: ignore
+            request.url = request.url.replace(
                 f"{result.scheme}://{result.hostname}",
                 f"{result.scheme}://{self.ip}",
             )
-            self.poolmanager.connection_pool_kw["server_hostname"] = (
-                self.hostname
-            )
-            self.poolmanager.connection_pool_kw["assert_hostname"] = (
-                self.hostname
-            )
+            if result.scheme == "https":
+                self.poolmanager.connection_pool_kw["server_hostname"] = (
+                    self.hostname
+                )
+                self.poolmanager.connection_pool_kw["assert_hostname"] = (
+                    self.hostname
+                )
         elif result.hostname == self.hostname:
             self.poolmanager.connection_pool_kw.pop("server_hostname", None)
             self.poolmanager.connection_pool_kw.pop("assert_hostname", None)
@@ -78,7 +79,7 @@ def app_is_up(base_url: str, session: requests.Session | None = None) -> bool:
     :param session: Optional requests session to use.
     :return: True if the application is up, False otherwise.
     """
-    url = f"{base_url}/"
+    url = f"{base_url}/v1/"
     logger.info("Querying endpoint: %s", url)
     get = session.get if session else requests.get
     response = get(url, timeout=15, verify=False)
