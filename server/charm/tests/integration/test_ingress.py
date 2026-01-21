@@ -14,6 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Ingress Integration tests for Testflinger Juju charm."""
 
+import re
 from pathlib import Path
 
 import jubilant
@@ -66,9 +67,12 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
 @retry(retry_num=5, retry_sleep_sec=5)
 def test_ingress_is_up(juju: jubilant.Juju):
     """Test that the deployed application is up and responding via ingress."""
-    ingress_ip = (
-        juju.status().apps[INGRESS_NAME].units[f"{INGRESS_NAME}/0"].address
-    )
+    # For nginx-ingress-integrator, the ingress IP is in the app status message
+    status_message = juju.status().apps[INGRESS_NAME].app_status.message
+    match = re.search(r"Ingress IP\(s\): ([\d.]+)", status_message)
+    assert match, f"Could not find ingress IP in status: {status_message}"
+
+    ingress_ip = match.group(1)
     session = requests.Session()
     session.mount(
         "http://",
