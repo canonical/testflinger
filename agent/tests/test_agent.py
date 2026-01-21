@@ -206,7 +206,6 @@ class TestClient:
             attachment = basepath / ATTACHMENTS_DIR / archive_name
             assert attachment.exists()
 
-
     def test_attachments_insecure_no_phase(self, agent, tmp_path):
         # create file to be used as attachment
         attachment = tmp_path / "random.bin"
