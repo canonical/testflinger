@@ -857,7 +857,9 @@ def test_agents_status_put(mongo_app, requests_mock):
     job_id = job_output.json.get("job_id")
 
     webhook = "http://mywebhook.com"
-    requests_mock.put(webhook, status_code=200, text="webhook requested")
+    requests_mock.put(
+        webhook, status_code=HTTPStatus.OK, text="webhook requested"
+    )
     status_update_data = {
         "agent_id": "agent1",
         "job_queue": "myjobqueue",
