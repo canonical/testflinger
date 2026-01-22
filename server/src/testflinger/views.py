@@ -78,7 +78,7 @@ def agent_detail(agent_id):
         response = make_response(
             render_template("agent_not_found.html", agent_id=agent_id)
         )
-        response.status_code = 404
+        response.status_code = HTTPStatus.NOT_FOUND
         return response
 
     restricted_queues = database.get_restricted_queues()

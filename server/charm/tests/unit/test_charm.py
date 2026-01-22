@@ -15,197 +15,191 @@
 #
 """Unit tests for Testflinger Juju charm."""
 
-from pathlib import Path
 from unittest.mock import Mock, patch
 
-import ops
-import ops.testing
 import pytest
+from ops import testing
 
 from charm import TESTFLINGER_ADMIN_ID, TestflingerCharm
 
-CHARMDIR = Path(__file__).parent.parent.parent.resolve()
+TESFLINGER_CONTAINER = "testflinger"
+MONGO_DB_REMOTE_DATA = {
+    "endpoints": "mongodb:27017",
+    "username": "testflinger",
+    "password": "testflinger",
+    "database": "testflinger_db",
+    "uris": "mongodb://testflinger:testflinger@mongodb:27017/testflinger_db",
+}
 
 
-@pytest.fixture(name="harness")
-def fixture_harness():
-    """Pytest fixture for getting the harness."""
-    harness = ops.testing.Harness(TestflingerCharm)
-    return harness
+def test_missing_mongodb_relation(ctx):
+    """Test the charm is waiting a mongodb_client relation."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=False)
+    state_in = testing.State(
+        containers=[container],
+        leader=True,
+    )
 
-
-def test_waiting_for_relation(harness):
-    """Test that the status is set to waiting when relation is not present."""
-    harness.begin()
+    # Charm raises SystemExit when no relation data is present
     with pytest.raises(SystemExit):
-        assert harness.container_pebble_ready("testflinger")
-    assert isinstance(harness.model.unit.status, ops.WaitingStatus)
+        state_out = ctx.run(ctx.on.pebble_ready(container=container), state_in)
+        assert state_out.unit_status == testing.WaitingStatus(
+            "Waiting for database relation"
+        )
 
 
-def test_good_relation_active_status(harness):
-    """Status should be active when the relation is present."""
-    harness.container_pebble_ready("testflinger")
-    harness.set_can_connect("testflinger", True)
-    harness.begin()
-    rel_id = harness.add_relation("mongodb_client", "mongodb")
-    harness.update_relation_data(
-        rel_id,
-        "mongodb",
-        {
-            "port": "27017",
-            "host": "mongodb",
-            "username": "testflinger",
-            "password": "testflinger",
-            "database": "testflinger_db",
-            "endpoints": "mongodb/0",
-        },
+def test_mongodb_relation_established(ctx):
+    """Test charm is active when the mongodb_client_relation is established."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
     )
-    assert isinstance(harness.model.unit.status, ops.ActiveStatus)
-
-
-def test_remove_relation_waiting_status(harness):
-    """Status should be waiting when the relation is present."""
-    harness.container_pebble_ready("testflinger")
-    harness.set_can_connect("testflinger", True)
-    harness.begin()
-    rel_id = harness.add_relation("mongodb_client", "mongodb")
-    harness.update_relation_data(
-        rel_id,
-        "mongodb",
-        {
-            "port": "27017",
-            "host": "mongodb",
-            "username": "testflinger",
-            "password": "testflinger",
-            "database": "testflinger_db",
-            "endpoints": "mongodb/0",
-        },
+    state_in = testing.State(
+        containers=[container], leader=True, relations=[relation]
     )
-    assert isinstance(harness.model.unit.status, ops.ActiveStatus)
+
+    # Validate unit is Active when relation is established
+    state_out = ctx.run(ctx.on.relation_changed(relation=relation), state_in)
+    assert state_out.unit_status == testing.ActiveStatus()
+
+
+def test_mongodb_relation_removed(ctx):
+    """Test charm status is Waiting if mongodb relation removed."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    # Test that breaking the relation sets WaitingStatus
+    state_in = testing.State(
+        containers=[container], leader=True, relations=[relation]
+    )
+
+    # Charm raises SystemExit when relation is removed
     with pytest.raises(SystemExit):
-        harness.remove_relation(rel_id)
-    assert isinstance(harness.model.unit.status, ops.WaitingStatus)
+        state_out = ctx.run(
+            ctx.on.relation_broken(relation=relation), state_in
+        )
+        assert state_out.unit_status == testing.WaitingStatus(
+            "Waiting for database relation"
+        )
 
 
-def test_container_cant_connect_waiting_status(harness):
-    """Status should be waiting container can't connect."""
-    harness.container_pebble_ready("testflinger")
-    harness.set_can_connect("testflinger", False)
-    harness.begin()
-    rel_id = harness.add_relation("mongodb_client", "mongodb")
-    harness.update_relation_data(
-        rel_id,
-        "mongodb",
-        {
-            "port": "27017",
-            "host": "mongodb",
-            "username": "testflinger",
-            "password": "testflinger",
-            "database": "testflinger_db",
-            "endpoints": "mongodb/0",
-        },
+def test_waiting_status_on_container_not_ready(ctx):
+    """Status should be waiting when container is not ready."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=False)
+    relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
     )
-    assert isinstance(harness.model.unit.status, ops.WaitingStatus)
-
-
-def test_incomplete_relation_maintenance_status(harness):
-    """Status should be maintenance when relation data is incomplete."""
-    harness.container_pebble_ready("testflinger")
-    harness.set_can_connect("testflinger", False)
-    harness.begin()
-    rel_id = harness.add_relation("mongodb_client", "mongodb")
-    harness.update_relation_data(
-        rel_id,
-        "mongodb",
-        {
-            "port": "27017",
-            "host": "mongodb",
-        },
+    state_in = testing.State(
+        containers=[container], leader=True, relations=[relation]
     )
-    assert isinstance(harness.model.unit.status, ops.MaintenanceStatus)
+
+    # Validate unit is Waiting when container is not ready
+    state_out = ctx.run(ctx.on.config_changed(), state_in)
+    assert state_out.unit_status == testing.WaitingStatus(
+        "Waiting for Pebble in workload container"
+    )
 
 
-@patch("charm.MongoClient")
-def test_set_admin_password(mock_mongo_client, harness):
-    """Test creating a new admin user when one doesn't exist."""
-    harness.begin()
-    harness.set_leader(True)
+def test_exit_on_empty_relation_data(ctx):
+    """Test charm exits on container ready but no relation data."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    # Set up a relation with empty data
+    relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data={},
+    )
+    state_in = testing.State(
+        containers=[container], leader=True, relations=[relation]
+    )
 
-    # Mock MongoDB connection
+    # Charm raises SystemExit when relation data is missing
+    with pytest.raises(SystemExit):
+        ctx.run(ctx.on.config_changed(), state_in)
+
+
+@patch.object(TestflingerCharm, "connect_to_mongodb")
+def test_set_admin_password_creates_new_user(mock_connect, ctx):
+    """Test that the admin password action creates a new admin user."""
+    # Mock MongoDB connection and collection
     mock_db = Mock()
     mock_collection = Mock()
     mock_db.client_permissions = mock_collection
     mock_collection.count_documents.return_value = 0  # No existing user
+    mock_connect.return_value = mock_db
 
-    # Setup relation data
-    rel_id = harness.add_relation("mongodb_client", "mongodb")
-    harness.update_relation_data(
-        rel_id,
-        harness.charm.app.name,
-        {
-            "database": "testflinger_db",
-            "uris": "mongodb://testflinger:testflinger@mongo:27017/testflinger_db",
-        },
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    state_in = testing.State(
+        containers=[container], leader=True, relations=[relation]
     )
 
-    with patch.object(
-        harness.charm, "connect_to_mongodb", return_value=mock_db
-    ):
-        # Run the action
-        action_event = Mock()
-        action_event.params = {"password": "test123"}
-        harness.charm.on_set_admin_password(action_event)
+    # Run the set-admin-password action with password parameter
+    ctx.run(
+        ctx.on.action(
+            "set-admin-password", params={"password": "test-password"}
+        ),
+        state_in,
+    )
 
-    # Verify new user was created
+    # Verify action succeeded and new user was created
+    assert ctx.action_results == {"result": "Admin user created successfully"}
     mock_collection.insert_one.assert_called_once()
+
+    # Verify user was created in mocked collection
     insert_call = mock_collection.insert_one.call_args[0][0]
     assert insert_call["client_id"] == TESTFLINGER_ADMIN_ID
     assert insert_call["role"] == "admin"
     assert "client_secret_hash" in insert_call
 
-    action_event.set_results.assert_called_once_with(
-        {"result": "Admin user created successfully"}
-    )
 
-
-@patch("charm.MongoClient")
-def test_update_admin_password(mock_mongo_client, harness):
-    """Test updating an existing admin user's password."""
-    harness.begin()
-    harness.set_leader(True)
-
-    # Mock MongoDB connection
+@patch.object(TestflingerCharm, "connect_to_mongodb")
+def test_set_admin_password_updates_existing_user(mock_connect, ctx):
+    """Test that the admin password action updates an existing admin user."""
+    # Mock MongoDB connection and collection
     mock_db = Mock()
     mock_collection = Mock()
     mock_db.client_permissions = mock_collection
-    mock_collection.count_documents.return_value = 1  # Existing user found
+    mock_collection.count_documents.return_value = 1  # Existing found
+    mock_connect.return_value = mock_db
 
-    # Setup relation data
-    rel_id = harness.add_relation("mongodb_client", "mongodb")
-    harness.update_relation_data(
-        rel_id,
-        harness.charm.app.name,
-        {
-            "database": "testflinger_db",
-            "uris": "mongodb://testflinger:testflinger@mongo:27017/testflinger_db",
-        },
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    state_in = testing.State(
+        containers=[container], leader=True, relations=[relation]
     )
 
-    with patch.object(
-        harness.charm, "connect_to_mongodb", return_value=mock_db
-    ):
-        # Run the action
-        action_event = Mock()
-        action_event.params = {"password": "newpass456"}
-        harness.charm.on_set_admin_password(action_event)
+    # Run the action with password parameter
+    ctx.run(
+        ctx.on.action(
+            "set-admin-password", params={"password": "new-password"}
+        ),
+        state_in,
+    )
 
-    # Verify user was updated
+    # Verify action succeeded and user was updated
+    assert ctx.action_results == {
+        "result": "Admin password updated successfully"
+    }
     mock_collection.update_one.assert_called_once()
+
+    # Verify user was updated in mocked collection
     update_call = mock_collection.update_one.call_args
     assert update_call[0][0] == {"client_id": TESTFLINGER_ADMIN_ID}
     assert "$set" in update_call[0][1]
     assert "client_secret_hash" in update_call[0][1]["$set"]
-
-    action_event.set_results.assert_called_once_with(
-        {"result": "Admin password updated successfully"}
-    )

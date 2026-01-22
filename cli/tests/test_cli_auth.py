@@ -90,7 +90,9 @@ def test_submit_token_timeout_retry(tmp_path, requests_mock, monkeypatch):
     sys.argv = ["", "submit", str(job_file)]
     tfcli = testflinger_cli.TestflingerCli()
     requests_mock.post(
-        f"{URL}/v1/job", text="Token has expired", status_code=401
+        f"{URL}/v1/job",
+        text="Token has expired",
+        status_code=HTTPStatus.UNAUTHORIZED,
     )
     requests_mock.get(
         f"{URL}/v1/queues/fake/agents",
