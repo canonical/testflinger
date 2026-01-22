@@ -48,7 +48,7 @@ def test_status(capsys, requests_mock):
     """Status should report job_state data."""
     jobid = str(uuid.uuid1())
     fake_return = {"job_state": "completed"}
-    requests_mock.get(f"{URL}/v1/result/{jobid}", json=fake_return)
+    requests_mock.get(URL + "/v1/result/" + jobid, json=fake_return)
     sys.argv = ["", "status", jobid]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.status()
@@ -1009,7 +1009,7 @@ def test_poll_serial(capsys, requests_mock):
         }
     }
     requests_mock.get(
-        f"{URL}/v1/result/{job_id}/log/serial_output?start_fragment=0",
+        URL + f"/v1/result/{job_id}/log/serial_output?start_fragment=0",
         json=mock_response,
     )
     sys.argv = ["", "poll-serial", "--oneshot", job_id]
@@ -1030,7 +1030,7 @@ def test_agent_status(capsys, requests_mock):
         "provision_streak_count": 1,
         "provision_streak_type": "pass",
     }
-    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
+    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
     sys.argv = ["", "agent-status", fake_agent]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.agent_status()
@@ -1048,7 +1048,7 @@ def test_agent_status_json(capsys, requests_mock):
         "provision_streak_count": 1,
         "provision_streak_type": "pass",
     }
-    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
+    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
     sys.argv = ["", "agent-status", fake_agent, "--json"]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.agent_status()
@@ -1090,9 +1090,11 @@ def test_queue_status(capsys, requests_mock):
     ]
 
     requests_mock.get(
-        f"{URL}/v1/queues/{fake_queue}/agents", json=fake_queue_data
+        URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
     )
-    requests_mock.get(f"{URL}/v1/queues/{fake_queue}/jobs", json=fake_job_data)
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
+    )
     sys.argv = ["", "queue-status", fake_queue]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.queue_status()
@@ -1133,9 +1135,11 @@ def test_queue_status_verbose(capsys, requests_mock):
     ]
 
     requests_mock.get(
-        f"{URL}/v1/queues/{fake_queue}/agents", json=fake_queue_data
+        URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
     )
-    requests_mock.get(f"{URL}/v1/queues/{fake_queue}/jobs", json=fake_job_data)
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
+    )
     sys.argv = ["", "queue-status", "--verbose", fake_queue]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.queue_status()
@@ -1178,9 +1182,11 @@ def test_queue_status_json(capsys, requests_mock):
     ]
 
     requests_mock.get(
-        f"{URL}/v1/queues/{fake_queue}/agents", json=fake_queue_data
+        URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
     )
-    requests_mock.get(f"{URL}/v1/queues/{fake_queue}/jobs", json=fake_job_data)
+    requests_mock.get(
+        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
+    )
     sys.argv = ["", "queue-status", "--json", fake_queue]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.queue_status()
@@ -1201,7 +1207,7 @@ def test_queue_status_empty_queue(capsys, requests_mock):
     fake_queue = "empty"
 
     requests_mock.get(
-        f"{URL}/v1/queues/{fake_queue}/agents",
+        URL + "/v1/queues/" + fake_queue + "/agents",
         status_code=HTTPStatus.NO_CONTENT,
     )
     sys.argv = ["", "queue-status", fake_queue]
@@ -1217,7 +1223,7 @@ def test_queue_status_nonexistent_queue(requests_mock):
     fake_queue = "nonexistent"
 
     requests_mock.get(
-        f"{URL}/v1/queues/{fake_queue}/agents",
+        URL + "/v1/queues/" + fake_queue + "/agents",
         status_code=HTTPStatus.NOT_FOUND,
         text=f"Queue '{fake_queue}' does not exist.",
     )
@@ -1258,9 +1264,9 @@ def test_submit_with_poll_integration(tmp_path, requests_mock, monkeypatch):
     testfile.write_text(json.dumps(fake_data))
 
     fake_return = {"job_id": jobid}
-    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.post(URL + "/v1/job", json=fake_return)
     requests_mock.get(
-        f"{URL}/v1/queues/fake/agents",
+        URL + "/v1/queues/fake/agents",
         json=[{"name": "fake_agent", "state": "waiting"}],
     )
 
