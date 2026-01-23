@@ -28,6 +28,10 @@ from charms.data_platform_libs.v0.data_interfaces import (
 from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
 from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
 from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+from charms.traefik_k8s.v2.ingress import (
+    IngressPerAppReadyEvent,
+    IngressPerAppRequirer,
+)
 from ops.main import main
 from ops.pebble import Layer
 from pymongo import MongoClient
@@ -36,6 +40,7 @@ from pymongo.errors import PyMongoError
 logger = logging.getLogger(__name__)
 
 TESTFLINGER_ADMIN_ID = "testflinger-admin"
+DEFAULT_PORT = 5000
 
 
 class TestflingerCharm(ops.CharmBase):
@@ -56,7 +61,9 @@ class TestflingerCharm(ops.CharmBase):
             reldata={},
         )
 
+        # TODO: Remove nginx route when migration to ingress is completed
         self._require_nginx_route()
+        self._setup_ingress_traefik()
 
         self.mongodb = DatabaseRequires(
             self,
@@ -94,6 +101,20 @@ class TestflingerCharm(ops.CharmBase):
         self.framework.observe(
             self.on.set_admin_password_action, self.on_set_admin_password
         )
+        self.framework.observe(
+            self.on.nginx_route_relation_changed,
+            self._on_ingress_relation_changed,
+        )
+        self.framework.observe(
+            self.on.nginx_route_relation_broken,
+            self._on_ingress_relation_changed,
+        )
+        self.framework.observe(
+            self.on.ingress_relation_changed, self._on_ingress_relation_changed
+        )
+        self.framework.observe(
+            self.on.ingress_relation_broken, self._on_ingress_relation_changed
+        )
 
     @property
     def version(self) -> str:
@@ -101,12 +122,52 @@ class TestflingerCharm(ops.CharmBase):
         return "Version ?"
 
     def _require_nginx_route(self):
+        """Set up nginx route for the service."""
+        # TODO: Remove nginx route when migration to ingress is completed
         require_nginx_route(
             charm=self,
             service_hostname=self.config["external_hostname"],
             service_name=self.app.name,
-            service_port=5000,
+            service_port=DEFAULT_PORT,
         )
+
+    def _setup_ingress_traefik(self):
+        """Set up ingress for the service."""
+        self.ingress = IngressPerAppRequirer(
+            self,
+            host=self.config["external_hostname"],
+            port=DEFAULT_PORT,
+        )
+        self.framework.observe(self.ingress.on.ready, self._on_ingress_ready)
+        self.framework.observe(
+            self.ingress.on.revoked, self._on_ingress_revoked
+        )
+
+    def _on_ingress_ready(self, event: IngressPerAppReadyEvent) -> None:
+        self.unit.status = ops.ActiveStatus(f"Ingress ready via {event.url}")
+
+    def _on_ingress_revoked(self, event: ops.EventBase) -> None:
+        self.unit.status = ops.WaitingStatus(
+            "Ingress revoked, waiting for new relation"
+        )
+
+    def _check_ingress_conflict(self) -> bool:
+        """Check if attempting to use two different ingress providers."""
+        nginx = self.model.relations.get("nginx-route")
+        traefik = self.model.relations.get("ingress")
+        if nginx and traefik:
+            self.unit.status = ops.BlockedStatus(
+                "Can't use both nginx and traefik ingress simultaneously. "
+            )
+            return False
+        return True
+
+    def _on_ingress_relation_changed(
+        self, event: ops.RelationChangedEvent
+    ) -> None:
+        """Handle relation changed event to check for ingress conflicts."""
+        if not self._check_ingress_conflict():
+            return
 
     def _on_testflinger_pebble_ready(
         self, event: ops.PebbleReadyEvent

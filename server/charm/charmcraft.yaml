@@ -28,6 +28,10 @@ requires:
     limit: 1
   nginx-route:
     interface: nginx-route
+    limit: 1
+  ingress:
+    interface: ingress
+    limit: 1
 
 provides:
   metrics-endpoint:
@@ -52,6 +56,8 @@ charm-libs:
     version: "0"
   - lib: grafana_k8s.grafana_dashboard
     version: "0"
+  - lib: traefik_k8s.ingress
+    version: "2"
 
 base: ubuntu@22.04
 platforms:
