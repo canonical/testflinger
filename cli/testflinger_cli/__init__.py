@@ -1249,7 +1249,7 @@ class TestflingerCli:
         ):
             logger.error("'%s' is not in the list of known images", image)
         if image.startswith(("http://", "https://")):
-            image = "url: " + image
+            image = f"url: {image}"
         else:
             image = images[image]
         ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()

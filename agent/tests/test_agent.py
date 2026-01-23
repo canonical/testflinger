@@ -474,20 +474,18 @@ class TestClient:
             m.get(
                 "http://127.0.0.1:8000/v1/job?queue=test", json=fake_job_data
             )
-            m.get("http://127.0.0.1:8000/v1/result/" + job_id, text="{}")
-            m.post("http://127.0.0.1:8000/v1/result/" + job_id, text="{}")
+            m.get(f"http://127.0.0.1:8000/v1/result/{job_id}", text="{}")
+            m.post(f"http://127.0.0.1:8000/v1/result/{job_id}", text="{}")
             m.post(
                 f"http://127.0.0.1:8000/v1/result/{job_id}/log/{LogType.STANDARD_OUTPUT}",
                 text="{}",
             )
             m.post(
-                "http://127.0.0.1:8000/v1/agents/data/"
-                + self.config.get("agent_id"),
+                f"http://127.0.0.1:8000/v1/agents/data/{self.config.get('agent_id')}",
                 text="OK",
             )
             m.get(
-                "http://127.0.0.1:8000/v1/agents/data/"
-                + self.config.get("agent_id"),
+                f"http://127.0.0.1:8000/v1/agents/data/{self.config.get('agent_id')}",
                 [
                     {
                         "text": json.dumps(
@@ -582,7 +580,7 @@ class TestClient:
         requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/result/" + job_id,
+            f"http://127.0.0.1:8000/v1/result/{job_id}",
             json={"job_state": "cancelled"},
         )
         with patch("shutil.rmtree"):

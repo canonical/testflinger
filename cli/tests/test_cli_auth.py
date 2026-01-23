@@ -56,7 +56,7 @@ def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):
     mock_response = {"job_id": job_id}
     requests_mock.post(f"{URL}/v1/job", json=mock_response)
     requests_mock.get(
-        URL + "/v1/queues/fake/agents",
+        f"{URL}/v1/queues/fake/agents",
         json=[{"name": "fake_agent", "state": "waiting"}],
     )
     tfcli.submit()
