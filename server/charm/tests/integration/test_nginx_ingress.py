@@ -60,7 +60,7 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     )
 
     # Establish the nginx-route relation
-    juju.integrate(APP_NAME, INGRESS_NAME)
+    juju.integrate(f"{APP_NAME}:nginx-route", f"{INGRESS_NAME}:nginx-route")
     juju.wait(jubilant.all_active)
 
 

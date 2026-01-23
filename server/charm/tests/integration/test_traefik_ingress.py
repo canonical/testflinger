@@ -61,7 +61,7 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     )
 
     # Establish the ingress relation
-    juju.integrate(APP_NAME, INGRESS_NAME)
+    juju.integrate(f"{APP_NAME}:ingress", f"{INGRESS_NAME}:ingress")
     juju.wait(jubilant.all_active)
 
 
