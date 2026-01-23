@@ -218,7 +218,7 @@ class MuxPi:
         :raises ConnectionError in case the server is not reachable.
         """
         try:
-            self._run_control("zapper --help")
+            self._run_control("zapper typecmux get")
             logger.debug("The host %s has an available RPyC server", host)
         except ProvisioningError as e:
             raise ConnectionError from e
