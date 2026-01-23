@@ -121,7 +121,7 @@ class TestMuxPiRpycCheck:
         # Access the private method
         muxpi._MuxPi__check_rpyc_server_on_host("test-host")
 
-        mock_run_control.assert_called_once_with("zapper --help")
+        mock_run_control.assert_called_once_with("zapper typecmux get")
 
     def test_check_rpyc_server_on_host_raises_connection_error(self, mocker):
         """Test connection check raises ConnectionError on failure."""
