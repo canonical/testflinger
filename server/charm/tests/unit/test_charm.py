@@ -61,7 +61,10 @@ def test_mongodb_relation_established(ctx):
     )
 
     # Validate unit is Active when relation is established
-    state_out = ctx.run(ctx.on.relation_changed(relation=relation), state_in)
+    state_out = ctx.run(
+        ctx.on.relation_changed(relation=relation, remote_unit="leader"),
+        state_in,
+    )
     assert state_out.unit_status == testing.ActiveStatus()
 
 
@@ -203,3 +206,71 @@ def test_set_admin_password_updates_existing_user(mock_connect, ctx):
     assert update_call[0][0] == {"client_id": TESTFLINGER_ADMIN_ID}
     assert "$set" in update_call[0][1]
     assert "client_secret_hash" in update_call[0][1]["$set"]
+
+
+def test_blocked_status_on_multiple_ingress_providers(ctx):
+    """Status should be blocked when both ingress providers are connected."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    mongo_relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    ingress_relation = testing.Relation(
+        endpoint="ingress",
+        remote_app_name="traefik-k8s",
+    )
+    nginx_relation = testing.Relation(
+        endpoint="nginx-route",
+        remote_app_name="nginx-ingress-integrator",
+    )
+    state_in = testing.State(
+        containers=[container],
+        leader=True,
+        relations=[mongo_relation, ingress_relation, nginx_relation],
+    )
+
+    # Validate unit is Blocked when integrating multiple ingress providers
+    state_out = ctx.run(
+        ctx.on.relation_changed(
+            relation=ingress_relation, remote_unit="leader"
+        ),
+        state_in,
+    )
+    assert state_out.unit_status == testing.BlockedStatus(
+        "Can't use both nginx and traefik ingress simultaneously. "
+    )
+
+
+def test_traefik_ingress_ready(ctx):
+    """Validate unit status when traefik ingress is ready."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    mongo_relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    # Traefik provider sends back the ingress URL in JSON format
+    ingress_url = "http://testflinger.local/"
+    ingress_relation = testing.Relation(
+        endpoint="ingress",
+        remote_app_name="traefik-k8s",
+        remote_app_data={"ingress": f'{{"url": "{ingress_url}"}}'},
+    )
+    state_in = testing.State(
+        containers=[container],
+        leader=True,
+        relations=[mongo_relation, ingress_relation],
+    )
+
+    # Validate unit is Active when traefik ingress is ready
+    # The library emits ready event when it receives URL from provider
+    state_out = ctx.run(
+        ctx.on.relation_changed(
+            relation=ingress_relation, remote_unit="leader"
+        ),
+        state_in,
+    )
+    assert state_out.unit_status == testing.ActiveStatus(
+        f"Ingress ready via {ingress_url}"
+    )
