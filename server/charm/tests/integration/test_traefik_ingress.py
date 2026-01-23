@@ -14,6 +14,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Ingress Integration tests for Testflinger Juju charm."""
 
+import logging
+import re
 from pathlib import Path
 
 import jubilant
@@ -28,6 +30,8 @@ from .helpers import (
     retry,
 )
 
+logger = logging.getLogger(__name__)
+
 TRAEFIK_INGRESS_CHARM = "traefik-k8s"
 DEFAULT_EXTERNAL_HOSTNAME = "testflinger.local"
 INGRESS_NAME = "traefik"
@@ -41,7 +45,10 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
             "upstream-source"
         ],
     }
-    juju.deploy(charm_path.resolve(), app=APP_NAME, resources=resources)
+    config = {"external_hostname": DEFAULT_EXTERNAL_HOSTNAME}
+    juju.deploy(
+        charm_path.resolve(), app=APP_NAME, resources=resources, config=config
+    )
 
     # Deploy the mongodb-k8s charm
     juju.deploy(MONGODB_CHARM, channel="6/stable", trust=True)
@@ -51,27 +58,33 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     juju.wait(jubilant.all_active)
 
     # Deploy the traefik-k8s charm
-    config = {"external_hostname": DEFAULT_EXTERNAL_HOSTNAME}
     juju.deploy(
         TRAEFIK_INGRESS_CHARM,
         app=INGRESS_NAME,
         channel="latest/stable",
-        config=config,
         trust=True,
     )
+    # Wait for traefik to be active
+    logger.info("Waiting for traefik to be active")
+    juju.wait(jubilant.all_active)
 
     # Establish the ingress relation
-    juju.integrate(f"{APP_NAME}:ingress", f"{INGRESS_NAME}:ingress")
+    logger.info("Integrating traefik-route relation")
+    juju.integrate(
+        f"{APP_NAME}:traefik-route", f"{INGRESS_NAME}:traefik-route"
+    )
+    logger.info("Waiting for integration to complete")
     juju.wait(jubilant.all_active)
 
 
-@retry(retry_num=5, retry_sleep_sec=5)
+@retry(retry_num=10, retry_sleep_sec=10)
 def test_ingress_is_up(juju: jubilant.Juju):
     """Test that the deployed application is up and responding via traefik."""
-    ingress_ip = (
-        juju.status().apps[INGRESS_NAME].units[f"{INGRESS_NAME}/0"].address
-    )
+    status_message = juju.status().apps[INGRESS_NAME].app_status.message
+    match = re.search(r"Serving at https?://([\d.]+)", status_message)
+    assert match, f"Could not find ingress IP in status: {status_message}"
 
+    ingress_ip = match.group(1)
     session = requests.Session()
     session.mount(
         "http://",
@@ -81,5 +94,7 @@ def test_ingress_is_up(juju: jubilant.Juju):
         "https://",
         DNSResolverHTTPAdapter(DEFAULT_EXTERNAL_HOSTNAME, ingress_ip),
     )
-    base_url = f"http://{DEFAULT_EXTERNAL_HOSTNAME}"
-    assert app_is_up(base_url, session=session)
+    base_url = f"https://{DEFAULT_EXTERNAL_HOSTNAME}"
+    result = app_is_up(base_url, session=session)
+    logger.info("Connectivity test: %s", "PASS" if result else "FAIL")
+    assert result

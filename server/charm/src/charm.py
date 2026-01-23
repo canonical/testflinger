@@ -28,9 +28,9 @@ from charms.data_platform_libs.v0.data_interfaces import (
 from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
 from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
 from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
-from charms.traefik_k8s.v2.ingress import (
-    IngressPerAppReadyEvent,
-    IngressPerAppRequirer,
+from charms.traefik_k8s.v0.traefik_route import (
+    TraefikRouteRequirer,
+    TraefikRouteRequirerReadyEvent,
 )
 from ops.main import main
 from ops.pebble import Layer
@@ -61,9 +61,9 @@ class TestflingerCharm(ops.CharmBase):
             reldata={},
         )
 
-        # TODO: Remove nginx route when migration to ingress is completed
+        # TODO: Remove nginx route when migration to traefik route is completed
         self._require_nginx_route()
-        self._setup_ingress_traefik()
+        self._setup_traefik_route()
 
         self.mongodb = DatabaseRequires(
             self,
@@ -101,19 +101,14 @@ class TestflingerCharm(ops.CharmBase):
         self.framework.observe(
             self.on.set_admin_password_action, self.on_set_admin_password
         )
+        # TODO: Remove nginx route when migration to traefik route is completed
         self.framework.observe(
             self.on.nginx_route_relation_changed,
-            self._on_ingress_relation_changed,
+            self._on_route_relation_changed,
         )
         self.framework.observe(
             self.on.nginx_route_relation_broken,
-            self._on_ingress_relation_changed,
-        )
-        self.framework.observe(
-            self.on.ingress_relation_changed, self._on_ingress_relation_changed
-        )
-        self.framework.observe(
-            self.on.ingress_relation_broken, self._on_ingress_relation_changed
+            self._on_route_relation_changed,
         )
 
     @property
@@ -123,7 +118,7 @@ class TestflingerCharm(ops.CharmBase):
 
     def _require_nginx_route(self):
         """Set up nginx route for the service."""
-        # TODO: Remove nginx route when migration to ingress is completed
+        # TODO: Remove nginx route when migration to traefik route is completed
         require_nginx_route(
             charm=self,
             service_hostname=self.config["external_hostname"],
@@ -131,43 +126,109 @@ class TestflingerCharm(ops.CharmBase):
             service_port=DEFAULT_PORT,
         )
 
-    def _setup_ingress_traefik(self):
+    def _setup_traefik_route(self):
         """Set up ingress for the service."""
-        self.ingress = IngressPerAppRequirer(
+        self.traefik_route = TraefikRouteRequirer(
             self,
-            host=self.config["external_hostname"],
-            port=DEFAULT_PORT,
+            relation=self.model.get_relation("traefik-route"),
+            relation_name="traefik-route",
         )
-        self.framework.observe(self.ingress.on.ready, self._on_ingress_ready)
         self.framework.observe(
-            self.ingress.on.revoked, self._on_ingress_revoked
+            self.traefik_route.on.ready, self._on_traefik_ready
         )
 
-    def _on_ingress_ready(self, event: IngressPerAppReadyEvent) -> None:
-        self.unit.status = ops.ActiveStatus(f"Ingress ready via {event.url}")
+    def _on_traefik_ready(self, event: TraefikRouteRequirerReadyEvent) -> None:
+        """Handle TraefikRouteRequirer ready event."""
+        if not self._check_route_conflict():
+            return
+        if self.unit.is_leader():
+            self._configure_traefik_route()
 
-    def _on_ingress_revoked(self, event: ops.EventBase) -> None:
-        self.unit.status = ops.WaitingStatus(
-            "Ingress revoked, waiting for new relation"
-        )
-
-    def _check_ingress_conflict(self) -> bool:
-        """Check if attempting to use two different ingress providers."""
+    def _check_route_conflict(self) -> bool:
+        """Check if attempting to use two different route providers."""
         nginx = self.model.relations.get("nginx-route")
-        traefik = self.model.relations.get("ingress")
+        traefik = self.model.relations.get("traefik-route")
         if nginx and traefik:
             self.unit.status = ops.BlockedStatus(
-                "Can't use both nginx and traefik ingress simultaneously. "
+                "Can't use both nginx and traefik route providers."
             )
             return False
         return True
 
-    def _on_ingress_relation_changed(
+    def _on_route_relation_changed(
         self, event: ops.RelationChangedEvent
     ) -> None:
-        """Handle relation changed event to check for ingress conflicts."""
-        if not self._check_ingress_conflict():
+        """Handle relation changed event to check for route conflicts."""
+        if not self._check_route_conflict():
             return
+
+    def _configure_traefik_route(self):
+        """Set configuration required for traefik route."""
+        if not self.traefik_route.is_ready():
+            logger.info("Traefik route relation is not ready yet")
+            return
+
+        testflinger_base_url = self.config.get("external_hostname", "")
+        if not testflinger_base_url:
+            self.unit.status = ops.BlockedStatus(
+                "external_hostname must be set for traefik-route"
+            )
+            return
+        external_hostname = (
+            testflinger_base_url.replace("https://", "")
+            .replace("http://", "")
+            .rstrip("/")
+        )
+
+        # Open the required port in the unit
+        self.unit.open_port("tcp", DEFAULT_PORT)
+
+        service_url = f"http://{self.app.name}.{self.model.name}.svc.cluster.local:{DEFAULT_PORT}"
+        identifier = f"{self.model.name}-{self.app.name}"
+
+        config = {
+            "http": {
+                "middlewares": {
+                    "https-redirect": {
+                        "redirectScheme": {
+                            "scheme": "https",
+                            "permanent": True,
+                        }
+                    }
+                },
+                "routers": {
+                    f"juju-{identifier}-router": {
+                        "rule": f"Host(`{external_hostname}`)",
+                        "service": f"juju-{identifier}-service",
+                        "entryPoints": ["web"],
+                        "middlewares": ["https-redirect"],
+                    },
+                    f"juju-{identifier}-router-tls": {
+                        "rule": f"Host(`{external_hostname}`)",
+                        "service": f"juju-{identifier}-service",
+                        "entryPoints": ["websecure"],
+                        "tls": {},
+                    },
+                },
+                "services": {
+                    f"juju-{identifier}-service": {
+                        "loadBalancer": {
+                            "servers": [{"url": service_url}],
+                            "passHostHeader": True,
+                        }
+                    }
+                },
+            }
+        }
+
+        logger.info(
+            "Submitting Traefik configuration for %s at root path "
+            "with HTTP→HTTPS redirect and load balancing across all %s units",
+            external_hostname,
+            self.app,
+        )
+        self.traefik_route.submit_to_traefik(config=config)
+        self.unit.status = ops.ActiveStatus()
 
     def _on_testflinger_pebble_ready(
         self, event: ops.PebbleReadyEvent
