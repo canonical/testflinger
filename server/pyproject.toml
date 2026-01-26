@@ -38,7 +38,6 @@ client_credentials_admin = "testflinger.tools.client_credentials_admin:main"
 charm = [
     "jubilant>=1.6.2",
     "ops[testing]",
-    "sh>=2.2.2",
 ]
 dev = [
     "cosl>=0.0.57",

@@ -46,6 +46,7 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
             "upstream-source"
         ],
     }
+    # Set default external hostname in Testflinger charm config
     config = {"external_hostname": DEFAULT_EXTERNAL_HOSTNAME}
     juju.deploy(
         charm_path.resolve(), app=APP_NAME, resources=resources, config=config
@@ -59,7 +60,6 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     juju.wait(jubilant.all_active)
 
     # Deploy the traefik-k8s charm
-    config = {"external_hostname": TRAEFIK_EXTERNAL_HOSTNAME}
     juju.deploy(
         TRAEFIK_INGRESS_CHARM,
         app=INGRESS_NAME,
@@ -80,15 +80,44 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     juju.wait(jubilant.all_active)
 
 
-@retry(retry_num=10, retry_sleep_sec=10)
-def test_ingress_is_up(juju: jubilant.Juju):
+@retry(retry_num=5, retry_sleep_sec=10)
+def test_ingress_is_up_default_hostname(juju: jubilant.Juju):
     """Test that the deployed application is up and responding via traefik.
 
-    External hostname is configured in traefik application config.
+    External hostname is configured in Testflinger charm config.
     """
     model = juju.show_model()
-    ingress_ip = get_k8s_ingress_ip(model, f"{INGRESS_NAME}-lb")
+    ingress_ip = get_k8s_ingress_ip(model.short_name, f"{INGRESS_NAME}-lb")
     logger.info("Traefik ingress IP: %s", ingress_ip)
+    session = requests.Session()
+    session.mount(
+        "http://",
+        DNSResolverHTTPAdapter(DEFAULT_EXTERNAL_HOSTNAME, ingress_ip),
+    )
+    session.mount(
+        "https://",
+        DNSResolverHTTPAdapter(DEFAULT_EXTERNAL_HOSTNAME, ingress_ip),
+    )
+    base_url = f"https://{DEFAULT_EXTERNAL_HOSTNAME}"
+    result = app_is_up(base_url, session=session)
+    logger.info("Connectivity test: %s", "PASS" if result else "FAIL")
+    assert result
+
+
+@retry(retry_num=5, retry_sleep_sec=10)
+def test_ingress_is_up_traefik_hostname(juju: jubilant.Juju):
+    """Test that the deployed application is up and responding via traefik.
+
+    External hostname is configured in Traefik application config.
+    """
+    model = juju.show_model()
+    ingress_ip = get_k8s_ingress_ip(model.short_name, f"{INGRESS_NAME}-lb")
+    logger.info("Traefik ingress IP: %s", ingress_ip)
+
+    # Set traefik external hostname
+    juju.config(INGRESS_NAME, external_hostname=TRAEFIK_EXTERNAL_HOSTNAME)
+    juju.wait(jubilant.all_active)
+
     session = requests.Session()
     session.mount(
         "http://",

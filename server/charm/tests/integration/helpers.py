@@ -2,13 +2,12 @@
 
 import functools
 import logging
+import subprocess
 import time
 from pathlib import Path
 from urllib.parse import urlparse
 
-import jubilant
 import requests
-import sh
 import yaml
 from requests.adapters import HTTPAdapter
 
@@ -122,15 +121,29 @@ def retry(retry_num: int, retry_sleep_sec: int) -> callable:
     return decorator
 
 
-def get_k8s_ingress_ip(model: jubilant.ModelInfo, service_name: str) -> str:
+def get_k8s_ingress_ip(model: str, service_name: str) -> str:
     """Get the external IP of a Kubernetes service LoadBalancer.
 
     :param model: The Juju model.
     :param service_name: The name of the Kubernetes service.
     :return: The external IP address of the service.
     """
-    return sh.kubectl.get.service(
-        service_name,
-        namespace=model.short_name,
-        o="jsonpath={.status.loadBalancer.ingress[0].ip}",
-    )
+    try:
+        return subprocess.run(  # noqa: S603
+            [
+                "/snap/bin/kubectl",
+                "--namespace",
+                model,
+                "get",
+                "service",
+                service_name,
+                "-o",
+                "jsonpath={.status.loadBalancer.ingress[0].ip}",
+            ],
+            check=True,
+            text=True,
+            capture_output=True,
+        ).stdout.strip()
+    except subprocess.CalledProcessError as exc:
+        logger.error("Failed to get service IP: %s", exc)
+        raise

@@ -76,7 +76,11 @@ config:
     external_hostname:
       type: string
       default: testflinger.local
-      description: The external hostname for accessing the Testflinger server
+      description: |
+        The external hostname for accessing the Testflinger server
+        This configuration is used to configure the nginx or traefik route.
+        While it is valid for traefik route, the preferred approach is to set
+        the external_hostname in the traefik application configuration instead.
     keepalive:
       type: int
       default: 10

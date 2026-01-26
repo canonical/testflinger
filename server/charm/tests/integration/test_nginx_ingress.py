@@ -14,6 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Ingress Integration tests for Testflinger Juju charm."""
 
+# TODO: Remove nginx route tests when migration to traefik route is completed
 import re
 from pathlib import Path
 
