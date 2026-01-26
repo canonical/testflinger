@@ -6,7 +6,9 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
+import jubilant
 import requests
+import sh
 import yaml
 from requests.adapters import HTTPAdapter
 
@@ -118,3 +120,17 @@ def retry(retry_num: int, retry_sleep_sec: int) -> callable:
         return wrapper
 
     return decorator
+
+
+def get_k8s_ingress_ip(model: jubilant.ModelInfo, service_name: str) -> str:
+    """Get the external IP of a Kubernetes service LoadBalancer.
+
+    :param model: The Juju model.
+    :param service_name: The name of the Kubernetes service.
+    :return: The external IP address of the service.
+    """
+    return sh.kubectl.get.service(
+        service_name,
+        namespace=model.name,
+        o="jsonpath={.status.loadBalancer.ingress[0].ip}",
+    )

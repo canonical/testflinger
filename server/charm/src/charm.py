@@ -174,7 +174,10 @@ class TestflingerCharm(ops.CharmBase):
             logger.info("Traefik route relation is not ready yet")
             return
 
-        testflinger_base_url = self.config.get("external_hostname", "")
+        testflinger_base_url = (
+            self.traefik_route.external_host
+            or self.config.get("external_hostname", "")
+        )
         if not testflinger_base_url:
             self.unit.status = ops.BlockedStatus(
                 "external_hostname must be set for traefik-route"
