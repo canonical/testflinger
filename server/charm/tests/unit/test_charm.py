@@ -285,3 +285,37 @@ def test_traefik_route_ready(ctx):
 
     # Unit should be active after configuration
     assert state_out.unit_status == testing.ActiveStatus()
+
+
+@patch("charm.TraefikRouteRequirer.submit_to_traefik")
+def test_traefik_no_submit_no_leader(mock_submit_to_traefik, ctx):
+    """Test that non-leader units do not submit traefik config."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    mongo_relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    traefik_relation = testing.Relation(
+        endpoint="traefik-route",
+        remote_app_name="traefik-k8s",
+    )
+
+    # Define a external_hostname for the traefik route
+    # Additionally, set leader=False to simulate non-leader unit
+    state_in = testing.State(
+        containers=[container],
+        leader=False,
+        relations=[mongo_relation, traefik_relation],
+        config={"external_hostname": "testflinger.test.com"},
+    )
+
+    ctx.run(
+        ctx.on.relation_changed(
+            relation=traefik_relation, remote_unit="leader"
+        ),
+        state_in,
+    )
+
+    # Verify submit_to_traefik was not called for non-leader units
+    mock_submit_to_traefik.assert_not_called()
