@@ -164,6 +164,12 @@ class TestflingerCharm(ops.CharmBase):
 
     def _configure_traefik_route(self):
         """Set configuration required for traefik route."""
+        # Handles on broken relation event, library does not clear the relation
+        if not self.model.get_relation("traefik-route"):
+            logger.info("No traefik-route relation found")
+            return
+
+        # Only submit configuration if the relation is ready
         if not self.traefik_route.is_ready():
             logger.info("Traefik route relation is not ready yet")
             return
