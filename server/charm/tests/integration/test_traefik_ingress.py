@@ -115,7 +115,7 @@ def test_ingress_is_up_traefik_hostname(juju: jubilant.Juju):
     logger.info("Traefik ingress IP: %s", ingress_ip)
 
     # Set traefik external hostname
-    juju.config(INGRESS_NAME, external_hostname=TRAEFIK_EXTERNAL_HOSTNAME)
+    juju.config(INGRESS_NAME, {"external_hostname": TRAEFIK_EXTERNAL_HOSTNAME})
     juju.wait(jubilant.all_active)
 
     session = requests.Session()
