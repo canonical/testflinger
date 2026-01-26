@@ -131,6 +131,6 @@ def get_k8s_ingress_ip(model: jubilant.ModelInfo, service_name: str) -> str:
     """
     return sh.kubectl.get.service(
         service_name,
-        namespace=model.name,
+        namespace=model.short_name,
         o="jsonpath={.status.loadBalancer.ingress[0].ip}",
     )
