@@ -195,7 +195,9 @@ class TestOemAutoinstallDisconnectUsbStick:
         from testflinger_device_connectors.devices.oem_autoinstall import (
             DeviceConnector,
         )
-        from testflinger_device_connectors.devices.zapper import ZapperConnector
+        from testflinger_device_connectors.devices.zapper import (
+            ZapperConnector,
+        )
 
         config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
 
@@ -215,7 +217,9 @@ class TestOemAutoinstallDisconnectUsbStick:
         from testflinger_device_connectors.devices.oem_autoinstall import (
             DeviceConnector,
         )
-        from testflinger_device_connectors.devices.zapper import ZapperConnector
+        from testflinger_device_connectors.devices.zapper import (
+            ZapperConnector,
+        )
 
         config = {"device_ip": "1.2.3.4"}
 
@@ -231,7 +235,9 @@ class TestOemAutoinstallDisconnectUsbStick:
         mock_wait_online.assert_not_called()
         mock_typecmux.assert_not_called()
 
-    def test_disconnect_usb_stick_no_control_host_blocking_raises(self, mocker):
+    def test_disconnect_usb_stick_no_control_host_blocking_raises(
+        self, mocker
+    ):
         """Test _disconnect_usb_stick raises when no control_host (blocking)."""
         import pytest
 
@@ -252,7 +258,9 @@ class TestOemAutoinstallDisconnectUsbStick:
         from testflinger_device_connectors.devices.oem_autoinstall import (
             DeviceConnector,
         )
-        from testflinger_device_connectors.devices.zapper import ZapperConnector
+        from testflinger_device_connectors.devices.zapper import (
+            ZapperConnector,
+        )
 
         config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
 

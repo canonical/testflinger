@@ -351,7 +351,9 @@ class TestMaas2DisconnectUsbStick:
     def test_disconnect_usb_stick_success(self, mocker, tmp_path):
         """Test _disconnect_usb_stick succeeds when Zapper is available."""
         from testflinger_device_connectors.devices.maas2 import DeviceConnector
-        from testflinger_device_connectors.devices.zapper import ZapperConnector
+        from testflinger_device_connectors.devices.zapper import (
+            ZapperConnector,
+        )
 
         config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
 
@@ -369,7 +371,9 @@ class TestMaas2DisconnectUsbStick:
     def test_disconnect_usb_stick_no_control_host(self, mocker, tmp_path):
         """Test _disconnect_usb_stick skips when no control_host."""
         from testflinger_device_connectors.devices.maas2 import DeviceConnector
-        from testflinger_device_connectors.devices.zapper import ZapperConnector
+        from testflinger_device_connectors.devices.zapper import (
+            ZapperConnector,
+        )
 
         config = {"device_ip": "1.2.3.4"}
 
@@ -387,7 +391,9 @@ class TestMaas2DisconnectUsbStick:
     def test_disconnect_usb_stick_timeout_non_blocking(self, mocker, tmp_path):
         """Test _disconnect_usb_stick handles timeout gracefully."""
         from testflinger_device_connectors.devices.maas2 import DeviceConnector
-        from testflinger_device_connectors.devices.zapper import ZapperConnector
+        from testflinger_device_connectors.devices.zapper import (
+            ZapperConnector,
+        )
 
         config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
 
