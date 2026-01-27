@@ -134,7 +134,7 @@ class TestZapperConnectorRpycCheck:
         ]
 
     def test_check_rpyc_server_on_host_raises_connection_error(self, mocker):
-        """Test _check_rpyc_server_on_host raises ConnectionError on failure."""
+        """Test the function raises ConnectionError on failure."""
         mocker.patch(
             "subprocess.run",
             side_effect=subprocess.CalledProcessError(1, "nc"),

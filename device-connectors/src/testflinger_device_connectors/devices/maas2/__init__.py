@@ -60,7 +60,7 @@ class DeviceConnector(DefaultDevice):
             logger.info("END provision")
 
     def _disconnect_usb_stick(self, config: dict) -> None:
-        """Try to disconnect the USB stick via typecmux if a Zapper is available.
+        """Try to disconnect the USB stick.
 
         This is a non-blocking operation - if the Zapper is not available,
         we simply skip this step.

@@ -77,7 +77,7 @@ class ZapperConnector(ABC, DefaultDevice):
 
         :param host: The host to check for RPyC availability.
         :param timeout: Maximum time to wait in seconds (default: 60).
-        :raises TimeoutError: If the server is not available within the timeout.
+        :raises TimeoutError: If the server is not available within the timeout
         """
         logger.info(
             "Waiting for a running RPyC server on control host %s", host
