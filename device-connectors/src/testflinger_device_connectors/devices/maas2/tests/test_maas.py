@@ -357,7 +357,7 @@ class TestMaas2DisconnectUsbStick:
 
         config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
 
-        mock_wait_online = mocker.patch.object(DeviceConnector, "wait_online")
+        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
         mock_typecmux = mocker.patch.object(
             ZapperConnector, "typecmux_set_state"
         )
@@ -365,7 +365,7 @@ class TestMaas2DisconnectUsbStick:
         connector = DeviceConnector(config)
         connector._disconnect_usb_stick(config)
 
-        mock_wait_online.assert_called_once()
+        mock_wait_ready.assert_called_once_with("zapper-host")
         mock_typecmux.assert_called_once_with("zapper-host", "OFF")
 
     def test_disconnect_usb_stick_no_control_host(self, mocker, tmp_path):
@@ -377,7 +377,7 @@ class TestMaas2DisconnectUsbStick:
 
         config = {"device_ip": "1.2.3.4"}
 
-        mock_wait_online = mocker.patch.object(DeviceConnector, "wait_online")
+        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
         mock_typecmux = mocker.patch.object(
             ZapperConnector, "typecmux_set_state"
         )
@@ -385,7 +385,7 @@ class TestMaas2DisconnectUsbStick:
         connector = DeviceConnector(config)
         connector._disconnect_usb_stick(config)
 
-        mock_wait_online.assert_not_called()
+        mock_wait_ready.assert_not_called()
         mock_typecmux.assert_not_called()
 
     def test_disconnect_usb_stick_timeout_non_blocking(self, mocker, tmp_path):
@@ -398,7 +398,7 @@ class TestMaas2DisconnectUsbStick:
         config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
 
         mocker.patch.object(
-            DeviceConnector, "wait_online", side_effect=TimeoutError
+            ZapperConnector, "wait_ready", side_effect=TimeoutError
         )
         mock_typecmux = mocker.patch.object(
             ZapperConnector, "typecmux_set_state"

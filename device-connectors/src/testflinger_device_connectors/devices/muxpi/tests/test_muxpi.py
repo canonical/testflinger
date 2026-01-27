@@ -18,10 +18,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from testflinger_device_connectors.devices import (
-    DefaultDevice,
-    ProvisioningError,
-)
+from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 
@@ -131,7 +128,7 @@ class TestMuxPiProvisionWithZapper:
         }
 
         mocker.patch("time.sleep")
-        mock_wait_online = mocker.patch.object(DefaultDevice, "wait_online")
+        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
         # Mock the rest of provision to avoid running actual provisioning
         mocker.patch.object(muxpi, "flash_test_image")
         mocker.patch.object(muxpi, "hardreset")
@@ -141,12 +138,7 @@ class TestMuxPiProvisionWithZapper:
 
         muxpi.provision()
 
-        mock_wait_online.assert_called_once()
-        call_args = mock_wait_online.call_args
-        # Verify using ZapperConnector.check_rpyc_server_on_host
-        assert call_args[0][0] == ZapperConnector.check_rpyc_server_on_host
-        assert call_args[0][1] == "zapper-host"
-        assert call_args[0][2] == 60
+        mock_wait_ready.assert_called_once_with("zapper-host")
 
     def test_provision_without_zapper_reboots_sdwire(self, mocker):
         """Test provision reboots sdwire when not using zapper."""
@@ -167,7 +159,7 @@ class TestMuxPiProvisionWithZapper:
 
         mocker.patch("time.sleep")
         mock_reboot_sdwire = mocker.patch.object(muxpi, "reboot_sdwire")
-        mock_wait_online = mocker.patch.object(DefaultDevice, "wait_online")
+        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
         # Mock the rest of provision
         mocker.patch.object(muxpi, "flash_test_image")
         mocker.patch.object(muxpi, "hardreset")
@@ -178,4 +170,4 @@ class TestMuxPiProvisionWithZapper:
         muxpi.provision()
 
         mock_reboot_sdwire.assert_called_once()
-        mock_wait_online.assert_not_called()
+        mock_wait_ready.assert_not_called()

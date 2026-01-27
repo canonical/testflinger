@@ -201,7 +201,7 @@ class TestOemAutoinstallDisconnectUsbStick:
 
         config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
 
-        mock_wait_online = mocker.patch.object(DeviceConnector, "wait_online")
+        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
         mock_typecmux = mocker.patch.object(
             ZapperConnector, "typecmux_set_state"
         )
@@ -209,7 +209,7 @@ class TestOemAutoinstallDisconnectUsbStick:
         connector = DeviceConnector(config)
         connector._disconnect_usb_stick(config, blocking=False)
 
-        mock_wait_online.assert_called_once()
+        mock_wait_ready.assert_called_once_with("zapper-host")
         mock_typecmux.assert_called_once_with("zapper-host", "OFF")
 
     def test_disconnect_usb_stick_no_control_host_non_blocking(self, mocker):
@@ -223,7 +223,7 @@ class TestOemAutoinstallDisconnectUsbStick:
 
         config = {"device_ip": "1.2.3.4"}
 
-        mock_wait_online = mocker.patch.object(DeviceConnector, "wait_online")
+        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
         mock_typecmux = mocker.patch.object(
             ZapperConnector, "typecmux_set_state"
         )
@@ -232,7 +232,7 @@ class TestOemAutoinstallDisconnectUsbStick:
         # Should not raise even in non-blocking mode
         connector._disconnect_usb_stick(config, blocking=False)
 
-        mock_wait_online.assert_not_called()
+        mock_wait_ready.assert_not_called()
         mock_typecmux.assert_not_called()
 
     def test_disconnect_usb_stick_no_control_host_blocking_raises(
@@ -265,7 +265,7 @@ class TestOemAutoinstallDisconnectUsbStick:
         config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
 
         mocker.patch.object(
-            DeviceConnector, "wait_online", side_effect=TimeoutError
+            ZapperConnector, "wait_ready", side_effect=TimeoutError
         )
         mock_typecmux = mocker.patch.object(
             ZapperConnector, "typecmux_set_state"
@@ -284,11 +284,14 @@ class TestOemAutoinstallDisconnectUsbStick:
         from testflinger_device_connectors.devices.oem_autoinstall import (
             DeviceConnector,
         )
+        from testflinger_device_connectors.devices.zapper import (
+            ZapperConnector,
+        )
 
         config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
 
         mocker.patch.object(
-            DeviceConnector, "wait_online", side_effect=TimeoutError
+            ZapperConnector, "wait_ready", side_effect=TimeoutError
         )
 
         connector = DeviceConnector(config)

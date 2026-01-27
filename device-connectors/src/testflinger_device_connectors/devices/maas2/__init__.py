@@ -70,11 +70,7 @@ class DeviceConnector(DefaultDevice):
             return
 
         try:
-            self.wait_online(
-                ZapperConnector.check_rpyc_server_on_host,
-                control_host,
-                60,
-            )
+            ZapperConnector.wait_ready(control_host)
             ZapperConnector.typecmux_set_state(control_host, "OFF")
         except (TimeoutError, ConnectionError, Exception) as e:
             logger.debug(

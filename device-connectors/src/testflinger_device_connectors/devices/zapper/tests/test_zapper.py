@@ -117,10 +117,10 @@ class TestZapperConnectorRpycCheck:
     """Tests for ZapperConnector RPyC server check."""
 
     def test_check_rpyc_server_on_host_success(self, mocker):
-        """Test check_rpyc_server_on_host succeeds when port is open."""
+        """Test _check_rpyc_server_on_host succeeds when port is open."""
         mock_subprocess = mocker.patch("subprocess.run")
 
-        ZapperConnector.check_rpyc_server_on_host("test-host")
+        ZapperConnector._check_rpyc_server_on_host("test-host")
 
         mock_subprocess.assert_called_once()
         call_args = mock_subprocess.call_args
@@ -134,14 +134,37 @@ class TestZapperConnectorRpycCheck:
         ]
 
     def test_check_rpyc_server_on_host_raises_connection_error(self, mocker):
-        """Test connection check raises ConnectionError on failure."""
+        """Test _check_rpyc_server_on_host raises ConnectionError on failure."""
         mocker.patch(
             "subprocess.run",
             side_effect=subprocess.CalledProcessError(1, "nc"),
         )
 
         with pytest.raises(ConnectionError):
-            ZapperConnector.check_rpyc_server_on_host("test-host")
+            ZapperConnector._check_rpyc_server_on_host("test-host")
+
+    def test_wait_ready_success(self, mocker):
+        """Test wait_ready calls wait_online with correct parameters."""
+        from testflinger_device_connectors.devices import DefaultDevice
+
+        mock_wait_online = mocker.patch.object(DefaultDevice, "wait_online")
+
+        ZapperConnector.wait_ready("zapper-host", timeout=30)
+
+        mock_wait_online.assert_called_once_with(
+            ZapperConnector._check_rpyc_server_on_host, "zapper-host", 30
+        )
+
+    def test_wait_ready_timeout(self, mocker):
+        """Test wait_ready raises TimeoutError when server unavailable."""
+        from testflinger_device_connectors.devices import DefaultDevice
+
+        mocker.patch.object(
+            DefaultDevice, "wait_online", side_effect=TimeoutError
+        )
+
+        with pytest.raises(TimeoutError):
+            ZapperConnector.wait_ready("zapper-host")
 
 
 class TestZapperConnectorTypecmux:

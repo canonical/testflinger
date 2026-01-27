@@ -46,7 +46,7 @@ class ZapperConnector(ABC, DefaultDevice):
     ZAPPER_SERVICE_PORT = 60000
 
     @staticmethod
-    def check_rpyc_server_on_host(host: str) -> None:
+    def _check_rpyc_server_on_host(host: str) -> None:
         """
         Check if the host has an active RPyC server running.
 
@@ -72,6 +72,21 @@ class ZapperConnector(ABC, DefaultDevice):
             raise ConnectionError from e
 
     @staticmethod
+    def wait_ready(host: str, timeout: int = 60) -> None:
+        """Wait for an RPyC server to become available on the given host.
+
+        :param host: The host to check for RPyC availability.
+        :param timeout: Maximum time to wait in seconds (default: 60).
+        :raises TimeoutError: If the server is not available within the timeout.
+        """
+        logger.info(
+            "Waiting for a running RPyC server on control host %s", host
+        )
+        DefaultDevice.wait_online(
+            ZapperConnector._check_rpyc_server_on_host, host, timeout
+        )
+
+    @staticmethod
     def typecmux_set_state(host: str, state: str) -> None:
         """Connect to a Zapper host via RPyC and set the typecmux state.
 
@@ -94,16 +109,8 @@ class ZapperConnector(ABC, DefaultDevice):
         super().provision(args)
 
         control_host = self.config["control_host"]
-        logger.info(
-            "Waiting for a running RPyC server on control host %s",
-            control_host,
-        )
         try:
-            self.wait_online(
-                ZapperConnector.check_rpyc_server_on_host,
-                control_host,
-                60,
-            )
+            ZapperConnector.wait_ready(control_host)
         except TimeoutError as e:
             raise ProvisioningError(
                 "Cannot reach out the Zapper service over RPyC"

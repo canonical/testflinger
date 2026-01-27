@@ -30,7 +30,6 @@ import requests
 import yaml
 
 from testflinger_device_connectors.devices import (
-    DefaultDevice,
     ProvisioningError,
     RecoveryError,
 )
@@ -219,14 +218,8 @@ class MuxPi:
             time.sleep(5)
         else:
             _, control_host = self.get_credentials()
-            logger.info(
-                "Waiting for a running RPyC server on control host %s",
-                control_host,
-            )
             try:
-                DefaultDevice.wait_online(
-                    ZapperConnector.check_rpyc_server_on_host, control_host, 60
-                )
+                ZapperConnector.wait_ready(control_host)
             except TimeoutError as e:
                 raise ProvisioningError(
                     "Cannot reach out the service over RPyC"
