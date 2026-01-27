@@ -319,3 +319,67 @@ def test_traefik_no_submit_no_leader(mock_submit_to_traefik, ctx):
 
     # Verify submit_to_traefik was not called for non-leader units
     mock_submit_to_traefik.assert_not_called()
+
+
+@patch("charm.TraefikRouteRequirer.submit_to_traefik")
+def test_traefik_no_submit_broken_relation(mock_submit_to_traefik, ctx):
+    """Test that traefik config is not submitted if relation was broken."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    mongo_relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    traefik_relation = testing.Relation(
+        endpoint="traefik-route",
+        remote_app_name="traefik-k8s",
+    )
+
+    # Define a external_hostname for the traefik route
+    state_in = testing.State(
+        containers=[container],
+        leader=True,
+        relations=[mongo_relation, traefik_relation],
+        config={"external_hostname": "testflinger.test.com"},
+    )
+
+    # First, establish the relation
+    state_out = ctx.run(
+        ctx.on.relation_changed(
+            relation=traefik_relation, remote_unit="leader"
+        ),
+        state_in,
+    )
+
+    # Verify the relation is ready after relation_changed
+    with ctx(ctx.on.update_status(), state_out) as mgr:
+        assert mgr.charm.traefik_route.is_ready() is True
+        assert mgr.charm.traefik_route._relation is not None
+
+    # Verify submit_to_traefik was called once and reset mock afterwards
+    mock_submit_to_traefik.assert_called_once()
+    mock_submit_to_traefik.reset_mock()
+
+    # Break the relation
+    state_out = ctx.run(
+        ctx.on.relation_broken(relation=traefik_relation), state_out
+    )
+
+    # Verify submit_to_traefik was not called during relation_broken hook
+    mock_submit_to_traefik.assert_not_called()
+
+    # Set the state after relation is fully removed
+    state_after_broken = testing.State(
+        containers=[container],
+        leader=True,
+        relations=[mongo_relation],
+        config={"external_hostname": "testflinger.test.com"},
+    )
+
+    # Use context manager to verify the relation state after removal
+    with ctx(ctx.on.update_status(), state_after_broken) as mgr:
+        assert mgr.charm.traefik_route.is_ready() is False
+        assert mgr.charm.traefik_route._relation is None
+
+    # Verify submit_to_traefik is still not called after relation is removed
+    mock_submit_to_traefik.assert_not_called()
