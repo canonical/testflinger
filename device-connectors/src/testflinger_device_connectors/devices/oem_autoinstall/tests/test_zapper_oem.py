@@ -190,7 +190,7 @@ if __name__ == "__main__":
 class TestOemAutoinstallDisconnectUsbStick:
     """Tests for oem_autoinstall USB stick disconnect functionality."""
 
-    def test_disconnect_usb_stick_success_non_blocking(self, mocker):
+    def test_disconnect_usb_stick_success(self, mocker):
         """Test _disconnect_usb_stick succeeds when Zapper is available."""
         from testflinger_device_connectors.devices.oem_autoinstall import (
             DeviceConnector,
@@ -207,13 +207,13 @@ class TestOemAutoinstallDisconnectUsbStick:
         )
 
         connector = DeviceConnector(config)
-        connector._disconnect_usb_stick(config, blocking=False)
+        connector._disconnect_usb_stick(config)
 
         mock_wait_ready.assert_called_once_with("zapper-host")
         mock_typecmux.assert_called_once_with("zapper-host", "OFF")
 
-    def test_disconnect_usb_stick_no_control_host_non_blocking(self, mocker):
-        """Test _disconnect_usb_stick skips when no control_host (non-blocking)."""
+    def test_disconnect_usb_stick_no_control_host(self, mocker):
+        """Test _disconnect_usb_stick skips when no control_host."""
         from testflinger_device_connectors.devices.oem_autoinstall import (
             DeviceConnector,
         )
@@ -229,32 +229,13 @@ class TestOemAutoinstallDisconnectUsbStick:
         )
 
         connector = DeviceConnector(config)
-        # Should not raise even in non-blocking mode
-        connector._disconnect_usb_stick(config, blocking=False)
+        connector._disconnect_usb_stick(config)
 
         mock_wait_ready.assert_not_called()
         mock_typecmux.assert_not_called()
 
-    def test_disconnect_usb_stick_no_control_host_blocking_raises(
-        self, mocker
-    ):
-        """Test _disconnect_usb_stick raises when no control_host (blocking)."""
-        import pytest
-
-        from testflinger_device_connectors.devices.oem_autoinstall import (
-            DeviceConnector,
-        )
-
-        config = {"device_ip": "1.2.3.4"}
-
-        connector = DeviceConnector(config)
-        with pytest.raises(ProvisioningError) as exc:
-            connector._disconnect_usb_stick(config, blocking=True)
-
-        assert "control_host is required" in str(exc.value)
-
     def test_disconnect_usb_stick_timeout_non_blocking(self, mocker):
-        """Test _disconnect_usb_stick handles timeout gracefully (non-blocking)."""
+        """Test _disconnect_usb_stick handles timeout gracefully."""
         from testflinger_device_connectors.devices.oem_autoinstall import (
             DeviceConnector,
         )
@@ -272,30 +253,7 @@ class TestOemAutoinstallDisconnectUsbStick:
         )
 
         connector = DeviceConnector(config)
-        # Should not raise in non-blocking mode
-        connector._disconnect_usb_stick(config, blocking=False)
+        # Should not raise - non-blocking operation
+        connector._disconnect_usb_stick(config)
 
         mock_typecmux.assert_not_called()
-
-    def test_disconnect_usb_stick_timeout_blocking_raises(self, mocker):
-        """Test _disconnect_usb_stick raises on timeout (blocking)."""
-        import pytest
-
-        from testflinger_device_connectors.devices.oem_autoinstall import (
-            DeviceConnector,
-        )
-        from testflinger_device_connectors.devices.zapper import (
-            ZapperConnector,
-        )
-
-        config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
-
-        mocker.patch.object(
-            ZapperConnector, "wait_ready", side_effect=TimeoutError
-        )
-
-        connector = DeviceConnector(config)
-        with pytest.raises(ProvisioningError) as exc:
-            connector._disconnect_usb_stick(config, blocking=True)
-
-        assert "Cannot reach the Zapper service" in str(exc.value)
