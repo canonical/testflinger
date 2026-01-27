@@ -23,6 +23,7 @@ from testflinger_device_connectors.devices import (
     ProvisioningError,
 )
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
+from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 
 def test_check_ce_oem_iot_image(mocker):
@@ -109,32 +110,6 @@ def test_check_test_image_booted_fails(mocker):
         muxpi.check_test_image_booted()
 
 
-class TestMuxPiRpycCheck:
-    """Tests for MuxPi RPyC server check."""
-
-    def test_check_rpyc_server_on_host_success(self, mocker):
-        """Test connection check succeeds when zapper is available."""
-        muxpi = MuxPi()
-        muxpi.config = {"control_host": "test-host", "control_user": "ubuntu"}
-        mock_run_control = mocker.patch.object(muxpi, "_run_control")
-
-        # Access the private method
-        muxpi._MuxPi__check_rpyc_server_on_host("test-host")
-
-        mock_run_control.assert_called_once_with("zapper typecmux get")
-
-    def test_check_rpyc_server_on_host_raises_connection_error(self, mocker):
-        """Test connection check raises ConnectionError on failure."""
-        muxpi = MuxPi()
-        muxpi.config = {"control_host": "test-host", "control_user": "ubuntu"}
-        mocker.patch.object(
-            muxpi, "_run_control", side_effect=ProvisioningError("failed")
-        )
-
-        with pytest.raises(ConnectionError):
-            muxpi._MuxPi__check_rpyc_server_on_host("test-host")
-
-
 class TestMuxPiProvisionWithZapper:
     """Tests for MuxPi provision method with zapper configuration."""
 
@@ -168,6 +143,8 @@ class TestMuxPiProvisionWithZapper:
 
         mock_wait_online.assert_called_once()
         call_args = mock_wait_online.call_args
+        # Verify using ZapperConnector.check_rpyc_server_on_host
+        assert call_args[0][0] == ZapperConnector.check_rpyc_server_on_host
         assert call_args[0][1] == "zapper-host"
         assert call_args[0][2] == 60
 

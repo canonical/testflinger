@@ -117,18 +117,10 @@ class TestZapperConnectorRpycCheck:
     """Tests for ZapperConnector RPyC server check."""
 
     def test_check_rpyc_server_on_host_success(self, mocker):
-        """Test __check_rpyc_server_on_host succeeds when port is open."""
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "agent_name": "test-agent",
-            "control_host": "zapper-host",
-        }
-        connector = MockConnector(fake_config)
-
+        """Test check_rpyc_server_on_host succeeds when port is open."""
         mock_subprocess = mocker.patch("subprocess.run")
 
-        # Access the private method
-        connector._ZapperConnector__check_rpyc_server_on_host("test-host")
+        ZapperConnector.check_rpyc_server_on_host("test-host")
 
         mock_subprocess.assert_called_once()
         call_args = mock_subprocess.call_args
@@ -143,17 +135,10 @@ class TestZapperConnectorRpycCheck:
 
     def test_check_rpyc_server_on_host_raises_connection_error(self, mocker):
         """Test connection check raises ConnectionError on failure."""
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "agent_name": "test-agent",
-            "control_host": "zapper-host",
-        }
-        connector = MockConnector(fake_config)
-
         mocker.patch(
             "subprocess.run",
             side_effect=subprocess.CalledProcessError(1, "nc"),
         )
 
         with pytest.raises(ConnectionError):
-            connector._ZapperConnector__check_rpyc_server_on_host("test-host")
+            ZapperConnector.check_rpyc_server_on_host("test-host")

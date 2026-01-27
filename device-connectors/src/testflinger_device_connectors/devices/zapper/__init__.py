@@ -45,7 +45,8 @@ class ZapperConnector(ABC, DefaultDevice):
     ZAPPER_REQUEST_TIMEOUT = 60 * 90
     ZAPPER_SERVICE_PORT = 60000
 
-    def __check_rpyc_server_on_host(self, host: str) -> None:
+    @staticmethod
+    def check_rpyc_server_on_host(host: str) -> None:
         """
         Check if the host has an active RPyC server running.
 
@@ -60,7 +61,7 @@ class ZapperConnector(ABC, DefaultDevice):
                     "-w",
                     str(timeout),
                     host,
-                    str(self.ZAPPER_SERVICE_PORT),
+                    str(ZapperConnector.ZAPPER_SERVICE_PORT),
                 ],
                 check=True,
                 capture_output=True,
@@ -81,7 +82,7 @@ class ZapperConnector(ABC, DefaultDevice):
         )
         try:
             self.wait_online(
-                self.__check_rpyc_server_on_host,
+                ZapperConnector.check_rpyc_server_on_host,
                 control_host,
                 60,
             )
