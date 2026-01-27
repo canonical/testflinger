@@ -26,6 +26,7 @@ import time
 import uuid
 from http import HTTPStatus
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import requests
@@ -35,7 +36,11 @@ from requests_mock import Mocker
 import testflinger_cli
 from testflinger_cli.client import HTTPError
 from testflinger_cli.enums import LogType
-from testflinger_cli.errors import NetworkError
+from testflinger_cli.errors import (
+    InvalidJobIdError,
+    NetworkError,
+    NoJobDataError,
+)
 
 URL = "https://testflinger.canonical.com"
 
@@ -1558,3 +1563,263 @@ def test_poll_exponential_backoff_on_network_errors(
     assert sleep_calls[2] == 8  # 2^3 = 8
     assert sleep_calls[3] == 16  # 2^4 = 16
     assert sleep_calls[4] == 32  # 2^5 = 32
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_status_with_bad_request_error(mock_get_status):
+    """Test status command exits with error message on HTTPError 400.
+
+    Exercises get_job_state() raising InvalidJobIdError.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.status()
+
+    assert "Invalid job id specified" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_status_with_no_content_error(mock_get_status):
+    """Test status command exits with error message on HTTPError 204.
+
+    When get_job_state() encounters a 204 No Content response, it raises
+    NoJobDataError, which status() catches and exits with an error message.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.NO_CONTENT, msg="No content"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.status()
+
+    assert "No data found for that job id" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_get_job_state_other_http_error(mock_get_status):
+    """Test get_job_state returns unknown state on HTTPError (non 204/400).
+
+    When get_job_state() encounters an HTTP error that's not 204 or 400,
+    it logs the error and returns {"job_state": "unknown"}.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.INTERNAL_SERVER_ERROR, msg="Server error"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Should return unknown state without exiting
+    result = tfcli.get_job_state(jobid)
+    assert result == {"job_state": "unknown"}
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_get_job_state_success(mock_get_status):
+    """Test get_job_state returns status dict on successful call.
+
+    When client.get_status() succeeds, get_job_state() returns the status
+    dict directly without modification.
+    """
+    expected_status = {
+        "job_state": "active",
+        "setup_status": 0,
+        "provision_status": 0,
+        "test_status": None,
+    }
+
+    mock_get_status.return_value = expected_status
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Should return the status dict from client.get_status()
+    result = tfcli.get_job_state(jobid)
+    assert result == expected_status
+    assert result["job_state"] == "active"
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_get_job_state_raises_no_job_data_error(mock_get_status):
+    """Test get_job_state raises NoJobDataError on HTTPError 204.
+
+    When client.get_status() returns HTTP 204 No Content, get_job_state()
+    raises NoJobDataError with a user-friendly error message.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.NO_CONTENT, msg="No content"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(NoJobDataError) as exc_info:
+        tfcli.get_job_state(jobid)
+
+    assert "No data found for that job id" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_get_job_state_raises_invalid_job_id_error(mock_get_status):
+    """Test get_job_state raises InvalidJobIdError on HTTPError 400.
+
+    When client.get_status() returns HTTP 400 Bad Request, get_job_state()
+    raises InvalidJobIdError with a user-friendly error message.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(InvalidJobIdError) as exc_info:
+        tfcli.get_job_state(jobid)
+
+    assert "Invalid job id specified" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_poll_with_bad_request_error(mock_get_status):
+    """Test poll command exits cleanly on HTTPError 400.
+
+    Verifies do_poll() exits with a user-friendly error message when
+    get_job_state() raises InvalidJobIdError (preserves original behavior).
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
+    )
+
+    job_id = str(uuid.uuid1())
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Original behavior: exits with clean error message
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.do_poll(job_id)
+
+    assert "Invalid job id specified" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_poll_with_no_content_error(mock_get_status):
+    """Test poll command exits cleanly on HTTPError 204.
+
+    Verifies do_poll() exits with a user-friendly error message when
+    get_job_state() raises NoJobDataError (preserves original behavior).
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.NO_CONTENT, msg="No content"
+    )
+
+    job_id = str(uuid.uuid1())
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Original behavior: exits with clean error message
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.do_poll(job_id)
+
+    assert "No data found for that job id" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_jobs_with_get_status_scenarios(mock_get_status, capsys):
+    """Test jobs() with various get_status response scenarios.
+
+    Ensures that the jobs list, with the --status flag, completes in the event
+    of various get_status outcomes. Exercises jobs() and get_job_state().
+    """
+    # Create jobs with different scenarios to test the branches in get_status
+    job_ids = [str(uuid.uuid1()) for _ in range(5)]
+    submission_time = time.time()
+
+    history_data = {
+        job_ids[0]: {
+            # Job complete: already cached, won't call get_status
+            "submission_time": submission_time,
+            "queue": "queue-1",
+            "job_state": "completed",
+        },
+        job_ids[1]: {
+            # HTTPError 400 (BAD_REQUEST)
+            "submission_time": submission_time,
+            "queue": "queue-2",
+        },
+        job_ids[2]: {
+            # HTTPError 204 (NO_CONTENT)
+            "submission_time": submission_time,
+            "queue": "queue-3",
+        },
+        job_ids[3]: {
+            # IOError
+            "submission_time": submission_time,
+            "queue": "queue-4",
+        },
+        job_ids[4]: {
+            # Success
+            "submission_time": submission_time,
+            "queue": "queue-5",
+        },
+    }
+
+    # Mock get_status to return different scenarios
+    def side_effect(job_id):
+        if job_id == job_ids[1]:
+            raise HTTPError(
+                status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
+            )
+        elif job_id == job_ids[2]:
+            raise HTTPError(status=HTTPStatus.NO_CONTENT, msg="No content")
+        elif job_id == job_ids[3]:
+            raise IOError("Connection lost")
+        elif job_id == job_ids[4]:
+            return {"job_state": "active"}
+
+    mock_get_status.side_effect = side_effect
+
+    sys.argv = ["", "jobs", "--status"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.args.status = True
+    tfcli.history.history = history_data
+
+    tfcli.jobs()
+
+    captured = capsys.readouterr()
+    # Verify all jobs are shown despite various error scenarios
+    # and that their statuses are correct
+
+    # job_ids[0]: cached "completed" status
+    assert job_ids[0] in captured.out
+    assert "completed" in captured.out.split(job_ids[0])[1].split("\n")[0]
+
+    # job_ids[1]: BAD_REQUEST error should result in "unknown" status
+    assert job_ids[1] in captured.out
+    assert "unknown" in captured.out.split(job_ids[1])[1].split("\n")[0]
+
+    # job_ids[2]: NO_CONTENT error should result in "unknown" status
+    assert job_ids[2] in captured.out
+    assert "unknown" in captured.out.split(job_ids[2])[1].split("\n")[0]
+
+    # job_ids[3]: IOError should result in "unknown" status
+    assert job_ids[3] in captured.out
+    assert "unknown" in captured.out.split(job_ids[3])[1].split("\n")[0]
+
+    # job_ids[4]: successful get_status returns "active"
+    assert job_ids[4] in captured.out
+    assert "active" in captured.out.split(job_ids[4])[1].split("\n")[0]
