@@ -142,3 +142,39 @@ class TestZapperConnectorRpycCheck:
 
         with pytest.raises(ConnectionError):
             ZapperConnector.check_rpyc_server_on_host("test-host")
+
+
+class TestZapperConnectorTypecmux:
+    """Tests for ZapperConnector typecmux operations."""
+
+    def test_typecmux_set_state_success(self, mocker):
+        """Test typecmux_set_state connects and calls the remote method."""
+        mock_connect = mocker.patch("rpyc.connect")
+        mock_connection = Mock()
+        mock_connect.return_value = mock_connection
+
+        ZapperConnector.typecmux_set_state("zapper-host", "OFF")
+
+        mock_connect.assert_called_once_with(
+            "zapper-host",
+            60000,
+            config={
+                "allow_public_attrs": True,
+                "sync_request_timeout": 60,
+            },
+        )
+        mock_connection.root.typecmux_set_state.assert_called_once_with(
+            alias="default", state="OFF"
+        )
+
+    def test_typecmux_set_state_with_dut(self, mocker):
+        """Test typecmux_set_state with DUT state."""
+        mock_connect = mocker.patch("rpyc.connect")
+        mock_connection = Mock()
+        mock_connect.return_value = mock_connection
+
+        ZapperConnector.typecmux_set_state("zapper-host", "DUT")
+
+        mock_connection.root.typecmux_set_state.assert_called_once_with(
+            alias="default", state="DUT"
+        )

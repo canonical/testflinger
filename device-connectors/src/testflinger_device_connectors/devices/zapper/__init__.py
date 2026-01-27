@@ -71,6 +71,24 @@ class ZapperConnector(ABC, DefaultDevice):
         except subprocess.CalledProcessError as e:
             raise ConnectionError from e
 
+    @staticmethod
+    def typecmux_set_state(host: str, state: str) -> None:
+        """Connect to a Zapper host via RPyC and set the typecmux state.
+
+        :param host: The Zapper host to connect to.
+        :param state: The state to set (e.g., "OFF", "DUT").
+        """
+        connection = rpyc.connect(
+            host,
+            ZapperConnector.ZAPPER_SERVICE_PORT,
+            config={
+                "allow_public_attrs": True,
+                "sync_request_timeout": 60,
+            },
+        )
+        connection.root.typecmux_set_state(alias="default", state=state)
+        logger.info("Set typecmux state to %s on %s", state, host)
+
     def provision(self, args):
         """Provision device when the command is invoked."""
         super().provision(args)

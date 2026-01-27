@@ -343,3 +343,63 @@ def test_set_flat_storage_layout_no_output(tmp_path, capsys):
     captured_output = capsys.readouterr()
     assert mock_run.call_args_list[0][1]["stdout"] == subprocess.PIPE
     assert captured_output.out == ""
+
+
+class TestMaas2DisconnectUsbStick:
+    """Tests for maas2 USB stick disconnect functionality."""
+
+    def test_disconnect_usb_stick_success(self, mocker, tmp_path):
+        """Test _disconnect_usb_stick succeeds when Zapper is available."""
+        from testflinger_device_connectors.devices.maas2 import DeviceConnector
+        from testflinger_device_connectors.devices.zapper import ZapperConnector
+
+        config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
+
+        mock_wait_online = mocker.patch.object(DeviceConnector, "wait_online")
+        mock_typecmux = mocker.patch.object(
+            ZapperConnector, "typecmux_set_state"
+        )
+
+        connector = DeviceConnector(config)
+        connector._disconnect_usb_stick(config)
+
+        mock_wait_online.assert_called_once()
+        mock_typecmux.assert_called_once_with("zapper-host", "OFF")
+
+    def test_disconnect_usb_stick_no_control_host(self, mocker, tmp_path):
+        """Test _disconnect_usb_stick skips when no control_host."""
+        from testflinger_device_connectors.devices.maas2 import DeviceConnector
+        from testflinger_device_connectors.devices.zapper import ZapperConnector
+
+        config = {"device_ip": "1.2.3.4"}
+
+        mock_wait_online = mocker.patch.object(DeviceConnector, "wait_online")
+        mock_typecmux = mocker.patch.object(
+            ZapperConnector, "typecmux_set_state"
+        )
+
+        connector = DeviceConnector(config)
+        connector._disconnect_usb_stick(config)
+
+        mock_wait_online.assert_not_called()
+        mock_typecmux.assert_not_called()
+
+    def test_disconnect_usb_stick_timeout_non_blocking(self, mocker, tmp_path):
+        """Test _disconnect_usb_stick handles timeout gracefully."""
+        from testflinger_device_connectors.devices.maas2 import DeviceConnector
+        from testflinger_device_connectors.devices.zapper import ZapperConnector
+
+        config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
+
+        mocker.patch.object(
+            DeviceConnector, "wait_online", side_effect=TimeoutError
+        )
+        mock_typecmux = mocker.patch.object(
+            ZapperConnector, "typecmux_set_state"
+        )
+
+        connector = DeviceConnector(config)
+        # Should not raise
+        connector._disconnect_usb_stick(config)
+
+        mock_typecmux.assert_not_called()
