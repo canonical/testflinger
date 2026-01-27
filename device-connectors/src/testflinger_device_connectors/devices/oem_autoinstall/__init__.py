@@ -52,8 +52,6 @@ class DeviceConnector(DefaultDevice):
             "zapper_iso_type"
         ) and provision_data.get("zapper_iso_url")
 
-        # Only disconnect USB stick if not using Zapper ISO provisioning
-        # (Zapper handles USB stick management during ISO provisioning)
         if not uses_zapper_iso:
             self._disconnect_usb_stick(config)
 
