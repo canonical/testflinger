@@ -219,8 +219,8 @@ runcmd:
   - mv /home/ubuntu/testflinger-agent.conf /srv/testflinger-agent/vm1/testflinger-agent
   - mv /home/ubuntu/default.yaml /srv/testflinger-agent/vm1/snappy-device-agents
   - sed -i "s/CHANGEME/$SYSTEM_ID/g" /srv/testflinger-agent/vm1/snappy-device-agents/default.yaml
-  - cd /srv/testflinger/common && pip install --break-system-packages .
-  - cd /srv/testflinger/server && pip install --break-system-packages .
+  - cd /srv/testflinger/common && pip install --break-system-packages --no-cache-dir .
+  - cd /srv/testflinger/server && pip install --break-system-packages --no-cache-dir --force-reinstall .
   - . /srv/testflinger-agent/vm1/env/bin/activate && cd /srv/testflinger-agent/vm1/testflinger-agent && pip install .
   - . /srv/testflinger-agent/vm1/env/bin/activate && cd /srv/testflinger-agent/vm1/snappy-device-agents && pip install .
   - chown -R ubuntu.ubuntu /home/ubuntu
