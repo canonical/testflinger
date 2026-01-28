@@ -26,6 +26,8 @@ charm = [
     "cosl",
     "gitpython==3.1.46",
     "jinja2==3.1.6",
+    "charmlibs-passwd==1.0.0",
+    "charmlibs-apt==1.0.0",
     "jubilant>=1.6.2",
     "ops[testing]",
     "pytest>=8.3.5",
