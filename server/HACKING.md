@@ -91,7 +91,7 @@ sudo snap install multipass
 Next run the following command (this will take a while):
 
 ```shell
-cat devel/testflinger.yaml |multipass launch --name testflinger -c4 -m8GB -d32GB --timeout 600 focal --cloud-init -
+cat devel/testflinger.yaml |multipass launch --name testflinger -c4 -m8GB -d32GB --timeout 1200 jammy --cloud-init -
 ```
 
 Due to the complexity of the environment being setup, this command may

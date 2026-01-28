@@ -2,7 +2,6 @@ write_files:
 - content: |
     config:
       core.https_address: '[::]:8443'
-      core.trust_password: password
     networks:
     - config:
         ipv4.address: 10.10.10.1/24
@@ -102,7 +101,7 @@ write_files:
 - content: |
     job_queue: vm1
     provision_data:
-      distro: focal
+      distro: noble
     test_data:
       test_cmds: |
         free -m
@@ -129,6 +128,7 @@ snap:
     - snap refresh --channel=latest/stable lxd
     - snap install maas-test-db
 runcmd:
+  - set -e  # Exit immediately if any command fails
   # Create a swapfile
   - fallocate -l 8G /swap
   - chmod 600 /swap
@@ -137,7 +137,7 @@ runcmd:
   - swapon -a
   #Setup mongodb
   - wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc |sudo tee /etc/apt/trusted.gpg.d/server-6.0.asc
-  - echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+  - echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
   - sudo apt update
   - sudo apt install -y mongodb-org
   - sudo systemctl enable mongod
@@ -173,22 +173,44 @@ runcmd:
   - maas admin ipranges create type=dynamic start_ip=10.10.10.200 end_ip=10.10.10.254
   - maas admin vlan update $FABRIC_ID $VLAN_TAG dhcp_on=True primary_rack=$PRIMARY_RACK
   - maas admin maas set-config name=upstream_dns value=8.8.8.8
-  # Add LXD as a VM host for MAAS
-  - maas admin vm-hosts create  password=password  type=lxd power_address=https://${IP_ADDRESS}:8443 project=maas
-  # Now wait until image sync is complete
-  - until [ -f /var/snap/maas/common/maas/boot-resources/current/ubuntu/amd64/generic/focal/stable/squashfs ]; do sleep 10; echo waiting for images; done
-  # Start VM Guest container
-  - export SYSTEM_ID=$(maas admin vm-host compose 1 cores=2 memory=6144 architecture="amd64/generic" hostname=vm1 | jq -r .system_id)
-  # Wait for the guest container to become available
-  - while [ "$(maas admin machine read $SYSTEM_ID |jq -r .status_name)" != "Ready" ];do sleep 10;echo "Waiting for container to become ready..."; done
-  - export SUBNET_ID=$(maas admin subnet read "$SUBNET" |jq -r .id)
+  # Configure boot-source selections for test VMs
+  # (services on Multipass VM run on jammy, test VMs provisioned by MAAS will run on this release)
+  - export MAAS_RELEASE=noble
+  - maas admin boot-source-selections create 1 os=ubuntu release=$MAAS_RELEASE arches=amd64 subarches='*' labels='*' || true
+  # Add LXD as a VM host using certificate-based authentication (MAAS 3.1+)
+  - echo DEBUG Creating LXD VM host
+  - export VM_HOST_ID=$(maas admin vm-hosts create type=lxd power_address=https://${IP_ADDRESS}:8443 project=default | jq -r '.id')
+  - echo DEBUG VM host created with ID $VM_HOST_ID
+  - export MAAS_CERT=$(maas admin vm-host parameters $VM_HOST_ID | jq -r '.certificate')
+  - echo DEBUG Retrieved certificate length; echo "$MAAS_CERT" | wc -c
+  - echo DEBUG Adding certificate to LXD trust list
+  - echo "$MAAS_CERT" | sudo lxc config trust add -
+  - echo DEBUG Certificate added, now refreshing VM host
+  - maas admin vm-host refresh $VM_HOST_ID
+  - echo DEBUG VM host refresh complete
+  - echo DEBUG Checking VM host resources after refresh
+  - maas admin vm-host read $VM_HOST_ID | jq '.total | {cores, memory, local_storage}'
+  # Wait for boot-resources to sync
+  - echo DEBUG Starting boot-resources wait loop for MAAS_RELEASE=$MAAS_RELEASE
+  - until sudo bash -c 'maas admin boot-resources read | grep -q ubuntu/$MAAS_RELEASE'; do echo DEBUG Waiting for boot-resources; sleep 10; done
+  - echo DEBUG Boot-resources sync complete
+  # Compose test VM
+  - echo DEBUG Creating VM from host $VM_HOST_ID
+  - export SYSTEM_ID=$(maas admin vm-host compose $VM_HOST_ID cores=2 memory=6144 architecture="amd64/generic" hostname=vm1 | jq -r '.system_id')
+  - echo DEBUG Composed VM with SYSTEM_ID $SYSTEM_ID waiting for Ready state
+  # Wait for VM to become ready
+  - until [ "$(maas admin machine read $SYSTEM_ID | jq -r .status_name)" = Ready ]; do echo DEBUG Waiting for VM; sleep 10; done
+  - echo DEBUG VM reached Ready state
+  # Configure VM networking
+  - export SUBNET_ID=$(maas admin subnet read "$SUBNET" |jq -r '.id')
   - export INTERFACE_ID=$(maas admin machine read $SYSTEM_ID |jq -r '.interface_set[0].id')
   - export LINK_ID=$(maas admin machine read $SYSTEM_ID |jq -r '.interface_set[0].links[0].id')
   - maas admin interface unlink-subnet $SYSTEM_ID $INTERFACE_ID id=$LINK_ID
   - maas admin interface link-subnet $SYSTEM_ID $INTERFACE_ID mode=static ip_address=10.10.10.2 subnet=$SUBNET_ID
+  # Setup testflinger-agent
   - mkdir -p /srv/testflinger-agent/vm1
   - git clone https://github.com/canonical/testflinger-cli /home/ubuntu/testflinger-cli
-  - cd /home/ubuntu/testflinger-cli && pip install -I .
+  - cd /home/ubuntu/testflinger-cli && pip install --break-system-packages -I .
   - virtualenv /srv/testflinger-agent/vm1/env
   - git clone https://github.com/canonical/testflinger /srv/testflinger
   - git clone https://github.com/canonical/testflinger-agent /srv/testflinger-agent/vm1/testflinger-agent
@@ -197,7 +219,8 @@ runcmd:
   - mv /home/ubuntu/testflinger-agent.conf /srv/testflinger-agent/vm1/testflinger-agent
   - mv /home/ubuntu/default.yaml /srv/testflinger-agent/vm1/snappy-device-agents
   - sed -i "s/CHANGEME/$SYSTEM_ID/g" /srv/testflinger-agent/vm1/snappy-device-agents/default.yaml
-  - cd /srv/testflinger && pip install .
+  - cd /srv/testflinger/common && pip install --break-system-packages .
+  - cd /srv/testflinger/server && pip install --break-system-packages .
   - . /srv/testflinger-agent/vm1/env/bin/activate && cd /srv/testflinger-agent/vm1/testflinger-agent && pip install .
   - . /srv/testflinger-agent/vm1/env/bin/activate && cd /srv/testflinger-agent/vm1/snappy-device-agents && pip install .
   - chown -R ubuntu.ubuntu /home/ubuntu
@@ -207,9 +230,8 @@ runcmd:
   - systemctl start testflinger
   - systemctl enable testflinger-agent-vm1
   - systemctl start testflinger-agent-vm1
-  # Create MAAS profile for ubuntu user
+  # Create MAAS profile for ubuntu user and SSH key
   - sudo -u ubuntu -- maas login maas 'http://localhost:5240/MAAS/' $APIKEY
-  # Create and import ssh key
   - sudo -u ubuntu -- ssh-keygen -t rsa -b 4096 -f /home/ubuntu/.ssh/id_rsa -N ""
   - sudo -u ubuntu -- maas maas sshkeys create key="$(cat /home/ubuntu/.ssh/id_rsa.pub)"
 
