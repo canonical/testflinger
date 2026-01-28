@@ -32,7 +32,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install uv and set the Python version
-        uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
+        uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
       - name: Check lock file
         run: uvx --with tox-uv tox -e lock
       - name: Check formatting
