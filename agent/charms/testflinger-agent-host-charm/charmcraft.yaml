@@ -76,6 +76,12 @@ config:
         UserKnownHostsFile /dev/null
         LogLevel QUIET
         ConnectTimeout 30
+    testflinger-server:
+      type: string
+      default: "https://testflinger.canonical.com"
+      description: |
+        The hostname of the Testflinger server to connect to. 
+        This should include the protocol (http:// or https://),
 
 parts:
   charm:
