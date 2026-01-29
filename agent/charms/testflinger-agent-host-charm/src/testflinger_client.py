@@ -14,7 +14,6 @@ from defaults import DEFAULT_TOKEN_PATH
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 15
-REFRESH_TOKEN_LIFETIME_DAYS = 30
 
 
 def post_request(
@@ -30,10 +29,12 @@ def post_request(
         response = requests.post(uri, headers=headers, timeout=timeout)
     except requests.exceptions.ConnectTimeout:
         logger.error("Connection to Testflinger server timed out.")
+        return None
     except requests.exceptions.ConnectionError:
         logger.error("Failed to connect to Testflinger server.")
+        return None
 
-    if response and response.status_code == HTTPStatus.OK:
+    if response.status_code == HTTPStatus.OK:
         return response.json()
 
     logger.error(
@@ -61,12 +62,9 @@ def authenticate(server: str, client_id: str, secret_key: str) -> bool:
     token_request = post_request(uri, headers)
 
     if token_request:
-        now = datetime.now(timezone.utc)
-        expires_at = now + timedelta(days=REFRESH_TOKEN_LIFETIME_DAYS)
         token_data = {
             "refresh_token": token_request.get("refresh_token"),
-            "obtained_at": now.isoformat(),
-            "expires_at": expires_at.isoformat(),
+            "expires_at": token_request.get("expires_at"),
         }
         token_path = Path(DEFAULT_TOKEN_PATH)
         token_path.parent.mkdir(parents=True, exist_ok=True)
