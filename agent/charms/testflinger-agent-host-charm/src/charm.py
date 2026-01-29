@@ -275,7 +275,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         """Authenticate with the server if token is missing or expiring.
 
         :returns: True if authentication succeeded or token is valid,
-            False otherwise
+        False otherwise
         """
         if not token_update_needed():
             return True
@@ -286,6 +286,10 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         except ops.SecretNotFoundError:
             logger.error("Credentials secret not found")
             return self._block("Missing testflinger-credentials secret")
+
+        if "client_id" not in content or "secret_key" not in content:
+            logger.error("Secret missing required fields")
+            return self._block("Secret missing client_id or secret_key")
 
         server = self.config.get("testflinger-server")
         if not server or not server.startswith("http"):
