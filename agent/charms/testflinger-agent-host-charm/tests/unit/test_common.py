@@ -27,7 +27,10 @@ def test_copy_ssh_keys(mock_write_file, mock_chmod, mock_chown):
     common.copy_ssh_keys(config)
 
     mock_write_file.assert_any_call(
-        Path(SSH_PRIVATE_KEY), "ssh_private_key_content"
+        Path("/home/ubuntu/.ssh/config"), "ssh_config_content", chmod=0o640
+    )
+    mock_write_file.assert_any_call(
+        Path(SSH_PRIVATE_KEY), "ssh_private_key_content", chmod=0o600
     )
     mock_write_file.assert_any_call(
         Path(SSH_PUBLIC_KEY), "ssh_public_key_content"
