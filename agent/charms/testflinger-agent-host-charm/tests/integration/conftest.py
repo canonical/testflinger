@@ -24,7 +24,6 @@ def create_mock_token(juju: jubilant.Juju, app_name: str):
     token_data = json.dumps(
         {
             "refresh_token": "mock-token",
-            "obtained_at": now.isoformat(),
             "expires_at": expires_at.isoformat(),
         }
     )
