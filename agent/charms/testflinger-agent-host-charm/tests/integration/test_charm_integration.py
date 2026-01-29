@@ -2,6 +2,7 @@ from pathlib import Path
 
 import jubilant
 import yaml
+from conftest import create_mock_token
 from defaults import LOCAL_TESTFLINGER_PATH, VIRTUAL_ENV_PATH
 
 TEST_CONFIG_01 = {
@@ -25,6 +26,16 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     """Deploy the charm under test."""
     juju.deploy(charm_path.resolve(), app=APP_NAME)
     juju.config(APP_NAME, TEST_CONFIG_01)
+    # Wait for install to complete, charm should be in BlockedStatus due to
+    # missing credentials.
+    juju.wait(jubilant.all_blocked)
+
+    # Create mock token to skip authentication
+    create_mock_token(juju, APP_NAME)
+    # Trigger update-status to re-evaluate authentication
+    juju.cli(
+        "exec", "--unit", f"{APP_NAME}/0", "--", "juju-run", "update-status"
+    )
     juju.wait(jubilant.all_active)
 
 
