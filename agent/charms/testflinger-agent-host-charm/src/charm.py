@@ -264,7 +264,9 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
         By default, Juju triggers this event every 5 minutes.
         """
-        self._authenticate_with_server()
+        if not self._authenticate_with_server():
+            return
+        self.unit.status = ops.model.ActiveStatus()
 
     def _block(self, message: str) -> bool:
         """Set unit to BlockedStatus and return False."""
@@ -275,7 +277,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         """Authenticate with the server if token is missing or expiring.
 
         :returns: True if authentication succeeded or token is valid,
-            False otherwise
+        False otherwise
         """
         if not token_update_needed():
             return True
@@ -286,6 +288,10 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         except ops.SecretNotFoundError:
             logger.error("Credentials secret not found")
             return self._block("Missing testflinger-credentials secret")
+
+        if "client_id" not in content or "secret_key" not in content:
+            logger.error("Secret missing required fields")
+            return self._block("Secret missing client_id or secret_key")
 
         server = self.config.get("testflinger-server")
         if not server or not server.startswith("http"):
