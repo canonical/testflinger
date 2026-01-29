@@ -59,7 +59,7 @@ charm-libs:
   - lib: traefik_k8s.traefik_route
     version: "0"
 
-base: ubuntu@22.04
+base: ubuntu@24.04
 platforms:
   amd64:
 
