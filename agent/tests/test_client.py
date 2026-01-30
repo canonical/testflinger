@@ -411,3 +411,135 @@ class TestClient:
         mock_sleep.assert_called_with(60)
         # Verify None is returned (no job available after network error)
         assert result is None
+
+    def test_missing_token_file(self, client, requests_mock):
+        """Test that agent handles missing token file gracefully."""
+        client.config["token_file"] = "/wrong/path/token"  # noqa: S105
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+
+        # Should return None and not raise an exception
+        result = client.check_jobs()
+        assert result is None
+
+    def test_get_job_fails_token_invalid(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test no job is returned if refresh token is invalid."""
+        # Create a token file with an invalid refresh token
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(
+            json.dumps({"refresh_token": "invalid-token"})  # noqa: S106
+        )
+        client.config["token_file"] = str(token_file)
+
+        # Mock the refresh endpoint to return BAD_REQUEST for invalid token
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            status_code=HTTPStatus.BAD_REQUEST,
+            json={"message": "Invalid refresh token."},
+        )
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+
+        result = client.check_jobs()
+        assert result is None
+
+    def test_get_job_success_on_valid_token(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test that job data is returned on valid token."""
+        # Create a valid token file
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        # Mock refresh endpoint to return valid access token
+        fake_access_token = "valid-access-token"  # noqa: S105
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            json={"access_token": fake_access_token},
+        )
+        # Mock post agent data endpoint for retrieving session cookie
+        requests_mock.post(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"job_id": ""},
+        )
+        # Mock agent data endpoint
+        requests_mock.get(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        # Mock job endpoint with job data
+        fake_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test_queue",
+        }
+        requests_mock.get(
+            f"{client.server}/v1/job",
+            json=fake_job_data,
+        )
+
+        result = client.check_jobs()
+        assert result == fake_job_data
+
+        # Verify Authorization header was set
+        job_request = [
+            r for r in requests_mock.request_history if "/v1/job" in r.url
+        ][0]
+        auth_header = job_request.headers.get("Authorization")
+        assert auth_header == f"Bearer {fake_access_token}"
+
+    def test_get_job_incorrect_role(self, client, requests_mock, tmp_path):
+        """Test that no job is returned if access token has incorrect role."""
+        # Create a valid token file
+        token_file = tmp_path / "token"
+        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        # Mock refresh endpoint to return valid access token
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            json={"access_token": "test-access-token"},
+        )
+        # Mock post agent data endpoint for retrieving session cookie
+        requests_mock.post(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"job_id": ""},
+        )
+        # Mock agent data endpoint
+        requests_mock.get(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        # Mock job endpoint to return forbidden due to incorrect role
+        requests_mock.get(
+            f"{client.server}/v1/job",
+            status_code=HTTPStatus.FORBIDDEN,
+            json={"message": "Specified action requires role: agent"},
+        )
+
+        result = client.check_jobs()
+        assert result is None
+
+    def test_get_job_missing_token_header(self, client, requests_mock):
+        """Test no job is returned if access token is missing from header."""
+        # No token file configured, so no Authorization header will be set
+        client.config["token_file"] = None
+
+        # Mock agent data endpoint
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.get(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        # Mock job endpoint to return as no access token provided in header
+        requests_mock.get(
+            f"{client.server}/v1/job",
+            status_code=HTTPStatus.UNAUTHORIZED,
+            json={
+                "message": "Authentication is required for specified endpoint"
+            },
+        )
+
+        result = client.check_jobs()
+        assert result is None
