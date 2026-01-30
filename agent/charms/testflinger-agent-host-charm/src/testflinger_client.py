@@ -13,6 +13,8 @@ from defaults import DEFAULT_TOKEN_PATH
 
 logger = logging.getLogger(__name__)
 
+# Update refresh token weekly to ensure it stays valid
+REFRESH_INTERVAL_DAYS = 7
 DEFAULT_TIMEOUT = 15
 
 
@@ -64,7 +66,7 @@ def authenticate(server: str, client_id: str, secret_key: str) -> bool:
     if token_request:
         token_data = {
             "refresh_token": token_request.get("refresh_token"),
-            "expires_at": token_request.get("expires_at"),
+            "obtained_at": datetime.now(timezone.utc).isoformat(),
         }
         token_path = Path(DEFAULT_TOKEN_PATH)
         token_path.parent.mkdir(parents=True, exist_ok=True)
@@ -88,22 +90,21 @@ def get_token_data() -> dict | None:
         return None
 
 
-def token_update_needed(days_threshold: int = 7) -> bool:
-    """Check if the refresh token is expiring within the threshold.
+def token_update_needed() -> bool:
+    """Check if the refresh token should be updated.
 
-    By default, refresh tokens expire after 30 days on server side.
+    Tokens are refreshed weekly to ensure they stay valid.
 
-    :param days_threshold: Number of days before expiration to trigger refresh.
-    :returns: True if token is missing, invalid, or expiring soon.
+    :returns: True if token is missing, invalid, or needs refresh.
     """
     token_data = get_token_data()
     if not token_data:
         return True
 
     try:
-        expires_at = datetime.fromisoformat(token_data["expires_at"])
-        threshold = datetime.now(timezone.utc) + timedelta(days=days_threshold)
-        return expires_at <= threshold
+        obtained_at = datetime.fromisoformat(token_data["obtained_at"])
+        refresh_after = obtained_at + timedelta(days=REFRESH_INTERVAL_DAYS)
+        return datetime.now(timezone.utc) >= refresh_after
     except (KeyError, ValueError) as exc:
         logger.error("Invalid token data: %s", exc)
         return True
