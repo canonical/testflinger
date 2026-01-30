@@ -88,9 +88,7 @@ def test_get_token_data_success(mock_exists, mock_read_text):
     mock_exists.return_value = True
     token_data = {
         "refresh_token": "token123",
-        "expires_at": (
-            datetime.now(timezone.utc) + timedelta(days=30)
-        ).isoformat(),
+        "obtained_at": datetime.now(timezone.utc).isoformat(),
     }
     mock_read_text.return_value = json.dumps(token_data)
 
@@ -111,12 +109,10 @@ def test_token_update_needed_no_token(mock_get_token_data):
 
 @patch("testflinger_client.get_token_data")
 def test_token_update_needed_valid_token(mock_get_token_data):
-    """Test token_update_needed returns False when token is valid."""
+    """Test token_update_needed when token was recently obtained."""
     mock_get_token_data.return_value = {
         "refresh_token": "token123",
-        "expires_at": (
-            datetime.now(timezone.utc) + timedelta(days=20)
-        ).isoformat(),
+        "obtained_at": datetime.now(timezone.utc).isoformat(),
     }
 
     result = testflinger_client.token_update_needed()
@@ -125,12 +121,12 @@ def test_token_update_needed_valid_token(mock_get_token_data):
 
 
 @patch("testflinger_client.get_token_data")
-def test_token_update_needed_expired(mock_get_token_data):
-    """Test token_update_needed returns True when token is already expired."""
-    past_expiry = datetime.now(timezone.utc) - timedelta(days=5)
+def test_token_update_needed(mock_get_token_data):
+    """Test token_update_needed when token is older than 7 days."""
+    old_date = datetime.now(timezone.utc) - timedelta(days=10)
     mock_get_token_data.return_value = {
         "refresh_token": "token123",
-        "expires_at": past_expiry.isoformat(),
+        "obtained_at": old_date.isoformat(),
     }
 
     result = testflinger_client.token_update_needed()

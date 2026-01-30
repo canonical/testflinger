@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 import jubilant
@@ -16,15 +16,12 @@ logger = logging.getLogger(__name__)
 def create_mock_token(juju: jubilant.Juju, app_name: str):
     """Create a mock token file so authentication is skipped.
 
-    This creates a valid token file with an expiration date 30 days in the
-    future.
+    This creates a valid token file with a recent obtained_at timestamp.
     """
-    now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(days=30)
     token_data = json.dumps(
         {
             "refresh_token": "mock-token",
-            "expires_at": expires_at.isoformat(),
+            "obtained_at": datetime.now(timezone.utc).isoformat(),
         }
     )
     token_dir = str(Path(DEFAULT_TOKEN_PATH).parent)

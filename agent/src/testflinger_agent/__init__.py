@@ -18,6 +18,7 @@ import os
 import time
 from collections import deque
 from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
 from threading import Timer
 from urllib.parse import urljoin
 
@@ -29,7 +30,6 @@ from urllib3.exceptions import HTTPError
 from testflinger_agent import schema
 from testflinger_agent.agent import TestflingerAgent
 from testflinger_agent.client import TestflingerClient
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

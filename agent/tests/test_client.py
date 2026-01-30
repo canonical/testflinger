@@ -40,6 +40,7 @@ class TestClient:
 
     def test_check_jobs_empty(self, client, requests_mock):
         requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         job_data = client.check_jobs()
         assert job_data is None
 
@@ -49,6 +50,7 @@ class TestClient:
             "job_queue": "test_queue",
         }
         requests_mock.get(rmock.ANY, json=fake_job_data)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         job_data = client.check_jobs()
         assert job_data == fake_job_data
 
@@ -70,6 +72,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job",
             json=fake_job_data,
         )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         job_data = client.check_jobs()
         params = requests_mock.last_request.qs.get("queue")
         assert params == ["test_queue"]
@@ -90,6 +93,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job",
             json=fake_job_data,
         )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         job_data = client.check_jobs()
         params = requests_mock.last_request.qs.get("queue")
         assert params == ["queue1"]

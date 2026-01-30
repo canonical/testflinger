@@ -156,9 +156,7 @@ class TestflingerClient:
                 HTTPStatus.UNAUTHORIZED,
                 HTTPStatus.FORBIDDEN,
             ):
-                logger.error(
-                    "Agent not authorized to request jobs."
-                )
+                logger.error("Agent not authorized to request jobs.")
             logger.error(exc)
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
