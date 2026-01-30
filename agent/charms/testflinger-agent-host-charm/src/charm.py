@@ -264,7 +264,9 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
         By default, Juju triggers this event every 5 minutes.
         """
-        self._authenticate_with_server()
+        if not self._authenticate_with_server():
+            return
+        self.unit.status = ops.model.ActiveStatus()
 
     def _block(self, message: str) -> bool:
         """Set unit to BlockedStatus and return False."""

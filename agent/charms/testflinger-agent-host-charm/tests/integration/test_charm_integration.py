@@ -35,7 +35,8 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     # Trigger update-status to re-evaluate authentication
     charm_dir = f"/var/lib/juju/agents/unit-{APP_NAME}-0/charm"
     juju.exec(
-        "bash", "-c",
+        "bash",
+        "-c",
         f"cd {charm_dir} && JUJU_DISPATCH_PATH=hooks/update-status ./dispatch",
         unit=f"{APP_NAME}/0",
     )
