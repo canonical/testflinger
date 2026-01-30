@@ -79,10 +79,6 @@ jobs:
           persist-credentials: false
       - name: Install uv and set up Python
         uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
-      - name: Install jhack
-        run: |
-          sudo snap install --edge jhack
-          sudo snap connect jhack:dot-local-share-juju snapd
       - name: Install concierge
         run: sudo snap install --classic concierge
       - name: Prepare Juju

@@ -1,4 +1,3 @@
-import subprocess
 from pathlib import Path
 
 import jubilant
@@ -34,9 +33,11 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     # Create mock token to skip authentication
     create_mock_token(juju, APP_NAME)
     # Trigger update-status to re-evaluate authentication
-    subprocess.run(  # noqa: S603
-        ["/snap/bin/jhack", "fire", f"{APP_NAME}/0", "update-status"],
-        check=True,
+    charm_dir = f"/var/lib/juju/agents/unit-{APP_NAME}-0/charm"
+    juju.exec(
+        "bash", "-c",
+        f"cd {charm_dir} && JUJU_DISPATCH_PATH=hooks/update-status ./dispatch",
+        unit=f"{APP_NAME}/0",
     )
     juju.wait(jubilant.all_active)
 
