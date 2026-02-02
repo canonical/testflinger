@@ -47,6 +47,12 @@ test = [
 
 [tool.ruff]
 line-length = 79
+extend-exclude = ["charms/testflinger-agent-host-charm/lib"]
+include = [
+    "src/**/*.py",
+    "tests/**/*.py",
+    "charms/**/*.py",
+]
 
 [tool.ruff.lint]
 select = [
