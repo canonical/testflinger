@@ -55,6 +55,12 @@ dev = [
 [tool.ruff]
 line-length = 79
 extend-exclude = ["charm/lib"]
+include = [
+  "app.py",
+  "src/**/*.py",
+  "charm/**/*.py",
+  "tests/**/*.py",
+]
 
 [tool.ruff.lint]
 select = [
