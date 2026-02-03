@@ -64,7 +64,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = [
+"**/tests/*" = [
   "S101", # use of assert
   "S105", # use of harcoded passwords for mock
   "S108", # use of temporary file or directory

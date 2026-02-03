@@ -47,7 +47,7 @@ test = [
 
 [tool.ruff]
 line-length = 79
-extend-exclude = ["charms/testflinger-agent-host-charm/lib"]
+extend-exclude = ["charms/*/lib"]
 include = [
     "src/**/*.py",
     "tests/**/*.py",
