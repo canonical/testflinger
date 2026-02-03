@@ -24,7 +24,7 @@ import yaml
 #
 # TODO: Update with the official name of your project or product
 
-project = 'Testflinger'
+project = "Testflinger"
 author = "Canonical Ltd."
 
 
@@ -65,11 +65,11 @@ copyright = "%s GPL-3.0, %s" % (datetime.date.today().year, author)
 
 ## Open Graph configuration - defines what is displayed in the website preview
 # The URL of the documentation output
-ogp_site_url = 'https://canonical-testflinger.readthedocs-hosted.com/'
+ogp_site_url = "https://canonical-testflinger.readthedocs-hosted.com/"
 # The documentation website name (usually the same as the product name)
 ogp_site_name = project
 # An image or logo that is used in the preview
-ogp_image = 'https://assets.ubuntu.com/v1/253da317-image-document-ubuntudocs.svg'
+ogp_image = "https://assets.ubuntu.com/v1/253da317-image-document-ubuntudocs.svg"
 
 # Update with the favicon for your product (default is the circle of friends)
 # html_favicon = '.sphinx/_static/favicon.png'
@@ -117,11 +117,9 @@ html_context = {
     # Docs branch in the repo; used in links for viewing the source files
     #
     # TODO: To customise the branch, uncomment and update as needed.
-    'repo_default_branch': 'main',
+    "repo_default_branch": "main",
     # Docs location in the repo; used in links for viewing the source files
     #
-
-
     # TODO: To customise the directory, uncomment and update as needed.
     "repo_folder": "/docs/",
     # TODO: To enable or disable the Previous / Next buttons at the bottom of pages
@@ -129,9 +127,8 @@ html_context = {
     # "sequential_nav": "both",
     # TODO: To enable listing contributors on individual pages, set to True
     "display_contributors": False,
-
-    # Required for feedback button    
-    'github_issues': 'enabled',
+    # Required for feedback button
+    "github_issues": "enabled",
 }
 
 # TODO: To enable the edit button on pages, uncomment and change the link to a
@@ -158,16 +155,16 @@ html_context = {
 
 # Base URL of RTD hosted project
 
-html_baseurl = 'https://canonical-starter-pack.readthedocs-hosted.com/'
+html_baseurl = "https://canonical-starter-pack.readthedocs-hosted.com/"
 
 # URL scheme. Add language and version scheme elements.
 # When configured with RTD variables, check for RTD environment so manual runs succeed:
 
-if 'READTHEDOCS_VERSION' in os.environ:
+if "READTHEDOCS_VERSION" in os.environ:
     version = os.environ["READTHEDOCS_VERSION"]
-    sitemap_url_scheme = '{version}{link}'
+    sitemap_url_scheme = "{version}{link}"
 else:
-    sitemap_url_scheme = 'MANUAL/{link}'
+    sitemap_url_scheme = "MANUAL/{link}"
 
 # Include `lastmod` dates in the sitemap:
 
@@ -178,7 +175,7 @@ sitemap_show_lastmod = True
 #######################
 
 html_static_path = [".sphinx/_static"]
-#templates_path = [".sphinx/_templates"]
+# templates_path = [".sphinx/_templates"]
 
 # Extra files to copy to the root of the documentation
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-html_extra_path
@@ -210,13 +207,10 @@ redirects = {}
 
 linkcheck_ignore = [
     "http://127.0.0.1:8000",
-    ]
+]
 
 # A regex list of URLs where anchors are ignored by 'make linkcheck'
-linkcheck_anchors_ignore_for_url = [
-    r"https://github\.com/.*",
-    "https://maas.io/docs"
-]
+linkcheck_anchors_ignore_for_url = [r"https://github\.com/.*", "https://maas.io/docs"]
 
 # give linkcheck multiple tries on failure
 # linkcheck_timeout = 30
@@ -259,16 +253,12 @@ extensions = [
     "sphinx_last_updated_by_git",
     "sphinx.ext.intersphinx",
     "sphinx_sitemap",
-    "sphinxcontrib.mermaid"
+    "sphinxcontrib.mermaid",
 ]
 
 # Excludes files or directories from processing
 
-exclude_patterns = [
-    "doc-cheat-sheet*",
-    "README*",
-    "CONTRIBUTING*"
-]
+exclude_patterns = ["doc-cheat-sheet*", "README*", "CONTRIBUTING*"]
 
 # Adds custom CSS files, located under 'html_static_path'
 
@@ -331,8 +321,8 @@ if "discourse_prefix" not in html_context and "discourse" in html_context:
 
 # Workaround for substitutions.yaml
 
-if os.path.exists('./reuse/substitutions.yaml'):
-    with open('./reuse/substitutions.yaml', 'r') as fd:
+if os.path.exists("./reuse/substitutions.yaml"):
+    with open("./reuse/substitutions.yaml", "r") as fd:
         myst_substitutions = yaml.safe_load(fd.read())
 
 # Add configuration for intersphinx mapping
