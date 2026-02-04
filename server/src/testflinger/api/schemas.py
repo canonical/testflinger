@@ -151,6 +151,7 @@ class OEMAutoinstallProvisionData(Schema):
     authorized_keys = fields.String(required=False)
     zapper_iso_url = fields.String(required=False)
     zapper_iso_type = fields.String(required=False)
+    user_template_update = fields.Boolean(required=False)
 
 
 class OEMScriptProvisionData(Schema):
