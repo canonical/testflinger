@@ -277,6 +277,7 @@ class TestflingerCli:
             "--phase",
             "-p",
             type=str,
+            choices=[phase.value for phase in TestPhase],
             help="Return logs from a specific phase",
         )
         parser.add_argument(

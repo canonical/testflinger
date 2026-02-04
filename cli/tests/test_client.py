@@ -165,7 +165,7 @@ def test_get_logs_serial_output(requests_mock):
     }
 
     requests_mock.get(
-        f"http://testflinger/v1/result/{job_id}/log/serial_output?start_fragment=0",
+        f"http://testflinger/v1/result/{job_id}/log/serial?start_fragment=0",
         json=mock_response,
     )
 
@@ -265,7 +265,7 @@ def test_get_logs_with_all_parameters(requests_mock):
     }
 
     requests_mock.get(
-        f"http://testflinger/v1/result/{job_id}/log/serial_output?start_fragment={start_fragment}&start_timestamp={encoded_timestamp}",
+        f"http://testflinger/v1/result/{job_id}/log/serial?start_fragment={start_fragment}&start_timestamp={encoded_timestamp}",
         json=mock_response,
     )
 
