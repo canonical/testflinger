@@ -33,6 +33,10 @@ dev = [
 
 [tool.ruff]
 line-length = 79
+include = [
+  "testflinger_cli/**/*.py",
+  "tests/**/*.py",
+]
 
 [tool.ruff.lint]
 select = [
@@ -60,7 +64,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"testflinger_cli/tests/*" = [
+"**/tests/*" = [
   "S101", # use of assert
   "S105", # use of harcoded passwords for mock
   "S108", # use of temporary file or directory

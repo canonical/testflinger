@@ -117,18 +117,10 @@ class TestZapperConnectorRpycCheck:
     """Tests for ZapperConnector RPyC server check."""
 
     def test_check_rpyc_server_on_host_success(self, mocker):
-        """Test __check_rpyc_server_on_host succeeds when port is open."""
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "agent_name": "test-agent",
-            "control_host": "zapper-host",
-        }
-        connector = MockConnector(fake_config)
-
+        """Test _check_rpyc_server_on_host succeeds when port is open."""
         mock_subprocess = mocker.patch("subprocess.run")
 
-        # Access the private method
-        connector._ZapperConnector__check_rpyc_server_on_host("test-host")
+        ZapperConnector._check_rpyc_server_on_host("test-host")
 
         mock_subprocess.assert_called_once()
         call_args = mock_subprocess.call_args
@@ -142,18 +134,134 @@ class TestZapperConnectorRpycCheck:
         ]
 
     def test_check_rpyc_server_on_host_raises_connection_error(self, mocker):
-        """Test connection check raises ConnectionError on failure."""
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "agent_name": "test-agent",
-            "control_host": "zapper-host",
-        }
-        connector = MockConnector(fake_config)
-
+        """Test the function raises ConnectionError on failure."""
         mocker.patch(
             "subprocess.run",
             side_effect=subprocess.CalledProcessError(1, "nc"),
         )
 
         with pytest.raises(ConnectionError):
-            connector._ZapperConnector__check_rpyc_server_on_host("test-host")
+            ZapperConnector._check_rpyc_server_on_host("test-host")
+
+    def test_wait_ready_success(self, mocker):
+        """Test wait_ready calls wait_online with correct parameters."""
+        from testflinger_device_connectors.devices import DefaultDevice
+
+        mock_wait_online = mocker.patch.object(DefaultDevice, "wait_online")
+
+        ZapperConnector.wait_ready("zapper-host", timeout=30)
+
+        mock_wait_online.assert_called_once_with(
+            ZapperConnector._check_rpyc_server_on_host, "zapper-host", 30
+        )
+
+    def test_wait_ready_timeout(self, mocker):
+        """Test wait_ready raises TimeoutError when server unavailable."""
+        from testflinger_device_connectors.devices import DefaultDevice
+
+        mocker.patch.object(
+            DefaultDevice, "wait_online", side_effect=TimeoutError
+        )
+
+        with pytest.raises(TimeoutError):
+            ZapperConnector.wait_ready("zapper-host")
+
+
+class TestZapperConnectorTypecmux:
+    """Tests for ZapperConnector typecmux operations."""
+
+    def test_typecmux_set_state_success(self, mocker):
+        """Test typecmux_set_state connects and calls the remote method."""
+        mock_connect = mocker.patch("rpyc.connect")
+        mock_connection = Mock()
+        mock_connect.return_value = mock_connection
+
+        ZapperConnector.typecmux_set_state("zapper-host", "OFF")
+
+        mock_connect.assert_called_once_with(
+            "zapper-host",
+            60000,
+            config={
+                "allow_public_attrs": True,
+                "sync_request_timeout": 60,
+            },
+        )
+        mock_connection.root.typecmux_set_state.assert_called_once_with(
+            alias="default", state="OFF"
+        )
+
+    def test_typecmux_set_state_with_dut(self, mocker):
+        """Test typecmux_set_state with DUT state."""
+        mock_connect = mocker.patch("rpyc.connect")
+        mock_connection = Mock()
+        mock_connect.return_value = mock_connection
+
+        ZapperConnector.typecmux_set_state("zapper-host", "DUT")
+
+        mock_connection.root.typecmux_set_state.assert_called_once_with(
+            alias="default", state="DUT"
+        )
+
+
+class TestZapperConnectorDisconnectUsbStick:
+    """Tests for ZapperConnector USB stick disconnect functionality."""
+
+    def test_disconnect_usb_stick_success(self, mocker):
+        """Test disconnect_usb_stick succeeds when Zapper is available."""
+        config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
+
+        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
+        mock_typecmux = mocker.patch.object(
+            ZapperConnector, "typecmux_set_state"
+        )
+
+        ZapperConnector.disconnect_usb_stick(config)
+
+        mock_wait_ready.assert_called_once_with("zapper-host")
+        mock_typecmux.assert_called_once_with("zapper-host", "OFF")
+
+    def test_disconnect_usb_stick_no_control_host(self, mocker):
+        """Test disconnect_usb_stick skips when no control_host."""
+        config = {"device_ip": "1.2.3.4"}
+
+        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
+        mock_typecmux = mocker.patch.object(
+            ZapperConnector, "typecmux_set_state"
+        )
+
+        ZapperConnector.disconnect_usb_stick(config)
+
+        mock_wait_ready.assert_not_called()
+        mock_typecmux.assert_not_called()
+
+    def test_disconnect_usb_stick_timeout_non_blocking(self, mocker):
+        """Test disconnect_usb_stick handles timeout gracefully."""
+        config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
+
+        mocker.patch.object(
+            ZapperConnector, "wait_ready", side_effect=TimeoutError
+        )
+        mock_typecmux = mocker.patch.object(
+            ZapperConnector, "typecmux_set_state"
+        )
+
+        # Should not raise
+        ZapperConnector.disconnect_usb_stick(config)
+
+        mock_typecmux.assert_not_called()
+
+    def test_disconnect_usb_stick_connection_error_non_blocking(self, mocker):
+        """Test disconnect_usb_stick handles connection error gracefully."""
+        config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
+
+        mocker.patch.object(
+            ZapperConnector, "wait_ready", side_effect=ConnectionError
+        )
+        mock_typecmux = mocker.patch.object(
+            ZapperConnector, "typecmux_set_state"
+        )
+
+        # Should not raise
+        ZapperConnector.disconnect_usb_stick(config)
+
+        mock_typecmux.assert_not_called()

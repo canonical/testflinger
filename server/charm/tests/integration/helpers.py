@@ -2,6 +2,7 @@
 
 import functools
 import logging
+import subprocess
 import time
 from pathlib import Path
 from urllib.parse import urlparse
@@ -118,3 +119,31 @@ def retry(retry_num: int, retry_sleep_sec: int) -> callable:
         return wrapper
 
     return decorator
+
+
+def get_k8s_ingress_ip(model: str, service_name: str) -> str:
+    """Get the external IP of a Kubernetes service LoadBalancer.
+
+    :param model: The Juju model.
+    :param service_name: The name of the Kubernetes service.
+    :return: The external IP address of the service.
+    """
+    try:
+        return subprocess.run(  # noqa: S603
+            [
+                "/snap/bin/kubectl",
+                "--namespace",
+                model,
+                "get",
+                "service",
+                service_name,
+                "-o",
+                "jsonpath={.status.loadBalancer.ingress[0].ip}",
+            ],
+            check=True,
+            text=True,
+            capture_output=True,
+        ).stdout.strip()
+    except subprocess.CalledProcessError as exc:
+        logger.error("Failed to get service IP: %s", exc)
+        raise
