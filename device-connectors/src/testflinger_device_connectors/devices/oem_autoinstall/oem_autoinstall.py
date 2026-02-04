@@ -54,8 +54,17 @@ class OemAutoinstall:
         try:
             self.copy_ssh_id()
         except subprocess.CalledProcessError:
-            self.hardreset()
-            self.check_device_booted()
+            try:
+                self.hardreset()
+                self.check_device_booted()
+            except RecoveryError as exc:
+                logger.error("Hardreset failed: %s", exc)
+                # Raising RecoveryError directly exists with error 46 and
+                # sets agent to Offline. This makes subsequent jobs fail.
+                # With ProvisioningError, we still exit but Agent stays online
+                raise ProvisioningError(
+                    "Recovery failed during provisioning stage"
+                ) from exc
 
         provision_data = self.job_data.get("provision_data", {})
         image_url = provision_data.get("url")
