@@ -14,6 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Ingress Integration tests for Testflinger Juju charm."""
 
+# TODO: Remove nginx route tests when migration to traefik route is completed
 import re
 from pathlib import Path
 
@@ -60,7 +61,7 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     )
 
     # Establish the nginx-route relation
-    juju.integrate(APP_NAME, INGRESS_NAME)
+    juju.integrate(f"{APP_NAME}:nginx-route", f"{INGRESS_NAME}:nginx-route")
     juju.wait(jubilant.all_active)
 
 
