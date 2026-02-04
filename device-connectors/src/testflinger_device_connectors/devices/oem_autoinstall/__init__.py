@@ -53,7 +53,7 @@ class DeviceConnector(DefaultDevice):
         ) and provision_data.get("zapper_iso_url")
 
         if not uses_zapper_iso:
-            self._disconnect_usb_stick(config)
+            ZapperConnector.disconnect_usb_stick(config)
 
         if provision_data.get("zapper_iso_type") or provision_data.get(
             "zapper_iso_url"
@@ -69,26 +69,6 @@ class DeviceConnector(DefaultDevice):
             logger.info("Provisioning device")
             device.provision()
             logger.info("END provision via oem_autoinstall")
-
-    def _disconnect_usb_stick(self, config: dict) -> None:
-        """Try to disconnect the USB stick.
-
-        This is a non-blocking operation - if the Zapper is not available,
-        we simply skip this step.
-
-        :param config: The device configuration.
-        """
-        control_host = config.get("control_host")
-        if not control_host:
-            return
-
-        try:
-            ZapperConnector.wait_ready(control_host)
-            ZapperConnector.typecmux_set_state(control_host, "OFF")
-        except (TimeoutError, ConnectionError, Exception) as e:
-            logger.debug(
-                "Could not disconnect USB stick on %s: %s", control_host, e
-            )
 
     def _load_config(self, config_path):
         """Load YAML config file and return as dict."""

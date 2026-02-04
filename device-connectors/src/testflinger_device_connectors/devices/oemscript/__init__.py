@@ -37,28 +37,10 @@ class DeviceConnector(DefaultDevice):
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
 
-        self._disconnect_usb_stick(config)
+        ZapperConnector.disconnect_usb_stick(config)
 
         device = OemScript(args.config, args.job_data)
         logger.info("BEGIN provision")
         logger.info("Provisioning device")
         device.provision()
         logger.info("END provision")
-
-    def _disconnect_usb_stick(self, config: dict) -> None:
-        """Try to disconnect the USB stick.
-
-        This is a non-blocking operation - if the Zapper is not available,
-        we simply skip this step.
-        """
-        control_host = config.get("control_host")
-        if not control_host:
-            return
-
-        try:
-            ZapperConnector.wait_ready(control_host)
-            ZapperConnector.typecmux_set_state(control_host, "OFF")
-        except (TimeoutError, ConnectionError, Exception) as e:
-            logger.debug(
-                "Could not disconnect USB stick on %s: %s", control_host, e
-            )

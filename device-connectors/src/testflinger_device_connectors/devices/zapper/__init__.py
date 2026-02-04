@@ -104,6 +104,27 @@ class ZapperConnector(ABC, DefaultDevice):
         connection.root.typecmux_set_state(alias="default", state=state)
         logger.info("Set typecmux state to %s on %s", state, host)
 
+    @staticmethod
+    def disconnect_usb_stick(config: Dict[str, Any]) -> None:
+        """Try to disconnect the USB stick.
+
+        This is a non-blocking operation - if the Zapper is not available,
+        we simply skip this step.
+
+        :param config: The device configuration dictionary.
+        """
+        control_host = config.get("control_host")
+        if not control_host:
+            return
+
+        try:
+            ZapperConnector.wait_ready(control_host)
+            ZapperConnector.typecmux_set_state(control_host, "OFF")
+        except (TimeoutError, ConnectionError, Exception) as e:
+            logger.debug(
+                "Could not disconnect USB stick on %s: %s", control_host, e
+            )
+
     def provision(self, args):
         """Provision device when the command is invoked."""
         super().provision(args)

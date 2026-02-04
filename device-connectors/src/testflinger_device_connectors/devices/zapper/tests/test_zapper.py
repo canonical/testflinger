@@ -201,3 +201,67 @@ class TestZapperConnectorTypecmux:
         mock_connection.root.typecmux_set_state.assert_called_once_with(
             alias="default", state="DUT"
         )
+
+
+class TestZapperConnectorDisconnectUsbStick:
+    """Tests for ZapperConnector USB stick disconnect functionality."""
+
+    def test_disconnect_usb_stick_success(self, mocker):
+        """Test disconnect_usb_stick succeeds when Zapper is available."""
+        config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
+
+        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
+        mock_typecmux = mocker.patch.object(
+            ZapperConnector, "typecmux_set_state"
+        )
+
+        ZapperConnector.disconnect_usb_stick(config)
+
+        mock_wait_ready.assert_called_once_with("zapper-host")
+        mock_typecmux.assert_called_once_with("zapper-host", "OFF")
+
+    def test_disconnect_usb_stick_no_control_host(self, mocker):
+        """Test disconnect_usb_stick skips when no control_host."""
+        config = {"device_ip": "1.2.3.4"}
+
+        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
+        mock_typecmux = mocker.patch.object(
+            ZapperConnector, "typecmux_set_state"
+        )
+
+        ZapperConnector.disconnect_usb_stick(config)
+
+        mock_wait_ready.assert_not_called()
+        mock_typecmux.assert_not_called()
+
+    def test_disconnect_usb_stick_timeout_non_blocking(self, mocker):
+        """Test disconnect_usb_stick handles timeout gracefully."""
+        config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
+
+        mocker.patch.object(
+            ZapperConnector, "wait_ready", side_effect=TimeoutError
+        )
+        mock_typecmux = mocker.patch.object(
+            ZapperConnector, "typecmux_set_state"
+        )
+
+        # Should not raise
+        ZapperConnector.disconnect_usb_stick(config)
+
+        mock_typecmux.assert_not_called()
+
+    def test_disconnect_usb_stick_connection_error_non_blocking(self, mocker):
+        """Test disconnect_usb_stick handles connection error gracefully."""
+        config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
+
+        mocker.patch.object(
+            ZapperConnector, "wait_ready", side_effect=ConnectionError
+        )
+        mock_typecmux = mocker.patch.object(
+            ZapperConnector, "typecmux_set_state"
+        )
+
+        # Should not raise
+        ZapperConnector.disconnect_usb_stick(config)
+
+        mock_typecmux.assert_not_called()
