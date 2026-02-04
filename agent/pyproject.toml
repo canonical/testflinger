@@ -26,10 +26,11 @@ charm = [
     "cosl",
     "gitpython==3.1.46",
     "jinja2==3.1.6",
-    "juju>=3.5.2.1",
-    "ops>=1.4.0",
+    "charmlibs-passwd==1.0.0",
+    "charmlibs-apt==1.0.0",
+    "jubilant>=1.6.2",
+    "ops[testing]",
     "pytest>=8.3.5",
-    "pytest-operator>=0.42.0",
 ]
 dev = [
     "pytest>=8.1.2",
@@ -46,6 +47,12 @@ test = [
 
 [tool.ruff]
 line-length = 79
+extend-exclude = ["charms/*/lib"]
+include = [
+    "src/**/*.py",
+    "tests/**/*.py",
+    "charms/**/*.py",
+]
 
 [tool.ruff.lint]
 select = [

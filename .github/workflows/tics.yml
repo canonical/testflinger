@@ -1,0 +1,93 @@
+name: TiCS
+permissions: {}
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 0 * * 0"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+
+jobs:
+  analyze:
+    name: TiCS Analysis
+    runs-on: [self-hosted, linux, amd64, tiobe, jammy]
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+      with:
+        persist-credentials: false
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pipx pkgconf libssl-dev build-essential
+    
+    - name: Install uv and set up Python
+      uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
+    # Require to install uv_build as we are not using venv managed by uv
+    - name: Install uv_build 
+      run: pip install uv_build
+
+    # Server
+    - name: Gather coverage (server)
+      working-directory: server
+      run: uvx tox run -e unit
+    - name: Install (server)
+      working-directory: server
+      run: |
+        uv export --no-emit-project --frozen --no-hashes --all-groups > requirements.txt
+        pip install -r requirements.txt
+
+    # CLI
+    - name: Gather coverage (cli)
+      working-directory: cli
+      run: uvx tox run -e unit
+    - name: Install (cli)
+      working-directory: cli
+      run: |
+        uv export --no-emit-project --frozen --no-hashes --all-groups > requirements.txt
+        pip install -r requirements.txt
+
+    # Agent
+    - name: Gather coverage (agent)
+      working-directory: agent
+      run: uvx tox run -e unit
+    - name: Install (agent)
+      working-directory: agent
+      run: |
+        uv export --no-emit-project --frozen --no-hashes --all-groups > requirements.txt
+        pip install -r requirements.txt
+
+    # Device Connectors
+    - name: Gather coverage (device-connectors)
+      working-directory: device-connectors
+      run: uvx tox run -e unit
+    - name: Install (device-connectors)
+      working-directory: device-connectors
+      run: |
+        uv export --no-emit-project --frozen --no-hashes --all-groups > requirements.txt
+        pip install -r requirements.txt
+
+    - name: Combine coverage
+      run: |
+        mkdir .coverage/
+        mv server/coverage.xml .coverage/server_coverage.xml
+        mv cli/coverage.xml .coverage/cli_coverage.xml
+        mv agent/coverage.xml .coverage/agent_coverage.xml
+        mv device-connectors/coverage.xml .coverage/device_connectors_coverage.xml
+
+    - name: Run TiCS Analysis
+      uses: tiobe/tics-github-action@768de18bedf164ee461bc9ef5e2f2fa1a20b122a # v3.7.0
+      with:
+        mode: qserver
+        project: testflinger
+        branchdir: .
+        viewerUrl: https://canonical.tiobe.com/tiobeweb/TICS/api/cfg?name=default
+        ticsAuthToken: ${{ secrets.TICSAUTHTOKEN }}
+        installTics: true

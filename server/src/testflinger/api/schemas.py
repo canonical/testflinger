@@ -151,6 +151,7 @@ class OEMAutoinstallProvisionData(Schema):
     authorized_keys = fields.String(required=False)
     zapper_iso_url = fields.String(required=False)
     zapper_iso_type = fields.String(required=False)
+    user_template_update = fields.Boolean(required=False)
 
 
 class OEMScriptProvisionData(Schema):
@@ -196,6 +197,7 @@ class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
 
     url = fields.URL(required=True)
     robot_tasks = fields.List(fields.String(), required=True)
+    robot_retries = fields.Integer(required=False)
     autoinstall_storage_layout = fields.String(required=False)
     ubuntu_sso_email = fields.Email(required=False)
     autoinstall_base_user_data = fields.String(required=False)
@@ -211,6 +213,7 @@ class ZapperKVMOEM2204ProvisionData(BaseZapperProvisionData):
 
     alloem_url = fields.URL(required=True)
     robot_tasks = fields.List(fields.String(), required=True)
+    robot_retries = fields.Integer(required=False)
     url = fields.URL(required=False)
     oem = fields.String(required=False)
 
@@ -223,6 +226,7 @@ class ZapperKVMGenericProvisionData(BaseZapperProvisionData):
 
     url = fields.URL(required=True)
     robot_tasks = fields.List(fields.String(), required=True)
+    robot_retries = fields.Integer(required=False)
     live_image = fields.Boolean(required=True)
     wait_until_ssh = fields.Boolean(required=True)
 
@@ -348,7 +352,7 @@ class Job(Schema):
     parent_job_id = fields.String(required=False)
     name = fields.String(required=False)
     tags = fields.List(fields.String(), required=False)
-    job_queue = fields.String(required=True)
+    job_queue = fields.String(required=True, validate=Length(min=1))
     global_timeout = fields.Integer(required=False)
     output_timeout = fields.Integer(required=False)
     allocation_timeout = fields.Integer(required=False)
@@ -363,6 +367,9 @@ class Job(Schema):
     reserve_data = fields.Nested(ReserveData, required=False)
     job_status_webhook = fields.String(required=False)
     job_priority = fields.Integer(required=False)
+    exclude_agents = fields.List(
+        fields.String(), required=False, load_default=list
+    )
     debug = fields.Boolean(required=False)
 
 

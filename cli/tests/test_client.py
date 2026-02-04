@@ -17,15 +17,16 @@
 """Unit tests for the Client class."""
 
 import logging
-from http import HTTPStatus
 import urllib.parse
 from datetime import datetime, timezone
+from http import HTTPStatus
 
 import pytest
 import requests
 
 from testflinger_cli.client import Client, HTTPError
 from testflinger_cli.enums import LogType, TestPhase
+
 from .test_cli import URL
 
 
@@ -282,7 +283,7 @@ def test_get_logs_error_handling(requests_mock):
 
     requests_mock.get(
         f"http://testflinger/v1/result/{job_id}/log/output?start_fragment=0",
-        status_code=404,
+        status_code=HTTPStatus.NOT_FOUND,
     )
 
     client = Client("http://testflinger")

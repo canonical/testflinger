@@ -88,8 +88,37 @@ it will be deferred until the agent is marked online.
 
 .. tip::
 
-   If you wish to change the status for multiple agents at the same time, you can define a list 
-   of the agents you want to change status e.g. ``--agents agent1 agent2 ... agentN``
+    If you wish to change the status for multiple agents at the same time, you can define a list 
+    of the agents you want to change status e.g. ``--agents agent1 agent2 ... agentN``
+
+Excluding Agents from Jobs
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When submitting a job, you can optionally specify a list of agents that should not run that job using the ``exclude_agents`` field in your job definition. This is useful in several scenarios:
+
+* Testing workarounds without certain agents
+* Avoiding agents known to have hardware or software issues
+* Preventing jobs from running on agents undergoing maintenance
+* Distributing testing across a subset of available agents
+
+When you exclude agents, the following applies:
+
+* Only agents listed in ``exclude_agents`` are prevented from running the job
+* Offline agents are automatically excluded (regardless of the ``exclude_agents`` list)
+* At least one available (online) agent must remain after applying exclusions
+* If all agents for a queue are excluded, the job submission will fail with an error message
+
+For example, to exclude agents named ``agent-1`` and ``agent-2`` from a job, add the following to your job definition:
+
+.. code-block:: yaml
+
+  job_queue: my-queue
+  exclude_agents:
+    - agent-1
+    - agent-2
+  # ... rest of job definition
+
+For more details on how to use this feature, see :doc:`../how-to/submit-job`.
 
 
 Set an Agent Online

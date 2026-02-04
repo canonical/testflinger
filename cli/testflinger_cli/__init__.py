@@ -43,6 +43,7 @@ from testflinger_cli import (
     client,
     config,
     consts,
+    errors,
     helpers,
     history,
 )
@@ -448,15 +449,18 @@ class TestflingerCli:
 
     def status(self):
         """Show the status of a specified JOB_ID."""
-        job_state = self.get_job_state(self.args.job_id)["job_state"]
-        if job_state != "unknown":
-            self.history.update(self.args.job_id, job_state)
-            print(job_state)
-        else:
-            print(
-                "Unable to retrieve job state from the server, check your "
-                "connection or try again later."
-            )
+        try:
+            job_state = self.get_job_state(self.args.job_id)["job_state"]
+            if job_state != "unknown":
+                self.history.update(self.args.job_id, job_state)
+                print(job_state)
+            else:
+                print(
+                    "Unable to retrieve job state from the server, check your "
+                    "connection or try again later."
+                )
+        except (errors.NoJobDataError, errors.InvalidJobIdError) as exc:
+            sys.exit(str(exc))
 
     def agent_status(self):
         """Show the status of a specified agent."""
@@ -764,7 +768,11 @@ class TestflingerCli:
             queue = job_dict["job_queue"]
         except KeyError:
             sys.exit("Error: Queue was not specified in job")
-        self.check_online_agents_available(queue)
+
+        exclude_agents = job_dict.get("exclude_agents", [])
+        if not (isinstance(exclude_agents, list)):
+            sys.exit("Error: exclude_agents must be a list if provided.")
+        self.check_online_agents_available(queue, exclude_agents)
 
         attachments_data = self.extract_attachment_data(job_dict)
         if attachments_data is None:
@@ -797,7 +805,7 @@ class TestflingerCli:
         if self.args.poll:
             self.do_poll(job_id)
 
-    def check_online_agents_available(self, queue: str):
+    def check_online_agents_available(self, queue: str, exclude_agents: list):
         """Exit or warn if no online agents available for a specified queue."""
         try:
             agents = self.client.get_agents_on_queue(queue)
@@ -806,22 +814,51 @@ class TestflingerCli:
                 sys.exit(exc.msg)
             agents = []
         online_agents = [
-            agent for agent in agents if agent["state"] != "offline"
+            agent
+            for agent in agents
+            if agent["state"] != "offline"
+            and agent["name"] not in exclude_agents
         ]
         if len(online_agents) > 0:
             # If there are online agents, then we can proceed
             return
+        message = f"No online agents available for queue {queue}. "
         if not self.args.wait_for_available_agents:
-            print(
-                f"ERROR: No online agents available for queue {queue}. "
-                "If you want to wait for agents to become available, use the "
-                "--wait-for-available-agents option."
+            message = f"ERROR: {message}"
+            # Since we're not waiting, we need to produce a good error message
+            # to assist in understanding why the job cannot be queued.
+            message += (
+                "If you want to wait for agents to become available, "
+                "use the --wait-for-available-agents option."
             )
+
+            # If some of the agents in the queue are excluded, let the user
+            # known, in case this is not intended.
+            online_excluded_agents = [
+                agent
+                for agent in agents
+                if agent["state"] != "offline"
+                and agent["name"] in exclude_agents
+            ]
+            print(agents)
+            print(exclude_agents)
+            print(online_excluded_agents)
+            if online_excluded_agents:
+                message += (
+                    "\nAdditionally, the following agents ARE online, "
+                    "but they have been excluded from running this job in the "
+                    "job definition file:"
+                )
+                for agent in online_excluded_agents:
+                    message += f"\n\t- {agent['name']}"
+            print(message)
             sys.exit(1)
-        print(
-            f"WARNING: No online agents available for queue {queue}. "
-            "Waiting for agents to become available..."
+
+        # else, wait_for_available_agents is set:
+        message = (
+            f"WARNING: {message} Waiting for agents to become available..."
         )
+        print(message)
 
     def submit_job_data(self, data: dict):
         """Submit data that was generated or read from a file as a test job."""
@@ -1083,7 +1120,10 @@ class TestflingerCli:
         start_timestamp = getattr(self.args, "start_timestamp", None)
         phase = getattr(self.args, "phase", None)
 
-        job_state_data = self.get_job_state(job_id)
+        try:
+            job_state_data = self.get_job_state(job_id)
+        except (errors.NoJobDataError, errors.InvalidJobIdError) as exc:
+            sys.exit(str(exc))
         job_state = job_state_data["job_state"]
         self.history.update(job_id, job_state)
         prev_queue_pos = None
@@ -1146,6 +1186,9 @@ class TestflingerCli:
                                 f"of it in the queue are complete"
                             )
                 time.sleep(10)
+            except (errors.NoJobDataError, errors.InvalidJobIdError):
+                # Job-specific errors should exit immediately
+                raise
             except (IOError, client.HTTPError):
                 # Ignore/retry or debug any connection errors or timeouts
                 if self.args.debug:
@@ -1177,8 +1220,17 @@ class TestflingerCli:
             if self.args.status:
                 job_state = jobdata.get("job_state")
                 if job_state not in ("cancelled", "complete", "completed"):
-                    job_state = self.get_job_state(job_id)["job_state"]
-                    self.history.update(job_id, job_state)
+                    try:
+                        job_state = self.get_job_state(job_id)["job_state"]
+                        self.history.update(job_id, job_state)
+                    except (
+                        errors.NoJobDataError,
+                        errors.InvalidJobIdError,
+                        IOError,
+                        ValueError,
+                    ):
+                        # Handle errors gracefully for job listings
+                        job_state = "unknown"
             else:
                 job_state = ""
             timestamp = datetime.fromtimestamp(
@@ -1216,7 +1268,7 @@ class TestflingerCli:
         ):
             logger.error("'%s' is not in the list of known images", image)
         if image.startswith(("http://", "https://")):
-            image = "url: " + image
+            image = f"url: {image}"
         else:
             image = images[image]
         ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
@@ -1263,22 +1315,21 @@ class TestflingerCli:
         """Return the job state for the specified job_id.
 
         :param job_id: Job ID
-        :raises SystemExit: Exit with HTTP error code
+        :raises NoJobDataError: When HTTP 204 (no data found)
+        :raises InvalidJobIdError: When HTTP 400 (invalid job ID)
+        :raises IOError: When network error occurs
+        :raises ValueError: When response cannot be parsed
         :return: Job and phase statuses
         """
         try:
             return self.client.get_status(job_id)
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.NO_CONTENT:
-                sys.exit(
-                    "No data found for that job id. Check the "
-                    "job id to be sure it is correct"
-                )
+                raise errors.NoJobDataError() from exc
             if exc.status == HTTPStatus.BAD_REQUEST:
-                sys.exit(
-                    "Invalid job id specified. Check the job id "
-                    "to be sure it is correct"
-                )
+                raise errors.InvalidJobIdError() from exc
+            # For other HTTP errors, log and return unknown state
+            logger.debug("HTTP error retrieving job state: %s", exc)
         except (IOError, ValueError) as exc:
             # For other types of network errors, or JSONDecodeError if we got
             # a bad return from get_status()

@@ -547,6 +547,12 @@ def test_job_get_with_secrets(app_with_store):
     )
     assert submit_response.status_code == HTTPStatus.OK
 
+    # Note: agents must register before they can be issued work:
+    app_with_store.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
+
     # WHEN: a job is retrieved from the queue
     response = app_with_store.get("/v1/job?queue=test")
 
@@ -594,6 +600,12 @@ def test_job_get_with_inaccessible_secrets(app_with_store):
 
     mock_secrets_store.read.side_effect = mock_read_mixed
 
+    # Note: agents must register before they can be issued work:
+    app_with_store.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
+
     # WHEN: a job is retrieved from the queue
     response = app_with_store.get("/v1/job?queue=test")
 
@@ -618,6 +630,12 @@ def test_job_get_without_secrets(app_with_store):
         "/v1/job", json=job_data, headers={"Authorization": f"Bearer {token}"}
     )
     assert submit_response.status_code == HTTPStatus.OK
+
+    # Note: agents must register before they can be issued work:
+    app_with_store.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
 
     # WHEN: a job is retrieved from the queue
     response = app_with_store.get("/v1/job?queue=test")
@@ -653,6 +671,12 @@ def test_job_get_with_secrets_no_store(testapp):
         }
     )
 
+    # Note: agents must register before they can be issued work:
+    app_client.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
+
     # WHEN: a job is retrieved from the queue
     response = app_client.get("/v1/job?queue=test")
 
@@ -682,6 +706,12 @@ def test_job_get_with_missing_client_id(app_with_store):
             "result_data": {"job_state": "waiting"},
             "job_priority": 0,
         }
+    )
+
+    # Note: agents must register before they can be issued work:
+    app_with_store.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
     )
 
     # WHEN: a job is retrieved from the queue

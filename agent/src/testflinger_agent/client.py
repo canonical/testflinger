@@ -19,6 +19,7 @@ import shutil
 import tempfile
 import time
 from dataclasses import asdict, dataclass
+from http import HTTPStatus
 from pathlib import Path
 from typing import Dict, List
 from urllib.parse import urljoin
@@ -26,9 +27,10 @@ from urllib.parse import urljoin
 import requests
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
+from requests import HTTPError
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
 from testflinger_common.enums import LogType
+from urllib3.util import Retry
 
 from testflinger_agent.errors import TFServerError
 
@@ -55,7 +57,7 @@ class TestflingerClient:
             "server_address", "https://testflinger.canonical.com"
         )
         if not self.server.lower().startswith("http"):
-            self.server = "http://" + self.server
+            self.server = f"http://{self.server}"
         self.session = self._requests_retry(retries=5)
         self.influx_agent_db = "agent_jobs"
         self.influx_client = self._configure_influx()
@@ -124,14 +126,21 @@ class TestflingerClient:
             job_request = self.session.get(
                 job_uri, params={"queue": queue_list}, timeout=30
             )
-            if job_request.content:
-                return job_request.json()
-            else:
+            job_request.raise_for_status()
+        except HTTPError as exc:
+            if exc.response.status_code == HTTPStatus.UNAUTHORIZED:
+                # Re-register the agent to authenticate it.
+                self.post_agent_data({"job_id": ""})
                 return None
+            logger.error(exc)
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
             # Wait a little extra before trying again
             time.sleep(60)
+        else:
+            if job_request.content:
+                return job_request.json()
+            return None
 
     def get_attachments(self, job_id: str, path: Path):
         """Download the attachment archive associated with a job.
@@ -294,7 +303,7 @@ class TestflingerClient:
             artifact_uri = urljoin(
                 self.server, "/v1/result/{}/artifact".format(job_id)
             )
-            with open(artifact_file + ".tar.gz", "rb") as tarball:
+            with open(f"{artifact_file}.tar.gz", "rb") as tarball:
                 file_upload = {"file": ("file", tarball, "application/x-gzip")}
                 artifact_request = self.session.post(
                     artifact_uri, files=file_upload, timeout=600

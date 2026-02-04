@@ -35,7 +35,10 @@ dependencies = [
 client_credentials_admin = "testflinger.tools.client_credentials_admin:main"
 
 [dependency-groups]
-charm = ["ops>=2.2.0"]
+charm = [
+    "jubilant>=1.6.2",
+    "ops[testing]",
+]
 dev = [
     "cosl>=0.0.57",
     "djlint>=1.36.4",
@@ -52,6 +55,12 @@ dev = [
 [tool.ruff]
 line-length = 79
 extend-exclude = ["charm/lib"]
+include = [
+  "app.py",
+  "src/**/*.py",
+  "charm/**/*.py",
+  "tests/**/*.py",
+]
 
 [tool.ruff.lint]
 select = [

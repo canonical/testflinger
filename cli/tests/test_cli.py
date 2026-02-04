@@ -26,6 +26,7 @@ import time
 import uuid
 from http import HTTPStatus
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import requests
@@ -35,7 +36,11 @@ from requests_mock import Mocker
 import testflinger_cli
 from testflinger_cli.client import HTTPError
 from testflinger_cli.enums import LogType
-from testflinger_cli.errors import NetworkError
+from testflinger_cli.errors import (
+    InvalidJobIdError,
+    NetworkError,
+    NoJobDataError,
+)
 
 URL = "https://testflinger.canonical.com"
 
@@ -44,19 +49,20 @@ def test_status(capsys, requests_mock):
     """Status should report job_state data."""
     jobid = str(uuid.uuid1())
     fake_return = {"job_state": "completed"}
-    requests_mock.get(URL + "/v1/result/" + jobid, json=fake_return)
+    requests_mock.get(f"{URL}/v1/result/{jobid}", json=fake_return)
     sys.argv = ["", "status", jobid]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.status()
     std = capsys.readouterr()
     assert std.out == "completed\n"
 
+
 def test_cancel_503(requests_mock):
     """Cancel should fail loudly if cancel action returns 503."""
     jobid = str(uuid.uuid1())
     requests_mock.post(
-        URL + "/v1/job/" + jobid + "/action",
-        status_code=503,
+        f"{URL}/v1/job/{jobid}/action",
+        status_code=HTTPStatus.SERVICE_UNAVAILABLE,
     )
     sys.argv = ["", "cancel", jobid]
     tfcli = testflinger_cli.TestflingerCli()
@@ -69,8 +75,8 @@ def test_cancel(requests_mock):
     """Cancel should fail if /v1/job/<job_id>/action URL returns 400 code."""
     jobid = str(uuid.uuid1())
     requests_mock.post(
-        URL + "/v1/job/" + jobid + "/action",
-        status_code=400,
+        f"{URL}/v1/job/{jobid}/action",
+        status_code=HTTPStatus.BAD_REQUEST,
     )
     sys.argv = ["", "cancel", jobid]
     tfcli = testflinger_cli.TestflingerCli()
@@ -86,9 +92,9 @@ def test_submit(capsys, tmp_path, requests_mock):
     testfile = tmp_path / "test.json"
     testfile.write_text(json.dumps(fake_data))
     fake_return = {"job_id": jobid}
-    requests_mock.post(URL + "/v1/job", json=fake_return)
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
     requests_mock.get(
-        URL + "/v1/queues/fake/agents",
+        f"{URL}/v1/queues/fake/agents",
         json=[{"name": "fake_agent", "state": "waiting"}],
     )
     sys.argv = ["", "submit", str(testfile)]
@@ -98,15 +104,72 @@ def test_submit(capsys, tmp_path, requests_mock):
     assert jobid in std.out
 
 
+def test_submit_some_agents_excluded(capsys, tmp_path, requests_mock):
+    """
+    Make sure job is submitted if there is at least one available agent with
+    excluded_agents specified.
+    """
+    jobid = str(uuid.uuid1())
+    fake_data = {
+        "job_queue": "fake",
+        "provision_data": {"distro": "fake"},
+        "exclude_agents": ["fake_agent"],
+    }
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[
+            {"name": "fake_agent", "state": "waiting"},
+            {"name": "fake_agent_2", "state": "waiting"},
+        ],
+    )
+    sys.argv = ["", "submit", str(testfile)]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.run()
+    std = capsys.readouterr()
+    assert jobid in std.out
+
+
+def test_submit_exclude_agents_is_a_list(capsys, tmp_path, requests_mock):
+    """Make sure proper error is generated if exclude_agents is not a list."""
+    jobid = str(uuid.uuid1())
+    fake_data = {
+        "job_queue": "fake",
+        "provision_data": {"distro": "fake"},
+        "exclude_agents": "fake_agent",
+    }
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[
+            {"name": "fake_agent", "state": "waiting"},
+            {"name": "fake_agent_2", "state": "waiting"},
+        ],
+    )
+    sys.argv = ["", "submit", str(testfile)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as err:
+        tfcli.run()
+    assert (
+        "Error: exclude_agents must be a list if provided." in err.value.code
+    )
+
+
 def test_submit_stdin(capsys, monkeypatch, requests_mock):
     """Make sure jobid is read back from submitted job via stdin."""
     jobid = str(uuid.uuid1())
     fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(fake_data)))
     fake_return = {"job_id": jobid}
-    requests_mock.post(URL + "/v1/job", json=fake_return)
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
     requests_mock.get(
-        URL + "/v1/queues/fake/agents",
+        f"{URL}/v1/queues/fake/agents",
         json=[{"name": "fake_agent", "state": "waiting"}],
     )
     sys.argv = ["", "submit", "-"]
@@ -122,9 +185,13 @@ def test_submit_bad_data(tmp_path, requests_mock):
     testfile = tmp_path / "test.json"
     testfile.write_text(json.dumps(fake_data))
     # return 422 and "expected error"
-    requests_mock.post(URL + "/v1/job", status_code=422, text="expected error")
+    requests_mock.post(
+        f"{URL}/v1/job",
+        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        text="expected error",
+    )
     requests_mock.get(
-        URL + "/v1/queues/fake/agents",
+        f"{URL}/v1/queues/fake/agents",
         json=[{"name": "fake_agent", "state": "waiting"}],
     )
     sys.argv = ["", "submit", str(testfile)]
@@ -493,7 +560,7 @@ def test_show(capsys, requests_mock):
     """Exercise show command."""
     jobid = str(uuid.uuid1())
     fake_return = {"job_state": "completed"}
-    requests_mock.get(URL + "/v1/job/" + jobid, json=fake_return)
+    requests_mock.get(f"{URL}/v1/job/{jobid}", json=fake_return)
     sys.argv = ["", "show", jobid]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.show()
@@ -505,7 +572,7 @@ def test_show_yaml(capsys, requests_mock):
     """Exercise show command."""
     jobid = str(uuid.uuid1())
     fake_return = {"job_state": "completed"}
-    requests_mock.get(URL + "/v1/job/" + jobid, json=fake_return)
+    requests_mock.get(f"{URL}/v1/job/{jobid}", json=fake_return)
     sys.argv = ["", "show", jobid, "--yaml"]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.show()
@@ -517,7 +584,7 @@ def test_results(capsys, requests_mock):
     """Results should report job_state data."""
     jobid = str(uuid.uuid1())
     fake_return = {"job_state": "completed"}
-    requests_mock.get(URL + "/v1/result/" + jobid, json=fake_return)
+    requests_mock.get(f"{URL}/v1/result/{jobid}", json=fake_return)
     sys.argv = ["", "results", jobid]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.results()
@@ -540,7 +607,7 @@ def test_list_queues(capsys, requests_mock):
 def test_list_queues_connection_error(caplog, requests_mock):
     """list_queues should report queues."""
     requests_mock.get(
-        URL + "/v1/agents/queues", status_code=HTTPStatus.NOT_FOUND
+        f"{URL}/v1/agents/queues", status_code=HTTPStatus.NOT_FOUND
     )
     sys.argv = ["", "list-queues"]
     tfcli = testflinger_cli.TestflingerCli()
@@ -565,6 +632,42 @@ def test_submit_no_agents_fails(capsys, tmp_path, requests_mock):
     )
 
 
+def test_submit_no_agents_fails_excluded(capsys, tmp_path, requests_mock):
+    """
+    Test that submitting a job where the only online agents are excluded from
+    running the job fails appropriately.
+    """
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[
+            {"name": "fake_agent", "state": "waiting"},
+            {"name": "fake_agent_2", "state": "waiting"},
+            {"name": "fake_agent_3", "state": "waiting"},
+        ],
+    )
+    fake_data = {
+        "job_queue": "fake",
+        "provision_data": {"distro": "fake"},
+        "exclude_agents": [
+            "fake_agent",
+            "fake_agent_2",
+            "fake_agent_3",
+            "fake_agent_4",
+        ],
+    }
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.submit()
+    assert exc_info.value.code == 1
+    assert (
+        "ERROR: No online agents available for queue fake"
+        in capsys.readouterr().out
+    )
+
+
 def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
     """
     Test that submitting a job without online agents succeeds with
@@ -572,9 +675,9 @@ def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
     """
     jobid = str(uuid.uuid1())
     fake_return = {"job_id": jobid}
-    requests_mock.post(URL + "/v1/job", json=fake_return)
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
     requests_mock.get(
-        URL + "/v1/queues/fake/agents",
+        f"{URL}/v1/queues/fake/agents",
         json=[],
     )
     fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
@@ -887,7 +990,7 @@ def test_poll_with_phase_filter(requests_mock):
         }
     }
     requests_mock.get(
-        URL + f"/v1/result/{job_id}/log/output?start_fragment=0&phase=provision",
+        f"{URL}/v1/result/{job_id}/log/output?start_fragment=0&phase=provision",
         json=mock_response,
     )
 
@@ -928,7 +1031,7 @@ def test_agent_status(capsys, requests_mock):
         "provision_streak_count": 1,
         "provision_streak_type": "pass",
     }
-    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
     sys.argv = ["", "agent-status", fake_agent]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.agent_status()
@@ -946,7 +1049,7 @@ def test_agent_status_json(capsys, requests_mock):
         "provision_streak_count": 1,
         "provision_streak_type": "pass",
     }
-    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
     sys.argv = ["", "agent-status", fake_agent, "--json"]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.agent_status()
@@ -988,11 +1091,9 @@ def test_queue_status(capsys, requests_mock):
     ]
 
     requests_mock.get(
-        URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
+        f"{URL}/v1/queues/{fake_queue}/agents", json=fake_queue_data
     )
-    requests_mock.get(
-        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
-    )
+    requests_mock.get(f"{URL}/v1/queues/{fake_queue}/jobs", json=fake_job_data)
     sys.argv = ["", "queue-status", fake_queue]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.queue_status()
@@ -1033,11 +1134,9 @@ def test_queue_status_verbose(capsys, requests_mock):
     ]
 
     requests_mock.get(
-        URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
+        f"{URL}/v1/queues/{fake_queue}/agents", json=fake_queue_data
     )
-    requests_mock.get(
-        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
-    )
+    requests_mock.get(f"{URL}/v1/queues/{fake_queue}/jobs", json=fake_job_data)
     sys.argv = ["", "queue-status", "--verbose", fake_queue]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.queue_status()
@@ -1080,11 +1179,9 @@ def test_queue_status_json(capsys, requests_mock):
     ]
 
     requests_mock.get(
-        URL + "/v1/queues/" + fake_queue + "/agents", json=fake_queue_data
+        f"{URL}/v1/queues/{fake_queue}/agents", json=fake_queue_data
     )
-    requests_mock.get(
-        URL + "/v1/queues/" + fake_queue + "/jobs", json=fake_job_data
-    )
+    requests_mock.get(f"{URL}/v1/queues/{fake_queue}/jobs", json=fake_job_data)
     sys.argv = ["", "queue-status", "--json", fake_queue]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.queue_status()
@@ -1105,7 +1202,7 @@ def test_queue_status_empty_queue(capsys, requests_mock):
     fake_queue = "empty"
 
     requests_mock.get(
-        URL + "/v1/queues/" + fake_queue + "/agents",
+        f"{URL}/v1/queues/{fake_queue}/agents",
         status_code=HTTPStatus.NO_CONTENT,
     )
     sys.argv = ["", "queue-status", fake_queue]
@@ -1121,7 +1218,7 @@ def test_queue_status_nonexistent_queue(requests_mock):
     fake_queue = "nonexistent"
 
     requests_mock.get(
-        URL + "/v1/queues/" + fake_queue + "/agents",
+        f"{URL}/v1/queues/{fake_queue}/agents",
         status_code=HTTPStatus.NOT_FOUND,
         text=f"Queue '{fake_queue}' does not exist.",
     )
@@ -1162,9 +1259,9 @@ def test_submit_with_poll_integration(tmp_path, requests_mock, monkeypatch):
     testfile.write_text(json.dumps(fake_data))
 
     fake_return = {"job_id": jobid}
-    requests_mock.post(URL + "/v1/job", json=fake_return)
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
     requests_mock.get(
-        URL + "/v1/queues/fake/agents",
+        f"{URL}/v1/queues/fake/agents",
         json=[{"name": "fake_agent", "state": "waiting"}],
     )
 
@@ -1278,6 +1375,7 @@ def test_live_polling_with_fragments_progression(
     # Should have slept between iterations
     assert len(sleep_calls) >= 2
 
+
 def test_live_polling_with_empty_poll(capsys, requests_mock, monkeypatch):
     """Test that live output handles empty polls correctly."""
     job_id = str(uuid.uuid1())
@@ -1325,6 +1423,7 @@ def test_live_polling_with_empty_poll(capsys, requests_mock, monkeypatch):
     captured = capsys.readouterr()
     assert "Waiting on output..." in captured.err
     assert len(sleep_calls) >= 9
+
 
 def test_live_polling_by_phase(capsys, requests_mock, monkeypatch):
     """Test live polling by phase exits when target phase completes."""
@@ -1405,6 +1504,7 @@ def test_live_polling_by_phase(capsys, requests_mock, monkeypatch):
     assert "Running tests..." in captured.out
     assert "Tests passed!" in captured.out
 
+
 def test_get_job_state_network_error(requests_mock):
     """Test get_job_state returns dict on network errors."""
     jobid = str(uuid.uuid1())
@@ -1463,3 +1563,263 @@ def test_poll_exponential_backoff_on_network_errors(
     assert sleep_calls[2] == 8  # 2^3 = 8
     assert sleep_calls[3] == 16  # 2^4 = 16
     assert sleep_calls[4] == 32  # 2^5 = 32
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_status_with_bad_request_error(mock_get_status):
+    """Test status command exits with error message on HTTPError 400.
+
+    Exercises get_job_state() raising InvalidJobIdError.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.status()
+
+    assert "Invalid job id specified" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_status_with_no_content_error(mock_get_status):
+    """Test status command exits with error message on HTTPError 204.
+
+    When get_job_state() encounters a 204 No Content response, it raises
+    NoJobDataError, which status() catches and exits with an error message.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.NO_CONTENT, msg="No content"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.status()
+
+    assert "No data found for that job id" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_get_job_state_other_http_error(mock_get_status):
+    """Test get_job_state returns unknown state on HTTPError (non 204/400).
+
+    When get_job_state() encounters an HTTP error that's not 204 or 400,
+    it logs the error and returns {"job_state": "unknown"}.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.INTERNAL_SERVER_ERROR, msg="Server error"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Should return unknown state without exiting
+    result = tfcli.get_job_state(jobid)
+    assert result == {"job_state": "unknown"}
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_get_job_state_success(mock_get_status):
+    """Test get_job_state returns status dict on successful call.
+
+    When client.get_status() succeeds, get_job_state() returns the status
+    dict directly without modification.
+    """
+    expected_status = {
+        "job_state": "active",
+        "setup_status": 0,
+        "provision_status": 0,
+        "test_status": None,
+    }
+
+    mock_get_status.return_value = expected_status
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Should return the status dict from client.get_status()
+    result = tfcli.get_job_state(jobid)
+    assert result == expected_status
+    assert result["job_state"] == "active"
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_get_job_state_raises_no_job_data_error(mock_get_status):
+    """Test get_job_state raises NoJobDataError on HTTPError 204.
+
+    When client.get_status() returns HTTP 204 No Content, get_job_state()
+    raises NoJobDataError with a user-friendly error message.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.NO_CONTENT, msg="No content"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(NoJobDataError) as exc_info:
+        tfcli.get_job_state(jobid)
+
+    assert "No data found for that job id" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_get_job_state_raises_invalid_job_id_error(mock_get_status):
+    """Test get_job_state raises InvalidJobIdError on HTTPError 400.
+
+    When client.get_status() returns HTTP 400 Bad Request, get_job_state()
+    raises InvalidJobIdError with a user-friendly error message.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(InvalidJobIdError) as exc_info:
+        tfcli.get_job_state(jobid)
+
+    assert "Invalid job id specified" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_poll_with_bad_request_error(mock_get_status):
+    """Test poll command exits cleanly on HTTPError 400.
+
+    Verifies do_poll() exits with a user-friendly error message when
+    get_job_state() raises InvalidJobIdError (preserves original behavior).
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
+    )
+
+    job_id = str(uuid.uuid1())
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Original behavior: exits with clean error message
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.do_poll(job_id)
+
+    assert "Invalid job id specified" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_poll_with_no_content_error(mock_get_status):
+    """Test poll command exits cleanly on HTTPError 204.
+
+    Verifies do_poll() exits with a user-friendly error message when
+    get_job_state() raises NoJobDataError (preserves original behavior).
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.NO_CONTENT, msg="No content"
+    )
+
+    job_id = str(uuid.uuid1())
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Original behavior: exits with clean error message
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.do_poll(job_id)
+
+    assert "No data found for that job id" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_jobs_with_get_status_scenarios(mock_get_status, capsys):
+    """Test jobs() with various get_status response scenarios.
+
+    Ensures that the jobs list, with the --status flag, completes in the event
+    of various get_status outcomes. Exercises jobs() and get_job_state().
+    """
+    # Create jobs with different scenarios to test the branches in get_status
+    job_ids = [str(uuid.uuid1()) for _ in range(5)]
+    submission_time = time.time()
+
+    history_data = {
+        job_ids[0]: {
+            # Job complete: already cached, won't call get_status
+            "submission_time": submission_time,
+            "queue": "queue-1",
+            "job_state": "completed",
+        },
+        job_ids[1]: {
+            # HTTPError 400 (BAD_REQUEST)
+            "submission_time": submission_time,
+            "queue": "queue-2",
+        },
+        job_ids[2]: {
+            # HTTPError 204 (NO_CONTENT)
+            "submission_time": submission_time,
+            "queue": "queue-3",
+        },
+        job_ids[3]: {
+            # IOError
+            "submission_time": submission_time,
+            "queue": "queue-4",
+        },
+        job_ids[4]: {
+            # Success
+            "submission_time": submission_time,
+            "queue": "queue-5",
+        },
+    }
+
+    # Mock get_status to return different scenarios
+    def side_effect(job_id):
+        if job_id == job_ids[1]:
+            raise HTTPError(
+                status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
+            )
+        elif job_id == job_ids[2]:
+            raise HTTPError(status=HTTPStatus.NO_CONTENT, msg="No content")
+        elif job_id == job_ids[3]:
+            raise IOError("Connection lost")
+        elif job_id == job_ids[4]:
+            return {"job_state": "active"}
+
+    mock_get_status.side_effect = side_effect
+
+    sys.argv = ["", "jobs", "--status"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.args.status = True
+    tfcli.history.history = history_data
+
+    tfcli.jobs()
+
+    captured = capsys.readouterr()
+    # Verify all jobs are shown despite various error scenarios
+    # and that their statuses are correct
+
+    # job_ids[0]: cached "completed" status
+    assert job_ids[0] in captured.out
+    assert "completed" in captured.out.split(job_ids[0])[1].split("\n")[0]
+
+    # job_ids[1]: BAD_REQUEST error should result in "unknown" status
+    assert job_ids[1] in captured.out
+    assert "unknown" in captured.out.split(job_ids[1])[1].split("\n")[0]
+
+    # job_ids[2]: NO_CONTENT error should result in "unknown" status
+    assert job_ids[2] in captured.out
+    assert "unknown" in captured.out.split(job_ids[2])[1].split("\n")[0]
+
+    # job_ids[3]: IOError should result in "unknown" status
+    assert job_ids[3] in captured.out
+    assert "unknown" in captured.out.split(job_ids[3])[1].split("\n")[0]
+
+    # job_ids[4]: successful get_status returns "active"
+    assert job_ids[4] in captured.out
+    assert "active" in captured.out.split(job_ids[4])[1].split("\n")[0]
