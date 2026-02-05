@@ -910,7 +910,7 @@ def test_poll_serial_oneshot(capsys, requests_mock):
         }
     }
     requests_mock.get(
-        URL + f"/v1/result/{job_id}/log/serial_output?start_fragment=0",
+        URL + f"/v1/result/{job_id}/log/serial?start_fragment=0",
         json=mock_response,
     )
 
@@ -1010,7 +1010,7 @@ def test_poll_serial(capsys, requests_mock):
         }
     }
     requests_mock.get(
-        URL + f"/v1/result/{job_id}/log/serial_output?start_fragment=0",
+        URL + f"/v1/result/{job_id}/log/serial?start_fragment=0",
         json=mock_response,
     )
     sys.argv = ["", "poll-serial", "--oneshot", job_id]
