@@ -30,7 +30,6 @@ import yaml
 
 from testflinger_device_connectors.devices import (
     ProvisioningError,
-    RecoveryError,
 )
 
 logger = logging.getLogger(__name__)
@@ -227,7 +226,7 @@ class OemAutoinstall:
             try:
                 subprocess.check_call(cmd.split(), timeout=120)
             except subprocess.SubprocessError as exc:
-                raise ProvisioningError("Error running reboot script!") from exc
+                raise ProvisioningError("Error running reboot script") from exc
 
     def check_device_booted(self):
         """Check to see if the device is booted and reachable with ssh."""
