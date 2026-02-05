@@ -16,7 +16,7 @@ dependencies = [
   "xdg-base-dirs>=6.0.2",
 ]
 dynamic = ["version"]
-requires-python = ">= 3.10"
+requires-python = ">=3.10"
 
 [project.scripts]
 testflinger-cli = "testflinger_cli:cli"
