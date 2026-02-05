@@ -1,7 +1,7 @@
 FROM ubuntu:22.04
 
 # Set up uv
-COPY --from=ghcr.io/astral-sh/uv:0.9.29 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.9.30 /uv /uvx /bin/
 ENV UV_SYSTEM_PYTHON=true \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
