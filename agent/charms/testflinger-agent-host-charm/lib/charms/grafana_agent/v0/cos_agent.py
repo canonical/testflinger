@@ -306,7 +306,9 @@ _tracing_receivers_ports = {
     "zipkin": 9411,
 }
 
-ReceiverProtocol = Literal["otlp_grpc", "otlp_http", "zipkin", "jaeger_thrift_http", "jaeger_grpc"]
+ReceiverProtocol = Literal[
+    "otlp_grpc", "otlp_http", "zipkin", "jaeger_thrift_http", "jaeger_grpc"
+]
 
 
 class TracingError(Exception):
@@ -375,7 +377,9 @@ if int(pydantic.version.VERSION.split(".")[0]) < 2:  # type: ignore
                 logger.debug(msg, exc_info=True)
                 raise DataValidationError(msg) from e
 
-        def dump(self, databag: Optional[MutableMapping] = None, clear: bool = True):
+        def dump(
+            self, databag: Optional[MutableMapping] = None, clear: bool = True
+        ):
             """Write the contents of this model to Juju databag.
 
             :param databag: the databag to write the data to.
@@ -442,7 +446,9 @@ else:
                 logger.debug(msg, exc_info=True)
                 raise DataValidationError(msg) from e
 
-        def dump(self, databag: Optional[MutableMapping] = None, clear: bool = True):
+        def dump(
+            self, databag: Optional[MutableMapping] = None, clear: bool = True
+        ):
             """Write the contents of this model to Juju databag.
 
             :param databag: the databag to write the data to.
@@ -582,7 +588,9 @@ else:
 class Receiver(pydantic.BaseModel):
     """Specification of an active receiver."""
 
-    protocol: ProtocolType = pydantic.Field(..., description="Receiver protocol name and type.")
+    protocol: ProtocolType = pydantic.Field(
+        ..., description="Receiver protocol name and type."
+    )
     url: Optional[str] = pydantic.Field(
         ...,
         description="""URL at which the receiver is reachable. If there's an ingress, it would be the external URL.
@@ -657,9 +665,13 @@ class COSAgentProvider(Object):
         self._recursive = recurse_rules_dirs
         self._log_slots = log_slots or []
         self._dashboard_dirs = dashboard_dirs
-        self._refresh_events = refresh_events or [self._charm.on.config_changed]
+        self._refresh_events = refresh_events or [
+            self._charm.on.config_changed
+        ]
         self._tracing_protocols = tracing_protocols
-        self._is_single_endpoint = charm.meta.relations[relation_name].limit == 1
+        self._is_single_endpoint = (
+            charm.meta.relations[relation_name].limit == 1
+        )
 
         events = self._charm.on[relation_name]
         self.framework.observe(events.relation_joined, self._on_refresh)
@@ -710,7 +722,9 @@ class COSAgentProvider(Object):
             scrape_configs.append(
                 {
                     "metrics_path": endpoint["path"],
-                    "static_configs": [{"targets": [f"localhost:{endpoint['port']}"]}],
+                    "static_configs": [
+                        {"targets": [f"localhost:{endpoint['port']}"]}
+                    ],
                 }
             )
 
@@ -719,7 +733,11 @@ class COSAgentProvider(Object):
         # Augment job name to include the app name and a unique id (index)
         for idx, scrape_config in enumerate(scrape_configs):
             scrape_config["job_name"] = "_".join(
-                [self._charm.app.name, str(idx), scrape_config.get("job_name", "default")]
+                [
+                    self._charm.app.name,
+                    str(idx),
+                    scrape_config.get("job_name", "default"),
+                ]
             )
 
         return scrape_configs
@@ -740,7 +758,9 @@ class COSAgentProvider(Object):
     @property
     def _log_alert_rules(self) -> Dict:
         """Use (for now) the loki_push_api AlertRules to initialize this."""
-        alert_rules = AlertRules(query_type="logql", topology=JujuTopology.from_charm(self._charm))
+        alert_rules = AlertRules(
+            query_type="logql", topology=JujuTopology.from_charm(self._charm)
+        )
         alert_rules.add_path(self._logs_rules, recursive=self._recursive)
         return alert_rules.as_dict()
 
@@ -752,12 +772,16 @@ class COSAgentProvider(Object):
                 with open(path, "rt") as fp:
                     dashboard = json.load(fp)
                 rel_path = str(
-                    path.relative_to(self._charm.charm_dir) if path.is_absolute() else path
+                    path.relative_to(self._charm.charm_dir)
+                    if path.is_absolute()
+                    else path
                 )
                 # COSAgentProvider is somewhat analogous to GrafanaDashboardProvider. We need to overwrite the uid here
                 # because there is currently no other way to communicate the dashboard path separately.
                 # https://github.com/canonical/grafana-k8s-operator/pull/363
-                dashboard["uid"] = DashboardPath40UID.generate(self._charm.meta.name, rel_path)
+                dashboard["uid"] = DashboardPath40UID.generate(
+                    self._charm.meta.name, rel_path
+                )
 
                 # Add tags
                 tags: List[str] = dashboard.get("tags", [])
@@ -791,13 +815,17 @@ class COSAgentProvider(Object):
         """Is this endpoint ready?"""
         relation = relation or self._relation
         if not relation:
-            logger.debug(f"no relation on {self._relation_name!r}: tracing not ready")
+            logger.debug(
+                f"no relation on {self._relation_name!r}: tracing not ready"
+            )
             return False
         if relation.data is None:
             logger.error(f"relation data is None for {relation}")
             return False
         if not relation.app:
-            logger.error(f"{relation} event received but there is no relation.app")
+            logger.error(
+                f"{relation} event received but there is no relation.app"
+            )
             return False
         try:
             unit = next(iter(relation.units), None)
@@ -806,7 +834,11 @@ class COSAgentProvider(Object):
             databag = dict(relation.data[unit])
             CosAgentRequirerUnitData.load(databag)
 
-        except (json.JSONDecodeError, pydantic.ValidationError, DataValidationError):
+        except (
+            json.JSONDecodeError,
+            pydantic.ValidationError,
+            DataValidationError,
+        ):
             logger.info(f"failed validating relation data for {relation}")
             return False
         return True
@@ -832,7 +864,9 @@ class COSAgentProvider(Object):
             # we didn't find the protocol because the remote end didn't publish any data yet
             # it might also mean that grafana-agent doesn't have a relation to the tracing backend
             raise ProtocolNotFoundError(protocol)
-        receivers: List[Receiver] = [i for i in unit_data.receivers if i.protocol.name == protocol]
+        receivers: List[Receiver] = [
+            i for i in unit_data.receivers if i.protocol.name == protocol
+        ]
         if not receivers:
             # we didn't find the protocol because grafana-agent didn't return us the protocol that we requested
             # the caller might want to verify that we did indeed request this protocol
@@ -864,14 +898,18 @@ class COSAgentProvider(Object):
             If the charm attempts to obtain an endpoint when grafana-agent isn't related to a tracing backend.
         """
         try:
-            return self._get_tracing_endpoint(relation or self._relation, protocol=protocol)
+            return self._get_tracing_endpoint(
+                relation or self._relation, protocol=protocol
+            )
         except ProtocolNotFoundError:
             # let's see if we didn't find it because we didn't request the endpoint
             requested_protocols = set()
             relations = [relation] if relation else self.relations
             for relation in relations:
                 try:
-                    databag = CosAgentProviderUnitData.load(relation.data[self._charm.unit])
+                    databag = CosAgentProviderUnitData.load(
+                        relation.data[self._charm.unit]
+                    )
                 except DataValidationError:
                     continue
 
@@ -936,14 +974,20 @@ class COSAgentRequirer(Object):
         self._charm = charm
         self._relation_name = relation_name
         self._peer_relation_name = peer_relation_name
-        self._refresh_events = refresh_events or [self._charm.on.config_changed]
+        self._refresh_events = refresh_events or [
+            self._charm.on.config_changed
+        ]
 
         events = self._charm.on[relation_name]
         self.framework.observe(
             events.relation_joined, self._on_relation_data_changed
         )  # TODO: do we need this?
-        self.framework.observe(events.relation_changed, self._on_relation_data_changed)
-        self.framework.observe(events.relation_departed, self._on_relation_departed)
+        self.framework.observe(
+            events.relation_changed, self._on_relation_data_changed
+        )
+        self.framework.observe(
+            events.relation_departed, self._on_relation_departed
+        )
 
         for event in self._refresh_events:
             self.framework.observe(event, self.trigger_refresh)  # pyright: ignore
@@ -955,7 +999,9 @@ class COSAgentRequirer(Object):
         #     self.on[self._peer_relation_name].relation_joined, self._on_peer_relation_joined
         # )
         peer_events = self._charm.on[peer_relation_name]
-        self.framework.observe(peer_events.relation_changed, self._on_peer_relation_changed)
+        self.framework.observe(
+            peer_events.relation_changed, self._on_peer_relation_changed
+        )
 
     @property
     def peer_relation(self) -> Optional["Relation"]:
@@ -1012,7 +1058,11 @@ class COSAgentRequirer(Object):
                 f"should have exactly one unit"
             )
 
-        if not (raw := cos_agent_relation.data[principal_unit].get(CosAgentProviderUnitData.KEY)):
+        if not (
+            raw := cos_agent_relation.data[principal_unit].get(
+                CosAgentProviderUnitData.KEY
+            )
+        ):
             return
 
         if not (provider_data := self._validated_provider_data(raw)):
@@ -1063,7 +1113,9 @@ class COSAgentRequirer(Object):
                             else None,
                             protocol=ProtocolType(
                                 name=protocol,
-                                type=receiver_protocol_to_transport_protocol[protocol],
+                                type=receiver_protocol_to_transport_protocol[
+                                    protocol
+                                ],
                             ),
                         )
                         for protocol in self.requested_tracing_protocols()
@@ -1084,7 +1136,9 @@ class COSAgentRequirer(Object):
                     return
             raise
 
-    def _validated_provider_data(self, raw) -> Optional[CosAgentProviderUnitData]:
+    def _validated_provider_data(
+        self, raw
+    ) -> Optional[CosAgentProviderUnitData]:
         try:
             return CosAgentProviderUnitData(**json.loads(raw))
         except (pydantic.ValidationError, json.decoder.JSONDecodeError) as e:
@@ -1140,12 +1194,17 @@ class COSAgentRequirer(Object):
         except AttributeError:
             pass
         # the assumption is that a subordinate charm will always be accessible to its principal charm under its fqdn
-        if receiver_protocol_to_transport_protocol[protocol] == TransportProtocolType.grpc:
+        if (
+            receiver_protocol_to_transport_protocol[protocol]
+            == TransportProtocolType.grpc
+        ):
             return f"{socket.getfqdn()}:{_tracing_receivers_ports[protocol]}"
         return f"{scheme}://{socket.getfqdn()}:{_tracing_receivers_ports[protocol]}"
 
     @property
-    def _remote_data(self) -> List[Tuple[CosAgentProviderUnitData, JujuTopology]]:
+    def _remote_data(
+        self,
+    ) -> List[Tuple[CosAgentProviderUnitData, JujuTopology]]:
         """Return a list of remote data from each of the related units.
 
         Assumes that the relation is of type subordinate.
@@ -1158,7 +1217,9 @@ class COSAgentRequirer(Object):
             if not relation.units:
                 continue
             unit = next(iter(relation.units))
-            if not (raw := relation.data[unit].get(CosAgentProviderUnitData.KEY)):
+            if not (
+                raw := relation.data[unit].get(CosAgentProviderUnitData.KEY)
+            ):
                 continue
             if not (provider_data := self._validated_provider_data(raw)):
                 continue
@@ -1249,7 +1310,9 @@ class COSAgentRequirer(Object):
                     job = {
                         "job_name": job["job_name"],
                         "metrics_path": job["path"],
-                        "static_configs": [{"targets": [f"localhost:{job['port']}"]}],
+                        "static_configs": [
+                            {"targets": [f"localhost:{job['port']}"]}
+                        ],
                         # We include insecure_skip_verify because we are always scraping localhost.
                         # Even if we have the certs for the scrape targets, we'd rather specify the scrape
                         # jobs with localhost rather than the SAN DNS the cert was issued for.
@@ -1258,7 +1321,9 @@ class COSAgentRequirer(Object):
 
                 # Apply labels to the scrape jobs
                 for static_config in job.get("static_configs", []):
-                    topo_as_dict = topology.as_dict(excluded_keys=["charm_name"])
+                    topo_as_dict = topology.as_dict(
+                        excluded_keys=["charm_name"]
+                    )
                     static_config["labels"] = {
                         # Be sure to keep labels from static_config
                         **static_config.get("labels", {}),
@@ -1287,7 +1352,9 @@ class COSAgentRequirer(Object):
         return endpoints
 
     @property
-    def snap_log_endpoints_with_topology(self) -> List[Tuple[SnapEndpoint, JujuTopology]]:
+    def snap_log_endpoints_with_topology(
+        self,
+    ) -> List[Tuple[SnapEndpoint, JujuTopology]]:
         """Fetch logging endpoints and charm topology for each related snap."""
         plugs = []
         for data, topology in self._remote_data:
@@ -1306,7 +1373,9 @@ class COSAgentRequirer(Object):
         endpoints = []
         for plug, topology in plugs:
             if ":" not in plug:
-                logger.error(f"invalid plug definition received: {plug}. Ignoring...")
+                logger.error(
+                    f"invalid plug definition received: {plug}. Ignoring..."
+                )
             else:
                 endpoint = SnapEndpoint(*plug.split(":"))
                 endpoints.append((endpoint, topology))
@@ -1418,7 +1487,9 @@ def charm_tracing_config(
 
     if is_https:
         if cert_path is None:
-            raise TracingError("Cannot send traces to an https endpoint without a certificate.")
+            raise TracingError(
+                "Cannot send traces to an https endpoint without a certificate."
+            )
         if not Path(cert_path).exists():
             # if endpoint is https BUT we don't have a server_cert yet:
             # disable charm tracing until we do to prevent tls errors
