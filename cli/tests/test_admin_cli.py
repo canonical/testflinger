@@ -52,9 +52,9 @@ def test_set_agent_status_online(auth_fixture, capsys, requests_mock, state):
         fake_agent,
     ]
 
-    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
     requests_mock.post(
-        URL + "/v1/agents/data/" + fake_agent, json=fake_send_agent_data
+        f"{URL}/v1/agents/data/{fake_agent}", json=fake_send_agent_data
     )
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_agent_status()
@@ -76,7 +76,7 @@ def test_set_incorrect_agent_status(
         "queues": ["fake"],
         "state": state,
     }
-    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
     sys.argv = [
         "",
         "admin",
@@ -103,7 +103,7 @@ def test_set_offline_without_comments(auth_fixture, requests_mock):
         "queues": ["fake"],
         "state": "waiting",
     }
-    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
     sys.argv = [
         "",
         "admin",
@@ -136,7 +136,7 @@ def test_set_agent_status_with_unprivileged_user(
         "queues": ["fake"],
         "state": "waiting",
     }
-    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
     sys.argv = [
         "",
         "admin",
@@ -166,7 +166,7 @@ def test_deferred_offline_message(auth_fixture, capsys, requests_mock, state):
         "queues": ["fake"],
         "state": state,
     }
-    requests_mock.get(URL + "/v1/agents/data/" + fake_agent, json=fake_return)
+    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
     sys.argv = [
         "",
         "admin",
@@ -180,7 +180,7 @@ def test_deferred_offline_message(auth_fixture, capsys, requests_mock, state):
 
     fake_send_agent_data = [{"state": "maintenance", "comment": ""}]
     requests_mock.post(
-        URL + "/v1/agents/data/" + fake_agent, json=fake_send_agent_data
+        f"{URL}/v1/agents/data/{fake_agent}", json=fake_send_agent_data
     )
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_agent_status()
@@ -210,12 +210,12 @@ def test_set_status_unknown_agent(auth_fixture, capsys, requests_mock):
         *fake_agents,
     ]
 
-    requests_mock.get(URL + "/v1/agents/data/fake_agent1", json=fake_return)
+    requests_mock.get(f"{URL}/v1/agents/data/fake_agent1", json=fake_return)
     requests_mock.get(
-        URL + "/v1/agents/data/fake_agent2", status_code=HTTPStatus.NOT_FOUND
+        f"{URL}/v1/agents/data/fake_agent2", status_code=HTTPStatus.NOT_FOUND
     )
     requests_mock.post(
-        URL + "/v1/agents/data/fake_agent1", json=fake_send_agent_data
+        f"{URL}/v1/agents/data/fake_agent1", json=fake_send_agent_data
     )
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_agent_status()
@@ -250,7 +250,7 @@ def test_get_all_client_permissions(auth_fixture, capsys, requests_mock):
         "client-permissions",
     ]
 
-    requests_mock.get(URL + "/v1/client-permissions", json=fake_return)
+    requests_mock.get(f"{URL}/v1/client-permissions", json=fake_return)
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.get_client_permissions()
     std = capsys.readouterr()

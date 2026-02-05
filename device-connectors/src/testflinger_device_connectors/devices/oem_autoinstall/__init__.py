@@ -31,6 +31,7 @@ from testflinger_device_connectors.devices.oem_autoinstall.oem_autoinstall impor
 from testflinger_device_connectors.devices.oem_autoinstall.zapper_oem import (
     ZapperOem,
 )
+from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +46,20 @@ class DeviceConnector(DefaultDevice):
         with open(args.job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)
         provision_data = self.job_data.get("provision_data", {})
+        config = self._load_config(args.config)
+
+        uses_zapper_iso = provision_data.get(
+            "zapper_iso_type"
+        ) and provision_data.get("zapper_iso_url")
+
+        if not uses_zapper_iso:
+            ZapperConnector.disconnect_usb_stick(config)
 
         if provision_data.get("zapper_iso_type") or provision_data.get(
             "zapper_iso_url"
         ):
             logger.info("Init zapper_oem on agent")
-            device_with_zapper = ZapperOem(self._load_config(args.config))
+            device_with_zapper = ZapperOem(config)
             device_with_zapper.provision(args)
             logger.info("Return to oem_autoinstall")
 

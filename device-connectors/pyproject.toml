@@ -34,6 +34,10 @@ testflinger_device_connectors = ["data/**"]
 
 [tool.ruff]
 line-length = 79
+include = [
+  "src/**/*.py",
+  "tests/**/*.py",
+]
 
 [tool.ruff.lint]
 select = [

@@ -134,7 +134,7 @@ class TestJob:
         self.config["provision_command"] = (
             "bash -c 'sleep 12 && echo complete'"
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         job = _TestflingerJob(fake_job_data, client)
         job.phase = "provision"
 
@@ -162,8 +162,8 @@ class TestJob:
             outcome_file.write("{}")
 
         self.config["setup_command"] = "fake_setup_command"
-        requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, json={}, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.get(rmock.ANY, json={}, status_code=HTTPStatus.OK)
         job = _TestflingerJob({}, client)
         job.phase = "setup"
         # Don't raise the exception on the 3 banner lines
@@ -225,8 +225,8 @@ class TestJob:
             "job_id": job_id,
         }
 
-        post_mock = requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, status_code=200)
+        post_mock = requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
         job = _TestflingerJob(fake_job_data, client)
         job.run_test_phase("reserve", tmp_path)
 
@@ -407,8 +407,8 @@ class TestJob:
             return log.read()
 
     def test_run_test_phase_secret(self, client, tmp_path, requests_mock):
-        requests_mock.post(rmock.ANY, status_code=200)
-        requests_mock.get(rmock.ANY, json={}, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.get(rmock.ANY, json={}, status_code=HTTPStatus.OK)
 
         # create the job data
         job_data = {
@@ -455,7 +455,7 @@ class TestJob:
 
         job = _TestflingerJob(fake_job_data, client)
         self.config[f"{phase}_command"] = "/bin/true"
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         return_value, exit_event, exit_reason = job.run_test_phase(
             phase, tmp_path
         )

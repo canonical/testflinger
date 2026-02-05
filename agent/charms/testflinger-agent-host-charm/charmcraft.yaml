@@ -33,12 +33,6 @@ platforms:
   amd64:
 
 charm-libs:
-  - lib: operator_libs_linux.apt
-    version: "0"
-  - lib: operator_libs_linux.passwd
-    version: "0"
-  - lib: operator_libs_linux.systemd
-    version: "1"
   - lib: grafana_agent.cos_agent
     version: "0"
 
@@ -99,5 +93,5 @@ parts:
       craftctl default
 
 provides:
-    cos-agent:
-        interface: cos_agent
+  cos-agent:
+    interface: cos_agent

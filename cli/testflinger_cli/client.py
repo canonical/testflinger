@@ -440,7 +440,7 @@ class Client:
 
     def get_images(self, queue):
         """Get the advertised images from the testflinger server."""
-        endpoint = "/v1/agents/images/" + queue
+        endpoint = f"/v1/agents/images/{queue}"
         data = self.get(endpoint)
         try:
             return json.loads(data)

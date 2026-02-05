@@ -91,6 +91,7 @@ class ZapperOem(ZapperConnector):
         provisioning_data = {
             "zapper_iso_url": provision_data["zapper_iso_url"],
             "zapper_iso_type": iso_type,
+            "update_user_data": provision_data.get("update_user_data", False),
             "device_ip": dut_ip,
             "username": username,
             "password": password,

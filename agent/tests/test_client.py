@@ -144,7 +144,8 @@ class TestClient:
         testflinger_outcome_json = tmp_path / "testflinger-outcome.json"
         testflinger_outcome_json.write_text("{}")
         requests_mock.post(
-            f"http://127.0.0.1:8000/v1/result/{job_id}", status_code=200
+            f"http://127.0.0.1:8000/v1/result/{job_id}",
+            status_code=HTTPStatus.OK,
         )
         client.transmit_job_outcome(tmp_path)
         assert requests_mock.last_request.json() == {"job_state": "complete"}
@@ -227,7 +228,7 @@ class TestClient:
         testflinger_json.write_text(json.dumps(testflinger_data))
         requests_mock.post(
             f"http://127.0.0.1:8000/v1/result/{job_id}/artifact",
-            status_code=200,
+            status_code=HTTPStatus.OK,
         )
         client.transmit_job_outcome(tmp_path)
         assert requests_mock.called

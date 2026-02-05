@@ -93,8 +93,8 @@ def test_result_get_with_logs(mongo_app):
     response = app.post(result_url, json=data)
     assert "OK" in response.text
     response = app.get(result_url).json
-    assert response[phase + "_output"] == combined_log_expected
-    assert response[phase + "_status"] == 404
+    assert response[f"{phase}_output"] == combined_log_expected
+    assert response[f"{phase}_status"] == HTTPStatus.NOT_FOUND
 
 
 def test_artifact_post_good(mongo_app):

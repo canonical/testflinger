@@ -29,8 +29,8 @@ from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
 from requests import HTTPError
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
 from testflinger_common.enums import LogType
+from urllib3.util import Retry
 
 from testflinger_agent.errors import TFServerError
 
@@ -57,7 +57,7 @@ class TestflingerClient:
             "server_address", "https://testflinger.canonical.com"
         )
         if not self.server.lower().startswith("http"):
-            self.server = "http://" + self.server
+            self.server = f"http://{self.server}"
         self.session = self._requests_retry(retries=5)
         self.influx_agent_db = "agent_jobs"
         self.influx_client = self._configure_influx()
@@ -303,7 +303,7 @@ class TestflingerClient:
             artifact_uri = urljoin(
                 self.server, "/v1/result/{}/artifact".format(job_id)
             )
-            with open(artifact_file + ".tar.gz", "rb") as tarball:
+            with open(f"{artifact_file}.tar.gz", "rb") as tarball:
                 file_upload = {"file": ("file", tarball, "application/x-gzip")}
                 artifact_request = self.session.post(
                     artifact_uri, files=file_upload, timeout=600

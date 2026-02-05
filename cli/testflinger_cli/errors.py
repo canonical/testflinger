@@ -29,6 +29,26 @@ class UnknownStatusError(Exception):
         )
 
 
+class NoJobDataError(Exception):
+    """Exception thrown when job has no data (HTTP 204 No Content)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "No data found for that job id. Check the "
+            "job id to be sure it is correct"
+        )
+
+
+class InvalidJobIdError(Exception):
+    """Exception thrown when job id is invalid (HTTP 400 Bad Request)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Invalid job id specified. Check the job id "
+            "to be sure it is correct"
+        )
+
+
 class CredentialsError(Exception):
     """Base class for errors related to authentication and authorization."""
 

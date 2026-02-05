@@ -473,7 +473,6 @@ class DefaultDevice:
                     capture_output=True,
                     text=True,
                 )
-                logger.info("Command completed successfully: %s", cmd)
             except subprocess.CalledProcessError as e:
                 logger.error(
                     "Command failed: %s (exit code: %d)", cmd, e.returncode
@@ -507,6 +506,12 @@ class DefaultDevice:
         self.__reboot_control_host()
 
         timeout = 300
+        logger.info(
+            "Waiting for control host %s to come back online "
+            "(timeout: %d seconds)",
+            control_host,
+            timeout,
+        )
         try:
             self.wait_online(
                 self.__check_ssh_server_on_host, control_host, timeout

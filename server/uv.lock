@@ -1039,6 +1039,18 @@ wheels = [
 ]
 
 [[package]]
+name = "jubilant"
+version = "1.6.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8c/7f/4b1a751930713ee585ea0a4dcf4af30d19f4af478cf7658376ca788adbf3/jubilant-1.6.2.tar.gz", hash = "sha256:d841610fd86f7d77419da8be08e6c936412e581652f55faa23c6c19536b87a8f", size = 32016, upload-time = "2025-12-17T21:20:04.382Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/78/13/22f29f41fc6e2467f039a2d38179f59c069245090524ebc3d8aaf64d3d4b/jubilant-1.6.2-py3-none-any.whl", hash = "sha256:fa81995b64e0519fa59407beabbbc2aae097437895addcb3df54f33ab207fbfb", size = 33034, upload-time = "2025-12-17T21:20:03.265Z" },
+]
+
+[[package]]
 name = "markupsafe"
 version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1186,6 +1198,24 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3f/cd/bbd4263b53bb19e87f995b05ef93f565fa4edcb90bacacec615d47c56568/ops-3.3.1.tar.gz", hash = "sha256:8dec621c32a31365d040eaf05960c0e65a2ffbcdbfa91107e03b1ee9d4d26034", size = 541783, upload-time = "2025-10-16T01:46:25.431Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fd/97/c1e5447c3c0d86cab16cad802e1bb58613b2396b7184797af2e4484c2014/ops-3.3.1-py3-none-any.whl", hash = "sha256:38229bb1cc6d9c2aa4dff4495f3e33af928dbd1070e8c5d8b697dfb32dcd89a8", size = 191338, upload-time = "2025-10-16T01:46:20.038Z" },
+]
+
+[package.optional-dependencies]
+testing = [
+    { name = "ops-scenario" },
+]
+
+[[package]]
+name = "ops-scenario"
+version = "8.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ops" },
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/92/94/cf17208427d43f9136b0fb61ca75ac937b88ac66cb0a3fe126bbffbde677/ops_scenario-8.3.1.tar.gz", hash = "sha256:553cd1ee30f161edd110e217a01505a9778baf778c039d810e0cfbd6101b855b", size = 110260, upload-time = "2025-10-16T01:46:27.097Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/dd/da2bcb1a164c4c9c8690c689305b15c3f988166db44add5084c4dc04ad04/ops_scenario-8.3.1-py3-none-any.whl", hash = "sha256:bf8404387cd8c22cd0b45c996ca7c12e84b6c603edc8b056e85234fc3d270941", size = 64403, upload-time = "2025-10-16T01:46:22.082Z" },
 ]
 
 [[package]]
@@ -1941,7 +1971,8 @@ dependencies = [
 
 [package.dev-dependencies]
 charm = [
-    { name = "ops" },
+    { name = "jubilant" },
+    { name = "ops", extra = ["testing"] },
 ]
 dev = [
     { name = "cosl" },
@@ -1980,7 +2011,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-charm = [{ name = "ops", specifier = ">=2.2.0" }]
+charm = [
+    { name = "jubilant", specifier = ">=1.6.2" },
+    { name = "ops", extras = ["testing"] },
+]
 dev = [
     { name = "cosl", specifier = ">=0.0.57" },
     { name = "djlint", specifier = ">=1.36.4" },

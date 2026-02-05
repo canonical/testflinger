@@ -45,7 +45,8 @@ class ZapperConnector(ABC, DefaultDevice):
     ZAPPER_REQUEST_TIMEOUT = 60 * 90
     ZAPPER_SERVICE_PORT = 60000
 
-    def __check_rpyc_server_on_host(self, host: str) -> None:
+    @staticmethod
+    def _check_rpyc_server_on_host(host: str) -> None:
         """
         Check if the host has an active RPyC server running.
 
@@ -60,7 +61,7 @@ class ZapperConnector(ABC, DefaultDevice):
                     "-w",
                     str(timeout),
                     host,
-                    str(self.ZAPPER_SERVICE_PORT),
+                    str(ZapperConnector.ZAPPER_SERVICE_PORT),
                 ],
                 check=True,
                 capture_output=True,
@@ -70,21 +71,67 @@ class ZapperConnector(ABC, DefaultDevice):
         except subprocess.CalledProcessError as e:
             raise ConnectionError from e
 
+    @staticmethod
+    def wait_ready(host: str, timeout: int = 60) -> None:
+        """Wait for an RPyC server to become available on the given host.
+
+        :param host: The host to check for RPyC availability.
+        :param timeout: Maximum time to wait in seconds (default: 60).
+        :raises TimeoutError: If the server is not available within the timeout
+        """
+        logger.info(
+            "Waiting for a running RPyC server on control host %s", host
+        )
+        DefaultDevice.wait_online(
+            ZapperConnector._check_rpyc_server_on_host, host, timeout
+        )
+
+    @staticmethod
+    def typecmux_set_state(host: str, state: str) -> None:
+        """Connect to a Zapper host via RPyC and set the typecmux state.
+
+        :param host: The Zapper host to connect to.
+        :param state: The state to set (e.g., "OFF", "DUT").
+        """
+        connection = rpyc.connect(
+            host,
+            ZapperConnector.ZAPPER_SERVICE_PORT,
+            config={
+                "allow_public_attrs": True,
+                "sync_request_timeout": 60,
+            },
+        )
+        connection.root.typecmux_set_state(alias="default", state=state)
+        logger.info("Set typecmux state to %s on %s", state, host)
+
+    @staticmethod
+    def disconnect_usb_stick(config: Dict[str, Any]) -> None:
+        """Try to disconnect the USB stick.
+
+        This is a non-blocking operation - if the Zapper is not available,
+        we simply skip this step.
+
+        :param config: The device configuration dictionary.
+        """
+        control_host = config.get("control_host")
+        if not control_host:
+            return
+
+        try:
+            ZapperConnector.wait_ready(control_host)
+            ZapperConnector.typecmux_set_state(control_host, "OFF")
+        except (TimeoutError, ConnectionError, Exception) as e:
+            logger.debug(
+                "Could not disconnect USB stick on %s: %s", control_host, e
+            )
+
     def provision(self, args):
         """Provision device when the command is invoked."""
         super().provision(args)
 
         control_host = self.config["control_host"]
-        logger.info(
-            "Waiting for a running RPyC server on control host %s",
-            control_host,
-        )
         try:
-            self.wait_online(
-                self.__check_rpyc_server_on_host,
-                control_host,
-                60,
-            )
+            ZapperConnector.wait_ready(control_host)
         except TimeoutError as e:
             raise ProvisioningError(
                 "Cannot reach out the Zapper service over RPyC"

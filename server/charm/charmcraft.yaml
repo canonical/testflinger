@@ -28,6 +28,10 @@ requires:
     limit: 1
   nginx-route:
     interface: nginx-route
+    limit: 1
+  traefik-route:
+    interface: traefik_route
+    limit: 1
 
 provides:
   metrics-endpoint:
@@ -52,6 +56,8 @@ charm-libs:
     version: "0"
   - lib: grafana_k8s.grafana_dashboard
     version: "0"
+  - lib: traefik_k8s.traefik_route
+    version: "0"
 
 base: ubuntu@22.04
 platforms:
@@ -70,7 +76,11 @@ config:
     external_hostname:
       type: string
       default: testflinger.local
-      description: The external hostname for accessing the Testflinger server
+      description: |
+        The external hostname for accessing the Testflinger server
+        This configuration is used to configure the nginx or traefik route.
+        While it is valid for traefik route, the preferred approach is to set
+        the external_hostname in the traefik application configuration instead.
     keepalive:
       type: int
       default: 10

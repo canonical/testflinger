@@ -48,7 +48,7 @@ class ReqBufferHandler(logging.Handler):
     def __init__(self, agent, server):
         super().__init__()
         if not server.lower().startswith("http"):
-            server = "http://" + server
+            server = f"http://{server}"
         uri = urljoin(server, "/v1/agents/data/")
         self.url = urljoin(uri, agent)
         self.qdepth = 100  # messages

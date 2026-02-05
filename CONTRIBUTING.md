@@ -95,6 +95,12 @@ uvx --with tox-uv tox
 
 If you have `tox` installed, you can also just run `tox` from the subproject.
 
+In case of any linting or formatting errors, all solvable fixes can be applied with:
+
+```shell
+uvx --with tox-uv tox run -e format
+```
+
 ## Server API Changes
 
 If you modified the server API (endpoints, schemas, or parameters), you must

@@ -100,7 +100,7 @@ class TestflingerJob:
             if there was no command to run
         """
         self.phase = phase
-        cmd = self.client.config.get(phase + "_command")
+        cmd = self.client.config.get(f"{phase}_command")
         node = self.client.config.get("agent_id")
         if not cmd:
             logger.info("No %s_command configured, skipping...", phase)
@@ -123,8 +123,8 @@ class TestflingerJob:
                 )
                 return 0, None, None
         results_file = Path(rundir) / "testflinger-outcome.json"
-        output_log = Path(rundir) / (phase + ".log")
-        serial_log = Path(rundir) / (phase + "-serial.log")
+        output_log = Path(rundir) / f"{phase}.log"
+        serial_log = Path(rundir) / f"{phase}-serial.log"
 
         logger.info("Running %s_command: %s", phase, cmd)
         runner = self.get_runner(rundir, phase)
