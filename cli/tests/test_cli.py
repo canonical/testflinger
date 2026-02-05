@@ -1286,17 +1286,12 @@ def test_submit_with_poll_integration(tmp_path, requests_mock, monkeypatch):
     assert args[0] == jobid  # First argument should be the submitted job_id
 
 
+@patch("time.sleep")
 def test_live_polling_with_fragments_progression(
-    capsys, requests_mock, monkeypatch
+    mock_sleep, capsys, requests_mock, monkeypatch
 ):
     """Test live polling uses cur_fragment and progresses through fragments."""
     job_id = str(uuid.uuid1())
-
-    # Mock time.sleep
-    sleep_calls = []
-    monkeypatch.setattr(
-        time, "sleep", lambda duration: sleep_calls.append(duration)
-    )
 
     # Track fragment progression
     fragment_requests = []
@@ -1373,17 +1368,15 @@ def test_live_polling_with_fragments_progression(
         assert expected_string in captured.out
 
     # Should have slept between iterations
-    assert len(sleep_calls) >= 2
+    assert len(mock_sleep.call_args_list) >= 2
 
 
-def test_live_polling_with_empty_poll(capsys, requests_mock, monkeypatch):
+@patch("time.sleep")
+def test_live_polling_with_empty_poll(
+    mock_sleep, capsys, requests_mock, monkeypatch
+):
     """Test that live output handles empty polls correctly."""
     job_id = str(uuid.uuid1())
-
-    sleep_calls = []
-    monkeypatch.setattr(
-        time, "sleep", lambda duration: sleep_calls.append(duration)
-    )
 
     # Mock job status
     requests_mock.get(
@@ -1422,18 +1415,13 @@ def test_live_polling_with_empty_poll(capsys, requests_mock, monkeypatch):
 
     captured = capsys.readouterr()
     assert "Waiting on output..." in captured.err
-    assert len(sleep_calls) >= 9
+    assert len(mock_sleep.call_args_list) >= 9
 
 
-def test_live_polling_by_phase(capsys, requests_mock, monkeypatch):
+@patch("time.sleep")
+def test_live_polling_by_phase(mock_sleep, capsys, requests_mock, monkeypatch):
     """Test live polling by phase exits when target phase completes."""
     job_id = str(uuid.uuid1())
-
-    # Mock time.sleep
-    sleep_calls = []
-    monkeypatch.setattr(
-        time, "sleep", lambda duration: sleep_calls.append(duration)
-    )
 
     # Mock job status checks
     requests_mock.get(
@@ -1520,17 +1508,12 @@ def test_get_job_state_network_error(requests_mock):
     assert result == {"job_state": "unknown"}
 
 
+@patch("time.sleep")
 def test_poll_exponential_backoff_on_network_errors(
-    capsys, requests_mock, monkeypatch
+    mock_sleep, capsys, requests_mock, monkeypatch
 ):
     """Test that polling uses exponential backoff on network errors."""
     job_id = str(uuid.uuid1())
-
-    # Mock time.sleep to track backoff delays
-    sleep_calls = []
-    monkeypatch.setattr(
-        time, "sleep", lambda duration: sleep_calls.append(duration)
-    )
 
     # Mock both endpoints to fail 5 times then succeed
     requests_mock.get(
@@ -1557,6 +1540,7 @@ def test_poll_exponential_backoff_on_network_errors(
     tfcli.do_poll(job_id)
 
     # Verify exponential backoff pattern
+    sleep_calls = [call[0][0] for call in mock_sleep.call_args_list]
     assert len(sleep_calls) >= 5
     assert sleep_calls[0] == 2  # 2^1 = 2
     assert sleep_calls[1] == 4  # 2^2 = 4
