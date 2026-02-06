@@ -22,9 +22,9 @@ import bcrypt
 import mongomock
 import pytest
 from mongomock.gridfs import enable_gridfs_integration
+from testflinger_common.enums import ServerRoles
 
 from testflinger import application, database
-from testflinger.enums import ServerRoles
 
 
 @dataclass

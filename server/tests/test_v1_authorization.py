@@ -24,9 +24,9 @@ from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
 import jwt
+from testflinger_common.enums import ServerRoles
 
 from testflinger.api.v1 import TESTFLINGER_ADMIN_ID
-from testflinger.enums import ServerRoles
 
 
 def create_auth_header(client_id: str, client_key: str) -> dict:

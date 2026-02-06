@@ -26,9 +26,9 @@ import jwt
 from apiflask import abort
 from authlib.common.security import generate_token
 from flask import g, request
+from testflinger_common.enums import ServerRoles
 
 from testflinger import database
-from testflinger.enums import ServerRoles
 
 
 def hash_secret(secret: str):

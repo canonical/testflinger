@@ -11,6 +11,7 @@ class ServerRoles(StrEnum):
     MANAGER = "manager"
     CONTRIBUTOR = "contributor"
     USER = "user"
+    AGENT = "agent"
 
 
 SNAP_NAME = "testflinger-cli"
