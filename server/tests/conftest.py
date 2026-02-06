@@ -17,8 +17,10 @@
 
 import os
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
+import jwt
 import mongomock
 import pytest
 from mongomock.gridfs import enable_gridfs_integration
