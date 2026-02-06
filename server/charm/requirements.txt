@@ -1,3 +1,5 @@
+pip>=26.0
+setuptools>=75.0
 ops >= 2.2.0
 bcrypt>=4.2.0
 pymongo<4.9.0

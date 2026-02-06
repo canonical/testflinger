@@ -117,6 +117,9 @@ parts:
     build-packages: [pkg-config, libffi-dev, libssl-dev, build-essential]
     build-snaps: [rustup]
     override-build: |
+      # Upgrade setuptools to avoid vendoring vulnerable versions (CVEs fixed in 70.0+)
+      python3 -m pip install --upgrade setuptools
+      
       # pydantic requires a higher version of rustc than what is in the archive
       # for 22.04
       # Install rustc and cargo using rustup instead of the Ubuntu archive
