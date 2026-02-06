@@ -386,28 +386,17 @@ class Client:
         phase: TestPhase,
         start_fragment: int,
         start_timestamp: str,
-    ):
+    ) -> dict:
         """Get the latest output/serial output for a specified test job.
 
-        :param job_id:
-            ID for the test job
-        :param log_type
-            Enum representing normal output or serial output
-        :param phase
-            Phase to retrieve logs for
-        :param start_fragment
-            First log fragment to start from
-        :param start_timestamp
-            Timestamp to start retrieving logs from
-        :return:
-            JSON containing combined log fragments
-            and latest retrieved fragment number.
+        :param job_id: ID for the test job
+        :param log_type: Enum representing normal output or serial output
+        :param phase: Phase to retrieve logs for
+        :param start_fragment: First log fragment to start from
+        :param start_timestamp: Timestamp to start retrieving logs from
+        :return: Combined log fragments and latest fragment number.
         """
-        match log_type:
-            case LogType.STANDARD_OUTPUT:
-                endpoint = f"/v1/result/{job_id}/log/output"
-            case LogType.SERIAL_OUTPUT:
-                endpoint = f"/v1/result/{job_id}/log/serial_output"
+        endpoint = f"/v1/result/{job_id}/log/{log_type.value}"
         params = {"start_fragment": start_fragment}
         if start_timestamp is not None:
             params["start_timestamp"] = start_timestamp.isoformat()
