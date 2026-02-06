@@ -1336,7 +1336,7 @@ def test_get_job_without_agent_id_fails(mongo_app, agent_auth_header):
         assert output.status_code == HTTPStatus.UNAUTHORIZED
 
 
-def test_job_get_without_agent_auth_fails(mongo_app):
+def test_job_get_without_agent_cookie_fails(mongo_app):
     """Test that getting a job without agent authentication is rejected."""
     app, _ = mongo_app
 
@@ -1351,5 +1351,17 @@ def test_job_get_without_agent_auth_fails(mongo_app):
     )
 
     # Try to get job without JWT auth - should be rejected
+    output = app.get("/v1/job?queue=test")
+    assert output.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_job_get_no_auth_headers(mongo_app):
+    """Test that getting a job without authentication headers is rejected."""
+    app, _ = mongo_app
+
+    # Create a job
+    job_data = {"job_queue": "test"}
+    app.post("/v1/job", json=job_data)
+
     output = app.get("/v1/job?queue=test")
     assert output.status_code == HTTPStatus.UNAUTHORIZED
