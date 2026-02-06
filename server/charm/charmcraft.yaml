@@ -118,7 +118,7 @@ parts:
     build-snaps: [rustup]
     override-build: |
       # Upgrade setuptools to avoid vendoring vulnerable versions (CVEs fixed in 70.0+)
-      python3 -m pip install --upgrade setuptools
+      python3 -m pip install --upgrade pip setuptools
       
       # pydantic requires a higher version of rustc than what is in the archive
       # for 22.04
