@@ -18,8 +18,7 @@
 from itertools import pairwise
 
 import pytest
-
-from testflinger.enums import ServerRoles
+from testflinger_common.enums import ServerRoles
 
 
 @pytest.fixture

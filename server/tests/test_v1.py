@@ -113,7 +113,7 @@ def test_add_job_valid_reserve_data(mongo_app):
     assert 200 == output.status_code
 
 
-def test_add_job_noprovision_provision_data(mongo_app):
+def test_add_job_noprovision_provision_data(mongo_app, agent_auth_header):
     """Test that a job with noprovision provision_data works."""
     app, _ = mongo_app
     # Test with blank provision_data
@@ -125,21 +125,27 @@ def test_add_job_noprovision_provision_data(mongo_app):
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
     )
-    recovered_data = app.get("/v1/job?queue=test").json
+    recovered_data = app.get(
+        "/v1/job?queue=test", headers=agent_auth_header
+    ).json
     assert recovered_data["provision_data"] is None
     # Test with provision_data skip=True
     provision_data = {"skip": True}
     job_data = {"job_queue": "test", "provision_data": provision_data}
     output = app.post("/v1/job", json=job_data)
     assert HTTPStatus.OK == output.status_code
-    recovered_data = app.get("/v1/job?queue=test").json
+    recovered_data = app.get(
+        "/v1/job?queue=test", headers=agent_auth_header
+    ).json
     assert recovered_data["provision_data"] == provision_data
     # Test with provision_data skip=False
     provision_data = {"skip": False}
     job_data = {"job_queue": "test", "provision_data": provision_data}
     output = app.post("/v1/job", json=job_data)
     assert HTTPStatus.OK == output.status_code
-    recovered_data = app.get("/v1/job?queue=test").json
+    recovered_data = app.get(
+        "/v1/job?queue=test", headers=agent_auth_header
+    ).json
     assert recovered_data["provision_data"] == provision_data
 
 
@@ -417,7 +423,7 @@ def test_add_job_zapper_kvm_generic_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_good(mongo_app):
+def test_add_job_good(mongo_app, agent_auth_header):
     """Test that adding a new job works."""
     job_data = {"job_queue": "test", "tags": ["foo", "bar"]}
     # Place a job on the queue
@@ -431,14 +437,14 @@ def test_add_job_good(mongo_app):
         json={"state": "waiting", "queues": ["test"], "location": "here"},
     )
     # Now get the job and confirm it matches
-    output = app.get("/v1/job?queue=test")
+    output = app.get("/v1/job?queue=test", headers=agent_auth_header)
     # Ensure everything we submitted is in the job_data we got back
     expected_data = set(job_data)
     actual_data = set(output.json)
     assert expected_data.issubset(actual_data)
 
 
-def test_add_job_good_with_attachments(mongo_app, tmp_path):
+def test_add_job_good_with_attachments(mongo_app, tmp_path, agent_auth_header):
     """Test that adding a new job with attachments works."""
     job_data = {
         "job_queue": "test",
@@ -457,7 +463,7 @@ def test_add_job_good_with_attachments(mongo_app, tmp_path):
     )
 
     # confirm that the job cannot be processed yet (attachments pending)
-    output = app.get("/v1/job?queue=test")
+    output = app.get("/v1/job?queue=test", headers=agent_auth_header)
     assert 204 == output.status_code
 
     # create a mock attachments archive containing random data
@@ -484,7 +490,9 @@ def test_add_job_good_with_attachments(mongo_app, tmp_path):
         assert output.data == attachments.read()
 
     # ask for a job from the queue and confirm the match
-    recovered_data = app.get("/v1/job?queue=test").json
+    recovered_data = app.get(
+        "/v1/job?queue=test", headers=agent_auth_header
+    ).json
     assert recovered_data["job_id"] == job_id
     assert set(job_data).issubset(recovered_data)
 
@@ -575,7 +583,7 @@ def test_resubmit_job_state(mongo_app):
     assert "waiting" == updated_data.get("job_state")
 
 
-def test_get_nonexistant_job(mongo_app):
+def test_get_nonexistant_job(mongo_app, agent_auth_header):
     """Test for 204 when getting from a nonexistent queue."""
     app, _ = mongo_app
     # Note: agents must register before they can be issued work:
@@ -583,14 +591,14 @@ def test_get_nonexistant_job(mongo_app):
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
     )
-    output = app.get("/v1/job?queue=BAD_QUEUE_NAME")
+    output = app.get("/v1/job?queue=BAD_QUEUE_NAME", headers=agent_auth_header)
     assert 204 == output.status_code
 
 
-def test_get_job_no_queue(mongo_app):
+def test_get_job_no_queue(mongo_app, agent_auth_header):
     """Test for error when getting a job without the ID."""
     app, _ = mongo_app
-    output = app.get("/v1/job")
+    output = app.get("/v1/job", headers=agent_auth_header)
     assert 400 == output.status_code
 
 
@@ -648,7 +656,7 @@ def test_job_get_id_with_data(mongo_app):
         assert output.json[key] == value
 
 
-def test_job_position(mongo_app):
+def test_job_position(mongo_app, agent_auth_header):
     """Ensure initial job state is set to 'waiting'."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
@@ -668,7 +676,7 @@ def test_job_position(mongo_app):
     )
 
     # Request a job from the queue to remove one
-    output = app.get("/v1/job?queue=test")
+    output = app.get("/v1/job?queue=test", headers=agent_auth_header)
     # The job we get should be the first one that was added
     assert output.json.get("job_id") == job_id[0]
     # The position of the remaining jobs should decrement
@@ -1140,7 +1148,9 @@ def test_get_jobs_on_queue(mongo_app):
 
 
 @pytest.mark.parametrize("timeout", [1800, "1800", "30m", "1800s"])
-def test_reserve_data_with_human_readable_timeout(mongo_app, timeout):
+def test_reserve_data_with_human_readable_timeout(
+    mongo_app, timeout, agent_auth_header
+):
     """Test that a job with valid human readable timeout field works."""
     job_data = {
         "job_queue": "test",
@@ -1154,7 +1164,9 @@ def test_reserve_data_with_human_readable_timeout(mongo_app, timeout):
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
     )
-    submitted_job = app.get("/v1/job?queue=test").json
+    submitted_job = app.get(
+        "/v1/job?queue=test", headers=agent_auth_header
+    ).json
     assert submitted_job["reserve_data"]["timeout"] == 1800
 
 
@@ -1271,7 +1283,7 @@ def test_job_post_exclude_agents_all_excluded(mongo_app):
     assert "no agents" in msg or "agent" in str(output.json).lower()
 
 
-def test_pop_job_respects_exclude_agents(mongo_app):
+def test_pop_job_respects_exclude_agents(mongo_app, agent_auth_header):
     """Test that pop_job filters excluded agents correctly."""
     app, mongo = mongo_app
 
@@ -1294,7 +1306,7 @@ def test_pop_job_respects_exclude_agents(mongo_app):
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
     )
-    output = app.get("/v1/job?queue=test")
+    output = app.get("/v1/job?queue=test", headers=agent_auth_header)
     assert output.status_code == HTTPStatus.NO_CONTENT
 
     # Register as agent2 - should get the job
@@ -1302,12 +1314,12 @@ def test_pop_job_respects_exclude_agents(mongo_app):
         "/v1/agents/data/agent2",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
     )
-    output = app.get("/v1/job?queue=test")
+    output = app.get("/v1/job?queue=test", headers=agent_auth_header)
     assert output.status_code == HTTPStatus.OK
     assert output.json["job_id"] == job_id
 
 
-def test_get_job_without_agent_id_fails(mongo_app):
+def test_get_job_without_agent_id_fails(mongo_app, agent_auth_header):
     """Test that getting a job without agent_id cookie fails."""
     app, mongo = mongo_app
 
@@ -1316,7 +1328,28 @@ def test_get_job_without_agent_id_fails(mongo_app):
     app.post("/v1/job", json=job_data)
 
     # Try to get job without agent_id (test client won't have cookie)
-    # Make a raw request without any cookies
+    # Make a raw request without any cookies but with agent auth
     with app.application.test_client() as raw_client:
-        output = raw_client.get("/v1/job?queue=test")
+        output = raw_client.get(
+            "/v1/job?queue=test", headers=agent_auth_header
+        )
         assert output.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_job_get_without_agent_auth_fails(mongo_app):
+    """Test that getting a job without agent authentication is rejected."""
+    app, _ = mongo_app
+
+    # Create a job
+    job_data = {"job_queue": "test"}
+    app.post("/v1/job", json=job_data)
+
+    # Register agent (sets agent_name cookie)
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
+
+    # Try to get job without JWT auth - should be rejected
+    output = app.get("/v1/job?queue=test")
+    assert output.status_code == HTTPStatus.UNAUTHORIZED

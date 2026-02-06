@@ -17,14 +17,16 @@
 
 import os
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
+import jwt
 import mongomock
 import pytest
 from mongomock.gridfs import enable_gridfs_integration
+from testflinger_common.enums import ServerRoles
 
 from testflinger import application, database
-from testflinger.enums import ServerRoles
 
 
 @dataclass
@@ -156,3 +158,21 @@ def user(iam_server):
     iam_server.backend.save(user)
     yield user
     iam_server.backend.delete(user)
+
+
+@pytest.fixture
+def agent_auth_header():
+    """Create Authorization header with agent JWT token for GET /v1/job."""
+    os.environ.setdefault("JWT_SIGNING_KEY", "my_secret_key")
+    secret_key = os.environ["JWT_SIGNING_KEY"]
+    token_payload = {
+        "exp": datetime.now(timezone.utc) + timedelta(seconds=30),
+        "iat": datetime.now(timezone.utc),
+        "sub": "access_token",
+        "permissions": {
+            "client_id": "agent-test",
+            "role": ServerRoles.AGENT,
+        },
+    }
+    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
+    return {"Authorization": f"Bearer {token}"}

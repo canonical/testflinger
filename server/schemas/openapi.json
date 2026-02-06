@@ -127,7 +127,8 @@
               "admin",
               "manager",
               "contributor",
-              "user"
+              "user",
+              "agent"
             ],
             "type": "string"
           }
