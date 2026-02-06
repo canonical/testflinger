@@ -445,11 +445,6 @@
         ],
         "type": "object"
       },
-      "Result": {
-        "additionalProperties": false,
-        "properties": {},
-        "type": "object"
-      },
       "ResultGet": {
         "additionalProperties": false,
         "properties": {
@@ -524,6 +519,11 @@
             "type": "integer"
           }
         },
+        "type": "object"
+      },
+      "ResultSchema": {
+        "additionalProperties": false,
+        "properties": {},
         "type": "object"
       },
       "SecretIn": {
@@ -666,10 +666,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AgentOut"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/AgentOut"
                 }
               }
             },
@@ -958,10 +955,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ClientPermissionsOut"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/ClientPermissionsOut"
                 }
               }
             },
@@ -1626,10 +1620,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AgentOut"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/AgentOut"
                 }
               }
             },
@@ -1699,10 +1690,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RestrictedQueueOut"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/RestrictedQueueOut"
                 }
               }
             },
@@ -1921,7 +1909,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Result"
+                "$ref": "#/components/schemas/ResultSchema"
               }
             }
           }
