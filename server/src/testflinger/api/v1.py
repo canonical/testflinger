@@ -27,14 +27,13 @@ from flask import current_app, g, jsonify, request, send_file
 from marshmallow import ValidationError
 from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
-from testflinger_common.enums import LogType, TestPhase
+from testflinger_common.enums import LogType, ServerRoles, TestPhase
 from urllib3.util.retry import Retry
 from werkzeug.routing import BaseConverter
 
 from testflinger import database
 from testflinger.api import auth, schemas
 from testflinger.api.auth import authenticate, require_role
-from testflinger.enums import ServerRoles
 from testflinger.logs import LogFragment, MongoLogHandler
 from testflinger.secrets.exceptions import (
     AccessError,
@@ -199,6 +198,8 @@ def job_builder(data: dict) -> dict:
 
 
 @v1.get("/job")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.output(schemas.Job)
 @v1.doc(responses=schemas.job_empty)
 def job_get():
