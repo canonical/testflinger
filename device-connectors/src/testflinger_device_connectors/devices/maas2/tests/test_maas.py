@@ -343,3 +343,32 @@ def test_set_flat_storage_layout_no_output(tmp_path, capsys):
     captured_output = capsys.readouterr()
     assert mock_run.call_args_list[0][1]["stdout"] == subprocess.PIPE
     assert captured_output.out == ""
+
+
+def test_provision_defaults_to_jammy(tmp_path):
+    """Test that provision defaults to jammy when no distro is specified."""
+    with patch(
+        "testflinger_device_connectors.devices.maas2.maas2.MaasStorage",
+        return_value=None,
+    ):
+        config_yaml = tmp_path / "config.yaml"
+        config = {
+            "maas_user": "user",
+            "node_id": "abc",
+            "agent_name": "agent001",
+        }
+        config_yaml.write_text(yaml.safe_dump(config))
+
+        job_json = tmp_path / "job.json"
+        # Job data with provision_data but no distro specified
+        job = {"provision_data": {}}
+        job_json.write_text(json.dumps(job))
+
+        maas2 = Maas2(config=config_yaml, job_data=job_json)
+
+        # Mock the deploy_node method to verify it's called with jammy
+        with patch.object(maas2, "deploy_node") as mock_deploy:
+            maas2.provision()
+
+            # Verify deploy_node was called with jammy as the default distro
+            mock_deploy.assert_called_once_with("jammy", None, None, None)
