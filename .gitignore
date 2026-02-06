@@ -1,3 +1,4 @@
+artifacts
 build
 dist
 env
@@ -17,8 +18,12 @@ docs/.sphinx/.doctrees/
 *.egg*
 *.bak
 *.charm
+*.swp
 
 _build
 __pycache__
 
 *.snap
+
+# AI agent instructions (user-specific)
+.github/copilot-instructions.md

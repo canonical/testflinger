@@ -85,8 +85,12 @@ class TestHPEDevice(unittest.TestCase):
             mock1.return_value = None
             mock2.return_value = None
             device = HPEDevice("", "", "127.0.0.1", "", "")
-        with patch(f"{HPEDevice_path}.run_cmd") as mock1:
+        with (
+            patch(f"{HPEDevice_path}.run_cmd") as mock1,
+            patch(f"{HPEDevice_path}._get_hpe_fw_repo") as mock2,
+        ):
             mock1.side_effect = self.mock_run_cmd
+            mock2.side_effect = None
             device.get_fw_info()
 
         for member in json.loads(HPE_data.RAWGET_FIRMWARE_INVENTORY)[
