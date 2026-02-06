@@ -2027,7 +2027,6 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
     { name = "sentry-sdk" },
-    { name = "strenum" },
     { name = "testflinger-common" },
     { name = "urllib3" },
 ]
@@ -2068,7 +2067,6 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "sentry-sdk", specifier = ">=2.0.1" },
-    { name = "strenum", specifier = ">=0.4.15" },
     { name = "testflinger-common", editable = "../common" },
     { name = "urllib3", specifier = ">=2.2.1" },
 ]
