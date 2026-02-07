@@ -76,13 +76,13 @@ def test_blocked_on_no_valid_server(ctx):
     """Test blocked status when server is not set."""
     secret = testing.Secret(
         tracked_content={"client_id": "test-id", "secret_key": "test-key"},
-        label="testflinger-credentials",
     )
     state_in = testing.State(
         config={
             "config-repo": "some-repo",
             "config-dir": "agent-configs",
             "testflinger-server": "localhost:5000",
+            "credentials-secret": secret.id,
         },
         secrets=[secret],
     )
@@ -92,56 +92,59 @@ def test_blocked_on_no_valid_server(ctx):
     )
 
 
-def test_blocked_on_no_secret(ctx):
-    """Test blocked status when secret is not set."""
+def test_blocked_on_no_secret(ctx, caplog):
+    """Test blocked status when credentials-secret config is not set."""
     state_in = testing.State(
         config={"config-repo": "some-repo", "config-dir": "agent-configs"}
     )
 
     state_out = ctx.run(ctx.on.start(), state=state_in)
     assert state_out.unit_status == testing.BlockedStatus(
-        "Missing testflinger-credentials secret"
+        "Invalid credentials secret"
     )
+    assert "credentials-secret config not set" in caplog.text
 
 
-def test_blocked_on_secret_missing_fields(ctx):
+def test_blocked_on_secret_missing_fields(ctx, caplog):
     """Test blocked status when secret is missing required fields."""
     secret = testing.Secret(
         tracked_content={"client_id": "test-id"},
-        label="testflinger-credentials",
     )
     state_in = testing.State(
         config={
             "config-repo": "some-repo",
             "config-dir": "agent-configs",
+            "credentials-secret": secret.id,
         },
         secrets=[secret],
     )
 
     state_out = ctx.run(ctx.on.start(), state=state_in)
     assert state_out.unit_status == testing.BlockedStatus(
-        "Secret missing client_id or secret_key"
+        "Invalid credentials secret"
     )
+    assert "Secret missing required fields" in caplog.text
 
 
-def test_blocked_on_secret_incorrect_fields(ctx):
+def test_blocked_on_secret_incorrect_fields(ctx, caplog):
     """Test blocked status when secret has incorrect fields."""
     secret = testing.Secret(
         tracked_content={"client": "test-id", "secret": "test-secret"},
-        label="testflinger-credentials",
     )
     state_in = testing.State(
         config={
             "config-repo": "some-repo",
             "config-dir": "agent-configs",
+            "credentials-secret": secret.id,
         },
         secrets=[secret],
     )
 
     state_out = ctx.run(ctx.on.start(), state=state_in)
     assert state_out.unit_status == testing.BlockedStatus(
-        "Secret missing client_id or secret_key"
+        "Invalid credentials secret"
     )
+    assert "Secret missing required fields" in caplog.text
 
 
 @patch("charm.authenticate", return_value=False)
@@ -149,12 +152,12 @@ def test_blocked_on_authentication_failure(mock_authenticate, ctx):
     """Test blocked status when authentication fails."""
     secret = testing.Secret(
         tracked_content={"client_id": "test-id", "secret_key": "test-key"},
-        label="testflinger-credentials",
     )
     state_in = testing.State(
         config={
             "config-repo": "some-repo",
             "config-dir": "agent-configs",
+            "credentials-secret": secret.id,
         },
         secrets=[secret],
     )
@@ -169,12 +172,12 @@ def test_active_on_successful_authentication(mock_authenticate, ctx):
     """Test active status when authentication is successful."""
     secret = testing.Secret(
         tracked_content={"client_id": "test-id", "secret_key": "test-key"},
-        label="testflinger-credentials",
     )
     state_in = testing.State(
         config={
             "config-repo": "some-repo",
             "config-dir": "agent-configs",
+            "credentials-secret": secret.id,
         },
         secrets=[secret],
     )
@@ -189,12 +192,12 @@ def test_authentication_triggered_on_secret_change(
     """Test that authentication is triggered when secret changes."""
     secret = testing.Secret(
         tracked_content={"client_id": "test-id", "secret_key": "test-key"},
-        label="testflinger-credentials",
     )
     state_in = testing.State(
         config={
             "config-repo": "some-repo",
             "config-dir": "agent-configs",
+            "credentials-secret": secret.id,
         },
         secrets=[secret],
     )

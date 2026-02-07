@@ -255,7 +255,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
     def _on_secret_changed(self, event: ops.SecretChangedEvent):
         """Handle secret changed event."""
-        if event.secret.label == "testflinger-credentials":
+        if event.secret.id == self.config.get("credentials-secret"):
             logger.info("Credentials secret changed, re-authenticating")
             self._authenticate_with_server()
 
@@ -273,6 +273,27 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         self.unit.status = ops.model.BlockedStatus(message)
         return False
 
+    def _valid_secret(self) -> dict | None:
+        """Check if the secret contains the necessary fields."""
+        secret_uri = self.config.get("credentials-secret")
+        if not secret_uri:
+            logger.error("credentials-secret config not set")
+            return
+
+        try:
+            secret = self.model.get_secret(id=secret_uri)
+            content = secret.get_content(refresh=True)
+            if "client_id" not in content or "secret_key" not in content:
+                logger.error("Secret missing required fields")
+                return
+        except (ops.SecretNotFoundError, ops.ModelError):
+            logger.error(
+                "Credentials secret not found or inaccessible for the charm"
+            )
+            return
+
+        return content
+
     def _authenticate_with_server(self) -> bool:
         """Authenticate with the server if token is missing or expiring.
 
@@ -282,16 +303,8 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         if not token_update_needed():
             return True
 
-        try:
-            secret = self.model.get_secret(label="testflinger-credentials")
-            content = secret.get_content()
-        except ops.SecretNotFoundError:
-            logger.error("Credentials secret not found")
-            return self._block("Missing testflinger-credentials secret")
-
-        if "client_id" not in content or "secret_key" not in content:
-            logger.error("Secret missing required fields")
-            return self._block("Secret missing client_id or secret_key")
+        if not (content := self._valid_secret()):
+            return self._block("Invalid credentials secret")
 
         server = self.config.get("testflinger-server")
         if not server or not server.startswith("http"):
@@ -320,6 +333,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             return
         copy_ssh_keys(self.config)
         self.update_tf_cmd_scripts()
+        self._authenticate_with_server()
         self.write_supervisor_service_files()
         supervisord.supervisor_update()
         supervisord.restart_agents()

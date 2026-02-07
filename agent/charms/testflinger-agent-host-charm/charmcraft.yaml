@@ -84,7 +84,15 @@ config:
       default: "https://testflinger.canonical.com"
       description: |
         The hostname of the Testflinger server to connect to. 
-        This should include the protocol (http:// or https://),
+        This should include the protocol (http:// or https://)
+    credentials-secret:
+      type: secret
+      description: |
+        The Juju secret URI containing the credentials for 
+        authenticating with Testflinger server.
+        The secret should contain the following key-value pairs:
+          - client_id: The client ID for authentication
+          - secret-key: The client secret for authentication
 
 parts:
   charm:
