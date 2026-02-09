@@ -37,6 +37,7 @@ def post_request(
         return None
 
     if response.status_code == HTTPStatus.OK:
+        logger.info("Successfully authenticated with Testflinger server.")
         return response.json()
 
     logger.error(

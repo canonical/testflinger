@@ -333,10 +333,11 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             return
         copy_ssh_keys(self.config)
         self.update_tf_cmd_scripts()
-        self._authenticate_with_server()
         self.write_supervisor_service_files()
         supervisord.supervisor_update()
         supervisord.restart_agents()
+        if not self._authenticate_with_server():
+            return
         self.unit.status = ops.model.ActiveStatus()
 
     def install_apt_packages(self, packages: list):

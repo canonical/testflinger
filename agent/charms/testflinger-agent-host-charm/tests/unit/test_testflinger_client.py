@@ -4,10 +4,12 @@
 import json
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import requests
 import testflinger_client
+from defaults import DEFAULT_TOKEN_PATH
 
 TEST_SERVER = "http://testflinger.local"
 
@@ -65,6 +67,38 @@ def test_post_request_connection_error(mock_post):
     )
 
     assert result is None
+
+
+@patch("testflinger_client.write_file")
+@patch("testflinger_client.Path.mkdir")
+@patch("testflinger_client.post_request")
+def test_authenticate_success(mock_post_request, mock_mkdir, mock_write_file):
+    """Test successful authentication returns True."""
+    mock_post_request.return_value = {
+        "access_token": "token123",
+        "refresh_token": "refresh123",
+        "expires_at": (
+            datetime.now(timezone.utc) + timedelta(days=30)
+        ).isoformat(),
+    }
+
+    result = testflinger_client.authenticate(
+        server=f"{TEST_SERVER}",
+        client_id="test-client",
+        secret_key="test-secret",  # noqa: S106
+    )
+
+    assert result is not None
+    mock_write_file.assert_called_once()
+
+    # Verify token data was written to the correct path
+    args, _ = mock_write_file.call_args
+    assert args[0] == Path(DEFAULT_TOKEN_PATH)
+
+    # Verify the content written to the refresh token file is correct
+    written_data = json.loads(args[1])
+    assert written_data["refresh_token"] == "refresh123"  # noqa: S105
+    assert "obtained_at" in written_data
 
 
 @patch("testflinger_client.post_request")

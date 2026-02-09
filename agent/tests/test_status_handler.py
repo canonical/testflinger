@@ -148,7 +148,7 @@ class TestClient:
         assert agent.status_handler.comment == ""
 
     def test_agent_offline_not_processing_jobs(
-        self, agent, requests_mock, caplog
+        self, agent, requests_mock, caplog, tmp_path
     ):
         """Test device is offline and not processing any job."""
         # Mocking retrieval of agent status as offline
@@ -177,6 +177,7 @@ class TestClient:
             # Mocking args for starting agent
             mock_args.return_value.config = "fake.yaml"
             mock_args.return_value.metrics_port = 8000
+            mock_args.return_value.token_file = f"{tmp_path}/test_token"
 
             # Make sure we terminate after first agent status check
             with pytest.raises(Exception, match="end"):
@@ -184,7 +185,7 @@ class TestClient:
         assert "Agent test01 is offline, not processing jobs" in caplog.text
 
     def test_agent_process_job_after_offline_cleared(
-        self, agent, requests_mock, caplog
+        self, agent, requests_mock, caplog, tmp_path
     ):
         """Test agent is able to process jobs after offline is cleared."""
         # Mocking retrieval of agent status as offline
@@ -213,6 +214,7 @@ class TestClient:
             # Mocking args for starting agent
             mock_args.return_value.config = "fake.yaml"
             mock_args.return_value.metrics_port = 8000
+            mock_args.return_value.token_file = f"{tmp_path}/test_token"
 
             # Make sure we terminate after processing job.
             with pytest.raises(Exception, match="end"):
