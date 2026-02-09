@@ -83,7 +83,7 @@ class Maas2:
             self.clear_tpm()
         provision_data = self.job_data.get("provision_data")
         # Default to a safe LTS if no distro is specified
-        distro = provision_data.get("distro", "xenial")
+        distro = provision_data.get("distro", "jammy")
         kernel = provision_data.get("kernel")
         user_data = provision_data.get("user_data")
         storage_data = provision_data.get("disks")
