@@ -91,7 +91,7 @@ config:
         The Juju secret URI containing the credentials for 
         authenticating with Testflinger server.
         The secret should contain the following key-value pairs:
-          - client_id: The client ID for authentication
+          - client-id: The client ID for authentication
           - secret-key: The client secret for authentication
 
 parts:

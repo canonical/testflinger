@@ -283,7 +283,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         try:
             secret = self.model.get_secret(id=secret_uri)
             content = secret.get_content(refresh=True)
-            if "client_id" not in content or "secret_key" not in content:
+            if "client-id" not in content or "secret-key" not in content:
                 logger.error("Secret missing required fields")
                 return
         except (ops.SecretNotFoundError, ops.ModelError):
@@ -313,8 +313,8 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         logger.info("Authenticating with Testflinger server")
         if not authenticate(
             server=server,
-            client_id=content["client_id"],
-            secret_key=content["secret_key"],
+            client_id=content["client-id"],
+            secret_key=content["secret-key"],
         ):
             return self._block("Authentication with Testflinger server failed")
 
