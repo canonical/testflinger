@@ -6,39 +6,22 @@
 
 from unittest.mock import patch
 
-import pytest
-from charm import TestflingerAgentHostCharm
 from ops import testing
 
 
-@pytest.fixture
-def ctx() -> testing.Context:
-    return testing.Context(TestflingerAgentHostCharm)
-
-
-def test_blocked_on_no_config_repo(ctx):
+def test_blocked_on_no_config_repo(ctx, state_in):
     """Test blocked status when config-repo is not set."""
-    state_in = testing.State(
-        config={
-            "config-repo": "",
-            "config-dir": "agent-configs",
-        }
-    )
-    state_out = ctx.run(ctx.on.config_changed(), state=state_in)
+    state = state_in(config={"config-repo": ""})
+    state_out = ctx.run(ctx.on.config_changed(), state=state)
     assert state_out.unit_status == testing.BlockedStatus(
         "config-repo and config-dir must be set"
     )
 
 
-def test_blocked_on_no_config_dir(ctx):
+def test_blocked_on_no_config_dir(ctx, state_in):
     """Test blocked status when config-dir is not set."""
-    state_in = testing.State(
-        config={
-            "config-repo": "some-repo",
-            "config-dir": "",
-        }
-    )
-    state_out = ctx.run(ctx.on.config_changed(), state=state_in)
+    state = state_in(config={"config-dir": ""})
+    state_out = ctx.run(ctx.on.config_changed(), state=state)
     assert state_out.unit_status == testing.BlockedStatus(
         "config-repo and config-dir must be set"
     )
@@ -58,89 +41,67 @@ def test_update_tf_cmd_scripts_on_config_changed(
     mock_copy_ssh,
     mock_update_scripts,
     ctx,
+    state_in,
 ):
     """Test update_tf_cmd_scripts is called during config_changed."""
-    state_in = testing.State(
-        config={
-            "config-repo": "some-repo",
-            "config-dir": "agent-configs",
-        }
-    )
-
-    ctx.run(ctx.on.config_changed(), state=state_in)
+    ctx.run(ctx.on.config_changed(), state=state_in())
 
     mock_update_scripts.assert_called_once()
 
 
-def test_blocked_on_no_valid_server(ctx):
+def test_blocked_on_no_valid_server(ctx, state_in, secret):
     """Test blocked status when server is not set."""
-    secret = testing.Secret(
-        tracked_content={"client_id": "test-id", "secret_key": "test-key"},
-    )
-    state_in = testing.State(
+    state = state_in(
         config={
-            "config-repo": "some-repo",
-            "config-dir": "agent-configs",
             "testflinger-server": "localhost:5000",
             "credentials-secret": secret.id,
         },
         secrets=[secret],
     )
-    state_out = ctx.run(ctx.on.start(), state=state_in)
+    state_out = ctx.run(ctx.on.start(), state=state)
     assert state_out.unit_status == testing.BlockedStatus(
         "Testflinger server config not set or invalid"
     )
 
 
-def test_blocked_on_no_secret(ctx, caplog):
+def test_blocked_on_no_secret(ctx, state_in, caplog):
     """Test blocked status when credentials-secret config is not set."""
-    state_in = testing.State(
-        config={"config-repo": "some-repo", "config-dir": "agent-configs"}
-    )
-
-    state_out = ctx.run(ctx.on.start(), state=state_in)
+    state_out = ctx.run(ctx.on.start(), state=state_in())
     assert state_out.unit_status == testing.BlockedStatus(
         "Invalid credentials secret"
     )
     assert "credentials-secret config not set" in caplog.text
 
 
-def test_blocked_on_secret_missing_fields(ctx, caplog):
+def test_blocked_on_secret_missing_fields(ctx, state_in, caplog):
     """Test blocked status when secret is missing required fields."""
     secret = testing.Secret(
-        tracked_content={"client_id": "test-id"},
+        tracked_content={"client-id": "test-id"},
     )
-    state_in = testing.State(
-        config={
-            "config-repo": "some-repo",
-            "config-dir": "agent-configs",
-            "credentials-secret": secret.id,
-        },
+    state = state_in(
+        config={"credentials-secret": secret.id},
         secrets=[secret],
     )
 
-    state_out = ctx.run(ctx.on.start(), state=state_in)
+    state_out = ctx.run(ctx.on.start(), state=state)
     assert state_out.unit_status == testing.BlockedStatus(
         "Invalid credentials secret"
     )
     assert "Secret missing required fields" in caplog.text
 
 
-def test_blocked_on_secret_incorrect_fields(ctx, caplog):
+def test_blocked_on_secret_incorrect_fields(ctx, state_in, caplog):
     """Test blocked status when secret has incorrect fields."""
+    # Correct field name are "client-id" and "secret-key"
     secret = testing.Secret(
         tracked_content={"client": "test-id", "secret": "test-secret"},
     )
-    state_in = testing.State(
-        config={
-            "config-repo": "some-repo",
-            "config-dir": "agent-configs",
-            "credentials-secret": secret.id,
-        },
+    state = state_in(
+        config={"credentials-secret": secret.id},
         secrets=[secret],
     )
 
-    state_out = ctx.run(ctx.on.start(), state=state_in)
+    state_out = ctx.run(ctx.on.start(), state=state)
     assert state_out.unit_status == testing.BlockedStatus(
         "Invalid credentials secret"
     )
@@ -148,73 +109,49 @@ def test_blocked_on_secret_incorrect_fields(ctx, caplog):
 
 
 @patch("charm.authenticate", return_value=False)
-def test_blocked_on_authentication_failure(mock_authenticate, ctx):
-    """Test blocked status when authentication fails."""
-    secret = testing.Secret(
-        tracked_content={"client_id": "test-id", "secret_key": "test-key"},
-    )
-    state_in = testing.State(
-        config={
-            "config-repo": "some-repo",
-            "config-dir": "agent-configs",
-            "credentials-secret": secret.id,
-        },
+def test_blocked_on_authentication_failure(
+    mock_authenticate, ctx, state_in, secret
+):
+    state = state_in(
+        config={"credentials-secret": secret.id},
         secrets=[secret],
     )
-    state_out = ctx.run(ctx.on.start(), state=state_in)
+    state_out = ctx.run(ctx.on.start(), state=state)
     assert state_out.unit_status == testing.BlockedStatus(
         "Authentication with Testflinger server failed"
     )
 
 
 @patch("charm.authenticate", return_value=True)
-def test_active_on_successful_authentication(mock_authenticate, ctx):
+def test_active_on_successful_authentication(
+    mock_authenticate, ctx, state_in, secret
+):
     """Test active status when authentication is successful."""
-    secret = testing.Secret(
-        tracked_content={"client_id": "test-id", "secret_key": "test-key"},
-    )
-    state_in = testing.State(
-        config={
-            "config-repo": "some-repo",
-            "config-dir": "agent-configs",
-            "credentials-secret": secret.id,
-        },
+    state = state_in(
+        config={"credentials-secret": secret.id},
         secrets=[secret],
     )
-    state_out = ctx.run(ctx.on.start(), state=state_in)
+    state_out = ctx.run(ctx.on.start(), state=state)
     assert state_out.unit_status == testing.ActiveStatus()
 
 
 @patch("charm.TestflingerAgentHostCharm._authenticate_with_server")
 def test_authentication_triggered_on_secret_change(
-    mock_authenticate_with_server, ctx
+    mock_authenticate_with_server, ctx, state_in, secret
 ):
     """Test that authentication is triggered when secret changes."""
-    secret = testing.Secret(
-        tracked_content={"client_id": "test-id", "secret_key": "test-key"},
-    )
-    state_in = testing.State(
-        config={
-            "config-repo": "some-repo",
-            "config-dir": "agent-configs",
-            "credentials-secret": secret.id,
-        },
+    state = state_in(
+        config={"credentials-secret": secret.id},
         secrets=[secret],
     )
-    ctx.run(ctx.on.secret_changed(secret), state=state_in)
+    ctx.run(ctx.on.secret_changed(secret), state=state)
     mock_authenticate_with_server.assert_called_once()
 
 
 @patch("charm.TestflingerAgentHostCharm._authenticate_with_server")
 def test_authentication_triggered_on_update_status(
-    mock_authenticate_with_server, ctx
+    mock_authenticate_with_server, ctx, state_in
 ):
     """Test that authentication is triggered on update_status event."""
-    state_in = testing.State(
-        config={
-            "config-repo": "some-repo",
-            "config-dir": "agent-configs",
-        },
-    )
-    ctx.run(ctx.on.update_status(), state=state_in)
+    ctx.run(ctx.on.update_status(), state=state_in())
     mock_authenticate_with_server.assert_called_once()
