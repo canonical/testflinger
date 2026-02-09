@@ -55,6 +55,7 @@ class DeviceConnector(ZapperConnector):
             return super().pre_provision_hook()
 
         try:
+            logger.info("Attempt to power cycle the control host.")
             self._api_post("/api/v1/system/poweroff", timeout=10)
             with contextlib.suppress(TimeoutError):
                 ZapperConnector.wait_online(
@@ -66,7 +67,7 @@ class DeviceConnector(ZapperConnector):
             self.wait_ready(control_host)
         except requests.RequestException:
             logger.warning(
-                "Zapper REST API is not available on %s, "
+                "The REST API is not available on %s, "
                 "falling back to default pre-provision hook",
                 control_host,
             )
