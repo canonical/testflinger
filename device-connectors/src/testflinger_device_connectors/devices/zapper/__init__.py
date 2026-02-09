@@ -26,6 +26,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
+import requests
 import rpyc
 
 from testflinger_device_connectors.devices import (
@@ -44,6 +45,25 @@ class ZapperConnector(ABC, DefaultDevice):
     PROVISION_METHOD = ""  # to be defined in the implementation
     ZAPPER_REQUEST_TIMEOUT = 60 * 90
     ZAPPER_SERVICE_PORT = 60000
+    ZAPPER_REST_PORT = 8000
+
+    def _api_post(self, endpoint: str, **kwargs) -> requests.Response:
+        """Send a POST request to the Zapper REST API.
+
+        :param endpoint: API endpoint path (e.g. "/api/v1/system/poweroff").
+        :param kwargs: Additional keyword arguments passed to requests.post.
+        :returns: The response object.
+        :raises requests.RequestException: On any request failure.
+        """
+        url = (
+            f"http://{self.config['control_host']}"
+            f":{self.ZAPPER_REST_PORT}{endpoint}"
+        )
+        logger.info("POST %s", url)
+        timeout = kwargs.pop("timeout", 30)
+        response = requests.post(url, timeout=timeout, **kwargs)
+        response.raise_for_status()
+        return response
 
     @staticmethod
     def _check_rpyc_server_on_host(host: str) -> None:

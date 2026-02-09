@@ -114,7 +114,7 @@ class TestCheckSshServerOnHost:
 
 
 class TestRebootControlHost:
-    """Tests for DefaultDevice.__reboot_control_host method."""
+    """Tests for DefaultDevice._reboot_control_host method."""
 
     def test_reboot_control_host_no_script(self, mocker):
         """Test reboot returns early when no script is configured."""
@@ -122,7 +122,7 @@ class TestRebootControlHost:
         mock_subprocess = mocker.patch("subprocess.run")
         device = DefaultDevice({"device_ip": "1.1.1.1"})
 
-        device._DefaultDevice__reboot_control_host()
+        device._reboot_control_host()
 
         mock_subprocess.assert_not_called()
 
@@ -137,7 +137,7 @@ class TestRebootControlHost:
             }
         )
 
-        device._DefaultDevice__reboot_control_host()
+        device._reboot_control_host()
 
         assert mock_subprocess.call_count == 2
 
@@ -156,7 +156,7 @@ class TestRebootControlHost:
         )
 
         # Should not raise
-        device._DefaultDevice__reboot_control_host()
+        device._reboot_control_host()
 
     def test_reboot_control_host_timeout_expired(self, mocker):
         """Test reboot handles TimeoutExpired gracefully."""
@@ -171,7 +171,7 @@ class TestRebootControlHost:
         )
 
         # Should not raise
-        device._DefaultDevice__reboot_control_host()
+        device._reboot_control_host()
 
     def test_reboot_control_host_unexpected_error(self, mocker):
         """Test reboot handles unexpected exceptions gracefully."""
@@ -185,7 +185,7 @@ class TestRebootControlHost:
         )
 
         # Should not raise
-        device._DefaultDevice__reboot_control_host()
+        device._reboot_control_host()
 
 
 class TestPreProvisionHook:

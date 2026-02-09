@@ -18,6 +18,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper import (
@@ -265,3 +266,32 @@ class TestZapperConnectorDisconnectUsbStick:
         ZapperConnector.disconnect_usb_stick(config)
 
         mock_typecmux.assert_not_called()
+
+
+class TestZapperConnectorRestApi:
+    """Tests for ZapperConnector REST API client."""
+
+    def test_api_post(self, mocker):
+        """Test _api_post sends a POST request to the correct URL."""
+        mock_post = mocker.patch("requests.post")
+        mock_post.return_value.raise_for_status = Mock()
+
+        connector = MockConnector({"control_host": "zapper-host"})
+        connector._api_post("/api/v1/system/poweroff", timeout=10)
+
+        mock_post.assert_called_once_with(
+            "http://zapper-host:8000/api/v1/system/poweroff",
+            timeout=10,
+        )
+        mock_post.return_value.raise_for_status.assert_called_once()
+
+    def test_api_post_raises_on_http_error(self, mocker):
+        """Test _api_post raises on HTTP error status."""
+        mock_post = mocker.patch("requests.post")
+        mock_post.return_value.raise_for_status.side_effect = (
+            requests.HTTPError
+        )
+
+        connector = MockConnector({"control_host": "zapper-host"})
+        with pytest.raises(requests.HTTPError):
+            connector._api_post("/api/v1/system/poweroff")

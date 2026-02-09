@@ -22,7 +22,9 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+import requests
 import yaml
+from typing_extensions import override
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.dell_oemscript import DellOemScript
@@ -40,6 +42,36 @@ class DeviceConnector(ZapperConnector):
     """Tool for provisioning baremetal with a given image."""
 
     PROVISION_METHOD = "ProvisioningKVM"
+
+    @override
+    def pre_provision_hook(self):
+        """Power off the DUT via the Zapper REST API before provisioning.
+
+        If the REST API is not available, fall back to the default
+        pre-provision hook (SSH-based control host check).
+        """
+        control_host = self.config.get("control_host", "")
+        if not control_host:
+            return super().pre_provision_hook()
+
+        try:
+            logger.info("Attempt to power cycle the control host.")
+            self._api_post("/api/v1/system/poweroff", timeout=10)
+            with contextlib.suppress(TimeoutError):
+                ZapperConnector.wait_online(
+                    ZapperConnector._check_rpyc_server_on_host,
+                    control_host,
+                    30,
+                )
+            self._reboot_control_host()
+            self.wait_ready(control_host)
+        except requests.RequestException:
+            logger.warning(
+                "The REST API is not available on %s, "
+                "falling back to default pre-provision hook",
+                control_host,
+            )
+            super().pre_provision_hook()
 
     def _validate_base_user_data(self, encoded_user_data: str):
         """Assert `base_user_data` argument is a valid base64 encoded YAML."""
