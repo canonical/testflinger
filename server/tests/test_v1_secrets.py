@@ -526,8 +526,8 @@ def test_job_get_with_secrets(app_with_store):
     # GIVEN: an app with a secrets store and a job with secrets submitted
     client_id = "client_1"
     mock_secrets_store = app_with_store.application.secrets_store
-    mock_secrets_store.read.side_effect = (
-        lambda client_id, path: f"secret_value_for_{path}"
+    mock_secrets_store.read.side_effect = lambda client_id, path: (
+        f"secret_value_for_{path}"
     )
 
     # Submit a job with secrets first
