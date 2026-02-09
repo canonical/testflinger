@@ -154,8 +154,9 @@ class TestClient:
         client.transmit_job_outcome(tmp_path)
         assert requests_mock.last_request.json() == {"job_state": "complete"}
 
+    @patch.object(_TestflingerClient, "save_artifacts", side_effect=OSError)
     def test_transmit_job_outcome_with_error(
-        self, client, requests_mock, tmp_path, caplog
+        self, mock_save_artifacts, client, requests_mock, tmp_path, caplog
     ):
         """
         Test that OSError during save_artifacts results in removing the job
@@ -173,9 +174,7 @@ class TestClient:
             status_code=HTTPStatus.OK,
         )
 
-        # Simulate an error during save_artifacts
-        with patch.object(client, "save_artifacts", side_effect=OSError):
-            client.transmit_job_outcome(tmp_path)
+        client.transmit_job_outcome(tmp_path)
         assert tmp_path.exists() is False
         assert "Unable to save artifacts" in caplog.text
 
@@ -191,7 +190,8 @@ class TestClient:
         )
         with pytest.raises(TFServerError):
             client.post_result(job_id, {})
-            assert "Unable to post results" in caplog.text
+        assert "Unable to post results" in caplog.text
+        assert "error: 404" in caplog.text
 
     def test_result_get_endpoint_error(self, client, requests_mock, caplog):
         """
@@ -206,6 +206,7 @@ class TestClient:
         response = client.get_result(job_id)
         assert response == {}
         assert "Unable to get results" in caplog.text
+        assert "error: 404" in caplog.text
 
     def test_attachment_endpoint_error(self, client, requests_mock, caplog):
         """
@@ -391,19 +392,20 @@ class TestClient:
         assert len(post_requests) == 1
         assert post_requests[0].json() == {"job_id": ""}
 
-    def test_check_jobs_request_exception(self, client):
+    @patch("testflinger_agent.client.time.sleep")
+    @patch("testflinger_agent.client.logger")
+    @patch("requests.Session.get")
+    def test_check_jobs_request_exception(
+        self, mock_get, mock_logger, mock_sleep, client
+    ):
         """
         Test that check_jobs handles RequestException (network failure)
         by logging error and sleeping.
         """
         network_error = RequestException("Connection refused")
+        mock_get.side_effect = network_error
 
-        with patch.object(client.session, "get", side_effect=network_error):
-            with patch("testflinger_agent.client.logger") as mock_logger:
-                with patch(
-                    "testflinger_agent.client.time.sleep"
-                ) as mock_sleep:
-                    result = client.check_jobs()
+        result = client.check_jobs()
 
         # Verify logger.error was called with the exception
         mock_logger.error.assert_called_with(network_error)
