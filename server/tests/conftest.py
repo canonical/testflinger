@@ -156,3 +156,14 @@ def user(iam_server):
     iam_server.backend.save(user)
     yield user
     iam_server.backend.delete(user)
+
+
+@pytest.fixture
+def sorted_roles():
+    """Roles listed from least to most privileged."""
+    return [
+        ServerRoles.AGENT,
+        ServerRoles.CONTRIBUTOR,
+        ServerRoles.MANAGER,
+        ServerRoles.ADMIN,
+    ]

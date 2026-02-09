@@ -10,7 +10,6 @@ class ServerRoles(StrEnum):
     ADMIN = "admin"
     MANAGER = "manager"
     CONTRIBUTOR = "contributor"
-    USER = "user"
     AGENT = "agent"
 
 

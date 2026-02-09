@@ -243,7 +243,7 @@ def authenticate(func):
 
         # Initialize auth state
         g.client_id = None
-        g.role = ServerRoles.USER
+        g.role = None
         g.permissions = {}
         g.is_authenticated = False
 

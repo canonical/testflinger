@@ -122,7 +122,6 @@ class ServerRoles(StrEnum):
     ADMIN = "admin"
     MANAGER = "manager"
     CONTRIBUTOR = "contributor"
-    USER = "user"
     AGENT = "agent"
 
     def __lt__(self, other: "ServerRoles") -> bool:
@@ -136,17 +135,18 @@ class ServerRoles(StrEnum):
             self.ADMIN: 0,
             self.MANAGER: 1,
             self.CONTRIBUTOR: 2,
-            self.USER: 3,
-            self.AGENT: 4,
+            self.AGENT: 3,
         }
         return _ranks[self] > _ranks[other]
 
     def __le__(self, other: "ServerRoles") -> bool:
         """Implement "less-than-or-equal" between ServerRoles."""
+        # Implicitly checks that `other` is a ServerRoles instance via __lt__
         return self < other or self == other
 
     def __gt__(self, other: "ServerRoles") -> bool:
         """Implement of "greater-than" between ServerRoles."""
+        # Implicitly checks that `other` is a ServerRoles instance via __lt__
         return not (self < other or self == other)
 
     def __ge__(self, other: "ServerRoles") -> bool:

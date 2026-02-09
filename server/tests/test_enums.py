@@ -21,12 +21,6 @@ import pytest
 from testflinger_common.enums import ServerRoles
 
 
-@pytest.fixture
-def sorted_roles():
-    """Return sorted list of ServerRoles."""
-    return sorted(ServerRoles)
-
-
 class TestServerRoles:
     """Test ServerRoles enum."""
 
@@ -70,6 +64,5 @@ class TestServerRoles:
             ServerRoles.ADMIN < None  # noqa: B015
 
     def test_role_ordering(self, sorted_roles):
-        """Test that roles are ordered correctly."""
-        unsorted_roles = list(reversed(sorted_roles))
-        assert sorted(unsorted_roles) == sorted_roles
+        """Test that roles are ordered by privilege hierarchy."""
+        assert sorted(ServerRoles) == sorted_roles
