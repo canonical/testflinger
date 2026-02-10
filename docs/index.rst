@@ -57,6 +57,12 @@ In this documentation
 
       **Discussion and clarification** of key concepts
 
+   .. grid-item-card:: Administration
+      :link: /administration/index
+      :link-type: doc
+
+      **Administration** tasks and best practices for operators of Testflinger systems
+
 ---------
 
 Project and community
@@ -75,6 +81,7 @@ constructive feedback.
    :hidden:
    :maxdepth: 2
 
+   administration/index
    tutorial/index
    how-to/index
    reference/index
