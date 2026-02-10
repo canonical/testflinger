@@ -188,7 +188,7 @@ sure that your public :ref:`SSH key <ssh-key>` is added to the device so that
 the agent is able to communicate with the device.
 
 Terraform
-^^^^
+^^^^^^^^^
 
 If you want to deploy the Testflinger agent host using Terraform, you can refer to the
 `Terraform README <https://github.com/canonical/testflinger/blob/main/agent/terraform/README.md>`_ for instructions.
