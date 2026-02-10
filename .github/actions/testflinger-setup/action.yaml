@@ -1,0 +1,69 @@
+name: Setup Testflinger
+description: "Configure runner environment with network settings and CLI installation"
+inputs:
+  server:
+    description: The Testflinger server to use
+    required: false
+    default: testflinger.canonical.com
+
+runs:
+  using: composite
+  steps:
+    - name: Bypass aproxy (for private-endpoint runners)
+      if: startsWith(runner.name, 'private-')
+      env:
+        SERVER: ${{ inputs.server }}
+      shell: bash
+      run: |
+        echo "::group::Bypass aproxy (private-endpoint runner)"
+        APROXY_IP=$(ip route get $(ip route show 0.0.0.0/0 | grep -oP 'via \K\S+') | grep -oP 'src \K\S+')
+        APROXY_PORT=$(sudo snap get aproxy listen)
+        APROXY=$APROXY_IP$APROXY_PORT
+        TESTFLINGER_IPS=$(getent ahostsv4 $SERVER | awk '/RAW/ {print $1}' | paste -sd,)
+        PRIVATE_IPS=10.0.0.0/8,127.0.0.1/8,172.16.0.0/12,192.168.0.0/16,$TESTFLINGER_IPS
+        sudo nft -f - << EOF
+        flush table ip aproxy
+        table ip aproxy {
+          chain prerouting {
+            type nat hook prerouting priority dstnat; policy accept;
+            ip daddr != { $PRIVATE_IPS } tcp dport { 80, 443 } counter dnat to $APROXY
+          }
+          chain output {
+            type nat hook output priority -100; policy accept;
+            ip daddr != { $PRIVATE_IPS } tcp dport { 80, 443 } counter dnat to $APROXY
+          }
+        }
+        EOF
+        echo Bypass complete
+        sudo nft list table ip aproxy
+        echo "::endgroup::"
+
+    - name: Test connection to Testflinger server
+      shell: bash {0}  # allow curl to fail
+      env:
+        SERVER: https://${{ inputs.server }}
+        REQUEST_ID: ${{ github.run_id }}
+      run: |
+        echo "::group::Test connection to Testflinger server"
+        STATUS=$(curl --stderr error.log -Ivw "%{http_code}\n" -o /dev/null $SERVER/v1/ -H "X-Request-ID: $REQUEST_ID")
+        ERROR=$?
+        if [ ! $ERROR -eq 0 ]; then
+          echo "Unable to ping Testflinger server at $SERVER"
+          cat error.log
+          exit $ERROR
+        elif [ ! $STATUS -eq 200 ]; then
+          echo "Failed server ping at $SERVER, error status: $STATUS"
+          cat error.log
+          exit $STATUS
+        else
+          echo "Successful server ping at $SERVER, status: $STATUS"
+        fi
+        echo "::endgroup::"
+
+    - name: Install CLI prerequisites
+      shell: bash
+      run: |
+        echo "::group::Install prerequisites"
+        sudo snap install testflinger-cli
+        sudo snap install jq
+        echo "::endgroup::"
