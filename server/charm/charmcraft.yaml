@@ -121,6 +121,6 @@ parts:
       # for 22.04
       # Install rustc and cargo using rustup instead of the Ubuntu archive
       rustup set profile minimal
-      rustup default 1.92.0  # renovate: charmcraft-rust-latest
+      rustup default 1.93.0  # renovate: charmcraft-rust-latest
 
       craftctl default
