@@ -59,7 +59,7 @@ Operating the Agent Host
 Using supervisorctl on the agent host to check status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The agent host is configured to use supervisorctl to manage the agents. 
+The agent host is configured to use ``supervisorctl`` to manage the agents. 
 You can run the following command to see the status of all the
 agents configured inside the charm.
 
@@ -79,7 +79,7 @@ To show the logs for a specific agent, run:
 
 You can also use the ``-f`` option to follow the logs.
 
-To show the logs for supervisorctl itself, to see what it's recently started,
+To show the logs for ``supervisorctl`` itself, to see what it's recently started,
 stopped, or signalled, you can use:
 
 .. code-block:: shell
