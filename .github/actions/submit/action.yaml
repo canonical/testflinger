@@ -38,10 +38,29 @@ outputs:
 runs:
   using: composite
   steps:
+
+    # This action is necessary as a workaround for https://github.com/actions/runner/issues/895.
+    # Since contexts cannot be used in the `uses:` key, we can't guarantee that this action will
+    # use the same branch of testflinger-setup
+    - name: Checkout testflinger actions
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      env:
+        GITHUB_REF: ${{ github.action_ref }}
+      with:
+        repository: canonical/testflinger
+        ref: ${{ env.GITHUB_REF }}
+        path: _tmp_testflinger-actions
+        sparse-checkout: .github/actions/testflinger-setup
+        persist-credentials: false
+
     - name: Set up Testflinger
-      uses: canonical/testflinger/.github/actions/testflinger-setup@refactor/extract-common-action
+      uses: ./_tmp_testflinger-actions/.github/actions/testflinger-setup
       with:
         server: ${{ inputs.server }}
+
+    - name: Clean up temporary checkout
+      shell: bash
+      run: rm -rf ./_tmp_testflinger-actions
 
     - name: Create job file, if required
       id: create-job-file
