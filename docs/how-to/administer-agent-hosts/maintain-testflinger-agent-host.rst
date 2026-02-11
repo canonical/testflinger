@@ -4,20 +4,20 @@ Maintain a Testflinger Agent Host
 This guide outlines how to maintain a Testflinger agent host deployed with Juju.
 To deploy a Testflinger agent host, please read the :doc:`deploy-testflinger-agent-host` how-to guide.
 
-Update Testflinger Code
------------------------
+Pull latest code from Git
+-------------------------
 
 To update the Testflinger code used by the agent host, run the
 ``update-testflinger`` action.
 
 .. code-block:: shell
   
-  juju run testflinger-agent-host/0 update-testflinger
+  $ juju run <agent-host-charm-unit> update-testflinger
 
 .. tip::
 
     You can optionally specify a branch to pull by providing the ``branch`` parameter.
-    e.g. ``juju run testflinger-agent-host/0 update-testflinger --branch=<branch_name>``
+    e.g. ``$ juju run <agent-host-charm-unit> update-testflinger --branch=<branch_name>``
 
 
 Update Agent Configurations
@@ -29,7 +29,7 @@ pulled regularly. To pull any updates to the configurations, run the
 
 .. code-block:: shell
 
-  juju run testflinger-agent-host/0 update-configs
+  $ juju run <agent-host-charm-unit> update-configs
 
 
 The updated configurations will be applied and the agents will be restarted. If
@@ -45,16 +45,16 @@ This will pull the latest TF scripts and apply them to the agent host.
 
 .. code-block:: shell
 
-  juju refresh testflinger-agent-host
+  $ juju refresh <agent-host-application>
 
 
-Operating the Agent Host
+Monitoring the Agent Host
 ------------------------
 
 .. note::
 
   The following instructions assume you SSH into the agent host charm unit.
-  You can SSH into the unit using ``juju ssh <charm unit>``.
+  You can SSH into the unit using ``juju ssh <agent-host-charm-unit>``.
 
 Using supervisorctl on the agent host to check status
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -87,7 +87,7 @@ stopped, or signalled, you can use:
    $ sudo supervisorctl maintail
 
 Stopping and restarting agents
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------
 
 .. note::
 
