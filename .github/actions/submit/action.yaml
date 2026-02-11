@@ -45,6 +45,7 @@ runs:
         ref: ${{ github.action_ref }}
         path: testflinger-actions
         sparse-checkout: .github/actions/testflinger-setup
+        persist-credentials: false
 
     - name: Set up Testflinger
       uses: ./testflinger-actions/.github/actions/testflinger-setup
