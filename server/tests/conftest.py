@@ -22,9 +22,9 @@ import bcrypt
 import mongomock
 import pytest
 from mongomock.gridfs import enable_gridfs_integration
+from testflinger_common.enums import ServerRoles
 
 from testflinger import application, database
-from testflinger.enums import ServerRoles
 
 
 @dataclass
@@ -156,3 +156,14 @@ def user(iam_server):
     iam_server.backend.save(user)
     yield user
     iam_server.backend.delete(user)
+
+
+@pytest.fixture
+def sorted_roles():
+    """Roles listed from least to most privileged."""
+    return [
+        ServerRoles.AGENT,
+        ServerRoles.CONTRIBUTOR,
+        ServerRoles.MANAGER,
+        ServerRoles.ADMIN,
+    ]
