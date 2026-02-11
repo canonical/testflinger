@@ -19,9 +19,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import requests
 import yaml
 
 from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
 
 
@@ -590,3 +592,68 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         connector = DeviceConnector(fake_config)
         key = connector._read_ssh_key()
         self.assertEqual(key, "mykey")
+
+    @patch.object(DeviceConnector, "wait_ready")
+    @patch.object(DeviceConnector, "_reboot_control_host")
+    @patch.object(ZapperConnector, "wait_online")
+    @patch.object(DeviceConnector, "_api_post")
+    def test_pre_provision_hook_poweroff(
+        self, mock_api_post, mock_wait_online, mock_reboot, mock_wait_ready
+    ):
+        """Test pre_provision_hook sends poweroff, waits for RPyC to
+        go down, reboots control host, then waits for it to come back.
+        """
+        connector = DeviceConnector({"control_host": "zapper-host"})
+
+        connector.pre_provision_hook()
+
+        mock_api_post.assert_called_once_with(
+            "/api/v1/system/poweroff", timeout=10
+        )
+        mock_wait_online.assert_called_once_with(
+            ZapperConnector._check_rpyc_server_on_host,
+            "zapper-host",
+            30,
+        )
+        mock_reboot.assert_called_once()
+        mock_wait_ready.assert_called_once_with("zapper-host")
+
+    @patch(
+        "testflinger_device_connectors.devices.DefaultDevice"
+        ".pre_provision_hook"
+    )
+    @patch.object(DeviceConnector, "wait_ready")
+    @patch.object(
+        DeviceConnector,
+        "_api_post",
+        side_effect=requests.ConnectionError,
+    )
+    def test_pre_provision_hook_fallback(
+        self, mock_api_post, mock_wait_ready, mock_super_hook
+    ):
+        """Test pre_provision_hook falls back to super() when REST fails."""
+        connector = DeviceConnector({"control_host": "zapper-host"})
+
+        connector.pre_provision_hook()
+
+        mock_api_post.assert_called_once()
+        mock_wait_ready.assert_not_called()
+        mock_super_hook.assert_called_once()
+
+    @patch(
+        "testflinger_device_connectors.devices.DefaultDevice"
+        ".pre_provision_hook"
+    )
+    @patch.object(DeviceConnector, "_api_post")
+    def test_pre_provision_hook_no_control_host(
+        self, mock_api_post, mock_super_hook
+    ):
+        """Test pre_provision_hook delegates to super()
+        with no control_host.
+        """
+        connector = DeviceConnector({})
+
+        connector.pre_provision_hook()
+
+        mock_api_post.assert_not_called()
+        mock_super_hook.assert_called_once()

@@ -450,7 +450,7 @@ class DefaultDevice:
         else:
             raise TimeoutError
 
-    def __reboot_control_host(self) -> None:
+    def _reboot_control_host(self) -> None:
         control_host_reboot_script: list[str] = [
             str(cmd)
             for cmd in self.config.get("control_host_reboot_script", [])
@@ -503,7 +503,7 @@ class DefaultDevice:
             logger.debug("The control host is reachable over SSH.")
             return
 
-        self.__reboot_control_host()
+        self._reboot_control_host()
 
         timeout = 300
         logger.info(
