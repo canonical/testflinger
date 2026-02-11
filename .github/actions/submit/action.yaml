@@ -38,8 +38,16 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Checkout testflinger actions
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        repository: canonical/testflinger
+        ref: ${{ github.action_ref }}
+        path: testflinger-actions
+        sparse-checkout: .github/actions/testflinger-setup
+
     - name: Set up Testflinger
-      uses: ./.github/actions/testflinger-setup
+      uses: ./testflinger-actions/.github/actions/testflinger-setup
       with:
         server: ${{ inputs.server }}
 
