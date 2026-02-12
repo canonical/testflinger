@@ -12,48 +12,33 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import tempfile
-from unittest import TestCase
+import json
 
+import pytest
 import voluptuous
 
 import testflinger_agent
-
-GOOD_CONFIG = """
-agent_id: test01
-identifier: 12345-123456
-polling_interval: 10
-server_address: 127.0.0.1:8000
-location: earth
-job_queues:
-    - test
-"""
 
 BAD_CONFIG = """
 badkey: foo
 """
 
 
-class ConfigTest(TestCase):
-    def setUp(self):
-        with tempfile.NamedTemporaryFile(delete=False) as config:
-            self.configfile = config.name
+def test_config_good(tmp_path, config):
+    """Test that a valid config file is loaded correctly."""
+    configfile = tmp_path / "config.yaml"
+    with configfile.open("w") as f:
+        json.dump(config, f)
+    agent_config = testflinger_agent.load_config(configfile)
+    assert "test01" == agent_config.get("agent_id")
 
-    def tearDown(self):
-        os.unlink(self.configfile)
 
-    def test_config_good(self):
-        with open(self.configfile, "w") as config:
-            config.write(GOOD_CONFIG)
-        config = testflinger_agent.load_config(self.configfile)
-        self.assertEqual("test01", config.get("agent_id"))
-
-    def test_config_bad(self):
-        with open(self.configfile, "w") as config:
-            config.write(BAD_CONFIG)
-        self.assertRaises(
-            voluptuous.error.MultipleInvalid,
-            testflinger_agent.load_config,
-            self.configfile,
-        )
+def test_config_bad(tmp_path):
+    """Test that an invalid config file raises an schema error."""
+    configfile = tmp_path / "config.yaml"
+    with configfile.open("w") as f:
+        f.write(BAD_CONFIG)
+    with pytest.raises(
+        voluptuous.error.MultipleInvalid,
+    ):
+        testflinger_agent.load_config(configfile)
