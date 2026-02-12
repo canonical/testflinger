@@ -297,7 +297,6 @@ def test_get_single_client_permissions(auth_fixture, capsys, requests_mock):
 @pytest.mark.parametrize(
     "role",
     [
-        ServerRoles.USER,
         ServerRoles.CONTRIBUTOR,
         ServerRoles.MANAGER,
         ServerRoles.ADMIN,

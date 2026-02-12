@@ -189,14 +189,14 @@ class TestflingerCliAuth:
         with contextlib.suppress(AuthenticationError, AuthorizationError):
             _ = self.jwt_token
 
-    def get_user_role(self) -> str:
+    def get_user_role(self) -> str | None:
         """Retrieve the role for the user from the decoded jwt.
 
-        :return: String with the role, defaults to 'user' if not authenticated.
+        :return: String with the role, return None if not authenticated.
         """
         decoded_token = self.decode_jwt_token()
         if not decoded_token:
-            return ServerRoles.USER
+            return None
 
         permissions = decoded_token.get("permissions", {})
         # If there is a decoded token, the user was authenticated

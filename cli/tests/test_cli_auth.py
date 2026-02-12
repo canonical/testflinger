@@ -130,7 +130,7 @@ def test_retrieve_regular_user_role(tmp_path, requests_mock):
     role = tfcli.auth.get_user_role()
 
     assert tfcli.auth.is_authenticated() is False
-    assert role == "user"
+    assert role is None
 
 
 def test_user_authenticated_with_role(auth_fixture, tmp_path, requests_mock):
