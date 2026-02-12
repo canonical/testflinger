@@ -194,7 +194,7 @@ runs:
             LAST_FRAGMENT=$((FRAG + 1))
           fi
           # output poll output except the fragment line
-          echo "$POLL_OUTPUT" | grep -v "^Last Fragment Number:" | tee -a "$CAPTURED_OUTPUT"
+          echo "$POLL_OUTPUT" | grep -v "^Last Fragment Number:\|^Waiting on Output" | tee -a "$CAPTURED_OUTPUT"
           JOB_STATUS="$(testflinger --server $SERVER status $JOB_ID)"
           if [ "$JOB_STATUS" = "reserve" ]; then
             if grep -q "$TERMINATION" "$CAPTURED_OUTPUT"; then
