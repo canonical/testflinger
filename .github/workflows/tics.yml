@@ -20,7 +20,7 @@ jobs:
       contents: read
     steps:
     - name: Checkout
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       with:
         persist-credentials: false
     - name: Install dependencies
@@ -83,7 +83,7 @@ jobs:
         mv device-connectors/coverage.xml .coverage/device_connectors_coverage.xml
 
     - name: Run TiCS Analysis
-      uses: tiobe/tics-github-action@768de18bedf164ee461bc9ef5e2f2fa1a20b122a # v3.7.0
+      uses: tiobe/tics-github-action@faf5066082a31b2517574270b45e3df92aa39a35 # v3.7.1
       with:
         mode: qserver
         project: testflinger
