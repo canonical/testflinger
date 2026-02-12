@@ -183,10 +183,18 @@ runs:
         # specify file for capturing output and clear it
         CAPTURED_OUTPUT=output
         > "$CAPTURED_OUTPUT"
+        LAST_FRAGMENT=0
         # perform one-shot polling until the reserve phase has been reached
         # and the captured output contains the TERMINATION string
         while true; do
-          PYTHONUNBUFFERED=1 testflinger --server $SERVER poll --oneshot $JOB_ID | tee -a "$CAPTURED_OUTPUT"
+          POLL_OUTPUT=$(PYTHONUNBUFFERED=1 testflinger --server $SERVER poll --oneshot --start_fragment $LAST_FRAGMENT $JOB_ID)
+          # extract the last fragment number so we can start from the next fragment
+          FRAG=$(echo "$POLL_OUTPUT" | sed -n 's/^Last Fragment Number: \([0-9]*\)$/\1/p')
+          if [ -n "$FRAG" ]; then
+            LAST_FRAGMENT=$((FRAG + 1))
+          fi
+          # output poll output except the fragment line
+          echo "$POLL_OUTPUT" | grep -v "^Last Fragment Number:" | tee -a "$CAPTURED_OUTPUT"
           JOB_STATUS="$(testflinger --server $SERVER status $JOB_ID)"
           if [ "$JOB_STATUS" = "reserve" ]; then
             if grep -q "$TERMINATION" "$CAPTURED_OUTPUT"; then
@@ -197,7 +205,7 @@ runs:
             EXIT_STATUS=1
             break
           fi
-          sleep 10
+          sleep 20
         done
         echo "::endgroup::"
         echo "::group::Retrieve IP of reserved machine"
