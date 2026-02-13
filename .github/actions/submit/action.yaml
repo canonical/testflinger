@@ -187,14 +187,14 @@ runs:
         # perform one-shot polling until the reserve phase has been reached
         # and the captured output contains the TERMINATION string
         while true; do
-          POLL_OUTPUT=$(PYTHONUNBUFFERED=1 testflinger --server $SERVER poll --oneshot --start_fragment $LAST_FRAGMENT $JOB_ID)
+          POLL_OUTPUT=$(PYTHONUNBUFFERED=1 testflinger --server $SERVER poll --oneshot --start_fragment $LAST_FRAGMENT $JOB_ID) || true
           # extract the last fragment number so we can start from the next fragment
           FRAG=$(echo "$POLL_OUTPUT" | sed -n 's/^Last Fragment Number: \([0-9]*\)$/\1/p')
           if [ -n "$FRAG" ]; then
             LAST_FRAGMENT=$((FRAG + 1))
           fi
           # output poll output except the fragment line
-          echo "$POLL_OUTPUT" | grep -v "^Last Fragment Number:\|^Waiting on Output" | tee -a "$CAPTURED_OUTPUT"
+          echo "$POLL_OUTPUT" | { grep -v "^Last Fragment Number:\|^Waiting on Output" || true; } | tee -a "$CAPTURED_OUTPUT"
           JOB_STATUS="$(testflinger --server $SERVER status $JOB_ID)"
           if [ "$JOB_STATUS" = "reserve" ]; then
             if grep -q "$TERMINATION" "$CAPTURED_OUTPUT"; then
