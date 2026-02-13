@@ -94,19 +94,20 @@ runs:
         cat "$JOB"
         echo "::endgroup::"
 
-    - name: Determine if this is a reservation job
-      id: check-reservation
+    - name: Determine phases to run
+      id: check-phases
       shell: bash
       env:
         JOB: ${{ steps.create-job-file.outputs.job }}
       run: |
-        echo "::group::Determine if this is a reservation job"
-        if grep -q "^reserve_data:" "$JOB"; then
-          RESERVATION=true
-        else
-          RESERVATION=false
-        fi
-        echo "reservation=$RESERVATION" | tee -a $GITHUB_OUTPUT
+        echo "::group::Determine which phases to run for this job"
+        for phase in provision test reserve; do
+          if grep -q "^${phase}_data:" "$JOB"; then
+            echo "${phase}=true" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "${phase}=false" | tee -a "$GITHUB_OUTPUT"
+          fi
+        done
         echo "::endgroup::"
 
     - name: Submit job to the Testflinger server
@@ -139,81 +140,100 @@ runs:
         echo "::endgroup::"
         echo "::notice::Testflinger job id: $JOB_ID"
 
-    - name: Track the status of the job (non-reservation)
-      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.outputs.reservation != 'true'
+    - name: Track setup phase
+      if: inputs.poll == 'true' && inputs.dry-run != 'true'
       shell: bash
-      env:
+      env: 
         SERVER: https://${{ inputs.server }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
-        echo "::group::Track the status of job $JOB_ID"
-        # poll
-        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID
+        echo "::group:: Tracking $JOB_ID setup phase"
+        # poll setup phase
+        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID --phase setup
         echo "::endgroup::"
-        
-        echo "::group::Retrieve job results, determine exit status"
-        # the exit status is the maximum status of the individual test phases
-        # (excluding the setup and cleanup phases)
-        read PHASE EXIT_STATUS <<< $(\
-          testflinger --server "$SERVER" results "$JOB_ID"  \
-          | jq -r 'to_entries
-            | map(
-              select(
-                (.key | endswith("_status"))
-                and .key != "setup_status"
-                and .key != "cleanup_status"
-              )
-            )
-          | max_by(.value) | [.[]] | join(" ")'
-        )
-        [[ $EXIT_STATUS -ne 0 ]] && echo "::error::Testflinger ${PHASE%_status} phase failed"
+
+        echo "::group::Retrieve phase results to determine exit status"
+        EXIT_STATUS=$(testflinger --server $SERVER results $JOB_ID | jq .setup_status)
+        [[ $EXIT_STATUS -ne 0 ]] && echo "::error::Testflinger setup phase failed"
         echo "::endgroup::"
         exit $EXIT_STATUS
 
-    - name: Track the status of the job (reservation)
+    - name: Track provision phase
+      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.provision == 'true'
+      shell: bash
+      env: 
+        SERVER: https://${{ inputs.server }}
+        JOB_ID: ${{ steps.submit.outputs.id }}
+      run: |
+        echo "::group:: Tracking $JOB_ID provision phase"
+        # poll provision phase
+        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID --phase provision
+        echo "::endgroup::"
+
+        echo "::group::Retrieve phase results to determine exit status"
+        EXIT_STATUS=$(testflinger --server $SERVER results $JOB_ID | jq .provision_status)
+        [[ $EXIT_STATUS -ne 0 ]] && echo "::error::Testflinger provision phase failed"
+        echo "::endgroup::"
+        exit $EXIT_STATUS
+
+    - name: Track test phase
+      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.test == 'true'
+      shell: bash
+      env: 
+        SERVER: https://${{ inputs.server }}
+        JOB_ID: ${{ steps.submit.outputs.id }}
+      run: |
+        echo "::group:: Tracking $JOB_ID test phase"
+        # poll test phase
+        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID --phase test
+        echo "::endgroup::"
+
+        echo "::group::Retrieve phase results to determine exit status"
+        EXIT_STATUS=$(testflinger --server $SERVER results $JOB_ID | jq .test_status)
+        [[ $EXIT_STATUS -ne 0 ]] && echo "::error::Testflinger test phase failed"
+        echo "::endgroup::"
+        exit $EXIT_STATUS
+
+    - name: Track reserve phase
       id: track-reservation
-      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-reservation.outputs.reservation == 'true'
+      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.reserve == 'true'
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
         JOB_ID: ${{ steps.submit.outputs.id }}
         TERMINATION: "TESTFLINGER SYSTEM RESERVED"
       run: |
-        echo "::group::Track the status of reservation job $JOB_ID"
-        # specify file for capturing output and clear it
+        echo "::group::Tracking $JOB_ID reserve phase"
         CAPTURED_OUTPUT=output
         > "$CAPTURED_OUTPUT"
         LAST_FRAGMENT=0
-        # perform one-shot polling until the reserve phase has been reached
-        # and the captured output contains the TERMINATION string
+        # poll with oneshot until the captured output contains the TERMINATION string
         while true; do
-          POLL_OUTPUT=$(PYTHONUNBUFFERED=1 testflinger --server $SERVER poll --oneshot --start_fragment $LAST_FRAGMENT $JOB_ID) || true
-          # extract the last fragment number so we can start from the next fragment
+          POLL_OUTPUT=$(PYTHONUNBUFFERED=1 testflinger --server $SERVER poll --oneshot --phase reserve --start_fragment $LAST_FRAGMENT $JOB_ID) || true
           FRAG=$(echo "$POLL_OUTPUT" | sed -n 's/^Last Fragment Number: \([0-9]*\)$/\1/p')
           if [ -n "$FRAG" ]; then
             LAST_FRAGMENT=$((FRAG + 1))
           fi
-          # output poll output except the fragment line
           echo "$POLL_OUTPUT" | { grep -v "^Last Fragment Number:\|^Waiting on Output" || true; } | tee -a "$CAPTURED_OUTPUT"
+          if grep -q "$TERMINATION" "$CAPTURED_OUTPUT"; then
+            EXIT_STATUS=0
+            break
+          fi
           JOB_STATUS="$(testflinger --server $SERVER status $JOB_ID)"
-          if [ "$JOB_STATUS" = "reserve" ]; then
-            if grep -q "$TERMINATION" "$CAPTURED_OUTPUT"; then
-              EXIT_STATUS=0
-              break
-            fi
-          elif [[ "$JOB_STATUS" =~ ^(complete|cancelled)$ ]]; then
+          if [[ "$JOB_STATUS" =~ ^(complete|cancelled)$ ]]; then
             EXIT_STATUS=1
             break
           fi
           sleep 20
         done
         echo "::endgroup::"
+
         echo "::group::Retrieve IP of reserved machine"
         DEVICE_IP=$(grep -m 1 "^You can now connect to" "$CAPTURED_OUTPUT" | sed -n "s/.*@\([0-9.]*\).*/\1/p")
         [ "$?" -eq 0 ] && DEVICE_IP_FLAG=true
         [ -n "$DEVICE_IP_FLAG" ] && echo "ip=$DEVICE_IP" >> $GITHUB_OUTPUT
         echo "::endgroup::"
-        [ $EXIT_STATUS -ne 0 ] && echo "::error::Testflinger reservation phase failed"
+        [[ $EXIT_STATUS -ne 0 ]] && echo "::error::Testflinger reserve phase failed"
         [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP: $DEVICE_IP"
         exit $EXIT_STATUS
 
