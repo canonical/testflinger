@@ -53,12 +53,12 @@ runs:
         sparse-checkout: .github/actions/testflinger-setup
         persist-credentials: false
 
-    - name: Set up Testflinger
+    - name: Setup Testflinger
       uses: ./_tmp_testflinger-actions/.github/actions/testflinger-setup
       with:
         server: ${{ inputs.server }}
 
-    - name: Clean up temporary checkout
+    - name: Cleanup temporary checkout
       shell: bash
       run: rm -rf ./_tmp_testflinger-actions
 
