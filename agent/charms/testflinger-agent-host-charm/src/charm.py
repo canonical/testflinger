@@ -13,6 +13,7 @@ from pathlib import Path
 
 import ops
 import supervisord
+import testflinger_client
 import testflinger_source
 from charmlibs import apt, passwd
 from charms.grafana_agent.v0.cos_agent import COSAgentProvider
@@ -24,7 +25,6 @@ from defaults import (
 )
 from git import GitCommandError, Repo
 from jinja2 import Template
-import testflinger_client
 
 logger = logging.getLogger(__name__)
 
