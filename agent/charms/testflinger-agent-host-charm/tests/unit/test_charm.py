@@ -49,8 +49,8 @@ def test_update_tf_cmd_scripts_on_config_changed(
     mock_update_scripts.assert_called_once()
 
 
-def test_blocked_on_no_valid_server(ctx, state_in, secret):
-    """Test blocked status when server is not set."""
+def test_blocked_on_invalid_server(ctx, state_in, secret):
+    """Test blocked status when server is not valid."""
     state = state_in(
         config={
             "testflinger-server": "localhost:5000",
@@ -108,7 +108,7 @@ def test_blocked_on_secret_incorrect_fields(ctx, state_in, caplog):
     assert "Secret missing required fields" in caplog.text
 
 
-@patch("charm.authenticate", return_value=False)
+@patch("testflinger_client.authenticate", return_value=False)
 def test_start_blocked_on_authentication_failure(
     mock_authenticate, ctx, state_in, secret
 ):
@@ -122,7 +122,7 @@ def test_start_blocked_on_authentication_failure(
     )
 
 
-@patch("charm.authenticate", return_value=True)
+@patch("testflinger_client.authenticate", return_value=True)
 def test_start_active_on_successful_authentication(
     mock_authenticate, ctx, state_in, secret
 ):
@@ -135,7 +135,7 @@ def test_start_active_on_successful_authentication(
     assert state_out.unit_status == testing.ActiveStatus()
 
 
-@patch("charm.authenticate", return_value=False)
+@patch("testflinger_client.authenticate", return_value=False)
 @patch("charm.supervisord.restart_agents")
 @patch("charm.supervisord.supervisor_update")
 @patch("charm.TestflingerAgentHostCharm.write_supervisor_service_files")

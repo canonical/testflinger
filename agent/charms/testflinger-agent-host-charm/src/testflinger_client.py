@@ -15,42 +15,15 @@ logger = logging.getLogger(__name__)
 
 # Update refresh token weekly to ensure it stays valid
 REFRESH_INTERVAL_DAYS = 7
-DEFAULT_TIMEOUT = 15
-
-
-def post_request(
-    uri: str, headers: dict, timeout: int = DEFAULT_TIMEOUT
-) -> dict:
-    """Send a POST request to the specified URI with given headers.
-
-    :param uri: The target URI for the POST request.
-    :param headers: A dictionary of headers to include in the request.
-    :return: The response object from the POST request.
-    """
-    try:
-        response = requests.post(uri, headers=headers, timeout=timeout)
-    except requests.exceptions.ConnectTimeout:
-        logger.error("Connection to Testflinger server timed out.")
-        return None
-    except requests.exceptions.ConnectionError:
-        logger.error("Failed to connect to Testflinger server.")
-        return None
-
-    if response.status_code == HTTPStatus.OK:
-        logger.info("Successfully authenticated with Testflinger server.")
-        return response.json()
-
-    logger.error(
-        "Authentication failed with status code: %s", response.status_code
-    )
-    return None
+DEFAULT_TIMEOUT_SECONDS = 15
 
 
 def authenticate(server: str, client_id: str, secret_key: str) -> bool:
     """Authenticate the Testflinger client using provided credentials.
 
-    This also stores the refresh token for persistent agents login.
+    This also stores the refresh token for persistent agent(s) login.
 
+    :param server: Testflinger server URL.
     :param client_id: Agent Host client id.
     :param secret_key: Agent Host client secret.
 
@@ -58,22 +31,34 @@ def authenticate(server: str, client_id: str, secret_key: str) -> bool:
     """
     uri = f"{server}/v1/oauth2/token"
     id_key_pair = f"{client_id}:{secret_key}"
-    encoded_id_key_pair = base64.b64encode(id_key_pair.encode("utf-8")).decode(
+    encoded_credentials = base64.b64encode(id_key_pair.encode("utf-8")).decode(
         "utf-8"
     )
-    headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
-    token_request = post_request(uri, headers)
+    headers = {"Authorization": f"Basic {encoded_credentials}"}
 
-    if token_request:
-        token_data = {
-            "refresh_token": token_request.get("refresh_token"),
-            "obtained_at": datetime.now(timezone.utc).isoformat(),
-        }
-        token_path = Path(DEFAULT_TOKEN_PATH)
-        token_path.parent.mkdir(parents=True, exist_ok=True)
-        write_file(token_path, json.dumps(token_data))
-        return True
-    return False
+    try:
+        response = requests.post(
+            uri, headers=headers, timeout=DEFAULT_TIMEOUT_SECONDS
+        )
+    except requests.exceptions.RequestException:
+        logger.error("Failed to connect to Testflinger server.")
+        return False
+
+    if response.status_code != HTTPStatus.OK:
+        logger.error(
+            "Authentication failed with the following error code: %s",
+            response.status_code,
+        )
+        return False
+
+    token_data = {
+        "refresh_token": response.json().get("refresh_token"),
+        "obtained_at": datetime.now(timezone.utc).isoformat(),
+    }
+    token_path = Path(DEFAULT_TOKEN_PATH)
+    token_path.parent.mkdir(parents=True, exist_ok=True)
+    write_file(token_path, json.dumps(token_data))
+    return True
 
 
 def get_token_data() -> dict | None:

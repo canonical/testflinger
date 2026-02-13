@@ -24,7 +24,7 @@ from defaults import (
 )
 from git import GitCommandError, Repo
 from jinja2 import Template
-from testflinger_client import authenticate, token_update_needed
+import testflinger_client
 
 logger = logging.getLogger(__name__)
 
@@ -249,7 +249,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
     def on_start(self, _):
         """Start the service."""
-        if not self._authenticate_with_server():
+        if not self._update_refresh_token():
             return
         self.unit.status = ops.model.ActiveStatus()
 
@@ -257,14 +257,16 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         """Handle secret changed event."""
         if event.secret.id == self.config.get("credentials-secret"):
             logger.info("Credentials secret changed, re-authenticating")
-            self._authenticate_with_server()
+            self._update_refresh_token()
 
     def _on_update_status(self, _):
         """Periodically check token expiration and re-authenticate if needed.
 
-        By default, Juju triggers this event every 5 minutes.
+        update_status hook is triggered at an interval defined at the Juju
+        model config so its not configurable by the charm application
+        (default: 5 minutes).
         """
-        if not self._authenticate_with_server():
+        if not self._update_refresh_token():
             return
         self.unit.status = ops.model.ActiveStatus()
 
@@ -274,7 +276,13 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         return False
 
     def _valid_secret(self) -> dict | None:
-        """Check if the secret contains the necessary fields."""
+        """Check the validity of the credentials-secret.
+
+        This evaluates if the secret URI is known and and if so that the secret
+        contains the necessary fields.
+
+        If secret is valid, return the secret content, otherwise return None.
+        """
         secret_uri = self.config.get("credentials-secret")
         if not secret_uri:
             logger.error("credentials-secret config not set")
@@ -294,15 +302,21 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
         return content
 
-    def _authenticate_with_server(self) -> bool:
-        """Authenticate with the server if token is missing or expiring.
+    def _update_refresh_token(self) -> bool:
+        """Update the refresh token if needed.
 
-        :returns: True if authentication succeeded or token is valid,
-        False otherwise
+        :returns: True if update succeeded or not needed, False otherwise.
         """
-        if not token_update_needed():
-            return True
+        if testflinger_client.token_update_needed():
+            logger.info("Token update needed, attempting to refresh token")
+            return self._authenticate_with_server()
+        return True
 
+    def _authenticate_with_server(self) -> bool:
+        """Authenticate with the server to get a refresh token.
+
+        :returns: True if authentication succeeded, False otherwise.
+        """
         if not (content := self._valid_secret()):
             return self._block("Invalid credentials secret")
 
@@ -311,7 +325,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             return self._block("Testflinger server config not set or invalid")
 
         logger.info("Authenticating with Testflinger server")
-        if not authenticate(
+        if not testflinger_client.authenticate(
             server=server,
             client_id=content["client-id"],
             secret_key=content["secret-key"],
@@ -336,7 +350,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         self.write_supervisor_service_files()
         supervisord.supervisor_update()
         supervisord.restart_agents()
-        if not self._authenticate_with_server():
+        if not self._update_refresh_token():
             return
         self.unit.status = ops.model.ActiveStatus()
 
