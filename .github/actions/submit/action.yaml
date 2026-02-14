@@ -149,7 +149,7 @@ runs:
       run: |
         echo "::group:: Tracking $JOB_ID setup phase"
         # poll setup phase
-        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID --phase setup
+        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID --phase setup 2>/dev/null
         echo "::endgroup::"
 
         echo "::group::Retrieve phase results to determine exit status"
@@ -167,7 +167,7 @@ runs:
       run: |
         echo "::group:: Tracking $JOB_ID provision phase"
         # poll provision phase
-        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID --phase provision
+        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID --phase provision 2>/dev/null
         echo "::endgroup::"
 
         echo "::group::Retrieve phase results to determine exit status"
@@ -185,7 +185,7 @@ runs:
       run: |
         echo "::group:: Tracking $JOB_ID test phase"
         # poll test phase
-        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID --phase test
+        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID --phase test 2>/dev/null
         echo "::endgroup::"
 
         echo "::group::Retrieve phase results to determine exit status"
