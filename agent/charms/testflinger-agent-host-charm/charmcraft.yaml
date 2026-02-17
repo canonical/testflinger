@@ -46,6 +46,9 @@ actions:
         type: string
         description: The name of the branch or tag to pull Testflinger agent code from
 
+assumes:
+  - juju >= 3.0.0
+
 config:
   options:
     config-repo:
@@ -76,6 +79,20 @@ config:
         UserKnownHostsFile /dev/null
         LogLevel QUIET
         ConnectTimeout 30
+    testflinger-server:
+      type: string
+      default: "https://testflinger.canonical.com"
+      description: |
+        The hostname of the Testflinger server to connect to. 
+        This should include the protocol (http:// or https://)
+    credentials-secret:
+      type: secret
+      description: |
+        The Juju secret URI containing the credentials for 
+        authenticating with Testflinger server.
+        The secret should contain the following key-value pairs:
+          - client-id: The client ID for authentication
+          - secret-key: The client secret for authentication
 
 parts:
   charm:

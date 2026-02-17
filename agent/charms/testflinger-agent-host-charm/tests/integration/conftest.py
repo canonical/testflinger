@@ -1,13 +1,37 @@
+import json
 import logging
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import jubilant
 import pytest
+from defaults import DEFAULT_TOKEN_PATH
 
 logger = logging.getLogger(__name__)
+
+
+def create_mock_token(juju: jubilant.Juju, app_name: str):
+    """Create a mock token file so authentication is skipped.
+
+    This creates a valid token file with a recent obtained_at timestamp.
+    """
+    token_data = json.dumps(
+        {
+            "refresh_token": "mock-token",
+            "obtained_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    token_dir = str(Path(DEFAULT_TOKEN_PATH).parent)
+    juju.exec("mkdir", "-p", token_dir, unit=f"{app_name}/0")
+    juju.exec(
+        "bash",
+        "-c",
+        f"echo '{token_data}' > {DEFAULT_TOKEN_PATH}",
+        unit=f"{app_name}/0",
+    )
 
 
 @pytest.fixture(scope="module")
