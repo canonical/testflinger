@@ -65,16 +65,12 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         try:
             self.update_config_files()
         except ValueError:
-            self.unit.status = ops.model.BlockedStatus(
-                "config-repo and config-dir must be set"
-            )
+            self._block("config-repo and config-dir must be set")
             return
 
     def install_dependencies(self):
         """Install the packages needed for the agent."""
-        self.unit.status = ops.model.MaintenanceStatus(
-            "Installing dependencies"
-        )
+        self.unit.status = ops.MaintenanceStatus("Installing dependencies")
         # maas cli comes from maas snap now
         run_with_logged_errors(["snap", "install", "maas"])
 
@@ -95,11 +91,9 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
     def update_testflinger_repo(self, branch: str | None = None):
         """Update the testflinger repo."""
-        self.unit.status = ops.model.MaintenanceStatus("Creating virtualenv")
+        self.unit.status = ops.MaintenanceStatus("Creating virtualenv")
         testflinger_source.create_virtualenv()
-        self.unit.status = ops.model.MaintenanceStatus(
-            "Cloning testflinger repo"
-        )
+        self.unit.status = ops.MaintenanceStatus("Cloning testflinger repo")
         if branch is not None:
             testflinger_source.clone_repo(
                 LOCAL_TESTFLINGER_PATH, branch=branch
@@ -131,9 +125,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             )
         except GitCommandError:
             logger.exception("Failed to update config files")
-            self.unit.status = ops.model.BlockedStatus(
-                "Failed to update or config files"
-            )
+            self._block("Failed to update or config files")
             sys.exit(1)
 
         if repo_path.exists():
@@ -152,9 +144,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
         if not config_dirs.is_dir():
             logger.error("config-dir must point to a directory")
-            self.unit.status = ops.model.BlockedStatus(
-                "config-dir must point to a directory"
-            )
+            self._block("config-dir must point to a directory")
             sys.exit(1)
 
         agent_dirs = [
@@ -164,9 +154,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         ]
         if not agent_dirs:
             logger.error("No agent directories found in config-dirs")
-            self.unit.status = ops.model.BlockedStatus(
-                "No agent directories found in config-dirs"
-            )
+            self._block("No agent directories found in config-dirs")
             sys.exit(1)
 
         # Get current agents and their ports from the service files
@@ -200,9 +188,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
                 used_ports.add(metric_endpoint_port)
             except RuntimeError as e:
                 logger.error("Failed to assign port for %s: %s", agent_name, e)
-                self.unit.status = ops.model.BlockedStatus(
-                    f"Port assignment failed: {e}"
-                )
+                self._block(f"Port assignment failed: {e}")
                 return
 
             rendered = template.render(
@@ -232,26 +218,22 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
     def update_tf_cmd_scripts(self):
         """Update tf-cmd-scripts."""
-        self.unit.status = ops.model.MaintenanceStatus(
-            "Installing tf-cmd-scripts"
-        )
+        self.unit.status = ops.MaintenanceStatus("Installing tf-cmd-scripts")
         update_charm_scripts(self.config)
 
     def on_upgrade_charm(self, _):
         """Upgrade hook."""
-        self.unit.status = ops.model.MaintenanceStatus(
-            "Handling upgrade_charm hook"
-        )
+        self.unit.status = ops.MaintenanceStatus("Handling upgrade_charm hook")
         self.install_dependencies()
         self.update_tf_cmd_scripts()
         self.update_testflinger_repo()
-        self.unit.status = ops.model.ActiveStatus()
+        self.unit.status = ops.ActiveStatus()
 
     def on_start(self, _):
         """Start the service."""
         if not self._update_refresh_token():
             return
-        self.unit.status = ops.model.ActiveStatus()
+        self.unit.status = ops.ActiveStatus()
 
     def _on_secret_changed(self, event: ops.SecretChangedEvent):
         """Handle secret changed event."""
@@ -268,11 +250,11 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         """
         if not self._update_refresh_token():
             return
-        self.unit.status = ops.model.ActiveStatus()
+        self.unit.status = ops.ActiveStatus()
 
     def _block(self, message: str) -> bool:
         """Set unit to BlockedStatus and return False."""
-        self.unit.status = ops.model.BlockedStatus(message)
+        self.unit.status = ops.BlockedStatus(message)
         return False
 
     def _valid_secret(self) -> dict | None:
@@ -321,7 +303,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             return self._block("Invalid credentials secret")
 
         server = self.config.get("testflinger-server")
-        if not server or not server.startswith("http"):
+        if not server or not server.startswith(("http://", "https://")):
             return self._block("Testflinger server config not set or invalid")
 
         logger.info("Authenticating with Testflinger server")
@@ -335,15 +317,13 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         return True
 
     def on_config_changed(self, _):
-        self.unit.status = ops.model.MaintenanceStatus(
+        self.unit.status = ops.MaintenanceStatus(
             "Handling config_changed hook"
         )
         try:
             self.update_config_files()
         except ValueError:
-            self.unit.status = ops.model.BlockedStatus(
-                "config-repo and config-dir must be set"
-            )
+            self._block("config-repo and config-dir must be set")
             return
         copy_ssh_keys(self.config)
         self.update_tf_cmd_scripts()
@@ -352,7 +332,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         supervisord.restart_agents()
         if not self._update_refresh_token():
             return
-        self.unit.status = ops.model.ActiveStatus()
+        self.unit.status = ops.ActiveStatus()
 
     def install_apt_packages(self, packages: list):
         """Wrap 'apt-get install -y."""
@@ -363,41 +343,35 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             logger.error(
                 "a specified package not found in package cache or on system"
             )
-            self.unit.status = ops.model.BlockedStatus(
-                "Failed to install packages"
-            )
+            self._block("Failed to install packages")
         except apt.PackageError:
             logger.error("could not install package")
-            self.unit.status = ops.model.BlockedStatus(
-                "Failed to install packages"
-            )
+            self._block("Failed to install packages")
 
     def on_update_testflinger_action(self, event: ops.ActionEvent):
         """Update Testflinger agent code."""
-        self.unit.status = ops.model.MaintenanceStatus(
+        self.unit.status = ops.MaintenanceStatus(
             "Updating Testflinger Agent Code"
         )
         branch = event.params.get("branch")
         self.update_testflinger_repo(branch)
         supervisord.restart_agents()
-        self.unit.status = ops.model.ActiveStatus()
+        self.unit.status = ops.ActiveStatus()
 
     def on_update_configs_action(self, event: ops.ActionEvent):
         """Update agent configs."""
-        self.unit.status = ops.model.MaintenanceStatus(
+        self.unit.status = ops.MaintenanceStatus(
             "Updating Testflinger Agent Configs"
         )
         try:
             self.update_config_files()
         except ValueError:
-            self.unit.status = ops.model.BlockedStatus(
-                "config-repo and config-dir must be set"
-            )
+            self._block("config-repo and config-dir must be set")
             return
         self.write_supervisor_service_files()
         supervisord.supervisor_update()
         supervisord.restart_agents()
-        self.unit.status = ops.model.ActiveStatus()
+        self.unit.status = ops.ActiveStatus()
 
     def get_scrape_jobs(self):
         return self.scrape_jobs
