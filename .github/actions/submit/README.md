@@ -35,6 +35,9 @@ If you wish to define your job inline, you can use the following step:
       # inline YAML for Testflinger job
 ```
 
+> [!TIP]
+> You can also pin the submit action to an specific version e.g submit@submit/v1.3.1
+
 ## API
 
 ### Inputs
