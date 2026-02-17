@@ -472,6 +472,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
     { name = "rpyc" },
+    { name = "typing-extensions" },
     { name = "validators" },
 ]
 
@@ -488,6 +489,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "rpyc", specifier = "<6" },
+    { name = "typing-extensions", specifier = "~=4.15.0" },
     { name = "validators", specifier = ">=0.34.0" },
 ]
 
