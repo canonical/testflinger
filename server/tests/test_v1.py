@@ -1320,3 +1320,60 @@ def test_get_job_without_agent_id_fails(mongo_app):
     with app.application.test_client() as raw_client:
         output = raw_client.get("/v1/job?queue=test")
         assert output.status_code == HTTPStatus.UNAUTHORIZED
+
+
+@pytest.mark.parametrize(
+    "provision_type", ["maas", "muxpi", "oem_autoinstall"]
+)
+def test_reject_job_with_allocate_data_no_multi_device_agents(
+    mongo_app, provision_type
+):
+    """Test job gets rejected if there are no multi-device agents in queue."""
+    app, mongo = mongo_app
+
+    # Setup device with provision type other than 'multi'
+    mongo.agents.insert_one(
+        {
+            "name": "agent1",
+            "queues": ["test"],
+            "provision_type": provision_type,
+        }
+    )
+
+    # Submit a job with allocate_data
+    job_data = {"job_queue": "test", "allocate_data": {"allocate": True}}
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert (
+        "allocate_data only supported for queues with multi-device agents"
+        in output.json["message"]
+    )
+
+
+def test_multi_device_job_allocation(mongo_app):
+    """Test that a job with allocate_data is valid for a multi-device agent."""
+    app, mongo = mongo_app
+
+    # Setup multi-device agent
+    mongo.agents.insert_one(
+        {
+            "name": "agent1",
+            "queues": ["test"],
+            "provision_type": "multi",
+        }
+    )
+
+    # Submit a job with allocate_data
+    job_data = {"job_queue": "test", "allocate_data": {"allocate": True}}
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.OK
+    job_id = output.json["job_id"]
+
+    # Register as the multi-device agent and get the job
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+    )
+    output = app.get("/v1/job?queue=test")
+    assert output.status_code == HTTPStatus.OK
+    assert output.json["job_id"] == job_id
