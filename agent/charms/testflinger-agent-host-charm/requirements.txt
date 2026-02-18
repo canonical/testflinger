@@ -8,3 +8,4 @@ maturin==1.8.6
 charmlibs-passwd==1.0.0
 charmlibs-apt==1.0.0
 requests>=2.32.4
+pydantic>=2.12,<3

@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import common
+from config import TestflingerAgentConfig
 
 SSH_PUBLIC_KEY = "/home/ubuntu/.ssh/id_rsa.pub"
 SSH_PRIVATE_KEY = "/home/ubuntu/.ssh/id_rsa"
@@ -16,13 +17,11 @@ SSH_PRIVATE_KEY = "/home/ubuntu/.ssh/id_rsa"
 @patch("common.write_file")
 def test_copy_ssh_keys(mock_write_file, mock_chmod, mock_chown):
     """Test the copy_ssh_keys function."""
-    config = {
-        "ssh-config": "ssh_config_content",
-        "ssh-private-key": base64.b64encode(
-            b"ssh_private_key_content"
-        ).decode(),
-        "ssh-public-key": base64.b64encode(b"ssh_public_key_content").decode(),
-    }
+    config = TestflingerAgentConfig(
+        ssh_config="ssh_config_content",
+        ssh_private_key=base64.b64encode(b"ssh_private_key_content").decode(),
+        ssh_public_key=base64.b64encode(b"ssh_public_key_content").decode(),
+    )
 
     common.copy_ssh_keys(config)
 
@@ -51,7 +50,7 @@ def test_update_charm_scripts(
     mock_script.read_text.return_value = "config_dir={{ config_dir }}"
     mock_iterdir.return_value = [mock_script]
 
-    config = {"config-dir": "my-agent-configs"}
+    config = TestflingerAgentConfig(config_dir="my-agent-configs")
 
     common.update_charm_scripts(config)
 

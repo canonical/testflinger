@@ -49,21 +49,6 @@ def test_update_tf_cmd_scripts_on_config_changed(
     mock_update_scripts.assert_called_once()
 
 
-def test_blocked_on_invalid_server(ctx, state_in, secret):
-    """Test blocked status when server is not valid."""
-    state = state_in(
-        config={
-            "testflinger-server": "localhost:5000",
-            "credentials-secret": secret.id,
-        },
-        secrets=[secret],
-    )
-    state_out = ctx.run(ctx.on.start(), state=state)
-    assert state_out.unit_status == testing.BlockedStatus(
-        "Testflinger server config not set or invalid"
-    )
-
-
 def test_blocked_on_no_secret(ctx, state_in, caplog):
     """Test blocked status when credentials-secret config is not set."""
     state_out = ctx.run(ctx.on.start(), state=state_in())

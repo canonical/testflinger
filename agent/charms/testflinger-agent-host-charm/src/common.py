@@ -4,9 +4,9 @@
 import logging
 import os
 import subprocess
-from base64 import b64decode
 from pathlib import Path
 
+from config import TestflingerAgentConfig
 from defaults import (
     AGENT_CONFIGS_PATH,
     VIRTUAL_ENV_PATH,
@@ -34,24 +34,16 @@ def run_with_logged_errors(cmd: list) -> int:
     return proc.returncode
 
 
-def copy_ssh_keys(config: dict) -> None:
-    try:
-        ssh_config = config.get("ssh-config", "")
-        config_file = Path(SSH_CONFIG)
-        write_file(config_file, ssh_config, chmod=0o640)
+def copy_ssh_keys(config: TestflingerAgentConfig) -> None:
+    """Copy SSH keys and config from charm config to ~/.ssh/.
 
-        priv_key = config.get("ssh-private-key", "")
-        priv_key_file = Path(SSH_PRIVATE_KEY)
-        write_file(priv_key_file, b64decode(priv_key).decode(), chmod=0o600)
+    :param config: The charm configuration containing the SSH keys and config.
+    """
+    write_file(Path(SSH_CONFIG), config.ssh_config, chmod=0o640)
 
-        pub_key = config.get("ssh-public-key", "")
-        pub_key_file = Path(SSH_PUBLIC_KEY)
-        write_file(pub_key_file, b64decode(pub_key).decode())
-    except (TypeError, UnicodeDecodeError):
-        logger.error(
-            "Failed to decode ssh keys - ensure they are base64 encoded"
-        )
-        raise
+    write_file(Path(SSH_PRIVATE_KEY), config.ssh_private_key, chmod=0o600)
+
+    write_file(Path(SSH_PUBLIC_KEY), config.ssh_public_key)
 
 
 def write_file(location: Path, contents: str, chmod: int = 0o644) -> None:
@@ -69,7 +61,11 @@ def write_file(location: Path, contents: str, chmod: int = 0o644) -> None:
     os.chmod(location, chmod)
 
 
-def update_charm_scripts(config: dict) -> None:
+def update_charm_scripts(config: TestflingerAgentConfig) -> None:
+    """Update charm scripts with rendered templates for tf scripts.
+
+    :param config: The charm configuration containing config directory.
+    """
     tf_cmd_dir = Path("src/tf-cmd-scripts/")
     usr_local_bin = Path("/usr/local/bin")
 
@@ -77,7 +73,7 @@ def update_charm_scripts(config: dict) -> None:
         template = Template(tf_cmd_file.read_text())
         rendered = template.render(
             agent_configs_path=AGENT_CONFIGS_PATH,
-            config_dir=config.get("config-dir"),
+            config_dir=config.config_dir,
             virtual_env_path=VIRTUAL_ENV_PATH,
         )
         agent_file = usr_local_bin / tf_cmd_file.name
