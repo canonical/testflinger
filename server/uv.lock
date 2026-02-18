@@ -1196,14 +1196,14 @@ wheels = [
 
 [[package]]
 name = "marshmallow-oneofschema"
-version = "3.1.1"
+version = "3.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "marshmallow" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/35/75/8dd134f08375845910d134e50246fdfcab3f1d84ab3284bd09bb15f69be9/marshmallow_oneofschema-3.1.1.tar.gz", hash = "sha256:68b4a57d0281a04ac25d4eb7a4c5865a57090a0a8fd30fd6362c8e833ac6a6d9", size = 8684, upload-time = "2024-02-13T17:49:13.718Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bb/42/a0e00dea6a831acfe9d3fe664d695b7cefc02c27dd69d9ccb4bdc3c3d1a7/marshmallow_oneofschema-3.2.0.tar.gz", hash = "sha256:c06c8d9f14d51ffff152d66d85bd5f27d55cff10752a3b1f8c1f948bf5f597a0", size = 9096, upload-time = "2025-05-08T13:49:34.798Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5c/81/3ef15337c19d3e3432945aad738081a5f54c16885277c7dff300b5f85b24/marshmallow_oneofschema-3.1.1-py3-none-any.whl", hash = "sha256:ff4cb2a488785ee8edd521a765682c2c80c78b9dc48894124531bdfa1ec9303b", size = 5726, upload-time = "2024-02-13T17:49:07.059Z" },
+    { url = "https://files.pythonhosted.org/packages/71/15/52d6ac14dcfe381e4f1c204c9c287623b8b462bc27c6cc468dba0560ed4c/marshmallow_oneofschema-3.2.0-py3-none-any.whl", hash = "sha256:19c87e6124ef05e2831e5c631168c909a50a8fe399921b9841b75fef3785be8c", size = 5898, upload-time = "2025-05-08T13:49:33.26Z" },
 ]
 
 [[package]]
@@ -2060,7 +2060,7 @@ requires-dist = [
     { name = "gevent", specifier = ">=24.2.1" },
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "hvac", specifier = ">=2.3.0" },
-    { name = "marshmallow-oneofschema", specifier = "==3.1.1" },
+    { name = "marshmallow-oneofschema", specifier = "==3.2.0" },
     { name = "prometheus-client", specifier = ">=0.21.0" },
     { name = "prometheus-flask-exporter", specifier = ">=0.23.1" },
     { name = "pyjwt", specifier = ">=2.8.0" },
