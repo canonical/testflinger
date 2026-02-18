@@ -18,6 +18,7 @@ import testflinger_source
 from charmlibs import apt, passwd
 from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from common import copy_ssh_keys, run_with_logged_errors, update_charm_scripts
+from config import TestflingerAgentConfig
 from defaults import (
     AGENT_CONFIGS_PATH,
     LOCAL_TESTFLINGER_PATH,
@@ -36,6 +37,9 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
+        self.typed_config = self.load_config(
+            TestflingerAgentConfig, errors="blocked"
+        )
         self.framework.observe(self.on.install, self.on_install)
         self.framework.observe(self.on.start, self.on_start)
         self.framework.observe(self.on.config_changed, self.on_config_changed)
@@ -106,10 +110,10 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         Clone the config files from the repo and swap it in for whatever is
         in AGENT_CONFIGS_PATH.
         """
-        config_repo = self.config.get("config-repo")
-        config_dir = self.config.get("config-dir")
-        config_branch = self.config.get("config-branch")
-        if not config_repo or not config_dir:
+        if (
+            not self.typed_config.config_repo
+            or not self.typed_config.config_dir
+        ):
             logger.error("config-repo and config-dir must be set")
             raise ValueError("config-repo and config-dir must be set")
         tmp_repo_path = Path("/srv/tmp-agent-configs")
@@ -118,8 +122,8 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             shutil.rmtree(tmp_repo_path, ignore_errors=True)
         try:
             Repo.clone_from(
-                url=config_repo,
-                branch=config_branch,
+                url=self.typed_config.config_repo,
+                branch=self.typed_config.config_branch,
                 to_path=tmp_repo_path,
                 depth=1,
             )
@@ -140,7 +144,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         contains a directory for each agent that needs to run from this host.
         The agent directory name will be used as the service name.
         """
-        config_dirs = Path(AGENT_CONFIGS_PATH) / self.config.get("config-dir")
+        config_dirs = Path(AGENT_CONFIGS_PATH) / self.typed_config.config_dir
 
         if not config_dirs.is_dir():
             logger.error("config-dir must point to a directory")
@@ -219,7 +223,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
     def update_tf_cmd_scripts(self):
         """Update tf-cmd-scripts."""
         self.unit.status = ops.MaintenanceStatus("Installing tf-cmd-scripts")
-        update_charm_scripts(self.config)
+        update_charm_scripts(self.typed_config)
 
     def on_upgrade_charm(self, _):
         """Upgrade hook."""
@@ -237,7 +241,8 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
     def _on_secret_changed(self, event: ops.SecretChangedEvent):
         """Handle secret changed event."""
-        if event.secret.id == self.config.get("credentials-secret"):
+        secret = self.typed_config.credentials_secret
+        if secret and event.secret.id == secret.id:
             logger.info("Credentials secret changed, re-authenticating")
             self._update_refresh_token()
 
@@ -260,18 +265,16 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
     def _valid_secret(self) -> dict | None:
         """Check the validity of the credentials-secret.
 
-        This evaluates if the secret URI is known and and if so that the secret
+        This evaluates if the secret is known and if so that the secret
         contains the necessary fields.
 
         If secret is valid, return the secret content, otherwise return None.
         """
-        secret_uri = self.config.get("credentials-secret")
-        if not secret_uri:
+        if not (secret := self.typed_config.credentials_secret):
             logger.error("credentials-secret config not set")
             return
 
         try:
-            secret = self.model.get_secret(id=secret_uri)
             content = secret.get_content(refresh=True)
             if "client-id" not in content or "secret-key" not in content:
                 logger.error("Secret missing required fields")
@@ -302,13 +305,9 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         if not (content := self._valid_secret()):
             return self._block("Invalid credentials secret")
 
-        server = self.config.get("testflinger-server")
-        if not server or not server.startswith(("http://", "https://")):
-            return self._block("Testflinger server config not set or invalid")
-
         logger.info("Authenticating with Testflinger server")
         if not testflinger_client.authenticate(
-            server=server,
+            server=self.typed_config.testflinger_server,
             client_id=content["client-id"],
             secret_key=content["secret-key"],
         ):
@@ -325,7 +324,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         except ValueError:
             self._block("config-repo and config-dir must be set")
             return
-        copy_ssh_keys(self.config)
+        copy_ssh_keys(self.typed_config)
         self.update_tf_cmd_scripts()
         self.write_supervisor_service_files()
         supervisord.supervisor_update()
