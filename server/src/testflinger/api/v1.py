@@ -80,13 +80,12 @@ def job_post(json_data: dict) -> dict:
     """Add a job to the queue."""
     job_queue = json_data["job_queue"]
     exclude_agents = json_data["exclude_agents"]
-    agents_on_queue = database.get_agents_on_queue(job_queue)
     if exclude_agents:
         # Make sure that there are at least some agents in the selected queue
         # which can run this job.
         agents_can_run = [
             agent
-            for agent in agents_on_queue
+            for agent in database.get_agents_on_queue(job_queue)
             if agent["name"] not in exclude_agents
         ]
         if not agents_can_run:
@@ -94,22 +93,6 @@ def job_post(json_data: dict) -> dict:
                 HTTPStatus.UNPROCESSABLE_ENTITY,
                 message="There are no agents on the specified queue that are "
                 "allowed to run this job",
-            )
-
-    # allocate_data is just for multi-device agent provision type
-    # reject any job with allocate_data if no multi-device agents on the queue
-    if "allocate_data" in json_data and json_data["allocate_data"].get(
-        "allocate"
-    ):
-        if not any(
-            agent.get("provision_type") == "multi" for agent in agents_on_queue
-        ):
-            abort(
-                HTTPStatus.UNPROCESSABLE_ENTITY,
-                message=(
-                    "allocate_data only supported for queues "
-                    "with multi-device agents"
-                ),
             )
 
     validate_secrets(json_data)

@@ -343,12 +343,6 @@ class ReserveData(Schema):
     timeout = DurationField(required=False)
 
 
-class AllocateData(Schema):
-    """Schema for the `allocate_data` section of a Testflinger job."""
-
-    allocate = fields.Boolean(required=False)
-
-
 class Job(Schema):
     """Job schema."""
 
@@ -367,7 +361,7 @@ class Job(Schema):
     # i.e. expected fields within `firmware_update_data`
     firmware_update_data = fields.Dict(required=False)
     test_data = fields.Nested(TestData, required=False)
-    allocate_data = fields.Nested(AllocateData, required=False)
+    allocate_data = fields.Dict(required=False)
     reserve_data = fields.Nested(ReserveData, required=False)
     job_status_webhook = fields.String(required=False)
     job_priority = fields.Integer(required=False)
