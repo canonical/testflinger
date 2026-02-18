@@ -57,6 +57,14 @@ In this documentation
 
       **Discussion and clarification** of key concepts
 
+.. grid:: 1 1 2 2
+
+   .. grid-item-card:: Testflinger Agent Hosts Administration
+      :link: /how-to/administer-agent-hosts/index
+      :link-type: doc
+
+      **Administration** tasks and best practices for operators of Testflinger Agent Hosts
+
 ---------
 
 Project and community

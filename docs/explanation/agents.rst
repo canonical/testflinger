@@ -33,6 +33,8 @@ able to communicate with the server. If an agent has not checked in after 7 days
 it will automatically be removed from the database and will no longer appear in
 the "Agents" list.
 
+.. _handling-agent-status:
+
 Handling Agent Status
 -------------------------------------------
 
