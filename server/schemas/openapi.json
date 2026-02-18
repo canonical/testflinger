@@ -89,15 +89,6 @@
         ],
         "type": "object"
       },
-      "AllocateData": {
-        "additionalProperties": false,
-        "properties": {
-          "allocate": {
-            "type": "boolean"
-          }
-        },
-        "type": "object"
-      },
       "Attachment": {
         "additionalProperties": false,
         "properties": {
@@ -196,7 +187,8 @@
         "additionalProperties": false,
         "properties": {
           "allocate_data": {
-            "$ref": "#/components/schemas/AllocateData"
+            "additionalProperties": {},
+            "type": "object"
           },
           "allocation_timeout": {
             "type": "integer"
