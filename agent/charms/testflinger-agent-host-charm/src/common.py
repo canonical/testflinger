@@ -35,23 +35,21 @@ def run_with_logged_errors(cmd: list) -> int:
 
 
 def copy_ssh_keys(config: TestflingerAgentConfig) -> None:
-    try:
-        ssh_config = config.ssh_config
-        config_file = Path(SSH_CONFIG)
-        write_file(config_file, ssh_config, chmod=0o640)
+    """Copy SSH keys and config from charm config to ~/.ssh/.
 
-        priv_key = config.ssh_private_key
-        priv_key_file = Path(SSH_PRIVATE_KEY)
-        write_file(priv_key_file, priv_key, chmod=0o600)
+    :param config: The charm configuration containing the SSH keys and config.
+    """
+    ssh_config = config.ssh_config
+    config_file = Path(SSH_CONFIG)
+    write_file(config_file, ssh_config, chmod=0o640)
 
-        pub_key = config.ssh_public_key
-        pub_key_file = Path(SSH_PUBLIC_KEY)
-        write_file(pub_key_file, pub_key)
-    except (TypeError, UnicodeDecodeError):
-        logger.error(
-            "Failed to decode ssh keys - ensure they are base64 encoded"
-        )
-        raise
+    priv_key = config.ssh_private_key
+    priv_key_file = Path(SSH_PRIVATE_KEY)
+    write_file(priv_key_file, priv_key, chmod=0o600)
+
+    pub_key = config.ssh_public_key
+    pub_key_file = Path(SSH_PUBLIC_KEY)
+    write_file(pub_key_file, pub_key)
 
 
 def write_file(location: Path, contents: str, chmod: int = 0o644) -> None:
@@ -70,6 +68,10 @@ def write_file(location: Path, contents: str, chmod: int = 0o644) -> None:
 
 
 def update_charm_scripts(config: TestflingerAgentConfig) -> None:
+    """Update charm scripts with rendered templates for tf scripts.
+
+    :param config: The charm configuration containing config directory.
+    """
     tf_cmd_dir = Path("src/tf-cmd-scripts/")
     usr_local_bin = Path("/usr/local/bin")
 
