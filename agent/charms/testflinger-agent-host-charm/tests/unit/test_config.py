@@ -20,6 +20,15 @@ def test_base64_str_fields():
     assert config.ssh_public_key == "ssh_public_key_content"
 
 
+def test_invalid_base64_str_fields():
+    """Test that invalid Base64Str fields raise errors."""
+    with pytest.raises(ValueError):
+        TestflingerAgentConfig(ssh_private_key="undecodable_string")
+
+    with pytest.raises(ValueError):
+        TestflingerAgentConfig(ssh_public_key="undecodable_string")
+
+
 def test_valid_testflinger_server():
     """Test that valid server URLs are accepted."""
     config = TestflingerAgentConfig(
