@@ -39,17 +39,11 @@ def copy_ssh_keys(config: TestflingerAgentConfig) -> None:
 
     :param config: The charm configuration containing the SSH keys and config.
     """
-    ssh_config = config.ssh_config
-    config_file = Path(SSH_CONFIG)
-    write_file(config_file, ssh_config, chmod=0o640)
+    write_file(Path(SSH_CONFIG), config.ssh_config, chmod=0o640)
 
-    priv_key = config.ssh_private_key
-    priv_key_file = Path(SSH_PRIVATE_KEY)
-    write_file(priv_key_file, priv_key, chmod=0o600)
+    write_file(Path(SSH_PRIVATE_KEY), config.ssh_private_key, chmod=0o600)
 
-    pub_key = config.ssh_public_key
-    pub_key_file = Path(SSH_PUBLIC_KEY)
-    write_file(pub_key_file, pub_key)
+    write_file(Path(SSH_PUBLIC_KEY), config.ssh_public_key)
 
 
 def write_file(location: Path, contents: str, chmod: int = 0o644) -> None:

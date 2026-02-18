@@ -31,5 +31,7 @@ class TestflingerAgentConfig(pydantic.BaseModel):
     @classmethod
     def validate_server(cls, value):
         if not value.startswith(("http://", "https://")):
-            raise ValueError("testflinger_server must be an HTTPS URL")
+            raise ValueError(
+                "testflinger_server must include protocol (http:// or https://)"
+            )
         return value
