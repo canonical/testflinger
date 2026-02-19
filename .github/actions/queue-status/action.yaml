@@ -1,0 +1,118 @@
+name: Get a Testflinger queue's status
+description: Show the status of agents and jobs in a specified queue
+inputs:
+  queue:
+    description: "Name of queue to query queue-status with"
+    required: true
+  server:
+    description: The Testflinger server to use
+    required: false
+    default: testflinger.canonical.com
+outputs:
+  agents_in_queue:
+    description: 'Number of agents in the queue'
+    value: ${{ steps.queue-status.outputs.agents_in_queue }}
+  available:
+    description: 'Number of agents with state "available"'
+    value: ${{ steps.queue-status.outputs.available }}
+  busy:
+    description: 'Number of agents with state "busy"'
+    value: ${{ steps.queue-status.outputs.busy }}
+  offline:
+    description: 'Number of agents with state "offline"'
+    value: ${{ steps.queue-status.outputs.offline }}
+  jobs_waiting:
+    description: 'Number of jobs waiting in the queue'
+    value: ${{ steps.queue-status.outputs.jobs_waiting }}
+  jobs_running:
+    description: 'Number of jobs running on agents in the queue'
+    value: ${{ steps.queue-status.outputs.jobs_running }}
+  jobs_completed:
+    description: 'Number of jobs completed in the queue'
+    value: ${{ steps.queue-status.outputs.jobs_completed }}
+runs:
+  using: composite
+  steps:
+    - name: Bypass aproxy (for private-endpoint runners)
+      if: startsWith(runner.name, 'private-')
+      env:
+        SERVER: ${{ inputs.server }}
+      shell: bash
+      run: |
+        echo "::group::Bypass aproxy (private-endpoint runner)"
+        APROXY_IP=$(ip route get $(ip route show 0.0.0.0/0 | grep -oP 'via \K\S+') | grep -oP 'src \K\S+')
+        APROXY_PORT=$(sudo snap get aproxy listen)
+        APROXY=$APROXY_IP$APROXY_PORT
+        TESTFLINGER_IPS=$(getent ahostsv4 $SERVER | awk '/RAW/ {print $1}' | paste -sd,)
+        PRIVATE_IPS=10.0.0.0/8,127.0.0.1/8,172.16.0.0/12,192.168.0.0/16,$TESTFLINGER_IPS
+        sudo nft -f - << EOF
+        flush table ip aproxy
+        table ip aproxy {
+          chain prerouting {
+            type nat hook prerouting priority dstnat; policy accept;
+            ip daddr != { $PRIVATE_IPS } tcp dport { 80, 443 } counter dnat to $APROXY
+          }
+          chain output {
+            type nat hook output priority -100; policy accept;
+            ip daddr != { $PRIVATE_IPS } tcp dport { 80, 443 } counter dnat to $APROXY
+          }
+        }
+        EOF
+        echo Bypass complete
+        sudo nft list table ip aproxy
+        echo "::endgroup::"
+
+    - name: Test connection to Testflinger server
+      shell: bash {0}  # allow curl to fail
+      env:
+        SERVER: https://${{ inputs.server }}
+        REQUEST_ID: ${{ github.run_id }}
+      run: |
+        echo "::group::Test connection to Testflinger server"
+        STATUS=$(curl --stderr error.log -Ivw "%{http_code}\n" -o /dev/null $SERVER/v1/ -H "X-Request-ID: $REQUEST_ID")
+        ERROR=$?
+        if [ ! $ERROR -eq 0 ]; then
+          echo "Unable to ping Testflinger server at $SERVER"
+          cat error.log
+          exit $ERROR
+        elif [ ! $STATUS -eq 200 ]; then
+          echo "Failed server ping at $SERVER, error status: $STATUS"
+          cat error.log
+          exit $STATUS
+        else
+          echo "Successful server ping at $SERVER, status: $STATUS"
+        fi
+        echo "::endgroup::"
+
+    - name: Install testflinger-cli
+      shell: bash
+      run: |
+        echo "::group::Install testflinger-cli"
+        sudo snap install testflinger-cli
+        echo "::endgroup::"
+
+    - name: Query testflinger-cli queue-status ${{ inputs.queue }}
+      id: queue-status
+      shell: bash
+      env:
+        SERVER: https://${{ inputs.server }}
+        QUEUE: ${{ inputs.queue }}
+      run: |
+        RESULT=$(testflinger --server "$SERVER" queue-status "$QUEUE")
+        echo "$RESULT"
+        
+        MAP=(
+          'agents_in_queue|Agents in queue'
+          'available|Available'
+          'busy|Busy'
+          'offline|Offline'
+          'jobs_waiting|Jobs waiting'
+          'jobs_running|Jobs running'
+          'jobs_completed|Jobs completed'
+        )
+
+        for line in "${MAP[@]}"; do
+          IFS='|' read -r out_key label <<< "$line"
+          value=$(printf '%s\n' "$RESULT" | awk -F': *' -v lbl="$label" '$1==lbl {print $2}')
+          echo "${out_key}=${value}" >> "$GITHUB_OUTPUT"
+        done
