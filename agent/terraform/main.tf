@@ -18,6 +18,17 @@ resource "juju_application" "testflinger-agent-host" {
     config-repo     = var.config_repo
     config-branch   = var.config_branch
     config-dir      = var.config_dir
+    testflinger-server = var.testflinger_server
+    credentials-secret = juju_secret.credentials-secret.secret_id
   }
 }
 
+resource "juju_secret" "credentials-secret" {
+  model_uuid = juju_model.development.uuid
+  name       = var.credentials_secret_name
+  value = {
+    client-id = var.credentials_secret_client_id
+    secret-key = var.credentials_secret_secret_key
+  }
+  info = "Juju secret for agent host credentials"
+}

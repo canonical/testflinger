@@ -1,119 +1,68 @@
-# Juju deployment
+# Terraform module for Testflinger Agent Host
 
-Local Juju and charm deployment via [Terraform].
+This is a Terraform module facilitating the deployment of the Testflinger Agent Host charm,
+using the [Terraform Juju provider][juju-provider]. For more information, refer
+to the provider [documentation][juju-provider-docs].
 
-## Set up variables
+## Requirements
+This module requires a `juju` model to be available. Refer to the [usage section](#usage) below for more details.
 
-The agent host charm requires a few variables. When deploying via Terraform,
-these can be placed in a `terraform.tfvars` file:
+## API
 
-```tf
-juju_model = "testflinger-agents"
-agent_host_name = "agent-host"
+### Inputs
+The module offers the following configurable inputs:
 
-config_repo = "https://github.com/canonical/testflinger.git"
-config_branch = "main"
-config_dir = "agent/charms/testflinger-agent-host-charm/tests/integration/data/test01"
+| Name | Type | Description | Required |
+| - | - | - | - |
+| `juju_model`| string | Name of the Juju model | True |
+| `channel`| string | Channel to use for the charm | False |
+| `revision`| number | Revision of the charm to use (minimum: 82) | False |
+| `agent_host_name`| string | Name of the agent host juju application | True |
+| `override_constraints`| string | Use if you need to override the constraints built with the agent_host_* vars | False |
+| `config_repo`| string | Repository URL for the agent configs on this agent host | True |
+| `config_branch`| string | Repository branch for the agent configs | False |
+| `config_dir`| string | Directory within the config repo containing the charm configuration | True |
+| `ssh_public_key`| string | base64 encoded ssh public key to use on the agent host | True |
+| `ssh_private_key`| string | base64 encoded ssh private key to use on the agent host | True |
+| `testflinger_server`| string | Testflinger server URL for the agent host to connect to | False |
+| `credentials_secret_name`| string | Name of the Juju secret for the agent host credentials | True |
+| `credentials_secret_client_id`| string | Client ID for the Juju secret for the agent host credentials | True |
+| `credentials_secret_secret_key`| string | Secret key for the Juju secret for the agent host credentials| True |
 
-ssh_public_key <<-EOT
-(sensitive value)
-EOT
+### Outputs
 
-ssh_private_key <<-EOT
-(sensitive value)
-EOT
+| Name     | Type   | Description                      |
+| -------- | ------ | -------------------------------- |
+| app_name | string | Name of the deployed application |
+
+## Usage
+
+### Basic Usage
+
+Users should ensure that Terraform is aware of all the required variables including 
+the `juju_model` dependency of the charm module. Given the total amount of required 
+variables, it is recommended to use a `.tfvars` file.
+
+1. Create a `.tfvars` file with at least the required values:
+
+```hcl
+juju_model                     = "<model>"
+agent_host_name                = "<name>"
+config_repo                    = "<repo-url>"
+config_dir                     = "<path>"
+ssh_public_key                 = "<base64-key>"
+ssh_private_key                = "<base64-key>"
+credentials_secret_name        = "<secret-name>"
+credentials_secret_client_id   = "<client-id>"
+credentials_secret_secret_key  = "<secret-key>"
+revision                       = 82
 ```
 
-> [!TIP]
-> To generate the SSH key, use (for example): `ssh-keygen -t rsa -f id_rsa`.
-
-> [!NOTE]
-> The agent host expects to pull configurations from a git repository. Make sure that the your URL includes any tokens needed to access the repository (e.g., FPAT).
-
-## Set up a Juju environment
-
-It is recommended to install the pre-requisites on a VM rather than your host
-machine. To do so, first install [Multipass]:
+2. Deploy with:
 
 ```shell
-sudo snap install multipass
+terraform apply -var-file="<name>.tfvars"
 ```
 
-Then launch a new VM instance (this may take a while):
-
-```shell
-multipass launch noble --disk 50G --memory 4G --cpus 2 --name testflinger-agents-juju --mount /path/to/testflinger:/home/ubuntu/testflinger --cloud-init /path/to/testflinger/agent/terraform/cloud-init.yaml --timeout 1200
-```
-
-Feel free to increase the storage, memory, CPU, or VM name.
-
-> [!NOTE]
-> The initialization may time out. That's fine as long as the setup actually completed. You can tell that the setup completed by checking if the Juju models were created.
-
-Check that the models were created:
-
-```shell
-multipass exec testflinger-agents-juju -- juju models
-```
-
-## Initialize project's terraform
-
-Now that everything has been set up, you can initialize the project's terraform.
-
-Change your directory on your host machine to the terraform directory:
-
-```shell
-cd /path/to/testflinger/agent/terraform
-```
-
-In the terraform directory on your host machine, run:
-
-```shell
-multipass exec testflinger-agents-juju -- terraform init
-```
-
-## Deploy everything
-
-In the terraform directory on your host machine, run:
-
-```shell
-multipass exec testflinger-agents-juju -- terraform apply -auto-approve
-```
-
-Then wait for the deployment to settle and all the statuses to become active.
-You can watch the statuses via:
-
-```shell
-multipass exec testflinger-agents-juju -- juju status --storage --relations --watch 5s
-```
-
-## Teardown
-
-To take everything down, you can start with terraform:
-
-```shell
-multipass exec testflinger-agents-juju -- terraform destroy -auto-approve
-```
-
-The above step can take a while and may even get stuck with some applications
-in error state. You can watch it through:
-
-```bash
-multipass exec testflinger-agents-juju -- juju status --storage --relations --watch 5s
-```
-
-Once everything is down and the juju model has been deleted you can stop the
-multipass VM:
-
-```bash
-multipass stop testflinger-agents-juju
-```
-
-Optionally, delete the VM:
-
-```bash
-multipass delete --purge testflinger-agents-juju
-```
-
-[Terraform]: https://developer.hashicorp.com/terraform
-[Multipass]: https://canonical.com/multipass
+[juju-provider]: https://github.com/juju/terraform-provider-juju/
+[juju-provider-docs]: https://registry.terraform.io/providers/juju/juju/latest/docs
