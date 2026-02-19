@@ -2,6 +2,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import tempfile
 import uuid
 from http import HTTPStatus
@@ -9,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 import requests_mock as rmock
-from testflinger_common.enums import TestEvent, TestPhase
+from testflinger_common.enums import JobState, TestEvent, TestPhase
 
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
@@ -187,6 +188,59 @@ class TestJob:
         job = _TestflingerJob({"parent_job_id": "999"}, client)
         job.wait_for_completion()
         # No assertions needed, just make sure we don't timeout
+
+    @pytest.mark.timeout(5)
+    @patch.object(GlobalTimeoutChecker, "__call__")
+    def test_wait_for_completion_global_timeout(
+        self, mock_checker, client, mocker
+    ):
+        """Test wait_for_completion returns the timeout event and reason."""
+        mocker.patch.object(
+            client, "check_job_state", return_value=JobState.ALLOCATE
+        )
+        timeout_reason = "ERROR: Global timeout reached! (1s)"
+        mock_checker.return_value = (TestEvent.GLOBAL_TIMEOUT, timeout_reason)
+
+        # this job data doesn't contain a parent_job_id on purpose
+        # global timeout should trigger for allocate phase
+        job = _TestflingerJob({"global_timeout": 1}, client)
+        event, reason = job.wait_for_completion()
+
+        assert event == TestEvent.GLOBAL_TIMEOUT
+        assert reason == timeout_reason
+
+    @patch.object(_TestflingerJob, "allocate_phase")
+    def test_allocate_phase_global_timeout_exit_values(
+        self, mock_allocate, client, tmp_path, requests_mock
+    ):
+        """Test exit values on global timeout during allocate phase."""
+        self.config["allocate_command"] = "/bin/true"
+        fake_job_data = {
+            "global_timeout": 1,
+            "allocate_data": {"allocate": True},
+        }
+        outcome_file_path = tmp_path / "testflinger-outcome.json"
+        outcome_file_path.write_text("{}")
+
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+
+        timeout_reason = "ERROR: Global timeout reached! (1s)"
+        mock_allocate.return_value = (TestEvent.GLOBAL_TIMEOUT, timeout_reason)
+        job = _TestflingerJob(fake_job_data, client)
+        exitcode, exit_event, exit_reason = job.run_test_phase(
+            "allocate", tmp_path
+        )
+
+        assert exitcode == -signal.SIGKILL.value % 256
+        assert exit_event == TestEvent.GLOBAL_TIMEOUT
+        assert exit_reason == timeout_reason
+
+        with outcome_file_path.open() as f:
+            outcome_data = json.load(f)
+        assert (
+            outcome_data["status"]["allocate"] == -signal.SIGKILL.value % 256
+        )
 
     def test_get_device_info(self, client, tmp_path):
         """Test job can read from device-info file."""
