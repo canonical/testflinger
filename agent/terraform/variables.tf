@@ -14,6 +14,11 @@ variable "revision" {
   type        = number
   nullable    = true
   default     = null
+
+  validation {
+    condition     = var.revision == null || var.revision >= 82
+    error_message = "Revision must be 82 or higher for agent authentication."
+  }
 }
 
 variable "agent_host_name" {
@@ -53,6 +58,7 @@ variable "config_repo" {
 variable "config_branch" {
   type        = string
   description = "Repository branch for the agent configs"
+  default     = "main"
 }
 
 variable "config_dir" {
@@ -70,4 +76,28 @@ variable "ssh_private_key" {
   sensitive   = true
   type        = string
   description = "base64 encoded ssh private key to use on the agent host"
+}
+
+variable "testflinger_server" {
+  type        = string
+  description = "Testflinger server URL for the agent host to connect to"
+  default     = "https://testflinger.canonical.com"
+}
+
+variable "credentials_secret_name" {
+  sensitive   = true
+  type        = string
+  description = "Name of the Juju secret for the agent host credentials"
+}
+
+variable "credentials_secret_client_id" {
+  sensitive   = true
+  type        = string
+  description = "Client ID for the Juju secret for the agent host credentials"
+}
+
+variable "credentials_secret_secret_key" {
+  sensitive   = true
+  type        = string
+  description = "Secret key for the Juju secret for the agent host credentials"
 }
