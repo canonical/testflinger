@@ -4,7 +4,7 @@ urllib3>=2.6.3
 ops >= 3.5.0
 GitPython==3.1.46
 Jinja2==3.1.6
-maturin==1.8.6
+maturin==1.12.4
 charmlibs-passwd==1.0.0
 charmlibs-apt==1.0.0
 requests>=2.32.4
