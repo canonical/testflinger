@@ -64,7 +64,7 @@ multipass exec testflinger-agents-juju -- terraform init
 
 ### Set up variables
 
-Refer to the [README](README.md#usage) for the full list of required variables. 
+Refer to the [README](README.md#api) for the full list of required variables. 
 
 `terraform/dev` directory contains the required terraform files for deployment, modify them accordingly
 with the necessary variables such as ssh keys. 
