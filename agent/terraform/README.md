@@ -101,7 +101,7 @@ module "testflinger-agent-host" {
     config-branch      = "main"
     config-dir         = "<path>"
     testflinger-server = "https://testflinger.canonical.com"
-    credentials-secret = juju_secret.credentials-secret.secret_id
+    credentials-secret = "secret:${juju_secret.credentials-secret.secret_id}"
   }
 }
 ```
