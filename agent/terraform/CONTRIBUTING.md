@@ -1,9 +1,24 @@
-# Testflinger Agent Host Guide
+# Contributing to Testflinger Terraform modules
+
+This document outlines contribution guidelines specific to the Testflinger Agent Host Terraform module.
+
+To learn more about the general contribution guidelines for the Testflinger project, refer to the [Testflinger contribution guide](../../CONTRIBUTING.md).
+
+## Pull Requests
+
+Any change to the terraform modules should be semantically versioned, for automation to automatically tag your commits,
+you should consider the following patterns:
+- `breaking(terraform-agent):` -  Creates a major release
+- `feat(terraform-agent):` Creates a minor release
+
+By default, any commit without the above patterns will create a patch version bump. Refer to [Terraform versioning guide][versioning-guide] to understand more about semantic versioning Terraform modules.
+
+## Testflinger Agent Host Terraform Deployment
 
 The following instructions are meant to provide developers a guide on how to
 deploy a Testflinger Agent Host by using [Terraform].
 
-## Set up a Juju environment
+### Set up a Juju environment
 
 It is recommended to install the pre-requisites on a VM rather than your host
 machine. To do so, first install [Multipass]:
@@ -29,26 +44,30 @@ Check that the models were created:
 multipass exec testflinger-agents-juju -- juju models
 ```
 
-## Initialize project's terraform
+### Initialize project's terraform
 
 Now that everything has been set up, you can initialize the project's terraform.
+The following guide setups a higher-level module to configure the Testflinger
+Agent Host Charm deployment.
 
-Change your directory on your host machine to the terraform directory:
+Change your directory on your host machine to the terraform dev directory:
 
 ```shell
-cd /path/to/testflinger/agent/terraform
+cd /path/to/testflinger/agent/terraform/dev
 ```
 
-In the terraform directory on your host machine, run:
+Then run:
 
 ```shell
 multipass exec testflinger-agents-juju -- terraform init
 ```
 
-## Set up variables
+### Set up variables
 
-Refer to the [README](README.md#usage) for the full list of required variables
-and the recommended `.tfvars` file setup.
+Refer to the [README](README.md#usage) for the full list of required variables. 
+
+`terraform/dev` directory contains the required terraform files for deployment, modify them accordingly
+with the necessary variables such as ssh keys. 
 
 > [!TIP]
 > To generate the SSH key, use (for example): `ssh-keygen -t rsa -f id_rsa`.
@@ -57,12 +76,13 @@ and the recommended `.tfvars` file setup.
 > The agent host expects to pull configurations from a git repository. Make sure
 > that your URL includes any tokens needed to access the repository (e.g., FPAT).
 
-## Deploy everything
+
+### Deploy
 
 In the terraform directory on your host machine, run:
 
 ```shell
-multipass exec testflinger-agents-juju -- terraform apply -var-file="<name>.tfvars"
+multipass exec testflinger-agents-juju -- terraform apply -auto-approve
 ```
 
 Then wait for the deployment to settle and all the statuses to become active.
@@ -72,7 +92,7 @@ You can watch the statuses via:
 multipass exec testflinger-agents-juju -- juju status --storage --relations --watch 5s
 ```
 
-## Teardown
+### Teardown
 
 To take everything down, you can start with terraform:
 
@@ -102,3 +122,4 @@ multipass delete --purge testflinger-agents-juju
 
 [Multipass]: https://canonical.com/multipass
 [Terraform]: https://developer.hashicorp.com/terraform
+[versioning-guide]: https://developer.hashicorp.com/terraform/plugin/best-practices/versioning

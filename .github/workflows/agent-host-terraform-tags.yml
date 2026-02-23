@@ -31,7 +31,7 @@ jobs:
         id: version
         uses: PaulHatch/semantic-version@f29500c9d60a99ed5168e39ee367e0976884c46e  # v6.0.1
         with:
-          tag_prefix: "tesflinger-agent-host-"
+          tag_prefix: "testflinger-agent-host-"
           major_pattern: "breaking(terraform-agent):"
           minor_pattern: "feat(terraform-agent):"
           change_path: "agent/terraform/"
