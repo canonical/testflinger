@@ -186,7 +186,8 @@ class TestJob:
         client.check_job_state = lambda _: "completed"
 
         job = _TestflingerJob({"parent_job_id": "999"}, client)
-        job.wait_for_completion()
+        checker = GlobalTimeoutChecker(4 * 60 * 60)
+        job.wait_for_completion(checker)
         # No assertions needed, just make sure we don't timeout
 
     @pytest.mark.timeout(5)
@@ -203,8 +204,10 @@ class TestJob:
 
         # this job data doesn't contain a parent_job_id on purpose
         # global timeout should trigger for allocate phase
-        job = _TestflingerJob({"global_timeout": 1}, client)
-        event, reason = job.wait_for_completion()
+        timeout_sec = 1
+        job = _TestflingerJob({"global_timeout": timeout_sec}, client)
+        checker = GlobalTimeoutChecker(timeout_sec)
+        event, reason = job.wait_for_completion(checker)
 
         assert event == TestEvent.GLOBAL_TIMEOUT
         assert reason == timeout_reason

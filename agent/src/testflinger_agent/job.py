@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from testflinger_common.enums import TestEvent, TestPhase
+from testflinger_common.enums import JobState, TestEvent, TestPhase
 
 from testflinger_agent.errors import TFServerError
 from testflinger_agent.handlers import (
@@ -200,8 +200,10 @@ class TestflingerJob:
             )
 
         # Allocate phase has special behavior where we wait for the parent job
-        if phase == "allocate":
-            wait_exit_event, wait_exit_reason = self.allocate_phase(rundir)
+        if phase == TestPhase.ALLOCATE:
+            wait_exit_event, wait_exit_reason = self.allocate_phase(
+                rundir, global_timeout_checker
+            )
             if wait_exit_event is not None:
                 # If allocate_phase returns a non-None event
                 # it means the global timeout was reached
@@ -243,12 +245,18 @@ class TestflingerJob:
             )
 
     def allocate_phase(
-        self, rundir
+        self,
+        rundir: str,
+        global_timeout_checker: GlobalTimeoutChecker,
     ) -> tuple[TestEvent, str] | tuple[None, None]:
-        """
-        Read the json dict from "device-info.json" and send it to the server
+        """Send device info to server and wait for the parent job completion.
+
+        This reads "device-info.json" and sends it to the server
         so that the multi-device agent can find the IP addresses of all
         subordinate jobs.
+
+        :param rundir: Directory in which to look for "device-info.json"
+        :param global_timeout_checker: timeout checker for the allocate phase.
         """
         device_info = self.get_device_info(rundir)
 
@@ -262,15 +270,22 @@ class TestflingerJob:
                 logger.warning("Failed to post device_info, retrying...")
                 time.sleep(60)
 
-        self.client.post_job_state(self.job_id, "allocated")
+        # Multi Device looks for a job that is `allocated` to know when
+        # a child job has already sent its device info and is ready.
+        self.client.post_job_state(self.job_id, JobState.ALLOCATED)
 
-        return self.wait_for_completion()
+        # Child job is now allocated, wait for parent job to complete
+        # or for global timeout to be reached.
+        return self.wait_for_completion(global_timeout_checker)
 
-    def wait_for_completion(self) -> tuple[TestEvent, str] | tuple[None, None]:
-        """Monitor the parent job and exit when it completes."""
-        global_timeout_checker = GlobalTimeoutChecker(
-            self.get_global_timeout()
-        )
+    def wait_for_completion(
+        self,
+        global_timeout_checker: GlobalTimeoutChecker,
+    ) -> tuple[TestEvent, str] | tuple[None, None]:
+        """Monitor the parent job and exit when it completes.
+
+        :param global_timeout_checker: timeout checker for the allocate phase.
+        """
         while True:
             try:
                 this_job_state = self.client.check_job_state(self.job_id)
@@ -280,15 +295,17 @@ class TestflingerJob:
 
                 parent_job_id = self.job_data.get("parent_job_id")
                 if not parent_job_id:
+                    # TODO: Remove this path once Spread testing use cases
+                    # are migrated to reserve phase instead of allocate phase.
                     logger.warning("No parent job ID found while allocated")
                 else:
                     parent_job_state = self.client.check_job_state(
                         parent_job_id
                     )
                     if parent_job_state in (
-                        "complete",
-                        "completed",
-                        "cancelled",
+                        JobState.COMPLETE,
+                        JobState.COMPLETED,
+                        JobState.CANCELLED,
                     ):
                         logger.info("Parent job completed, exiting...")
                         break
