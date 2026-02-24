@@ -289,7 +289,7 @@ class TestflingerJob:
         while True:
             try:
                 this_job_state = self.client.check_job_state(self.job_id)
-                if this_job_state in ("complete", "completed", "cancelled"):
+                if this_job_state in (JobState.COMPLETED, JobState.CANCELLED):
                     logger.info("This job completed, exiting...")
                     break
 
@@ -303,7 +303,6 @@ class TestflingerJob:
                         parent_job_id
                     )
                     if parent_job_state in (
-                        JobState.COMPLETE,
                         JobState.COMPLETED,
                         JobState.CANCELLED,
                     ):

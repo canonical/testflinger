@@ -14,6 +14,7 @@ from testflinger_common.enums import JobState, TestEvent, TestPhase
 
 import testflinger_agent
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
+from testflinger_agent.errors import TFServerError
 from testflinger_agent.handlers import FileLogHandler
 from testflinger_agent.job import (
     TestflingerJob as _TestflingerJob,
@@ -244,6 +245,79 @@ class TestJob:
         assert (
             outcome_data["status"]["allocate"] == -signal.SIGKILL.value % 256
         )
+
+    @patch.object(_TestflingerJob, "allocate_phase")
+    def test_allocate_phase_normal_completion(
+        self, mock_allocate, client, tmp_path, requests_mock
+    ):
+        """Test allocate phase completes normally without timeout."""
+        self.config["allocate_command"] = "/bin/true"
+        fake_job_data = {
+            "global_timeout": 60,
+            "allocate_data": {"allocate": True},
+        }
+        outcome_file_path = tmp_path / "testflinger-outcome.json"
+        outcome_file_path.write_text("{}")
+
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+
+        # allocate_phase returns (None, None) on normal completion
+        mock_allocate.return_value = (None, None)
+        job = _TestflingerJob(fake_job_data, client)
+        exitcode, exit_event, exit_reason = job.run_test_phase(
+            "allocate", tmp_path
+        )
+
+        assert exitcode == 0
+        assert exit_event != TestEvent.GLOBAL_TIMEOUT
+
+    @patch("testflinger_agent.job.time.sleep")
+    @patch.object(_TestflingerJob, "wait_for_completion")
+    def test_allocate_phase_post_result_retry(
+        self, mock_wait, mock_sleep, client, tmp_path, requests_mock
+    ):
+        """Test that allocate_phase retries posting device info on failure."""
+        mock_wait.return_value = (None, None)
+        requests_mock.post(
+            rmock.ANY,
+            [
+                {"exc": TFServerError(HTTPStatus.INTERNAL_SERVER_ERROR)},
+                {"status_code": HTTPStatus.OK},
+            ],
+        )
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+
+        checker = GlobalTimeoutChecker(60)
+        job = _TestflingerJob({}, client)
+        job.allocate_phase(tmp_path, checker)
+
+        # post_result should have been called twice (one failure + one retry)
+        assert requests_mock.call_count >= 2
+        mock_sleep.assert_called_once_with(60)
+
+    @pytest.mark.timeout(5)
+    def test_wait_for_completion_parent_completes(self, client, mocker):
+        """Test wait_for_completion exits when the parent job completes."""
+        parent_job_id = str(uuid.uuid1())
+        this_job_id = str(uuid.uuid1())
+        fake_job_data = {"parent_job_id": parent_job_id, "job_id": this_job_id}
+        job = _TestflingerJob(fake_job_data, client)
+
+        # First call checks this job (allocated),
+        # second call checks parent job (completed)
+        mocker.patch.object(
+            client,
+            "check_job_state",
+            side_effect=[JobState.ALLOCATED, JobState.COMPLETED],
+        )
+
+        checker = GlobalTimeoutChecker(60)
+        event, reason = job.wait_for_completion(checker)
+
+        # Assert that the exit event and reason indicate normal completion
+        assert event is None
+        assert reason is None
 
     def test_get_device_info(self, client, tmp_path):
         """Test job can read from device-info file."""
