@@ -1253,8 +1253,7 @@ class TestflingerCli:
 
     def reserve(self):
         """Install and reserve a system."""
-        queues = self.do_list_queues()
-        queue = self.args.queue or helpers.prompt_for_queue(queues)
+        queue = self.args.queue or input("Enter the queue you wish to use: ").strip()
 
         try:
             images = self.client.get_images(queue)
