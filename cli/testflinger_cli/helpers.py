@@ -84,11 +84,8 @@ def prompt_for_image(images: dict[str, str]) -> str:
         elif image.startswith(("http://", "https://")):
             return image
         elif image not in images:
-            print(
-                f"ERROR: '{image}' is not in the list of known images for "
-                "that queue, please select another."
-            )
-            image = ""
+            # Accept any image, do not enforce against server list
+            return image
     return image
 
 

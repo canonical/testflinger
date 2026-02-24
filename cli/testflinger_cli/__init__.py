@@ -1255,8 +1255,7 @@ class TestflingerCli:
         """Install and reserve a system."""
         queues = self.do_list_queues()
         queue = self.args.queue or helpers.prompt_for_queue(queues)
-        if queue not in queues:
-            logger.warning("'%s' is not in the list of known queues", queue)
+
         try:
             images = self.client.get_images(queue)
         except OSError:
@@ -1270,8 +1269,11 @@ class TestflingerCli:
             logger.error("'%s' is not in the list of known images", image)
         if image.startswith(("http://", "https://")):
             image = f"url: {image}"
-        else:
+        elif image in images:
             image = images[image]
+        else:
+            # Treat unknown image names as distro names
+            image = f"distro: {image}"
         ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
