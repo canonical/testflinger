@@ -161,52 +161,52 @@ class DeviceConnector(ZapperConnector):
         """Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
-        provisioning_data = {}
+        provision_data = {}
         if "preset" in self.job_data["provision_data"]:
             has_autoinstall = False
             for key, value in self.job_data["provision_data"].items():
                 if key.startswith("autoinstall"):
                     has_autoinstall = True
                 else:
-                    provisioning_data[key] = value
+                    provision_data[key] = value
 
-            provisioning_data["username"], provisioning_data["password"] = (
+            provision_data["username"], provision_data["password"] = (
                 self._get_credentials("preset")
             )
 
             if has_autoinstall:
-                provisioning_data["autoinstall_conf"] = (
+                provision_data["autoinstall_conf"] = (
                     self._get_autoinstall_conf()
                 )
 
         elif "alloem_url" in self.job_data["provision_data"]:
-            provisioning_data["url"] = self.job_data["provision_data"][
+            provision_data["url"] = self.job_data["provision_data"][
                 "alloem_url"
             ]
-            provisioning_data["username"], provisioning_data["password"] = (
+            provision_data["username"], provision_data["password"] = (
                 self._get_credentials("jammy-oem")
             )
-            provisioning_data["robot_retries"] = max(
+            provision_data["robot_retries"] = max(
                 2, self.job_data["provision_data"].get("robot_retries", 1)
             )
-            provisioning_data["autoinstall_conf"] = (
+            provision_data["autoinstall_conf"] = (
                 self._get_autoinstall_conf()
             )
-            provisioning_data["robot_tasks"] = self.job_data["provision_data"][
+            provision_data["robot_tasks"] = self.job_data["provision_data"][
                 "robot_tasks"
             ]
         else:
-            provisioning_data["url"] = self.job_data["provision_data"]["url"]
-            provisioning_data["username"], provisioning_data["password"] = (
+            provision_data["url"] = self.job_data["provision_data"]["url"]
+            provision_data["username"], provision_data["password"] = (
                 self._get_credentials()
             )
-            provisioning_data["robot_retries"] = self.job_data[
+            provision_data["robot_retries"] = self.job_data[
                 "provision_data"
             ].get("robot_retries", 1)
-            provisioning_data["autoinstall_conf"] = (
+            provision_data["autoinstall_conf"] = (
                 self._get_autoinstall_conf()
             )
-            provisioning_data["robot_tasks"] = self.job_data["provision_data"][
+            provision_data["robot_tasks"] = self.job_data["provision_data"][
                 "robot_tasks"
             ]
 
@@ -219,7 +219,7 @@ class DeviceConnector(ZapperConnector):
             "live_image",
             "ubuntu_sso_email",
         ]
-        provisioning_data.update(
+        provision_data.update(
             {
                 opt: self.job_data["provision_data"][opt]
                 for opt in optionals
@@ -227,7 +227,7 @@ class DeviceConnector(ZapperConnector):
             }
         )
 
-        return ((), provisioning_data)
+        return ((), provision_data)
 
     def _post_run_actions(self, args):
         super()._post_run_actions(args)
