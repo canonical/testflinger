@@ -186,9 +186,6 @@ class DeviceConnector(ZapperConnector):
             provision_data["username"], provision_data["password"] = (
                 self._get_credentials("jammy-oem")
             )
-            provision_data["robot_retries"] = max(
-                2, self.job_data["provision_data"].get("robot_retries", 1)
-            )
             provision_data["autoinstall_conf"] = (
                 self._get_autoinstall_conf()
             )
@@ -200,9 +197,6 @@ class DeviceConnector(ZapperConnector):
             provision_data["username"], provision_data["password"] = (
                 self._get_credentials()
             )
-            provision_data["robot_retries"] = self.job_data[
-                "provision_data"
-            ].get("robot_retries", 1)
             provision_data["autoinstall_conf"] = (
                 self._get_autoinstall_conf()
             )
@@ -218,6 +212,7 @@ class DeviceConnector(ZapperConnector):
             "wait_until_ssh",
             "live_image",
             "ubuntu_sso_email",
+            "robot_retries",
         ]
         provision_data.update(
             {
