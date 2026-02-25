@@ -186,9 +186,7 @@ class DeviceConnector(ZapperConnector):
             provision_data["username"], provision_data["password"] = (
                 self._get_credentials("jammy-oem")
             )
-            provision_data["autoinstall_conf"] = (
-                self._get_autoinstall_conf()
-            )
+            provision_data["autoinstall_conf"] = self._get_autoinstall_conf()
             provision_data["robot_tasks"] = self.job_data["provision_data"][
                 "robot_tasks"
             ]
@@ -197,9 +195,7 @@ class DeviceConnector(ZapperConnector):
             provision_data["username"], provision_data["password"] = (
                 self._get_credentials()
             )
-            provision_data["autoinstall_conf"] = (
-                self._get_autoinstall_conf()
-            )
+            provision_data["autoinstall_conf"] = self._get_autoinstall_conf()
             provision_data["robot_tasks"] = self.job_data["provision_data"][
                 "robot_tasks"
             ]
