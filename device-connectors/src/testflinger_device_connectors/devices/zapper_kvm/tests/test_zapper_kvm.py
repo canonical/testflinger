@@ -63,7 +63,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "password": "ubuntu",
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
             "robot_tasks": ["job.robot", "another.robot"],
-            "robot_retries": 1,
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -135,7 +134,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                     "another.robot",
                 ],
                 "autoinstall_storage_layout": "lvm",
-                "robot_retries": 3,
+                "robot_retries": 1,
                 "cmdline_append": "more arguments",
                 "skip_download": True,
                 "wait_until_ssh": True,
@@ -157,7 +156,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "password": "password",
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
             "robot_tasks": ["job.robot", "another.robot"],
-            "robot_retries": 3,
+            "robot_retries": 1,
             "cmdline_append": "more arguments",
             "skip_download": True,
             "wait_until_ssh": True,
@@ -201,7 +200,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "password": "u",
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
             "robot_tasks": ["job.robot", "another.robot"],
-            "robot_retries": 2,
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
