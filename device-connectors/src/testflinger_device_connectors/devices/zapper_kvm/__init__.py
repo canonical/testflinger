@@ -64,18 +64,10 @@ class DeviceConnector(ZapperConnector):
             url = self.job_data["provision_data"]["alloem_url"]
             username = "ubuntu"
             password = "u"
-            retries = max(
-                2, self.job_data["provision_data"].get("robot_retries", 1)
-            )
         else:
             url = self.job_data["provision_data"]["url"]
-            username = self.job_data.get("test_data", {}).get(
-                "test_username", "ubuntu"
-            )
-            password = self.job_data.get("test_data", {}).get(
-                "test_password", "ubuntu"
-            )
-            retries = self.job_data["provision_data"].get("robot_retries", 1)
+            username = self.job_data.get("test_data", {}).get("test_username", "ubuntu")
+            password = self.job_data.get("test_data", {}).get("test_password", "ubuntu")
 
         provisioning_data = {
             "url": url,
@@ -85,10 +77,8 @@ class DeviceConnector(ZapperConnector):
             "reboot_script": self.config["reboot_script"],
             "device_ip": self.config["device_ip"],
             "robot_tasks": self.job_data["provision_data"]["robot_tasks"],
-            "robot_retries": retries,
-            "cmdline_append": self.job_data["provision_data"].get(
-                "cmdline_append", ""
-            ),
+            "robot_retries": self.job_data["provision_data"].get("robot_retries", 1),
+            "cmdline_append": self.job_data["provision_data"].get("cmdline_append", ""),
             "skip_download": self.job_data["provision_data"].get(
                 "skip_download", False
             ),
@@ -109,13 +99,9 @@ class DeviceConnector(ZapperConnector):
             self._copy_ssh_id()
         except subprocess.CalledProcessError as exc:
             logger.error("Process failed with: %s", exc.output.decode())
-            raise ProvisioningError(
-                "Failed configuring SSH on the DUT."
-            ) from exc
+            raise ProvisioningError("Failed configuring SSH on the DUT.") from exc
         except subprocess.TimeoutExpired as exc:
-            raise ProvisioningError(
-                "Timed out configuring SSH on the DUT."
-            ) from exc
+            raise ProvisioningError("Timed out configuring SSH on the DUT.") from exc
 
         self._run_oem_script(args)
 
@@ -173,9 +159,7 @@ class DeviceConnector(ZapperConnector):
     def _change_password(self, username, orig_password):
         """Change password via SSH to the one specified in the job data."""
 
-        password = self.job_data.get("test_data", {}).get(
-            "test_password", "ubuntu"
-        )
+        password = self.job_data.get("test_data", {}).get("test_password", "ubuntu")
         logger.info("Changing the original password to %s", password)
 
         cmd = [
