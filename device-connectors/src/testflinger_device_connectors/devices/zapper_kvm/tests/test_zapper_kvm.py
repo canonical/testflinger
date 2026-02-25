@@ -616,7 +616,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             30,
         )
         mock_reboot.assert_called_once()
-        mock_wait_ready.assert_called_once_with("zapper-host")
+        mock_wait_ready.assert_called_once_with("zapper-host", timeout=300)
 
     @patch(
         "testflinger_device_connectors.devices.DefaultDevice"

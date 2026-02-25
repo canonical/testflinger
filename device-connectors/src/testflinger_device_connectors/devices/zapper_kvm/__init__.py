@@ -64,7 +64,7 @@ class DeviceConnector(ZapperConnector):
                     30,
                 )
             self._reboot_control_host()
-            self.wait_ready(control_host)
+            self.wait_ready(control_host, timeout=300)
         except requests.RequestException:
             logger.warning(
                 "The REST API is not available on %s, "
