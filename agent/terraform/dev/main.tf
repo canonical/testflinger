@@ -5,6 +5,8 @@ module "agent-host" {
   constraints          = "arch=amd64 cores=1 mem=2048M root-disk=10240M root-disk-source=default virt-type=virtual-machine"
   units                = 1
   base                 = "ubuntu@22.04"
+  channel              = "latest/beta"
+  revision             = 84
   config_repo          = "https://github.com/canonical/testflinger.git"
   ssh_public_key       = filebase64("id_rsa.pub")
   ssh_private_key      = filebase64("id_rsa")
