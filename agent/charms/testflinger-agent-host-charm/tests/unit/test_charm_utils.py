@@ -19,10 +19,10 @@ def test_install_agent_packages_calls_apt(mock_update, mock_add_package):
 
 @patch("charm_utils.passwd.add_user_to_group")
 @patch("charm_utils.passwd.add_group")
-def test_setup_docker_creates_group_and_adds_user(
+def test_setup_docker_calls_adds_group_and_adds_user_to_group(
     mock_add_group, mock_add_user
 ):
-    """Test setup_docker creates the docker group and adds ubuntu to it."""
+    """Test add_group and add_user_to_group are called with correct params."""
     charm_utils.setup_docker()
 
     mock_add_group.assert_called_once_with(charm_utils.DOCKER_GROUP)
@@ -35,10 +35,10 @@ def test_setup_docker_creates_group_and_adds_user(
 @patch("charm_utils.shutil.rmtree")
 @patch("charm_utils.Repo.clone_from")
 @patch("charm_utils.Path.exists", return_value=False)
-def test_update_config_files_clones_and_moves(
+def test_update_config_files_calls_clone_and_move(
     mock_exists, mock_clone, mock_rmtree, mock_move, config
 ):
-    """Test update_config_files clones the repo and moves it into place."""
+    """Test clone_from and move are called during update_config_files."""
     charm_utils.update_config_files(config)
 
     mock_clone.assert_called_once_with(
@@ -54,13 +54,17 @@ def test_update_config_files_clones_and_moves(
 @patch("charm_utils.shutil.rmtree")
 @patch("charm_utils.Repo.clone_from")
 @patch("charm_utils.Path.exists", return_value=True)
-def test_update_config_files_removes_existing_paths(
+def test_update_config_files_calls_removal_of_existing_paths(
     mock_exists, mock_clone, mock_rmtree, mock_move, config
 ):
-    """Test existing tmp and repo paths are removed during cloning process."""
+    """Test correct paths are called for removal when they exist."""
     charm_utils.update_config_files(config)
 
     assert mock_rmtree.call_count == 2
+    mock_rmtree.assert_any_call(charm_utils.Path("/srv/tmp-agent-configs"))
+    mock_rmtree.assert_any_call(
+        charm_utils.Path(charm_utils.AGENT_CONFIGS_PATH)
+    )
 
 
 @patch(

@@ -67,7 +67,8 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         self.update_testflinger_repo()
         try:
             charm_utils.update_config_files(self.typed_config)
-        except RuntimeError:
+        except (RuntimeError, OSError) as err:
+            logger.error(err)
             self._block("Failed to update or config files")
             return
 
@@ -278,7 +279,8 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         )
         try:
             charm_utils.update_config_files(self.typed_config)
-        except RuntimeError:
+        except (RuntimeError, OSError) as err:
+            logger.error(err)
             self._block("Failed to update or config files")
             return
 
@@ -308,7 +310,8 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         )
         try:
             charm_utils.update_config_files(self.typed_config)
-        except RuntimeError:
+        except (RuntimeError, OSError) as err:
+            logger.error(err)
             self._block("Failed to update or config files")
             return
 

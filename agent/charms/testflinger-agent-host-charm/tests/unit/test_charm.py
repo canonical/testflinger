@@ -219,6 +219,7 @@ def test_on_update_testflinger_action_with_branch(
         state=state_in(),
     )
     mock_update_testflinger_repo.assert_called_once_with("test-branch")
+    mock_restart.assert_called_once()
     assert state_out.unit_status == testing.ActiveStatus()
 
 

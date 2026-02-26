@@ -35,6 +35,7 @@ def install_agent_packages() -> None:
 
 
 def setup_docker():
+    """Set up docker group and add charm user to the docker group."""
     passwd.add_group(DOCKER_GROUP)
     passwd.add_user_to_group(CHARM_USER, DOCKER_GROUP)
 
@@ -47,7 +48,7 @@ def update_config_files(config: TestflingerAgentConfig):
     tmp_repo_path = Path("/srv/tmp-agent-configs")
     repo_path = Path(AGENT_CONFIGS_PATH)
     if tmp_repo_path.exists():
-        shutil.rmtree(tmp_repo_path, ignore_errors=True)
+        shutil.rmtree(tmp_repo_path)
     try:
         Repo.clone_from(
             url=config.config_repo,
@@ -56,9 +57,8 @@ def update_config_files(config: TestflingerAgentConfig):
             depth=1,
         )
     except GitCommandError as err:
-        logger.error("Failed to update config files")
+        logger.error("Failed to update config files: %s", err)
         raise RuntimeError("Failed to update or config files") from err
-
     if repo_path.exists():
-        shutil.rmtree(repo_path, ignore_errors=True)
+        shutil.rmtree(repo_path)
     shutil.move(tmp_repo_path, repo_path)
