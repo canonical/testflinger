@@ -63,6 +63,7 @@ runs:
         SERVER: https://${{ inputs.server }}
         QUEUE: ${{ inputs.queue }}
       run: |
+        echo "::group::Get $QUEUE queue-status"
         RESULT=$(testflinger --server "$SERVER" queue-status "$QUEUE")
         echo "$RESULT"
         
@@ -81,3 +82,4 @@ runs:
           value=$(printf '%s\n' "$RESULT" | awk -F': *' -v lbl="$label" '$1==lbl {print $2}')
           echo "${out_key}=${value}" >> "$GITHUB_OUTPUT"
         done
+        echo "::endgroup::"

@@ -9,11 +9,11 @@ scheduled jobs from being submitted if their associated queue(s) are busy.
 ### Simple
 
 ```yaml
-- name: Query queue-status of nvidia-gpu
+- name: Query queue-status
   id: queue-status
   uses: canonical/testflinger/.github/actions/queue-status@main
   with:
-    queue: nvidia-gpu
+    queue: <queue_name>
 ```
 
 ### As a gate for `submit`
@@ -25,7 +25,7 @@ scheduled jobs from being submitted if their associated queue(s) are busy.
   id: queue-status
   uses: canonical/testflinger/.github/actions/queue-status@main
   with:
-    queue: $${{ matrix.queue }}
+    queue: ${{ matrix.queue }}
 
 - name: Submit job
   id: submit-job
