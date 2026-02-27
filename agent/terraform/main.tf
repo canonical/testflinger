@@ -1,4 +1,4 @@
-resource "juju_application" "testflinger_agent_host" {
+resource "juju_application" "testflinger-agent-host" {
   name        = var.app_name
   model_uuid  = var.model_uuid
   constraints = var.constraints

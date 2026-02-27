@@ -18,13 +18,13 @@ module "agent-host" {
   }
 }
 
-data "juju_model" "agent-host-model" {
+data "juju_model" "agent_host_model" {
   name = "testflinger-agents"
   owner = "admin"
 }
 
-resource "juju_secret" "credentials-secret" {
-  model_uuid = data.juju_model.agent-host-model.uuid
+resource "juju_secret" "credentials_secret" {
+  model_uuid = data.juju_model.agent_host_model.uuid
   name       = "test-credentials"
   value = {
     client-id  = "fake-client-id"
@@ -33,8 +33,8 @@ resource "juju_secret" "credentials-secret" {
   info = "Juju secret for agent host credentials"
 }
 
-resource "juju_access_secret" "credentials-secret-access" {
-  model_uuid   = data.juju_model.agent-host-model.uuid
-  secret_id    = juju_secret.credentials-secret.secret_id
+resource "juju_access_secret" "credentials_secret_access" {
+  model_uuid   = data.juju_model.agent_host_model.uuid
+  secret_id    = juju_secret.credentials_secret.secret_id
   applications = [module.agent-host.application.name]
 }
