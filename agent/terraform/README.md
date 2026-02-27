@@ -27,7 +27,7 @@ The module offers the following configurable inputs:
 | `revision` | number | Revision of the charm to use | False |
 | `ssh_private_key` | string | base64 encoded ssh private key to use on the agent host (sensitive) | True |
 | `ssh_public_key` | string | base64 encoded ssh public key to use on the agent host (sensitive) | True |
-| `units` | number | Number of units for the agent host application | False |
+| `units` | number | Number of units for the agent host application (maximum: 1) | False |
 
 The following charm config options should be passed via the `config` map:
 
@@ -81,7 +81,7 @@ resource "juju_secret" "credentials-secret" {
 resource "juju_access_secret" "credentials-secret-access" {
   model_uuid   = data.juju_model.agent-host.uuid
   secret_id    = juju_secret.credentials-secret.secret_id
-  applications = [module.testflinger-agent-host.application.name]
+  applications = [module.testflinger_agent_host.application.name]
 }
 ```
 
@@ -90,7 +90,7 @@ resource "juju_access_secret" "credentials-secret-access" {
 Then call the module:
 
 ```hcl
-module "testflinger-agent-host" {
+module "testflinger_agent_host" {
   source          = "git::https://github.com/canonical/testflinger.git//agent/terraform?ref=<tag>"
   model_uuid      = data.juju_model.agent-host.uuid
   app_name        = "<name>"

@@ -6,6 +6,6 @@ output "application" {
 output "provides" {
   description = "Map of provided integration endpoints"
   value = {
-    cos-agent = "cos-agent"
+    cos_agent = "cos-agent"
   }
 }
