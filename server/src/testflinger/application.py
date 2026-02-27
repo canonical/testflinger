@@ -37,7 +37,7 @@ try:
 except ImportError:
     pass
 
-VANILLA_FRAMEWORK_VERSION = "4.21.1"  # renovate: vanilla-framework-latest
+VANILLA_FRAMEWORK_VERSION = "4.43.0"  # renovate: vanilla-framework-latest
 
 
 def create_flask_app(config=None, secrets_store=None):
@@ -99,7 +99,11 @@ def create_flask_app(config=None, secrets_store=None):
 
     @tf_app.context_processor
     def inject_vanilla_framework_version():
-        return {"vanilla_framework_version": VANILLA_FRAMEWORK_VERSION}
+        return {
+            "vanilla_framework_version": VANILLA_FRAMEWORK_VERSION.replace(
+                ".", "_"
+            )
+        }
 
     tf_app.register_blueprint(views)
     tf_app.register_blueprint(v1, url_prefix="/v1")
