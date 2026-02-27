@@ -37,6 +37,8 @@ try:
 except ImportError:
     pass
 
+VANILLA_FRAMEWORK_VERSION = "4.21.1"  # renovate: vanilla-framework-latest
+
 
 def create_flask_app(config=None, secrets_store=None):
     """Create the flask app."""
@@ -94,6 +96,10 @@ def create_flask_app(config=None, secrets_store=None):
     @tf_app.context_processor
     def inject_oidc_status():
         return {"oidc_enabled": tf_app.oauth is not None}
+
+    @tf_app.context_processor
+    def inject_vanilla_framework_version():
+        return {"vanilla_framework_version": VANILLA_FRAMEWORK_VERSION}
 
     tf_app.register_blueprint(views)
     tf_app.register_blueprint(v1, url_prefix="/v1")
