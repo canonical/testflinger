@@ -198,6 +198,8 @@ def job_builder(data: dict) -> dict:
 
 
 @v1.get("/job")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.output(schemas.Job)
 @v1.doc(responses=schemas.job_empty)
 def job_get():

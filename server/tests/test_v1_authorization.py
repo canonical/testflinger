@@ -191,7 +191,7 @@ def test_missing_fields_in_token(mongo_app_with_permissions):
     assert "Invalid Token" in job_response.text
 
 
-def test_job_get_with_priority(mongo_app_with_permissions):
+def test_job_get_with_priority(mongo_app_with_permissions, agent_auth_header):
     """Tests job get returns job with highest job priority."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     token = get_access_token(app, client_id, client_key)
@@ -218,7 +218,9 @@ def test_job_get_with_priority(mongo_app_with_permissions):
 
     returned_job_ids = []
     for _ in range(len(jobs)):
-        job_get_response = app.get("/v1/job?queue=myqueue2")
+        job_get_response = app.get(
+            "/v1/job?queue=myqueue2", headers=agent_auth_header
+        )
         job_id = job_get_response.json.get("job_id")
         returned_job_ids.append(job_id)
 
@@ -227,7 +229,9 @@ def test_job_get_with_priority(mongo_app_with_permissions):
     assert returned_job_ids[2] == job_ids[0]
 
 
-def test_job_get_with_priority_multiple_queues(mongo_app_with_permissions):
+def test_job_get_with_priority_multiple_queues(
+    mongo_app_with_permissions, agent_auth_header
+):
     """
     Tests job get returns job with highest job priority when jobs are
     submitted across different queues.
@@ -262,7 +266,8 @@ def test_job_get_with_priority_multiple_queues(mongo_app_with_permissions):
     returned_job_ids = []
     for _ in range(len(jobs)):
         job_get_response = app.get(
-            "/v1/job?queue=myqueue&queue=myqueue2&queue=myqueue3"
+            "/v1/job?queue=myqueue&queue=myqueue2&queue=myqueue3",
+            headers=agent_auth_header,
         )
         job_id = job_get_response.json.get("job_id")
         returned_job_ids.append(job_id)

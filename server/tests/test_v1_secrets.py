@@ -521,7 +521,7 @@ def test_job_submit_with_invalid_secrets(app_with_store, secrets):
     assert "Validation error" in response.get_json()["message"]
 
 
-def test_job_get_with_secrets(app_with_store):
+def test_job_get_with_secrets(app_with_store, agent_auth_header):
     """Test retrieving a job with secrets from the queue."""
     # GIVEN: an app with a secrets store and a job with secrets submitted
     client_id = "client_1"
@@ -554,7 +554,9 @@ def test_job_get_with_secrets(app_with_store):
     )
 
     # WHEN: a job is retrieved from the queue
-    response = app_with_store.get("/v1/job?queue=test")
+    response = app_with_store.get(
+        "/v1/job?queue=test", headers=agent_auth_header
+    )
 
     # THEN: the job is returned with resolved secrets
     assert response.status_code == HTTPStatus.OK
@@ -568,7 +570,7 @@ def test_job_get_with_secrets(app_with_store):
     mock_secrets_store.read.assert_any_call(client_id, "tokens/api_key")
 
 
-def test_job_get_with_inaccessible_secrets(app_with_store):
+def test_job_get_with_inaccessible_secrets(app_with_store, agent_auth_header):
     """Test retrieving a job when some secrets are inaccessible."""
     # GIVEN: an app with a secrets store and a job with secrets submitted
     client_id = "client_1"
@@ -607,7 +609,9 @@ def test_job_get_with_inaccessible_secrets(app_with_store):
     )
 
     # WHEN: a job is retrieved from the queue
-    response = app_with_store.get("/v1/job?queue=test")
+    response = app_with_store.get(
+        "/v1/job?queue=test", headers=agent_auth_header
+    )
 
     # THEN: the job is returned with mixed secret values
     assert response.status_code == HTTPStatus.OK
@@ -617,7 +621,7 @@ def test_job_get_with_inaccessible_secrets(app_with_store):
     assert job["test_data"]["secrets"]["INVALID_SECRET"] == ""
 
 
-def test_job_get_without_secrets(app_with_store):
+def test_job_get_without_secrets(app_with_store, agent_auth_header):
     """Test retrieving a job that doesn't have secrets."""
     # GIVEN: an app with a secrets store and a job without secrets submitted
     client_id = "client_1"
@@ -638,7 +642,9 @@ def test_job_get_without_secrets(app_with_store):
     )
 
     # WHEN: a job is retrieved from the queue
-    response = app_with_store.get("/v1/job?queue=test")
+    response = app_with_store.get(
+        "/v1/job?queue=test", headers=agent_auth_header
+    )
 
     # THEN: the job is returned without secrets field
     assert response.status_code == HTTPStatus.OK
@@ -648,7 +654,7 @@ def test_job_get_without_secrets(app_with_store):
         assert "secrets" not in job["test_data"]
 
 
-def test_job_get_with_secrets_no_store(testapp):
+def test_job_get_with_secrets_no_store(testapp, agent_auth_header):
     """Test retrieving a job with secrets without a secrets store."""
     # GIVEN: an app without a secrets store
     app_client = testapp.test_client()
@@ -678,7 +684,7 @@ def test_job_get_with_secrets_no_store(testapp):
     )
 
     # WHEN: a job is retrieved from the queue
-    response = app_client.get("/v1/job?queue=test")
+    response = app_client.get("/v1/job?queue=test", headers=agent_auth_header)
 
     # THEN: the job is returned with empty secret values
     assert response.status_code == HTTPStatus.OK
@@ -687,7 +693,7 @@ def test_job_get_with_secrets_no_store(testapp):
     assert job["test_data"]["secrets"]["SECRET_KEY"] == ""
 
 
-def test_job_get_with_missing_client_id(app_with_store):
+def test_job_get_with_missing_client_id(app_with_store, agent_auth_header):
     """Test retrieving a job with secrets but missing client_id."""
     # GIVEN: an app with a secrets store
     mock_secrets_store = app_with_store.application.secrets_store
@@ -715,7 +721,9 @@ def test_job_get_with_missing_client_id(app_with_store):
     )
 
     # WHEN: a job is retrieved from the queue
-    response = app_with_store.get("/v1/job?queue=test")
+    response = app_with_store.get(
+        "/v1/job?queue=test", headers=agent_auth_header
+    )
 
     # THEN: the job is returned with empty secret values
     assert response.status_code == HTTPStatus.OK
