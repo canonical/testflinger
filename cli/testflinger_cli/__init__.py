@@ -323,6 +323,10 @@ class TestflingerCli:
             "--image", "-i", help="Name of the image to use for provisioning"
         )
         parser.add_argument(
+            "--distro",
+            help="Name of the distro to use for provisioning"
+        )
+        parser.add_argument(
             "--key",
             "-k",
             nargs="*",
@@ -1253,39 +1257,43 @@ class TestflingerCli:
 
     def reserve(self):
         """Install and reserve a system."""
-        queue = self.args.queue or input("Enter the queue you wish to use: ").strip()
-
+        queue = self.args.queue or helpers.prompt_for_queue()
         try:
             images = self.client.get_images(queue)
         except OSError:
             logger.warning("Unable to get a list of images from the server!")
             images = {}
-        image = self.args.image or helpers.prompt_for_image(images)
-        if (
-            not image.startswith(("http://", "https://"))
-            and image not in images
-        ):
-            logger.error("'%s' is not in the list of known images", image)
-        if image.startswith(("http://", "https://")):
-            image = f"url: {image}"
-        elif image in images:
-            image = images[image]
+        
+        # Handle distro if provided
+        if self.args.distro:
+            image = f"distro: {self.args.distro}"
         else:
-            # Treat unknown image names as distro names
-            image = f"distro: {image}"
+            image = self.args.image or helpers.prompt_for_image(images)
+            if (
+                not image.startswith(("http://", "https://"))
+                and image not in images
+            ):
+                logger.error("'%s' is not in the list of known images", image)
+            if image.startswith(("http://", "https://")):
+                image = f"url: {image}"
+            elif image in images:
+                image = images[image]
+            else:
+                # Treat unknown image names as distro names
+                image = f"distro: {image}"
         ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
                 logger.error("Invalid SSH key format: %s", ssh_key)
         template = inspect.cleandoc(
             """job_queue: {queue}
-                                    provision_data:
-                                        {image}
-                                    reserve_data:
-                                        ssh_keys:"""
+            provision_data:
+              {image}
+            reserve_data:
+              ssh_keys:"""
         )
         for ssh_key in ssh_keys:
-            template += f"\n      - {ssh_key}"
+            template += f"\n    - {ssh_key}"
         job_data = template.format(queue=queue, image=image)
         print("\nThe following yaml will be submitted:")
         print(job_data)
@@ -1293,7 +1301,8 @@ class TestflingerCli:
             return
         answer = input("Proceed? (Y/n) ")
         if answer in ("Y", "y", ""):
-            job_id = self.submit_job_data(job_data)
+            job_dict = yaml.safe_load(job_data)
+            job_id = self.submit_job_data(job_dict)
             print("Job submitted successfully!")
             print(f"job_id: {job_id}")
             self.do_poll(job_id)

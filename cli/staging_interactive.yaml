@@ -1,0 +1,11 @@
+job_queue: staging
+exclude_agents:
+  - multi
+  - doesnt_exist
+  - petilil___
+  - audino
+provision_data:
+  distro: noble
+reserve_data:
+  ssh_keys:
+    - lp:ajzobro
