@@ -16,6 +16,9 @@
 import logging
 import sys
 
+import voluptuous
+import yaml
+
 from testflinger_agent import start_agent
 
 logger = logging.getLogger(__name__)
@@ -28,5 +31,16 @@ def main():
     except KeyboardInterrupt:
         logger.info("Caught interrupt, exiting!")
         sys.exit(0)
+    except (
+        OSError,
+        yaml.YAMLError,
+        voluptuous.MultipleInvalid,
+    ):
+        # OSError: Config missing or metrics port already in use
+        # YAMLError: Config file is not valid YAML
+        # MultipleInvalid: Config file does not match schema
+        logger.exception("Failed to start agent due to configuration error")
+        sys.exit(1)
+    # TODO: Remove broad exception once all exceptions are handled explicitly
     except Exception as exc:  # pylint: disable=broad-except
         logger.exception(exc)

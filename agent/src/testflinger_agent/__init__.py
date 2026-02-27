@@ -27,7 +27,7 @@ import yaml
 from requests.adapters import HTTPAdapter, Retry
 from urllib3.exceptions import HTTPError
 
-from testflinger_agent import schema
+from testflinger_agent import agent_pid, schema
 from testflinger_agent.agent import TestflingerAgent
 from testflinger_agent.client import TestflingerClient
 
@@ -124,6 +124,11 @@ def start_agent():
     config["metrics_endpoint_port"] = args.metrics_port
     config["token_file"] = str(args.token_file)
     configure_logging(config)
+
+    pid_file = Path(config["logging_basedir"]) / f"{config['agent_id']}.pid"
+    agent_pid.terminate_stale(pid_file, str(args.config))
+    agent_pid.write(pid_file)
+
     check_interval = config.get("polling_interval")
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
