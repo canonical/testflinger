@@ -6,6 +6,6 @@ GitPython==3.1.46
 Jinja2==3.1.6
 maturin==1.8.6
 charmlibs-passwd==1.0.0
-charmlibs-apt==1.0.0
+charmlibs-apt==1.0.0.post0
 requests>=2.32.4
 pydantic>=2.12,<3
