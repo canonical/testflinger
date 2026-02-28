@@ -1,5 +1,5 @@
 module "agent-host" {
-  source               = "git::https://github.com/canonical/testflinger.git//agent/terraform?ref=feat/update-terraform"
+  source               = "../"
   app_name             = "agent-host-test"
   model_uuid           = data.juju_model.agent_host_model.uuid
   constraints          = "arch=amd64 cores=1 mem=2048M root-disk=10240M root-disk-source=default virt-type=virtual-machine"
