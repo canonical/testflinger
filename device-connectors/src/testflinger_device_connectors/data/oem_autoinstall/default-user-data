@@ -44,6 +44,11 @@ autoinstall:
           ubuntu-lock-on-suspend=false
           lock-enabled=false
           idle-activation-enabled=false
+          [org.gnome.desktop.remote-desktop.rdp]
+          enable=true
+          view-only=false
+          tls-cert='/home/ubuntu/.local/share/gnome-remote-desktop/certificates/rdp-tls.crt'
+          tls-key='/home/ubuntu/.local/share/gnome-remote-desktop/certificates/rdp-tls.key'
         path: /usr/share/glib-2.0/schemas/certification.gschema.override
       - content: |
           #!/bin/bash
@@ -79,6 +84,43 @@ autoinstall:
           set_usb_boot_first
         path: /usr/bin/set_usb_boot.sh
         permissions: '0755'
+      - content: |
+          #!/bin/bash
+
+          mkdir -p ~/.local/share/keyrings/
+          pushd ~/.local/share/keyrings/ || exit
+          rm -fr ./*
+          STAMP=$(date +%s)
+          cat > default <<ENDLINE
+          headless
+          ENDLINE
+          cat > headless.keyring <<ENDLINE
+          [keyring]
+          display-name=Default keyring
+          ctime=$STAMP
+          mtime=0
+          lock-on-idle=false
+          lock-after=false
+
+          [1]
+          item-type=0
+          display-name=GNOME Remote Desktop RDP credentials
+          secret={'username': <'ubuntu'>, 'password': <'insecure'>}
+          mtime=$STAMP
+          ctime=$STAMP
+
+          [1:attribute0]
+          name=xdg:schema
+          type=string
+          value=org.gnome.RemoteDesktop.RdpCredentials
+          ENDLINE
+          popd || exit
+          mkdir -p "$HOME"/.local/share/gnome-remote-desktop/certificates/
+          rm -fr "$HOME"/.local/share/gnome-remote-desktop/certificates/*
+          openssl genrsa -out "$HOME"/.local/share/gnome-remote-desktop/certificates/rdp-tls.key 4096
+          openssl req -subj "/O=Testflinger/CN=OEM Autoinstall" -new -x509 -days 365 -key "$HOME"/.local/share/gnome-remote-desktop/certificates/rdp-tls.key -out "$HOME"/.local/share/gnome-remote-desktop/certificates/rdp-tls.crt
+        path: /usr/local/bin/rdp-setup
+        permissions: '0755'
 
     users:
       - name: ubuntu
@@ -92,6 +134,7 @@ autoinstall:
 
     packages:
       - openssh-server
+      - gnome-remote-desktop
 
     package_upgrade: false
 
@@ -105,6 +148,8 @@ autoinstall:
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.desktop.session"]
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.desktop.screensaver"]
       - ["/usr/bin/set_usb_boot.sh"]
+      - ["sudo", "-u", "ubuntu", "-H", "/usr/local/bin/rdp-setup"]
+      - ["systemctl", "--global", "enable", "gnome-remote-desktop"]
     # Reboot after early-welcome is done
     power_state:
       mode: "reboot"
