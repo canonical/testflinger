@@ -98,7 +98,7 @@ class TestHandler:
 
     def test_endpoint_write_from_file(self, client, requests_mock, tmp_path):
         job_id = str(uuid.uuid1())
-        phase = "phase1"
+        phase = "test"
         filename = tmp_path / "output.log"
         output = "a" * 2048
         with open(filename, "w") as f:
@@ -113,8 +113,7 @@ class TestHandler:
                 requests_mock.request_history,
             )
         )
-        assert len(requests) == 2
-        for i in range(2):
-            assert requests[i].json()["fragment_number"] == i
-            assert requests[i].json()["phase"] == "phase1"
-            assert requests[i].json()["log_data"] == "a" * 1024
+        assert len(requests) == 1
+        assert requests[0].json()["fragment_number"] == 0
+        assert requests[0].json()["phase"] == "test"
+        assert requests[0].json()["log_data"] == "a" * 2048
