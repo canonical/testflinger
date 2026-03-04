@@ -144,13 +144,14 @@ autoinstall:
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.desktop.session"]
       - ["sudo", "-u", "ubuntu", "-H", "gsettings", "reset-recursively", "org.gnome.desktop.screensaver"]
       - ["/usr/bin/set_usb_boot.sh"]
-      - ["sudo", "-u", "ubuntu", "-H", "/usr/local/bin/rdp-setup"]
-      - ["systemctl", "--global", "enable", "gnome-remote-desktop"]
-      # outdated Chrome's public keys fails 'apt update' and other packages are not installed. So update it first
+      # update Chrome's public keys to avoid error in apt update
       - wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | tee /etc/apt/trusted.gpg.d/google-chrome.asc > /dev/null
       - apt-get update -yq
       - apt-get install -y openssh-server
+      # setup rdp service
       - apt-get install -y gnome-remote-desktop
+      - ["sudo", "-u", "ubuntu", "-H", "/usr/local/bin/rdp-setup"]
+      - ["systemctl", "--global", "enable", "gnome-remote-desktop"]
     # Reboot after early-welcome is done
     power_state:
       mode: "reboot"
