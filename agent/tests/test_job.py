@@ -466,8 +466,7 @@ class TestJob:
                 requests_mock.request_history,
             )
         )
-        assert len(requests) == 2
-        for i in range(2):
-            assert requests[i].json()["fragment_number"] == i
-            assert requests[i].json()["phase"] == phase
-            assert requests[i].json()["log_data"] == "a" * 1024
+        assert len(requests) == 1
+        assert requests[0].json()["fragment_number"] == 0
+        assert requests[0].json()["phase"] == phase
+        assert requests[0].json()["log_data"] == "a" * 2048
