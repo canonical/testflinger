@@ -22,12 +22,10 @@ validating the configuration and preparing the API arguments.
 
 import json
 import logging
-import subprocess
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 import requests
-import rpyc
 
 from testflinger_device_connectors.devices import (
     DefaultDevice,
@@ -44,7 +42,6 @@ class ZapperConnector(ABC, DefaultDevice):
 
     PROVISION_METHOD = ""  # to be defined in the implementation
     ZAPPER_REQUEST_TIMEOUT = 60 * 90
-    ZAPPER_SERVICE_PORT = 60000
     ZAPPER_REST_PORT = 8000
 
     def _api_post(self, endpoint: str, **kwargs) -> requests.Response:
@@ -65,63 +62,96 @@ class ZapperConnector(ABC, DefaultDevice):
         response.raise_for_status()
         return response
 
-    @staticmethod
-    def _check_rpyc_server_on_host(host: str) -> None:
-        """
-        Check if the host has an active RPyC server running.
+    def _api_get(self, endpoint: str, **kwargs) -> requests.Response:
+        """Send a GET request to the Zapper REST API.
 
-        :raises ConnectionError in case the server is not reachable.
+        :param endpoint: API endpoint path.
+        :param kwargs: Additional keyword arguments passed to requests.get.
+        :returns: The response object.
+        :raises requests.RequestException: On any request failure.
         """
-        timeout = 3
+        url = (
+            f"http://{self.config['control_host']}"
+            f":{self.ZAPPER_REST_PORT}{endpoint}"
+        )
+        logger.info("GET %s", url)
+        timeout = kwargs.pop("timeout", 30)
+        response = requests.get(url, timeout=timeout, **kwargs)
+        response.raise_for_status()
+        return response
+
+    def _api_put(self, endpoint: str, **kwargs) -> requests.Response:
+        """Send a PUT request to the Zapper REST API.
+
+        :param endpoint: API endpoint path.
+        :param kwargs: Additional keyword arguments passed to requests.put.
+        :returns: The response object.
+        :raises requests.RequestException: On any request failure.
+        """
+        url = (
+            f"http://{self.config['control_host']}"
+            f":{self.ZAPPER_REST_PORT}{endpoint}"
+        )
+        logger.info("PUT %s", url)
+        timeout = kwargs.pop("timeout", 30)
+        response = requests.put(url, timeout=timeout, **kwargs)
+        response.raise_for_status()
+        return response
+
+    @staticmethod
+    def _check_rest_api_on_host(host: str) -> None:
+        """Check if the host has an active Zapper REST API.
+
+        :raises ConnectionError: If the API is not reachable.
+        """
         try:
-            subprocess.run(
-                [
-                    "/usr/bin/nc",
-                    "-z",
-                    "-w",
-                    str(timeout),
-                    host,
-                    str(ZapperConnector.ZAPPER_SERVICE_PORT),
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
+            url = (
+                f"http://{host}:{ZapperConnector.ZAPPER_REST_PORT}"
+                f"/api/v1/addons/"
             )
-            logger.debug("The host %s has an available RPyC server", host)
-        except subprocess.CalledProcessError as e:
+            resp = requests.get(url, timeout=3)
+            resp.raise_for_status()
+            logger.debug("The host %s has an available REST API", host)
+        except (requests.ConnectionError, requests.Timeout) as e:
             raise ConnectionError from e
 
     @staticmethod
     def wait_ready(host: str, timeout: int = 60) -> None:
-        """Wait for an RPyC server to become available on the given host.
+        """Wait for the Zapper REST API to become available on the host.
 
-        :param host: The host to check for RPyC availability.
+        :param host: The host to check for REST API availability.
         :param timeout: Maximum time to wait in seconds (default: 60).
-        :raises TimeoutError: If the server is not available within the timeout
+        :raises TimeoutError: If the API is not available within the timeout.
         """
-        logger.info(
-            "Waiting for a running RPyC server on control host %s", host
-        )
+        logger.info("Waiting for the Zapper REST API on control host %s", host)
         DefaultDevice.wait_online(
-            ZapperConnector._check_rpyc_server_on_host, host, timeout
+            ZapperConnector._check_rest_api_on_host, host, timeout
         )
 
     @staticmethod
     def typecmux_set_state(host: str, state: str) -> None:
-        """Connect to a Zapper host via RPyC and set the typecmux state.
+        """Set the typecmux state on a Zapper host via the REST API.
 
         :param host: The Zapper host to connect to.
         :param state: The state to set (e.g., "OFF", "DUT").
         """
-        connection = rpyc.connect(
-            host,
-            ZapperConnector.ZAPPER_SERVICE_PORT,
-            config={
-                "allow_public_attrs": True,
-                "sync_request_timeout": 60,
-            },
+        base = f"http://{host}:{ZapperConnector.ZAPPER_REST_PORT}"
+        resp = requests.get(
+            f"{base}/api/v1/addons/",
+            params={"addon_type": "TYPEC_MUX"},
+            timeout=10,
         )
-        connection.root.typecmux_set_state(alias="default", state=state)
+        resp.raise_for_status()
+        addons = resp.json()["addons"]
+        if not addons:
+            raise RuntimeError("No TYPEC_MUX addon found on Zapper")
+        addr = addons[0]["addr"]
+        resp = requests.put(
+            f"{base}/api/v1/addons/{addr}/typecmux/state",
+            json={"state": state},
+            timeout=10,
+        )
+        resp.raise_for_status()
         logger.info("Set typecmux state to %s on %s", state, host)
 
     @staticmethod
@@ -153,9 +183,7 @@ class ZapperConnector(ABC, DefaultDevice):
         try:
             ZapperConnector.wait_ready(control_host)
         except TimeoutError as e:
-            raise ProvisioningError(
-                "Cannot reach out the Zapper service over RPyC"
-            ) from e
+            raise ProvisioningError("Cannot reach the Zapper REST API") from e
 
         with open(args.job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)
@@ -184,22 +212,11 @@ class ZapperConnector(ABC, DefaultDevice):
         raise NotImplementedError
 
     def _run(self, zapper_ip, *args, **kwargs):
-        """Run the Zapper `provision` API via RPyC. The arguments are
-        not stricly defined so that the same API can be used by different
-        implementations.
+        """Run the Zapper provisioning via the REST API.
 
-        The connector logger is passed as an argument to the Zapper API
-        in order to get a real time feedback throughout the whole execution.
+        Submits a provisioning job, streams SSE logs in real time,
+        and checks the final job status.
         """
-        connection = rpyc.connect(
-            zapper_ip,
-            self.ZAPPER_SERVICE_PORT,
-            config={
-                "allow_public_attrs": True,
-                "sync_request_timeout": self.ZAPPER_REQUEST_TIMEOUT,
-            },
-        )
-
         kwargs.update(
             {
                 "agent_name": self.config["agent_name"],
@@ -209,12 +226,35 @@ class ZapperConnector(ABC, DefaultDevice):
             }
         )
 
-        connection.root.provision(
-            self.PROVISION_METHOD,
-            *args,
-            logger=logger,
-            **kwargs,
+        resp = self._api_post(
+            "/api/v1/provision",
+            json={
+                "method": self.PROVISION_METHOD,
+                "args": list(args),
+                "kwargs": kwargs,
+            },
         )
+        job = resp.json()
+        job_id = job["job_id"]
+
+        # Stream SSE logs
+        url = (
+            f"http://{zapper_ip}:{self.ZAPPER_REST_PORT}"
+            f"/api/v1/provision/{job_id}/logs"
+        )
+        with requests.get(
+            url, stream=True, timeout=self.ZAPPER_REQUEST_TIMEOUT
+        ) as sse:
+            for line in sse.iter_lines(decode_unicode=True):
+                if line.startswith("data: "):
+                    entry = json.loads(line[6:])
+                    log_level = getattr(logging, entry["level"], logging.INFO)
+                    logger.log(log_level, entry["message"])
+
+        # Check final status
+        status = self._api_get(f"/api/v1/provision/{job_id}").json()
+        if status["status"] != "completed":
+            raise ProvisioningError(status.get("error", "Provisioning failed"))
 
     def _copy_ssh_id(self):
         """Copy the ssh id to the device."""

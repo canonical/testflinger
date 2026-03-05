@@ -59,7 +59,7 @@ class DeviceConnector(ZapperConnector):
             self._api_post("/api/v1/system/poweroff", timeout=10)
             with contextlib.suppress(TimeoutError):
                 ZapperConnector.wait_offline(
-                    ZapperConnector._check_rpyc_server_on_host,
+                    ZapperConnector._check_rest_api_on_host,
                     control_host,
                     30,
                 )
