@@ -13,7 +13,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for Zapper base device connector."""
 
-import subprocess
 import unittest
 from unittest.mock import Mock, patch
 
@@ -21,10 +20,7 @@ import pytest
 import requests
 
 from testflinger_device_connectors.devices import ProvisioningError
-from testflinger_device_connectors.devices.zapper import (
-    ZapperConnector,
-    logger,
-)
+from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 
 class MockConnector(ZapperConnector):
@@ -40,10 +36,11 @@ class MockConnector(ZapperConnector):
 class ZapperConnectorTests(unittest.TestCase):
     """Unit tests for ZapperConnector class."""
 
-    @patch("rpyc.connect")
-    def test_run(self, mock_connect):
-        """Test the `run` function connects to a Zapper via RPyC
-        and runs the `provision` API.
+    @patch("requests.get")
+    @patch("requests.post")
+    def test_run(self, mock_post, mock_get):
+        """Test the `run` function submits a provisioning job via REST,
+        streams SSE logs, and checks final status.
         """
         args = (1, 2, 3)
         kwargs = {"key1": 1, "key2": 2}
@@ -56,21 +53,34 @@ class ZapperConnectorTests(unittest.TestCase):
             "env": {"CID": "202507-01234"},
         }
         connector = MockConnector(fake_config)
+
+        # Mock POST /api/v1/provision response
+        mock_post.return_value.raise_for_status = Mock()
+        mock_post.return_value.json.return_value = {"job_id": "job-123"}
+
+        # Mock SSE stream (no log lines)
+        mock_sse = Mock()
+        mock_sse.iter_lines.return_value = []
+        mock_sse.__enter__ = Mock(return_value=mock_sse)
+        mock_sse.__exit__ = Mock(return_value=False)
+
+        # Mock GET /api/v1/provision/job-123 (status check)
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+
+        mock_get.side_effect = [mock_sse, mock_status]
+
         connector._run("localhost", *args, **kwargs)
 
-        api = mock_connect.return_value.root.provision
-
-        kwargs["device_ip"] = "1.1.1.1"
-        kwargs["agent_name"] = "my-agent"
-        kwargs["reboot_script"] = ["cmd1", "cmd2"]
-        kwargs["cid"] = "202507-01234"
-
-        api.assert_called_with(
-            MockConnector.PROVISION_METHOD,
-            *args,
-            logger=logger,
-            **kwargs,
-        )
+        # Verify POST was called with correct provisioning payload
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args
+        payload = call_kwargs[1]["json"]
+        self.assertEqual(payload["method"], "Test")
+        self.assertEqual(payload["args"], [1, 2, 3])
+        self.assertIn("device_ip", payload["kwargs"])
+        self.assertIn("agent_name", payload["kwargs"])
 
     def test_copy_ssh_id(self):
         """Test the function collects the device info from
@@ -114,35 +124,39 @@ class ZapperConnectorTests(unittest.TestCase):
             connector._copy_ssh_id()
 
 
-class TestZapperConnectorRpycCheck:
-    """Tests for ZapperConnector RPyC server check."""
+class TestZapperConnectorRestApiCheck:
+    """Tests for ZapperConnector REST API health check."""
 
-    def test_check_rpyc_server_on_host_success(self, mocker):
-        """Test _check_rpyc_server_on_host succeeds when port is open."""
-        mock_subprocess = mocker.patch("subprocess.run")
+    def test_check_rest_api_on_host_success(self, mocker):
+        """Test _check_rest_api_on_host succeeds when API is reachable."""
+        mock_get = mocker.patch("requests.get")
+        mock_get.return_value.raise_for_status = Mock()
 
-        ZapperConnector._check_rpyc_server_on_host("test-host")
+        ZapperConnector._check_rest_api_on_host("test-host")
 
-        mock_subprocess.assert_called_once()
-        call_args = mock_subprocess.call_args
-        assert call_args[0][0] == [
-            "/usr/bin/nc",
-            "-z",
-            "-w",
-            "3",
-            "test-host",
-            "60000",
-        ]
+        mock_get.assert_called_once_with(
+            "http://test-host:8000/api/v1/addons/", timeout=3
+        )
 
-    def test_check_rpyc_server_on_host_raises_connection_error(self, mocker):
+    def test_check_rest_api_on_host_raises_connection_error(self, mocker):
         """Test the function raises ConnectionError on failure."""
         mocker.patch(
-            "subprocess.run",
-            side_effect=subprocess.CalledProcessError(1, "nc"),
+            "requests.get",
+            side_effect=requests.ConnectionError,
         )
 
         with pytest.raises(ConnectionError):
-            ZapperConnector._check_rpyc_server_on_host("test-host")
+            ZapperConnector._check_rest_api_on_host("test-host")
+
+    def test_check_rest_api_on_host_raises_on_timeout(self, mocker):
+        """Test the function raises ConnectionError on timeout."""
+        mocker.patch(
+            "requests.get",
+            side_effect=requests.Timeout,
+        )
+
+        with pytest.raises(ConnectionError):
+            ZapperConnector._check_rest_api_on_host("test-host")
 
     def test_wait_ready_success(self, mocker):
         """Test wait_ready calls wait_online with correct parameters."""
@@ -153,7 +167,7 @@ class TestZapperConnectorRpycCheck:
         ZapperConnector.wait_ready("zapper-host", timeout=30)
 
         mock_wait_online.assert_called_once_with(
-            ZapperConnector._check_rpyc_server_on_host, "zapper-host", 30
+            ZapperConnector._check_rest_api_on_host, "zapper-host", 30
         )
 
     def test_wait_ready_timeout(self, mocker):
@@ -172,35 +186,55 @@ class TestZapperConnectorTypecmux:
     """Tests for ZapperConnector typecmux operations."""
 
     def test_typecmux_set_state_success(self, mocker):
-        """Test typecmux_set_state connects and calls the remote method."""
-        mock_connect = mocker.patch("rpyc.connect")
-        mock_connection = Mock()
-        mock_connect.return_value = mock_connection
+        """Test typecmux_set_state queries addons and sets state via REST."""
+        mock_get = mocker.patch("requests.get")
+        mock_put = mocker.patch("requests.put")
+
+        mock_get.return_value.raise_for_status = Mock()
+        mock_get.return_value.json.return_value = {
+            "addons": [{"addr": "0x42"}]
+        }
+        mock_put.return_value.raise_for_status = Mock()
 
         ZapperConnector.typecmux_set_state("zapper-host", "OFF")
 
-        mock_connect.assert_called_once_with(
-            "zapper-host",
-            60000,
-            config={
-                "allow_public_attrs": True,
-                "sync_request_timeout": 60,
-            },
+        mock_get.assert_called_once_with(
+            "http://zapper-host:8000/api/v1/addons/",
+            params={"addon_type": "TYPEC_MUX"},
+            timeout=10,
         )
-        mock_connection.root.typecmux_set_state.assert_called_once_with(
-            alias="default", state="OFF"
+        mock_put.assert_called_once_with(
+            "http://zapper-host:8000/api/v1/addons/0x42/typecmux/state",
+            json={"state": "OFF"},
+            timeout=10,
         )
+
+    def test_typecmux_set_state_no_addons(self, mocker):
+        """Test typecmux_set_state raises when no TYPEC_MUX addon found."""
+        mock_get = mocker.patch("requests.get")
+        mock_get.return_value.raise_for_status = Mock()
+        mock_get.return_value.json.return_value = {"addons": []}
+
+        with pytest.raises(RuntimeError, match="No TYPEC_MUX addon"):
+            ZapperConnector.typecmux_set_state("zapper-host", "OFF")
 
     def test_typecmux_set_state_with_dut(self, mocker):
         """Test typecmux_set_state with DUT state."""
-        mock_connect = mocker.patch("rpyc.connect")
-        mock_connection = Mock()
-        mock_connect.return_value = mock_connection
+        mock_get = mocker.patch("requests.get")
+        mock_put = mocker.patch("requests.put")
+
+        mock_get.return_value.raise_for_status = Mock()
+        mock_get.return_value.json.return_value = {
+            "addons": [{"addr": "0x42"}]
+        }
+        mock_put.return_value.raise_for_status = Mock()
 
         ZapperConnector.typecmux_set_state("zapper-host", "DUT")
 
-        mock_connection.root.typecmux_set_state.assert_called_once_with(
-            alias="default", state="DUT"
+        mock_put.assert_called_once_with(
+            "http://zapper-host:8000/api/v1/addons/0x42/typecmux/state",
+            json={"state": "DUT"},
+            timeout=10,
         )
 
 
