@@ -96,18 +96,21 @@ runs:
 
     - name: Determine phases to run
       id: check-phases
-      shell: bash
-      env:
-        JOB: ${{ steps.create-job-file.outputs.job }}
+      shell: python
       run: |
         echo "::group::Determine which phases to run for this job"
-        for phase in provision test reserve; do
-          if grep -q "^${phase}_data:" "$JOB"; then
-            echo "${phase}=true" | tee -a "$GITHUB_OUTPUT"
-          else
-            echo "${phase}=false" | tee -a "$GITHUB_OUTPUT"
-          fi
-        done
+        import yaml
+        import os
+
+        supported_phases = ["provision", "test", "reserve"]
+
+        with open(${{ steps.create-job-file.outputs.job }}, "r") as f, open(os.environ["GITHUB_OUTPUT"], "a") as g:
+            job = yaml.safe_load(f)
+            job_phases = list(job.keys())
+            for phase in supported_phases:
+                data = f'{phase}_data'
+                if data in job_phases:
+                    g.write(f"{phase}=true")
         echo "::endgroup::"
 
     - name: Submit job to the Testflinger server
