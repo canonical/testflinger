@@ -450,6 +450,19 @@ class DefaultDevice:
         else:
             raise TimeoutError
 
+    @staticmethod
+    def wait_offline(check: Callable, host: str, timeout: int) -> None:
+        """Poll the host server using `check` until it's unreachable."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                check(host)
+                time.sleep(2)
+            except ConnectionError:
+                break
+        else:
+            raise TimeoutError
+
     def _reboot_control_host(self) -> None:
         control_host_reboot_script: list[str] = [
             str(cmd)

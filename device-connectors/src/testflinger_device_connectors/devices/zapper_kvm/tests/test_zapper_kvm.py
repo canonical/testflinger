@@ -593,10 +593,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
     @patch.object(DeviceConnector, "wait_ready")
     @patch.object(DeviceConnector, "_reboot_control_host")
-    @patch.object(ZapperConnector, "wait_online")
+    @patch.object(ZapperConnector, "wait_offline")
     @patch.object(DeviceConnector, "_api_post")
     def test_pre_provision_hook_poweroff(
-        self, mock_api_post, mock_wait_online, mock_reboot, mock_wait_ready
+        self, mock_api_post, mock_wait_offline, mock_reboot, mock_wait_ready
     ):
         """Test pre_provision_hook sends poweroff, waits for RPyC to
         go down, reboots control host, then waits for it to come back.
@@ -608,7 +608,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         mock_api_post.assert_called_once_with(
             "/api/v1/system/poweroff", timeout=10
         )
-        mock_wait_online.assert_called_once_with(
+        mock_wait_offline.assert_called_once_with(
             ZapperConnector._check_rpyc_server_on_host,
             "zapper-host",
             30,
