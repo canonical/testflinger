@@ -66,4 +66,5 @@ runs:
         echo "::group::Install prerequisites"
         sudo snap install testflinger-cli
         sudo snap install jq
+        sudo snap install yq
         echo "::endgroup::"

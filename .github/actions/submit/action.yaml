@@ -102,7 +102,8 @@ runs:
       run: |
         echo "::group::Determine which phases to run for this job"
         for phase in provision test reserve; do
-          if grep -q "^${phase}_data:" "$JOB"; then
+          export KEY="${phase}_data"
+          if yq -e 'has(strenv(KEY))' "${JOB}" > /dev/null 2>&1; then
             echo "${phase}=true" | tee -a "$GITHUB_OUTPUT"
           else
             echo "${phase}=false" | tee -a "$GITHUB_OUTPUT"
