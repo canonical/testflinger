@@ -58,7 +58,7 @@ class DeviceConnector(ZapperConnector):
             logger.info("Attempt to power cycle the control host.")
             self._api_post("/api/v1/system/poweroff", timeout=10)
             with contextlib.suppress(TimeoutError):
-                ZapperConnector.wait_online(
+                ZapperConnector.wait_offline(
                     ZapperConnector._check_rpyc_server_on_host,
                     control_host,
                     30,

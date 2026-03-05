@@ -439,7 +439,14 @@ class DefaultDevice:
 
     @staticmethod
     def wait_online(check: Callable, host: str, timeout: int) -> None:
-        """Poll the host server using `check` until it's available."""
+        """Poll the host server using `check` until it's available.
+
+        :param check: callable that takes a host string and raises
+            ConnectionError if the host is unreachable.
+        :param host: the host address to check.
+        :param timeout: maximum time to wait in seconds.
+        :raises TimeoutError: if the host is not available within the timeout.
+        """
         start_time = time.time()
         while time.time() - start_time < timeout:
             try:
@@ -447,6 +454,26 @@ class DefaultDevice:
                 break
             except ConnectionError:
                 time.sleep(2)
+        else:
+            raise TimeoutError
+
+    @staticmethod
+    def wait_offline(check: Callable, host: str, timeout: int) -> None:
+        """Poll the host server using `check` until it's unreachable.
+
+        :param check: callable that takes a host string and raises
+            ConnectionError if the host is unreachable.
+        :param host: the host address to check.
+        :param timeout: maximum time to wait in seconds.
+        :raises TimeoutError: if the host is still reachable after the timeout.
+        """
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                check(host)
+                time.sleep(2)
+            except ConnectionError:
+                break
         else:
             raise TimeoutError
 
