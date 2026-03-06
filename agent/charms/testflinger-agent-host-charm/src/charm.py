@@ -7,15 +7,15 @@
 
 import logging
 import os
-import shutil
 import sys
 from pathlib import Path
 
+import charm_utils
 import ops
 import supervisord
 import testflinger_client
 import testflinger_source
-from charmlibs import apt, passwd
+from charmlibs import apt
 from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from common import copy_ssh_keys, run_with_logged_errors, update_charm_scripts
 from config import TestflingerAgentConfig
@@ -24,7 +24,6 @@ from defaults import (
     LOCAL_TESTFLINGER_PATH,
     VIRTUAL_ENV_PATH,
 )
-from git import GitCommandError, Repo
 from jinja2 import Template
 
 logger = logging.getLogger(__name__)
@@ -63,13 +62,14 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
     def on_install(self, _):
         """Install hook."""
         self.install_dependencies()
-        self.setup_docker()
+        charm_utils.setup_docker()
         self.update_tf_cmd_scripts()
         self.update_testflinger_repo()
         try:
-            self.update_config_files()
-        except ValueError:
-            self._block("config-repo and config-dir must be set")
+            charm_utils.update_config_files(self.typed_config)
+        except (RuntimeError, OSError) as err:
+            logger.error(err)
+            self._block("Failed to update or config files")
             return
 
     def install_dependencies(self):
@@ -78,19 +78,12 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         # maas cli comes from maas snap now
         run_with_logged_errors(["snap", "install", "maas"])
 
-        self.install_apt_packages(
-            [
-                "python3-pip",
-                "python3-virtualenv",
-                "pipx",
-                "docker.io",
-                "git",
-                "openssh-client",
-                "sshpass",
-                "snmp",
-                "supervisor",
-            ]
-        )
+        try:
+            charm_utils.install_agent_packages()
+        except (apt.PackageNotFoundError, apt.PackageError):
+            self.logger.error("An error occured while installing dependencies")
+            self._block("Failed to install dependencies")
+            return
         run_with_logged_errors(["pipx", "install", "uv"])
 
     def update_testflinger_repo(self, branch: str | None = None):
@@ -104,37 +97,6 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             )
         else:
             testflinger_source.clone_repo(LOCAL_TESTFLINGER_PATH)
-
-    def update_config_files(self):
-        """
-        Clone the config files from the repo and swap it in for whatever is
-        in AGENT_CONFIGS_PATH.
-        """
-        if (
-            not self.typed_config.config_repo
-            or not self.typed_config.config_dir
-        ):
-            logger.error("config-repo and config-dir must be set")
-            raise ValueError("config-repo and config-dir must be set")
-        tmp_repo_path = Path("/srv/tmp-agent-configs")
-        repo_path = Path(AGENT_CONFIGS_PATH)
-        if tmp_repo_path.exists():
-            shutil.rmtree(tmp_repo_path, ignore_errors=True)
-        try:
-            Repo.clone_from(
-                url=self.typed_config.config_repo,
-                branch=self.typed_config.config_branch,
-                to_path=tmp_repo_path,
-                depth=1,
-            )
-        except GitCommandError:
-            logger.exception("Failed to update config files")
-            self._block("Failed to update or config files")
-            sys.exit(1)
-
-        if repo_path.exists():
-            shutil.rmtree(repo_path, ignore_errors=True)
-        shutil.move(tmp_repo_path, repo_path)
 
     def write_supervisor_service_files(self):
         """
@@ -215,10 +177,6 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
                 f"{SUPERVISOR_CONF_DIR}/{agent_name}.conf", "w"
             ) as agent_file:
                 agent_file.write(rendered)
-
-    def setup_docker(self):
-        passwd.add_group("docker")
-        passwd.add_user_to_group("ubuntu", "docker")
 
     def update_tf_cmd_scripts(self):
         """Update tf-cmd-scripts."""
@@ -320,10 +278,12 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             "Handling config_changed hook"
         )
         try:
-            self.update_config_files()
-        except ValueError:
-            self._block("config-repo and config-dir must be set")
+            charm_utils.update_config_files(self.typed_config)
+        except (RuntimeError, OSError) as err:
+            logger.error(err)
+            self._block("Failed to update or config files")
             return
+
         copy_ssh_keys(self.typed_config)
         self.update_tf_cmd_scripts()
         self.write_supervisor_service_files()
@@ -332,20 +292,6 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         if not self._update_refresh_token():
             return
         self.unit.status = ops.ActiveStatus()
-
-    def install_apt_packages(self, packages: list):
-        """Wrap 'apt-get install -y."""
-        try:
-            apt.update()
-            apt.add_package(packages)
-        except apt.PackageNotFoundError:
-            logger.error(
-                "a specified package not found in package cache or on system"
-            )
-            self._block("Failed to install packages")
-        except apt.PackageError:
-            logger.error("could not install package")
-            self._block("Failed to install packages")
 
     def on_update_testflinger_action(self, event: ops.ActionEvent):
         """Update Testflinger agent code."""
@@ -363,10 +309,12 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             "Updating Testflinger Agent Configs"
         )
         try:
-            self.update_config_files()
-        except ValueError:
-            self._block("config-repo and config-dir must be set")
+            charm_utils.update_config_files(self.typed_config)
+        except (RuntimeError, OSError) as err:
+            logger.error(err)
+            self._block("Failed to update or config files")
             return
+
         self.write_supervisor_service_files()
         supervisord.supervisor_update()
         supervisord.restart_agents()
