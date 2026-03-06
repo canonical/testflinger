@@ -609,7 +609,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "/api/v1/system/poweroff", timeout=10
         )
         mock_wait_offline.assert_called_once_with(
-            ZapperConnector._check_rpyc_server_on_host,
+            ZapperConnector._check_rest_api_on_host,
             "zapper-host",
             30,
         )
