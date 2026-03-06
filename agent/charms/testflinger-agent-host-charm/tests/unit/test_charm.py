@@ -163,6 +163,34 @@ def test_authentication_triggered_on_secret_change(
     mock_authenticate_with_server.assert_called_once()
 
 
+@patch("testflinger_client.authenticate", return_value=True)
+def test_secret_changed_active_on_successful_authentication(
+    mock_authenticate, ctx, state_in, secret
+):
+    """Test active status when secret changes and authentication succeeds."""
+    state = state_in(
+        config={"credentials-secret": secret.id},
+        secrets=[secret],
+    )
+    state_out = ctx.run(ctx.on.secret_changed(secret), state=state)
+    assert state_out.unit_status == testing.ActiveStatus()
+
+
+@patch("testflinger_client.authenticate", return_value=False)
+def test_secret_changed_blocked_on_authentication_failure(
+    mock_authenticate, ctx, state_in, secret
+):
+    """Test blocked status when secret changes but authentication fails."""
+    state = state_in(
+        config={"credentials-secret": secret.id},
+        secrets=[secret],
+    )
+    state_out = ctx.run(ctx.on.secret_changed(secret), state=state)
+    assert state_out.unit_status == testing.BlockedStatus(
+        "Authentication with Testflinger server failed"
+    )
+
+
 @patch("charm.TestflingerAgentHostCharm._authenticate_with_server")
 def test_authentication_triggered_on_update_status(
     mock_authenticate_with_server, ctx, state_in

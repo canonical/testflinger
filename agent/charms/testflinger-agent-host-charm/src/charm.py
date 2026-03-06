@@ -202,7 +202,9 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         secret = self.typed_config.credentials_secret
         if secret and event.secret.id == secret.id:
             logger.info("Credentials secret changed, re-authenticating")
-            self._update_refresh_token()
+            if not self._update_refresh_token():
+                return
+            self.unit.status = ops.ActiveStatus()
 
     def _on_update_status(self, _):
         """Periodically check token expiration and re-authenticate if needed.
@@ -271,6 +273,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         ):
             return self._block("Authentication with Testflinger server failed")
 
+        logger.info("Authentication with Testflinger server succeeded")
         return True
 
     def on_config_changed(self, _):
