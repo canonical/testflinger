@@ -21,10 +21,10 @@ The module offers the following configurable inputs:
 | `base` | string | Operating system base to use for the Testflinger server charm | False |
 | `channel` | string | Channel to use for the charm | False |
 | `config` | map(string) | Map of charm config options | False |
-| `constraints` | string | Constraints to use for the agent host application | False |
+| `constraints` | string | Constraints to use for the Testflinger server application | False |
 | `model_uuid` | string | UUID of the Juju model to deploy into | True |
 | `revision` | number | Revision of the charm to use | False |
-| `units` | number | Number of units for the agent host application (maximum: 1) | False |
+| `units` | number | Number of units for the Testflinger server application | False |
 
 
 ### Outputs
@@ -46,12 +46,31 @@ This will enable Terraform to look for a `model_uuid` resource with a name attri
 and apply only if this is present. Otherwise, it will fail before applying anything.
 
 ```hcl
-data "juju_model" "agent-host" {
+data "juju_model" "testflinger_dev" {
   name = "<model-name>"
 }
 ```
 
-Pending TBD
+### Create module
+
+Then call the module:
+
+```hcl
+module "testflinger" {
+  source          = "git::https://github.com/canonical/testflinger.git//server/terraform?ref=<tag>"
+  model_uuid      = data.juju_model.testflinger_dev.uuid
+  app_name        = "<name>"
+  config     = {
+      external_hostname              = "testflinger.local"
+      http_proxy                     = ""
+      https_proxy                    = ""
+      no_proxy                       = "localhost,127.0.0.1,::1"
+      max_pool_size                  = "100"
+      jwt_signing_key                = var.jwt_signing_key
+      testflinger_secrets_master_key = var.testflinger_secrets_master_key
+  }
+}
+```
 
 [juju-provider]: https://github.com/juju/terraform-provider-juju/
 [juju-provider-docs]: https://registry.terraform.io/providers/juju/juju/latest/docs
