@@ -1,4 +1,5 @@
-name: Build Testflinger CLI
+name: "[cli] Build Testflinger CLI"
+run-name: "[cli] Build Testflinger CLI (${{ github.event_name == 'push' && 'latest/beta' || github.event.inputs.release || 'just built' }})"
 permissions:
   contents: read
 on:
@@ -7,7 +8,7 @@ on:
       - cli/**
       - .github/workflows/cli-publish-snap.yml
   push:
-    branches: ["main"]
+#    branches: ["main"]
     paths:
       - cli/**
       - .github/workflows/cli-publish-snap.yml
@@ -33,8 +34,11 @@ concurrency:
 
 jobs:
   snap:
-    name: Snap
-    runs-on: ubuntu-latest
+    name: Build, [Publish,] and Scan Snap
+
+    # At this time, `self-hosted-linux-arm64-jammy-large` are all in PS6 which is able to reach the security scanner
+    runs-on: self-hosted-linux-arm64-jammy-large
+
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
@@ -66,3 +70,55 @@ jobs:
         with:
           snap: ${{ steps.build.outputs.snap }}
           release: ${{ github.event_name == 'push' && 'beta' || github.event.inputs.release }}
+
+      - name: Install canonical-secscan-client
+        run: |
+          sudo snap install canonical-secscan-client
+
+      - name: Run Trivy scan
+        env:
+          # Use the released snap if just published, else use the local file for scanning
+          SNAP: >-
+            ${{ 
+              ((github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true') && 
+                format('testflinger-cli/{0}', github.event.inputs.release))
+              || (github.event_name == 'push' && 'testflinger-cli/latest/beta')
+              || steps.build.outputs.snap
+            }}
+        run: |          
+          secscan-client submit \
+            --wait-and-print \
+            --scanner trivy \
+            --type package \
+            --format snap \
+            $SNAP \
+            2>&1 | tee trivy-report.json && exit 0
+
+      - name: Run BlackDuck scan
+        run: |
+          secscan-client submit \
+            --wait-and-print \
+            --scanner blackduck \
+            --type package \
+            --format snap \
+            $SNAP \
+            2>&1 | tee blackduck-report.json && exit 0
+
+      - name: Upload scan reports
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: cli_snap-secscan-reports
+          retention-days: 5
+          path: |
+            trivy-report.json
+            blackduck-report.json
+
+      - name: Evaluate scan reports
+        run: |
+          # Use the released snap if just published, else use the local file for scanning
+          echo "WORKFLOW_SNAP = '$WORKFLOW_SNAP'"
+          echo "PUSH_SNAP = '$PUSH_SNAP'"
+          echo "PR_SNAP = '$PR_SNAP'"
+          echo "SNAP = '$SNAP'"
+          date
+          cat trivy-report.json blackduck-report.json | sort -u | grep "CVE\|Failed\|error" && exit 1 || echo "No CVEs found"
