@@ -240,6 +240,23 @@ runs:
         [ -n "$DEVICE_IP_FLAG" ] && echo "::notice::Device IP: $DEVICE_IP"
         exit $EXIT_STATUS
 
+    - name: Wait for job completion
+      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.reserve == 'false'
+      shell: bash
+      env:
+        SERVER: https://${{ inputs.server }}
+        JOB_ID: ${{ steps.submit.outputs.id }}
+      run: |
+        echo "::group::Waiting for job $JOB_ID to complete"
+        while true; do
+          JOB_STATUS="$(testflinger --server $SERVER status $JOB_ID)"
+          if [[ "$JOB_STATUS" =~ ^(complete|cancelled)$ ]]; then
+            break
+          fi
+          sleep 10
+        done
+        echo "::endgroup::"
+
     - name: Cancel the job if the action is cancelled
       if: ${{ cancelled() }}
       shell: bash
