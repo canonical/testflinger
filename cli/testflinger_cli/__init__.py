@@ -22,6 +22,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import sys
 import tarfile
 import tempfile
@@ -153,6 +154,7 @@ class TestflingerCli:
         self._add_cancel_args(subparsers)
         self._add_config_args(subparsers)
         self._add_jobs_args(subparsers)
+        self._add_list_agent_args(subparsers)
         self._add_list_queues_args(subparsers)
         self._add_login_args(subparsers)
         self._add_poll_args(subparsers)
@@ -353,6 +355,79 @@ class TestflingerCli:
             "--json", action="store_true", help="Print output in JSON format"
         )
 
+    def _add_list_agent_args(self, subparsers):
+        """Command line arguments for list of agents."""
+        parser = subparsers.add_parser(
+            "list-agents", help="List agents with optional filtering"
+        )
+        parser.set_defaults(func=self.list_agents)
+        parser.add_argument(
+            "-1",
+            action="store_true",
+            help="Single agent name per line (suitable for piping)",
+        )
+        parser.add_argument(
+            "--summary",
+            action="store_true",
+            help="Show summary of online/offline agent counts",
+        )
+        parser.add_argument(
+            "--status",
+            choices=[
+                "online",
+                "offline",
+                "maintenance",
+                "waiting",
+                "setup",
+                "provision",
+                "firmware_update",
+                "test",
+                "allocate",
+                "reserve",
+                "cleanup",
+            ],
+            help=(
+                "Filter agents by status (gross: online/offline/maintenance"
+                " or fine: waiting, setup, provision, firmware_update, test, "
+                "allocate, reserve, cleanup)"
+            ),
+        )
+        parser.add_argument(
+            "--filter-name",
+            dest="filter_name",
+            help="Filter agents by name (regex)",
+        )
+        parser.add_argument(
+            "--filter-queues",
+            dest="filter_queues",
+            help="Filter agents by queues (regex, matches any queue)",
+        )
+        parser.add_argument(
+            "--filter-location",
+            dest="filter_location",
+            help="Filter agents by location (regex)",
+        )
+        parser.add_argument(
+            "--filter-provision_type",
+            dest="filter_provision_type",
+            help="Filter agents by provision_type (regex)",
+        )
+        parser.add_argument(
+            "--filter-comment",
+            dest="filter_comment",
+            help="Filter agents by comment (regex)",
+        )
+        parser.add_argument(
+            "--fields",
+            default="name,status,location,provision_type,comment",
+            help=(
+                "Fields to display in the agent table (comma-separated)."
+                " Available fields: name, status, location, provision_type,"
+                " comment, job_id, queues."
+                " Default: name,status,location,provision_type,comment"
+            ),
+        )
+
     def _add_queue_status_args(self, subparsers):
         """Command line arguments for queue status."""
         parser = subparsers.add_parser(
@@ -492,6 +567,227 @@ class TestflingerCli:
         else:
             output = agent_status["state"]
         print(output)
+
+    def list_agents(self):
+        """List agents with optional filtering."""
+        try:
+            agents = self.client.get_all_agents()
+        except client.HTTPError as exc:
+            sys.exit(f"Error retrieving agents: {exc.msg}")
+        except (IOError, ValueError) as exc:
+            logger.debug("Unable to retrieve agents: %s", exc)
+            sys.exit(f"Error retrieving agents: {exc}")
+
+        # Filter agents based on arguments
+        filtered_agents = self._filter_agents(agents)
+
+        # Display output based on flags
+        if self.args.summary:
+            self._print_agent_summary(filtered_agents)
+        elif getattr(self.args, "1"):
+            # -1 flag: machine names only
+            self._print_agent_names(filtered_agents)
+        else:
+            # Table with details, supporting --fields
+            self._print_agent_table(filtered_agents)
+
+    def _filter_agents(self, agents: list[dict]) -> list[dict]:
+        """Filter agents based on command line arguments.
+
+        :param agents: List of agent dictionaries
+        :return: Filtered list of agents
+        """
+        filtered = agents
+
+        # Filter by status
+        if self.args.status:
+            online_states = {
+                "waiting",
+                "setup",
+                "provision",
+                "firmware_update",
+                "test",
+                "allocate",
+                "reserve",
+                "cleanup",
+            }
+            offline_states = {"offline", "maintenance"}
+            if self.args.status == "online":
+                filtered = [
+                    a for a in filtered if a.get("state") in online_states
+                ]
+            elif self.args.status == "offline":
+                filtered = [
+                    a
+                    for a in filtered
+                    if a.get("state") in offline_states
+                ]
+            elif self.args.status == "maintenance":
+                filtered = [
+                    a for a in filtered if a.get("state") == "maintenance"
+                ]
+            else:
+                filtered = [
+                    a for a in filtered if a.get("state") == self.args.status
+                ]
+
+        # Generic dynamic filtering for all supported fields
+        filter_fields = [
+            ("filter_name", "name", False),
+            ("filter_queues", "queues", True),
+            ("filter_location", "location", False),
+            ("filter_provision_type", "provision_type", False),
+            ("filter_comment", "comment", False),
+        ]
+        for arg_name, field, is_list in filter_fields:
+            pattern_str = getattr(self.args, arg_name, None)
+            if pattern_str:
+                try:
+                    pattern = re.compile(pattern_str)
+                    if is_list:
+                        filtered = [
+                            a
+                            for a in filtered
+                            if any(
+                                pattern.search(str(q))
+                                for q in a.get(field, [])
+                            )
+                        ]
+                    else:
+                        filtered = [
+                            a
+                            for a in filtered
+                            if pattern.search(str(a.get(field, "")))
+                        ]
+                except re.error as exc:
+                    sys.exit(f"Invalid filter regex for {field}: {exc}")
+        return filtered
+
+    def _print_agent_summary(self, agents: list[dict]):
+        """Print summary of agent statuses grouped by online/offline.
+        
+        Agent states follow the job execution phase order:
+        - waiting: idle, ready for jobs
+        - setup, provision, firmware_update, test, allocate, reserve: running job phases
+        - offline, maintenance: offline states
+        """
+        # Define state groupings and display order
+        online_states = [
+            "waiting",
+            "setup",
+            "provision",
+            "firmware_update",
+            "test",
+            "allocate",
+            "reserve",
+            "cleanup",
+        ]
+        offline_states = ["offline", "maintenance"]
+
+        # Count per state
+        state_counts = {}
+        for a in agents:
+            state = a.get("state", "unknown")
+            state_counts[state] = state_counts.get(state, 0) + 1
+
+        # Calculate totals
+        overall_online = sum(
+            count
+            for state, count in state_counts.items()
+            if state in online_states
+        )
+        overall_offline = sum(
+            count
+            for state, count in state_counts.items()
+            if state in offline_states
+        )
+
+        # Print summary
+        print(f"Online:           {overall_online}")
+        for state in online_states:
+            count = state_counts.get(state, 0)
+            if count > 0:
+                print(f"  {state:<16} {count}")
+
+        print(f"\nOffline:          {overall_offline}")
+        for state in offline_states:
+            count = state_counts.get(state, 0)
+            if count > 0:
+                print(f"  {state:<16} {count}")
+
+    def _print_agent_table(self, agents: list[dict]):
+        """Print agents in table format, supporting custom fields."""
+        if not agents:
+            print("No agents found matching the filter criteria.")
+            return
+
+        # Map 'status' to 'state' in agent dicts for backward compatibility
+        field_map = {"status": "state"}
+        
+        # Header names and valid fields
+        header_map = {
+            "name": "Name",
+            "status": "Status",
+            "location": "Location",
+            "provision_type": "Provision Type",
+            "comment": "Comment",
+            "job_id": "Job ID",
+            "queues": "Queues",
+        }
+        valid_fields = set(header_map.keys())
+        
+        # Determine fields to display
+        fields = [f.strip() for f in self.args.fields.split(",")]
+        
+        # Validate requested fields
+        invalid_fields = set(fields) - valid_fields
+        if invalid_fields:
+            sys.exit(
+                f"Error: Invalid field(s): {', '.join(sorted(invalid_fields))}\n"
+                f"Valid fields are: {', '.join(sorted(valid_fields))}"
+            )
+        
+        headers = [header_map[f] for f in fields]
+
+        # Calculate column widths
+        col_widths = []
+        for f in fields:
+            key = field_map.get(f, f)
+            width = max(
+                len(header_map.get(f, f.capitalize())),
+                max(
+                    (len(str(agent.get(key, "-"))) for agent in agents),
+                    default=0,
+                ),
+            )
+            col_widths.append(width)
+
+        # Print header
+        header_row = "  ".join(
+            f"{h:<{w}}" for h, w in zip(headers, col_widths, strict=True)
+        )
+        print(header_row)
+        print("-" * (sum(col_widths) + 2 * (len(col_widths) - 1)))
+
+        # Print rows
+        for agent in agents:
+            row = []
+            for f, w in zip(fields, col_widths, strict=True):
+                key = field_map.get(f, f)
+                val = agent.get(key, "-")
+                # Convert list values to comma-separated string
+                if isinstance(val, list):
+                    val = ", ".join(str(v) for v in val)
+                row.append(f"{val:<{w}}")
+            print("  ".join(row))
+
+    def _print_agent_names(self, agents: list[dict]):
+        """Print agent names only (one per line).
+
+        :param agents: List of filtered agent dictionaries
+        """
+        for agent in agents:
+            print(agent.get("name", ""))
 
     def queue_status(self):
         """Show agent and job status in a specified queue."""

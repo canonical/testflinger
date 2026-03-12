@@ -252,6 +252,14 @@ class Client:
         job_status["job_state"] = data.get("job_state")
         return job_status
 
+    def get_all_agents(self) -> list[dict]:
+        """Get all agents and their data.
+
+        :return: List of dicts containing all agent data.
+        """
+        endpoint = "/v1/agents/data"
+        return json.loads(self.get(endpoint))
+
     def get_agent_data(self, agent_name: str) -> dict:
         """Get all the data for a specified agent.
 
