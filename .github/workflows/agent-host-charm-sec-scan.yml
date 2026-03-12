@@ -1,54 +1,31 @@
-name: "[agent] Release testflinger-agent-host charm"
-run-name: "[agent] Release testflinger-agent-host charm (${{ github.event_name == 'push' && 'beta' || github.event.inputs.channel }})"
-permissions:
-  contents: read
+name: "[agent] [scan] Agent Host Charm Security Scan"
+run-name: "[agent] [scan] Agent Host Charm Security Scan (${{ github.event_name == 'push' && 'stable' || github.event_name == 'schedule' && 'stable' || github.event.inputs.channel }})"
+
+permissions: {}
+
 on:
   push:  # for testing
-#  push:
-#    branches: [main]
-#    paths:
-#      - agent/charms/testflinger-agent-host-charm/**
-#      - .github/workflows/agent-host-charm-release.yml
+  schedule:
+    - cron: '0 3 * * 1'  # Weekly, Mondays at 03:00 UTC
   workflow_dispatch:
     inputs:
       channel:
-        description: The channel to release the charm to
+        description: The charm channel to scan
         required: true
-        default: latest/edge
+        default: beta
         type: choice
         options:
-          - latest/beta
-          - latest/edge
+          - edge
+          - beta
+          - candidate
+          - stable
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  agent-build-and-push-charm:
-    name: Build and Push Charm
-    runs-on: [self-hosted, linux, jammy, X64]
-    permissions:
-      actions: read  # necessary to get the runner information
-      contents: write  # necessary to create tag(s)
-      packages: write  # necessary to upload image
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
-        with:
-          persist-credentials: false
-      - name: Upload charm to charmhub
-        uses: canonical/charming-actions/upload-charm@1753e0803f70445132e92acd45c905aba6473225 # 2.7.0
-        with:
-          charm-path: agent/charms/testflinger-agent-host-charm
-          credentials: "${{ secrets.CHARMHUB_TOKEN }}"
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          channel: ${{ github.event_name == 'push' && 'latest/beta' || github.event.inputs.channel }}
-          tag-prefix: "agent-host-charm"
-
   scan:
-    needs: agent-build-and-push-charm
     name: Scan Charm with Trivy
     runs-on: ubuntu-latest
     permissions:
@@ -56,13 +33,12 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       # actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     env:
-      CHANNEL: ${{ github.event_name == 'push' && 'beta' || github.event_name == 'schedule' && 'stable' || github.event.inputs.channel }}
+      CHANNEL: ${{ github.event_name == 'push' && 'stable' || github.event_name == 'schedule' && 'stable' || github.event.inputs.channel }}
     steps:
       - name: Install Juju
         run: sudo snap install juju --classic
       - name: Download and Unpack Charm
         run: |
-          CHANNEL=$(echo "$CHANNEL" | sed "-e s,latest/,,")
           CHARM=$(juju download testflinger-agent-host --channel=$CHANNEL 2>&1 | grep ".charm$" | sed -e 's/.*\(testflinger.*.charm\)/\1/')
 
           # Extract the contents to a local folder

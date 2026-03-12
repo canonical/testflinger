@@ -1,0 +1,61 @@
+name: "[cli] [scan] Snap Security Scan"
+run-name: "[cli] [scan] Snap Security Scan (${{ github.event_name == 'push' && 'latest/stable' || github.event_name == 'schedule' && 'latest/stable' || github.event.inputs.channel }})"
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # Weekly, Mondays at 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: The snap channel to scan
+        required: true
+        default: latest/beta
+        type: choice
+        options:
+          - latest/edge
+          - latest/beta
+          - latest/candidate
+          - latest/stable
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: Scan Snap with Trivy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      # actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    env:
+      CHANNEL: ${{ github.event_name == 'push' && 'stable' || github.event_name == 'schedule' && 'stable' || github.event.inputs.channel }}
+    steps:
+      - name: Download and Unpack Snap
+        run: |
+          # Download the .snap file to the current directory
+          SNAP=$(snap download testflinger-cli --channel=$CHANNEL | grep ".snap$" | sed -e 's/.*\(testflinger.*.snap\)/\1/')
+          
+          # Extract the contents to a local folder
+          unsquashfs -d unpacked-snap $SNAP
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe # v4.32.6
+        with:
+          scan-type: 'fs'
+          scan-ref: 'unpacked-snap'
+          exit-code: 1
+          format: 'sarif'
+          vuln-type: library
+          output: 'snap-trivy-results.sarif'
+          # By default, SARIF format enforces output of all vulnerabilities regardless of configured severities.
+          severity: 'UNKNOWN,LOW,MEDIUM,CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@7434149006143a4d75b82a2f411ef15b03ccc2d7
+        with:
+          sarif_file: 'snap-trivy-results.sarif'
+          wait-for-processing: "true"
