@@ -1,12 +1,42 @@
-variable "juju_model" {
+variable "app_name" {
   type        = string
-  description = "Name of the Juju model"
+  description = "Name of the agent host juju application"
+}
+
+variable "base" {
+  description = "Operating system base to use for the agent host charm"
+  type        = string
+  default     = null
 }
 
 variable "channel" {
-  description = "Channel to use for the charm"
+  description = "Channel to use for the agent host charm"
   type        = string
   default     = "latest/stable"
+}
+
+variable "config" {
+  type        = map(string)
+  default     = {}
+  description = "Map of charm config options"
+}
+
+variable "config_repo" {
+  sensitive   = true
+  type        = string
+  description = "Repository URL for the agent configs on this agent host"
+}
+
+variable "constraints" {
+  type        = string
+  nullable    = true
+  default     = null
+  description = "Constraints to use for the agent host application"
+}
+
+variable "model_uuid" {
+  type        = string
+  description = "UUID of the Juju model to deploy into"
 }
 
 variable "revision" {
@@ -16,48 +46,10 @@ variable "revision" {
   default     = null
 }
 
-variable "agent_host_name" {
+variable "ssh_private_key" {
+  sensitive   = true
   type        = string
-  description = "Name of the agent host juju application"
-}
-
-variable "agent_host_cores" {
-  type        = number
-  description = "Number of cpu cores to use for the agent host"
-  default     = 4
-}
-
-variable "agent_host_mem" {
-  type        = string
-  description = "Amount of RAM to use for the agent host"
-  default     = "32768M"
-}
-
-variable "agent_host_storage" {
-  type        = string
-  description = "Storage size for the agent host"
-  default     = "1048576M"
-}
-
-variable "override_constraints" {
-  type        = string
-  description = "Use if you need to override the constraints built with the other agent_host_* vars"
-  default     = ""
-}
-
-variable "config_repo" {
-  type        = string
-  description = "Repository URL for the agent configs on this agent host"
-}
-
-variable "config_branch" {
-  type        = string
-  description = "Repository branch for the agent configs"
-}
-
-variable "config_dir" {
-  type        = string
-  description = "Directory within the config repo containing the charm configuration"
+  description = "base64 encoded ssh private key to use on the agent host"
 }
 
 variable "ssh_public_key" {
@@ -66,8 +58,8 @@ variable "ssh_public_key" {
   description = "base64 encoded ssh public key to use on the agent host"
 }
 
-variable "ssh_private_key" {
-  sensitive   = true
-  type        = string
-  description = "base64 encoded ssh private key to use on the agent host"
+variable "units" {
+  type        = number
+  description = "Number of units for the agent host application"
+  default     = 1
 }
