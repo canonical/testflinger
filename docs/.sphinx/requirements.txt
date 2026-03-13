@@ -1,4 +1,4 @@
-canonical-sphinx[full]==0.5.2
+canonical-sphinx[full]==0.6.0
 packaging
 sphinxcontrib-svg2pdfconverter[CairoSVG]
 sphinx-last-updated-by-git
