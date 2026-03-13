@@ -1,4 +1,5 @@
-name: Build Testflinger CLI
+name: "[cli] Build Testflinger CLI"
+run-name: "[cli] Build Testflinger CLI (${{ github.event.inputs.release || 'new build' }})"
 permissions:
   contents: read
 on:
@@ -53,6 +54,17 @@ jobs:
           path: |
             /home/runner/.cache/snapcraft/log/
             /home/runner/.local/state/snapcraft/log/
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe # v4.32.6
+        with:
+          scan-type: 'fs'
+          scan-ref: ${{ steps.build.outputs.snap }}
+          exit-code: 1
+          format: 'sarif'
+          vuln-type: library
+          output: 'snap-trivy-results.sarif'
+          # By default SARIF format enforces output of all vulnerabilities regardless of configured severities.
+          severity: 'UNKNOWN,LOW,MEDIUM,CRITICAL,HIGH'
       - name: Upload artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
