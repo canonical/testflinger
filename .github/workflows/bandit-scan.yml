@@ -1,0 +1,63 @@
+name: "[scan] Bandit Security Scan"
+run-name: "[scan] Bandit Security Scan (${{ github.ref_name }})"
+
+permissions: {}
+
+on:
+  push:
+    branches: [ "main", "*" ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ "main" ]
+  schedule:
+      - cron: '0 3 * * 1'  # Weekly, Mondays at 03:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bandit:
+    name: "Bandit Scanning"
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # adapted from shundor/python-bandit-scan action which we cannot use due to outdate dependencies
+      - name: Install dependencies
+        shell: bash
+        run: |
+          pip install bandit bandit-sarif-formatter
+
+      - name: Run Bandit scan
+        shell: bash
+        run: |
+          INPUT_PATH="."
+          LEVEL="" # -l up to -lll
+          CONFIDENCE="" # -i up to -iii
+          EXCLUDED_PATHS="-x server/devel,**/tests/*"
+          EXIT_ZERO="--exit-zero"
+          SKIPS="" # "-s $INPUT_SKIPS"
+          INI_PATH="" # "--ini $INPUT_INI_PATH"
+          bandit -f sarif -o results.sarif -r $INPUT_PATH $LEVEL $CONFIDENCE $EXCLUDED_PATHS $EXIT_ZERO $SKIPS $INI_PATH
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: results.sarif
+          path: results.sarif
+
+      - name: Upload scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
+        with:
+          sarif_file: results.sarif

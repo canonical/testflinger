@@ -26,7 +26,7 @@ from typing import List, Optional
 
 
 class Masker:
-    """
+    r"""
     A class for masking sensitive information in text.
 
     Example:
