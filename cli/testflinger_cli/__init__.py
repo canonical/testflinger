@@ -323,6 +323,10 @@ class TestflingerCli:
             "--image", "-i", help="Name of the image to use for provisioning"
         )
         parser.add_argument(
+            "--distro",
+            help="Name of the distro to use for provisioning"
+        )
+        parser.add_argument(
             "--key",
             "-k",
             nargs="*",
@@ -1186,7 +1190,7 @@ class TestflingerCli:
                                 f"current job and {queue_pos} job(s) ahead "
                                 f"of it in the queue are complete"
                             )
-                time.sleep(10)
+                time.sleep(1)
             except (errors.NoJobDataError, errors.InvalidJobIdError):
                 # Job-specific errors should exit immediately
                 raise
@@ -1255,36 +1259,39 @@ class TestflingerCli:
         """Install and reserve a system."""
         queues = self.do_list_queues()
         queue = self.args.queue or helpers.prompt_for_queue(queues)
-        if queue not in queues:
-            logger.warning("'%s' is not in the list of known queues", queue)
         try:
             images = self.client.get_images(queue)
         except OSError:
             logger.warning("Unable to get a list of images from the server!")
             images = {}
-        image = self.args.image or helpers.prompt_for_image(images)
-        if (
-            not image.startswith(("http://", "https://"))
-            and image not in images
-        ):
-            logger.error("'%s' is not in the list of known images", image)
-        if image.startswith(("http://", "https://")):
-            image = f"url: {image}"
+        
+        # Handle distro if provided
+        if self.args.distro:
+            image = f"distro: {self.args.distro}"
         else:
-            image = images[image]
+            image = self.args.image or helpers.prompt_for_image(images)
+            if (
+                not image.startswith(("http://", "https://"))
+                and image not in images
+            ):
+                logger.error("'%s' is not in the list of known images", image)
+            if image.startswith(("http://", "https://")):
+                image = f"url: {image}"
+            else:
+                image = images[image]
         ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
                 logger.error("Invalid SSH key format: %s", ssh_key)
         template = inspect.cleandoc(
             """job_queue: {queue}
-                                    provision_data:
-                                        {image}
-                                    reserve_data:
-                                        ssh_keys:"""
+            provision_data:
+              {image}
+            reserve_data:
+              ssh_keys:"""
         )
         for ssh_key in ssh_keys:
-            template += f"\n      - {ssh_key}"
+            template += f"\n    - {ssh_key}"
         job_data = template.format(queue=queue, image=image)
         print("\nThe following yaml will be submitted:")
         print(job_data)
@@ -1292,7 +1299,8 @@ class TestflingerCli:
             return
         answer = input("Proceed? (Y/n) ")
         if answer in ("Y", "y", ""):
-            job_id = self.submit_job_data(job_data)
+            job_dict = yaml.safe_load(job_data)
+            job_id = self.submit_job_data(job_dict)
             print("Job submitted successfully!")
             print(f"job_id: {job_id}")
             self.do_poll(job_id)
