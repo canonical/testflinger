@@ -26,23 +26,31 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Bandit Scan
-        uses: shundor/python-bandit-scan@9cc5aa4a006482b8a7f91134412df6772dbda22c # v1.0
-        with: # optional arguments
-          # exit with 0, even with results found
-          exit_zero: false # optional, default is DEFAULT
-          # Github token of the repository (automatically created by Github)
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Needed to get PR information.
-          # File or directory to run bandit on
-          path: . # optional, default is .
-          # Report only issues of a given severity level or higher. Can be LOW, MEDIUM or HIGH. Default is UNDEFINED (everything)
-          # level: # optional, default is UNDEFINED
-          # Report only issues of a given confidence level or higher. Can be LOW, MEDIUM or HIGH. Default is UNDEFINED (everything)
-          # confidence: # optional, default is UNDEFINED
-          # comma-separated list of paths (glob patterns supported) to exclude from scan (note that these are in addition to the excluded paths provided in the config file) (default: .svn,CVS,.bzr,.hg,.git,__pycache__,.tox,.eggs,*.egg)
-          # excluded_paths: # optional, default is DEFAULT
-          # comma-separated list of test IDs to skip
-          # skips: # optional, default is DEFAULT
-          # path to a .bandit file that supplies command line arguments
-          # ini_path: # optional, default is DEFAULT
 
+      # adapted from shundor/python-bandit-scan action which we cannot use due to outdate dependencies
+      - name: Install dependencies
+        shell: bash
+        run: |
+          pip install bandit bandit-sarif-formatter
+
+      - name: Run Bandit scan
+        shell: bash
+        run: |
+          LEVEL="" # -l up to -lll
+          CONFIDENCE="" # -i up to -iii
+          EXCLUDED_PATHS="" # "-x $INPUT_EXCLUDED_PATHS"
+          EXIT_ZERO="" # "--exit-zero"
+          SKIPS="" # "-s $INPUT_SKIPS"
+          INI_PATH="" # "--ini $INPUT_INI_PATH"
+          bandit -f sarif -o results.sarif -r $INPUT_PATH $LEVEL $CONFIDENCE $EXCLUDED_PATHS $EXIT_ZERO $SKIPS $INI_PATH
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: results.sarif
+          path: results.sarif
+
+      - name: Upload scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
+        with:
+          sarif_file: results.sarif
