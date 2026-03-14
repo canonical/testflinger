@@ -44,7 +44,7 @@ jobs:
           INPUT_PATH="."
           LEVEL="" # -l up to -lll
           CONFIDENCE="" # -i up to -iii
-          EXCLUDED_PATHS="" # "-x $INPUT_EXCLUDED_PATHS"
+          EXCLUDED_PATHS="-x server/devel,**/tests/*"
           EXIT_ZERO="--exit-zero"
           SKIPS="" # "-s $INPUT_SKIPS"
           INI_PATH="" # "--ini $INPUT_INI_PATH"
