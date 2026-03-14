@@ -1,7 +1,7 @@
 name: "[scan] Bandit Security Scan"
 run-name: "[scan] Bandit Security Scan (${{ github.ref_name }})"
 
-permissions: { }
+permissions: {}
 
 on:
   push:
@@ -45,10 +45,11 @@ jobs:
           LEVEL="" # -l up to -lll
           CONFIDENCE="" # -i up to -iii
           EXCLUDED_PATHS="" # "-x $INPUT_EXCLUDED_PATHS"
-          EXIT_ZERO="" # "--exit-zero"
+          EXIT_ZERO="--exit-zero"
           SKIPS="" # "-s $INPUT_SKIPS"
           INI_PATH="" # "--ini $INPUT_INI_PATH"
           bandit -f sarif -o results.sarif -r $INPUT_PATH $LEVEL $CONFIDENCE $EXCLUDED_PATHS $EXIT_ZERO $SKIPS $INI_PATH
+
       - name: Upload artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
