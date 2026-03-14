@@ -1,5 +1,5 @@
-name: "[bandit] [scan] ~~Device Connectors~~ Security Scan"
-run-name: "[bandit] [scan] ~~Device Connectors~~ Security Scan (${{ github.event_name == 'schedule' && 'main' || 'github.branch_name' }})"
+name: "[scan] Bandit Security Scan"
+run-name: "[scan] Bandit Security Scan (${{ github.ref_name }})"
 
 permissions: { }
 
@@ -12,6 +12,11 @@ on:
   schedule:
       - cron: '0 3 * * 1'  # Weekly, Mondays at 03:00 UTC
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+  
 jobs:
   bandit:
     permissions:
