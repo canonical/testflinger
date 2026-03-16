@@ -211,7 +211,9 @@ class GrafanaAgentMachineCharm(GrafanaAgentCharm)
 ```
 """
 
+import copy
 import enum
+import hashlib
 import json
 import logging
 import socket
@@ -254,25 +256,15 @@ if TYPE_CHECKING:
 
 LIBID = "dc15fa84cef84ce58155fb84f6c6213a"
 LIBAPI = 0
-LIBPATCH = 20
+LIBPATCH = 25
 
 PYDEPS = ["cosl >= 0.0.50", "pydantic"]
 
 DEFAULT_RELATION_NAME = "cos-agent"
 DEFAULT_PEER_RELATION_NAME = "peers"
-DEFAULT_SCRAPE_CONFIG = {
-    "static_configs": [{"targets": ["localhost:80"]}],
-    "metrics_path": "/metrics",
-}
 
 logger = logging.getLogger(__name__)
 SnapEndpoint = namedtuple("SnapEndpoint", "owner, name")
-
-# Note: MutableMapping is imported from the typing module and not collections.abc
-# because subscripting collections.abc.MutableMapping was added in python 3.9, but
-# most of our charms are based on 20.04, which has python 3.8.
-
-_RawDatabag = MutableMapping[str, str]
 
 
 class TransportProtocolType(str, enum.Enum):
@@ -307,6 +299,22 @@ _tracing_receivers_ports = {
 }
 
 ReceiverProtocol = Literal["otlp_grpc", "otlp_http", "zipkin", "jaeger_thrift_http", "jaeger_grpc"]
+
+
+def _dedupe_list(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Deduplicate items in the list via object identity."""
+    unique_items = []
+    for item in items:
+        if item not in unique_items:
+            unique_items.append(item)
+    return unique_items
+
+
+def _dict_hash_except_key(scrape_config: Dict[str, Any], key: Optional[str]):
+    """Get a hash of the scrape_config dict, except for the specified key."""
+    cfg_for_hash = {k: v for k, v in scrape_config.items() if k != key}
+    serialized = json.dumps(cfg_for_hash, sort_keys=True)
+    return hashlib.blake2b(serialized.encode(), digest_size=4).hexdigest()
 
 
 class TracingError(Exception):
@@ -472,7 +480,7 @@ else:
             return databag
 
 
-class CosAgentProviderUnitData(DatabagModel):
+class CosAgentProviderUnitData(DatabagModel):  # type: ignore
     """Unit databag model for `cos-agent` relation."""
 
     # The following entries are the same for all units of the same principal.
@@ -499,7 +507,7 @@ class CosAgentProviderUnitData(DatabagModel):
     KEY: ClassVar[str] = "config"
 
 
-class CosAgentPeersUnitData(DatabagModel):
+class CosAgentPeersUnitData(DatabagModel):  # type: ignore
     """Unit databag model for `peers` cos-agent machine charm peer relation."""
 
     # We need the principal unit name and relation metadata to be able to render identifiers
@@ -598,7 +606,7 @@ class Receiver(pydantic.BaseModel):
     )
 
 
-class CosAgentRequirerUnitData(DatabagModel):  # noqa: D101
+class CosAgentRequirerUnitData(DatabagModel):  # type: ignore
     """Application databag model for the COS-agent requirer."""
 
     receivers: List[Receiver] = pydantic.Field(
@@ -623,7 +631,8 @@ class COSAgentProvider(Object):
         refresh_events: Optional[List] = None,
         tracing_protocols: Optional[List[str]] = None,
         *,
-        scrape_configs: Optional[Union[List[dict], Callable]] = None,
+        scrape_configs: Optional[Union[List[dict], Callable[[], List[Dict[str, Any]]]]] = None,
+        extra_alert_groups: Optional[Callable[[], Dict[str, Any]]] = None,
     ):
         """Create a COSAgentProvider instance.
 
@@ -644,6 +653,9 @@ class COSAgentProvider(Object):
             scrape_configs: List of standard scrape_configs dicts or a callable
                 that returns the list in case the configs need to be generated dynamically.
                 The contents of this list will be merged with the contents of `metrics_endpoints`.
+            extra_alert_groups: A callable that returns a dict of alert rule groups in case the
+                alerts need to be generated dynamically. The contents of this dict will be merged
+                with generic and bundled alert rules.
         """
         super().__init__(charm, relation_name)
         dashboard_dirs = dashboard_dirs or ["./src/grafana_dashboards"]
@@ -652,6 +664,7 @@ class COSAgentProvider(Object):
         self._relation_name = relation_name
         self._metrics_endpoints = metrics_endpoints or []
         self._scrape_configs = scrape_configs or []
+        self._extra_alert_groups = extra_alert_groups or {}
         self._metrics_rules = metrics_rules_dir
         self._logs_rules = logs_rules_dir
         self._recursive = recurse_rules_dirs
@@ -693,12 +706,34 @@ class COSAgentProvider(Object):
                 ) as e:
                     logger.error("Invalid relation data provided: %s", e)
 
+    def _deterministic_scrape_configs(
+        self, scrape_configs: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Get deterministic scrape_configs with stable job names.
+
+        For stability across serializations, compute a short per-config hash
+        and append it to the existing job name (or 'default'). Keep the app
+        name as a prefix: <app>_<job_or_default>_<8hex-hash>.
+
+        Hash the whole scrape_config (except any existing job_name) so the
+        suffix is sensitive to all stable fields. Use deterministic JSON
+        serialization.
+        """
+        local_scrape_configs = copy.deepcopy(scrape_configs)
+        for scrape_config in local_scrape_configs:
+            name = scrape_config.get("job_name", "default")
+            short_id = _dict_hash_except_key(scrape_config, "job_name")
+            scrape_config["job_name"] = f"{self._charm.app.name}_{name}_{short_id}"
+
+        return sorted(local_scrape_configs, key=lambda c: c.get("job_name", ""))
+
     @property
     def _scrape_jobs(self) -> List[Dict]:
-        """Return a prometheus_scrape-like data structure for jobs.
+        """Return a list of scrape_configs.
 
         https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config
         """
+        # Optionally allow the charm to set the scrape_configs
         if callable(self._scrape_configs):
             scrape_configs = self._scrape_configs()
         else:
@@ -714,28 +749,32 @@ class COSAgentProvider(Object):
                 }
             )
 
-        scrape_configs = scrape_configs or [DEFAULT_SCRAPE_CONFIG]
+        scrape_configs = scrape_configs or []
 
-        # Augment job name to include the app name and a unique id (index)
-        for idx, scrape_config in enumerate(scrape_configs):
-            scrape_config["job_name"] = "_".join(
-                [self._charm.app.name, str(idx), scrape_config.get("job_name", "default")]
-            )
-
-        return scrape_configs
+        return self._deterministic_scrape_configs(scrape_configs)
 
     @property
     def _metrics_alert_rules(self) -> Dict:
-        """Use (for now) the prometheus_scrape AlertRules to initialize this."""
+        """Return a dict of alert rule groups."""
+        # Optionally allow the charm to add the metrics_alert_rules
+        if callable(self._extra_alert_groups):
+            rules = self._extra_alert_groups()
+        else:
+            rules = {"groups": []}
+
         alert_rules = AlertRules(
             query_type="promql", topology=JujuTopology.from_charm(self._charm)
         )
         alert_rules.add_path(self._metrics_rules, recursive=self._recursive)
         alert_rules.add(
-            generic_alert_groups.application_rules,
+            copy.deepcopy(generic_alert_groups.application_rules),
             group_name_prefix=JujuTopology.from_charm(self._charm).identifier,
         )
-        return alert_rules.as_dict()
+
+        # NOTE: The charm could supply rules we implement in this method, so we deduplicate
+        rules["groups"] = _dedupe_list(rules["groups"] + alert_rules.as_dict()["groups"])
+
+        return rules
 
     @property
     def _log_alert_rules(self) -> Dict:
@@ -923,6 +962,7 @@ class COSAgentRequirer(Object):
         relation_name: str = DEFAULT_RELATION_NAME,
         peer_relation_name: str = DEFAULT_PEER_RELATION_NAME,
         refresh_events: Optional[List[str]] = None,
+        is_tracing_ready: Optional[Callable] = None,
     ):
         """Create a COSAgentRequirer instance.
 
@@ -931,12 +971,14 @@ class COSAgentRequirer(Object):
             relation_name: The name of the relation to communicate over.
             peer_relation_name: The name of the peer relation to communicate over.
             refresh_events: List of events on which to refresh relation data.
+            is_tracing_ready: Custom function to evaluate whether the trace receiver url should be sent.
         """
         super().__init__(charm, relation_name)
         self._charm = charm
         self._relation_name = relation_name
         self._peer_relation_name = peer_relation_name
         self._refresh_events = refresh_events or [self._charm.on.config_changed]
+        self._is_tracing_ready = is_tracing_ready
 
         events = self._charm.on[relation_name]
         self.framework.observe(
@@ -1046,6 +1088,9 @@ class COSAgentRequirer(Object):
 
     def update_tracing_receivers(self):
         """Updates the list of exposed tracing receivers in all relations."""
+        tracing_ready = (
+            self._is_tracing_ready if self._is_tracing_ready else self._charm.tracing.is_ready  # type: ignore
+        )
         try:
             for relation in self._charm.model.relations[self._relation_name]:
                 CosAgentRequirerUnitData(
@@ -1059,7 +1104,7 @@ class COSAgentRequirer(Object):
                             # databag contents (as it expects a string in URL) but that won't cause any errors as
                             # tracing endpoints are the only content in the grafana-agent's side of the databag.
                             url=f"{self._get_tracing_receiver_url(protocol)}"
-                            if self._charm.tracing.is_ready()  # type: ignore
+                            if tracing_ready()
                             else None,
                             protocol=ProtocolType(
                                 name=protocol,
