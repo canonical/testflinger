@@ -52,4 +52,4 @@ jobs:
       - name: Upload scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
         with:
-          sarif_file: results.sarif
+          sarif_file: common/results.sarif
