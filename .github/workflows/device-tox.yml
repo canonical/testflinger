@@ -37,6 +37,7 @@ jobs:
         run: uvx --with tox-uv tox -e lock
       - name: Check linting
         env:
+          RUFF_PREVIEW: true
           RUFF_OUTPUT_FORMAT: sarif
           RUFF_OUTPUT_FILE: results.sarif
         run: uvx --with tox-uv tox -e lint
@@ -53,7 +54,7 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: results.sarif
-          path: results.sarif
+          path: device-connectors/results.sarif
 
       - name: Upload scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
