@@ -3,7 +3,7 @@ Testflinger Secrets
 
 Sensitive information such as credentials, API keys or any other secrets that are
 needed while running jobs can be stored securely in Testflinger and made available 
-to agents at runtime. This allows you to avoid hardcoding secrets in your job 
+to agents at runtime. This allows you to avoid hard coding secrets in your job 
 definitions and provides a secure way to manage and access secrets.
 
 Using this feature requires :doc:`authenticating <./authentication>` with
