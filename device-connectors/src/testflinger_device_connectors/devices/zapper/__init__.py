@@ -259,7 +259,7 @@ class ZapperConnector(ABC, DefaultDevice):
                 log_level = getattr(
                     logging, entry.get("level", "").upper(), logging.INFO
                 )
-                logger.log(log_level, entry["message"])
+                logger.log(log_level, entry.get("message", line))
 
         # Check final status
         status = self._api_get(f"/api/v1/provision/{job_id}").json()
