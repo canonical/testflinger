@@ -246,10 +246,14 @@ class ZapperConnector(ABC, DefaultDevice):
         timeout = (self.ZAPPER_CONNECTION_TIMEOUT, self.ZAPPER_READ_TIMEOUT)
         with requests.get(url, stream=True, timeout=timeout) as sse:
             for line in sse.iter_lines(decode_unicode=True):
-                if line.startswith("data: "):
-                    entry = json.loads(line[6:])
-                    log_level = getattr(logging, entry["level"], logging.INFO)
-                    logger.log(log_level, entry["message"])
+                if not line:
+                    continue
+                if not line.startswith("data: "):
+                    logger.warning("Unexpected SSE line: %s", line)
+                    continue
+                entry = json.loads(line[6:])
+                log_level = getattr(logging, entry["level"], logging.INFO)
+                logger.log(log_level, entry["message"])
 
         # Check final status
         status = self._api_get(f"/api/v1/provision/{job_id}").json()
