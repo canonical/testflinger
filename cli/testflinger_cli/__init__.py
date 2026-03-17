@@ -22,6 +22,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import sys
 import tarfile
 import tempfile
@@ -49,6 +50,7 @@ from testflinger_cli import (
 )
 from testflinger_cli.admin import TestflingerAdminCLI
 from testflinger_cli.auth import TestflingerCliAuth
+from testflinger_cli.status_line import StatusLine
 from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import (
     AttachmentError,
@@ -75,11 +77,14 @@ def cli():
         datefmt=consts.LOG_DATE_FORMAT,
     )
     try:
+        StatusLine.init()
         tfcli.run()
     except KeyboardInterrupt:
         sys.exit("Received KeyboardInterrupt")
     except (CredentialsError, NetworkError) as exc:
         sys.exit(exc)
+    finally:
+        StatusLine.stop()
 
 
 class TestflingerCli:
@@ -334,6 +339,18 @@ class TestflingerCli:
                 "Ssh key(s) to use for reservation "
                 "(ex: -k lp:userid -k gh:userid)"
             ),
+        )
+        parser.add_argument(
+            "-y",
+            "--yes",
+            action="store_true",
+            help="Skip the Proceed confirmation prompt",
+        )
+        parser.add_argument(
+            "--timeout",
+            type=int,
+            default=3600,
+            help="Reservation timeout in seconds (default 3600)",
         )
 
     def _add_status_args(self, subparsers):
@@ -1103,6 +1120,31 @@ class TestflingerCli:
 
         self.do_poll(job_id, log_type)
 
+    def _filter_and_print_logs(self, log_data):
+        """
+        Filter and print log data.
+        
+        In TTY mode: When a line matches the MAAS deployment time pattern,
+        update the status line instead of printing it to supress noise.
+        All other lines pass through unfiltered.
+        In non-TTY mode: Print all logs as-is.
+        """
+        
+        if sys.stdout.isatty():
+            # When actively monitoring a job as it runs, supress clutter
+            for line in log_data.splitlines():
+                match = re.search(
+                    r'INFO:.*\s*\d+\s+minutes? passed since deployment\.\s*$',
+                    line
+                )
+                if match:
+                    StatusLine.set_message(f"Deployment in progress...")
+                else:
+                    print(line)
+        else:
+            # Non-TTY mode: print everything
+            print(log_data, end="", flush=True)
+
     def poll_output(self):
         """Poll for agent output from a job until it is completed."""
         self.poll(LogType.STANDARD_OUTPUT)
@@ -1133,29 +1175,43 @@ class TestflingerCli:
         self.history.update(job_id, job_state)
         prev_queue_pos = None
         if job_state == "waiting":
-            print("This job is waiting on a node to become available.")
+            StatusLine.set_message("Waiting on a node to become available...")
+
         cur_fragment = start_fragment
-        consecutive_empty_polls = 0
         while True:
             try:
                 job_state_data = self.get_job_state(job_id)
                 job_state = job_state_data["job_state"]
 
                 self.history.update(job_id, job_state)
+
+                if job_state == "waiting":
+                    StatusLine.set_message(
+                        "Waiting on a node to become available..."
+                    )
+                elif job_state == "running":
+                    StatusLine.set_message(
+                        "Waiting for deployment to finish..."
+                    )
+                elif job_state == "reserved":
+                    if StatusLine.state != "reserved":
+                        job_details = self.client.get_job(job_id)
+                        timeout = job_details.get("timeout")
+                        StatusLine.set_countdown(int(timeout))
+                    StatusLine.set_message("remaining in reservation")
+                else:
+                    StatusLine.set_message("Waiting on output...")
+
+                StatusLine.set_state(job_state)
+
                 last_fragment_number, log_data = self._get_combined_log_output(
                     job_id, log_type, phase, cur_fragment, start_timestamp
                 )
 
                 # Print logs before any check
                 if last_fragment_number >= 0 and log_data:
-                    print(log_data, end="", flush=True)
+                    self._filter_and_print_logs(log_data)
                     cur_fragment = last_fragment_number + 1
-                    consecutive_empty_polls = 0
-                else:
-                    consecutive_empty_polls += 1
-                    if consecutive_empty_polls == 9:
-                        consecutive_empty_polls = 0
-                        print("Waiting on output...", file=sys.stderr)
 
                 if phase:
                     phase_status = job_state_data.get(phase)
@@ -1173,6 +1229,12 @@ class TestflingerCli:
                         break
 
                 if job_state in ("cancelled", "complete", "completed"):
+                    StatusLine.set_state(job_state)
+                    hours, minutes, seconds = StatusLine.get_elapsed_time()
+                    result_msg = "Job cancelled" if job_state == "cancelled" \
+                        else "Job completed"
+                    print(f"{result_msg} - Total time in use: "
+                          f"{hours:02d}:{minutes:02d}:{seconds:02d}")
                     break
 
                 if job_state == "waiting":
@@ -1212,8 +1274,6 @@ class TestflingerCli:
                 print(f"\nNext fragment number: {cur_fragment}")
                 # Both y and n will allow the external handler deal with it
                 raise
-
-        print(job_state)
 
     def jobs(self):
         """List the previously started test jobs."""
@@ -1280,24 +1340,35 @@ class TestflingerCli:
             else:
                 image = images[image]
         ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
+        ssh_keys_yaml = ""
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
                 logger.error("Invalid SSH key format: %s", ssh_key)
+            else:
+                ssh_keys_yaml += f"      - {ssh_key}\n"
         template = inspect.cleandoc(
             """job_queue: {queue}
             provision_data:
-              {image}
+                {image}
             reserve_data:
-              ssh_keys:"""
+                ssh_keys:
+            {ssh_keys_yaml}
+                timeout: {timeout}"""
         )
-        for ssh_key in ssh_keys:
-            template += f"\n    - {ssh_key}"
-        job_data = template.format(queue=queue, image=image)
+        job_data = template.format(
+            queue=queue,
+            image=image,
+            ssh_keys_yaml=ssh_keys_yaml.rstrip('\n'),
+            timeout=self.args.timeout,
+        )
         print("\nThe following yaml will be submitted:")
         print(job_data)
         if self.args.dry_run:
             return
-        answer = input("Proceed? (Y/n) ")
+        if self.args.yes:
+            answer = "y"
+        else:
+            answer = input("Proceed? (Y/n) ")
         if answer in ("Y", "y", ""):
             job_dict = yaml.safe_load(job_data)
             job_id = self.submit_job_data(job_dict)
