@@ -32,16 +32,3 @@ Environment variable names:
 
 - Must start with a letter or underscore
 - Can only contain letters, numbers and underscores
-
-Retrieval
----------
-
-Only authenticated Testflinger Agents can retrieve secrets. This occurs once
-the agent gets assigned a job that references secrets in its job definition.
-
-.. important::
-    Any secrets that are not accessible at the time of retrieval will be
-    resolved to the empty string, instead of the retrieval failing.
-    It is the responsibility of the consumer of the secrets to account for
-    this possibility. This is a design decision and it mirrors how undefined
-    secrets are handled in other platforms such as GitHub.

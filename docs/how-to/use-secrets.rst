@@ -11,20 +11,22 @@ For more information on how secrets work in Testflinger, please refer to the
 For information on the overall secret structure, please refer to the 
 :doc:`Secrets reference <../reference/secrets>`.
 
-.. note:: 
-    The following instructions assumes that you have already authenticated with
-    the Testflinger server. If you haven't authenticated yet, please refer to the 
-    :doc:`Authentication using Testflinger CLI <authentication>` guide.
+Prerequisites
+-------------
+
+Authentication is required for using secrets. The following instructions assumes that you 
+have already authenticated with the Testflinger server. If you haven't authenticated yet, 
+please refer to the :doc:`Authentication using Testflinger CLI <authentication>` guide.
 
 Create a Secret
 ---------------
 
 To create a secret, you will need to define a path where you would like to store the 
-secret and the value of the secret. 
+secret and the value of the secret. This path is located under a dedicated namespace
+that is automatically determined by the `client-id`.
 
 .. code-block:: shell
 
-    testflinger-cli secret write <path> <value>
     testflinger-cli secret write path/to/secret 'my_secret_value'
 
 .. tip::
@@ -33,8 +35,10 @@ secret and the value of the secret.
 Use a Secret in a job
 ---------------------
 
-Jobs can reference secrets stored in Testflinger by using the ``secrets`` field in the test phase
-section of the job definition.
+Jobs can reference secrets stored in Testflinger by using the ``secrets`` field in the job definition.
+
+.. note::
+    The ``secrets`` field is only supported in the ``test_data`` section of a job.
 
 .. code-block:: yaml
 
@@ -55,5 +59,4 @@ To delete a secret, you can use the following command:
 
 .. code-block:: shell
 
-    testflinger-cli secret delete <path>
     testflinger-cli secret delete path/to/secret
