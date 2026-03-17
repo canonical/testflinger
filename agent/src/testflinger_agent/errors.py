@@ -22,3 +22,7 @@ class TFServerError(Exception):
     def __str__(self):
         """Return a string with the the error message."""
         return self.message
+
+
+class InvalidTokenError(Exception):
+    """Base class for errors related to authentication and authorization."""

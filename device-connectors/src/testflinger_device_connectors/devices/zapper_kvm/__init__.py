@@ -58,13 +58,13 @@ class DeviceConnector(ZapperConnector):
             logger.info("Attempt to power cycle the control host.")
             self._api_post("/api/v1/system/poweroff", timeout=10)
             with contextlib.suppress(TimeoutError):
-                ZapperConnector.wait_online(
+                ZapperConnector.wait_offline(
                     ZapperConnector._check_rpyc_server_on_host,
                     control_host,
                     30,
                 )
             self._reboot_control_host()
-            self.wait_ready(control_host)
+            self.wait_ready(control_host, timeout=300)
         except requests.RequestException:
             logger.warning(
                 "The REST API is not available on %s, "
@@ -91,8 +91,7 @@ class DeviceConnector(ZapperConnector):
         """Autoinstall-related keys are pre-fixed with `autoinstall_`.
 
         If any of those arguments are provided and valid, the function
-        returns an autoinstall_conf dictionary, including the agent
-        SSH public key.
+        returns an autoinstall_conf dictionary.
         """
         autoinstall_conf = {}
 
@@ -133,8 +132,6 @@ class DeviceConnector(ZapperConnector):
             logger.info("Autoinstall-related keys were not provided.")
             return None
 
-        autoinstall_conf["authorized_keys"] = [self._read_ssh_key()]
-
         return autoinstall_conf
 
     def _read_ssh_key(self) -> str:
@@ -161,54 +158,46 @@ class DeviceConnector(ZapperConnector):
         """Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
-        provisioning_data = {}
+        provision_data = {}
         if "preset" in self.job_data["provision_data"]:
             has_autoinstall = False
             for key, value in self.job_data["provision_data"].items():
                 if key.startswith("autoinstall"):
                     has_autoinstall = True
                 else:
-                    provisioning_data[key] = value
+                    provision_data[key] = value
 
-            provisioning_data["username"], provisioning_data["password"] = (
+            provision_data["username"], provision_data["password"] = (
                 self._get_credentials("preset")
             )
 
             if has_autoinstall:
-                provisioning_data["autoinstall_conf"] = (
+                provision_data["autoinstall_conf"] = (
                     self._get_autoinstall_conf()
                 )
 
         elif "alloem_url" in self.job_data["provision_data"]:
-            provisioning_data["url"] = self.job_data["provision_data"][
+            provision_data["url"] = self.job_data["provision_data"][
                 "alloem_url"
             ]
-            provisioning_data["username"], provisioning_data["password"] = (
+            provision_data["username"], provision_data["password"] = (
                 self._get_credentials("jammy-oem")
             )
-            provisioning_data["robot_retries"] = max(
-                2, self.job_data["provision_data"].get("robot_retries", 1)
-            )
-            provisioning_data["autoinstall_conf"] = (
-                self._get_autoinstall_conf()
-            )
-            provisioning_data["robot_tasks"] = self.job_data["provision_data"][
+            provision_data["autoinstall_conf"] = self._get_autoinstall_conf()
+            provision_data["robot_tasks"] = self.job_data["provision_data"][
                 "robot_tasks"
             ]
         else:
-            provisioning_data["url"] = self.job_data["provision_data"]["url"]
-            provisioning_data["username"], provisioning_data["password"] = (
+            provision_data["url"] = self.job_data["provision_data"]["url"]
+            provision_data["username"], provision_data["password"] = (
                 self._get_credentials()
             )
-            provisioning_data["robot_retries"] = self.job_data[
-                "provision_data"
-            ].get("robot_retries", 1)
-            provisioning_data["autoinstall_conf"] = (
-                self._get_autoinstall_conf()
-            )
-            provisioning_data["robot_tasks"] = self.job_data["provision_data"][
+            provision_data["autoinstall_conf"] = self._get_autoinstall_conf()
+            provision_data["robot_tasks"] = self.job_data["provision_data"][
                 "robot_tasks"
             ]
+
+        provision_data["authorized_keys"] = [self._read_ssh_key()]
 
         # Let's handle defaults on the Zapper side adding only the explicitly
         # specified keys to the `provision_data` dict.
@@ -218,8 +207,9 @@ class DeviceConnector(ZapperConnector):
             "wait_until_ssh",
             "live_image",
             "ubuntu_sso_email",
+            "robot_retries",
         ]
-        provisioning_data.update(
+        provision_data.update(
             {
                 opt: self.job_data["provision_data"][opt]
                 for opt in optionals
@@ -227,7 +217,7 @@ class DeviceConnector(ZapperConnector):
             }
         )
 
-        return ((), provisioning_data)
+        return ((), provision_data)
 
     def _post_run_actions(self, args):
         super()._post_run_actions(args)

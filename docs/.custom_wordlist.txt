@@ -14,5 +14,6 @@ Queryable
 rclone
 SDWire
 stderr
+supervisorctl
 Tegra
 WebDAV

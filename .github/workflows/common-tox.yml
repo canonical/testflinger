@@ -26,16 +26,32 @@ jobs:
       run:
         working-directory: common
     runs-on: [self-hosted, linux, jammy, X64]
+    permissions:
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           persist-credentials: false
       - name: Install uv and set up Python
-        uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
+        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7.3.1
       - name: Check lock file
         run: uvx --with tox-uv tox -e lock
       - name: Check linting
+        env:
+          RUFF_OUTPUT_FORMAT: sarif
+          RUFF_OUTPUT_FILE: results.sarif
         run: uvx --with tox-uv tox -e lint
       - name: Run unit tests
         run: uvx --with tox-uv tox -e unit
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: results.sarif
+          path: common/results.sarif
+
+      - name: Upload scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
+        with:
+          sarif_file: common/results.sarif

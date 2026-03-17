@@ -13,6 +13,17 @@
       "packageNameTemplate": "rust-lang/rust",
       "datasourceTemplate": "github-releases",
       "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/\\.py$/"],
+      "matchStrings": [
+        "[\"']?(?<currentValue>\\d+\\.\\d+\\.\\d+)[\"']? +# renovate: vanilla-framework-latest"
+      ],
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "canonical/vanilla-framework",
+      "versioningTemplate": "semver",
+      "extractVersionTemplate": "^v?(?<version>\\d+\\.\\d+\\.\\d+)$"
     }
   ]
 }
