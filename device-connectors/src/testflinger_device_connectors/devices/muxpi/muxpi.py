@@ -222,7 +222,7 @@ class MuxPi:
                 ZapperConnector.wait_ready(control_host)
             except TimeoutError as e:
                 raise ProvisioningError(
-                    "Cannot reach out the service over RPyC"
+                    "Cannot reach the Zapper REST API"
                 ) from e
 
         # determine where to get the provisioning image from

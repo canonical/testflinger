@@ -602,7 +602,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
     def test_pre_provision_hook_poweroff(
         self, mock_api_post, mock_wait_offline, mock_reboot, mock_wait_ready
     ):
-        """Test pre_provision_hook sends poweroff, waits for RPyC to
+        """Test pre_provision_hook sends poweroff, waits for Zapper to
         go down, reboots control host, then waits for it to come back.
         """
         connector = DeviceConnector({"control_host": "zapper-host"})

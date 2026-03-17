@@ -110,8 +110,8 @@ def test_check_test_image_booted_fails(mocker):
 class TestMuxPiProvisionWithZapper:
     """Tests for MuxPi provision method with zapper configuration."""
 
-    def test_provision_with_zapper_waits_for_rpyc(self, mocker):
-        """Test provision waits for RPyC server when using zapper."""
+    def test_provision_with_zapper_waits_for_rest_api(self, mocker):
+        """Test provision waits for Zapper REST API when using zapper."""
         muxpi = MuxPi()
         muxpi.config = {
             "control_switch_local_cmd": "zapper sdwire set TS",
