@@ -91,8 +91,7 @@ class DeviceConnector(ZapperConnector):
         """Autoinstall-related keys are pre-fixed with `autoinstall_`.
 
         If any of those arguments are provided and valid, the function
-        returns an autoinstall_conf dictionary, including the agent
-        SSH public key.
+        returns an autoinstall_conf dictionary.
         """
         autoinstall_conf = {}
 
@@ -132,8 +131,6 @@ class DeviceConnector(ZapperConnector):
         if not autoinstall_conf:
             logger.info("Autoinstall-related keys were not provided.")
             return None
-
-        autoinstall_conf["authorized_keys"] = [self._read_ssh_key()]
 
         return autoinstall_conf
 
@@ -199,6 +196,8 @@ class DeviceConnector(ZapperConnector):
             provision_data["robot_tasks"] = self.job_data["provision_data"][
                 "robot_tasks"
             ]
+
+        provision_data["authorized_keys"] = [self._read_ssh_key()]
 
         # Let's handle defaults on the Zapper side adding only the explicitly
         # specified keys to the `provision_data` dict.
