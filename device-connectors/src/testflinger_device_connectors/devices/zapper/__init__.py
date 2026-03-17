@@ -238,41 +238,59 @@ class ZapperConnector(ABC, DefaultDevice):
         job = resp.json()
         job_id = job["job_id"]
 
-        # Stream SSE (Server-Sent Events) logs.
-        # The SSE protocol sends newline-delimited lines in the format:
-        #   data: {"level": "INFO", "message": "..."}
-        # Empty lines act as event separators and are skipped.
-        # Lines not starting with "data: " (e.g. "event:", "retry:")
-        # are non-standard for this endpoint and logged as warnings.
         url = (
             f"http://{zapper_ip}:{self.ZAPPER_REST_PORT}"
             f"/api/v1/provision/{job_id}/logs"
         )
-        sse_data_prefix = "data: "
         timeout = (self.ZAPPER_CONNECTION_TIMEOUT, self.ZAPPER_READ_TIMEOUT)
-        with requests.get(url, stream=True, timeout=timeout) as sse:
-            for line in sse.iter_lines(decode_unicode=True):
-                if not line:
-                    continue
-                if not line.startswith(sse_data_prefix):
-                    logger.warning("Unexpected SSE line: %s", line)
-                    continue
-                try:
-                    entry = json.loads(line[len(sse_data_prefix) :])
-                except json.JSONDecodeError:
-                    logger.warning("Malformed SSE data: %s", line)
-                    continue
-                log_level = getattr(
-                    logging, entry.get("level", "").upper(), logging.INFO
-                )
-                logger.log(log_level, entry.get("message", line))
+        while True:
+            with requests.get(url, stream=True, timeout=timeout) as sse:
+                self._stream_sse_logs(sse)
 
-        # Check final status
-        status = self._api_get(f"/api/v1/provision/{job_id}").json()
-        if status["status"] != "completed":
-            raise ProvisioningError(
-                status.get("error", "Provisioning failed for unknown reason.")
+            # Check job status after the SSE stream ends
+            status = self._api_get(f"/api/v1/provision/{job_id}").json()
+            if status["status"] == "running":
+                logger.warning(
+                    "SSE stream disconnected but job %s is still running,"
+                    " reconnecting...",
+                    job_id,
+                )
+                continue
+            if status["status"] != "completed":
+                raise ProvisioningError(
+                    status.get(
+                        "error",
+                        "Provisioning failed for unknown reason.",
+                    )
+                )
+            break
+
+    @staticmethod
+    def _stream_sse_logs(response: requests.Response) -> None:
+        """Parse and log Server-Sent Events from a streaming response.
+
+        The SSE protocol sends newline-delimited lines in the format:
+            data: {"level": "INFO", "message": "..."}
+        Empty lines act as event separators and are skipped.
+        Lines not starting with "data: " (e.g. "event:", "retry:")
+        are non-standard for this endpoint and logged as warnings.
+        """
+        sse_data_prefix = "data: "
+        for line in response.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+            if not line.startswith(sse_data_prefix):
+                logger.warning("Unexpected SSE line: %s", line)
+                continue
+            try:
+                entry = json.loads(line[len(sse_data_prefix) :])
+            except json.JSONDecodeError:
+                logger.warning("Malformed SSE data: %s", line)
+                continue
+            log_level = getattr(
+                logging, entry.get("level", "").upper(), logging.INFO
             )
+            logger.log(log_level, entry.get("message", line))
 
     def _copy_ssh_id(self):
         """Copy the ssh id to the device."""
