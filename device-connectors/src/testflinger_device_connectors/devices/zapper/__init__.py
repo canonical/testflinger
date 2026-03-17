@@ -41,7 +41,8 @@ class ZapperConnector(ABC, DefaultDevice):
     """
 
     PROVISION_METHOD = ""  # to be defined in the implementation
-    ZAPPER_REQUEST_TIMEOUT = 60 * 90
+    ZAPPER_CONNECTION_TIMEOUT = 30
+    ZAPPER_READ_TIMEOUT = 60 * 90
     ZAPPER_REST_PORT = 8000
 
     def _api_post(self, endpoint: str, **kwargs) -> requests.Response:
@@ -190,9 +191,9 @@ class ZapperConnector(ABC, DefaultDevice):
 
         logger.info("BEGIN provision")
         logger.info("Provisioning device")
-        self.ZAPPER_REQUEST_TIMEOUT = self.job_data["provision_data"].get(
+        self.ZAPPER_READ_TIMEOUT = self.job_data["provision_data"].get(
             "zapper_provisioning_timeout",
-            self.ZAPPER_REQUEST_TIMEOUT,
+            self.ZAPPER_READ_TIMEOUT,
         )
 
         (api_args, api_kwargs) = self._validate_configuration()
@@ -242,9 +243,8 @@ class ZapperConnector(ABC, DefaultDevice):
             f"http://{zapper_ip}:{self.ZAPPER_REST_PORT}"
             f"/api/v1/provision/{job_id}/logs"
         )
-        with requests.get(
-            url, stream=True, timeout=self.ZAPPER_REQUEST_TIMEOUT
-        ) as sse:
+        timeout = (self.ZAPPER_CONNECTION_TIMEOUT, self.ZAPPER_READ_TIMEOUT)
+        with requests.get(url, stream=True, timeout=timeout) as sse:
             for line in sse.iter_lines(decode_unicode=True):
                 if line.startswith("data: "):
                     entry = json.loads(line[6:])
