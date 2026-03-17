@@ -6,7 +6,7 @@ needed while running jobs can be stored securely in Testflinger and made availab
 to agents at runtime. This allows you to avoid hard coding secrets in your job 
 definitions and provides a secure way to manage and access secrets.
 
-Using this feature requires :doc:`authenticating <./authentication>` with
+Using this feature requires :doc:`authenticating <./authentication>` with the
 Testflinger server.
 
 For information on the overall secret structure, please refer to the 
@@ -45,6 +45,8 @@ Vault Integration
 Testflinger can be configured to integrate with HashiCorp Vault for secret management.
 This allows you to leverage Vault's features for securely storing and managing secrets, 
 while still making them accessible to Testflinger agents at runtime.
+
+.. _secrets-masking:
 
 Masking
 ^^^^^^^

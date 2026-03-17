@@ -23,7 +23,7 @@ Create a Secret
 
 To create a secret, you will need to define a path where you would like to store the 
 secret and the value of the secret. This path is located under a dedicated namespace
-that is automatically determined by the `client-id`.
+that is automatically determined by the authenticated Testflinger ``client-id``.
 
 .. code-block:: shell
 
@@ -51,6 +51,9 @@ Jobs can reference secrets stored in Testflinger by using the ``secrets`` field 
 
 In the above example, the job references a secret stored at the path ``path/to/secret`` and makes it
 available as an environment variable named ``SUPERSECRET`` during the execution of the test commands.
+
+Furthermore, in this example, the echoed value would not be exposed in the logs because of 
+:ref:`secret Masking <secrets-masking>`.
 
 Delete a Secret
 ---------------
