@@ -251,7 +251,11 @@ class ZapperConnector(ABC, DefaultDevice):
                 if not line.startswith("data: "):
                     logger.warning("Unexpected SSE line: %s", line)
                     continue
-                entry = json.loads(line[6:])
+                try:
+                    entry = json.loads(line[6:])
+                except json.JSONDecodeError:
+                    logger.warning("Malformed SSE data: %s", line)
+                    continue
                 log_level = getattr(logging, entry["level"], logging.INFO)
                 logger.log(log_level, entry["message"])
 
