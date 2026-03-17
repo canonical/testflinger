@@ -37,7 +37,7 @@ MongoDB Client-Side Field Level Encryption
 
 Testflinger supports MongoDB Client-Side Field Level Encryption (CSFLE) to securely
 store secrets in the database. This means that secrets are encrypted before being
-stored, and can only be decrypted by clients that have the appropriate encryption key. 
+stored, and can only be decrypted by MongoDB clients that have the appropriate encryption key. 
 
 Vault Integration
 ^^^^^^^^^^^^^^^^^

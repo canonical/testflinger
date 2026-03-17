@@ -26,14 +26,12 @@ they pick up a job that specifies any secrets.
 .. note::
     The ``secrets`` field is only supported in the ``test_data`` section of a job.
 
-The following constraints apply when defining secrets:
-
-Paths:
+Paths must follow these constraints:
 
 - Must be unique within a client's namespace
 - Only alphanumeric characters, hyphens ``(-)``, underscores ``(_)`` and forward slashes ``(/)`` are allowed
 
-Environment variable names:
+Environment variable names must follow standard shell naming conventions:
 
 - Must start with a letter or underscore
 - Can only contain letters, numbers and underscores

@@ -14,9 +14,10 @@ For information on the overall secret structure, please refer to the
 Prerequisites
 -------------
 
-Authentication is required for using secrets. The following instructions assumes that you 
-have already authenticated with the Testflinger server. If you haven't authenticated yet, 
-please refer to the :doc:`Authentication using Testflinger CLI <authentication>` guide.
+Authentication is required to create, use and delete secrets. The following instructions 
+assumes that you have already authenticated with the Testflinger server. If you haven't 
+authenticated yet, please refer to the :doc:`Authentication using Testflinger CLI <authentication>` 
+guide.
 
 Create a Secret
 ---------------
@@ -54,6 +55,11 @@ available as an environment variable named ``SUPERSECRET`` during the execution 
 
 Furthermore, in this example, the echoed value would not be exposed in the logs because of 
 :ref:`secret Masking <secrets-masking>`.
+
+.. note::
+    During job submission, secrets are available only to the authenticated user with the Testflinger 
+    ``client-id`` that created them. If a secret needs to be shared among multiple users, contact the 
+    Testflinger administrator and request a team-shared ``client-id``.
 
 Delete a Secret
 ---------------
