@@ -13,7 +13,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for Zapper base device connector."""
 
-import json
 import logging
 import unittest
 from unittest.mock import Mock, patch
@@ -427,9 +426,7 @@ class TestZapperConnectorRun:
         assert "Unexpected SSE line: event: error" in caplog.text
         assert "Unexpected SSE line: retry: 3000" in caplog.text
 
-    def test_run_skips_empty_lines(
-        self, mocker, connector, mock_post, caplog
-    ):
+    def test_run_skips_empty_lines(self, mocker, connector, mock_post, caplog):
         """Test that empty SSE lines are silently skipped."""
         mock_get = mocker.patch("requests.get")
 
@@ -544,9 +541,7 @@ class TestZapperConnectorRun:
 
         assert "low case" in caplog.text
 
-    def test_run_raises_on_failed_status(
-        self, mocker, connector, mock_post
-    ):
+    def test_run_raises_on_failed_status(self, mocker, connector, mock_post):
         """Test that _run raises ProvisioningError on non-completed status."""
         mock_get = mocker.patch("requests.get")
 
