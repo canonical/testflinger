@@ -541,6 +541,46 @@ class TestZapperConnectorRun:
 
         assert "low case" in caplog.text
 
+    def test_run_reconnects_when_job_still_running(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that _run reconnects to SSE stream if the job is still
+        running after a disconnection.
+        """
+        mock_get = mocker.patch("requests.get")
+
+        # First SSE stream disconnects with partial logs
+        sse_1 = self._make_sse(
+            ['data: {"level": "INFO", "message": "step 1"}']
+        )
+        # Status check shows still running
+        status_running = Mock()
+        status_running.raise_for_status = Mock()
+        status_running.json.return_value = {"status": "running"}
+
+        # Second SSE stream delivers remaining logs
+        sse_2 = self._make_sse(
+            ['data: {"level": "INFO", "message": "step 2"}']
+        )
+        # Status check shows completed
+        status_completed = Mock()
+        status_completed.raise_for_status = Mock()
+        status_completed.json.return_value = {"status": "completed"}
+
+        mock_get.side_effect = [
+            sse_1,
+            status_running,
+            sse_2,
+            status_completed,
+        ]
+
+        with caplog.at_level(logging.DEBUG):
+            connector._run("localhost")
+
+        assert "step 1" in caplog.text
+        assert "still running" in caplog.text
+        assert "step 2" in caplog.text
+
     def test_run_raises_on_failed_status(self, mocker, connector, mock_post):
         """Test that _run raises ProvisioningError on non-completed status."""
         mock_get = mocker.patch("requests.get")
