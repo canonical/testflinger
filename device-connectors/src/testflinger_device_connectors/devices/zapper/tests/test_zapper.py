@@ -72,7 +72,7 @@ class ZapperConnectorTests(unittest.TestCase):
 
         mock_get.side_effect = [mock_sse, mock_status]
 
-        connector._run("localhost", *args, **kwargs)
+        connector._run(*args, **kwargs)
 
         # Verify POST was called with correct provisioning payload
         mock_post.assert_called_once()
@@ -155,6 +155,14 @@ class TestZapperConnectorRestApiCheck:
             "requests.get",
             side_effect=requests.Timeout,
         )
+
+        with pytest.raises(ConnectionError):
+            ZapperConnector._check_rest_api_on_host("test-host")
+
+    def test_check_rest_api_on_host_raises_on_http_error(self, mocker):
+        """Test the function raises ConnectionError on non-2xx response."""
+        mock_get = mocker.patch("requests.get")
+        mock_get.return_value.raise_for_status.side_effect = requests.HTTPError
 
         with pytest.raises(ConnectionError):
             ZapperConnector._check_rest_api_on_host("test-host")
@@ -372,7 +380,7 @@ class TestZapperConnectorRun:
         mock_status.json.return_value = {"status": "completed"}
         mock_get.side_effect = [mock_sse, mock_status]
 
-        connector._run("localhost")
+        connector._run()
 
         # First call is the SSE stream
         sse_call = mock_get.call_args_list[0]
@@ -398,7 +406,7 @@ class TestZapperConnectorRun:
         mock_get.side_effect = [mock_sse, mock_status]
 
         with caplog.at_level(logging.DEBUG):
-            connector._run("localhost")
+            connector._run()
 
         assert "Starting provisioning" in caplog.text
         assert "Disk space low" in caplog.text
@@ -421,7 +429,7 @@ class TestZapperConnectorRun:
         mock_get.side_effect = [mock_sse, mock_status]
 
         with caplog.at_level(logging.WARNING):
-            connector._run("localhost")
+            connector._run()
 
         assert "Unexpected SSE line: event: error" in caplog.text
         assert "Unexpected SSE line: retry: 3000" in caplog.text
@@ -442,7 +450,7 @@ class TestZapperConnectorRun:
         mock_get.side_effect = [mock_sse, mock_status]
 
         with caplog.at_level(logging.WARNING):
-            connector._run("localhost")
+            connector._run()
 
         assert "Unexpected SSE line" not in caplog.text
 
@@ -463,7 +471,7 @@ class TestZapperConnectorRun:
         mock_get.side_effect = [mock_sse, mock_status]
 
         with caplog.at_level(logging.DEBUG):
-            connector._run("localhost")
+            connector._run()
 
         assert "Malformed SSE data" in caplog.text
         assert "ok" in caplog.text
@@ -482,7 +490,7 @@ class TestZapperConnectorRun:
         mock_get.side_effect = [mock_sse, mock_status]
 
         with caplog.at_level(logging.INFO):
-            connector._run("localhost")
+            connector._run()
 
         assert "no level here" in caplog.text
 
@@ -501,7 +509,7 @@ class TestZapperConnectorRun:
         mock_get.side_effect = [mock_sse, mock_status]
 
         with caplog.at_level(logging.INFO):
-            connector._run("localhost")
+            connector._run()
 
         assert raw_line in caplog.text
 
@@ -519,7 +527,7 @@ class TestZapperConnectorRun:
         mock_get.side_effect = [mock_sse, mock_status]
 
         with caplog.at_level(logging.INFO):
-            connector._run("localhost")
+            connector._run()
 
         assert "typo level" in caplog.text
 
@@ -537,7 +545,7 @@ class TestZapperConnectorRun:
         mock_get.side_effect = [mock_sse, mock_status]
 
         with caplog.at_level(logging.WARNING):
-            connector._run("localhost")
+            connector._run()
 
         assert "low case" in caplog.text
 
@@ -575,7 +583,7 @@ class TestZapperConnectorRun:
         ]
 
         with caplog.at_level(logging.DEBUG):
-            connector._run("localhost")
+            connector._run()
 
         assert "step 1" in caplog.text
         assert "still running" in caplog.text
@@ -595,7 +603,7 @@ class TestZapperConnectorRun:
         mock_get.side_effect = [mock_sse, mock_status]
 
         with pytest.raises(ProvisioningError, match="Device unreachable"):
-            connector._run("localhost")
+            connector._run()
 
     def test_run_raises_with_default_message_on_missing_error(
         self, mocker, connector, mock_post
@@ -613,4 +621,4 @@ class TestZapperConnectorRun:
             ProvisioningError,
             match="Provisioning failed for unknown reason.",
         ):
-            connector._run("localhost")
+            connector._run()

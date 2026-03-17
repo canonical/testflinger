@@ -113,7 +113,7 @@ class ZapperConnector(ABC, DefaultDevice):
             resp = requests.get(url, timeout=3)
             resp.raise_for_status()
             logger.debug("The host %s has an available REST API", host)
-        except (requests.ConnectionError, requests.Timeout) as e:
+        except requests.RequestException as e:
             raise ConnectionError from e
 
     @staticmethod
@@ -197,7 +197,7 @@ class ZapperConnector(ABC, DefaultDevice):
         )
 
         (api_args, api_kwargs) = self._validate_configuration()
-        self._run(self.config["control_host"], *api_args, **api_kwargs)
+        self._run(*api_args, **api_kwargs)
 
         self._post_run_actions(args)
 
@@ -212,7 +212,7 @@ class ZapperConnector(ABC, DefaultDevice):
         """
         raise NotImplementedError
 
-    def _run(self, zapper_ip, *args, **kwargs):
+    def _run(self, *args, **kwargs):
         """Run the Zapper provisioning via the REST API.
 
         Submits a provisioning job, streams SSE logs in real time,
@@ -238,13 +238,14 @@ class ZapperConnector(ABC, DefaultDevice):
         job = resp.json()
         job_id = job["job_id"]
 
-        url = (
-            f"http://{zapper_ip}:{self.ZAPPER_REST_PORT}"
-            f"/api/v1/provision/{job_id}/logs"
-        )
         timeout = (self.ZAPPER_CONNECTION_TIMEOUT, self.ZAPPER_READ_TIMEOUT)
         while True:
-            with requests.get(url, stream=True, timeout=timeout) as sse:
+            sse = self._api_get(
+                f"/api/v1/provision/{job_id}/logs",
+                stream=True,
+                timeout=timeout,
+            )
+            with sse:
                 self._stream_sse_logs(sse)
 
             # Check job status after the SSE stream ends
