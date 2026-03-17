@@ -256,7 +256,9 @@ class ZapperConnector(ABC, DefaultDevice):
                 except json.JSONDecodeError:
                     logger.warning("Malformed SSE data: %s", line)
                     continue
-                log_level = getattr(logging, entry["level"], logging.INFO)
+                log_level = getattr(
+                    logging, entry.get("level", "").upper(), logging.INFO
+                )
                 logger.log(log_level, entry["message"])
 
         # Check final status
