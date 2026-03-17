@@ -13,6 +13,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Unit tests for Zapper base device connector."""
 
+import json
+import logging
 import unittest
 from unittest.mock import Mock, patch
 
@@ -329,3 +331,251 @@ class TestZapperConnectorRestApi:
         connector = MockConnector({"control_host": "zapper-host"})
         with pytest.raises(requests.HTTPError):
             connector._api_post("/api/v1/system/poweroff")
+
+
+class TestZapperConnectorRun:
+    """Tests for ZapperConnector._run SSE streaming and job lifecycle."""
+
+    @pytest.fixture()
+    def connector(self):
+        config = {
+            "device_ip": "1.1.1.1",
+            "agent_name": "my-agent",
+            "control_host": "zapper-host",
+            "reboot_script": ["cmd1"],
+            "env": {"CID": "202507-01234"},
+        }
+        return MockConnector(config)
+
+    @pytest.fixture()
+    def mock_post(self, mocker):
+        mock = mocker.patch("requests.post")
+        mock.return_value.raise_for_status = Mock()
+        mock.return_value.json.return_value = {"job_id": "job-123"}
+        return mock
+
+    def _make_sse(self, lines):
+        """Create a mock SSE response context manager."""
+        mock_sse = Mock()
+        mock_sse.iter_lines.return_value = lines
+        mock_sse.__enter__ = Mock(return_value=mock_sse)
+        mock_sse.__exit__ = Mock(return_value=False)
+        return mock_sse
+
+    def test_run_uses_separate_connection_and_read_timeouts(
+        self, mocker, connector, mock_post
+    ):
+        """Test that SSE streaming uses a (connect, read) timeout tuple."""
+        mock_get = mocker.patch("requests.get")
+        mock_sse = self._make_sse([])
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        connector._run("localhost")
+
+        # First call is the SSE stream
+        sse_call = mock_get.call_args_list[0]
+        assert sse_call[1]["timeout"] == (
+            connector.ZAPPER_CONNECTION_TIMEOUT,
+            connector.ZAPPER_READ_TIMEOUT,
+        )
+
+    def test_run_streams_sse_log_lines(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that valid SSE data lines are logged at the correct level."""
+        mock_get = mocker.patch("requests.get")
+
+        lines = [
+            'data: {"level": "INFO", "message": "Starting provisioning"}',
+            'data: {"level": "WARNING", "message": "Disk space low"}',
+        ]
+        mock_sse = self._make_sse(lines)
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        with caplog.at_level(logging.DEBUG):
+            connector._run("localhost")
+
+        assert "Starting provisioning" in caplog.text
+        assert "Disk space low" in caplog.text
+
+    def test_run_logs_unexpected_non_data_lines(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that non-'data:' SSE lines are logged as warnings."""
+        mock_get = mocker.patch("requests.get")
+
+        lines = [
+            "event: error",
+            "retry: 3000",
+            'data: {"level": "INFO", "message": "ok"}',
+        ]
+        mock_sse = self._make_sse(lines)
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        with caplog.at_level(logging.WARNING):
+            connector._run("localhost")
+
+        assert "Unexpected SSE line: event: error" in caplog.text
+        assert "Unexpected SSE line: retry: 3000" in caplog.text
+
+    def test_run_skips_empty_lines(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that empty SSE lines are silently skipped."""
+        mock_get = mocker.patch("requests.get")
+
+        lines = [
+            "",
+            'data: {"level": "INFO", "message": "ok"}',
+            "",
+        ]
+        mock_sse = self._make_sse(lines)
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        with caplog.at_level(logging.WARNING):
+            connector._run("localhost")
+
+        assert "Unexpected SSE line" not in caplog.text
+
+    def test_run_handles_malformed_json(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that malformed JSON in SSE data is logged as a warning."""
+        mock_get = mocker.patch("requests.get")
+
+        lines = [
+            "data: {not valid json",
+            'data: {"level": "INFO", "message": "ok"}',
+        ]
+        mock_sse = self._make_sse(lines)
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        with caplog.at_level(logging.DEBUG):
+            connector._run("localhost")
+
+        assert "Malformed SSE data" in caplog.text
+        assert "ok" in caplog.text
+
+    def test_run_handles_missing_level_key(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that a missing 'level' key defaults to INFO."""
+        mock_get = mocker.patch("requests.get")
+
+        lines = ['data: {"message": "no level here"}']
+        mock_sse = self._make_sse(lines)
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        with caplog.at_level(logging.INFO):
+            connector._run("localhost")
+
+        assert "no level here" in caplog.text
+
+    def test_run_handles_missing_message_key(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that a missing 'message' key falls back to raw line."""
+        mock_get = mocker.patch("requests.get")
+
+        raw_line = 'data: {"level": "INFO"}'
+        lines = [raw_line]
+        mock_sse = self._make_sse(lines)
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        with caplog.at_level(logging.INFO):
+            connector._run("localhost")
+
+        assert raw_line in caplog.text
+
+    def test_run_handles_invalid_log_level(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that an unrecognized log level defaults to INFO."""
+        mock_get = mocker.patch("requests.get")
+
+        lines = ['data: {"level": "ERRROR", "message": "typo level"}']
+        mock_sse = self._make_sse(lines)
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        with caplog.at_level(logging.INFO):
+            connector._run("localhost")
+
+        assert "typo level" in caplog.text
+
+    def test_run_handles_lowercase_log_level(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that lowercase log levels are normalized with .upper()."""
+        mock_get = mocker.patch("requests.get")
+
+        lines = ['data: {"level": "warning", "message": "low case"}']
+        mock_sse = self._make_sse(lines)
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        with caplog.at_level(logging.WARNING):
+            connector._run("localhost")
+
+        assert "low case" in caplog.text
+
+    def test_run_raises_on_failed_status(
+        self, mocker, connector, mock_post
+    ):
+        """Test that _run raises ProvisioningError on non-completed status."""
+        mock_get = mocker.patch("requests.get")
+
+        mock_sse = self._make_sse([])
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {
+            "status": "failed",
+            "error": "Device unreachable",
+        }
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        with pytest.raises(ProvisioningError, match="Device unreachable"):
+            connector._run("localhost")
+
+    def test_run_raises_with_default_message_on_missing_error(
+        self, mocker, connector, mock_post
+    ):
+        """Test that a missing 'error' key uses a default error message."""
+        mock_get = mocker.patch("requests.get")
+
+        mock_sse = self._make_sse([])
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "failed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        with pytest.raises(
+            ProvisioningError,
+            match="Provisioning failed for unknown reason.",
+        ):
+            connector._run("localhost")
