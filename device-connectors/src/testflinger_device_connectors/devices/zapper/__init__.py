@@ -264,7 +264,9 @@ class ZapperConnector(ABC, DefaultDevice):
         # Check final status
         status = self._api_get(f"/api/v1/provision/{job_id}").json()
         if status["status"] != "completed":
-            raise ProvisioningError(status.get("error", "Provisioning failed"))
+            raise ProvisioningError(
+                status.get("error", "Provisioning failed for unknown reason.")
+            )
 
     def _copy_ssh_id(self):
         """Copy the ssh id to the device."""
