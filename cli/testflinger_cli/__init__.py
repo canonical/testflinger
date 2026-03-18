@@ -77,7 +77,6 @@ def cli():
         datefmt=consts.LOG_DATE_FORMAT,
     )
     try:
-        StatusLine.init()
         tfcli.run()
     except KeyboardInterrupt:
         sys.exit("Received KeyboardInterrupt")
@@ -95,25 +94,25 @@ class TestflingerCli:
         self.get_args()
         self.config = config.TestflingerCliConfig(self.args.configfile)
         server = (
-            self.args.server
-            or self.config.get("server")
-            or os.environ.get("TESTFLINGER_SERVER")
-            or consts.TESTFLINGER_SERVER
+                self.args.server
+                or self.config.get("server")
+                or os.environ.get("TESTFLINGER_SERVER")
+                or consts.TESTFLINGER_SERVER
         )
         self.client_id = (
-            getattr(self.args, "client_id", None)
-            or self.config.get("client_id")
-            or os.environ.get("TESTFLINGER_CLIENT_ID")
+                getattr(self.args, "client_id", None)
+                or self.config.get("client_id")
+                or os.environ.get("TESTFLINGER_CLIENT_ID")
         )
         self.secret_key = (
-            getattr(self.args, "secret_key", None)
-            or self.config.get("secret_key")
-            or os.environ.get("TESTFLINGER_SECRET_KEY")
+                getattr(self.args, "secret_key", None)
+                or self.config.get("secret_key")
+                or os.environ.get("TESTFLINGER_SECRET_KEY")
         )
         error_threshold = (
-            self.config.get("error_threshold")
-            or os.environ.get("TESTFLINGER_ERROR_THRESHOLD")
-            or consts.TESTFLINGER_ERROR_THRESHOLD
+                self.config.get("error_threshold")
+                or os.environ.get("TESTFLINGER_ERROR_THRESHOLD")
+                or consts.TESTFLINGER_ERROR_THRESHOLD
         )
 
         # Allow config subcommand without worrying about server or client
@@ -334,7 +333,7 @@ class TestflingerCli:
         parser.add_argument(
             "--key",
             "-k",
-            nargs="*",
+            action="append",
             help=(
                 "Ssh key(s) to use for reservation "
                 "(ex: -k lp:userid -k gh:userid)"
@@ -761,8 +760,8 @@ class TestflingerCli:
                         tar.add(local_path, arcname=archive_path)
                     except FileNotFoundError as exc:
                         if (
-                            helpers.is_snap()
-                            and helpers.file_is_in_snap_private_dir(local_path)
+                                helpers.is_snap()
+                                and helpers.file_is_in_snap_private_dir(local_path)
                         ):
                             raise SnapPrivateFileError(local_path) from exc
                         raise
@@ -770,19 +769,8 @@ class TestflingerCli:
                     attachment["agent"] = str(agent_path)
                     del attachment["local"]
 
-    def submit(self):
+    def _submit(self, job_dict):
         """Submit a new test job to the server."""
-        if not self.args.filename:
-            data = sys.stdin.read()
-        else:
-            try:
-                data = self.args.filename.read_text(
-                    encoding="utf-8", errors="ignore"
-                )
-            except (PermissionError, FileNotFoundError):
-                logger.exception("Cannot read file %s", self.args.filename)
-                sys.exit(1)
-        job_dict = yaml.safe_load(data)
 
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
@@ -819,11 +807,32 @@ class TestflingerCli:
                     )
 
         self.history.new(job_id, queue)
+
+        return job_id
+
+    def submit(self):
+        """Submit a new test job to the server."""
+        if not self.args.filename:
+            data = sys.stdin.read()
+        else:
+            try:
+                data = self.args.filename.read_text(
+                    encoding="utf-8", errors="ignore"
+                )
+            except (PermissionError, FileNotFoundError):
+                logger.exception("Cannot read file %s",
+                                 self.args.filename)
+                sys.exit(1)
+        job_dict = yaml.safe_load(data)
+
+        job_id = self._submit(job_dict)
+
         if self.args.quiet:
             print(job_id)
         else:
             print("Job submitted successfully!")
             print(f"job_id: {job_id}")
+
         if self.args.poll:
             self.do_poll(job_id)
 
@@ -839,7 +848,7 @@ class TestflingerCli:
             agent
             for agent in agents
             if agent["state"] != "offline"
-            and agent["name"] not in exclude_agents
+               and agent["name"] not in exclude_agents
         ]
         if len(online_agents) > 0:
             # If there are online agents, then we can proceed
@@ -860,7 +869,7 @@ class TestflingerCli:
                 agent
                 for agent in agents
                 if agent["state"] != "offline"
-                and agent["name"] in exclude_agents
+                   and agent["name"] in exclude_agents
             ]
             print(agents)
             print(exclude_agents)
@@ -1051,12 +1060,12 @@ class TestflingerCli:
         print(f"Artifacts downloaded to {self.args.filename}")
 
     def _get_combined_log_output(
-        self,
-        job_id: str,
-        log_type: LogType,
-        phase: str = None,
-        start_fragment: int = 0,
-        start_timestamp=None,
+            self,
+            job_id: str,
+            log_type: LogType,
+            phase: str = None,
+            start_fragment: int = 0,
+            start_timestamp=None,
     ):
         """
         Return last fragment number and combined logs for specified phase
@@ -1129,7 +1138,7 @@ class TestflingerCli:
         All other lines pass through unfiltered.
         In non-TTY mode: Print all logs as-is.
         """
-        
+
         if sys.stdout.isatty():
             # When actively monitoring a job as it runs, supress clutter
             for line in log_data.splitlines():
@@ -1153,10 +1162,81 @@ class TestflingerCli:
         """Poll for serial output from a job until it is completed."""
         self.poll(LogType.SERIAL_OUTPUT)
 
+    def _print_reserve_info(self, job_id: str, job_details: dict):
+        """Print reservation information when job enters reserved state.
+        
+        :param str job_id: Job ID
+        :param dict job_details: Job details from server
+        """
+        from datetime import datetime, timedelta
+
+        print("*** TESTFLINGER SYSTEM RESERVED ***")
+
+        # Get device info
+        device_ip = job_details.get("device_ip", "")
+        agent_name = job_details.get("agent_name", "")
+
+        # Get timeout and calculate expiry
+        timeout = job_details.get("timeout")
+        if timeout:
+            now = datetime.now().astimezone()
+            expire_time = now + timedelta(seconds=int(timeout))
+            print(f"Current time:           [{now.isoformat()}]")
+            print(f"Reservation expires at: [{expire_time.isoformat()}]")
+            StatusLine.set_message(
+                f"Reservation expires at: [{expire_time.isoformat()}]"
+            )
+            print(
+                f"Reservation will automatically timeout in {timeout} seconds"
+            )
+
+        # Get SSH keys from reserve_data
+        print(job_details)
+        reserve_data = job_details.get("reserve_data", {})
+        ssh_keys = reserve_data.get("ssh_keys", [])
+        if ssh_keys:
+            print(f"SSH Keys: {', '.join(ssh_keys)}")
+
+        # Print connection info if device IP available
+        if device_ip:
+            print(f"Device: {device_ip}")
+            if agent_name:
+                print(f"Agent: {agent_name}")
+
+        # Cancel instruction
+        print(f"To end the reservation sooner use: testflinger-cli cancel {job_id}")
+
+    def _on_state_change(self, job_state, job_id, job_details):
+        msg = "Waiting on output..."
+        if job_state == "waiting":
+            msg = "Waiting on a node to become available..."
+        elif job_state == "running":
+            msg = "Waiting for deployment to finish..."
+        elif job_state == "provision":
+            msg = "Provisioning device..."
+        elif job_state == "reserved":
+            timeout = job_details.get("timeout")
+            StatusLine.set_countdown(int(timeout))
+            self._print_reserve_info(job_id, job_details)
+            msg = None  # StatusLine set in _print_reserve_info
+        elif job_state in ("cancelled", "complete", "completed"):
+            hours, minutes, seconds = StatusLine.get_elapsed_time()
+            result_msg = "Job cancelled" if job_state == "cancelled" \
+                else "Job completed"
+            msg = f"{result_msg} - Total time in use: "
+            f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+        # if last state was counting down, start counting up.
+        if StatusLine.state == 'reserved':
+            StatusLine.disable_countdown()
+
+        StatusLine.set_state(job_state)
+        StatusLine.set_message(msg)
+
     def do_poll(
-        self,
-        job_id: str,
-        log_type: LogType = LogType.STANDARD_OUTPUT,
+            self,
+            job_id: str,
+            log_type: LogType = LogType.STANDARD_OUTPUT,
     ):
         """Poll for output from a running job and print it while it runs.
 
@@ -1168,15 +1248,13 @@ class TestflingerCli:
         phase = getattr(self.args, "phase", None)
 
         try:
-            job_state_data = self.get_job_state(job_id)
+            job_details = self.client.show_job(job_id)
         except (errors.NoJobDataError, errors.InvalidJobIdError) as exc:
             sys.exit(str(exc))
-        job_state = job_state_data["job_state"]
-        self.history.update(job_id, job_state)
-        prev_queue_pos = None
-        if job_state == "waiting":
-            StatusLine.set_message("Waiting on a node to become available...")
 
+        StatusLine.init()
+
+        prev_queue_pos = None
         cur_fragment = start_fragment
         while True:
             try:
@@ -1185,24 +1263,9 @@ class TestflingerCli:
 
                 self.history.update(job_id, job_state)
 
-                if job_state == "waiting":
-                    StatusLine.set_message(
-                        "Waiting on a node to become available..."
-                    )
-                elif job_state == "running":
-                    StatusLine.set_message(
-                        "Waiting for deployment to finish..."
-                    )
-                elif job_state == "reserved":
-                    if StatusLine.state != "reserved":
-                        job_details = self.client.get_job(job_id)
-                        timeout = job_details.get("timeout")
-                        StatusLine.set_countdown(int(timeout))
-                    StatusLine.set_message("remaining in reservation")
-                else:
-                    StatusLine.set_message("Waiting on output...")
-
-                StatusLine.set_state(job_state)
+                # If we just entered this state, initialize the StatusLine
+                if job_state != StatusLine.state:
+                    self._on_state_change(job_state, job_id, job_details)
 
                 last_fragment_number, log_data = self._get_combined_log_output(
                     job_id, log_type, phase, cur_fragment, start_timestamp
@@ -1229,29 +1292,22 @@ class TestflingerCli:
                         break
 
                 if job_state in ("cancelled", "complete", "completed"):
-                    StatusLine.set_state(job_state)
-                    hours, minutes, seconds = StatusLine.get_elapsed_time()
-                    result_msg = "Job cancelled" if job_state == "cancelled" \
-                        else "Job completed"
-                    print(f"{result_msg} - Total time in use: "
-                          f"{hours:02d}:{minutes:02d}:{seconds:02d}")
                     break
-
                 if job_state == "waiting":
                     queue_pos = int(self.client.get_job_position(job_id))
-                    if queue_pos != prev_queue_pos:
-                        prev_queue_pos = queue_pos
-                        if queue_pos == 0:
-                            print(
-                                "This job will be picked up after the "
-                                "current job is complete (it is next in line)"
-                            )
-                        else:
-                            print(
-                                f"This job will be picked up after the "
-                                f"current job and {queue_pos} job(s) ahead "
-                                f"of it in the queue are complete"
-                            )
+                if queue_pos != prev_queue_pos:
+                    prev_queue_pos = queue_pos
+                    if queue_pos == 0:
+                        print(
+                            "This job will be picked up after the "
+                            "current job is complete (it is next in line)"
+                        )
+                    else:
+                        print(
+                            f"This job will be picked up after the "
+                            f"current job and {queue_pos} job(s) ahead "
+                            f"of it in the queue are complete"
+                        )
                 time.sleep(1)
             except (errors.NoJobDataError, errors.InvalidJobIdError):
                 # Job-specific errors should exit immediately
@@ -1271,6 +1327,7 @@ class TestflingerCli:
                         continue
                     if choice == "y":
                         self.cancel(job_id)
+                        StatusLine.set_message("Job Canceled")
                 print(f"\nNext fragment number: {cur_fragment}")
                 # Both y and n will allow the external handler deal with it
                 raise
@@ -1289,10 +1346,10 @@ class TestflingerCli:
                         job_state = self.get_job_state(job_id)["job_state"]
                         self.history.update(job_id, job_state)
                     except (
-                        errors.NoJobDataError,
-                        errors.InvalidJobIdError,
-                        IOError,
-                        ValueError,
+                            errors.NoJobDataError,
+                            errors.InvalidJobIdError,
+                            IOError,
+                            ValueError,
                     ):
                         # Handle errors gracefully for job listings
                         job_state = "unknown"
@@ -1317,22 +1374,21 @@ class TestflingerCli:
 
     def reserve(self):
         """Install and reserve a system."""
-        queues = self.do_list_queues()
-        queue = self.args.queue or helpers.prompt_for_queue(queues)
+        queue = self.args.queue or helpers.prompt_for_queue(self.client)
         try:
             images = self.client.get_images(queue)
         except OSError:
             logger.warning("Unable to get a list of images from the server!")
             images = {}
-        
+
         # Handle distro if provided
         if self.args.distro:
             image = f"distro: {self.args.distro}"
         else:
             image = self.args.image or helpers.prompt_for_image(images)
             if (
-                not image.startswith(("http://", "https://"))
-                and image not in images
+                    not image.startswith(("http://", "https://"))
+                    and image not in images
             ):
                 logger.error("'%s' is not in the list of known images", image)
             if image.startswith(("http://", "https://")):
@@ -1371,7 +1427,7 @@ class TestflingerCli:
             answer = input("Proceed? (Y/n) ")
         if answer in ("Y", "y", ""):
             job_dict = yaml.safe_load(job_data)
-            job_id = self.submit_job_data(job_dict)
+            job_id = self._submit(job_dict)
             print("Job submitted successfully!")
             print(f"job_id: {job_id}")
             self.do_poll(job_id)

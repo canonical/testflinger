@@ -86,13 +86,13 @@ class StatusLine:
     @classmethod
     def _timer_loop(cls):
         """Timer thread: update timestamp and redraw at configured rate."""
-        while cls._running:
-            with cls.lock:
-                # Only redraw in TTY environment (no spam in CI/logs)
-                if cls._is_tty:
+        if cls._is_tty:
+            while cls._running:
+                with cls.lock:
                     cls.clear()
                     cls.draw()
-            time.sleep(1.0 / cls.update_rate)
+                # Only redraw in TTY environment (no spam in CI/logs)
+                time.sleep(1.0 / cls.update_rate)
 
     @classmethod
     def set_state(cls, state):
@@ -115,12 +115,16 @@ class StatusLine:
                     duration_str = f"{minutes} minutes {seconds} seconds"
                     if hours > 0:
                         duration_str = f"{hours} hours {duration_str}"
+                    # Clear status line before printing to avoid mixed output
+                    cls.clear()
                     _original_print(
                         f"State '{cls._prev_state}' lasted {duration_str}"
                     )
             cls.state = state
-            cls._prev_state = state
-            cls._state_start_time = time.time()
+            # Only update state start time on actual state change
+            if state != cls._prev_state:
+                cls._prev_state = state
+                cls._state_start_time = time.time()
 
     @classmethod
     def set_message(cls, message):
@@ -152,16 +156,14 @@ class StatusLine:
             # Countdown mode: subtract elapsed from initial value
             elapsed = time.time() - cls._start_time
             remaining = max(0, cls._countdown_start_value - int(elapsed))
+            hours = remaining // 3600
+            minutes = (remaining % 3600) // 60
+            seconds = remaining % 60
             if cls._countdown_start_value >= 3600:
                 # Show HH:MM:SS if initial value >= 1 hour
-                hours = remaining // 3600
-                minutes = (remaining % 3600) // 60
-                seconds = remaining % 60
                 return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
             else:
                 # Show MM:SS otherwise
-                minutes = remaining // 60
-                seconds = remaining % 60
                 return f"{minutes:02d}:{seconds:02d}"
         else:
             # Elapsed mode: count up from start
@@ -183,15 +185,21 @@ class StatusLine:
 
     @classmethod
     def set_countdown(cls, initial_seconds):
-        """Enable countdown mode starting from initial_seconds."""
-        cls._countdown_mode = True
-        cls._countdown_start_value = initial_seconds
-        cls._start_time = time.time()
+        """Enable countdown mode starting from initial_seconds.
+        
+        Sets the countdown flag, initial value, and resets the timer.
+        Fully self-contained and thread-safe.
+        """
+        with cls.lock:
+            cls._countdown_mode = True
+            cls._countdown_start_value = initial_seconds
+            cls._start_time = time.time()
 
     @classmethod
     def disable_countdown(cls):
         """Disable countdown mode."""
-        cls._countdown_mode = False
+        with cls.lock:
+            cls._countdown_mode = False
 
     @classmethod
     def clear(cls):
