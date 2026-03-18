@@ -26,6 +26,9 @@ requires:
   mongodb_client:
     interface: mongodb_client
     limit: 1
+  mongodb_keyvault:
+    interface: mongodb_client
+    limit: 1
   nginx-route:
     interface: nginx-route
     limit: 1
@@ -70,6 +73,8 @@ actions:
       password:
         type: string
         description: The password to set to admin user.
+  retry-key-rotation:
+    description: Force a retry of the key rotation process for CSFLE.
 
 config:
   options:

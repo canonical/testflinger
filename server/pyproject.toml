@@ -33,6 +33,7 @@ dependencies = [
 
 [project.scripts]
 client_credentials_admin = "testflinger.tools.client_credentials_admin:main"
+rotate_mongo_secrets_key = "testflinger.tools.rotate_mongo_secrets_key:main"
 
 [dependency-groups]
 charm = [

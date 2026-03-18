@@ -44,6 +44,9 @@ formatter = logging.Formatter(
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
+KEY_VAULT_DATABASE = "encryption"
+KEY_VAULT_COLLECTION = "__keyVault"
+
 
 def setup_vault_store() -> VaultStore:
     """
@@ -74,6 +77,40 @@ def setup_vault_store() -> VaultStore:
     return VaultStore(client)
 
 
+def _decode_master_key(b64_key: str) -> bytes:
+    """Decode a base64-encoded master key.
+
+    :param b64_key: Base64-encoded master key string.
+    :return: Raw key bytes.
+    :raises StoreError: If the string is not valid base64.
+    """
+    try:
+        return base64.b64decode(b64_key)
+    except (binascii.Error, ValueError) as error:
+        raise StoreError(
+            "Environment variables with Mongo credentials are incorrect"
+        ) from error
+
+
+def _make_cipher(
+    key_vault_client: MongoClient,
+    master_key: bytes,
+    key_vault_namespace: str,
+) -> ClientEncryption:
+    """Create a ClientEncryption instance for the given master key.
+
+    :param key_vault_client: MongoClient with access to the key vault database.
+    :param master_key: Raw master key bytes.
+    :param key_vault_namespace: Fully-qualified key vault namespace.
+    """
+    return ClientEncryption(
+        kms_providers={"local": {"key": master_key}},
+        key_vault_namespace=key_vault_namespace,
+        key_vault_client=key_vault_client,
+        codec_options=CodecOptions(),
+    )
+
+
 def setup_mongo_store() -> MongoStore | None:
     """
     Set up MongoDB-based secrets store with Client-Side Field Level Encryption.
@@ -97,38 +134,30 @@ def setup_mongo_store() -> MongoStore | None:
     if not master_key_b64:
         return None
 
-    try:
-        master_key = base64.b64decode(master_key_b64)
-    except (binascii.Error, ValueError) as error:
-        raise StoreError(
-            "Environment variables with Mongo credentials are incorrect"
-        ) from error
+    master_key = _decode_master_key(master_key_b64)
 
     # Explicit Client-Side Field-Level Encryption
     # Reference: https://www.mongodb.com/docs/manual/core/csfle/fundamentals/manual-encryption/
     # PyMongo docs: https://pymongo.readthedocs.io/en/stable/examples/encryption.html#explicit-encryption-and-decryption
     client = MongoClient(mongo_url)
 
-    kms_providers = {"local": {"key": master_key}}
-    # database and collection where secrets are stored (the "vault")
-    ### key_vault_db = "encryption"
-    # [CAUTION] You should not use the same database for the encryption keys
-    # This is only for testing in staging, not to release in production
-    key_vault_db = client.get_default_database().name
-    key_vault_collection = "__keyVault"
+    # Production instance should use a dedicated client for the key vault.
+    # For dev testing, reuse the same MongoClient instance if URI not provided.
+    key_vault_uri = os.environ.get("TESTFLINGER_KEY_VAULT_URI")
+    key_vault_client = MongoClient(key_vault_uri) if key_vault_uri else client
+
     # human-readable name for the data key that encrypts the secrets
     key_name = "testflinger-secrets"
     # all encryption/decryption of secret values goes through the cipher
     # (i.e. a `ClientEncryption` object)
-    cipher = ClientEncryption(
-        kms_providers=kms_providers,
-        key_vault_namespace=f"{key_vault_db}.{key_vault_collection}",
-        key_vault_client=client,
-        codec_options=CodecOptions(),
+    cipher = _make_cipher(
+        key_vault_client=key_vault_client,
+        master_key=master_key,
+        key_vault_namespace=f"{KEY_VAULT_DATABASE}.{KEY_VAULT_COLLECTION}",
     )
 
     # create data encryption key, if none exists
-    key_vault = client[key_vault_db][key_vault_collection]
+    key_vault = key_vault_client[KEY_VAULT_DATABASE][KEY_VAULT_COLLECTION]
     existing_key = key_vault.find_one({"keyAltNames": key_name})
     if not existing_key:
         try:
