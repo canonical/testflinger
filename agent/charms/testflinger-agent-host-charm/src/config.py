@@ -35,3 +35,11 @@ class TestflingerAgentConfig(pydantic.BaseModel):
                 "testflinger_server must include protocol (http:// or https://)"
             )
         return value
+
+    @pydantic.field_validator("config_repo", "config_dir")
+    @classmethod
+    def validate_config_paths(cls, value):
+        """Validate that both config_repo and config_dir have values."""
+        if not value:
+            raise ValueError("config_repo and config_dir must be set")
+        return value

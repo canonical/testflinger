@@ -14,13 +14,16 @@
 
 import json
 import uuid
+from datetime import datetime, timezone
 from http import HTTPStatus
 from unittest.mock import patch
 
 import pytest
 import requests_mock as rmock
 from requests.exceptions import RequestException
+from testflinger_common.enums import LogType
 
+from testflinger_agent.client import LogEndpointInput
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.errors import InvalidTokenError, TFServerError
 
@@ -716,3 +719,58 @@ class TestClient:
             and "/v1/agents/data/test_agent" in request.url
         ]
         assert len(agent_data_calls) == 0
+
+    @pytest.mark.parametrize(
+        "log_type", [LogType.STANDARD_OUTPUT, LogType.SERIAL_OUTPUT]
+    )
+    def test_post_log_success(self, client, requests_mock, log_type):
+        job_id = str(uuid.uuid4())
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/result/{job_id}/log/{log_type}",
+            status_code=HTTPStatus.OK,
+        )
+        log_input = LogEndpointInput(
+            fragment_number=0,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            phase="test",
+            log_data="output_log_data",
+        )
+        assert client.post_log(job_id, log_input, log_type) is True
+
+    @pytest.mark.parametrize(
+        "log_type", [LogType.STANDARD_OUTPUT, LogType.SERIAL_OUTPUT]
+    )
+    def test_post_log_failure_server_error(
+        self, client, requests_mock, log_type
+    ):
+        job_id = str(uuid.uuid4())
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/result/{job_id}/log/{log_type}",
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+        )
+        log_input = LogEndpointInput(
+            fragment_number=0,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            phase="test",
+            log_data="output_log_data",
+        )
+        assert client.post_log(job_id, log_input, log_type) is False
+
+    @pytest.mark.parametrize(
+        "log_type", [LogType.STANDARD_OUTPUT, LogType.SERIAL_OUTPUT]
+    )
+    def test_post_log_failure_request_exception(
+        self, client, requests_mock, log_type
+    ):
+        job_id = str(uuid.uuid4())
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/result/{job_id}/log/{log_type}",
+            exc=RequestException("connection error"),
+        )
+        log_input = LogEndpointInput(
+            fragment_number=0,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            phase="test",
+            log_data="output_log_data",
+        )
+        assert client.post_log(job_id, log_input, log_type) is False

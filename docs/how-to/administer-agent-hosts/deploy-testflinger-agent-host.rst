@@ -141,24 +141,31 @@ Create a Juju secret with the necessary key/value pairs and take note of the sec
 
 .. code-block:: shell
 
-  $ juju add-secret <secret_name> client-id='<client_id>' client-secret='<client_secret>'
+  $ juju add-secret <secret_name> client-id='<client_id>' secret-key='<client_secret>'
   secret:<secret URI>
 
 .. note::
 
-  The keys in the secret must be ``client-id`` and ``client-secret`` as shown above.
+  The keys in the secret must be ``client-id`` and ``secret-key`` as shown above.
 
 Grant the Testflinger agent host application access to the secret.
 
 .. code-block:: shell
 
-  $ juju grant-access <agent-host-application> secret:<secret URI>
+  $ juju grant-secret <secret URI>|<name> <agent-host-application>
 
 Finally, add the secret URI to the agent host charm's configuration:
 
 .. code-block:: shell
 
   $ juju config <agent-host-application> credentials-secret='secret:<secret URI>'
+
+.. tip::
+
+  You can also specify the config option while refreshing the charm application:
+
+  ``$ juju refresh <agent-host-application> --config credentials-secret='secret:<secret URI>'``
+
 
 For more information on how to manage Juju secrets, refer to the `Juju Secrets documentation <https://documentation.ubuntu.com/juju/3.6/howto/manage-secrets/>`_.
 

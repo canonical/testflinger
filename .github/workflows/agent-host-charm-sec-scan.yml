@@ -1,0 +1,59 @@
+name: "[agent] [scan] Agent Host Charm Security Scan"
+run-name: "[agent] [scan] Agent Host Charm Security Scan (${{ github.event_name == 'push' && 'stable' || github.event_name == 'schedule' && 'stable' || github.event.inputs.channel }})"
+
+permissions: {}
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # Weekly, Mondays at 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: The charm channel to scan
+        required: true
+        default: beta
+        type: choice
+        options:
+          - edge
+          - beta
+          - candidate
+          - stable
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: Scan Charm with Trivy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+    env:
+      CHANNEL: ${{ github.event_name == 'push' && 'stable' || github.event_name == 'schedule' && 'stable' || github.event.inputs.channel }}
+    steps:
+      - name: Install Juju
+        run: sudo snap install juju --classic
+      - name: Download and Unpack Charm
+        run: |
+          CHARM=$(juju download testflinger-agent-host --channel=$CHANNEL 2>&1 | grep ".charm$" | sed -e 's/.*\(testflinger.*.charm\)/\1/')
+
+          # Extract the contents to a local folder
+          unzip -d unpacked-charm $CHARM
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe # v4.32.6
+        with:
+          scan-type: 'fs'
+          scan-ref: 'unpacked-charm'
+          exit-code: 1
+          format: 'sarif'
+          vuln-type: library
+          output: 'testflinger-agent-host-trivy-results.sarif'
+          # By default, SARIF format enforces output of all vulnerabilities regardless of configured severities.
+          severity: 'UNKNOWN,LOW,MEDIUM,CRITICAL,HIGH'
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
+        with:
+          sarif_file: 'testflinger-agent-host-trivy-results.sarif'
+          wait-for-processing: "true"
