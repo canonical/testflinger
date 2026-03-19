@@ -29,7 +29,7 @@ import tempfile
 import time
 from argparse import ArgumentParser
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import partial
 from http import HTTPStatus
 from pathlib import Path
@@ -1162,51 +1162,7 @@ class TestflingerCli:
         """Poll for serial output from a job until it is completed."""
         self.poll(LogType.SERIAL_OUTPUT)
 
-    def _print_reserve_info(self, job_id: str, job_details: dict):
-        """Print reservation information when job enters reserved state.
-        
-        :param str job_id: Job ID
-        :param dict job_details: Job details from server
-        """
-        from datetime import datetime, timedelta
-
-        print("*** TESTFLINGER SYSTEM RESERVED ***")
-
-        # Get device info
-        device_ip = job_details.get("device_ip", "")
-        agent_name = job_details.get("agent_name", "")
-
-        # Get timeout and calculate expiry
-        timeout = job_details.get("timeout")
-        if timeout:
-            now = datetime.now().astimezone()
-            expire_time = now + timedelta(seconds=int(timeout))
-            print(f"Current time:           [{now.isoformat()}]")
-            print(f"Reservation expires at: [{expire_time.isoformat()}]")
-            StatusLine.set_message(
-                f"Reservation expires at: [{expire_time.isoformat()}]"
-            )
-            print(
-                f"Reservation will automatically timeout in {timeout} seconds"
-            )
-
-        # Get SSH keys from reserve_data
-        print(job_details)
-        reserve_data = job_details.get("reserve_data", {})
-        ssh_keys = reserve_data.get("ssh_keys", [])
-        if ssh_keys:
-            print(f"SSH Keys: {', '.join(ssh_keys)}")
-
-        # Print connection info if device IP available
-        if device_ip:
-            print(f"Device: {device_ip}")
-            if agent_name:
-                print(f"Agent: {agent_name}")
-
-        # Cancel instruction
-        print(f"To end the reservation sooner use: testflinger-cli cancel {job_id}")
-
-    def _on_state_change(self, job_state, job_id, job_details):
+    def _on_state_change(self, job_state, job_details):
         msg = "Waiting on output..."
         if job_state == "waiting":
             msg = "Waiting on a node to become available..."
@@ -1214,24 +1170,28 @@ class TestflingerCli:
             msg = "Waiting for deployment to finish..."
         elif job_state == "provision":
             msg = "Provisioning device..."
-        elif job_state == "reserved":
-            timeout = job_details.get("timeout")
-            StatusLine.set_countdown(int(timeout))
-            self._print_reserve_info(job_id, job_details)
-            msg = None  # StatusLine set in _print_reserve_info
+        elif job_state == "reserve":
+            timeout = int(
+                job_details.get("reserve_data", {}).get("timeout", 0)
+            )
+            now = datetime.now().astimezone()
+            expire_time = now + timedelta(seconds=timeout)
+            msg = f"Reservation expires at: [{expire_time.isoformat()}]"
+            StatusLine.set_countdown(timeout)
         elif job_state in ("cancelled", "complete", "completed"):
             hours, minutes, seconds = StatusLine.get_elapsed_time()
             result_msg = "Job cancelled" if job_state == "cancelled" \
                 else "Job completed"
-            msg = f"{result_msg} - Total time in use: "
-            f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+            msg = f"{result_msg} - Total time in use: "\
+                  f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
         # if last state was counting down, start counting up.
         if StatusLine.state == 'reserved':
             StatusLine.disable_countdown()
 
         StatusLine.set_state(job_state)
-        StatusLine.set_message(msg)
+        if msg:
+            StatusLine.set_message(msg)
 
     def do_poll(
             self,
@@ -1249,6 +1209,7 @@ class TestflingerCli:
 
         try:
             job_details = self.client.show_job(job_id)
+            print(job_details)
         except (errors.NoJobDataError, errors.InvalidJobIdError) as exc:
             sys.exit(str(exc))
 
@@ -1265,7 +1226,7 @@ class TestflingerCli:
 
                 # If we just entered this state, initialize the StatusLine
                 if job_state != StatusLine.state:
-                    self._on_state_change(job_state, job_id, job_details)
+                    self._on_state_change(job_state, job_details)
 
                 last_fragment_number, log_data = self._get_combined_log_output(
                     job_id, log_type, phase, cur_fragment, start_timestamp
