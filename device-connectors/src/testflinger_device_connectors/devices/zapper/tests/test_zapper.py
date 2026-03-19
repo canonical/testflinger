@@ -136,7 +136,7 @@ class TestZapperConnectorRestApiCheck:
         ZapperConnector._check_rest_api_on_host("test-host")
 
         mock_get.assert_called_once_with(
-            "http://test-host:8000/api/v1/health", timeout=3
+            "http://test-host:8000/health", timeout=3
         )
 
     def test_check_rest_api_on_host_raises_connection_error(self, mocker):
