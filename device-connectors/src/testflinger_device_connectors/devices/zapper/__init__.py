@@ -108,7 +108,7 @@ class ZapperConnector(ABC, DefaultDevice):
         try:
             url = (
                 f"http://{host}:{ZapperConnector.ZAPPER_REST_PORT}"
-                f"/api/v1/health"
+                f"/health"
             )
             resp = requests.get(url, timeout=3)
             resp.raise_for_status()
