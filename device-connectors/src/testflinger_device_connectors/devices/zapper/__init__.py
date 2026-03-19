@@ -288,10 +288,15 @@ class ZapperConnector(ABC, DefaultDevice):
             except json.JSONDecodeError:
                 logger.warning("Malformed SSE data: %s", line)
                 continue
-            log_level = getattr(
-                logging, entry.get("level", "").upper(), logging.INFO
-            )
-            logger.log(log_level, entry.get("message", line))
+            level_name = entry.get("level", "").upper()
+            log_level = getattr(logging, level_name, None)
+            if log_level is None:
+                logger.warning(
+                    "Unknown log level '%s', defaulting to INFO",
+                    entry.get("level", ""),
+                )
+                log_level = logging.INFO
+            logger.log(log_level, "[zapper] %s", entry.get("message", line))
 
     def _copy_ssh_id(self):
         """Copy the ssh id to the device."""

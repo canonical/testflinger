@@ -392,7 +392,9 @@ class TestZapperConnectorRun:
     def test_run_streams_sse_log_lines(
         self, mocker, connector, mock_post, caplog
     ):
-        """Test that valid SSE data lines are logged at the correct level."""
+        """Test that valid SSE data lines are logged with [zapper] prefix
+        at the correct level.
+        """
         mock_get = mocker.patch("requests.get")
 
         lines = [
@@ -408,8 +410,17 @@ class TestZapperConnectorRun:
         with caplog.at_level(logging.DEBUG):
             connector._run()
 
-        assert "Starting provisioning" in caplog.text
-        assert "Disk space low" in caplog.text
+        assert "[zapper] Starting provisioning" in caplog.text
+        assert "[zapper] Disk space low" in caplog.text
+        # Verify log levels are correct
+        info_record = next(
+            r for r in caplog.records if "Starting provisioning" in r.message
+        )
+        warn_record = next(
+            r for r in caplog.records if "Disk space low" in r.message
+        )
+        assert info_record.levelno == logging.INFO
+        assert warn_record.levelno == logging.WARNING
 
     def test_run_logs_unexpected_non_data_lines(
         self, mocker, connector, mock_post, caplog
@@ -489,10 +500,14 @@ class TestZapperConnectorRun:
         mock_status.json.return_value = {"status": "completed"}
         mock_get.side_effect = [mock_sse, mock_status]
 
-        with caplog.at_level(logging.INFO):
+        with caplog.at_level(logging.DEBUG):
             connector._run()
 
-        assert "no level here" in caplog.text
+        assert "[zapper] no level here" in caplog.text
+        record = next(
+            r for r in caplog.records if "no level here" in r.message
+        )
+        assert record.levelno == logging.INFO
 
     def test_run_handles_missing_message_key(
         self, mocker, connector, mock_post, caplog
@@ -511,12 +526,12 @@ class TestZapperConnectorRun:
         with caplog.at_level(logging.INFO):
             connector._run()
 
-        assert raw_line in caplog.text
+        assert f"[zapper] {raw_line}" in caplog.text
 
     def test_run_handles_invalid_log_level(
         self, mocker, connector, mock_post, caplog
     ):
-        """Test that an unrecognized log level defaults to INFO."""
+        """Test that an unrecognized log level warns and defaults to INFO."""
         mock_get = mocker.patch("requests.get")
 
         lines = ['data: {"level": "ERRROR", "message": "typo level"}']
@@ -526,10 +541,12 @@ class TestZapperConnectorRun:
         mock_status.json.return_value = {"status": "completed"}
         mock_get.side_effect = [mock_sse, mock_status]
 
-        with caplog.at_level(logging.INFO):
+        with caplog.at_level(logging.DEBUG):
             connector._run()
 
-        assert "typo level" in caplog.text
+        assert "Unknown log level 'ERRROR'" in caplog.text
+        record = next(r for r in caplog.records if "typo level" in r.message)
+        assert record.levelno == logging.INFO
 
     def test_run_handles_lowercase_log_level(
         self, mocker, connector, mock_post, caplog
@@ -547,7 +564,9 @@ class TestZapperConnectorRun:
         with caplog.at_level(logging.WARNING):
             connector._run()
 
-        assert "low case" in caplog.text
+        assert "[zapper] low case" in caplog.text
+        record = next(r for r in caplog.records if "low case" in r.message)
+        assert record.levelno == logging.WARNING
 
     def test_run_reconnects_when_job_still_running(
         self, mocker, connector, mock_post, caplog
