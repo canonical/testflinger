@@ -1,103 +1,51 @@
+#cloud-config
+# Testflinger Multipass Dev Environment - Ubuntu 24.04 (noble)
+#
+# Usage:
+#   multipass launch --name testflinger -c4 -m12GB -d32GB \
+#     --cloud-init server/devel/testflinger.yaml
+#
+# After cloud-init completes, run the setup script:
+#   server/devel/setup-vm.sh
+#
+
+# Ensure ubuntu user is in the 'users' group (GID 100) for mount compatibility
+groups:
+  - users
+
+system_info:
+  default_user:
+    groups: [adm, cdrom, dip, lxd, sudo, users]
+
 write_files:
+# Server environment (matches env vars read by server/src/testflinger/database.py)
 - content: |
-    config:
-      core.https_address: '[::]:8443'
-    networks:
-    - config:
-        ipv4.address: 10.10.10.1/24
-        ipv6.address: none
-      description: ""
-      name: lxdbr0
-      type: ""
-      project: default
-    storage_pools:
-    - config:
-        size: 24GB
-      description: ""
-      name: default
-      driver: zfs
-    profiles:
-    - config: {}
-      description: ""
-      devices:
-        eth0:
-          name: eth0
-          network: lxdbr0
-          type: nic
-        root:
-          path: /
-          pool: default
-          type: disk
-      name: default
-    projects: []
-    cluster: null
-  path: /tmp/lxd.cfg
+    MONGODB_HOST=localhost
+    MONGODB_DATABASE=testflinger_db
+    MONGODB_PORT=27017
+    JWT_SIGNING_KEY=dev-signing-key
+    WEB_SECRET_KEY=dev-web-secret
+  path: /home/ubuntu/testflinger-server.env
+
+# Agent config (YAML, read by testflinger-agent -c)
 - content: |
-    [Unit]
-    Description=testflinger service
-    After=network.target
-    
-    [Service]
-    User=ubuntu
-    Group=ubuntu
-    Environment="TESTFLINGER_CONFIG=/srv/testflinger/testflinger.conf"
-    WorkingDirectory=/srv/testflinger
-    ExecStart=/bin/sh -c "/usr/local/bin/gunicorn --bind 0.0.0.0:8080 --log-file=/srv/testflinger/testflinger.log -k gevent -w 4 testflinger:app"
-    Restart=always
-    
-    [Install]
-    WantedBy=multi-user.target
-  path: /etc/systemd/system/testflinger.service
-- content: |
-    [Unit]
-    Description=testflinger-agent service
-    After=network.target
-    
-    [Service]
-    User=ubuntu
-    Group=ubuntu
-    WorkingDirectory=/srv/testflinger-agent/vm1
-    ExecStart=/bin/sh -c ". env/bin/activate && PYTHONIOENCODING=utf-8 testflinger-agent -c testflinger-agent/testflinger-agent.conf"
-    Restart=always
-    
-    [Install]
-    WantedBy=multi-user.target
-  path: /etc/systemd/system/testflinger-agent-vm1.service
-- content: |
-    DATA_PATH = "/srv/testflinger/data"
-    MONGO_URI = "mongodb://localhost:27017/testflinger_db"
-  path: /home/ubuntu/testflinger.conf
-- content: |
-    agent_id: vm1
-    server_address: http://localhost:8080
-    global_timeout: 43200
-    output_timeout: 3600
-    execution_basedir: /home/ubuntu/testflinger/vm1/run
-    logging_basedir: /home/ubuntu/testflinger/vm1/logs
-    results_basedir: /home/ubuntu/testflinger/vm1/results
-    logging_level: DEBUG
+    agent_id: vm1-agent
+    server_address: http://localhost:5000
     job_queues:
-    - vm1
-    setup_command: /bin/true
-    provision_command: . /srv/testflinger-agent/vm1/env/bin/activate && PYTHONIOENCODING=utf-8 PYTHONUNBUFFERED=1 snappy-device-agent maas2 provision -c /srv/testflinger-agent/vm1/snappy-device-agents/default.yaml testflinger.json
-    test_command: . /srv/testflinger-agent/vm1/env/bin/activate && PYTHONIOENCODING=utf-8 PYTHONUNBUFFERED=1 snappy-device-agent maas2 runtest -c /srv/testflinger-agent/vm1/snappy-device-agents/default.yaml testflinger.json
-    reserve_command: . /srv/testflinger-agent/vm1/env/bin/activate && PYTHONIOENCODING=utf-8 PYTHONUNBUFFERED=1 snappy-device-agent maas2 runtest -c /srv/testflinger-agent/vm1/snappy-device-agents/default.yaml testflinger.json
-    cleanup_command: /bin/true
-    provision_type: maas2
+      - vm1
+    polling_interval: 10
+    execution_basedir: /tmp/testflinger/run
+    logging_basedir: /tmp/testflinger/logs
+    results_basedir: /tmp/testflinger/results
   path: /home/ubuntu/testflinger-agent.conf
-- content: |
-    device_ip: 10.10.10.2
-    node_id: CHANGEME
-    node_name: vm1
-    maas_user: maas
-    agent_name: vm1
-    env:
-        DEVICE_IP: 10.10.10.2
-  path: /home/ubuntu/default.yaml
+
+# CLI config
 - content: |
     [testflinger-cli]
-    server = http://localhost:8080
+    server = http://localhost:5000
   path: /home/ubuntu/.config/testflinger-cli.conf
+
+# Example job (queue matches agent config)
 - content: |
     job_queue: vm1
     provision_data:
@@ -107,131 +55,104 @@ write_files:
         free -m
         ip a
   path: /home/ubuntu/example-job.yaml
-- content: |
-    All testflinger components are running inside this container, and
-    a test VM has been created in MAAS which can be used to demonstrate
-    provisioning and test execution.  The testflinger CLI tool has
-    also been configured to talk to the testflinger server running in this
-    container.
-    
-    To execute and watch the output of the example job, you can run:
-       $ testflinger submit -p example-job.yaml
-  path: /home/ubuntu/README
-packages:
-  - jq
-  - virtualenv
-  - python3-pip
-snap:
-  commands:
-    - snap install maas
-    - snap install --channel=latest/stable lxd
-    - snap refresh --channel=latest/stable lxd
-    - snap install maas-test-db
-runcmd:
-  - set -e  # Exit immediately if any command fails
-  # Create a swapfile
-  - fallocate -l 8G /swap
-  - chmod 600 /swap
-  - mkswap /swap
-  - echo "/swap         none    swap    sw      0       0" >> /etc/fstab
-  - swapon -a
-  #Setup mongodb
-  - wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc |sudo tee /etc/apt/trusted.gpg.d/server-6.0.asc
-  - echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
-  - sudo apt update
-  - sudo apt install -y mongodb-org
-  - sudo systemctl enable mongod
-  - sudo systemctl start mongod
-  # Fetch IPv4 address from the device, setup forwarding and NAT
-  - export IP_ADDRESS=$(ip -j route show default | jq -r '.[].prefsrc')
-  - export INTERFACE=$(ip -j route show default | jq -r '.[].dev')
-  - sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
-  - sysctl -p
-  - iptables -t nat -A POSTROUTING -o $INTERFACE -j SNAT --to $IP_ADDRESS
-  # Persist NAT configuration
-  - echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections
-  - echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections
-  - apt-get install iptables-persistent -y
-  # LXD init
-  - cat /tmp/lxd.cfg | lxd init --preseed
-  # Wait for LXD to be ready
-  - lxd waitready
-  # Initialise MAAS
-  - maas init region+rack --database-uri maas-test-db:/// --maas-url http://${IP_ADDRESS}:5240/MAAS
-  - sleep 15
-  # Create MAAS admin and grab API key
-  - maas createadmin --username admin --password admin --email admin
-  - export APIKEY=$(maas apikey --username admin)
-  # Create MAAS admin login
-  - maas login admin 'http://localhost:5240/MAAS/' $APIKEY
-  # Configure MAAS networking (set gateways, vlans, DHCP on etc)
-  - export SUBNET=10.10.10.0/24
-  - export FABRIC_ID=$(maas admin subnet read "$SUBNET" | jq -r ".vlan.fabric_id")
-  - export VLAN_TAG=$(maas admin subnet read "$SUBNET" | jq -r ".vlan.vid")
-  - export PRIMARY_RACK=$(maas admin rack-controllers read | jq -r ".[] | .system_id")
-  - maas admin subnet update $SUBNET gateway_ip=10.10.10.1
-  - maas admin ipranges create type=dynamic start_ip=10.10.10.200 end_ip=10.10.10.254
-  - maas admin vlan update $FABRIC_ID $VLAN_TAG dhcp_on=True primary_rack=$PRIMARY_RACK
-  - maas admin maas set-config name=upstream_dns value=8.8.8.8
-  # Configure boot-source selections for test VMs
-  # (services on Multipass VM run on jammy, test VMs provisioned by MAAS will run on this release)
-  - export MAAS_RELEASE=noble
-  - maas admin boot-source-selections create 1 os=ubuntu release=$MAAS_RELEASE arches=amd64 subarches='*' labels='*' || true
-  # Add LXD as a VM host using certificate-based authentication (MAAS 3.1+)
-  - echo DEBUG Creating LXD VM host
-  - export VM_HOST_ID=$(maas admin vm-hosts create type=lxd power_address=https://${IP_ADDRESS}:8443 project=default | jq -r '.id')
-  - echo DEBUG VM host created with ID $VM_HOST_ID
-  - export MAAS_CERT=$(maas admin vm-host parameters $VM_HOST_ID | jq -r '.certificate')
-  - echo DEBUG Retrieved certificate length; echo "$MAAS_CERT" | wc -c
-  - echo DEBUG Adding certificate to LXD trust list
-  - echo "$MAAS_CERT" | sudo lxc config trust add -
-  - echo DEBUG Certificate added, now refreshing VM host
-  - maas admin vm-host refresh $VM_HOST_ID
-  - echo DEBUG VM host refresh complete
-  - echo DEBUG Checking VM host resources after refresh
-  - maas admin vm-host read $VM_HOST_ID | jq '.total | {cores, memory, local_storage}'
-  # Wait for boot-resources to sync
-  - echo DEBUG Starting boot-resources wait loop for MAAS_RELEASE=$MAAS_RELEASE
-  - until sudo bash -c 'maas admin boot-resources read | grep -q ubuntu/$MAAS_RELEASE'; do echo DEBUG Waiting for boot-resources; sleep 10; done
-  - echo DEBUG Boot-resources sync complete
-  # Compose test VM
-  - echo DEBUG Creating VM from host $VM_HOST_ID
-  - export SYSTEM_ID=$(maas admin vm-host compose $VM_HOST_ID cores=2 memory=6144 architecture="amd64/generic" hostname=vm1 | jq -r '.system_id')
-  - echo DEBUG Composed VM with SYSTEM_ID $SYSTEM_ID waiting for Ready state
-  # Wait for VM to become ready
-  - until [ "$(maas admin machine read $SYSTEM_ID | jq -r .status_name)" = Ready ]; do echo DEBUG Waiting for VM; sleep 10; done
-  - echo DEBUG VM reached Ready state
-  # Configure VM networking
-  - export SUBNET_ID=$(maas admin subnet read "$SUBNET" |jq -r '.id')
-  - export INTERFACE_ID=$(maas admin machine read $SYSTEM_ID |jq -r '.interface_set[0].id')
-  - export LINK_ID=$(maas admin machine read $SYSTEM_ID |jq -r '.interface_set[0].links[0].id')
-  - maas admin interface unlink-subnet $SYSTEM_ID $INTERFACE_ID id=$LINK_ID
-  - maas admin interface link-subnet $SYSTEM_ID $INTERFACE_ID mode=static ip_address=10.10.10.2 subnet=$SUBNET_ID
-  # Setup testflinger-agent
-  - mkdir -p /srv/testflinger-agent/vm1
-  - git clone https://github.com/canonical/testflinger-cli /home/ubuntu/testflinger-cli
-  - cd /home/ubuntu/testflinger-cli && pip install --break-system-packages -I .
-  - virtualenv /srv/testflinger-agent/vm1/env
-  - git clone https://github.com/canonical/testflinger /srv/testflinger
-  - git clone https://github.com/canonical/testflinger-agent /srv/testflinger-agent/vm1/testflinger-agent
-  - git clone https://github.com/canonical/snappy-device-agents /srv/testflinger-agent/vm1/snappy-device-agents
-  - mv /home/ubuntu/testflinger.conf /srv/testflinger
-  - mv /home/ubuntu/testflinger-agent.conf /srv/testflinger-agent/vm1/testflinger-agent
-  - mv /home/ubuntu/default.yaml /srv/testflinger-agent/vm1/snappy-device-agents
-  - sed -i "s/CHANGEME/$SYSTEM_ID/g" /srv/testflinger-agent/vm1/snappy-device-agents/default.yaml
-  - cd /srv/testflinger/common && pip install --break-system-packages --no-cache-dir .
-  - cd /srv/testflinger/server && pip install --break-system-packages --no-cache-dir --force-reinstall .
-  - . /srv/testflinger-agent/vm1/env/bin/activate && cd /srv/testflinger-agent/vm1/testflinger-agent && pip install .
-  - . /srv/testflinger-agent/vm1/env/bin/activate && cd /srv/testflinger-agent/vm1/snappy-device-agents && pip install .
-  - chown -R ubuntu.ubuntu /home/ubuntu
-  - chown -R ubuntu.ubuntu /srv/testflinger
-  - chown -R ubuntu.ubuntu /srv/testflinger-agent
-  - systemctl enable testflinger
-  - systemctl start testflinger
-  - systemctl enable testflinger-agent-vm1
-  - systemctl start testflinger-agent-vm1
-  # Create MAAS profile for ubuntu user and SSH key
-  - sudo -u ubuntu -- maas login maas 'http://localhost:5240/MAAS/' $APIKEY
-  - sudo -u ubuntu -- ssh-keygen -t rsa -b 4096 -f /home/ubuntu/.ssh/id_rsa -N ""
-  - sudo -u ubuntu -- maas maas sshkeys create key="$(cat /home/ubuntu/.ssh/id_rsa.pub)"
 
+# README
+- content: |
+    Testflinger Multipass Dev Environment (noble)
+    ==============================================
+
+    All testflinger components run inside this VM with the source tree
+    mounted from the host at /srv/testflinger.
+
+    Quick start:
+      $ testflinger submit -p ~/example-job.yaml
+
+    Services:
+      $ sudo systemctl status testflinger
+      $ sudo systemctl status testflinger-agent
+      $ journalctl -u testflinger -f
+      $ journalctl -u testflinger-agent -f
+
+    Server: http://localhost:5000
+  path: /home/ubuntu/README
+
+# Systemd: testflinger server (gunicorn, same as Dockerfile entrypoint)
+- content: |
+    [Unit]
+    Description=Testflinger Server
+    After=network.target mongod.service
+    Wants=mongod.service
+
+    [Service]
+    Type=simple
+    User=ubuntu
+    WorkingDirectory=/srv/testflinger/server
+    EnvironmentFile=/home/ubuntu/testflinger-server.env
+    ExecStart=/usr/local/bin/uv run gunicorn --bind 0.0.0.0:5000 --worker-class gevent app:app
+    Restart=always
+    RestartSec=10
+
+    [Install]
+    WantedBy=multi-user.target
+  path: /etc/systemd/system/testflinger.service
+
+# Systemd: testflinger agent
+- content: |
+    [Unit]
+    Description=Testflinger Agent
+    After=network.target testflinger.service
+    Wants=testflinger.service
+
+    [Service]
+    Type=simple
+    User=ubuntu
+    WorkingDirectory=/srv/testflinger/agent
+    ExecStart=/usr/local/bin/uv run testflinger-agent -c /home/ubuntu/testflinger-agent.conf
+    Restart=always
+    RestartSec=10
+
+    [Install]
+    WantedBy=multi-user.target
+  path: /etc/systemd/system/testflinger-agent.service
+
+packages:
+  - curl
+  - python3-venv
+
+runcmd:
+  - set -e
+
+  # --- MongoDB 6.0 (jammy repo, verified working on noble) ---
+  - wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | tee /etc/apt/trusted.gpg.d/server-6.0.asc >/dev/null
+  - echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+  - apt-get update -qq
+  - apt-get install -y -qq mongodb-org
+  - systemctl enable mongod
+  - systemctl start mongod
+  - sleep 3
+  - systemctl is-active mongod
+
+  # --- uv (standalone binary via official installer, NOT snap) ---
+  - curl -LsSf https://astral.sh/uv/install.sh | INSTALLER_NO_MODIFY_PATH=1 UV_INSTALL_DIR=/usr/local/bin sh
+  - uv --version
+
+  # --- Directory setup ---
+  - mkdir -p /home/ubuntu/.config
+  - chown -R ubuntu:ubuntu /home/ubuntu
+  - mkdir -p /srv/testflinger
+  - mkdir -p /srv/testflinger/data
+  - mkdir -p /tmp/testflinger/{run,logs,results}
+  - chown -R ubuntu:ubuntu /srv/testflinger /tmp/testflinger
+
+  # --- Verify config files ---
+  - test -f /home/ubuntu/testflinger-server.env && echo "testflinger-server.env OK"
+  - test -f /home/ubuntu/testflinger-agent.conf && echo "testflinger-agent.conf OK"
+  - test -f /home/ubuntu/.config/testflinger-cli.conf && echo "testflinger-cli.conf OK"
+  - test -f /home/ubuntu/example-job.yaml && echo "example-job.yaml OK"
+
+  # --- Register systemd services (start after mount + uv sync) ---
+  - systemctl daemon-reload
+  - systemctl enable testflinger.service
+  - systemctl enable testflinger-agent.service
+
+  - 'echo "=== Cloud-init complete: run server/devel/setup-vm.sh to finish ==="'
