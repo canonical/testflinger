@@ -41,7 +41,8 @@ class StatusLine:
     update_rate = 10.0
     _running = False
     _timer_thread = None
-    _start_time = None
+    _original_start_time = None  # Never reset, tracks total elapsed
+    _start_time = None  # Reset in countdown mode, tracks display time
     _countdown_mode = False
     _countdown_start_value = 0
     _is_tty = None
@@ -65,7 +66,9 @@ class StatusLine:
         if cls._running:
             return
         cls._running = True
-        cls._start_time = time.time()
+        now = time.time()
+        cls._original_start_time = now  # Capture original start
+        cls._start_time = now  # Also set display timer
         cls._is_tty = sys.stdout.isatty()
         cls._timer_thread = threading.Thread(
             target=cls._timer_loop, daemon=True
@@ -174,10 +177,13 @@ class StatusLine:
 
     @classmethod
     def get_elapsed_time(cls):
-        """Return elapsed time as (hours, minutes, seconds) tuple."""
-        if cls._start_time is None:
+        """Return elapsed time as (hours, minutes, seconds) tuple.
+        
+        Uses _original_start_time to ignore countdown mode resets.
+        """
+        if cls._original_start_time is None:
             return (0, 0, 0)
-        elapsed = int(time.time() - cls._start_time)
+        elapsed = int(time.time() - cls._original_start_time)
         hours = elapsed // 3600
         minutes = (elapsed % 3600) // 60
         seconds = elapsed % 60

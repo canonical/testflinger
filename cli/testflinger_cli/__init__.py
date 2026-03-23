@@ -94,25 +94,25 @@ class TestflingerCli:
         self.get_args()
         self.config = config.TestflingerCliConfig(self.args.configfile)
         server = (
-                self.args.server
-                or self.config.get("server")
-                or os.environ.get("TESTFLINGER_SERVER")
-                or consts.TESTFLINGER_SERVER
+            self.args.server
+            or self.config.get("server")
+            or os.environ.get("TESTFLINGER_SERVER")
+            or consts.TESTFLINGER_SERVER
         )
         self.client_id = (
-                getattr(self.args, "client_id", None)
-                or self.config.get("client_id")
-                or os.environ.get("TESTFLINGER_CLIENT_ID")
+            getattr(self.args, "client_id", None)
+            or self.config.get("client_id")
+            or os.environ.get("TESTFLINGER_CLIENT_ID")
         )
         self.secret_key = (
-                getattr(self.args, "secret_key", None)
-                or self.config.get("secret_key")
-                or os.environ.get("TESTFLINGER_SECRET_KEY")
+            getattr(self.args, "secret_key", None)
+            or self.config.get("secret_key")
+            or os.environ.get("TESTFLINGER_SECRET_KEY")
         )
         error_threshold = (
-                self.config.get("error_threshold")
-                or os.environ.get("TESTFLINGER_ERROR_THRESHOLD")
-                or consts.TESTFLINGER_ERROR_THRESHOLD
+            self.config.get("error_threshold")
+            or os.environ.get("TESTFLINGER_ERROR_THRESHOLD")
+            or consts.TESTFLINGER_ERROR_THRESHOLD
         )
 
         # Allow config subcommand without worrying about server or client
@@ -1060,12 +1060,12 @@ class TestflingerCli:
         print(f"Artifacts downloaded to {self.args.filename}")
 
     def _get_combined_log_output(
-            self,
-            job_id: str,
-            log_type: LogType,
-            phase: str = None,
-            start_fragment: int = 0,
-            start_timestamp=None,
+        self,
+        job_id: str,
+        log_type: LogType,
+        phase: str = None,
+        start_fragment: int = 0,
+        start_timestamp=None,
     ):
         """
         Return last fragment number and combined logs for specified phase
@@ -1209,7 +1209,6 @@ class TestflingerCli:
 
         try:
             job_details = self.client.show_job(job_id)
-            print(job_details)
         except (errors.NoJobDataError, errors.InvalidJobIdError) as exc:
             sys.exit(str(exc))
 
@@ -1256,19 +1255,19 @@ class TestflingerCli:
                     break
                 if job_state == "waiting":
                     queue_pos = int(self.client.get_job_position(job_id))
-                if queue_pos != prev_queue_pos:
-                    prev_queue_pos = queue_pos
-                    if queue_pos == 0:
-                        print(
-                            "This job will be picked up after the "
-                            "current job is complete (it is next in line)"
-                        )
-                    else:
-                        print(
-                            f"This job will be picked up after the "
-                            f"current job and {queue_pos} job(s) ahead "
-                            f"of it in the queue are complete"
-                        )
+                    if queue_pos != prev_queue_pos:
+                        prev_queue_pos = queue_pos
+                        if queue_pos == 0:
+                            print(
+                                "This job will be picked up after the "
+                                "current job is complete (it is next in line)"
+                            )
+                        else:
+                            print(
+                                f"This job will be picked up after the "
+                                f"current job and {queue_pos} job(s) ahead "
+                                f"of it in the queue are complete"
+                            )
                 time.sleep(1)
             except (errors.NoJobDataError, errors.InvalidJobIdError):
                 # Job-specific errors should exit immediately
@@ -1307,10 +1306,10 @@ class TestflingerCli:
                         job_state = self.get_job_state(job_id)["job_state"]
                         self.history.update(job_id, job_state)
                     except (
-                            errors.NoJobDataError,
-                            errors.InvalidJobIdError,
-                            IOError,
-                            ValueError,
+                        errors.NoJobDataError,
+                        errors.InvalidJobIdError,
+                        IOError,
+                        ValueError,
                     ):
                         # Handle errors gracefully for job listings
                         job_state = "unknown"
