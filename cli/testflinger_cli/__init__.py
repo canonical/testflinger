@@ -323,6 +323,9 @@ class TestflingerCli:
             "--image", "-i", help="Name of the image to use for provisioning"
         )
         parser.add_argument(
+            "--distro", help="Name of the distro to use for provisioning"
+        )
+        parser.add_argument(
             "--key",
             "-k",
             nargs="*",
@@ -330,6 +333,18 @@ class TestflingerCli:
                 "Ssh key(s) to use for reservation "
                 "(ex: -k lp:userid -k gh:userid)"
             ),
+        )
+        parser.add_argument(
+            "-y",
+            "--yes",
+            action="store_true",
+            help="Skip the Proceed confirmation prompt",
+        )
+        parser.add_argument(
+            "--timeout",
+            type=int,
+            default=3600,
+            help="Reservation timeout in seconds (default 3600)",
         )
 
     def _add_status_args(self, subparsers):
@@ -749,20 +764,8 @@ class TestflingerCli:
                     attachment["agent"] = str(agent_path)
                     del attachment["local"]
 
-    def submit(self):
+    def _submit(self, job_dict):
         """Submit a new test job to the server."""
-        if not self.args.filename:
-            data = sys.stdin.read()
-        else:
-            try:
-                data = self.args.filename.read_text(
-                    encoding="utf-8", errors="ignore"
-                )
-            except (PermissionError, FileNotFoundError):
-                logger.exception("Cannot read file %s", self.args.filename)
-                sys.exit(1)
-        job_dict = yaml.safe_load(data)
-
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
         try:
@@ -798,11 +801,31 @@ class TestflingerCli:
                     )
 
         self.history.new(job_id, queue)
+
+        return job_id
+
+    def submit(self):
+        """Submit a new test job to the server."""
+        if not self.args.filename:
+            data = sys.stdin.read()
+        else:
+            try:
+                data = self.args.filename.read_text(
+                    encoding="utf-8", errors="ignore"
+                )
+            except (PermissionError, FileNotFoundError):
+                logger.exception("Cannot read file %s", self.args.filename)
+                sys.exit(1)
+        job_dict = yaml.safe_load(data)
+
+        job_id = self._submit(job_dict)
+
         if self.args.quiet:
             print(job_id)
         else:
             print("Job submitted successfully!")
             print(f"job_id: {job_id}")
+
         if self.args.poll:
             self.do_poll(job_id)
 
@@ -1253,46 +1276,60 @@ class TestflingerCli:
 
     def reserve(self):
         """Install and reserve a system."""
-        queues = self.do_list_queues()
-        queue = self.args.queue or helpers.prompt_for_queue(queues)
-        if queue not in queues:
-            logger.warning("'%s' is not in the list of known queues", queue)
+        queue = self.args.queue or helpers.prompt_for_queue(self.client)
         try:
             images = self.client.get_images(queue)
         except OSError:
             logger.warning("Unable to get a list of images from the server!")
             images = {}
-        image = self.args.image or helpers.prompt_for_image(images)
-        if (
-            not image.startswith(("http://", "https://"))
-            and image not in images
-        ):
-            logger.error("'%s' is not in the list of known images", image)
-        if image.startswith(("http://", "https://")):
-            image = f"url: {image}"
+
+        # Handle distro if provided
+        if self.args.distro:
+            image = f"distro: {self.args.distro}"
         else:
-            image = images[image]
+            image = self.args.image or helpers.prompt_for_image(images)
+            if (
+                not image.startswith(("http://", "https://"))
+                and image not in images
+            ):
+                logger.error("'%s' is not in the list of known images", image)
+            if image.startswith(("http://", "https://")):
+                image = f"url: {image}"
+            else:
+                image = images[image]
         ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
+        ssh_keys_yaml = ""
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
                 logger.error("Invalid SSH key format: %s", ssh_key)
+            else:
+                ssh_keys_yaml += f"      - {ssh_key}\n"
         template = inspect.cleandoc(
             """job_queue: {queue}
-                                    provision_data:
-                                        {image}
-                                    reserve_data:
-                                        ssh_keys:"""
+            provision_data:
+                {image}
+            reserve_data:
+                ssh_keys:
+            {ssh_keys_yaml}
+                timeout: {timeout}"""
         )
-        for ssh_key in ssh_keys:
-            template += f"\n      - {ssh_key}"
-        job_data = template.format(queue=queue, image=image)
+        job_data = template.format(
+            queue=queue,
+            image=image,
+            ssh_keys_yaml=ssh_keys_yaml.rstrip("\n"),
+            timeout=self.args.timeout,
+        )
         print("\nThe following yaml will be submitted:")
         print(job_data)
         if self.args.dry_run:
             return
-        answer = input("Proceed? (Y/n) ")
+        if self.args.yes:
+            answer = "y"
+        else:
+            answer = input("Proceed? (Y/n) ")
         if answer in ("Y", "y", ""):
-            job_id = self.submit_job_data(job_data)
+            job_dict = yaml.safe_load(job_data)
+            job_id = self._submit(job_dict)
             print("Job submitted successfully!")
             print(f"job_id: {job_id}")
             self.do_poll(job_id)

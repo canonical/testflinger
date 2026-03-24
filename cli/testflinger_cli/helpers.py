@@ -110,7 +110,7 @@ def prompt_for_ssh_keys() -> list[str]:
     return ssh_keys
 
 
-def prompt_for_queue(queues: dict[str, str]) -> str:
+def prompt_for_queue(client) -> str:
     """Prompt the user to select a queue from a list.
 
     :param queues: A mapping of queue name to descripton to choose from.
@@ -122,6 +122,7 @@ def prompt_for_queue(queues: dict[str, str]) -> str:
         queue = input(input_msg).strip()
         if not queue:
             continue
+        queues = client.get_queues()
         if queue == "?":
             print("\nAdvertised queues on this server:")
             for name, description in queues.items():
