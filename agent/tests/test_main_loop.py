@@ -16,114 +16,74 @@
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 from testflinger_agent import start_agent
 
 
 class TestMainLoop:
     """Test the main agent loop behavior."""
 
-    @pytest.fixture
-    def config(self, tmp_path):
-        """Create a minimal config for testing."""
-        return {
-            "agent_id": "test01",
-            "identifier": "12345-123456",
-            "polling_interval": 1,
-            "server_address": "127.0.0.1:8000",
-            "job_queues": ["test"],
-            "location": "nowhere",
-            "provision_type": "noprovision",
-            "execution_basedir": str(tmp_path / "execution"),
-            "logging_basedir": str(tmp_path / "logs"),
-            "results_basedir": str(tmp_path / "results"),
-        }
+    @patch("testflinger_agent.load_config")
+    @patch("testflinger_agent.configure_logging")
+    @patch("testflinger_agent.TestflingerClient")
+    @patch("testflinger_agent.TestflingerAgent")
+    @patch("time.sleep", side_effect=[None, KeyboardInterrupt()])
+    def test_main_loop_continues_polling_on_empty_queue(
+        self,
+        mock_sleep,
+        mock_agent_class,
+        mock_client_class,
+        mock_configure_logging,
+        mock_load_config,
+        config,
+    ):
+        """Test main loop continues polling when no jobs are available."""
+        mock_load_config.return_value = config
+        c = Mock()
+        mock_client_class.return_value = c
+        mock_agent = Mock()
+        mock_agent_class.return_value = mock_agent
+        mock_agent.check_offline.return_value = (False, "")
+        mock_agent.check_restart.return_value = (False, "")
+        mock_agent.client = c
+        c.server = "http://127.0.0.1:8000"
+        mock_agent.process_jobs.return_value = None
+        c.wait_for_server_connectivity.return_value = None
 
-    def test_main_loop_retries_after_401(self, config):
-        """Test main loop continues after 401 during job check."""
-        sleep_counter = [0]
+        try:
+            start_agent()
+        except KeyboardInterrupt:
+            pass
 
-        def sleep_side_effect(interval):
-            sleep_counter[0] += 1
-            if sleep_counter[0] >= 2:
-                raise KeyboardInterrupt()
+        # Verify process_jobs was called twice
+        assert mock_agent.process_jobs.call_count == 2
 
-        with patch("testflinger_agent.load_config", return_value=config):
-            with patch("testflinger_agent.configure_logging"):
-                with patch(
-                    "testflinger_agent.TestflingerClient"
-                ) as mock_client_class:
-                    with patch(
-                        "testflinger_agent.TestflingerAgent"
-                    ) as mock_agent_class:
-                        with patch(
-                            "time.sleep", side_effect=sleep_side_effect
-                        ):
-                            c = Mock()
-                            mock_client_class.return_value = c
-                            mock_agent = Mock()
-                            mock_agent_class.return_value = mock_agent
-                            mock_agent.check_offline.return_value = (
-                                False,
-                                "",
-                            )
-                            mock_agent.check_restart.return_value = (
-                                False,
-                                "",
-                            )
-                            mock_agent.client = c
-                            c.server = "http://127.0.0.1:8000"
+    @patch("testflinger_agent.load_config")
+    @patch("testflinger_agent.configure_logging")
+    @patch("testflinger_agent.TestflingerClient")
+    @patch("testflinger_agent.TestflingerAgent")
+    @patch("time.sleep", side_effect=[KeyboardInterrupt()])
+    def test_main_loop_skips_processing_when_offline(
+        self,
+        mock_sleep,
+        mock_agent_class,
+        mock_client_class,
+        mock_configure_logging,
+        mock_load_config,
+        config,
+    ):
+        """Test main loop skips job processing when agent is offline."""
+        mock_load_config.return_value = config
+        mock_agent = Mock()
+        mock_agent_class.return_value = mock_agent
+        mock_agent.check_offline.return_value = (True, "Offline by admin")
+        mock_agent.check_restart.return_value = (False, "")
+        mock_agent.client.server = "http://127.0.0.1:8000"
+        mock_agent.process_jobs.return_value = None
 
-                            # Both calls return None (no jobs)
-                            mock_agent.process_jobs.return_value = None
-                            c.wait_for_server_connectivity.return_value = None
+        try:
+            start_agent()
+        except KeyboardInterrupt:
+            pass
 
-                            try:
-                                start_agent()
-                            except KeyboardInterrupt:
-                                pass
-
-                            # Verify process_jobs was called twice
-                            assert mock_agent.process_jobs.call_count == 2
-
-    def test_main_loop_handles_offline(self, config):
-        """Test main loop exits when agent goes offline."""
-        sleep_counter = [0]
-
-        def sleep_side_effect(interval):
-            sleep_counter[0] += 1
-            if sleep_counter[0] >= 1:
-                # End test after prescribed number of loops.
-                raise KeyboardInterrupt()
-
-        with patch("testflinger_agent.load_config", return_value=config):
-            with patch("testflinger_agent.configure_logging"):
-                with patch("testflinger_agent.TestflingerClient"):
-                    with patch(
-                        "testflinger_agent.TestflingerAgent"
-                    ) as mock_agent_class:
-                        with patch(
-                            "time.sleep", side_effect=sleep_side_effect
-                        ):
-                            mock_agent = Mock()
-                            mock_agent_class.return_value = mock_agent
-                            # Agent is offline
-                            mock_agent.check_offline.return_value = (
-                                True,
-                                "Offline by admin",
-                            )
-                            mock_agent.check_restart.return_value = (
-                                False,
-                                "",
-                            )
-                            mock_agent.client.server = "http://127.0.0.1:8000"
-                            mock_agent.process_jobs.return_value = None
-
-                            try:
-                                start_agent()
-                            except KeyboardInterrupt:
-                                pass
-
-                            # process_jobs should not be called when offline
-                            mock_agent.process_jobs.assert_not_called()
+        # process_jobs should not be called when offline
+        mock_agent.process_jobs.assert_not_called()
