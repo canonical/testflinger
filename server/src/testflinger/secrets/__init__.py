@@ -96,15 +96,17 @@ def _make_cipher(
     key_vault_client: MongoClient,
     master_key: bytes,
     key_vault_namespace: str,
+    kms_providers: dict | None = None,
 ) -> ClientEncryption:
     """Create a ClientEncryption instance for the given master key.
 
     :param key_vault_client: MongoClient with access to the key vault database.
     :param master_key: Raw master key bytes.
     :param key_vault_namespace: Fully-qualified key vault namespace.
+    :param kms_providers: Optional KMS providers map.
     """
     return ClientEncryption(
-        kms_providers={"local": {"key": master_key}},
+        kms_providers=kms_providers or {"local": {"key": master_key}},
         key_vault_namespace=key_vault_namespace,
         key_vault_client=key_vault_client,
         codec_options=CodecOptions(),

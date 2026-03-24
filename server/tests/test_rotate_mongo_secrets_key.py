@@ -28,7 +28,7 @@ MONGO_URI = "mongodb://localhost:27017/testflinger_db"
 
 @pytest.fixture
 def mock_cipher(mocker):
-    """Mock _make_cipher to return a controlled ClientEncryption instance."""
+    """Mock ClientEncryption to return a controlled instance."""
     cipher = mocker.Mock(spec=ClientEncryption)
     cipher.rewrap_many_data_key.return_value = mocker.Mock(
         bulk_write_result=mocker.Mock(modified_count=1)
@@ -42,7 +42,7 @@ def mock_cipher(mocker):
 
 
 def test_rewrap_called_with_new_master_key(mock_cipher):
-    """Test rewrap_many_data_key called with new master key."""
+    """Test rewrap_many_data_key is called for both rotation phases."""
     old_key, new_key = os.urandom(96), os.urandom(96)
     rotate_master_key(
         old_master_key=old_key,
@@ -51,15 +51,14 @@ def test_rewrap_called_with_new_master_key(mock_cipher):
         key_vault_uri=MONGO_URI,
     )
 
-    mock_cipher.rewrap_many_data_key.assert_called_once_with(
-        {},
-        provider="local",
-        master_key={"key": new_key},
-    )
+    # Phase 1: old "local" -> "local:new" (new key)
+    mock_cipher.rewrap_many_data_key.assert_any_call({}, provider="local:new")
+    # Phase 2: "local:new" -> "local" (new key), restoring canonical name
+    mock_cipher.rewrap_many_data_key.assert_any_call({}, provider="local")
 
 
 def test_cipher_closed_on_completion(mock_cipher):
-    """Test that the cipher is closed after rotation."""
+    """Test that the cipher is closed after both rotation phases."""
     rotate_master_key(
         old_master_key=os.urandom(96),
         new_master_key=os.urandom(96),
@@ -67,7 +66,7 @@ def test_cipher_closed_on_completion(mock_cipher):
         key_vault_uri=MONGO_URI,
     )
 
-    mock_cipher.close.assert_called_once()
+    assert mock_cipher.close.call_count == 2
 
 
 def test_prints_rotation_complete(mock_cipher, capsys):
