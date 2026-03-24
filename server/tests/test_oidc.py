@@ -21,8 +21,7 @@ from unittest.mock import Mock, patch
 
 from authlib.common.security import generate_token
 from flask import url_for
-
-from testflinger.enums import ServerRoles
+from testflinger_common.enums import ServerRoles
 
 
 def test_login_redirects_to_oidc(oidc_app, iam_server):

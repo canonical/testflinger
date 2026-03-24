@@ -126,11 +126,7 @@ class TestflingerAdminCLI:
         parser.add_argument(
             "--role",
             help="Role defined for client_id",
-            choices=[
-                ServerRoles.ADMIN,
-                ServerRoles.MANAGER,
-                ServerRoles.CONTRIBUTOR,
-            ],
+            choices=[role.value for role in ServerRoles],
         )
         parser.add_argument(
             "--json", help="Optional JSON data with client_permissions"

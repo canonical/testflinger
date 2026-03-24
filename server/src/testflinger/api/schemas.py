@@ -20,9 +20,7 @@ from apiflask.validators import Length, OneOf, Regexp
 from marshmallow import ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
 from testflinger_common.duration import DurationParseError, parse_duration
-from testflinger_common.enums import TestPhase
-
-from testflinger.enums import ServerRoles
+from testflinger_common.enums import ServerRoles, TestPhase
 
 ValidJobStates = (
     "setup",

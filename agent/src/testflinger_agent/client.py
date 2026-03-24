@@ -32,7 +32,7 @@ from requests.adapters import HTTPAdapter
 from testflinger_common.enums import LogType
 from urllib3.util import Retry
 
-from testflinger_agent.errors import TFServerError
+from testflinger_agent.errors import InvalidTokenError, TFServerError
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,23 @@ class TestflingerClient:
         else:
             return influx_client
 
-    def check_jobs(self):
+    def _update_session_auth(self) -> None:
+        """Ensure session has valid authentication.
+
+        This handles both token-based and cookie-based authentication.
+        """
+        # Update Bearer token header
+        access_token = self.get_access_token()
+        if access_token:
+            self.session.headers.update(
+                {"Authorization": f"Bearer {access_token}"}
+            )
+
+        # Update session cookies
+        if not self.session.cookies:
+            self.post_agent_data({"job_id": ""})
+
+    def check_jobs(self) -> dict | None:
         """Check for new jobs for on the Testflinger server.
 
         If the agent has restricted queues, only accept jobs from those queues.
@@ -123,24 +139,31 @@ class TestflingerClient:
         job_uri = urljoin(self.server, "/v1/job")
         logger.debug("Requesting a job")
         try:
+            self._update_session_auth()
             job_request = self.session.get(
                 job_uri, params={"queue": queue_list}, timeout=30
             )
             job_request.raise_for_status()
+            if job_request.content:
+                return job_request.json()
+        except InvalidTokenError:
+            logger.error(
+                "Invalid refresh token. "
+                "Make sure the token file is correct and try again."
+            )
         except HTTPError as exc:
-            if exc.response.status_code == HTTPStatus.UNAUTHORIZED:
-                # Re-register the agent to authenticate it.
-                self.post_agent_data({"job_id": ""})
-                return None
+            if exc.response.status_code in (
+                HTTPStatus.UNAUTHORIZED,
+                HTTPStatus.FORBIDDEN,
+            ):
+                logger.error("Agent not authorized to request jobs.")
             logger.error(exc)
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
             # Wait a little extra before trying again
             time.sleep(60)
-        else:
-            if job_request.content:
-                return job_request.json()
-            return None
+
+        return None
 
     def get_attachments(self, job_id: str, path: Path):
         """Download the attachment archive associated with a job.
@@ -323,52 +346,23 @@ class TestflingerClient:
         job_id: str,
         log_input: LogEndpointInput,
         log_type: LogType,
-    ):
+    ) -> bool:
         """Post log data to the testflinger server for this job.
 
         :param job_id: id for the job
         :param log_input: Dataclass with all of the keys for the log endpoint
         :param log_type: Enum of different log types the server accepts
+        :returns: True if log was posted successfully, False otherwise
         """
         endpoint = urljoin(self.server, f"/v1/result/{job_id}/log/{log_type}")
-
-        # Define request success flags
-        request = None
-
-        # TODO: Remove legacy endpoint support in future versions
-        # Define legacy_request success flag
-        legacy_request = None
-
-        # Enum is "serial", for compatibility, define "serial_output" instead
-        suffix = (
-            "serial_output"
-            if log_type == LogType.SERIAL_OUTPUT
-            else log_type.value
-        )
-        legacy_endpoint = urljoin(self.server, f"/v1/result/{job_id}/{suffix}")
-        # Prioritize writing to legacy endpoint
-        try:
-            legacy_request = self.session.post(
-                legacy_endpoint,
-                data=log_input.log_data.encode("utf-8"),
-                timeout=60,
-            )
-        except requests.exceptions.RequestException as exc:
-            logger.error(exc)
-            logger.info("Fallback to new log endpoint")
-
-        # Write logs to new endpoint
         try:
             request = self.session.post(
                 endpoint, json=asdict(log_input), timeout=60
             )
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
-
-        # Return True if either request was successful
-        return any(
-            req is not None and req.ok for req in (legacy_request, request)
-        )
+            return False
+        return request.ok
 
     def post_advertised_queues(self):
         """Post the list of advertised queues to testflinger server."""
@@ -546,3 +540,45 @@ class TestflingerClient:
             # Exponentially increase interval between rechecks
             interval = min(interval * (2**retry_count), max_interval)
             retry_count += 1
+
+    def get_access_token(self, timeout=30) -> str | None:
+        """Exchange a refresh token for an acess token.
+
+        This is used for authenticating with the Testflinger server.
+        Access token is short lived, so we need to refresh it upon request.
+
+        :param timeout: timeout in seconds for completing HTTP request
+        :returns: Access token string if successful, None otherwise
+        :raises: InvalidTokenError if refresh token is invalid
+        """
+        token_file = self.config.get("token_file")
+        refresh_url = urljoin(self.server, "/v1/oauth2/refresh")
+
+        if token_file:
+            try:
+                with Path(token_file).open() as f:
+                    token_data = json.load(f)
+            except (OSError, json.JSONDecodeError) as exc:
+                logger.error("Failed to read token file: %s", exc)
+                return None
+
+            refresh_token = token_data.get("refresh_token")
+            try:
+                response = self.session.post(
+                    refresh_url,
+                    json={"refresh_token": refresh_token},
+                    timeout=timeout,
+                )
+                response.raise_for_status()
+                token_data = response.json()
+                return token_data["access_token"]
+            except HTTPError as exc:
+                if exc.response.status_code == HTTPStatus.BAD_REQUEST:
+                    # Server returns a json error message on bad request
+                    # This handles missing or invalid refresh tokens
+                    logger.error(exc.response.json().get("message"))
+                    raise InvalidTokenError from exc
+            except requests.exceptions.RequestException as exc:
+                logger.error("Failed to refresh access token: %s", exc)
+
+        return None

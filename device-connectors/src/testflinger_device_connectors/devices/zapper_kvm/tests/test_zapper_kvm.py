@@ -19,9 +19,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import requests
 import yaml
 
 from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
 
 
@@ -53,6 +55,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
 
         connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
         args, kwargs = connector._validate_configuration()
 
         expected = {
@@ -61,7 +64,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "password": "ubuntu",
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
             "robot_tasks": ["job.robot", "another.robot"],
-            "robot_retries": 1,
+            "authorized_keys": ["mykey"],
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -80,12 +83,14 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
 
         connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
         args, kwargs = connector._validate_configuration()
 
         expected = {
             "preset": "preset-test",
             "username": "ubuntu",
             "password": "ubuntu",
+            "authorized_keys": ["mykey"],
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -107,6 +112,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
 
         connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
         args, kwargs = connector._validate_configuration()
 
         expected = {
@@ -114,6 +120,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "preset": "preset-test",
             "username": "ubuntu",
             "password": "ubuntu",
+            "authorized_keys": ["mykey"],
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -133,7 +140,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                     "another.robot",
                 ],
                 "autoinstall_storage_layout": "lvm",
-                "robot_retries": 3,
+                "robot_retries": 1,
                 "cmdline_append": "more arguments",
                 "skip_download": True,
                 "wait_until_ssh": True,
@@ -147,6 +154,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
 
         connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
         args, kwargs = connector._validate_configuration()
 
         expected = {
@@ -155,12 +163,13 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "password": "password",
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
             "robot_tasks": ["job.robot", "another.robot"],
-            "robot_retries": 3,
+            "robot_retries": 1,
             "cmdline_append": "more arguments",
             "skip_download": True,
             "wait_until_ssh": True,
             "live_image": False,
             "ubuntu_sso_email": "username@domain.com",
+            "authorized_keys": ["mykey"],
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -191,6 +200,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
 
         connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
         args, kwargs = connector._validate_configuration()
 
         expected = {
@@ -199,7 +209,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "password": "u",
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
             "robot_tasks": ["job.robot", "another.robot"],
-            "robot_retries": 2,
+            "authorized_keys": ["mykey"],
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -257,13 +267,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                 "test_password": "password",
             },
         }
-        connector._read_ssh_key = Mock(return_value="mykey")
 
         conf = connector._get_autoinstall_conf()
 
         expected = {
             "storage_layout": "lvm",
-            "authorized_keys": ["mykey"],
         }
         self.assertDictEqual(conf, expected)
 
@@ -295,14 +303,12 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
 
         connector._validate_base_user_data = Mock()
-        connector._read_ssh_key = Mock(return_value="mykey")
         conf = connector._get_autoinstall_conf()
 
         connector._validate_base_user_data.assert_called_once_with("content")
         expected = {
             "storage_layout": "lvm",
             "base_user_data": "content",
-            "authorized_keys": ["mykey"],
         }
         self.assertDictEqual(conf, expected)
 
@@ -328,7 +334,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             },
         }
 
-        connector._read_ssh_key = Mock(return_value="mykey")
         conf = connector._get_autoinstall_conf()
 
         user_data_oem = (
@@ -338,7 +343,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
         expected = {
             "storage_layout": "direct",
-            "authorized_keys": ["mykey"],
             "base_user_data": encoded_user_data.decode(),
         }
         self.assertDictEqual(conf, expected)
@@ -590,3 +594,68 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         connector = DeviceConnector(fake_config)
         key = connector._read_ssh_key()
         self.assertEqual(key, "mykey")
+
+    @patch.object(DeviceConnector, "wait_ready")
+    @patch.object(DeviceConnector, "_reboot_control_host")
+    @patch.object(ZapperConnector, "wait_offline")
+    @patch.object(DeviceConnector, "_api_post")
+    def test_pre_provision_hook_poweroff(
+        self, mock_api_post, mock_wait_offline, mock_reboot, mock_wait_ready
+    ):
+        """Test pre_provision_hook sends poweroff, waits for RPyC to
+        go down, reboots control host, then waits for it to come back.
+        """
+        connector = DeviceConnector({"control_host": "zapper-host"})
+
+        connector.pre_provision_hook()
+
+        mock_api_post.assert_called_once_with(
+            "/api/v1/system/poweroff", timeout=10
+        )
+        mock_wait_offline.assert_called_once_with(
+            ZapperConnector._check_rpyc_server_on_host,
+            "zapper-host",
+            30,
+        )
+        mock_reboot.assert_called_once()
+        mock_wait_ready.assert_called_once_with("zapper-host", timeout=300)
+
+    @patch(
+        "testflinger_device_connectors.devices.DefaultDevice"
+        ".pre_provision_hook"
+    )
+    @patch.object(DeviceConnector, "wait_ready")
+    @patch.object(
+        DeviceConnector,
+        "_api_post",
+        side_effect=requests.ConnectionError,
+    )
+    def test_pre_provision_hook_fallback(
+        self, mock_api_post, mock_wait_ready, mock_super_hook
+    ):
+        """Test pre_provision_hook falls back to super() when REST fails."""
+        connector = DeviceConnector({"control_host": "zapper-host"})
+
+        connector.pre_provision_hook()
+
+        mock_api_post.assert_called_once()
+        mock_wait_ready.assert_not_called()
+        mock_super_hook.assert_called_once()
+
+    @patch(
+        "testflinger_device_connectors.devices.DefaultDevice"
+        ".pre_provision_hook"
+    )
+    @patch.object(DeviceConnector, "_api_post")
+    def test_pre_provision_hook_no_control_host(
+        self, mock_api_post, mock_super_hook
+    ):
+        """Test pre_provision_hook delegates to super()
+        with no control_host.
+        """
+        connector = DeviceConnector({})
+
+        connector.pre_provision_hook()
+
+        mock_api_post.assert_not_called()
+        mock_super_hook.assert_called_once()

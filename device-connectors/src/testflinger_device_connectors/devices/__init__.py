@@ -439,7 +439,14 @@ class DefaultDevice:
 
     @staticmethod
     def wait_online(check: Callable, host: str, timeout: int) -> None:
-        """Poll the host server using `check` until it's available."""
+        """Poll the host server using `check` until it's available.
+
+        :param check: callable that takes a host string and raises
+            ConnectionError if the host is unreachable.
+        :param host: the host address to check.
+        :param timeout: maximum time to wait in seconds.
+        :raises TimeoutError: if the host is not available within the timeout.
+        """
         start_time = time.time()
         while time.time() - start_time < timeout:
             try:
@@ -450,7 +457,27 @@ class DefaultDevice:
         else:
             raise TimeoutError
 
-    def __reboot_control_host(self) -> None:
+    @staticmethod
+    def wait_offline(check: Callable, host: str, timeout: int) -> None:
+        """Poll the host server using `check` until it's unreachable.
+
+        :param check: callable that takes a host string and raises
+            ConnectionError if the host is unreachable.
+        :param host: the host address to check.
+        :param timeout: maximum time to wait in seconds.
+        :raises TimeoutError: if the host is still reachable after the timeout.
+        """
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                check(host)
+                time.sleep(2)
+            except ConnectionError:
+                break
+        else:
+            raise TimeoutError
+
+    def _reboot_control_host(self) -> None:
         control_host_reboot_script: list[str] = [
             str(cmd)
             for cmd in self.config.get("control_host_reboot_script", [])
@@ -503,7 +530,7 @@ class DefaultDevice:
             logger.debug("The control host is reachable over SSH.")
             return
 
-        self.__reboot_control_host()
+        self._reboot_control_host()
 
         timeout = 300
         logger.info(

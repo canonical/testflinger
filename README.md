@@ -44,6 +44,7 @@ workflows:
 - [`submit`][submit-action]: Submit a job
 - [`poll-multi`][poll-multi-action]: Poll
   a multi-device agent job
+- [`queue-status`][queue-status-action]: Query the status of a specified queue. 
 
 ## Documentation
 
@@ -68,3 +69,4 @@ If you're interested, start with the [contribution guide](CONTRIBUTING.md).
 [github]: https://github.com/canonical/testflinger
 [submit-action]: .github/actions/submit/README.md
 [poll-multi-action]: .github/actions/poll-multi/README.md
+[queue-status-action]: .github/actions/queue-status/README.md
