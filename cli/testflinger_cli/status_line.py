@@ -16,8 +16,8 @@ import builtins
 import sys
 import threading
 import time
-from datetime import datetime
 
+"""Persistent status line with thread-safe print operations."""
 
 # Save originals before we override them
 _original_print = builtins.print
@@ -25,8 +25,7 @@ _original_input = builtins.input
 
 
 class StatusLine:
-    """
-    Persistent status line displayed at the bottom of terminal output.
+    """Persistent status line displayed at the bottom of terminal output.
 
     A wrapper namespace providing thread-safe print operations with an
     always-visible status line. Runs a daemon timer thread that updates
@@ -52,8 +51,7 @@ class StatusLine:
 
     @classmethod
     def configure(cls, update_rate=10.0):
-        """
-        Configure update rate before calling start().
+        """Configure update rate before calling start().
 
         Args:
             update_rate: Hz (updates per second, default 1.0)
@@ -99,8 +97,7 @@ class StatusLine:
 
     @classmethod
     def set_state(cls, state):
-        """
-        Update the job state and handle state transitions (thread-safe).
+        """Update the job state and handle state transitions (thread-safe).
 
         When state changes, prints elapsed time in previous state.
 
@@ -131,8 +128,7 @@ class StatusLine:
 
     @classmethod
     def set_message(cls, message):
-        """
-        Update the status line message (thread-safe).
+        """Update the status line message (thread-safe).
 
         The message will be drawn on the next timer cycle.
         In non-TTY environments, only prints when message changes.
@@ -154,7 +150,7 @@ class StatusLine:
         """Return elapsed/countdown time as MM:SS or HH:MM:SS."""
         if cls._start_time is None:
             return "00:00"
-        
+
         if cls._countdown_mode:
             # Countdown mode: subtract elapsed from initial value
             elapsed = time.time() - cls._start_time
@@ -178,7 +174,7 @@ class StatusLine:
     @classmethod
     def get_elapsed_time(cls):
         """Return elapsed time as (hours, minutes, seconds) tuple.
-        
+
         Uses _original_start_time to ignore countdown mode resets.
         """
         if cls._original_start_time is None:
@@ -192,7 +188,7 @@ class StatusLine:
     @classmethod
     def set_countdown(cls, initial_seconds):
         """Enable countdown mode starting from initial_seconds.
-        
+
         Sets the countdown flag, initial value, and resets the timer.
         Fully self-contained and thread-safe.
         """
@@ -209,8 +205,7 @@ class StatusLine:
 
     @classmethod
     def clear(cls):
-        """
-        Clear the status line using ANSI sequences.
+        """Clear the status line using ANSI sequences.
 
         Assumes lock is already held by caller.
         """
@@ -220,8 +215,7 @@ class StatusLine:
 
     @classmethod
     def draw(cls):
-        """
-        Draw the status line at current cursor position.
+        """Draw the status line at current cursor position.
 
         Assumes lock is already held by caller.
         """
@@ -232,8 +226,7 @@ class StatusLine:
 
     @staticmethod
     def print(*args, **kwargs):
-        """
-        Thread-safe print wrapper that preserves status line.
+        """Thread-safe print wrapper that preserves status line.
 
         Clears status line before printing, then restores it after.
         """
@@ -244,8 +237,7 @@ class StatusLine:
 
     @staticmethod
     def input(prompt=""):
-        """
-        Thread-safe input wrapper that preserves status line.
+        """Thread-safe input wrapper that preserves status line.
 
         Clears status line before prompting, restores after user input.
         """
@@ -257,8 +249,8 @@ class StatusLine:
 
     @classmethod
     def init(cls, update_rate=1.0):
-        """
-        Initialize StatusLine: configure, override print and input, start timer.
+        """Initialize StatusLine: configure, override print and input, start
+        timer.
 
         Call this once at application startup.
 

@@ -406,15 +406,14 @@ class DefaultDevice:
         print("Current time:           [{}]".format(now))
         print("Reservation expires at: [{}]".format(expire_time))
         print(
-            f"Reservation will automatically timeout in {timeout} seconds"
+            "Reservation will automatically timeout in {} seconds".format(
+                timeout
+            )
         )
-        if ssh_keys:
-            print(f"SSH Keys: {', '.join(ssh_keys)}")
-        
         job_id = job_data.get("job_id", "<job_id>")
         print(
-            f"To end the reservation sooner use: testflinger-cli cancel "
-            f"{job_id}"
+            "To end the reservation sooner use: "
+            + "testflinger-cli cancel {}".format(job_id)
         )
         time.sleep(int(timeout))
 

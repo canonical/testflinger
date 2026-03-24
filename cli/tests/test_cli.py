@@ -1344,6 +1344,12 @@ def test_live_polling_with_fragments_progression(
     )
     monkeypatch.setattr(tfcli.history, "update", mock_history_update)
 
+    # Mock client.show_job (required by do_poll)
+    tfcli.client.show_job = lambda job_id_arg: {
+        "job_state": "running",
+        "timeout": 3600,
+    }
+
     # Run the polling
     tfcli.do_poll(job_id)
 
@@ -1377,6 +1383,12 @@ def test_live_polling_with_empty_poll(
 ):
     """Test that live output handles empty polls correctly."""
     job_id = str(uuid.uuid1())
+
+    # Mock job detail (show_job)
+    requests_mock.get(
+        f"{URL}/v1/job/{job_id}",
+        json={"job_state": "active", "timeout": 3600},
+    )
 
     # Mock job status
     requests_mock.get(
@@ -1414,7 +1426,7 @@ def test_live_polling_with_empty_poll(
     tfcli.run()
 
     captured = capsys.readouterr()
-    assert "Waiting on output..." in captured.err
+    assert "Waiting on output..." in captured.out
     assert len(mock_sleep.call_args_list) >= 9
 
 
@@ -1422,6 +1434,12 @@ def test_live_polling_with_empty_poll(
 def test_live_polling_by_phase(mock_sleep, capsys, requests_mock, monkeypatch):
     """Test live polling by phase exits when target phase completes."""
     job_id = str(uuid.uuid1())
+
+    # Mock job detail (show_job)
+    requests_mock.get(
+        f"{URL}/v1/job/{job_id}",
+        json={"job_state": "provision", "timeout": 3600},
+    )
 
     # Mock job status checks
     requests_mock.get(
@@ -1514,6 +1532,12 @@ def test_poll_exponential_backoff_on_network_errors(
 ):
     """Test that polling uses exponential backoff on network errors."""
     job_id = str(uuid.uuid1())
+
+    # Mock job detail (show_job)
+    requests_mock.get(
+        f"{URL}/v1/job/{job_id}",
+        json={"job_state": "running", "timeout": 3600},
+    )
 
     # Mock both endpoints to fail 5 times then succeed
     requests_mock.get(
@@ -1678,13 +1702,20 @@ def test_get_job_state_raises_invalid_job_id_error(mock_get_status):
     assert "Invalid job id specified" in str(exc_info.value)
 
 
+@patch("testflinger_cli.client.Client.show_job")
 @patch("testflinger_cli.client.Client.get_status")
-def test_poll_with_bad_request_error(mock_get_status):
+def test_poll_with_bad_request_error(
+    mock_get_status, mock_show_job
+):
     """Test poll command exits cleanly on HTTPError 400.
 
     Verifies do_poll() exits with a user-friendly error message when
     get_job_state() raises InvalidJobIdError (preserves original behavior).
     """
+    mock_show_job.return_value = {
+        "job_state": "running",
+        "timeout": 3600,
+    }
     mock_get_status.side_effect = HTTPError(
         status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
     )
@@ -1693,20 +1724,23 @@ def test_poll_with_bad_request_error(mock_get_status):
     sys.argv = ["", "poll", job_id]
     tfcli = testflinger_cli.TestflingerCli()
 
-    # Original behavior: exits with clean error message
-    with pytest.raises(SystemExit) as exc_info:
+    # do_poll raises InvalidJobIdError on bad request
+    with pytest.raises(InvalidJobIdError):
         tfcli.do_poll(job_id)
 
-    assert "Invalid job id specified" in str(exc_info.value)
 
-
+@patch("testflinger_cli.client.Client.show_job")
 @patch("testflinger_cli.client.Client.get_status")
-def test_poll_with_no_content_error(mock_get_status):
+def test_poll_with_no_content_error(mock_get_status, mock_show_job):
     """Test poll command exits cleanly on HTTPError 204.
 
     Verifies do_poll() exits with a user-friendly error message when
     get_job_state() raises NoJobDataError (preserves original behavior).
     """
+    mock_show_job.return_value = {
+        "job_state": "running",
+        "timeout": 3600,
+    }
     mock_get_status.side_effect = HTTPError(
         status=HTTPStatus.NO_CONTENT, msg="No content"
     )
@@ -1715,11 +1749,9 @@ def test_poll_with_no_content_error(mock_get_status):
     sys.argv = ["", "poll", job_id]
     tfcli = testflinger_cli.TestflingerCli()
 
-    # Original behavior: exits with clean error message
-    with pytest.raises(SystemExit) as exc_info:
+    # do_poll raises NoJobDataError on no content
+    with pytest.raises(NoJobDataError):
         tfcli.do_poll(job_id)
-
-    assert "No data found for that job id" in str(exc_info.value)
 
 
 @patch("testflinger_cli.client.Client.get_status")

@@ -1,10 +1,13 @@
 # Copyright (C) 2025 Canonical Ltd.
 """Shared pytest fixtures and configuration."""
 
+import builtins
 import uuid
 
 import jwt
 import pytest
+
+from testflinger_cli.status_line import StatusLine
 
 from .test_cli import URL
 
@@ -12,6 +15,43 @@ from .test_cli import URL
 TEST_CLIENT_ID = "my_client_id"
 TEST_SECRET_KEY = "my_secret_key"
 JWT_SIGNING_KEY = "my-secret"
+
+
+@pytest.fixture(autouse=True)
+def cleanup_statusline():
+    """Cleanup StatusLine after each test to prevent state pollution."""
+    # Reset before test
+    StatusLine._running = False
+    StatusLine._timer_thread = None
+    StatusLine.message = ""
+    StatusLine.state = ""
+    StatusLine._is_tty = None
+    StatusLine._start_time = None
+    StatusLine._last_printed_message = ""
+    StatusLine._countdown_mode = False
+    StatusLine._prev_state = None
+    StatusLine._state_start_time = None
+
+    yield
+
+    # Cleanup after test
+    StatusLine.stop()
+    # Ensure builtins are restored to original state
+    from testflinger_cli.status_line import _original_input, _original_print
+
+    builtins.print = _original_print
+    builtins.input = _original_input
+    # Reset StatusLine state for next test
+    StatusLine._running = False
+    StatusLine._timer_thread = None
+    StatusLine.message = ""
+    StatusLine.state = ""
+    StatusLine._is_tty = None
+    StatusLine._start_time = None
+    StatusLine._last_printed_message = ""
+    StatusLine._countdown_mode = False
+    StatusLine._prev_state = None
+    StatusLine._state_start_time = None
 
 
 @pytest.fixture(autouse=True)

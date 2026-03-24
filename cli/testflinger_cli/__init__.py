@@ -50,7 +50,6 @@ from testflinger_cli import (
 )
 from testflinger_cli.admin import TestflingerAdminCLI
 from testflinger_cli.auth import TestflingerCliAuth
-from testflinger_cli.status_line import StatusLine
 from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import (
     AttachmentError,
@@ -59,6 +58,7 @@ from testflinger_cli.errors import (
     SnapPrivateFileError,
     UnknownStatusError,
 )
+from testflinger_cli.status_line import StatusLine
 
 logger = logging.getLogger(__name__)
 
@@ -327,16 +327,15 @@ class TestflingerCli:
             "--image", "-i", help="Name of the image to use for provisioning"
         )
         parser.add_argument(
-            "--distro",
-            help="Name of the distro to use for provisioning"
+            "--distro", help="Name of the distro to use for provisioning"
         )
         parser.add_argument(
-            "--key",
+            "--keys",
             "-k",
-            action="append",
+            nargs="*",
             help=(
                 "Ssh key(s) to use for reservation "
-                "(ex: -k lp:userid -k gh:userid)"
+                "(ex: -k lp:userid gh:userid)"
             ),
         )
         parser.add_argument(
@@ -760,8 +759,8 @@ class TestflingerCli:
                         tar.add(local_path, arcname=archive_path)
                     except FileNotFoundError as exc:
                         if (
-                                helpers.is_snap()
-                                and helpers.file_is_in_snap_private_dir(local_path)
+                            helpers.is_snap()
+                            and helpers.file_is_in_snap_private_dir(local_path)
                         ):
                             raise SnapPrivateFileError(local_path) from exc
                         raise
@@ -771,7 +770,6 @@ class TestflingerCli:
 
     def _submit(self, job_dict):
         """Submit a new test job to the server."""
-
         # Check if agents are available to handle this queue
         # and warn or exit depending on options
         try:
@@ -820,8 +818,7 @@ class TestflingerCli:
                     encoding="utf-8", errors="ignore"
                 )
             except (PermissionError, FileNotFoundError):
-                logger.exception("Cannot read file %s",
-                                 self.args.filename)
+                logger.exception("Cannot read file %s", self.args.filename)
                 sys.exit(1)
         job_dict = yaml.safe_load(data)
 
@@ -848,7 +845,7 @@ class TestflingerCli:
             agent
             for agent in agents
             if agent["state"] != "offline"
-               and agent["name"] not in exclude_agents
+            and agent["name"] not in exclude_agents
         ]
         if len(online_agents) > 0:
             # If there are online agents, then we can proceed
@@ -869,7 +866,7 @@ class TestflingerCli:
                 agent
                 for agent in agents
                 if agent["state"] != "offline"
-                   and agent["name"] in exclude_agents
+                and agent["name"] in exclude_agents
             ]
             print(agents)
             print(exclude_agents)
@@ -1132,22 +1129,21 @@ class TestflingerCli:
     def _filter_and_print_logs(self, log_data):
         """
         Filter and print log data.
-        
+
         In TTY mode: When a line matches the MAAS deployment time pattern,
         update the status line instead of printing it to supress noise.
         All other lines pass through unfiltered.
         In non-TTY mode: Print all logs as-is.
         """
-
         if sys.stdout.isatty():
             # When actively monitoring a job as it runs, supress clutter
             for line in log_data.splitlines():
                 match = re.search(
-                    r'INFO:.*\s*\d+\s+minutes? passed since deployment\.\s*$',
-                    line
+                    r"INFO:.*\s*\d+\s+minutes? passed since deployment\.\s*$",
+                    line,
                 )
                 if match:
-                    StatusLine.set_message(f"Deployment in progress...")
+                    StatusLine.set_message("Deployment in progress...")
                 else:
                     print(line)
         else:
@@ -1180,13 +1176,18 @@ class TestflingerCli:
             StatusLine.set_countdown(timeout)
         elif job_state in ("cancelled", "complete", "completed"):
             hours, minutes, seconds = StatusLine.get_elapsed_time()
-            result_msg = "Job cancelled" if job_state == "cancelled" \
+            result_msg = (
+                "Job cancelled"
+                if job_state == "cancelled"
                 else "Job completed"
-            msg = f"{result_msg} - Total time in use: "\
-                  f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+            )
+            msg = (
+                f"{result_msg} - Total time in use: "
+                f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+            )
 
         # if last state was counting down, start counting up.
-        if StatusLine.state == 'reserved':
+        if StatusLine.state == "reserve":
             StatusLine.disable_countdown()
 
         StatusLine.set_state(job_state)
@@ -1194,9 +1195,9 @@ class TestflingerCli:
             StatusLine.set_message(msg)
 
     def do_poll(
-            self,
-            job_id: str,
-            log_type: LogType = LogType.STANDARD_OUTPUT,
+        self,
+        job_id: str,
+        log_type: LogType = LogType.STANDARD_OUTPUT,
     ):
         """Poll for output from a running job and print it while it runs.
 
@@ -1268,7 +1269,7 @@ class TestflingerCli:
                                 f"current job and {queue_pos} job(s) ahead "
                                 f"of it in the queue are complete"
                             )
-                time.sleep(1)
+                time.sleep(10)
             except (errors.NoJobDataError, errors.InvalidJobIdError):
                 # Job-specific errors should exit immediately
                 raise
@@ -1347,15 +1348,15 @@ class TestflingerCli:
         else:
             image = self.args.image or helpers.prompt_for_image(images)
             if (
-                    not image.startswith(("http://", "https://"))
-                    and image not in images
+                not image.startswith(("http://", "https://"))
+                and image not in images
             ):
                 logger.error("'%s' is not in the list of known images", image)
             if image.startswith(("http://", "https://")):
                 image = f"url: {image}"
             else:
                 image = images[image]
-        ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
+        ssh_keys = self.args.keys or helpers.prompt_for_ssh_keys()
         ssh_keys_yaml = ""
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
@@ -1374,7 +1375,7 @@ class TestflingerCli:
         job_data = template.format(
             queue=queue,
             image=image,
-            ssh_keys_yaml=ssh_keys_yaml.rstrip('\n'),
+            ssh_keys_yaml=ssh_keys_yaml.rstrip("\n"),
             timeout=self.args.timeout,
         )
         print("\nThe following yaml will be submitted:")
