@@ -26,7 +26,7 @@ from bson.codec_options import CodecOptions
 from hvac import Client
 from pymongo import MongoClient
 from pymongo.encryption import ClientEncryption
-from pymongo.errors import EncryptionError
+from pymongo.errors import DuplicateKeyError, EncryptionError
 
 from testflinger.database import get_mongo_uri
 from testflinger.secrets.exceptions import StoreError
@@ -158,12 +158,23 @@ def setup_mongo_store() -> MongoStore | None:
         key_vault_namespace=f"{KEY_VAULT_DATABASE}.{KEY_VAULT_COLLECTION}",
     )
 
-    # create data encryption key, if none exists
+    # Ensure the unique partial index on keyAltNames exists so that concurrent
+    # units cannot create duplicate DEKs for the same key_name.
     key_vault = key_vault_client[KEY_VAULT_DATABASE][KEY_VAULT_COLLECTION]
+    key_vault.create_index(
+        "keyAltNames",
+        unique=True,
+        partialFilterExpression={"keyAltNames": {"$exists": True}},
+    )
+
+    # create data encryption key, if none exists
     existing_key = key_vault.find_one({"keyAltNames": key_name})
     if not existing_key:
         try:
             cipher.create_data_key("local", key_alt_names=[key_name])
+        except DuplicateKeyError:
+            # A concurrent unit won the race and already created the DEK.
+            pass
         except EncryptionError as error:
             raise StoreError(
                 f"Failed to create data encryption key: {error}"
