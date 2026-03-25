@@ -1704,9 +1704,7 @@ def test_get_job_state_raises_invalid_job_id_error(mock_get_status):
 
 @patch("testflinger_cli.client.Client.show_job")
 @patch("testflinger_cli.client.Client.get_status")
-def test_poll_with_bad_request_error(
-    mock_get_status, mock_show_job
-):
+def test_poll_with_bad_request_error(mock_get_status, mock_show_job):
     """Test poll command exits cleanly on HTTPError 400.
 
     Verifies do_poll() exits with a user-friendly error message when

@@ -12,12 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""Persistent status line with thread-safe print operations."""
+
 import builtins
 import sys
 import threading
 import time
-
-"""Persistent status line with thread-safe print operations."""
 
 # Save originals before we override them
 _original_print = builtins.print
