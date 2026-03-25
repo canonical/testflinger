@@ -618,9 +618,7 @@ class TestflingerCli:
                 ]
             elif self.args.status == "offline":
                 filtered = [
-                    a
-                    for a in filtered
-                    if a.get("state") in offline_states
+                    a for a in filtered if a.get("state") in offline_states
                 ]
             elif self.args.status == "maintenance":
                 filtered = [
@@ -665,7 +663,7 @@ class TestflingerCli:
 
     def _print_agent_summary(self, agents: list[dict]):
         """Print summary of agent statuses grouped by online/offline.
-        
+
         Agent states follow the job execution phase order:
         - waiting: idle, ready for jobs
         - setup, provision, firmware_update, test, allocate, reserve: running job phases
@@ -723,7 +721,7 @@ class TestflingerCli:
 
         # Map 'status' to 'state' in agent dicts for backward compatibility
         field_map = {"status": "state"}
-        
+
         # Header names and valid fields
         header_map = {
             "name": "Name",
@@ -735,10 +733,10 @@ class TestflingerCli:
             "queues": "Queues",
         }
         valid_fields = set(header_map.keys())
-        
+
         # Determine fields to display
         fields = [f.strip() for f in self.args.fields.split(",")]
-        
+
         # Validate requested fields
         invalid_fields = set(fields) - valid_fields
         if invalid_fields:
@@ -746,7 +744,7 @@ class TestflingerCli:
                 f"Error: Invalid field(s): {', '.join(sorted(invalid_fields))}\n"
                 f"Valid fields are: {', '.join(sorted(valid_fields))}"
             )
-        
+
         headers = [header_map[f] for f in fields]
 
         # Calculate column widths
