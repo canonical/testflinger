@@ -666,7 +666,8 @@ class TestflingerCli:
 
         Agent states follow the job execution phase order:
         - waiting: idle, ready for jobs
-        - setup, provision, firmware_update, test, allocate, reserve: running job phases
+        - setup, provision, firmware_update, test, allocate, reserve: running
+          job phases
         - offline, maintenance: offline states
         """
         # Define state groupings and display order
@@ -741,8 +742,8 @@ class TestflingerCli:
         invalid_fields = set(fields) - valid_fields
         if invalid_fields:
             sys.exit(
-                f"Error: Invalid field(s): {', '.join(sorted(invalid_fields))}\n"
-                f"Valid fields are: {', '.join(sorted(valid_fields))}"
+                f"Invalid field(s): {', '.join(sorted(invalid_fields))}"
+                f"\nValid fields are: {', '.join(sorted(valid_fields))}"
             )
 
         headers = [header_map[f] for f in fields]
