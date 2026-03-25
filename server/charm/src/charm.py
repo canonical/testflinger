@@ -487,7 +487,7 @@ class TestflingerCharm(ops.CharmBase):
             "TESTFLINGER_SECRETS_MASTER_KEY": self.config[
                 "testflinger_secrets_master_key"
             ],
-            "TESTFLINGER_KEY_VAULT_URI": self._fetch_keyvault_uri(),
+            "TESTFLINGER_KEY_VAULT_URI": self._fetch_keyvault_uri() or "",
             "HTTP_PROXY": self.config["http_proxy"],
             "HTTPS_PROXY": self.config["https_proxy"],
             "NO_PROXY": self.config["no_proxy"],
