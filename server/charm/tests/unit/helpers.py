@@ -22,6 +22,6 @@ def generate_b64_key(bytes_n: int = 96) -> str:
     """Generate a random base64-encoded key string for testing.
 
     :param bytes_n: Number of random bytes to generate before encoding.
-    :return: Base64 decoded string of the random bytes.
+    :return: Base64-encoded string of the random bytes.
     """
     return base64.b64encode(os.urandom(bytes_n)).decode()

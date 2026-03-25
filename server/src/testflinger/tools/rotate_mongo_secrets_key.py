@@ -57,45 +57,46 @@ def rotate_master_key(
     key_vault_client = MongoClient(key_vault_uri)
     print("Re-wrapping DEK(s) under new master key...")
 
-    # Create a cipher with old and new master keys as separate KMS providers.
-    # Required as rewrap_many_data_key does not support passing
-    # master_key directly to "local" KMS provider.
-    cipher = _make_cipher(
-        key_vault_client,
-        old_master_key,
-        key_vault_ns,
-        kms_providers={
-            "local": {"key": old_master_key},
-            "local:new": {"key": new_master_key},
-        },
-    )
     try:
-        result = cipher.rewrap_many_data_key({}, provider="local:new")
-        count = (
-            result.bulk_write_result.modified_count
-            if result.bulk_write_result
-            else 0
+        # Create cipher with old and new master keys as separate KMS providers.
+        # Required as rewrap_many_data_key does not support passing
+        # master_key directly to "local" KMS provider.
+        cipher = _make_cipher(
+            key_vault_client,
+            old_master_key,
+            key_vault_ns,
+            kms_providers={
+                "local": {"key": old_master_key},
+                "local:new": {"key": new_master_key},
+            },
         )
+        try:
+            result = cipher.rewrap_many_data_key({}, provider="local:new")
+            count = (
+                result.bulk_write_result.modified_count
+                if result.bulk_write_result
+                else 0
+            )
+        finally:
+            cipher.close()
+        # Set the new master key in "local" provider and rewrap back to "local"
+        cipher = _make_cipher(
+            key_vault_client,
+            new_master_key,
+            key_vault_ns,
+            kms_providers={
+                "local:new": {"key": new_master_key},
+                "local": {"key": new_master_key},
+            },
+        )
+        try:
+            cipher.rewrap_many_data_key({}, provider="local")
+        finally:
+            cipher.close()
+        print(f"Re-wrapped {count} DEK(s).")
+        print("Rotation complete.")
     finally:
-        cipher.close()
-
-    # Set the new master key in "local" provider and re-wrap back to "local"
-    cipher = _make_cipher(
-        key_vault_client,
-        new_master_key,
-        key_vault_ns,
-        kms_providers={
-            "local:new": {"key": new_master_key},
-            "local": {"key": new_master_key},
-        },
-    )
-    try:
-        cipher.rewrap_many_data_key({}, provider="local")
-    finally:
-        cipher.close()
-
-    print(f"Re-wrapped {count} DEK(s).")
-    print("Rotation complete.")
+        key_vault_client.close()
 
 
 def main() -> None:

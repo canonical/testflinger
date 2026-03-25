@@ -26,7 +26,7 @@ from bson.codec_options import CodecOptions
 from hvac import Client
 from pymongo import MongoClient
 from pymongo.encryption import ClientEncryption
-from pymongo.errors import DuplicateKeyError, EncryptionError
+from pymongo.errors import DuplicateKeyError, EncryptionError, PyMongoError
 
 from testflinger.database import get_mongo_uri
 from testflinger.secrets.exceptions import StoreError
@@ -82,14 +82,20 @@ def _decode_master_key(b64_key: str) -> bytes:
 
     :param b64_key: Base64-encoded master key string.
     :return: Raw key bytes.
-    :raises StoreError: If the string is not valid base64.
+    :raises StoreError: If string is not valid base64 or incorrect length.
     """
     try:
-        return base64.b64decode(b64_key)
+        key_bytes = base64.b64decode(b64_key, validate=True)
     except (binascii.Error, ValueError) as error:
         raise StoreError(
-            "Environment variables with Mongo credentials are incorrect"
+            "Invalid TESTFLINGER_SECRETS_MASTER_KEY: value is not valid base64"
         ) from error
+    if len(key_bytes) != 96:
+        raise StoreError(
+            "Invalid TESTFLINGER_SECRETS_MASTER_KEY: "
+            "decoded key must be 96 bytes for MongoDB local KMS"
+        )
+    return key_bytes
 
 
 def _make_cipher(
@@ -161,24 +167,29 @@ def setup_mongo_store() -> MongoStore | None:
     # Ensure the unique partial index on keyAltNames exists so that concurrent
     # units cannot create duplicate DEKs for the same key_name.
     key_vault = key_vault_client[KEY_VAULT_DATABASE][KEY_VAULT_COLLECTION]
-    key_vault.create_index(
-        "keyAltNames",
-        unique=True,
-        partialFilterExpression={"keyAltNames": {"$exists": True}},
-    )
+    try:
+        key_vault.create_index(
+            "keyAltNames",
+            unique=True,
+            partialFilterExpression={"keyAltNames": {"$exists": True}},
+        )
 
-    # create data encryption key, if none exists
-    existing_key = key_vault.find_one({"keyAltNames": key_name})
-    if not existing_key:
-        try:
-            cipher.create_data_key("local", key_alt_names=[key_name])
-        except DuplicateKeyError:
-            # A concurrent unit won the race and already created the DEK.
-            pass
-        except EncryptionError as error:
-            raise StoreError(
-                f"Failed to create data encryption key: {error}"
-            ) from error
+        # create data encryption key, if none exists
+        existing_key = key_vault.find_one({"keyAltNames": key_name})
+        if not existing_key:
+            try:
+                cipher.create_data_key("local", key_alt_names=[key_name])
+            except DuplicateKeyError:
+                # A concurrent unit won the race and already created the DEK.
+                pass
+            except EncryptionError as error:
+                raise StoreError(
+                    f"Failed to create data encryption key: {error}"
+                ) from error
+    except PyMongoError as error:
+        raise StoreError(
+            f"Failed to access the key vault collection: {error}"
+        ) from error
 
     return MongoStore(client, cipher, key_name)
 
