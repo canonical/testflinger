@@ -22,7 +22,12 @@ import pytest
 from bson.binary import Binary
 from pymongo import MongoClient
 from pymongo.encryption import ClientEncryption
-from pymongo.errors import ConnectionFailure, DuplicateKeyError, EncryptionError, OperationFailure
+from pymongo.errors import (
+    ConnectionFailure,
+    DuplicateKeyError,
+    EncryptionError,
+    OperationFailure,
+)
 
 from testflinger.secrets import setup_mongo_store
 from testflinger.secrets.exceptions import (
@@ -445,7 +450,7 @@ class TestSetupMongoStore:
     def test_setup_mongo_store_key_creation_error(
         self, mocker, valid_master_key, mock_mongo_setup
     ):
-        """Test setup_mongo_store raises StoreError on unexpected EncryptionError."""
+        """Test setup_mongo_store raises StoreError on EncryptionError."""
         mock_client, mock_cipher, mock_store = mock_mongo_setup
 
         # Mock the key vault to return no existing key
@@ -472,7 +477,7 @@ class TestSetupMongoStore:
         mock_client, mock_cipher, mock_store = mock_mongo_setup
 
         mock_key_vault = mocker.Mock()
-        mock_key_vault.find_one.return_value = {"_id": "existing-key"}
+        mock_key_vault.find_one.return_value = {"_id": "existing-uuid"}
         mock_database = mocker.Mock()
         mock_database.__getitem__ = mocker.Mock(return_value=mock_key_vault)
         mock_client.__getitem__ = mocker.Mock(return_value=mock_database)
