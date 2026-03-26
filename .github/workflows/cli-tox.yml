@@ -26,6 +26,8 @@ jobs:
       run:
         working-directory: cli
     runs-on: [self-hosted, linux, jammy, X64]
+    permissions:
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
@@ -36,6 +38,9 @@ jobs:
       - name: Check lock file
         run: uvx --with tox-uv tox -e lock
       - name: Check linting
+        env:
+          RUFF_OUTPUT_FORMAT: sarif
+          RUFF_OUTPUT_FILE: results.sarif
         run: uvx --with tox-uv tox -e lint
       - name: Run unit tests
         run: uvx --with tox-uv tox -e unit
@@ -45,3 +50,14 @@ jobs:
           files: coverage.xml
           flags: cli
           token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: results.sarif
+          path: cli/results.sarif
+
+      - name: Upload scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
+        with:
+          sarif_file: cli/results.sarif

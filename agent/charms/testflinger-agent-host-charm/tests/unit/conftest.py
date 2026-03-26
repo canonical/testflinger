@@ -7,6 +7,7 @@ from collections.abc import Callable
 
 import pytest
 from charm import TestflingerAgentHostCharm
+from config import TestflingerAgentConfig
 from ops import testing
 
 
@@ -21,6 +22,15 @@ def secret() -> testing.Secret:
     """Fixture to create a testing secret with valid credentials."""
     return testing.Secret(
         tracked_content={"client-id": "test-id", "secret-key": "test-key"},
+    )
+
+
+@pytest.fixture
+def config() -> TestflingerAgentConfig:
+    """Fixture to provide default config values for testing."""
+    return TestflingerAgentConfig(
+        config_repo="some-repo",
+        config_dir="agent-configs",
     )
 
 
