@@ -118,7 +118,7 @@ parts:
     build-snaps: [rustup]
     # binaries required as a workaround for cyclic dependency with vcs-versioning
     # see https://github.com/pypa/setuptools-scm/issues/1302
-    charm-binary-python-packages: [cosl, urllib3, pymongo]
+    charm-binary-python-packages: [cosl, urllib3, pymongo, bcrypt]
     override-build: |
       # pydantic requires a higher version of rustc than what is in the archive
       # for 22.04
