@@ -851,8 +851,10 @@ class TestflingerCli:
             # If there are online agents, then we can proceed
             return
         message = f"No online agents available for queue {queue}. "
-        if not hasattr(self.args, 'wait_for_available_agents') or not \
-                self.args.wait_for_available_agents:
+        if (
+            not hasattr(self.args, "wait_for_available_agents")
+            or not self.args.wait_for_available_agents
+        ):
             message = f"ERROR: {message}"
             # Since we're not waiting, we need to produce a good error message
             # to assist in understanding why the job cannot be queued.
