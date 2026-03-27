@@ -116,9 +116,6 @@ parts:
     source: .
     build-packages: [pkg-config, libffi-dev, libssl-dev, build-essential]
     build-snaps: [rustup]
-    # binaries required as a workaround for cyclic dependency with vcs-versioning
-    # see https://github.com/pypa/setuptools-scm/issues/1302
-    charm-binary-python-packages: [cosl, urllib3, pymongo, bcrypt]
     override-build: |
       # pydantic requires a higher version of rustc than what is in the archive
       # for 22.04
@@ -126,4 +123,10 @@ parts:
       rustup set profile minimal
       rustup default 1.93.1  # renovate: charmcraft-rust-latest
 
+      # required to work around a cyclic dependency with vcs-versioning
+      # see https://github.com/pypa/setuptools-scm/issues/1302
+      echo "setuptools-scm<10.0.0" > constraints.txt
+
       craftctl default
+    build-environment:
+      - PIP_CONSTRAINT: constraints.txt
