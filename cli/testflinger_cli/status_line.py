@@ -34,7 +34,7 @@ class StatusLine:
     All operations are class-level (static methods) to avoid instantiation.
     """
 
-    lock = threading.Lock()
+    _print_lock = threading.Lock()
     message = ""
     state = ""
     update_rate = 10.0
@@ -45,7 +45,7 @@ class StatusLine:
     _start_time = None  # Reset in countdown mode, tracks display time
     _countdown_mode = False
     _countdown_start_value = 0
-    _is_tty = None
+    _is_tty = False
     _last_template = ""
     _prev_state = None
     _state_start_time = None
@@ -68,7 +68,6 @@ class StatusLine:
         now = time.time()
         cls._original_start_time = now  # Capture original start
         cls._start_time = now  # Also set display timer
-        cls._is_tty = sys.stdout.isatty()
         cls._timer_thread = threading.Thread(
             target=cls._timer_loop, daemon=True
         )
@@ -89,13 +88,15 @@ class StatusLine:
     @classmethod
     def _timer_loop(cls):
         """Timer thread: update timestamp and redraw at configured rate."""
-        if cls._is_tty:
-            while cls._running:
-                with cls.lock:
-                    cls.clear()
-                    cls.draw()
-                # Only redraw in TTY environment (no spam in CI/logs)
-                time.sleep(1.0 / cls.update_rate)
+        if not cls._is_tty:
+            return
+
+        while cls._running:
+            with cls._print_lock:
+                cls.clear()
+                cls.draw()
+            # Only redraw in TTY environment (no spam in CI/logs)
+            time.sleep(1.0 / cls.update_rate)
 
     @classmethod
     def set_state(cls, state):
@@ -106,27 +107,30 @@ class StatusLine:
         Args:
             state: New job state string
         """
-        with cls.lock:
-            if state != cls._prev_state and cls._prev_state is not None:
-                # State changed - print elapsed time in previous state
-                if cls._state_start_time is not None:
-                    elapsed = int(time.time() - cls._state_start_time)
-                    hours = elapsed // 3600
-                    minutes = (elapsed % 3600) // 60
-                    seconds = elapsed % 60
-                    duration_str = f"{minutes} minutes {seconds} seconds"
-                    if hours > 0:
-                        duration_str = f"{hours} hours {duration_str}"
-                    # Clear status line before printing to avoid mixed output
-                    cls.clear()
-                    _original_print(
-                        f"State '{cls._prev_state}' lasted {duration_str}"
-                    )
-            cls.state = state
-            # Only update state start time on actual state change
-            if state != cls._prev_state:
-                cls._prev_state = state
-                cls._state_start_time = time.time()
+        # State changed - print elapsed time in previous state
+        if (
+            cls._prev_state
+            and state != cls._prev_state
+            and cls._state_start_time
+        ):
+            elapsed = int(time.time() - cls._state_start_time)
+            hours = elapsed // 3600
+            minutes = (elapsed % 3600) // 60
+            seconds = elapsed % 60
+            duration_str = f"{minutes} minutes {seconds} seconds"
+            if hours > 0:
+                duration_str = f"{hours} hours {duration_str}"
+            # Clear status line before printing to avoid mixed output
+            with cls._print_lock:
+                cls.clear()
+                _original_print(
+                    f"State '{cls._prev_state}' lasted {duration_str}"
+                )
+        cls.state = state
+        # Only update state start time on actual state change
+        if state != cls._prev_state:
+            cls._prev_state = state
+            cls._state_start_time = time.time()
 
     @classmethod
     def set_message(cls, template, *args, **kwargs):
@@ -141,15 +145,19 @@ class StatusLine:
             *args: Positional arguments for format()
             **kwargs: Keyword arguments for format()
         """
+        if not cls._is_tty:
+            return
+
         message = template.format(*args, **kwargs)
-        with cls.lock:
-            cls.message = message
-            # In non-TTY, print messages only when they change templates
-            if not cls._is_tty and template != cls._last_template:
+        cls.message = message
+        with cls._print_lock:
+            # Capture the status messages with timers to the console on status
+            # line (template) change.
+            if cls._last_template and template != cls._last_template:
                 _original_print(
                     f"[{cls._get_timestamp()}] [{cls.state}] {message}"
                 )
-            cls._last_template = template
+        cls._last_template = template
 
     @classmethod
     def _get_timestamp(cls):
@@ -198,16 +206,14 @@ class StatusLine:
         Sets the countdown flag, initial value, and resets the timer.
         Fully self-contained and thread-safe.
         """
-        with cls.lock:
-            cls._countdown_mode = True
-            cls._countdown_start_value = initial_seconds
-            cls._start_time = time.time()
+        cls._countdown_mode = True
+        cls._countdown_start_value = initial_seconds
+        cls._start_time = time.time()
 
     @classmethod
     def disable_countdown(cls):
         """Disable countdown mode."""
-        with cls.lock:
-            cls._countdown_mode = False
+        cls._countdown_mode = False
 
     @classmethod
     def clear(cls):
@@ -215,6 +221,9 @@ class StatusLine:
 
         Assumes lock is already held by caller.
         """
+        if not cls._is_tty:
+            return
+
         # Move cursor to start of line, clear to end of line
         sys.stdout.write("\r\033[K")
         sys.stdout.flush()
@@ -225,6 +234,9 @@ class StatusLine:
 
         Assumes lock is already held by caller.
         """
+        if not cls._is_tty:
+            return
+
         timestamp = cls._get_timestamp()
         line = f"[{timestamp}] [{cls.state}] {cls.message}"
         sys.stdout.write(line)
@@ -236,7 +248,7 @@ class StatusLine:
 
         Clears status line before printing, then restores it after.
         """
-        with StatusLine.lock:
+        with StatusLine._print_lock:
             StatusLine.clear()
             _original_print(*args, **kwargs)
             StatusLine.draw()
@@ -247,7 +259,7 @@ class StatusLine:
 
         Clears status line before prompting, restores after user input.
         """
-        with StatusLine.lock:
+        with StatusLine._print_lock:
             StatusLine.clear()
             result = _original_input(prompt)
             StatusLine.draw()
@@ -264,7 +276,8 @@ class StatusLine:
             update_rate: Hz (updates per second, default 1.0)
         """
         # If not a TTY, init is a no-op (allows normal print in piped output)
-        if not sys.stdout.isatty():
+        cls._is_tty = sys.stdout.isatty()
+        if not cls._is_tty:
             return
 
         cls._started = True
