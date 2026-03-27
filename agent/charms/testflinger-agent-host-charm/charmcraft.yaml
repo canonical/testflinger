@@ -100,7 +100,7 @@ parts:
     source: .
     # binaries required as a workaround for cyclic dependency with vcs-versioning
     # see https://github.com/pypa/setuptools-scm/issues/1302
-    charm-binary-python-packages: [cosl, "maturin==1.8.6", "pydantic>=2.12,<3", urllib3]
+    charm-binary-python-packages: [cosl, "maturin==1.8.6", "pydantic>=2.12,<3", urllib3, "charmlibs-passwd==1.0.0", "charmlibs-apt==1.0.0.post0"]
     build-packages: [pkg-config, libffi-dev, libssl-dev]
     build-snaps: [rustup]
     override-build: |
