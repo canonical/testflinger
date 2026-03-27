@@ -1195,7 +1195,7 @@ class TestflingerCli:
             msg = "Provisioning device..."
         elif job_state == "reserve":
             timeout = int(
-                job_details.get("reserve_data", {}).get("timeout", 0)
+                job_details.get("reserve_data", {}).get("timeout", 3600)
             )
             now = datetime.now().astimezone()
             expire_time = now + timedelta(seconds=timeout)
