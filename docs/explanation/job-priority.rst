@@ -1,3 +1,5 @@
+.. _job-priority:
+
 Job Priority
 ============
 
