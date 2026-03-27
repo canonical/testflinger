@@ -99,7 +99,7 @@ parts:
     plugin: charm
     source: .
     build-environment:
-      - PIP_CONSTRAINT: $CRAFT_PART_BUILD/constraints.txt
+      - PIP_CONSTRAINT: $CRAFT_PART_SRC/constraints.txt
     build-packages: [pkg-config, libffi-dev, libssl-dev]
     build-snaps: [rustup]
     override-build: |
