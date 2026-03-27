@@ -22,7 +22,12 @@ import pytest
 from bson.binary import Binary
 from pymongo import MongoClient
 from pymongo.encryption import ClientEncryption
-from pymongo.errors import ConnectionFailure, EncryptionError, OperationFailure
+from pymongo.errors import (
+    ConnectionFailure,
+    DuplicateKeyError,
+    EncryptionError,
+    OperationFailure,
+)
 
 from testflinger.secrets import setup_mongo_store
 from testflinger.secrets.exceptions import (
@@ -389,7 +394,10 @@ class TestSetupMongoStore:
 
         with pytest.raises(
             StoreError,
-            match="Environment variables with Mongo credentials are incorrect",
+            match=(
+                "Invalid TESTFLINGER_SECRETS_MASTER_KEY: "
+                "value is not valid base64"
+            ),
         ):
             setup_mongo_store()
 
@@ -445,7 +453,7 @@ class TestSetupMongoStore:
     def test_setup_mongo_store_key_creation_error(
         self, mocker, valid_master_key, mock_mongo_setup
     ):
-        """Test setup_mongo_store handles EncryptionError in key creation."""
+        """Test setup_mongo_store raises StoreError on EncryptionError."""
         mock_client, mock_cipher, mock_store = mock_mongo_setup
 
         # Mock the key vault to return no existing key
@@ -455,7 +463,6 @@ class TestSetupMongoStore:
         mock_database.__getitem__ = mocker.Mock(return_value=mock_key_vault)
         mock_client.__getitem__ = mocker.Mock(return_value=mock_database)
 
-        # Mock cipher to raise EncryptionError on key creation
         mock_cipher.create_data_key.side_effect = EncryptionError(
             "Key creation failed"
         )
@@ -463,5 +470,89 @@ class TestSetupMongoStore:
         with pytest.raises(
             StoreError,
             match="Failed to create data encryption key: Key creation failed",
+        ):
+            setup_mongo_store()
+
+    def test_setup_mongo_store_creates_unique_index_on_key_alt_names(
+        self, mocker, valid_master_key, mock_mongo_setup
+    ):
+        """Test setup_mongo_store creates a unique partial index."""
+        mock_client, mock_cipher, mock_store = mock_mongo_setup
+
+        mock_key_vault = mocker.Mock()
+        mock_key_vault.find_one.return_value = {"_id": "existing-uuid"}
+        mock_database = mocker.Mock()
+        mock_database.__getitem__ = mocker.Mock(return_value=mock_key_vault)
+        mock_client.__getitem__ = mocker.Mock(return_value=mock_database)
+
+        setup_mongo_store()
+
+        mock_key_vault.create_index.assert_called_once_with(
+            "keyAltNames",
+            unique=True,
+            partialFilterExpression={"keyAltNames": {"$exists": True}},
+        )
+
+    def test_setup_mongo_store_key_exists_race_condition(
+        self, mocker, valid_master_key, mock_mongo_setup
+    ):
+        """Test setup_mongo_store completes successfully in a race condition.
+
+        This can happen on K8s deployments when multiple units start
+        simultaneously and attempt to create the same data encryption key.
+        """
+        mock_client, mock_cipher, mock_store = mock_mongo_setup
+
+        mock_key_vault = mocker.Mock()
+        mock_key_vault.find_one.side_effect = [None, {"_id": "existing-key"}]
+        mock_database = mocker.Mock()
+        mock_database.__getitem__ = mocker.Mock(return_value=mock_key_vault)
+        mock_client.__getitem__ = mocker.Mock(return_value=mock_database)
+
+        mock_cipher.create_data_key.side_effect = DuplicateKeyError(
+            "E11000 duplicate key error"
+        )
+
+        result = setup_mongo_store()
+
+        assert result == mock_store
+
+    def test_setup_mongo_store_index_operation_failure_raises_store_error(
+        self, mocker, valid_master_key, mock_mongo_setup
+    ):
+        """Test setup_mongo_store raises StoreError on OperationFailure."""
+        mock_client, mock_cipher, mock_store = mock_mongo_setup
+
+        mock_key_vault = mocker.Mock()
+        mock_key_vault.create_index.side_effect = OperationFailure(
+            "not authorized on encryption to execute command"
+        )
+        mock_database = mocker.Mock()
+        mock_database.__getitem__ = mocker.Mock(return_value=mock_key_vault)
+        mock_client.__getitem__ = mocker.Mock(return_value=mock_database)
+
+        with pytest.raises(
+            StoreError,
+            match="Failed to access the key vault collection",
+        ):
+            setup_mongo_store()
+
+    def test_setup_mongo_store_connection_failure_raises_store_error(
+        self, mocker, valid_master_key, mock_mongo_setup
+    ):
+        """Test setup_mongo_store raises StoreError on ConnectionFailure."""
+        mock_client, mock_cipher, mock_store = mock_mongo_setup
+
+        mock_key_vault = mocker.Mock()
+        mock_key_vault.find_one.side_effect = ConnectionFailure(
+            "Connection refused"
+        )
+        mock_database = mocker.Mock()
+        mock_database.__getitem__ = mocker.Mock(return_value=mock_key_vault)
+        mock_client.__getitem__ = mocker.Mock(return_value=mock_database)
+
+        with pytest.raises(
+            StoreError,
+            match="Failed to access the key vault collection",
         ):
             setup_mongo_store()
