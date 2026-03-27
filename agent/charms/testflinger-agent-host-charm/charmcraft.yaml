@@ -98,6 +98,8 @@ parts:
   charm:
     plugin: charm
     source: .
+    build-environment:
+      - PIP_CONSTRAINT: $CRAFT_PART_BUILD/constraints.txt
     build-packages: [pkg-config, libffi-dev, libssl-dev]
     build-snaps: [rustup]
     override-build: |
@@ -107,13 +109,8 @@ parts:
       rustup set profile minimal
       rustup default 1.93.1  # renovate: charmcraft-rust-latest
 
-      # required to work around a cyclic dependency with vcs-versioning
-      # see https://github.com/pypa/setuptools-scm/issues/1302
-      echo "setuptools-scm<10.0.0" > constraints.txt
-
       craftctl default
-    build-environment:
-      - PIP_CONSTRAINT: constraints.txt
+
 
 provides:
   cos-agent:

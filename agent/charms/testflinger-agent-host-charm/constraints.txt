@@ -1,0 +1,3 @@
+# required to work around a cyclic dependency with vcs-versioning
+# see https://github.com/pypa/setuptools-scm/issues/1302
+setuptools-scm<10.0.0
