@@ -56,7 +56,7 @@ def parse_filename(
     return path
 
 
-def prompt_for_image(images: dict[str, str]) -> str:
+def prompt_for_image(images: dict[str, str]) -> str | None:
     """Prompt the user to select an image from a list.
 
     :param images: A mapping of image name to image job line to choose from.
@@ -70,8 +70,19 @@ def prompt_for_image(images: dict[str, str]) -> str:
     while not image:
         image = input(input_msg).strip()
         if not image:
+            choice = "x"
+            while choice not in "yn":
+                choice = (
+                    input(
+                        "\nNo image specified, proceed with no provision data?"
+                        " (Y)es/(n)o? "
+                    )
+                    + "x"
+                )[0].lower()  # dummy character to make indexing robust
+            if choice == "y":
+                return None
             continue
-        if image == "?":
+        elif image == "?":
             if not images:
                 print(
                     "WARNING: No images defined for this device. You may also "
@@ -89,7 +100,9 @@ def prompt_for_image(images: dict[str, str]) -> str:
                 "that queue, please select another."
             )
             image = ""
-    return image
+        else:
+            image = images[image].split("url:")[-1]
+    return image.strip()
 
 
 def prompt_for_ssh_keys() -> list[str]:
@@ -110,7 +123,7 @@ def prompt_for_ssh_keys() -> list[str]:
     return ssh_keys
 
 
-def prompt_for_queue(client) -> str:
+def prompt_for_queue(queues: dict[str, str]) -> str:
     """Prompt the user to select a queue from a list.
 
     :param queues: A mapping of queue name to descripton to choose from.
@@ -122,7 +135,6 @@ def prompt_for_queue(client) -> str:
         queue = input(input_msg).strip()
         if not queue:
             continue
-        queues = client.get_queues()
         if queue == "?":
             print("\nAdvertised queues on this server:")
             for name, description in queues.items():
