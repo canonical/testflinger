@@ -77,15 +77,10 @@ def test_prompt_for_queue_valid_input(monkeypatch):
     """Test prompt_for_queue returns valid queue from user input."""
     from testflinger_cli.helpers import prompt_for_queue
 
-    # Mock the client and its method
-    class MockClient:
-        def get_queues(self):
-            return {"queue1": "Description 1", "queue2": "Description 2"}
-
-    client = MockClient()
+    queues = {"queue1": "Description 1", "queue2": "Description 2"}
     monkeypatch.setattr("builtins.input", lambda _: "queue1")
 
-    result = prompt_for_queue(client)
+    result = prompt_for_queue(queues)
     assert result == "queue1"
 
 
@@ -93,15 +88,11 @@ def test_prompt_for_queue_list_queues(monkeypatch, capsys):
     """Test prompt_for_queue lists available queues when '?' is entered."""
     from testflinger_cli.helpers import prompt_for_queue
 
-    class MockClient:
-        def get_queues(self):
-            return {"queue1": "Description 1", "queue2": "Description 2"}
-
-    client = MockClient()
+    queues = {"queue1": "Description 1", "queue2": "Description 2"}
     inputs = iter(["?", "queue1"])
     monkeypatch.setattr("builtins.input", lambda _: next(inputs))
 
-    result = prompt_for_queue(client)
+    result = prompt_for_queue(queues)
     assert result == "queue1"
     captured = capsys.readouterr()
     assert "queue1" in captured.out
@@ -112,15 +103,11 @@ def test_prompt_for_queue_unknown_with_confirmation(monkeypatch):
     """Test prompt_for_queue allows unknown queue with user confirmation."""
     from testflinger_cli.helpers import prompt_for_queue
 
-    class MockClient:
-        def get_queues(self):
-            return {"queue1": "Description 1"}
-
-    client = MockClient()
+    queues = {"queue1": "Description 1"}
     inputs = iter(["unknown_queue", "y"])
     monkeypatch.setattr("builtins.input", lambda _: next(inputs))
 
-    result = prompt_for_queue(client)
+    result = prompt_for_queue(queues)
     assert result == "unknown_queue"
 
 
@@ -128,13 +115,9 @@ def test_prompt_for_queue_unknown_decline(monkeypatch):
     """Test prompt_for_queue rejects unknown queue if user declines."""
     from testflinger_cli.helpers import prompt_for_queue
 
-    class MockClient:
-        def get_queues(self):
-            return {"queue1": "Description 1"}
-
-    client = MockClient()
+    queues = {"queue1": "Description 1"}
     inputs = iter(["unknown_queue", "n", "queue1"])
     monkeypatch.setattr("builtins.input", lambda _: next(inputs))
 
-    result = prompt_for_queue(client)
+    result = prompt_for_queue(queues)
     assert result == "queue1"

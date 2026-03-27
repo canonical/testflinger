@@ -18,7 +18,6 @@
 """TestflingerCli module."""
 
 import contextlib
-import inspect
 import json
 import logging
 import os
@@ -847,7 +846,10 @@ class TestflingerCli:
             # If there are online agents, then we can proceed
             return
         message = f"No online agents available for queue {queue}. "
-        if not self.args.wait_for_available_agents:
+        if (
+            not hasattr(self.args, "wait_for_available_agents")
+            or not self.args.wait_for_available_agents
+        ):
             message = f"ERROR: {message}"
             # Since we're not waiting, we need to produce a good error message
             # to assist in understanding why the job cannot be queued.
@@ -1276,51 +1278,47 @@ class TestflingerCli:
 
     def reserve(self):
         """Install and reserve a system."""
-        queue = self.args.queue or helpers.prompt_for_queue(self.do_list_queues())
-        try:
-            images = self.client.get_images(queue)
-        except OSError:
-            logger.warning("Unable to get a list of images from the server!")
-            images = {}
+        queue = self.args.queue or helpers.prompt_for_queue(
+            self.do_list_queues()
+        )
 
         # Handle distro if provided
+        provision_data = {}
         if self.args.distro:
-            image = f"distro: {self.args.distro}"
+            if self.args.image:
+                sys.exit("--distro cannot be specified with --image")
+            provision_data = {"provision_data": {"distro": self.args.distro}}
         else:
+            try:
+                images = self.client.get_images(queue)
+            except OSError:
+                logger.warning(
+                    "Unable to get a list of images from the server!"
+                )
+                images = {}
             image = self.args.image or helpers.prompt_for_image(images)
-            if (
-                not image.startswith(("http://", "https://"))
-                and image not in images
-            ):
-                logger.warning("'%s' is not in the list of known images", image)
-            if image.startswith(("http://", "https://")):
-                image = f"url: {image}"
-            elif image:
-                image = f"url: {image}"
-        ssh_keys = self.args.keys or helpers.prompt_for_ssh_keys()
-        ssh_keys_yaml = ""
+            if image:
+                provision_data = {"provision_data": {"url": image}}
+
+        ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
                 logger.error("Invalid SSH key format: %s", ssh_key)
-            else:
-                ssh_keys_yaml += f"      - {ssh_key}\n"
-        template = inspect.cleandoc(
-            """job_queue: {queue}
-            provision_data:
-                {image}
-            reserve_data:
-                ssh_keys:
-            {ssh_keys_yaml}
-                timeout: {timeout}"""
-        )
-        job_data = template.format(
-            queue=queue,
-            image=image,
-            ssh_keys_yaml=ssh_keys_yaml.rstrip("\n"),
-            timeout=self.args.timeout,
-        )
-        print("\nThe following yaml will be submitted:")
-        print(job_data)
+
+        job_dict = {
+            "job_queue": queue,
+            "reserve_data": {
+                "ssh_keys": ssh_keys,
+                "timeout": self.args.timeout,
+            },
+        }
+        job_dict.update(provision_data)
+
+        print("\nThe following job will be submitted:")
+        print(json.dumps(job_dict, indent=2))
+
+        # Note: The args --dry-run and --yes are mutually exclusive, and if
+        #       both are specified --dry-run will take precedence.
         if self.args.dry_run:
             return
         if self.args.yes:
@@ -1328,7 +1326,6 @@ class TestflingerCli:
         else:
             answer = input("Proceed? (Y/n) ")
         if answer in ("Y", "y", ""):
-            job_dict = yaml.safe_load(job_data)
             job_id = self._submit(job_dict)
             print("Job submitted successfully!")
             print(f"job_id: {job_id}")

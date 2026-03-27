@@ -56,7 +56,7 @@ def parse_filename(
     return path
 
 
-def prompt_for_image(images: dict[str, str]) -> str:
+def prompt_for_image(images: dict[str, str]) -> str | None:
     """Prompt the user to select an image from a list.
 
     :param images: A mapping of image name to image job line to choose from.
@@ -70,8 +70,19 @@ def prompt_for_image(images: dict[str, str]) -> str:
     while not image:
         image = input(input_msg).strip()
         if not image:
+            choice = "x"
+            while choice not in "yn":
+                choice = (
+                    input(
+                        "\nNo image specified, proceed with no provision data?"
+                        " (Y)es/(n)o? "
+                    )
+                    + "x"
+                )[0].lower()  # dummy character to make indexing robust
+            if choice == "y":
+                return None
             continue
-        if image == "?":
+        elif image == "?":
             if not images:
                 print(
                     "WARNING: No images defined for this device. You may also "
@@ -89,7 +100,9 @@ def prompt_for_image(images: dict[str, str]) -> str:
                 "that queue, please select another."
             )
             image = ""
-    return image
+        else:
+            image = images[image].split("url:")[-1]
+    return image.strip()
 
 
 def prompt_for_ssh_keys() -> list[str]:
