@@ -1276,7 +1276,7 @@ class TestflingerCli:
 
     def reserve(self):
         """Install and reserve a system."""
-        queue = self.args.queue or helpers.prompt_for_queue(self.client)
+        queue = self.args.queue or helpers.prompt_for_queue(self.do_list_queues())
         try:
             images = self.client.get_images(queue)
         except OSError:
@@ -1292,12 +1292,12 @@ class TestflingerCli:
                 not image.startswith(("http://", "https://"))
                 and image not in images
             ):
-                logger.error("'%s' is not in the list of known images", image)
+                logger.warning("'%s' is not in the list of known images", image)
             if image.startswith(("http://", "https://")):
                 image = f"url: {image}"
-            else:
-                image = images[image]
-        ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
+            elif image:
+                image = f"url: {image}"
+        ssh_keys = self.args.keys or helpers.prompt_for_ssh_keys()
         ssh_keys_yaml = ""
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
