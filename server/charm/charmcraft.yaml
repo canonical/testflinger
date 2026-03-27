@@ -114,6 +114,9 @@ parts:
   charm:
     plugin: charm
     source: .
+    # binaries required as a workaround for cyclic dependency with vcs-versioning
+    # see https://github.com/pypa/setuptools-scm/issues/1302
+    charm-binary-python-packages: [cosl, bcrypt, "pymongo<4.9.0", urllib3]
     build-packages: [pkg-config, libffi-dev, libssl-dev, build-essential]
     build-snaps: [rustup]
     override-build: |
@@ -122,9 +125,5 @@ parts:
       # Install rustc and cargo using rustup instead of the Ubuntu archive
       rustup set profile minimal
       rustup default 1.93.1  # renovate: charmcraft-rust-latest
-
-      # This pins setuptools-scm to avoid a cyclic dependency with
-      # vcs-versioning. See https://github.com/pypa/setuptools-scm/issues/1302
-      printf '[global]\nconstraint = %s/constraints.txt\n' "$CRAFT_PART_SRC" > /etc/pip.conf
 
       craftctl default
