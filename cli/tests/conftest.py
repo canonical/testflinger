@@ -15,7 +15,6 @@
 """Shared pytest fixtures and configuration."""
 
 import uuid
-from unittest import mock
 
 import jwt
 import pytest
@@ -78,7 +77,7 @@ def reset_status_line():
     StatusLine._start_time = None
     StatusLine._countdown_mode = False
     StatusLine._countdown_start_value = 0
-    StatusLine._is_tty = None
+    StatusLine._is_tty = False
     StatusLine.message = ""
     StatusLine.state = ""
     StatusLine._prev_state = None
@@ -93,7 +92,16 @@ def reset_status_line():
 
 
 @pytest.fixture
-def mock_tty():
-    """Mock sys.stdout.isatty() to return True."""
-    with mock.patch("sys.stdout.isatty", return_value=True):
-        yield
+def mock_tty(monkeypatch):
+    """Mock sys.stdout.isatty() to return True before StatusLine.init() is
+     called.
+
+    This fixture must be used BEFORE StatusLine.init() is called in the test.
+    It patches sys.stdout.isatty() at the module level so StatusLine.init()
+    will see the mocked return value.
+    """
+    monkeypatch.setattr(
+        "testflinger_cli.status_line.sys.stdout.isatty", lambda: True
+    )
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+    yield
