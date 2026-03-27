@@ -275,18 +275,6 @@ class Client:
         ]
         return agents_status
 
-    def post_job_state(self, job_id, state):
-        """Post the status of a test job.
-
-        :param job_id:
-            ID for the test job
-        :param state:
-            Job state to set for the specified job
-        """
-        endpoint = "/v1/result/{}".format(job_id)
-        data = {"job_state": state}
-        self.post(endpoint, data)
-
     def submit_job(self, data: dict, headers: dict = None) -> str:
         """Submit a test job to the testflinger server.
 
@@ -339,7 +327,7 @@ class Client:
         endpoint = f"/v1/job/{job_id}/attachments"
         self.put_file(endpoint, path, timeout=timeout)
 
-    def show_job(self, job_id):
+    def get_job_data(self, job_id):
         """Show the JSON job definition for the specified ID.
 
         :param job_id:

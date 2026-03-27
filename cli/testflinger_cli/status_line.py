@@ -38,6 +38,7 @@ class StatusLine:
     message = ""
     state = ""
     update_rate = 10.0
+    _started = False
     _running = False
     _timer_thread = None
     _original_start_time = None  # Never reset, tracks total elapsed
@@ -45,7 +46,7 @@ class StatusLine:
     _countdown_mode = False
     _countdown_start_value = 0
     _is_tty = None
-    _last_printed_message = ""
+    _last_template = ""
     _prev_state = None
     _state_start_time = None
 
@@ -79,7 +80,8 @@ class StatusLine:
         cls._running = False
         if cls._timer_thread:
             cls._timer_thread.join(timeout=2.0)
-        sys.stdout.write("\n")
+        if cls._started:
+            sys.stdout.write("\n")
         sys.stdout.flush()
         builtins.print = _original_print
         builtins.input = _original_input
@@ -127,23 +129,27 @@ class StatusLine:
                 cls._state_start_time = time.time()
 
     @classmethod
-    def set_message(cls, message):
+    def set_message(cls, template, *args, **kwargs):
         """Update the status line message (thread-safe).
+        Supports string format templates.
 
         The message will be drawn on the next timer cycle.
-        In non-TTY environments, only prints when message changes.
+        In non-TTY environments, only prints when formatted result changes.
 
         Args:
-            message: New message string
+            template: Format string (e.g., "Processing jobs ... {}")
+            *args: Positional arguments for format()
+            **kwargs: Keyword arguments for format()
         """
+        message = template.format(*args, **kwargs)
         with cls.lock:
             cls.message = message
-            # In non-TTY, print message only when it changes
-            if not cls._is_tty and message != cls._last_printed_message:
+            # In non-TTY, print messages only when they change templates
+            if not cls._is_tty and template != cls._last_template:
                 _original_print(
                     f"[{cls._get_timestamp()}] [{cls.state}] {message}"
                 )
-                cls._last_printed_message = message
+            cls._last_template = template
 
     @classmethod
     def _get_timestamp(cls):
@@ -257,6 +263,11 @@ class StatusLine:
         Args:
             update_rate: Hz (updates per second, default 1.0)
         """
+        # If not a TTY, init is a no-op (allows normal print in piped output)
+        if not sys.stdout.isatty():
+            return
+
+        cls._started = True
         cls.configure(update_rate)
         builtins.print = cls.print
         builtins.input = cls.input

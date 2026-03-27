@@ -15,42 +15,18 @@
 """Unit tests for StatusLine."""
 
 import threading
-import time
 from unittest import mock
 
 import pytest
+from freezegun import freeze_time
 
 from testflinger_cli.status_line import StatusLine
-
-
-@pytest.fixture(autouse=True)
-def reset_status_line():
-    """Reset StatusLine state before and after each test."""
-    # Reset before test
-    StatusLine._running = False
-    StatusLine._timer_thread = None
-    StatusLine._original_start_time = None
-    StatusLine._start_time = None
-    StatusLine._countdown_mode = False
-    StatusLine._countdown_start_value = 0
-    StatusLine._is_tty = None
-    StatusLine.message = ""
-    StatusLine.state = ""
-    StatusLine._prev_state = None
-    StatusLine._state_start_time = None
-    StatusLine._last_printed_message = ""
-
-    yield
-
-    # Cleanup after test
-    if StatusLine._running:
-        StatusLine.stop()
 
 
 class TestStatusLineInit:
     """Tests for StatusLine initialization."""
 
-    def test_init_starts_timer(self):
+    def test_init_starts_timer(self, mock_tty):
         """init() should configure and start the timer thread."""
         StatusLine.init(update_rate=10.0)
 
@@ -61,7 +37,7 @@ class TestStatusLineInit:
 
         StatusLine.stop()
 
-    def test_init_overrides_builtins(self):
+    def test_init_overrides_builtins(self, mock_tty):
         """init() should override print and input builtins."""
         import builtins
 
@@ -84,7 +60,8 @@ class TestStatusLineInit:
 class TestStatusLineElapsedTime:
     """Tests for elapsed time display."""
 
-    def test_elapsed_time_counts_up(self):
+    @freeze_time("2026-03-26 12:00:00")
+    def test_elapsed_time_counts_up(self, mock_tty):
         """Elapsed time should count up from 00:00."""
         StatusLine.init()
 
@@ -92,23 +69,24 @@ class TestStatusLineElapsedTime:
         ts = StatusLine._get_timestamp()
         assert ts == "00:00"
 
-        # Wait and verify it increments
-        time.sleep(2)
-        ts = StatusLine._get_timestamp()
-        assert ts == "00:02"
+        # Advance time 2 seconds and verify it increments
+        with freeze_time("2026-03-26 12:00:02"):
+            ts = StatusLine._get_timestamp()
+            assert ts == "00:02"
 
         StatusLine.stop()
 
-    def test_get_elapsed_time_tuple(self):
+    @freeze_time("2026-03-26 12:00:00")
+    def test_get_elapsed_time_tuple(self, mock_tty):
         """get_elapsed_time() should return (hours, minutes, seconds)."""
         StatusLine.init()
 
-        time.sleep(1)
-        hours, minutes, seconds = StatusLine.get_elapsed_time()
+        with freeze_time("2026-03-26 12:00:01"):
+            hours, minutes, seconds = StatusLine.get_elapsed_time()
 
         assert hours == 0
         assert minutes == 0
-        assert seconds >= 1
+        assert seconds == 1
 
         StatusLine.stop()
 
@@ -116,7 +94,8 @@ class TestStatusLineElapsedTime:
 class TestStatusLineCountdown:
     """Tests for countdown mode."""
 
-    def test_set_countdown_counts_down(self):
+    @freeze_time("2026-03-26 12:00:00")
+    def test_set_countdown_counts_down(self, mock_tty):
         """set_countdown() should enable countdown mode."""
         StatusLine.init()
 
@@ -127,31 +106,33 @@ class TestStatusLineCountdown:
         ts = StatusLine._get_timestamp()
         assert ts == "00:10"
 
-        # Wait and verify it decrements
-        time.sleep(2)
-        ts = StatusLine._get_timestamp()
-        assert ts == "00:08"
+        # Advance time 2 seconds and verify it decrements
+        with freeze_time("2026-03-26 12:00:02"):
+            ts = StatusLine._get_timestamp()
+            assert ts == "00:08"
 
-        # Wait until countdown reaches zero
-        time.sleep(8)
-        ts = StatusLine._get_timestamp()
-        assert ts == "00:00"
+        # Advance until countdown reaches zero
+        with freeze_time("2026-03-26 12:00:10"):
+            ts = StatusLine._get_timestamp()
+            assert ts == "00:00"
 
         StatusLine.stop()
 
-    def test_countdown_reaches_zero(self):
+    @freeze_time("2026-03-26 12:00:00")
+    def test_countdown_reaches_zero(self, mock_tty):
         """Countdown should stay at 00:00 after reaching zero."""
         StatusLine.init()
 
         StatusLine.set_countdown(3)
-        time.sleep(4)
 
-        ts = StatusLine._get_timestamp()
-        assert ts == "00:00"
+        with freeze_time("2026-03-26 12:00:04"):
+            ts = StatusLine._get_timestamp()
+            assert ts == "00:00"
 
         StatusLine.stop()
 
-    def test_countdown_with_hours(self):
+    @freeze_time("2026-03-26 12:00:00")
+    def test_countdown_with_hours(self, mock_tty):
         """Countdown >= 1 hour should display HH:MM:SS format."""
         StatusLine.init()
 
@@ -161,13 +142,13 @@ class TestStatusLineCountdown:
         ts = StatusLine._get_timestamp()
         assert ts == "01:30:00"
 
-        time.sleep(1)
-        ts = StatusLine._get_timestamp()
-        assert ts == "01:29:59"
+        with freeze_time("2026-03-26 12:00:01"):
+            ts = StatusLine._get_timestamp()
+            assert ts == "01:29:59"
 
         StatusLine.stop()
 
-    def test_disable_countdown(self):
+    def test_disable_countdown(self, mock_tty):
         """disable_countdown() should switch back to elapsed mode."""
         StatusLine.init()
 
@@ -183,17 +164,19 @@ class TestStatusLineCountdown:
 class TestStatusLineStateChanges:
     """Tests for state transitions."""
 
+    @freeze_time("2026-03-26 12:00:00")
     @mock.patch("testflinger_cli.status_line._original_print")
-    def test_state_change_prints_duration(self, mock_print):
+    def test_state_change_prints_duration(self, mock_print, mock_tty):
         """State transition should print duration of previous state."""
         StatusLine.init()
 
         # Set initial state
         StatusLine.set_state("waiting")
-        time.sleep(1)
 
-        # Change state
-        StatusLine.set_state("running")
+        # Advance time 1 second
+        with freeze_time("2026-03-26 12:00:01"):
+            # Change state
+            StatusLine.set_state("running")
 
         # Verify state changed
         assert StatusLine.state == "running"
@@ -207,7 +190,8 @@ class TestStatusLineStateChanges:
 
         StatusLine.stop()
 
-    def test_multiple_state_transitions(self):
+    @freeze_time("2026-03-26 12:00:00")
+    def test_multiple_state_transitions(self, mock_tty):
         """Multiple state transitions should track elapsed time in each."""
         StatusLine.init()
 
@@ -215,21 +199,19 @@ class TestStatusLineStateChanges:
         StatusLine.set_state("waiting")
         assert StatusLine.state == "waiting"
 
-        time.sleep(1)
+        with freeze_time("2026-03-26 12:00:01"):
+            # running
+            StatusLine.set_state("running")
+            assert StatusLine.state == "running"
 
-        # running
-        StatusLine.set_state("running")
-        assert StatusLine.state == "running"
-
-        time.sleep(1)
-
-        # reserved
-        StatusLine.set_state("reserved")
-        assert StatusLine.state == "reserved"
+        with freeze_time("2026-03-26 12:00:02"):
+            # reserved
+            StatusLine.set_state("reserved")
+            assert StatusLine.state == "reserved"
 
         StatusLine.stop()
 
-    def test_state_message_combination(self):
+    def test_state_message_combination(self, mock_tty):
         """State and message should be displayed together."""
         StatusLine.init()
 
@@ -251,7 +233,8 @@ class TestStatusLineStateChanges:
 class TestStatusLineElapsedThenCountdown:
     """Tests for transitioning from elapsed to countdown mode."""
 
-    def test_elapsed_then_countdown_transition(self):
+    @freeze_time("2026-03-26 12:00:00")
+    def test_elapsed_then_countdown_transition(self, mock_tty):
         """Should transition from elapsed time to countdown smoothly."""
         StatusLine.init()
 
@@ -259,45 +242,47 @@ class TestStatusLineElapsedThenCountdown:
         StatusLine.set_state("waiting")
         StatusLine.set_message("Waiting...")
 
-        time.sleep(2)
-        ts_elapsed = StatusLine._get_timestamp()
-        # Should show elapsed time 00:02
-        assert ts_elapsed == "00:02"
+        with freeze_time("2026-03-26 12:00:02"):
+            ts_elapsed = StatusLine._get_timestamp()
+            # Should show elapsed time 00:02
+            assert ts_elapsed == "00:02"
 
-        # Transition to countdown mode
-        StatusLine.set_countdown(10)
-        ts_countdown = StatusLine._get_timestamp()
-        # Should show remaining 00:10
-        assert ts_countdown == "00:10"
+            # Transition to countdown mode
+            StatusLine.set_countdown(10)
+            ts_countdown = StatusLine._get_timestamp()
+            # Should show remaining 00:10
+            assert ts_countdown == "00:10"
 
-        time.sleep(1)
-        ts_countdown = StatusLine._get_timestamp()
-        # Should have decremented to 00:09
-        assert ts_countdown == "00:09"
+        with freeze_time("2026-03-26 12:00:03"):
+            ts_countdown = StatusLine._get_timestamp()
+            # Should have decremented to 00:09
+            assert ts_countdown == "00:09"
 
         StatusLine.stop()
 
-    def test_countdown_with_state_change(self):
+    @freeze_time("2026-03-26 12:00:00")
+    def test_countdown_with_state_change(self, mock_tty):
         """Countdown should work correctly across state changes."""
         StatusLine.init()
 
         StatusLine.set_state("running")
-        time.sleep(1)
 
-        # Enter reserved state with countdown
-        StatusLine.set_state("reserved")
-        StatusLine.set_countdown(15)
+        with freeze_time("2026-03-26 12:00:01"):
+            # Enter reserved state with countdown
+            StatusLine.set_state("reserved")
+            StatusLine.set_countdown(15)
 
-        # Should be counting down, not up
-        print("\n=== COUNTDOWN FROM 15 SECONDS ===")
-        for i in range(16):
-            ts = StatusLine._get_timestamp()
-            print(f"  {i:2d}s: {ts}")
-            time.sleep(1)
+            # Should be counting down, not up
+            print("\n=== COUNTDOWN FROM 15 SECONDS ===")
+            for i in range(16):
+                with freeze_time(f"2026-03-26 12:00:{i+1:02d}"):
+                    ts = StatusLine._get_timestamp()
+                    print(f"  {i:2d}s: {ts}")
 
         # Verify final state
-        ts = StatusLine._get_timestamp()
-        assert ts == "00:00"
+        with freeze_time("2026-03-26 12:00:16"):
+            ts = StatusLine._get_timestamp()
+            assert ts == "00:00"
 
         StatusLine.stop()
 
@@ -305,7 +290,7 @@ class TestStatusLineElapsedThenCountdown:
 class TestStatusLineThreadSafety:
     """Tests for thread-safe operations."""
 
-    def test_set_countdown_is_thread_safe(self):
+    def test_set_countdown_is_thread_safe(self, mock_tty):
         """set_countdown() should acquire lock before modifying state."""
         StatusLine.init()
 
@@ -325,7 +310,7 @@ class TestStatusLineThreadSafety:
 
         StatusLine.stop()
 
-    def test_set_state_is_thread_safe(self):
+    def test_set_state_is_thread_safe(self, mock_tty):
         """set_state() should acquire lock before modifying state."""
         StatusLine.init()
 
@@ -347,7 +332,7 @@ class TestStatusLineReservedState:
     @mock.patch("testflinger_cli.TestflingerCli._get_combined_log_output")
     @mock.patch("testflinger_cli.TestflingerCli.get_job_state")
     def test_do_poll_enters_reserved_state_with_countdown(
-        self, mock_get_state, mock_get_logs
+        self, mock_get_state, mock_get_logs, mock_tty
     ):
         """
         Integration test: do_poll transitions to reserved state and countdown.
@@ -373,7 +358,7 @@ class TestStatusLineReservedState:
 
         # Mock client
         cli.client = mock.Mock()
-        cli.client.show_job = mock.Mock(
+        cli.client.get_job_data = mock.Mock(
             return_value={
                 "timeout": 10,
                 "reserve_data": {

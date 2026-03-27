@@ -1345,7 +1345,7 @@ def test_live_polling_with_fragments_progression(
     monkeypatch.setattr(tfcli.history, "update", mock_history_update)
 
     # Mock client.show_job (required by do_poll)
-    tfcli.client.show_job = lambda job_id_arg: {
+    tfcli.client.get_job_data = lambda job_id_arg: {
         "job_state": "running",
         "timeout": 3600,
     }
@@ -1702,53 +1702,49 @@ def test_get_job_state_raises_invalid_job_id_error(mock_get_status):
     assert "Invalid job id specified" in str(exc_info.value)
 
 
-@patch("testflinger_cli.client.Client.show_job")
-@patch("testflinger_cli.client.Client.get_status")
-def test_poll_with_bad_request_error(mock_get_status, mock_show_job):
+@patch("testflinger_cli.TestflingerCli.get_job_data")
+@patch("testflinger_cli.TestflingerCli.get_job_state")
+def test_poll_with_bad_request_error(mock_get_state, mock_get_job_data):
     """Test poll command exits cleanly on HTTPError 400.
 
     Verifies do_poll() exits with a user-friendly error message when
     get_job_state() raises InvalidJobIdError (preserves original behavior).
     """
-    mock_show_job.return_value = {
+    mock_get_job_data.return_value = {
         "job_state": "running",
         "timeout": 3600,
     }
-    mock_get_status.side_effect = HTTPError(
-        status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
-    )
+    mock_get_state.side_effect = InvalidJobIdError()
 
     job_id = str(uuid.uuid1())
     sys.argv = ["", "poll", job_id]
     tfcli = testflinger_cli.TestflingerCli()
 
     # do_poll raises InvalidJobIdError on bad request
-    with pytest.raises(InvalidJobIdError):
+    with pytest.raises(SystemExit):
         tfcli.do_poll(job_id)
 
 
-@patch("testflinger_cli.client.Client.show_job")
-@patch("testflinger_cli.client.Client.get_status")
-def test_poll_with_no_content_error(mock_get_status, mock_show_job):
+@patch("testflinger_cli.TestflingerCli.get_job_data")
+@patch("testflinger_cli.TestflingerCli.get_job_state")
+def test_poll_with_no_content_error(mock_get_state, mock_get_job_data):
     """Test poll command exits cleanly on HTTPError 204.
 
     Verifies do_poll() exits with a user-friendly error message when
     get_job_state() raises NoJobDataError (preserves original behavior).
     """
-    mock_show_job.return_value = {
+    mock_get_job_data.return_value = {
         "job_state": "running",
         "timeout": 3600,
     }
-    mock_get_status.side_effect = HTTPError(
-        status=HTTPStatus.NO_CONTENT, msg="No content"
-    )
+    mock_get_state.side_effect = NoJobDataError()
 
     job_id = str(uuid.uuid1())
     sys.argv = ["", "poll", job_id]
     tfcli = testflinger_cli.TestflingerCli()
 
     # do_poll raises NoJobDataError on no content
-    with pytest.raises(NoJobDataError):
+    with pytest.raises(SystemExit):
         tfcli.do_poll(job_id)
 
 

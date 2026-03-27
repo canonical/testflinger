@@ -330,12 +330,12 @@ class TestflingerCli:
             "--distro", help="Name of the distro to use for provisioning"
         )
         parser.add_argument(
-            "--keys",
+            "--key",
             "-k",
-            nargs="*",
+            action="append",
             help=(
                 "Ssh key(s) to use for reservation "
-                "(ex: -k lp:userid gh:userid)"
+                "(ex: -k lp:userid -k gh:userid)"
             ),
         )
         parser.add_argument(
@@ -556,6 +556,30 @@ class TestflingerCli:
 
         except UnknownStatusError as exc:
             sys.exit(exc)
+
+    def get_job_data(self, job_id: str) -> dict | None:
+        """Get the data for the specified job ID.
+
+        :param job_id: Job ID
+        :raises NoJobDataError: When HTTP 204 (no data found)
+        :raises InvalidJobIdError: When HTTP 400 (invalid job ID)
+        :raises IOError: When network error occurs
+        :raises ValueError: When response cannot be parsed
+        :return: Job and phase statuses
+        """
+        try:
+            return self.client.get_job_data(job_id)
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NO_CONTENT:
+                raise errors.NoJobDataError() from exc
+            if exc.status == HTTPStatus.BAD_REQUEST:
+                raise errors.InvalidJobIdError() from exc
+            # re-raise any other HTTPError
+            raise
+        except (IOError, ValueError) as exc:
+            # For other types of network errors, or JSONDecodeError, log it.
+            logger.debug("Unable to retrieve job state: %s", exc)
+        return None
 
     def _get_jobs_status(self):
         """Retrieve the status of jobs in a specified queue."""
@@ -994,7 +1018,7 @@ class TestflingerCli:
     def show(self):
         """Show the requested job JSON for a specified JOB_ID."""
         try:
-            results = self.client.show_job(self.args.job_id)
+            results = self.get_job_data(self.args.job_id)
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.NO_CONTENT:
                 sys.exit("No data found for that job id.")
@@ -1138,7 +1162,7 @@ class TestflingerCli:
         All other lines pass through unfiltered.
         In non-TTY mode: Print all logs as-is.
         """
-        if sys.stdout.isatty():
+        if sys.stdout.isatty() and StatusLine.state == "provision":
             # When actively monitoring a job as it runs, supress clutter
             for line in log_data.splitlines():
                 match = re.search(
@@ -1212,11 +1236,15 @@ class TestflingerCli:
         phase = getattr(self.args, "phase", None)
 
         try:
-            job_details = self.client.show_job(job_id)
+            job_details = self.get_job_data(job_id)
+            job_state_data = self.get_job_state(job_id)
         except (errors.NoJobDataError, errors.InvalidJobIdError) as exc:
             sys.exit(str(exc))
 
-        StatusLine.init()
+        # If the job is already complete (e.g. late or after-action request to
+        # poll) then we can skip using the StatusLine in a live manner
+        if job_state_data["job_state"] not in ("complete", "cancelled"):
+            StatusLine.init()
 
         prev_queue_pos = None
         cur_fragment = start_fragment
@@ -1227,10 +1255,6 @@ class TestflingerCli:
 
                 self.history.update(job_id, job_state)
 
-                # If we just entered this state, initialize the StatusLine
-                if job_state != StatusLine.state:
-                    self._on_state_change(job_state, job_details)
-
                 last_fragment_number, log_data = self._get_combined_log_output(
                     job_id, log_type, phase, cur_fragment, start_timestamp
                 )
@@ -1239,6 +1263,12 @@ class TestflingerCli:
                 if last_fragment_number >= 0 and log_data:
                     self._filter_and_print_logs(log_data)
                     cur_fragment = last_fragment_number + 1
+
+                # If we just entered this state, initialize the StatusLine
+                # Note: we finish printing information about the last (and
+                # maybe also the current) state before updating our StatusLine
+                if job_state != StatusLine.state:
+                    self._on_state_change(job_state, job_details)
 
                 if phase:
                     phase_status = job_state_data.get(phase)
@@ -1359,7 +1389,7 @@ class TestflingerCli:
                 image = f"url: {image}"
             else:
                 image = images[image]
-        ssh_keys = self.args.keys or helpers.prompt_for_ssh_keys()
+        ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
         ssh_keys_yaml = ""
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):
