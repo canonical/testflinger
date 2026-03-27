@@ -48,5 +48,5 @@ def reset_status_line():
 @pytest.fixture
 def mock_tty():
     """Mock sys.stdout.isatty() to return True."""
-    with mock.patch('sys.stdout.isatty', return_value=True):
+    with mock.patch("sys.stdout.isatty", return_value=True):
         yield

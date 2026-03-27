@@ -17,7 +17,6 @@
 import threading
 from unittest import mock
 
-import pytest
 from freezegun import freeze_time
 
 from testflinger_cli.status_line import StatusLine
@@ -275,7 +274,7 @@ class TestStatusLineElapsedThenCountdown:
             # Should be counting down, not up
             print("\n=== COUNTDOWN FROM 15 SECONDS ===")
             for i in range(16):
-                with freeze_time(f"2026-03-26 12:00:{i+1:02d}"):
+                with freeze_time(f"2026-03-26 12:00:{i + 1:02d}"):
                     ts = StatusLine._get_timestamp()
                     print(f"  {i:2d}s: {ts}")
 
