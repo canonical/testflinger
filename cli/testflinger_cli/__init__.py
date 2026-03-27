@@ -326,12 +326,12 @@ class TestflingerCli:
             "--distro", help="Name of the distro to use for provisioning"
         )
         parser.add_argument(
-            "--keys",
+            "--key",
             "-k",
-            nargs="*",
+            action="append",
             help=(
                 "Ssh key(s) to use for reservation "
-                "(ex: -k lp:userid gh:userid)"
+                "(ex: -k lp:userid -k gh:userid)"
             ),
         )
         parser.add_argument(
@@ -1297,7 +1297,7 @@ class TestflingerCli:
                 image = f"url: {image}"
             else:
                 image = images[image]
-        ssh_keys = self.args.keys or helpers.prompt_for_ssh_keys()
+        ssh_keys = self.args.key or helpers.prompt_for_ssh_keys()
         ssh_keys_yaml = ""
         for ssh_key in ssh_keys:
             if not ssh_key.startswith("lp:") and not ssh_key.startswith("gh:"):

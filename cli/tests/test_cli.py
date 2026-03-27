@@ -752,6 +752,139 @@ def test_reserve(capsys, requests_mock):
     assert expected_yaml in std.out
 
 
+def test_reserve_with_distro(capsys, requests_mock):
+    """Ensure reserve command with distro generates correct yaml."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "--distro",
+        "jammy",
+        "-k",
+        "lp:fakeuser",
+        "-d",  # dry-run flag prevents actual submission
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert "distro: jammy" in std.out
+
+
+def test_reserve_with_multiple_ssh_keys(capsys, requests_mock):
+    """Ensure reserve command with multiple ssh keys generates correct
+    yaml.
+    """
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://image_url.xz",
+        "-k",
+        "lp:user1",
+        "-k",
+        "gh:user2",
+        "-d",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert "- lp:user1" in std.out
+    assert "- gh:user2" in std.out
+
+
+def test_reserve_with_custom_timeout(capsys, requests_mock):
+    """Ensure reserve command with custom timeout is included."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://image_url.xz",
+        "-k",
+        "lp:user",
+        "--timeout",
+        "7200",
+        "-d",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert "timeout: 7200" in std.out
+
+
+def test_reserve_with_yes_flag_no_poll(capsys, requests_mock):
+    """Ensure reserve command with -y flag skips confirmation prompt."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    # Dry run to avoid actual submission
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://image_url.xz",
+        "-k",
+        "lp:user",
+        "-y",  # skip confirmation
+        "-d",  # dry-run
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    # Verify yaml was generated without asking for confirmation
+    assert "http://image_url.xz" in std.out
+
+
+def test_reserve_invalid_ssh_key_format(capsys, requests_mock):
+    """Ensure reserve warns about invalid SSH key format."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://image_url.xz",
+        "-k",
+        "invalid_key_format",
+        "-d",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    # Invalid key should not appear in the yaml
+    assert "invalid_key_format" not in std.out
+
+
+def test_submit_method_internal(capsys, tmp_path, requests_mock):
+    """Test the internal _submit method with job dict."""
+    jobid = str(uuid.uuid1())
+    fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+    sys.argv = ["", "submit", "-"]
+    tfcli = testflinger_cli.TestflingerCli()
+    # Call _submit directly with job dict
+    result_job_id = tfcli._submit(fake_data)
+    assert result_job_id == jobid
+
+
 def test_poll_args_generic_parsing():
     """Test that generic poll arguments are parsed correctly."""
     sys.argv = [
