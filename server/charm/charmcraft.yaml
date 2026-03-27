@@ -114,8 +114,6 @@ parts:
   charm:
     plugin: charm
     source: .
-    build-environment:
-      - PIP_CONSTRAINT: $CRAFT_PART_SRC/constraints.txt
     build-packages: [pkg-config, libffi-dev, libssl-dev, build-essential]
     build-snaps: [rustup]
     override-build: |
@@ -124,5 +122,9 @@ parts:
       # Install rustc and cargo using rustup instead of the Ubuntu archive
       rustup set profile minimal
       rustup default 1.93.1  # renovate: charmcraft-rust-latest
+
+      # This pins setuptools-scm to avoid a cyclic dependency with
+      # vcs-versioning. See https://github.com/pypa/setuptools-scm/issues/1302
+      printf '[global]\nconstraint = %s/constraints.txt\n' "$CRAFT_PART_SRC" > /etc/pip.conf
 
       craftctl default
