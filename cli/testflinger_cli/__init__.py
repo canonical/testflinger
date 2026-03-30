@@ -634,9 +634,11 @@ class TestflingerCli:
             all_statuses = set(included_statuses) | set(excluded_statuses)
             invalid_statuses = all_statuses - valid_statuses
             if invalid_statuses:
+                invalid_list = ", ".join(sorted(invalid_statuses))
+                valid_list = ", ".join(sorted(valid_statuses))
                 sys.exit(
-                    f"Invalid status(es): {', '.join(sorted(invalid_statuses))}"
-                    f"\nValid statuses are: {', '.join(sorted(valid_statuses))}"
+                    f"Invalid status(es): {invalid_list}\n"
+                    f"Valid statuses are: {valid_list}"
                 )
 
             # Build the set of allowed agent states
