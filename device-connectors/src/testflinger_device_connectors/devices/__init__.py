@@ -72,6 +72,114 @@ def SerialLogger(host=None, port=None, filename=None):
     return StubSerialLogger(host, port, filename)
 
 
+def import_ssh_key(key: str, keyfile: str = "key.pub") -> None:
+    """Import SSH key provided in Reserve data.
+
+    :param key: SSH key to import.
+    :param keyfile: Output file where to store the imported key
+    :raises RuntimeError: If failure during import ssh keys
+    """
+    cmd = ["ssh-import-id", "-o", keyfile, key]
+    for retry in range(10):
+        try:
+            subprocess.run(
+                cmd,
+                timeout=30,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=True,
+            )
+            logger.info("Successfully imported key: %s", key)
+            break
+
+        except subprocess.TimeoutExpired:
+            pass
+        except subprocess.CalledProcessError as exc:
+            output = (exc.stdout or b"").decode()
+            if "status_code=404" in output:
+                raise RuntimeError(
+                    f"Failed to import ssh key: {key}. User not found."
+                ) from exc
+
+        logger.error("Unable to import ssh key from: %s", key)
+        logger.info("Retrying...")
+        time.sleep(min(2**retry, 100))
+    else:
+        raise RuntimeError(
+            f"Failed to import ssh key: {key}. Maximum retries reached"
+        )
+
+
+def copy_ssh_key(
+    device_ip: str,
+    username: str,
+    password: Optional[str] = None,
+    key: Optional[str] = None,
+):
+    """If provided, copy the SSH `key` to the DUT,
+    otherwise copy the agent's using password authentication.
+
+    :raises RuntimeError in case it can't copy the SSH keys
+    """
+    if not key and not password:
+        raise ValueError("Cannot copy the agent's SSH key w/o password")
+
+    if password:
+        cmd = ["sshpass", "-p", password]
+    else:
+        cmd = []
+
+    cmd.extend(["ssh-copy-id", "-f"])
+
+    if key:
+        cmd.extend(["-i", key])
+
+    cmd.extend(
+        [
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "{}@{}".format(username, device_ip),
+        ]
+    )
+
+    for _retry in range(10):
+        # Retry ssh key copy just in case it's rebooting
+        try:
+            subprocess.check_call(cmd, timeout=30)
+            break
+        except (
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+        ):
+            logger.error("Error copying ssh key to device for: %s", key)
+            logger.info("Retrying...")
+            time.sleep(60)
+
+    else:
+        logger.error("Failed to copy ssh key: %s", key)
+        raise RuntimeError
+
+
+def copy_ssh_keys_to_devices(ssh_keys, device_ips, test_username="ubuntu"):
+    """Copy list of ssh keys to list of devices."""
+    for key in ssh_keys:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink("key.pub")
+
+        try:
+            # Import SSH Keys with ssh-import-id
+            import_ssh_key(key, keyfile="key.pub")
+
+            # Attempt to copy keys only if import succeeds
+            with contextlib.suppress(RuntimeError):
+                for device_ip in device_ips:
+                    copy_ssh_key(device_ip, test_username, key="key.pub")
+        except RuntimeError as exc:
+            logger.error(exc)
+
+
 class StubSerialLogger:
     """Fake SerialLogger when we don't have Serial Logger data defined."""
 
@@ -269,95 +377,6 @@ class DefaultDevice:
         """Allocate devices for multi-agent jobs (default method)."""
         pass
 
-    def import_ssh_key(self, key: str, keyfile: str = "key.pub") -> None:
-        """Import SSH key provided in Reserve data.
-
-        :param key: SSH key to import.
-        :param keyfile: Output file where to store the imported key
-        :raises RuntimeError: If failure during import ssh keys
-        """
-        cmd = ["ssh-import-id", "-o", keyfile, key]
-        for retry in range(10):
-            try:
-                subprocess.run(
-                    cmd,
-                    timeout=30,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    check=True,
-                )
-                logger.info("Successfully imported key: %s", key)
-                break
-
-            except subprocess.TimeoutExpired:
-                pass
-            except subprocess.CalledProcessError as exc:
-                output = (exc.stdout or b"").decode()
-                if "status_code=404" in output:
-                    raise RuntimeError(
-                        f"Failed to import ssh key: {key}. User not found."
-                    ) from exc
-
-            logger.error("Unable to import ssh key from: %s", key)
-            logger.info("Retrying...")
-            time.sleep(min(2**retry, 100))
-        else:
-            raise RuntimeError(
-                f"Failed to import ssh key: {key}. Maximum retries reached"
-            )
-
-    def copy_ssh_key(
-        self,
-        device_ip: str,
-        username: str,
-        password: Optional[str] = None,
-        key: Optional[str] = None,
-    ):
-        """If provided, copy the SSH `key` to the DUT,
-        otherwise copy the agent's using password authentication.
-
-        :raises RuntimeError in case it can't copy the SSH keys
-        """
-        if not key and not password:
-            raise ValueError("Cannot copy the agent's SSH key w/o password")
-
-        if password:
-            cmd = ["sshpass", "-p", password]
-        else:
-            cmd = []
-
-        cmd.extend(["ssh-copy-id", "-f"])
-
-        if key:
-            cmd.extend(["-i", key])
-
-        cmd.extend(
-            [
-                "-o",
-                "StrictHostKeyChecking=no",
-                "-o",
-                "UserKnownHostsFile=/dev/null",
-                "{}@{}".format(username, device_ip),
-            ]
-        )
-
-        for _retry in range(10):
-            # Retry ssh key copy just in case it's rebooting
-            try:
-                subprocess.check_call(cmd, timeout=30)
-                break
-            except (
-                subprocess.CalledProcessError,
-                subprocess.TimeoutExpired,
-            ):
-                logger.error("Error copying ssh key to device for: %s", key)
-                logger.info("Retrying...")
-                time.sleep(60)
-
-        else:
-            logger.error("Failed to copy ssh key: %s", key)
-            raise RuntimeError
-
     def reserve(self, args):
         """Reserve systems (default method)."""
         with open(args.config) as configfile:
@@ -373,20 +392,7 @@ class DefaultDevice:
         device_ip = config["device_ip"]
         reserve_data = job_data["reserve_data"]
         ssh_keys = reserve_data.get("ssh_keys", [])
-        for key in ssh_keys:
-            with contextlib.suppress(FileNotFoundError):
-                os.unlink("key.pub")
-
-            try:
-                # Import SSH Keys with ssh-import-id
-                self.import_ssh_key(key, keyfile="key.pub")
-
-                # Attempt to copy keys only if import succeeds
-                with contextlib.suppress(RuntimeError):
-                    self.copy_ssh_key(device_ip, test_username, key="key.pub")
-            except RuntimeError as exc:
-                logger.error(exc)
-
+        copy_ssh_keys_to_devices(ssh_keys, [device_ip], test_username)
         # default reservation timeout is 1 hour
         timeout = int(reserve_data.get("timeout", "3600"))
         serial_host = config.get("serial_host")
