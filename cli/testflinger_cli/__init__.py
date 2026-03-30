@@ -26,7 +26,7 @@ import sys
 import tarfile
 import tempfile
 import time
-from argparse import ArgumentParser
+from argparse import ArgumentParser, RawTextHelpFormatter
 from collections import Counter
 from datetime import datetime, timezone
 from functools import partial
@@ -372,7 +372,8 @@ class TestflingerCli:
     def _add_list_agent_args(self, subparsers):
         """Command line arguments for list of agents."""
         parser = subparsers.add_parser(
-            "list-agents", help="List agents with optional filtering"
+            "list-agents", help="List agents with optional filtering",
+            formatter_class=RawTextHelpFormatter
         )
         parser.set_defaults(func=self.list_agents)
         parser.add_argument(
@@ -390,9 +391,10 @@ class TestflingerCli:
             dest="filter_status",
             help=(
                 "Filter agents by status (comma-separated). "
-                "Use ^ prefix to exclude. "
-                "Gross: online,offline,maintenance or fine: waiting,setup,"
-                "provision,firmware_update,test,allocate,reserve,cleanup. "
+                "Use ^ prefix to exclude.\n"
+                "Gross: online,offline,maintenance\n"
+                "Fine: waiting,setup,provision,firmware_update,test,allocate"
+                ",reserve,cleanup.\n"
                 "Example: --filter-status online,^waiting"
             ),
         )
