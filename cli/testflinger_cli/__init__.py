@@ -1291,7 +1291,7 @@ class TestflingerCli:
         else:
             try:
                 images = self.client.get_images(queue)
-            except OSError:
+            except (OSError, client.HTTPError):
                 logger.warning(
                     "Unable to get a list of images from the server!"
                 )
