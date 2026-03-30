@@ -1,3 +1,5 @@
+.. _secrets:
+
 Testflinger Secrets
 ===================
 

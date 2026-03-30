@@ -14,6 +14,7 @@ Testflinger
 - :ref:`job-priority`
 - :ref:`queues`
 - :ref:`restricted-queues`
+- :ref:`secrets`
 
 Security
 --------
