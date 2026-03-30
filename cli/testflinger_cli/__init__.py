@@ -558,7 +558,7 @@ class TestflingerCli:
             output = agent_status["state"]
         print(output)
 
-    def list_agents(self):
+    def list_agents(self) -> None:
         """List agents with optional filtering."""
         try:
             agents = self.client.get_all_agents()
@@ -702,7 +702,7 @@ class TestflingerCli:
                     sys.exit(f"Invalid filter regex for {field}: {exc}")
         return filtered
 
-    def _print_agent_summary(self, agents: list[dict]):
+    def _print_agent_summary(self, agents: list[dict]) -> None:
         """Print summary of agent statuses grouped by online/offline.
 
         Agent states follow the job execution phase order:
@@ -755,7 +755,7 @@ class TestflingerCli:
             if count > 0:
                 print(f"  {state:<16} {count}")
 
-    def _print_agent_table(self, agents: list[dict]):
+    def _print_agent_table(self, agents: list[dict]) -> None:
         """Print agents in table format, supporting custom fields."""
         if not agents:
             print("No agents found matching the filter criteria.")
@@ -821,7 +821,7 @@ class TestflingerCli:
                 row.append(f"{val:<{w}}")
             print("  ".join(row))
 
-    def _print_agent_names(self, agents: list[dict]):
+    def _print_agent_names(self, agents: list[dict]) -> None:
         """Print agent names only (one per line).
 
         :param agents: List of filtered agent dictionaries
