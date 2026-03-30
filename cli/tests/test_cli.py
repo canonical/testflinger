@@ -815,10 +815,9 @@ def test_reserve_distro_with_image_fails(requests_mock):
     assert exc_info.value.code == "--distro cannot be specified with --image"
 
 
-def test_reserve_with_yes_flag(capsys, requests_mock, monkeypatch):
+@patch("builtins.input")
+def test_reserve_with_yes_flag(mock_input, capsys, requests_mock):
     """Test reserve command with --yes flag skips confirmation prompt."""
-    from unittest.mock import Mock
-
     jobid = "testid456"
     requests_mock.get(URL + "/v1/agents/queues", json={})
     requests_mock.get(URL + "/v1/agents/images/fake", json={})
@@ -828,12 +827,9 @@ def test_reserve_with_yes_flag(capsys, requests_mock, monkeypatch):
         json=[{"name": "fake_agent", "state": "waiting"}],
     )
     # Mock input to fail if called (should not be called with -y flag)
-    mock_input = Mock(
-        side_effect=AssertionError(
-            "input() should not be called with --yes flag"
-        )
+    mock_input.side_effect = AssertionError(
+        "input() should not be called with --yes flag"
     )
-    monkeypatch.setattr("builtins.input", mock_input)
 
     sys.argv = [
         "",
@@ -878,16 +874,14 @@ def test_reserve_custom_timeout(capsys, requests_mock):
     assert '"timeout": 7200' in std.out
 
 
-def test_reserve_no_image_or_distro(capsys, requests_mock, monkeypatch):
+@patch("testflinger_cli.helpers.prompt_for_image")
+def test_reserve_no_image_or_distro(mock_image, capsys, requests_mock):
     """Test reserve when user opts to proceed with no provision data."""
-    from unittest.mock import Mock
-
     requests_mock.get(URL + "/v1/agents/queues", json={})
     requests_mock.get(URL + "/v1/agents/images/fake", json={})
 
     # Mock prompt_for_image to return None (user chooses no provision data)
-    mock_image = Mock(return_value=None)
-    monkeypatch.setattr("testflinger_cli.helpers.prompt_for_image", mock_image)
+    mock_image.return_value = None
 
     sys.argv = [
         "",
