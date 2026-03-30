@@ -724,17 +724,9 @@ def test_submit_without_queue(tmp_path):
 
 
 def test_reserve(capsys, requests_mock):
-    """Ensure reserve command generates correct yaml."""
+    """Ensure reserve command generates correct JSON output."""
     requests_mock.get(URL + "/v1/agents/queues", json={})
     requests_mock.get(URL + "/v1/agents/images/fake", json={})
-    expected_yaml = (
-        "job_queue: fake\n"
-        "provision_data:\n"
-        "    url: http://face_image.xz\n"
-        "reserve_data:\n"
-        "    ssh_keys:\n"
-        "      - lp:fakeuser"
-    )
     sys.argv = [
         "",
         "reserve",
@@ -749,7 +741,190 @@ def test_reserve(capsys, requests_mock):
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.reserve()
     std = capsys.readouterr()
-    assert expected_yaml in std.out
+    assert '"job_queue": "fake"' in std.out
+    assert '"url": "http://face_image.xz"' in std.out
+    assert '"ssh_keys"' in std.out
+    assert '"lp:fakeuser"' in std.out
+    assert '"timeout": 3600' in std.out
+
+
+def test_reserve_with_distro(capsys, requests_mock):
+    """Test reserve with --distro flag submits correct provision_data."""
+    jobid = "testid123"
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.post(URL + "/v1/job", json={"job_id": jobid})
+    requests_mock.get(
+        URL + "/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+    # Mock position and result to handle polling
+    requests_mock.get(URL + f"/v1/job/{jobid}/position", text="1")
+    requests_mock.get(
+        URL + f"/v1/result/{jobid}", json={"job_state": "completed"}
+    )
+    requests_mock.get(
+        URL + f"/v1/result/{jobid}/log/output?start_fragment=0",
+        json={
+            "output": {
+                "test": {
+                    "last_fragment_number": 0,
+                    "log_data": "test output",
+                }
+            }
+        },
+    )
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "--distro",
+        "ubuntu-20.04",
+        "-k",
+        "lp:fakeuser",
+        "-d",  # dry-run to skip polling
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert '"distro": "ubuntu-20.04"' in std.out
+    assert '"job_queue": "fake"' in std.out
+    assert '"ssh_keys"' in std.out
+
+
+def test_reserve_distro_with_image_fails(requests_mock):
+    """Test that --distro and --image cannot be used together."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "--distro",
+        "ubuntu-20.04",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "-d",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.reserve()
+    assert exc_info.value.code == "--distro cannot be specified with --image"
+
+
+@patch("builtins.input")
+def test_reserve_with_yes_flag(mock_input, capsys, requests_mock):
+    """Test reserve command with --yes flag skips confirmation prompt."""
+    jobid = "testid456"
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    requests_mock.post(URL + "/v1/job", json={"job_id": jobid})
+    requests_mock.get(
+        URL + "/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+    # Mock input to fail if called (should not be called with -y flag)
+    mock_input.side_effect = AssertionError(
+        "input() should not be called with --yes flag"
+    )
+
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "-d",  # dry-run to skip polling
+        "-y",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    # Verify yes flag worked by checking output contains JSON
+    assert '"job_queue": "fake"' in std.out
+    assert '"url"' in std.out or '"image"' in std.out
+
+
+def test_reserve_custom_timeout(capsys, requests_mock):
+    """Test reserve command includes custom timeout in reserve_data."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "--timeout",
+        "7200",
+        "-d",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert '"timeout": 7200' in std.out
+
+
+@patch("testflinger_cli.helpers.prompt_for_image")
+def test_reserve_no_image_or_distro(mock_image, capsys, requests_mock):
+    """Test reserve when user opts to proceed with no provision data."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+
+    # Mock prompt_for_image to return None (user chooses no provision data)
+    mock_image.return_value = None
+
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-k",
+        "lp:fakeuser",
+        "-d",  # dry-run to skip polling
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert '"job_queue": "fake"' in std.out
+    assert '"ssh_keys"' in std.out
+    # Should not have provision_data key when no image/distro provided
+    assert '"url"' not in std.out and '"distro"' not in std.out
+
+
+def test_reserve_dry_run_json_output(capsys, requests_mock):
+    """Test reserve --dry-run shows JSON output without submitting."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "-d",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert "The following job will be submitted:" in std.out
+    # Verify JSON structure (not YAML)
+    assert '"job_queue"' in std.out
+    assert '"reserve_data"' in std.out
+    assert '"provision_data"' in std.out
+    assert '"ssh_keys"' in std.out
 
 
 def test_poll_args_generic_parsing():

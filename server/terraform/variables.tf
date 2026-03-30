@@ -33,6 +33,12 @@ variable "db_offer" {
   default     = "admin/testflinger-dev-db.mongodb"
 }
 
+variable "encryption_offer" {
+  description = "Name of the juju offer for encryption database to use for the cross-model relation"
+  type        = string
+  default     = "admin/testflinger-dev-db.mongodb"
+}
+
 variable "nginx_ingress_integrator_charm_whitelist_source_range" {
   description = "Allowed client IP source ranges. The value is a comma separated list of CIDRs."
   type        = string

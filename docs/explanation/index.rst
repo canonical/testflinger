@@ -12,3 +12,4 @@ This section covers conceptual questions about Testflinger.
     restricted-queues
     extended-reservation
     authentication
+    secrets
