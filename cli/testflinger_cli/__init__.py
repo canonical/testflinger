@@ -372,24 +372,14 @@ class TestflingerCli:
             help="Show summary of online/offline agent counts",
         )
         parser.add_argument(
-            "--status",
-            choices=[
-                "online",
-                "offline",
-                "maintenance",
-                "waiting",
-                "setup",
-                "provision",
-                "firmware_update",
-                "test",
-                "allocate",
-                "reserve",
-                "cleanup",
-            ],
+            "--filter-status",
+            dest="filter_status",
             help=(
-                "Filter agents by status (gross: online/offline/maintenance"
-                " or fine: waiting, setup, provision, firmware_update, test, "
-                "allocate, reserve, cleanup)"
+                "Filter agents by status (comma-separated). "
+                "Use ^ prefix to exclude. "
+                "Gross: online,offline,maintenance or fine: waiting,setup,"
+                "provision,firmware_update,test,allocate,reserve,cleanup. "
+                "Example: --filter-status online,^waiting"
             ),
         )
         parser.add_argument(
@@ -408,9 +398,9 @@ class TestflingerCli:
             help="Filter agents by location (regex)",
         )
         parser.add_argument(
-            "--filter-provision_type",
+            "--filter-provision-type",
             dest="filter_provision_type",
-            help="Filter agents by provision_type (regex)",
+            help="Filter agents by provision-type (regex)",
         )
         parser.add_argument(
             "--filter-comment",
@@ -600,7 +590,7 @@ class TestflingerCli:
         filtered = agents
 
         # Filter by status
-        if self.args.status:
+        if self.args.filter_status:
             online_states = {
                 "waiting",
                 "setup",
@@ -612,22 +602,71 @@ class TestflingerCli:
                 "cleanup",
             }
             offline_states = {"offline", "maintenance"}
-            if self.args.status == "online":
-                filtered = [
-                    a for a in filtered if a.get("state") in online_states
-                ]
-            elif self.args.status == "offline":
-                filtered = [
-                    a for a in filtered if a.get("state") in offline_states
-                ]
-            elif self.args.status == "maintenance":
-                filtered = [
-                    a for a in filtered if a.get("state") == "maintenance"
-                ]
+            valid_statuses = {
+                "online",
+                "offline",
+                "maintenance",
+                "waiting",
+                "setup",
+                "provision",
+                "firmware_update",
+                "test",
+                "allocate",
+                "reserve",
+                "cleanup",
+            }
+
+            # Parse comma-separated status values
+            requested_statuses = [
+                s.strip() for s in self.args.filter_status.split(",")
+            ]
+
+            # Separate included and excluded statuses
+            included_statuses = []
+            excluded_statuses = []
+            for status in requested_statuses:
+                if status.startswith("^"):
+                    excluded_statuses.append(status[1:])
+                else:
+                    included_statuses.append(status)
+
+            # Validate all requested statuses
+            all_statuses = set(included_statuses) | set(excluded_statuses)
+            invalid_statuses = all_statuses - valid_statuses
+            if invalid_statuses:
+                sys.exit(
+                    f"Invalid status(es): {', '.join(sorted(invalid_statuses))}"
+                    f"\nValid statuses are: {', '.join(sorted(valid_statuses))}"
+                )
+
+            # Build the set of allowed agent states
+            # Start with all states if only exclusions are specified
+            if included_statuses:
+                allowed_states = set()
+                for status in included_statuses:
+                    if status == "online":
+                        allowed_states.update(online_states)
+                    elif status == "offline":
+                        allowed_states.update(offline_states)
+                    else:
+                        allowed_states.add(status)
             else:
-                filtered = [
-                    a for a in filtered if a.get("state") == self.args.status
-                ]
+                # Only exclusions: start with all possible states
+                allowed_states = online_states | offline_states
+
+            # Remove excluded states
+            for status in excluded_statuses:
+                if status == "online":
+                    allowed_states -= online_states
+                elif status == "offline":
+                    allowed_states -= offline_states
+                else:
+                    allowed_states.discard(status)
+
+            # Filter agents by allowed states
+            filtered = [
+                a for a in filtered if a.get("state") in allowed_states
+            ]
 
         # Generic dynamic filtering for all supported fields
         filter_fields = [
