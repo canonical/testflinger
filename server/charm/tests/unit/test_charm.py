@@ -17,6 +17,8 @@
 
 from unittest.mock import Mock, patch
 
+import helpers
+import ops
 import pytest
 from ops import testing
 
@@ -383,3 +385,149 @@ def test_traefik_no_submit_broken_relation(mock_submit_to_traefik, ctx):
 
     # Verify submit_to_traefik is still not called after relation is removed
     mock_submit_to_traefik.assert_not_called()
+
+
+@patch.object(
+    TestflingerCharm, "_run_rotation", return_value="Rotation complete."
+)
+def test_config_changed_rotates_on_master_key_change(
+    mock_rotation, ctx, make_state
+):
+    """Test rotation triggered when master key config changes."""
+    old_key = helpers.generate_b64_key()
+    new_key = helpers.generate_b64_key()
+    state_in = make_state(
+        config={"testflinger_secrets_master_key": new_key},
+        stored_key=old_key,
+    )
+
+    ctx.run(ctx.on.config_changed(), state_in)
+
+    mock_rotation.assert_called_once()
+    env_passed = mock_rotation.call_args[0][0]
+    assert env_passed["TESTFLINGER_SECRETS_MASTER_KEY"] == old_key
+    assert env_passed["TESTFLINGER_SECRETS_NEW_MASTER_KEY"] == new_key
+
+
+@patch.object(
+    TestflingerCharm, "_run_rotation", return_value="Rotation complete."
+)
+def test_config_changed_no_rotation_on_first_key_set(
+    mock_rotation, ctx, make_state
+):
+    """Test rotation not triggered when master key set for the first time."""
+    state_in = make_state(
+        config={"testflinger_secrets_master_key": helpers.generate_b64_key()}
+    )
+    ctx.run(ctx.on.config_changed(), state_in)
+
+    mock_rotation.assert_not_called()
+
+
+@patch.object(
+    TestflingerCharm,
+    "_run_rotation",
+    side_effect=ops.pebble.ExecError(
+        ["rotate_mongo_secrets_key"], 1, "", "error"
+    ),
+)
+def test_config_changed_blocks_on_rotation_failure(_, ctx, make_state):
+    """Test BlockedStatus set when key rotation fails on config change."""
+    state_in = make_state(
+        config={"testflinger_secrets_master_key": helpers.generate_b64_key()},
+        stored_key=helpers.generate_b64_key(),
+    )
+
+    state_out = ctx.run(ctx.on.config_changed(), state_in)
+
+    assert state_out.unit_status == testing.BlockedStatus(
+        "MongoDB CSFLE Master Key rotation failed."
+    )
+
+
+@patch.object(
+    TestflingerCharm, "_run_rotation", return_value="Rotation complete."
+)
+def test_config_changed_no_rotation_on_non_leader(
+    mock_rotation, ctx, make_state
+):
+    """Test rotation not triggered on non-leader units."""
+    state_in = make_state(
+        config={"testflinger_secrets_master_key": helpers.generate_b64_key()},
+        stored_key=helpers.generate_b64_key(),
+        leader=False,
+    )
+
+    ctx.run(ctx.on.config_changed(), state_in)
+
+    mock_rotation.assert_not_called()
+
+
+@patch.object(
+    TestflingerCharm, "_run_rotation", return_value="Rotation complete."
+)
+def test_retry_key_rotation_action_success(mock_rotation, ctx, make_state):
+    """Test retry-key-rotation using stored old key and config new key."""
+    old_key = helpers.generate_b64_key()
+    new_key = helpers.generate_b64_key()
+    state_in = make_state(
+        config={"testflinger_secrets_master_key": new_key},
+        stored_key=old_key,
+    )
+
+    ctx.run(ctx.on.action("retry-key-rotation"), state_in)
+
+    mock_rotation.assert_called_once()
+    env_passed = mock_rotation.call_args[0][0]
+    assert env_passed["TESTFLINGER_SECRETS_MASTER_KEY"] == old_key
+    assert env_passed["TESTFLINGER_SECRETS_NEW_MASTER_KEY"] == new_key
+    assert ctx.action_results == {"result": "Rotation complete."}
+
+
+def test_retry_key_rotation_action_no_master_key(ctx, make_state):
+    """Test retry-key-rotation fails when no master key is configured."""
+    state_in = make_state(config={"testflinger_secrets_master_key": ""})
+    with pytest.raises(testing.ActionFailed):
+        ctx.run(ctx.on.action("retry-key-rotation"), state_in)
+
+
+def test_retry_key_rotation_action_no_pending_rotation(ctx, make_state):
+    """Test retry-key-rotation fails when there is no pending rotation."""
+    current_key = helpers.generate_b64_key()
+    state_in = make_state(
+        config={"testflinger_secrets_master_key": current_key},
+        stored_key=current_key,
+    )
+
+    with pytest.raises(testing.ActionFailed):
+        ctx.run(ctx.on.action("retry-key-rotation"), state_in)
+
+
+def test_retry_key_rotation_action_container_not_ready(ctx, make_state):
+    """Test retry-key-rotation fails when the container is not ready."""
+    state_in = make_state(
+        config={"testflinger_secrets_master_key": helpers.generate_b64_key()},
+        stored_key=helpers.generate_b64_key(),
+        can_connect=False,
+    )
+
+    with pytest.raises(testing.ActionFailed):
+        ctx.run(ctx.on.action("retry-key-rotation"), state_in)
+
+
+@patch.object(
+    TestflingerCharm,
+    "_run_rotation",
+    side_effect=ops.pebble.ExecError(
+        ["rotate_mongo_secrets_key"], 1, "", "connection refused"
+    ),
+)
+def test_retry_key_rotation_action_exec_error(_, ctx, make_state):
+    """Test retry-key-rotation fails when rotation script exits non-zero."""
+    state_in = make_state(
+        config={"testflinger_secrets_master_key": helpers.generate_b64_key()},
+        stored_key=helpers.generate_b64_key(),
+    )
+
+    with pytest.raises(testing.ActionFailed):
+        ctx.run(ctx.on.action("retry-key-rotation"), state_in)

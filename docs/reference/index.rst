@@ -13,6 +13,7 @@ Job definition schemas, test phases, and configuration options for creating and 
 
     job-schema
     test-phases
+    secrets
 
 Device connectors configurations
 --------------------------------

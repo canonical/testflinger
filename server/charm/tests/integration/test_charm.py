@@ -40,8 +40,9 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     # Deploy the mongodb-k8s charm
     juju.deploy(MONGODB_CHARM, channel="6/stable", trust=True)
 
-    # Establish the mongodb_client relation
-    juju.integrate(APP_NAME, MONGODB_CHARM)
+    # Establish the mongodb_client and mongodb_keyvault relations
+    juju.integrate(f"{APP_NAME}:mongodb_client", f"{MONGODB_CHARM}:database")
+    juju.integrate(f"{APP_NAME}:mongodb_keyvault", f"{MONGODB_CHARM}:database")
     juju.wait(jubilant.all_active)
 
 

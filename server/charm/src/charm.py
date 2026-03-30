@@ -59,6 +59,7 @@ class TestflingerCharm(ops.CharmBase):
         self.container = self.unit.get_container("testflinger")
         self._stored.set_default(
             reldata={},
+            previous_master_key="",
         )
 
         # TODO: Remove nginx route when migration to traefik route is completed
@@ -69,6 +70,11 @@ class TestflingerCharm(ops.CharmBase):
             self,
             relation_name="mongodb_client",
             database_name="testflinger_db",
+        )
+        self.mongodb_keyvault = DatabaseRequires(
+            self,
+            relation_name="mongodb_keyvault",
+            database_name="encryption",
         )
 
         # Initialize Grafana dashboard provider
@@ -95,11 +101,27 @@ class TestflingerCharm(ops.CharmBase):
             self._on_mongodb_client_relation_removed,
         )
         self.framework.observe(
+            self.mongodb_keyvault.on.database_created,
+            self._on_mongodb_keyvault_relation_changed,
+        )
+        self.framework.observe(
+            self.mongodb_keyvault.on.endpoints_changed,
+            self._on_mongodb_keyvault_relation_changed,
+        )
+        self.framework.observe(
+            self.on.mongodb_keyvault_relation_broken,
+            self._on_mongodb_keyvault_relation_changed,
+        )
+        self.framework.observe(
             self.on.testflinger_pebble_ready, self._on_testflinger_pebble_ready
         )
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(
             self.on.set_admin_password_action, self.on_set_admin_password
+        )
+        self.framework.observe(
+            self.on.retry_key_rotation_action,
+            self._on_retry_key_rotation_action,
         )
         # TODO: Remove nginx route when migration to traefik route is completed
         self.framework.observe(
@@ -294,12 +316,109 @@ class TestflingerCharm(ops.CharmBase):
         self.unit.status = ops.WaitingStatus("Waiting for database relation")
         sys.exit()
 
-    def _on_config_changed(self, _: ops.framework.EventBase) -> None:
-        """
-        Handle config changed event
-        We need to accept the event as an argument, but we don't use it.
-        """
+    def _on_mongodb_keyvault_relation_changed(
+        self, _: ops.framework.EventBase
+    ) -> None:
+        """Event is fired when the key vault relation is created or removed."""
         self._update_layer_and_restart()
+
+    def _fetch_keyvault_uri(self) -> str | None:
+        """Get the key vault MongoDB URI from the keyvault relation."""
+        for val in self.mongodb_keyvault.fetch_relation_data().values():
+            if val and "uris" in val:
+                return val["uris"]
+        return None
+
+    def _run_rotation(self, app_env: dict) -> str:
+        """Run rotate_mongo_secrets_key inside the container.
+
+        :param app_env: Environment variables to pass to the script.
+        :returns: stdout from the script.
+        :raises ops.pebble.ExecError: If the script exits with a non-zero code.
+        """
+        process = self.container.exec(
+            ["rotate_mongo_secrets_key"],
+            environment=app_env,
+        )
+        stdout, _ = process.wait_output()
+        return stdout
+
+    def _on_config_changed(self, _: ops.framework.EventBase) -> None:
+        """Handle config changed event."""
+        new_key = self.config["testflinger_secrets_master_key"]
+        stored_key = self._stored.previous_master_key
+
+        # Rotate only if master key was previously defined, has changed,
+        # and this is the leader unit.
+        if stored_key and new_key != stored_key and self.unit.is_leader():
+            if not self.container.can_connect():
+                self.unit.status = ops.WaitingStatus(
+                    "Waiting for Pebble in workload container"
+                )
+                return
+
+            # Inject both old and new master keys into the environment
+            env = {
+                **self.app_environment,
+                "TESTFLINGER_SECRETS_MASTER_KEY": stored_key,
+                "TESTFLINGER_SECRETS_NEW_MASTER_KEY": new_key,
+            }
+            try:
+                logger.info("Master key changed, rotating Data Encryption Key")
+                self._run_rotation(env)
+            except ops.pebble.ExecError as exc:
+                logger.error(
+                    "Key rotation failed: %s. "
+                    "Run the 'retry-key-rotation' action to retry.",
+                    exc.stderr,
+                )
+                self.unit.status = ops.BlockedStatus(
+                    "MongoDB CSFLE Master Key rotation failed."
+                )
+                return
+
+        logger.info("Successfully updated MongoDB CSFLE Master Key")
+        # Store the new master key for future rotations
+        self._stored.previous_master_key = new_key
+        self._update_layer_and_restart()
+
+    def _on_retry_key_rotation_action(self, event: ops.ActionEvent) -> None:
+        """Retry a failed MongoDB CSFLE Master Key rotation.
+
+        Use this when a testflinger_secrets_master_key config change left the
+        unit in BlockedStatus. The old key is read from StoredState and the
+        new key from the current config.
+        """
+        current_key = self.config["testflinger_secrets_master_key"]
+        stored_key = self._stored.previous_master_key
+
+        if not current_key:
+            event.fail("testflinger_secrets_master_key is not configured")
+            return
+
+        if not self.unit.is_leader():
+            event.fail("Action can only be executed on leader unit")
+            return
+
+        if not stored_key or stored_key == current_key:
+            event.fail("No pending key rotation found")
+            return
+
+        if not self.container.can_connect():
+            event.fail("Container is not ready")
+            return
+
+        env = {
+            **self.app_environment,
+            "TESTFLINGER_SECRETS_MASTER_KEY": stored_key,
+            "TESTFLINGER_SECRETS_NEW_MASTER_KEY": current_key,
+        }
+        try:
+            output = self._run_rotation(env)
+            self._stored.previous_master_key = current_key
+            event.set_results({"result": output.strip()})
+        except ops.pebble.ExecError as exc:
+            event.fail(f"Rotation failed: {exc.stderr}")
 
     @property
     def _pebble_layer(self):
@@ -368,6 +487,7 @@ class TestflingerCharm(ops.CharmBase):
             "TESTFLINGER_SECRETS_MASTER_KEY": self.config[
                 "testflinger_secrets_master_key"
             ],
+            "TESTFLINGER_KEY_VAULT_URI": self._fetch_keyvault_uri() or "",
             "HTTP_PROXY": self.config["http_proxy"],
             "HTTPS_PROXY": self.config["https_proxy"],
             "NO_PROXY": self.config["no_proxy"],

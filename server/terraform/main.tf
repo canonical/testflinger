@@ -44,10 +44,24 @@ resource "juju_integration" "testflinger-database-relation" {
 
   application {
     name = juju_application.testflinger.name
+    endpoint = "mongodb_client"
   }
 
   application {
     offer_url = var.db_offer
+  }
+}
+
+resource "juju_integration" "testflinger_encryption_relation" {
+  model = local.app_model
+
+  application {
+    name     = juju_application.testflinger.name
+    endpoint = "mongodb_keyvault"
+  }
+
+  application {
+    offer_url = var.encryption_offer
   }
 }
 
