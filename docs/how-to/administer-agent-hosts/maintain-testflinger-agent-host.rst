@@ -1,3 +1,5 @@
+.. _howto-manage-agent:
+
 Maintain a Testflinger Agent Host
 ==================================
 

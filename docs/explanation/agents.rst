@@ -11,7 +11,8 @@ it knows how to run jobs. When it is not running a job, the agent:
    * Uploads artifacts (if any) saved from the job to the server
 
 You can see a list of agents in the Testflinger web interface by clicking on the
-"Agents" link in the top navigation bar.
+"Agents" link in the top navigation bar. It is also possible to list the agents
+via the ``list-agents`` subcommand of the testflinger CLI, as shown in :ref:`_listing_agents`.
 
 Communication with the Server
 -----------------------------
@@ -35,8 +36,10 @@ the "Agents" list.
 
 .. _handling-agent-status:
 
-Handling Agent Status
--------------------------------------------
+Agent Administration
+--------------------
+
+For more guidance, see :ref: `howto-manage-agent`.
 
 Restarting an Agent
 ~~~~~~~~~~~~~~~~~~~
@@ -52,8 +55,8 @@ a job. You will need to ensure something like ``systemd`` or ``supervisord`` is 
 the agent process and restarting it if it exits in order to actually restart the
 agent.
 
-Set an Agent Offline
-~~~~~~~~~~~~~~~~~~~~
+Set an Agent Offline (admin)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. note::
    The following action require an authenticated ``client_id`` with admin privileges, 
@@ -93,6 +96,31 @@ it will be deferred until the agent is marked online.
     If you wish to change the status for multiple agents at the same time, you can define a list 
     of the agents you want to change status e.g. ``--agents agent1 agent2 ... agentN``
 
+Set an Agent Online (admin)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+   The following action require an authenticated ``client_id`` with admin privileges, 
+   for more information please refer to :doc:`Create or edit Testflinger admin credentials <../how-to/create-admin-user>` 
+   if needed to set an initial admin ``client_id``.
+
+To set an agent to online in order to recover from an unexpected agent failure or after being set 
+to offline manually, execute the following command from the CLI:
+
+.. code-block:: shell
+
+   testflinger-cli admin set agent-status --status online --agents <agent_name>
+
+.. tip::
+
+   If you wish to change the status for multiple agents at the same time, you can define a list 
+   of the agents you want to change status e.g. ``--agents agent1 agent2 ... agentN``
+
+Agent Selection
+---------------
+
+.. _excluding_agents:
+
 Excluding Agents from Jobs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -122,23 +150,117 @@ For example, to exclude agents named ``agent-1`` and ``agent-2`` from a job, add
 
 For more details on how to use this feature, see :doc:`../how-to/submit-job`.
 
+.. _listing_agents:
 
-Set an Agent Online
-~~~~~~~~~~~~~~~~~~~
+Listing Agents
+~~~~~~~~~~~~~~
 
-.. note::
-   The following action require an authenticated ``client_id`` with admin privileges, 
-   for more information please refer to :doc:`Create or edit Testflinger admin credentials <../how-to/create-admin-user>` 
-   if needed to set an initial admin ``client_id``.
+A list of agents communicating with the server can be fetched via the command
+line and displayed in several formats. When collecting the list of agents for
+display, a variety of filters may also be applied. Aside from the filter for
+status, the filters all support use of regular expressions.
 
-To set an agent to online in order to recover from an unexpected agent failure or after being set 
-to offline manually, execute the following command from the CLI:
+The ``list-agents`` subcommand can provide output in three different modes:
+
+- Table output (default)
+
+  - Columns specified by comma separated list via ``--fields``
+
+- Status summary (``--summary``)
+
+- Single-column list of agent names (``-1``)
 
 .. code-block:: shell
 
-   testflinger-cli admin set agent-status --status online --agents <agent_name>
+  $ testflinger list-agents --help
+  usage: testflinger list-agents [-h] [-1] [--summary] [--filter-status FILTER_STATUS] [--filter-name FILTER_NAME]
+                                 [--filter-queues FILTER_QUEUES] [--filter-location FILTER_LOCATION]
+                                 [--filter-provision-type FILTER_PROVISION_TYPE] [--filter-comment FILTER_COMMENT]
+                                 [--fields FIELDS]
+
+  options:
+    -h, --help            show this help message and exit
+    -1                    Single agent name per line (suitable for piping)
+    --summary             Show summary of online/offline agent counts
+    --filter-status FILTER_STATUS
+                          Filter agents by status (comma-separated). Use ^ prefix to exclude.
+                          gross: online,offline,maintenance or
+                          fine: waiting,setup,provision,firmware_update,test,allocate,reserve,cleanup.
+                          Example: --filter-status online,^waiting
+    --filter-name FILTER_NAME
+                          Filter agents by name (regex)
+    --filter-queues FILTER_QUEUES
+                          Filter agents by queues (regex, matches any queue)
+    --filter-location FILTER_LOCATION
+                          Filter agents by location (regex)
+    --filter-provision-type FILTER_PROVISION_TYPE
+                          Filter agents by provision-type (regex)
+    --filter-comment FILTER_COMMENT
+                          Filter agents by comment (regex)
+    --fields FIELDS       Fields to display in the agent table (comma-separated). Available fields: name, status,
+                          location, provision_type, comment, job_id, queues. Default:
+                          name,status,location,provision_type,comment
+
+For example, if the purpose of listing the agents is intended to drive shell
+scripting, it may be desirable to have a single list of agent names. Much like
+one can use ``ls -1`` to obtain a single-column list output, the ``list-agent``
+subcommand also supports ``-1`` for this purpose.
+
+**Table mode (default)**
+
+If neither ``-1`` nor ``--summary`` are specified, the default is to output a table of agents matching the specified filters.
+
+.. code-block:: shell
+
+  $ testflinger list-agents
+  Name     Status   Location  Provision Type  Comment
+  ---------------------------------------------------
+  audino   waiting  TXR3-DH1  maas2
+  multi-3  waiting            multi
+  petilil  waiting  TXR3-DH1  maas2
+
+**Summary mode (--summary)**
+
+.. code-block:: shell
+
+  $ testflinger list-agents --summary
+  Online:           2413
+    waiting          2328
+    provision        28
+    test             30
+    reserve          27
+
+  Offline:          63
+    offline          55
+    maintenance      8
+
+Filtering, of course can be used with any output mode, for example:
+
+.. code-block:: shell
+
+  $ testflinger list-agents --summary --filter-status online,^waiting
+  Online:           78
+    provision        14
+    test             12
+    reserve          52
+
+  Offline:          0
+
+**Single-column list mode (-1)**
+
+In single-column list mode (``-1``) output is suitable for further processing by
+shell scripts in very much the same way as ``ls -1``:
+
+Here's an example where the agents selected by the filter are set to ``online``
+within a for loop:
+
+.. code-block:: shell
+
+  $ for agent in $(testflinger list-agents --filter-queue "petilil|audino" -1); do testflinger admin set agent-status --agents $agent --status online; done
+  Agent audino status is now: waiting
+  Agent petilil status is now: waiting
 
 .. tip::
 
-   If you wish to change the status for multiple agents at the same time, you can define a list 
-   of the agents you want to change status e.g. ``--agents agent1 agent2 ... agentN``
+   This can be particularly useful in combination with ``--filter-comment``
+   if good comments are made as agents are brought offline.

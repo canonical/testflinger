@@ -372,14 +372,17 @@ class TestflingerCli:
     def _add_list_agent_args(self, subparsers):
         """Command line arguments for list of agents."""
         parser = subparsers.add_parser(
-            "list-agents", help="List agents with optional filtering",
-            formatter_class=RawTextHelpFormatter
+            "list-agents",
+            help="List agents with optional filtering",
+            formatter_class=RawTextHelpFormatter,
         )
         parser.set_defaults(func=self.list_agents)
         parser.add_argument(
             "-1",
+            dest="single_column",
             action="store_true",
-            help="Single agent name per line (suitable for piping)",
+            help="Single-column list of one agent name per line (suitable for "
+            "piping)",
         )
         parser.add_argument(
             "--summary",
@@ -576,6 +579,27 @@ class TestflingerCli:
 
     def list_agents(self) -> None:
         """List agents with optional filtering."""
+        # Validate mutually exclusive flags
+        if self.args.summary and self.args.single_column:
+            sys.exit(
+                "Error: single-column output (-1) and summary (--summary) "
+                "modes cannot be used together"
+            )
+
+        # --fields is not applicable with -1 or --summary
+        if self.args.fields != "name,status,location,provision_type,comment":
+            # User specified custom fields
+            if self.args.single_column:
+                sys.exit(
+                    "Error: --fields is not applicable with "
+                    "single-column output (-1)"
+                )
+            if self.args.summary:
+                sys.exit(
+                    "Error: --fields is not applicable with "
+                    "summary (--summary)"
+                )
+
         try:
             agents = self.client.get_all_agents()
         except client.HTTPError as exc:
@@ -590,8 +614,8 @@ class TestflingerCli:
         # Display output based on flags
         if self.args.summary:
             self._print_agent_summary(filtered_agents)
-        elif getattr(self.args, "1"):
-            # -1 flag: machine names only
+        elif self.args.single_column:
+            # single-column flag: machine names only
             self._print_agent_names(filtered_agents)
         else:
             # Table with details, supporting --fields

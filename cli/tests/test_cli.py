@@ -1289,6 +1289,64 @@ def test_agent_list_summary(capsys, requests_mock):
     assert "offline" in std.out
 
 
+def test_agent_list_mutually_exclusive_1_and_summary(requests_mock):
+    """Validate list-agents -1 and --summary are mutually exclusive."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "-1", "--summary"]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.list_agents()
+    assert exc_info.value.code == (
+        "Error: single-column output (-1) and summary (--summary) "
+        "modes cannot be used together"
+    )
+
+
+def test_agent_list_fields_not_applicable_with_1(requests_mock):
+    """Validate list-agents --fields is not applicable with -1."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "-1", "--fields", "name,status"]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.list_agents()
+    assert exc_info.value.code == (
+        "Error: --fields is not applicable with single-column output (-1)"
+    )
+
+
+def test_agent_list_fields_not_applicable_with_summary(requests_mock):
+    """Validate list-agents --fields is not applicable with --summary."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "--summary", "--fields", "name,status"]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.list_agents()
+    assert exc_info.value.code == (
+        "Error: --fields is not applicable with summary (--summary)"
+    )
+
+
 def test_agent_list_table(capsys, requests_mock):
     """Validate list-agents default shows table format."""
     fake_agents = [
@@ -1530,6 +1588,66 @@ def test_agent_list_combined_filters(capsys, requests_mock):
     assert "agent-prod-2" in std.out
     assert "agent-prod-1" not in std.out
     assert "agent-dev-1" not in std.out
+
+
+def test_agent_list_mutually_exclusive_flags(requests_mock):
+    """Validate list-agents rejects -1 and --summary together."""
+    requests_mock.get(f"{URL}/v1/agents/data", json=[])
+    sys.argv = ["", "list-agents", "-1", "--summary"]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as err:
+        tfcli.list_agents()
+    assert "single-column output (-1) and summary (--summary)" in str(
+        err.value
+    )
+
+
+@patch.object(testflinger_cli.TestflingerCli, "_print_agent_names")
+@patch.object(testflinger_cli.TestflingerCli, "_filter_agents")
+def test_agent_list_calls_print_names(
+    mock_filter_agents, mock_print_names, requests_mock
+):
+    """Validate -1 flag calls _print_agent_names."""
+    fake_agents = [{"name": "agent1", "state": "waiting"}]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    mock_filter_agents.return_value = fake_agents
+    sys.argv = ["", "list-agents", "-1"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    mock_filter_agents.assert_called_once_with(fake_agents)
+    mock_print_names.assert_called_once_with(fake_agents)
+
+
+@patch.object(testflinger_cli.TestflingerCli, "_print_agent_summary")
+@patch.object(testflinger_cli.TestflingerCli, "_filter_agents")
+def test_agent_list_calls_print_summary(
+    mock_filter_agents, mock_print_summary, requests_mock
+):
+    """Validate --summary flag calls _print_agent_summary."""
+    fake_agents = [{"name": "agent1", "state": "waiting"}]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    mock_filter_agents.return_value = fake_agents
+    sys.argv = ["", "list-agents", "--summary"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    mock_filter_agents.assert_called_once_with(fake_agents)
+    mock_print_summary.assert_called_once_with(fake_agents)
+
+
+@patch.object(testflinger_cli.TestflingerCli, "_print_agent_table")
+@patch.object(testflinger_cli.TestflingerCli, "_filter_agents")
+def test_agent_list_calls_print_table(
+    mock_filter_agents, mock_print_table, requests_mock
+):
+    """Validate default call uses _print_agent_table."""
+    fake_agents = [{"name": "agent1", "state": "waiting"}]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    mock_filter_agents.return_value = fake_agents
+    sys.argv = ["", "list-agents"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    mock_filter_agents.assert_called_once_with(fake_agents)
+    mock_print_table.assert_called_once_with(fake_agents)
 
 
 def test_queue_status(capsys, requests_mock):
