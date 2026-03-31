@@ -23,10 +23,10 @@ on how to configure credentials for CLI usage.
 
 Job payloads submitted to the Testflinger server and job output logs may contain
 sensitive information especially during the test data and test execution phase. 
-Users should be mindful of what they include in jobs and store sensitive data 
-as secrets to ensure data is not exposed in logs or job definitions. 
+Users should be mindful of what they include in jobs and should store sensitive data 
+as ``secrets`` to ensure data is not exposed in logs or job definitions. 
 See :doc:`Use Secrets how-to guide <../how-to/use-secrets>` for more information 
-on how to store your secrets in Testflinger and how to use them in jobs.
+on how to store your ``secrets`` in Testflinger and how to use them in jobs.
 
 
 Isolation and Confinement
@@ -34,7 +34,7 @@ Isolation and Confinement
 
 Testflinger CLI is the main client for interacting with the Testflinger server.
 It is distributed as a snap and confined using `AppArmor`_, which restricts the client's
-access to only the necessary system resources and and file access required for it to function.
+access to only the necessary system resources and file access required for it to function.
 
 The ``testflinger-cli`` `snap`_ is packaged with strict confinement and has a limited set
 of interfaces required for network access and reading the home directory.

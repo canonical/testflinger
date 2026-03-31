@@ -8,18 +8,22 @@ system.
 Testflinger
 -----------
 
+System components and functional features of Testflinger
+
 - :ref:`agents`
-- :ref:`authentication`
 - :ref:`extended-reservation`
 - :ref:`job-priority`
 - :ref:`queues`
 - :ref:`restricted-queues`
-- :ref:`secrets`
 
 Security
 --------
 
+Access control, credential management, and data protection mechanisms
+
+- :ref:`authentication`
 - :ref:`security_overview`
+- :ref:`secrets`
 
 .. toctree::
     :maxdepth: 1
