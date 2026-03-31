@@ -1601,9 +1601,10 @@ def test_live_polling_with_empty_poll(
     tfcli.run()
 
     captured = capsys.readouterr()
-    # In non-TTY mode (pytest), StatusLine messages aren't printed
-    # Just verify the test data was received
-    assert "data" in captured.out or len(mock_sleep.call_args_list) >= 9
+    # In non-TTY mode (pytest), StatusLine messages aren't printed,
+    # but the final non-empty log fragment ("data") should be.
+    assert "data" in captured.out
+    assert len(mock_sleep.call_args_list) >= 9
 
 
 @patch("time.sleep")

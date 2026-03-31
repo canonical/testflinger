@@ -104,8 +104,7 @@ class StatusLine:
 
         When state changes, prints elapsed time in previous state.
 
-        Args:
-            state: New job state string
+        :param state: New job state string
         """
         # State changed - print elapsed time in previous state
         if (
@@ -180,10 +179,16 @@ class StatusLine:
                 return f"{minutes:02d}:{seconds:02d}"
         else:
             # Elapsed mode: count up from start
-            elapsed = time.time() - cls._start_time
-            minutes = int(elapsed // 60)
-            seconds = int(elapsed % 60)
-            return f"{minutes:02d}:{seconds:02d}"
+            elapsed = int(time.time() - cls._start_time)
+            hours = elapsed // 3600
+            minutes = (elapsed % 3600) // 60
+            seconds = elapsed % 60
+            if elapsed >= 3600:
+                # Show HH:MM:SS if elapsed time >= 1 hour
+                return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+            else:
+                # Show MM:SS otherwise
+                return f"{minutes:02d}:{seconds:02d}"
 
     @classmethod
     def get_elapsed_time(cls):

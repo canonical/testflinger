@@ -37,7 +37,7 @@ The ``reserve`` command
 
 As an alternative for the most basic reserve jobs, you can use the ``reserve`` command to collect the information from the command line and put together a job definition on the fly.
 
-For a ``maas2`` device type, the requires the ``--distro`` parameter:
+For a ``maas2`` device type, this requires the ``--distro`` parameter:
 
 .. code-block:: shell
 

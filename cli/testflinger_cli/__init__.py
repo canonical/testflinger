@@ -570,9 +570,9 @@ class TestflingerCli:
             return self.client.get_job_data(job_id)
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.NO_CONTENT:
-                raise errors.NoJobDataError() from exc
+                raise errors.NoJobDataError from exc
             if exc.status == HTTPStatus.BAD_REQUEST:
-                raise errors.InvalidJobIdError() from exc
+                raise errors.InvalidJobIdError from exc
             # re-raise any other HTTPError
             raise
         except (IOError, ValueError) as exc:
@@ -1157,12 +1157,12 @@ class TestflingerCli:
         Filter and print log data.
 
         In TTY mode: When a line matches the MAAS deployment time pattern,
-        update the status line instead of printing it to supress noise.
+        update the status line instead of printing it to suppress noise.
         All other lines pass through unfiltered.
         In non-TTY mode: Print all logs as-is.
         """
         if sys.stdout.isatty() and StatusLine.state == "provision":
-            # When actively monitoring a job as it runs, supress clutter
+            # When actively monitoring a job as it runs, suppress clutter
             for line in log_data.splitlines():
                 match = re.search(
                     r"INFO:.*\s*\d+\s+minutes? passed since deployment\.\s*$",
@@ -1324,7 +1324,7 @@ class TestflingerCli:
                         continue
                     if choice == "y":
                         self.cancel(job_id)
-                        StatusLine.set_message("Job Canceled")
+                        StatusLine.set_message("Job cancelled")
                 print(f"\nNext fragment number: {cur_fragment}")
                 # Both y and n will allow the external handler deal with it
                 raise
