@@ -99,6 +99,7 @@ class ZapperConnectorTests(unittest.TestCase):
         connector.config = {"device_ip": "192.168.1.2"}
 
         connector.copy_ssh_key = Mock()
+        connector._check_ssh_key_auth = Mock(return_value=False)
         connector._copy_ssh_id()
 
         connector.copy_ssh_key.assert_called_once_with(
@@ -121,8 +122,29 @@ class ZapperConnectorTests(unittest.TestCase):
 
         connector.copy_ssh_key = Mock()
         connector.copy_ssh_key.side_effect = RuntimeError
+        connector._check_ssh_key_auth = Mock(return_value=False)
         with self.assertRaises(ProvisioningError):
             connector._copy_ssh_id()
+
+    def test_copy_ssh_id_skipped_when_key_auth_works(self):
+        """Test that ssh-copy-id is skipped when key-based auth
+        already works on the device.
+        """
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
+        connector = MockConnector(fake_config)
+        connector.job_data = {
+            "test_data": {
+                "test_username": "myuser",
+                "test_password": "mypassword",
+            }
+        }
+        connector.config = {"device_ip": "192.168.1.2"}
+
+        connector.copy_ssh_key = Mock()
+        connector._check_ssh_key_auth = Mock(return_value=True)
+        connector._copy_ssh_id()
+
+        connector.copy_ssh_key.assert_not_called()
 
 
 class TestZapperConnectorRestApiCheck:

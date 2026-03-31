@@ -22,6 +22,7 @@ validating the configuration and preparing the API arguments.
 
 import json
 import logging
+import subprocess
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
@@ -298,10 +299,24 @@ class ZapperConnector(ABC, DefaultDevice):
                 log_level = logging.INFO
             logger.log(log_level, "[zapper] %s", entry.get("message", line))
 
+    def _check_ssh_key_auth(self, device_ip: str, username: str) -> bool:
+        """Check if SSH key-based authentication already works."""
+        cmd = [
+            "ssh",
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "BatchMode=yes",
+            "-o", "ConnectTimeout=10",
+            f"{username}@{device_ip}",
+            "true",
+        ]
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, check=False
+        )
+        return result.returncode == 0
+
     def _copy_ssh_id(self):
         """Copy the ssh id to the device."""
-        logger.info("Copying the agent's SSH public key to the DUT.")
-
         try:
             test_username = self.job_data.get("test_data", {}).get(
                 "test_username", "ubuntu"
@@ -313,9 +328,20 @@ class ZapperConnector(ABC, DefaultDevice):
             test_username = "ubuntu"
             test_password = "ubuntu"
 
+        device_ip = self.config["device_ip"]
+
+        if self._check_ssh_key_auth(device_ip, test_username):
+            logger.info(
+                "SSH key-based auth already works, "
+                "skipping ssh-copy-id."
+            )
+            return
+
+        logger.info("Copying the agent's SSH public key to the DUT.")
+
         try:
             self.copy_ssh_key(
-                self.config["device_ip"],
+                device_ip,
                 test_username,
                 test_password,
             )
