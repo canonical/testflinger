@@ -51,11 +51,10 @@ class StatusLine:
     _state_start_time = None
 
     @classmethod
-    def configure(cls, update_rate=10.0):
+    def configure(cls, update_rate=10.0) -> None:
         """Configure update rate before calling start().
 
-        Args:
-            update_rate: Hz (updates per second, default 1.0)
+        :param update_rate: Hz (updates per second, default 10.0)
         """
         cls.update_rate = update_rate
 
@@ -99,10 +98,11 @@ class StatusLine:
             time.sleep(1.0 / cls.update_rate)
 
     @classmethod
-    def set_state(cls, state):
-        """Update the job state and handle state transitions (thread-safe).
+    def set_state(cls, state: str) -> None:
+        """Update the job state and handle state transitions.
 
         When state changes, prints elapsed time in previous state.
+        Output buffer access is thread-safe via print lock.
 
         :param state: New job state string
         """
@@ -132,17 +132,16 @@ class StatusLine:
             cls._state_start_time = time.time()
 
     @classmethod
-    def set_message(cls, template, *args, **kwargs):
-        """Update the status line message (thread-safe).
+    def set_message(cls, template: str, *args, **kwargs) -> None:
+        """Update the status line message (output buffer thread-safe).
         Supports string format templates.
 
         The message will be drawn on the next timer cycle.
-        In non-TTY environments, only prints when formatted result changes.
+        In non-TTY environments, this is a no-op (no status line available).
 
-        Args:
-            template: Format string (e.g., "Processing jobs ... {}")
-            *args: Positional arguments for format()
-            **kwargs: Keyword arguments for format()
+        :param template: Format string (e.g., "Processing jobs ... {}")
+        :param args: Positional arguments for format()
+        :param kwargs: Keyword arguments for format()
         """
         if not cls._is_tty:
             return
@@ -205,11 +204,14 @@ class StatusLine:
         return (hours, minutes, seconds)
 
     @classmethod
-    def set_countdown(cls, initial_seconds):
+    def set_countdown(cls, initial_seconds: int) -> None:
         """Enable countdown mode starting from initial_seconds.
 
         Sets the countdown flag, initial value, and resets the timer.
-        Fully self-contained and thread-safe.
+        Not all state updates are guarded by locks; timer thread only reads
+        these fields at draw time, so minor timing skew is acceptable.
+
+        :param initial_seconds: Countdown duration in seconds
         """
         cls._countdown_mode = True
         cls._countdown_start_value = initial_seconds
@@ -271,14 +273,13 @@ class StatusLine:
         return result
 
     @classmethod
-    def init(cls, update_rate=1.0):
+    def init(cls, update_rate: float = 1.0) -> None:
         """Initialize StatusLine: configure, override print and input, start
         timer.
 
         Call this once at application startup.
 
-        Args:
-            update_rate: Hz (updates per second, default 1.0)
+        :param update_rate: Hz (updates per second, default 1.0)
         """
         # If not a TTY, init is a no-op (allows normal print in piped output)
         cls._is_tty = sys.stdout.isatty()

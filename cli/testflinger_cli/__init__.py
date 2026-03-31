@@ -559,12 +559,16 @@ class TestflingerCli:
     def get_job_data(self, job_id: str) -> dict | None:
         """Get the data for the specified job ID.
 
-        :param job_id: Job ID
+        Retrieves job information (state, timeouts, provisioning/reserve data)
+        and phase information from the server. Raises specific errors for
+        missing data or invalid job IDs, returns None for other failures.
+
+        :param job_id: Job ID to retrieve data for
         :raises NoJobDataError: When HTTP 204 (no data found)
         :raises InvalidJobIdError: When HTTP 400 (invalid job ID)
         :raises IOError: When network error occurs
         :raises ValueError: When response cannot be parsed
-        :return: Job and phase statuses
+        :return: Job and phase statuses, or None if retrieval fails
         """
         try:
             return self.client.get_job_data(job_id)
@@ -1152,14 +1156,15 @@ class TestflingerCli:
 
         self.do_poll(job_id, log_type)
 
-    def _filter_and_print_logs(self, log_data):
-        """
-        Filter and print log data.
+    def _filter_and_print_logs(self, log_data: str) -> None:
+        """Filter and print log data.
 
         In TTY mode: When a line matches the MAAS deployment time pattern,
         update the status line instead of printing it to suppress noise.
         All other lines pass through unfiltered.
         In non-TTY mode: Print all logs as-is.
+
+        :param log_data: Log output to filter and print
         """
         if sys.stdout.isatty() and StatusLine.state == "provision":
             # When actively monitoring a job as it runs, suppress clutter
@@ -1184,7 +1189,18 @@ class TestflingerCli:
         """Poll for serial output from a job until it is completed."""
         self.poll(LogType.SERIAL_OUTPUT)
 
-    def _on_state_change(self, job_state, job_details):
+    def _on_state_change(
+        self, job_state: str, job_details: dict | None
+    ) -> None:
+        """Handle job state changes and update the status line message.
+
+        Updates the status line with state-specific messages and manages
+        countdown/elapsed timing. Handles transitions between job states
+        (waiting, running, provision, reserve, complete, cancelled).
+
+        :param job_state: The new job state string
+        :param job_details: Job details dict, may be None if retrieval failed
+        """
         msg = "Waiting on output..."
         if job_state == "waiting":
             msg = "Waiting on a node to become available..."
@@ -1453,9 +1469,9 @@ class TestflingerCli:
             return self.client.get_status(job_id)
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.NO_CONTENT:
-                raise errors.NoJobDataError() from exc
+                raise errors.NoJobDataError from exc
             if exc.status == HTTPStatus.BAD_REQUEST:
-                raise errors.InvalidJobIdError() from exc
+                raise errors.InvalidJobIdError from exc
             # For other HTTP errors, log and return unknown state
             logger.debug("HTTP error retrieving job state: %s", exc)
         except (IOError, ValueError) as exc:

@@ -327,13 +327,14 @@ class Client:
         endpoint = f"/v1/job/{job_id}/attachments"
         self.put_file(endpoint, path, timeout=timeout)
 
-    def get_job_data(self, job_id):
-        """Show the JSON job definition for the specified ID.
+    def get_job_data(self, job_id: str) -> dict:
+        """Get the JSON job definition for the specified ID.
 
-        :param job_id:
-            ID for the test job
-        :return:
-            JSON job definition for the specified ID
+        Retrieves the job definition containing job state, timeouts, and
+        provisioning/reserve configuration data.
+
+        :param job_id: ID for the test job
+        :return: JSON job definition for the specified ID
         """
         endpoint = "/v1/job/{}".format(job_id)
         return json.loads(self.get(endpoint))
