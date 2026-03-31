@@ -35,7 +35,7 @@ def mock_config_file(tmp_path, mock_config):
     return config_yaml
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_maas_storage():
     with patch(
         "testflinger_device_connectors.devices.maas2.maas2.MaasStorage",
