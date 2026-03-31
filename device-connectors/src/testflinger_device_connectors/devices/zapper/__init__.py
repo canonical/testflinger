@@ -106,10 +106,7 @@ class ZapperConnector(ABC, DefaultDevice):
         :raises ConnectionError: If the API is not reachable.
         """
         try:
-            url = (
-                f"http://{host}:{ZapperConnector.ZAPPER_REST_PORT}"
-                f"/health"
-            )
+            url = f"http://{host}:{ZapperConnector.ZAPPER_REST_PORT}/health"
             resp = requests.get(url, timeout=3)
             resp.raise_for_status()
             logger.debug("The host %s has an available REST API", host)
