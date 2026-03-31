@@ -371,4 +371,154 @@ def test_provision_defaults_to_jammy(tmp_path):
             maas2.provision()
 
             # Verify deploy_node was called with jammy as the default distro
-            mock_deploy.assert_called_once_with("jammy", None, None, None)
+            mock_deploy.assert_called_once_with(
+                "jammy", None, None, None, False
+            )
+
+
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_get_maas_version(
+    mock_run_maas_cmd, mock_maas_storage, mock_config_file
+):
+    """Test that get_maas_version returns the expected MAAS version tuple."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({"provision_data": {"ephemeral": True}}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    mock_run_maas_cmd.return_value = subprocess.CompletedProcess(
+        args=["maas", "user", "version", "read"],
+        returncode=0,
+        stdout=json.dumps({"version": "3.5.0"}).encode(),
+    )
+    version = maas2.get_maas_version()
+    assert version == (3, 5, 0)
+    mock_run_maas_cmd.assert_called_once_with(
+        ["maas", "user", "version", "read"],
+        max_retries=3,
+        backoff_start=10,
+    )
+
+
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_get_maas_version_failure(
+    mock_run_maas_cmd, mock_maas_storage, mock_config_file
+):
+    """Test that get_maas_version returns None when version not retrieved."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({"provision_data": {"ephemeral": True}}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    mock_run_maas_cmd.return_value = subprocess.CompletedProcess(
+        args=["maas", "user", "version", "read"],
+        returncode=0,
+        stdout=json.dumps({}).encode(),
+    )
+    version = maas2.get_maas_version()
+    assert version is None
+    mock_run_maas_cmd.assert_called_once_with(
+        ["maas", "user", "version", "read"],
+        max_retries=3,
+        backoff_start=10,
+    )
+
+
+@patch(
+    "testflinger_device_connectors.devices.maas2.maas2.MaasStorage",
+    return_value=None,
+)
+@patch("time.sleep")
+@patch.object(Maas2, "check_test_image_booted", return_value=True)
+@patch.object(Maas2, "node_status", return_value="Deployed")
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+@patch.object(Maas2, "set_flat_storage_layout")
+@patch.object(Maas2, "recover")
+@patch.object(Maas2, "get_maas_version", return_value=(3, 5, 0))
+def test_get_maas_version_called_on_ephemeral(
+    mock_get_version,
+    mock_recover,
+    mock_flat_storage,
+    mock_run_cmd,
+    mock_node_status,
+    mock_check_booted,
+    mock_sleep,
+    mock_maas_storage,
+    mock_config_file,
+):
+    """Test get_maas_version is called when ephemeral is True in job data."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({"provision_data": {"ephemeral": True}}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    maas2.deploy_node(ephemeral=True)
+
+    mock_get_version.assert_called_once()
+
+
+@patch(
+    "testflinger_device_connectors.devices.maas2.maas2.MaasStorage",
+    return_value=None,
+)
+@patch("time.sleep")
+@patch.object(Maas2, "check_test_image_booted", return_value=True)
+@patch.object(Maas2, "node_status", return_value="Deployed")
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+@patch.object(Maas2, "set_flat_storage_layout")
+@patch.object(Maas2, "recover")
+@patch.object(Maas2, "get_maas_version", return_value=(3, 4, 0))
+def test_ephemeral_deploy_skipped_on_old_maas_version(
+    mock_get_version,
+    mock_recover,
+    mock_flat_storage,
+    mock_run_cmd,
+    mock_node_status,
+    mock_check_booted,
+    mock_sleep,
+    mock_maas_storage,
+    mock_config_file,
+):
+    """Test ephemeral_deploy=true is not sent when MAAS version < 3.5.0."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({"provision_data": {"ephemeral": True}}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    maas2.deploy_node(ephemeral=True)
+
+    # run_maas_cmd_with_retry is called twice: allocate (0) and deploy (1)
+    deploy_cmd = mock_run_cmd.call_args_list[1][0][0]
+    assert "ephemeral_deploy=true" not in deploy_cmd
+
+
+@patch(
+    "testflinger_device_connectors.devices.maas2.maas2.MaasStorage",
+    return_value=None,
+)
+@patch("time.sleep")
+@patch.object(Maas2, "check_test_image_booted", return_value=True)
+@patch.object(Maas2, "node_status", return_value="Deployed")
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+@patch.object(Maas2, "set_flat_storage_layout")
+@patch.object(Maas2, "recover")
+@patch.object(Maas2, "get_maas_version", return_value=(3, 5, 0))
+def test_non_ephemeral_deploy(
+    mock_get_version,
+    mock_recover,
+    mock_flat_storage,
+    mock_run_cmd,
+    mock_node_status,
+    mock_check_booted,
+    mock_sleep,
+    mock_maas_storage,
+    mock_config_file,
+):
+    """Test ephemeral_deploy=true is not sent when ephemeral is False."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({"provision_data": {"ephemeral": False}}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    maas2.deploy_node(ephemeral=False)
+
+    # run_maas_cmd_with_retry is called twice: allocate (0) and deploy (1)
+    deploy_cmd = mock_run_cmd.call_args_list[1][0][0]
+    assert "ephemeral_deploy=true" not in deploy_cmd
