@@ -3,7 +3,14 @@ Reserve a device
 
 When you only need an SSH access to the DUT to manually interact with it, you can use a reserve job.
 
-To reserve a device, provide a job definition such as the following:
+There are two ways to submit a reserve job:
+- submit a YAML job definition containing ``reserve_data``
+- use the ``reserve`` command with command-line parameters
+
+Using the a job definition file with ``reserve_data``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To reserve a device, provide a job definition which includes ``reserve_data`` such as the following:
 
 .. code-block:: yaml
 
@@ -32,8 +39,8 @@ Once the device is ready, Testflinger will print out an SSH command that you can
 
 When you are finished with the device, you can end your reservation early by cancelling the job. See :doc:`../how-to/cancel-job`.
 
-The ``reserve`` command
-~~~~~~~~~~~~~~~~~~~~~~~
+Using the command line
+~~~~~~~~~~~~~~~~~~~~~~
 
 As an alternative for the most basic reserve jobs, you can use the ``reserve`` command to collect the information from the command line and put together a job definition on the fly.
 

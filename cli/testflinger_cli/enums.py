@@ -21,6 +21,15 @@ Duplicated from testflinger_common.
 from strenum import StrEnum
 
 
+class ServerRoles(StrEnum):
+    """Define roles for restricted endpoints."""
+
+    ADMIN = "admin"
+    MANAGER = "manager"
+    CONTRIBUTOR = "contributor"
+    AGENT = "agent"
+
+
 class TestPhase(StrEnum):
     """Enum of Test Phases."""
 

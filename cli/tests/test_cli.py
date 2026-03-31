@@ -1301,7 +1301,7 @@ def test_queue_status(capsys, requests_mock):
         },
         {
             "job_id": str(uuid.uuid1()),
-            "job_state": "complete",
+            "job_state": "completed",
             "created_at": "2023-10-13T15:22:30Z",
         },
     ]
@@ -1344,7 +1344,7 @@ def test_queue_status_verbose(capsys, requests_mock):
         },
         {
             "job_id": "8b0bb52f-08d8-4671-b275-55d84a965f7c",
-            "job_state": "complete",
+            "job_state": "completed",
             "created_at": "2023-10-13T15:22:30Z",
         },
     ]
@@ -1389,7 +1389,7 @@ def test_queue_status_json(capsys, requests_mock):
         },
         {
             "job_id": str(uuid.uuid1()),
-            "job_state": "complete",
+            "job_state": "completed",
             "created_at": "2023-10-13T15:22:30Z",
         },
     ]
@@ -1518,7 +1518,7 @@ def test_live_polling_with_fragments_progression(
         iteration_count += 1
         # Run for 3 iterations then complete
         return (
-            {"job_state": "complete"}
+            {"job_state": "completed"}
             if iteration_count > 3
             else {"job_state": "running"}
         )
@@ -1610,7 +1610,7 @@ def test_live_polling_with_empty_poll(
     requests_mock.get(
         f"{URL}/v1/result/{job_id}",
         10 * [{"json": {"job_state": "active"}}]
-        + [{"json": {"job_state": "complete"}}],
+        + [{"json": {"job_state": "completed"}}],
     )
 
     # Mock log output with 10 empty responses
@@ -1760,7 +1760,7 @@ def test_poll_exponential_backoff_on_network_errors(
     requests_mock.get(
         f"{URL}/v1/result/{job_id}",
         [{"exc": requests.exceptions.ConnectionError}] * 5
-        + [{"json": {"job_state": "complete"}}],
+        + [{"json": {"job_state": "completed"}}],
     )
     requests_mock.get(
         f"{URL}/v1/result/{job_id}/log/output?start_fragment=0",

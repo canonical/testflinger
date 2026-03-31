@@ -49,6 +49,7 @@ from testflinger_cli import (
 )
 from testflinger_cli.admin import TestflingerAdminCLI
 from testflinger_cli.auth import TestflingerCliAuth
+from testflinger_cli.consts import DEFAULT_RESERVE_TIMEOUT
 from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import (
     AttachmentError,
@@ -346,8 +347,9 @@ class TestflingerCli:
         parser.add_argument(
             "--timeout",
             type=int,
-            default=3600,
-            help="Reservation timeout in seconds (default 3600)",
+            default=DEFAULT_RESERVE_TIMEOUT,
+            help="Reservation timeout in seconds (default "
+            "{DEFAULT_RESERVE_TIMEOUT})",
         )
 
     def _add_status_args(self, subparsers):
@@ -617,7 +619,7 @@ class TestflingerCli:
             job_state = job.get("job_state", "").lower()
             if job_state == "waiting":
                 jobs_waiting.append(job_info)
-            elif job_state == "complete":
+            elif job_state == "completed":
                 jobs_completed.append(job_info)
             elif job_state not in ("cancelled",):  # Ignore cancelled jobs
                 # All non-waiting, non-complete, non-cancelled are "running"
@@ -1185,17 +1187,18 @@ class TestflingerCli:
         """Poll for serial output from a job until it is completed."""
         self.poll(LogType.SERIAL_OUTPUT)
 
-    def _on_state_change(
-        self, job_state: str, job_details: dict | None
-    ) -> None:
+    def _on_state_change(self, job_state: str, job_details: dict) -> None:
         """Handle job state changes and update the status line message.
 
         Updates the status line with state-specific messages and manages
         countdown/elapsed timing. Handles transitions between job states
         (waiting, running, provision, reserve, complete, cancelled).
 
+        Note: job_details will not be None entering into this function as it
+        will be handled in the outer scope.
+
         :param job_state: The new job state string
-        :param job_details: Job details dict, may be None if retrieval failed
+        :param job_details: Job details dict
         """
         msg = "Waiting on output..."
         if job_state == "waiting":
@@ -1206,7 +1209,9 @@ class TestflingerCli:
             msg = "Provisioning device..."
         elif job_state == "reserve":
             timeout = int(
-                job_details.get("reserve_data", {}).get("timeout", 3600)
+                job_details.get("reserve_data", {}).get(
+                    "timeout", DEFAULT_RESERVE_TIMEOUT
+                )
             )
             now = datetime.now().astimezone()
             # TODO: not `now` but rather the reservation start time. At the
@@ -1215,7 +1220,7 @@ class TestflingerCli:
             expire_time = now + timedelta(seconds=timeout)
             msg = f"Reservation expires at: [{expire_time.isoformat()}]"
             StatusLine.set_countdown(timeout)
-        elif job_state in ("cancelled", "complete", "completed"):
+        elif job_state in ("cancelled", "completed"):
             hours, minutes, seconds = StatusLine.get_elapsed_time()
             result_msg = (
                 "Job cancelled"
@@ -1255,9 +1260,13 @@ class TestflingerCli:
         except (errors.NoJobDataError, errors.InvalidJobIdError) as exc:
             sys.exit(str(exc))
 
+        # Do not proceed if there are no job details available.
+        if not job_details:
+            sys.exit("Job details could not be fetched.")
+
         # If the job is already complete (e.g. late or after-action request to
         # poll) then we can skip using the StatusLine in a live manner
-        if job_state_data["job_state"] not in ("complete", "cancelled"):
+        if job_state_data["job_state"] not in ("completed", "cancelled"):
             StatusLine.init()
 
         prev_queue_pos = None
@@ -1299,7 +1308,7 @@ class TestflingerCli:
                         )
                         break
 
-                if job_state in ("cancelled", "complete", "completed"):
+                if job_state in ("cancelled", "completed"):
                     break
 
                 if job_state == "waiting":
@@ -1350,7 +1359,7 @@ class TestflingerCli:
         for job_id, jobdata in self.history.history.items():
             if self.args.status:
                 job_state = jobdata.get("job_state")
-                if job_state not in ("cancelled", "complete", "completed"):
+                if job_state not in ("cancelled", "completed"):
                     try:
                         job_state = self.get_job_state(job_id)["job_state"]
                         self.history.update(job_id, job_state)
