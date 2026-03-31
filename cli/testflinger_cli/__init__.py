@@ -1022,20 +1022,16 @@ class TestflingerCli:
         """Show the requested job JSON for a specified JOB_ID."""
         try:
             results = self.get_job_data(self.args.job_id)
-        except client.HTTPError as exc:
-            if exc.status == HTTPStatus.NO_CONTENT:
-                sys.exit("No data found for that job id.")
-            if exc.status == HTTPStatus.BAD_REQUEST:
-                sys.exit(
-                    "Invalid job id specified. Check the job id "
-                    "to be sure it is correct"
-                )
-            # This shouldn't happen, so let's get more information
-            logger.error(
-                "Unexpected error status from testflinger server: %s",
-                exc.status,
+        except errors.NoJobDataError:
+            sys.exit("No data found for that job id.")
+        except errors.InvalidJobIdError:
+            sys.exit(
+                "Invalid job id specified. Check the job id "
+                "to be sure it is correct"
             )
-            sys.exit(1)
+        except client.HTTPError as exc:
+            sys.exit(exc.msg)
+
         if self.args.yaml:
             to_print = helpers.pretty_yaml_dump(
                 results, sort_keys=True, indent=4, default_flow_style=False

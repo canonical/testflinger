@@ -580,6 +580,47 @@ def test_show_yaml(capsys, requests_mock):
     assert "completed" in std.out
 
 
+def test_show_no_data_found(requests_mock):
+    """Test show command with no data found (HTTP 204)."""
+    jobid = str(uuid.uuid1())
+    requests_mock.get(
+        f"{URL}/v1/job/{jobid}", status_code=HTTPStatus.NO_CONTENT
+    )
+    sys.argv = ["", "show", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.show()
+    assert str(exc_info.value) == "No data found for that job id."
+
+
+def test_show_invalid_job_id(requests_mock):
+    """Test show command with invalid job ID (HTTP 400)."""
+    jobid = "invalid-id"
+    requests_mock.get(
+        f"{URL}/v1/job/{jobid}", status_code=HTTPStatus.BAD_REQUEST
+    )
+    sys.argv = ["", "show", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.show()
+    assert "Invalid job id specified" in str(exc_info.value)
+
+
+def test_show_unexpected_http_error(requests_mock):
+    """Test show command with unexpected HTTP error."""
+    jobid = str(uuid.uuid1())
+    error_msg = "Internal server error"
+    requests_mock.get(
+        f"{URL}/v1/job/{jobid}",
+        status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+        json={"error": error_msg},
+    )
+    sys.argv = ["", "show", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit):
+        tfcli.show()
+
+
 def test_results(capsys, requests_mock):
     """Results should report job_state data."""
     jobid = str(uuid.uuid1())
