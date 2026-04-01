@@ -170,45 +170,41 @@ The ``list-agents`` subcommand can provide output in three different modes:
 
 - Single-column list of agent names (``-1``)
 
-.. code-block:: shell
+In all cases, filtering can be applied to various fields, e.g:
 
-  $ testflinger list-agents --help
-  usage: testflinger list-agents [-h] [-1] [--summary] [--filter-status FILTER_STATUS] [--filter-name FILTER_NAME]
-                                 [--filter-queues FILTER_QUEUES] [--filter-location FILTER_LOCATION]
-                                 [--filter-provision-type FILTER_PROVISION_TYPE] [--filter-comment FILTER_COMMENT]
-                                 [--fields FIELDS]
+- Status can be filtered by specifying a list of included and excluded states
 
-  options:
-    -h, --help            show this help message and exit
-    -1                    Single agent name per line (suitable for piping)
-    --summary             Show summary of online/offline agent counts
-    --filter-status FILTER_STATUS
-                          Filter agents by status (comma-separated). Use ^ prefix to exclude.
-                          gross: online,offline,maintenance or
-                          fine: waiting,setup,provision,firmware_update,test,allocate,reserve,cleanup.
-                          Example: --filter-status online,^waiting
-    --filter-name FILTER_NAME
-                          Filter agents by name (regex)
-    --filter-queues FILTER_QUEUES
-                          Filter agents by queues (regex, matches any queue)
-    --filter-location FILTER_LOCATION
-                          Filter agents by location (regex)
-    --filter-provision-type FILTER_PROVISION_TYPE
-                          Filter agents by provision-type (regex)
-    --filter-comment FILTER_COMMENT
-                          Filter agents by comment (regex)
-    --fields FIELDS       Fields to display in the agent table (comma-separated). Available fields: name, status,
-                          location, provision_type, comment, job_id, queues. Default:
-                          name,status,location,provision_type,comment
+  - Available states include: ``online``, ``offline``, and ``maintenance``
 
-For example, if the purpose of listing the agents is intended to drive shell
-scripting, it may be desirable to have a single list of agent names. Much like
-one can use ``ls -1`` to obtain a single-column list output, the ``list-agent``
-subcommand also supports ``-1`` for this purpose.
+    - Fine-grained online states are also available: ``waiting``, ``setup``,
+      ``provision``, ``firmware_update``, ``test``, ``allocate``, ``reserve``,
+      ``cleanup``
+
+  - States can be _excluded_ if they are preceded by a caret (``^``)
+
+    - e.g.: ``--filter-status online,^waiting``
+
+- Several other agent properties can also be filtered on using regular expression
+  matching. All of these take the form of ``--filter-<attribute>`` and will apply
+  regular expression matching against the agent's attribute value:
+
+  - ``--filter-name``
+
+  - ``--filter-queues``
+
+  - ``--filter-location``
+
+  - ``--filter-provision-type``
+
+  - ``--filter-comment``
 
 **Table mode (default)**
 
-If neither ``-1`` nor ``--summary`` are specified, the default is to output a table of agents matching the specified filters.
+If neither ``-1`` nor ``--summary`` are specified, the default is to output a
+table of agents matching the specified filters. The table fields can be selected
+by specifying a comma-separated list of fields via ``--fields``, including any
+of: name, status, location, provision_type, comment, job_id, queues. By default
+name, status, location, provision_type, and comment are displayed.
 
 .. code-block:: shell
 
@@ -248,8 +244,10 @@ Filtering, of course can be used with any output mode, for example:
 
 **Single-column list mode (-1)**
 
-In single-column list mode (``-1``) output is suitable for further processing by
-shell scripts in very much the same way as ``ls -1``:
+If the purpose of listing the agents is intended to drive shell scripting, it
+may be desirable to have a single list of agent names. In single-column list
+mode (``-1``) output is suitable for further processing in shell scripts very
+much like ``ls -1`` would be used for files.
 
 Here's an example where the agents selected by the filter are set to ``online``
 within a for loop:
