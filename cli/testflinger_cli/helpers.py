@@ -197,19 +197,16 @@ def format_timestamp(timestamp_str: str) -> str:
         return timestamp_str
 
 
-def parse_comma_list(choices):
+def parse_comma_list(choices: tuple | list[str]) -> callable:
     """Create a comma-separated list parser.
 
-    Args:
-        choices: List of valid choices for each item in the
-            comma-separated list.
-
-    Returns:
-        A parser function that accepts comma-separated input and
-        returns a list.
+    :param choices: List of valid choices for each item in the
+        comma-separated list.
+    :return: A parser function that accepts comma-separated input and
+        returns a list of validated strings.
     """
 
-    def _parse_comma_list(arg):
+    def _parse_comma_list(arg: str) -> list[str]:
         value_list = [item.strip() for item in arg.split(",")]
         for item in value_list:
             if item not in choices:

@@ -65,8 +65,10 @@ basedir = os.path.abspath(os.path.join(__file__, ".."))
 if os.path.exists(os.path.join(basedir, "setup.py")):
     sys.path.insert(0, basedir)
 
-VALID_STATES = {"online", "offline", "maintenance"}
-ONLINE_STATES = {
+# Top-level (gross) states
+VALID_STATES = frozenset({"online", "offline", "maintenance"})
+# Define fine-grained state groupings and display order
+ONLINE_STATES = (
     "waiting",
     "setup",
     "provision",
@@ -75,8 +77,12 @@ ONLINE_STATES = {
     "allocate",
     "reserve",
     "cleanup",
-}
-OFFLINE_STATES = {"offline", "maintenance"}
+)
+OFFLINE_STATES = (
+    "offline",
+    "maintenance",
+)
+POSSIBLE_STATES = frozenset(VALID_STATES | set(ONLINE_STATES))
 
 FIELDS_CHOICES = (
     "name",
@@ -392,8 +398,11 @@ class TestflingerCli:
             "--json", action="store_true", help="Print output in JSON format"
         )
 
-    def _add_list_agent_args(self, subparsers):
-        """Command line arguments for list of agents."""
+    def _add_list_agent_args(self, subparsers: object) -> None:
+        """Command line arguments for list of agents.
+
+        :param subparsers: The subparsers object from argparse
+        """
         parser = subparsers.add_parser(
             "list-agents",
             help="List agents with optional filtering",
@@ -433,8 +442,8 @@ class TestflingerCli:
             "--filter-status",
             dest="filter_status",
             type=helpers.parse_comma_list(
-                choices=[x.strip() for x in VALID_STATES | ONLINE_STATES]
-                + [f"^{x.strip()}" for x in VALID_STATES | ONLINE_STATES]
+                choices=[x.strip() for x in POSSIBLE_STATES]
+                + [f"^{x.strip()}" for x in POSSIBLE_STATES]
             ),
             default=None,
             help=(
@@ -679,7 +688,7 @@ class TestflingerCli:
         :return: Filtered list of agents
         """
 
-        def status_filter(a):
+        def status_filter(a: dict) -> bool:
             # Filter by status
             if self.args.filter_status:
                 # Separate included and excluded statuses
@@ -693,7 +702,7 @@ class TestflingerCli:
                 # Start with all states if only exclusions are specified
                 if not allowed_states:
                     # Only exclusions: start with all possible states
-                    allowed_states = ONLINE_STATES | OFFLINE_STATES
+                    allowed_states = set(POSSIBLE_STATES)
 
                 excluded_statuses = {
                     s[1:] for s in self.args.filter_status if s.startswith("^")
@@ -709,7 +718,7 @@ class TestflingerCli:
                 return True
 
         # queues are a list within each agent dictionary
-        def queue_filter(a):
+        def queue_filter(a: dict) -> bool:
             return (
                 any(
                     self.args.filter_queues.search(str(q))
@@ -720,7 +729,7 @@ class TestflingerCli:
             )
 
         # everything else operates on a single value under the agent dictionary
-        def re_filter(field, pattern):
+        def re_filter(field: str, pattern: object) -> callable:
             if pattern:
                 return lambda a: pattern.search(str(a.get(field, "")))
             return lambda a: True
@@ -751,20 +760,9 @@ class TestflingerCli:
         - setup, provision, firmware_update, test, allocate, reserve: running
           job phases
         - offline, maintenance: offline states
-        """
-        # Define state groupings and display order
-        online_states = [
-            "waiting",
-            "setup",
-            "provision",
-            "firmware_update",
-            "test",
-            "allocate",
-            "reserve",
-            "cleanup",
-        ]
-        offline_states = ["offline", "maintenance"]
 
+        :param agents: List of agent dictionaries to summarize
+        """
         # Count per state
         state_counts = {}
         for a in agents:
@@ -775,29 +773,32 @@ class TestflingerCli:
         overall_online = sum(
             count
             for state, count in state_counts.items()
-            if state in online_states
+            if state in ONLINE_STATES
         )
         overall_offline = sum(
             count
             for state, count in state_counts.items()
-            if state in offline_states
+            if state in OFFLINE_STATES
         )
 
         # Print summary
         print(f"Online:           {overall_online}")
-        for state in online_states:
+        for state in ONLINE_STATES:
             count = state_counts.get(state, 0)
             if count > 0:
                 print(f"  {state:<16} {count}")
 
         print(f"\nOffline:          {overall_offline}")
-        for state in offline_states:
+        for state in OFFLINE_STATES:
             count = state_counts.get(state, 0)
             if count > 0:
                 print(f"  {state:<16} {count}")
 
     def _print_agent_table(self, agents: list[dict]) -> None:
-        """Print agents in table format, supporting custom fields."""
+        """Print agents in table format, supporting custom fields.
+
+        :param agents: List of agent dictionaries to display in table format
+        """
         if not agents:
             print("No agents found matching the filter criteria.")
             return
@@ -852,6 +853,9 @@ class TestflingerCli:
 
     def _print_agent_names(self, agents: list[dict]) -> None:
         """Print agent names only (one per line).
+
+        Outputs one agent name per line, suitable for piping to other
+        commands.
 
         :param agents: List of filtered agent dictionaries
         """
