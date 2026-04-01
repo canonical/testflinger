@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Canonical Ltd.
 """Helpers for the Testflinger CLI."""
 
+import argparse
 from datetime import datetime
 from os import getenv
 from pathlib import Path
@@ -194,3 +195,28 @@ def format_timestamp(timestamp_str: str) -> str:
         return dt.strftime("%Y-%m-%d %H:%M:%S")
     except (ValueError, AttributeError):
         return timestamp_str
+
+
+def parse_comma_list(choices):
+    """Create a comma-separated list parser.
+
+    Args:
+        choices: List of valid choices for each item in the
+            comma-separated list.
+
+    Returns:
+        A parser function that accepts comma-separated input and
+        returns a list.
+    """
+
+    def _parse_comma_list(arg):
+        value_list = [item.strip() for item in arg.split(",")]
+        for item in value_list:
+            if item not in choices:
+                raise argparse.ArgumentTypeError(
+                    f"invalid choice: '{item}' (choose from "
+                    f"{', '.join(choices)})"
+                )
+        return value_list
+
+    return _parse_comma_list

@@ -65,6 +65,29 @@ basedir = os.path.abspath(os.path.join(__file__, ".."))
 if os.path.exists(os.path.join(basedir, "setup.py")):
     sys.path.insert(0, basedir)
 
+VALID_STATES = {"online", "offline", "maintenance"}
+ONLINE_STATES = {
+    "waiting",
+    "setup",
+    "provision",
+    "firmware_update",
+    "test",
+    "allocate",
+    "reserve",
+    "cleanup",
+}
+OFFLINE_STATES = {"offline", "maintenance"}
+
+FIELDS_CHOICES = (
+    "name",
+    "status",
+    "location",
+    "provision_type",
+    "comment",
+    "job_id",
+    "queues",
+)
+
 
 def cli():
     """Generate the TestflingerCli instance and run it."""
@@ -377,64 +400,85 @@ class TestflingerCli:
             formatter_class=RawTextHelpFormatter,
         )
         parser.set_defaults(func=self.list_agents)
-        parser.add_argument(
+        subgroup = parser.add_mutually_exclusive_group()
+        subgroup.add_argument(
             "-1",
             dest="single_column",
             action="store_true",
             help="Single-column list of one agent name per line (suitable for "
             "piping)",
         )
-        parser.add_argument(
+        subgroup.add_argument(
             "--summary",
             action="store_true",
             help="Show summary of online/offline agent counts",
         )
+        subgroup.add_argument(
+            "--fields",
+            type=helpers.parse_comma_list(choices=FIELDS_CHOICES),
+            default=[
+                "name",
+                "status",
+                "location",
+                "provision_type",
+                "comment",
+            ],
+            help=(
+                "Fields to display in the agent table (comma-separated)."
+                " Available fields: {', '.join(FIELDS_CHOICES)}."
+                " Default: name,status,location,provision_type,comment"
+            ),
+        )
         parser.add_argument(
             "--filter-status",
             dest="filter_status",
+            type=helpers.parse_comma_list(
+                choices=[x.strip() for x in VALID_STATES | ONLINE_STATES]
+                + [f"^{x.strip()}" for x in VALID_STATES | ONLINE_STATES]
+            ),
+            default=None,
             help=(
                 "Filter agents by status (comma-separated). "
                 "Use ^ prefix to exclude.\n"
-                "Gross: online,offline,maintenance\n"
-                "Fine: waiting,setup,provision,firmware_update,test,allocate"
-                ",reserve,cleanup.\n"
+                f"Gross: {', '.join(VALID_STATES)}\n"
+                f"Fine: {', '.join(ONLINE_STATES)}\n"
                 "Example: --filter-status online,^waiting"
             ),
         )
         parser.add_argument(
             "--filter-name",
             dest="filter_name",
+            type=re.compile,
+            default=None,
             help="Filter agents by name (regex)",
         )
         parser.add_argument(
             "--filter-queues",
             dest="filter_queues",
+            type=re.compile,
+            default=None,
             help="Filter agents by queues (regex, matches any queue)",
         )
         parser.add_argument(
             "--filter-location",
             dest="filter_location",
+            type=re.compile,
+            default=None,
             help="Filter agents by location (regex)",
         )
         parser.add_argument(
             "--filter-provision-type",
             dest="filter_provision_type",
+            type=re.compile,
+            default=None,
             help="Filter agents by provision-type (regex)",
         )
         parser.add_argument(
             "--filter-comment",
             dest="filter_comment",
+            type=re.compile,
+            default=None,
             help="Filter agents by comment (regex)",
-        )
-        parser.add_argument(
-            "--fields",
-            default="name,status,location,provision_type,comment",
-            help=(
-                "Fields to display in the agent table (comma-separated)."
-                " Available fields: name, status, location, provision_type,"
-                " comment, job_id, queues."
-                " Default: name,status,location,provision_type,comment"
-            ),
         )
 
     def _add_queue_status_args(self, subparsers):
@@ -579,26 +623,32 @@ class TestflingerCli:
 
     def list_agents(self) -> None:
         """List agents with optional filtering."""
-        # Validate mutually exclusive flags
-        if self.args.summary and self.args.single_column:
-            sys.exit(
-                "Error: single-column output (-1) and summary (--summary) "
-                "modes cannot be used together"
-            )
-
-        # --fields is not applicable with -1 or --summary
-        if self.args.fields != "name,status,location,provision_type,comment":
-            # User specified custom fields
-            if self.args.single_column:
-                sys.exit(
-                    "Error: --fields is not applicable with "
-                    "single-column output (-1)"
-                )
-            if self.args.summary:
-                sys.exit(
-                    "Error: --fields is not applicable with "
-                    "summary (--summary)"
-                )
+        # # Validate mutually exclusive flags
+        # if self.args.summary and self.args.single_column:
+        #     sys.exit(
+        #         "Error: single-column output (-1) and summary (--summary) "
+        #         "modes cannot be used together"
+        #     )
+        #
+        # # --fields is not applicable with -1 or --summary
+        # if self.args.fields != [
+        #     "name",
+        #     "status",
+        #     "location",
+        #     "provision_type",
+        #     "comment",
+        # ]:
+        #     # User specified custom fields
+        #     if self.args.single_column:
+        #         sys.exit(
+        #             "Error: --fields is not applicable with "
+        #             "single-column output (-1)"
+        #         )
+        #     if self.args.summary:
+        #         sys.exit(
+        #             "Error: --fields is not applicable with "
+        #             "summary (--summary)"
+        #         )
 
         try:
             agents = self.client.get_all_agents()
@@ -613,12 +663,13 @@ class TestflingerCli:
 
         # Display output based on flags
         if self.args.summary:
+            # just a summary of counts per status
             self._print_agent_summary(filtered_agents)
         elif self.args.single_column:
             # single-column flag: machine names only
             self._print_agent_names(filtered_agents)
         else:
-            # Table with details, supporting --fields
+            # table with details, supporting --fields
             self._print_agent_table(filtered_agents)
 
     def _filter_agents(self, agents: list[dict]) -> list[dict]:
@@ -627,120 +678,70 @@ class TestflingerCli:
         :param agents: List of agent dictionaries
         :return: Filtered list of agents
         """
-        filtered = agents
 
-        # Filter by status
-        if self.args.filter_status:
-            online_states = {
-                "waiting",
-                "setup",
-                "provision",
-                "firmware_update",
-                "test",
-                "allocate",
-                "reserve",
-                "cleanup",
-            }
-            offline_states = {"offline", "maintenance"}
-            valid_statuses = {
-                "online",
-                "offline",
-                "maintenance",
-                "waiting",
-                "setup",
-                "provision",
-                "firmware_update",
-                "test",
-                "allocate",
-                "reserve",
-                "cleanup",
-            }
+        def status_filter(a):
+            # Filter by status
+            if self.args.filter_status:
+                # Separate included and excluded statuses
+                allowed_states = {
+                    s for s in self.args.filter_status if not s.startswith("^")
+                }
+                if "online" in allowed_states:
+                    allowed_states.update(ONLINE_STATES)
+                if "offline" in allowed_states:
+                    allowed_states.update(OFFLINE_STATES)
+                # Start with all states if only exclusions are specified
+                if not allowed_states:
+                    # Only exclusions: start with all possible states
+                    allowed_states = ONLINE_STATES | OFFLINE_STATES
 
-            # Parse comma-separated status values
-            requested_statuses = [
-                s.strip() for s in self.args.filter_status.split(",")
-            ]
+                excluded_statuses = {
+                    s[1:] for s in self.args.filter_status if s.startswith("^")
+                }
+                if "online" in excluded_statuses:
+                    allowed_states.difference_update(ONLINE_STATES)
+                if "offline" in excluded_statuses:
+                    allowed_states.difference_update(OFFLINE_STATES)
+                allowed_states.difference_update(excluded_statuses)
 
-            # Separate included and excluded statuses
-            included_statuses = []
-            excluded_statuses = []
-            for status in requested_statuses:
-                if status.startswith("^"):
-                    excluded_statuses.append(status[1:])
-                else:
-                    included_statuses.append(status)
-
-            # Validate all requested statuses
-            all_statuses = set(included_statuses) | set(excluded_statuses)
-            invalid_statuses = all_statuses - valid_statuses
-            if invalid_statuses:
-                invalid_list = ", ".join(sorted(invalid_statuses))
-                valid_list = ", ".join(sorted(valid_statuses))
-                sys.exit(
-                    f"Invalid status(es): {invalid_list}\n"
-                    f"Valid statuses are: {valid_list}"
-                )
-
-            # Build the set of allowed agent states
-            # Start with all states if only exclusions are specified
-            if included_statuses:
-                allowed_states = set()
-                for status in included_statuses:
-                    if status == "online":
-                        allowed_states.update(online_states)
-                    elif status == "offline":
-                        allowed_states.update(offline_states)
-                    else:
-                        allowed_states.add(status)
+                return a.get("state") in allowed_states
             else:
-                # Only exclusions: start with all possible states
-                allowed_states = online_states | offline_states
+                return True
 
-            # Remove excluded states
-            for status in excluded_statuses:
-                if status == "online":
-                    allowed_states -= online_states
-                elif status == "offline":
-                    allowed_states -= offline_states
-                else:
-                    allowed_states.discard(status)
+        # queues are a list within each agent dictionary
+        def queue_filter(a):
+            return (
+                any(
+                    self.args.filter_queues.search(str(q))
+                    for q in a.get("queues", [])
+                )
+                if self.args.filter_queues
+                else lambda _: True
+            )
 
-            # Filter agents by allowed states
-            filtered = [
-                a for a in filtered if a.get("state") in allowed_states
-            ]
+        # everything else operates on a single value under the agent dictionary
+        def re_filter(field, pattern):
+            if pattern:
+                return lambda a: pattern.search(str(a.get(field, "")))
+            return lambda a: True
 
-        # Generic dynamic filtering for all supported fields
-        filter_fields = [
-            ("filter_name", "name", False),
-            ("filter_queues", "queues", True),
-            ("filter_location", "location", False),
-            ("filter_provision_type", "provision_type", False),
-            ("filter_comment", "comment", False),
+        # Filter agents by allowed states
+        return [
+            a
+            for a in agents
+            if all(
+                (
+                    status_filter(a),
+                    queue_filter(a),
+                    re_filter("name", self.args.filter_name)(a),
+                    re_filter("location", self.args.filter_location)(a),
+                    re_filter(
+                        "provision_type", self.args.filter_provision_type
+                    )(a),
+                    re_filter("comment", self.args.filter_comment)(a),
+                )
+            )
         ]
-        for arg_name, field, is_list in filter_fields:
-            pattern_str = getattr(self.args, arg_name, None)
-            if pattern_str:
-                try:
-                    pattern = re.compile(pattern_str)
-                    if is_list:
-                        filtered = [
-                            a
-                            for a in filtered
-                            if any(
-                                pattern.search(str(q))
-                                for q in a.get(field, [])
-                            )
-                        ]
-                    else:
-                        filtered = [
-                            a
-                            for a in filtered
-                            if pattern.search(str(a.get(field, "")))
-                        ]
-                except re.error as exc:
-                    sys.exit(f"Invalid filter regex for {field}: {exc}")
-        return filtered
 
     def _print_agent_summary(self, agents: list[dict]) -> None:
         """Print summary of agent statuses grouped by online/offline.
@@ -814,27 +815,14 @@ class TestflingerCli:
             "job_id": "Job ID",
             "queues": "Queues",
         }
-        valid_fields = set(header_map.keys())
-
-        # Determine fields to display
-        fields = [f.strip() for f in self.args.fields.split(",")]
-
-        # Validate requested fields
-        invalid_fields = set(fields) - valid_fields
-        if invalid_fields:
-            sys.exit(
-                f"Invalid field(s): {', '.join(sorted(invalid_fields))}"
-                f"\nValid fields are: {', '.join(sorted(valid_fields))}"
-            )
-
-        headers = [header_map[f] for f in fields]
+        headers = [header_map[f] for f in self.args.fields]
 
         # Calculate column widths
         col_widths = []
-        for f in fields:
-            key = field_map.get(f, f)
+        for field, header in zip(self.args.fields, headers, strict=False):
+            key = field_map.get(field, field)
             width = max(
-                len(header_map.get(f, f.capitalize())),
+                len(header),
                 max(
                     (len(str(agent.get(key, "-"))) for agent in agents),
                     default=0,
@@ -843,16 +831,17 @@ class TestflingerCli:
             col_widths.append(width)
 
         # Print header
-        header_row = "  ".join(
-            f"{h:<{w}}" for h, w in zip(headers, col_widths, strict=True)
+        print(
+            "  ".join(
+                f"{h:<{w}}" for h, w in zip(headers, col_widths, strict=True)
+            )
         )
-        print(header_row)
         print("-" * (sum(col_widths) + 2 * (len(col_widths) - 1)))
 
         # Print rows
         for agent in agents:
             row = []
-            for f, w in zip(fields, col_widths, strict=True):
+            for f, w in zip(self.args.fields, col_widths, strict=True):
                 key = field_map.get(f, f)
                 val = agent.get(key, "-")
                 # Convert list values to comma-separated string

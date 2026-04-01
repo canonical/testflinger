@@ -1300,13 +1300,8 @@ def test_agent_list_mutually_exclusive_1_and_summary(requests_mock):
     ]
     requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
     sys.argv = ["", "list-agents", "-1", "--summary"]
-    tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(SystemExit) as exc_info:
-        tfcli.list_agents()
-    assert exc_info.value.code == (
-        "Error: single-column output (-1) and summary (--summary) "
-        "modes cannot be used together"
-    )
+    with pytest.raises(SystemExit):
+        testflinger_cli.TestflingerCli()
 
 
 def test_agent_list_fields_not_applicable_with_1(requests_mock):
@@ -1320,12 +1315,8 @@ def test_agent_list_fields_not_applicable_with_1(requests_mock):
     ]
     requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
     sys.argv = ["", "list-agents", "-1", "--fields", "name,status"]
-    tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(SystemExit) as exc_info:
-        tfcli.list_agents()
-    assert exc_info.value.code == (
-        "Error: --fields is not applicable with single-column output (-1)"
-    )
+    with pytest.raises(SystemExit):
+        testflinger_cli.TestflingerCli()
 
 
 def test_agent_list_fields_not_applicable_with_summary(requests_mock):
@@ -1339,12 +1330,8 @@ def test_agent_list_fields_not_applicable_with_summary(requests_mock):
     ]
     requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
     sys.argv = ["", "list-agents", "--summary", "--fields", "name,status"]
-    tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(SystemExit) as exc_info:
-        tfcli.list_agents()
-    assert exc_info.value.code == (
-        "Error: --fields is not applicable with summary (--summary)"
-    )
+    with pytest.raises(SystemExit):
+        testflinger_cli.TestflingerCli()
 
 
 def test_agent_list_table(capsys, requests_mock):
@@ -1594,12 +1581,8 @@ def test_agent_list_mutually_exclusive_flags(requests_mock):
     """Validate list-agents rejects -1 and --summary together."""
     requests_mock.get(f"{URL}/v1/agents/data", json=[])
     sys.argv = ["", "list-agents", "-1", "--summary"]
-    tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(SystemExit) as err:
-        tfcli.list_agents()
-    assert "single-column output (-1) and summary (--summary)" in str(
-        err.value
-    )
+    with pytest.raises(SystemExit):
+        testflinger_cli.TestflingerCli()
 
 
 @patch.object(testflinger_cli.TestflingerCli, "_print_agent_names")
