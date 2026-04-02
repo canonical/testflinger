@@ -12,7 +12,7 @@ it knows how to run jobs. When it is not running a job, the agent:
 
 You can see a list of agents in the Testflinger web interface by clicking on the
 "Agents" link in the top navigation bar. It is also possible to list the agents
-via the ``list-agents`` subcommand of the testflinger CLI, as shown in :ref:`_listing_agents`.
+via the ``list-agents`` subcommand of the testflinger CLI, as shown in :ref:`listing_agents`.
 
 Communication with the Server
 -----------------------------
