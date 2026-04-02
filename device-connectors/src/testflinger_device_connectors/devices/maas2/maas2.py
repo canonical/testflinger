@@ -308,7 +308,7 @@ class Maas2:
 
     def deploy_node(
         self,
-        distro: str = "bionic",
+        distro: str = "jammy",
         kernel: str | None = None,
         user_data: str | None = None,
         storage_data: list[dict] | None = None,
