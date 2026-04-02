@@ -2,6 +2,7 @@
 """Helpers for the Testflinger CLI."""
 
 import argparse
+import re
 from datetime import datetime
 from os import getenv
 from pathlib import Path
@@ -217,3 +218,18 @@ def parse_comma_list(choices: tuple | list[str]) -> callable:
         return value_list
 
     return _parse_comma_list
+
+
+def regex_arg(value):
+    """Compile and validate a regex pattern argument.
+
+    :param value: The regex pattern string to compile
+    :return: Compiled regex pattern
+    :raises ArgumentTypeError: If the regex pattern is invalid
+    """
+    try:
+        return re.compile(value)
+    except re.error as err:
+        raise argparse.ArgumentTypeError(
+            f"Invalid regex '{value}', error: {str(err)}"
+        ) from err

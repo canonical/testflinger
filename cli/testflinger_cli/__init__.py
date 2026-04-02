@@ -21,7 +21,6 @@ import contextlib
 import json
 import logging
 import os
-import re
 import sys
 import tarfile
 import tempfile
@@ -457,35 +456,35 @@ class TestflingerCli:
         parser.add_argument(
             "--filter-name",
             dest="filter_name",
-            type=re.compile,
+            type=helpers.regex_arg,
             default=None,
             help="Filter agents by name (regex)",
         )
         parser.add_argument(
             "--filter-queues",
             dest="filter_queues",
-            type=re.compile,
+            type=helpers.regex_arg,
             default=None,
             help="Filter agents by queues (regex, matches any queue)",
         )
         parser.add_argument(
             "--filter-location",
             dest="filter_location",
-            type=re.compile,
+            type=helpers.regex_arg,
             default=None,
             help="Filter agents by location (regex)",
         )
         parser.add_argument(
             "--filter-provision-type",
             dest="filter_provision_type",
-            type=re.compile,
+            type=helpers.regex_arg,
             default=None,
             help="Filter agents by provision-type (regex)",
         )
         parser.add_argument(
             "--filter-comment",
             dest="filter_comment",
-            type=re.compile,
+            type=helpers.regex_arg,
             default=None,
             help="Filter agents by comment (regex)",
         )
@@ -632,33 +631,6 @@ class TestflingerCli:
 
     def list_agents(self) -> None:
         """List agents with optional filtering."""
-        # # Validate mutually exclusive flags
-        # if self.args.summary and self.args.single_column:
-        #     sys.exit(
-        #         "Error: single-column output (-1) and summary (--summary) "
-        #         "modes cannot be used together"
-        #     )
-        #
-        # # --fields is not applicable with -1 or --summary
-        # if self.args.fields != [
-        #     "name",
-        #     "status",
-        #     "location",
-        #     "provision_type",
-        #     "comment",
-        # ]:
-        #     # User specified custom fields
-        #     if self.args.single_column:
-        #         sys.exit(
-        #             "Error: --fields is not applicable with "
-        #             "single-column output (-1)"
-        #         )
-        #     if self.args.summary:
-        #         sys.exit(
-        #             "Error: --fields is not applicable with "
-        #             "summary (--summary)"
-        #         )
-
         try:
             agents = self.client.get_all_agents()
         except client.HTTPError as exc:
@@ -718,20 +690,20 @@ class TestflingerCli:
                 return True
 
         # queues are a list within each agent dictionary
-        def queue_filter(a: dict) -> bool:
+        def queue_filter(agent: dict) -> bool:
             return (
                 any(
                     self.args.filter_queues.search(str(q))
-                    for q in a.get("queues", [])
+                    for q in agent.get("queues", [])
                 )
                 if self.args.filter_queues
-                else lambda _: True
+                else True
             )
 
         # everything else operates on a single value under the agent dictionary
-        def re_filter(field: str, pattern: object) -> callable:
-            if pattern:
-                return lambda a: pattern.search(str(a.get(field, "")))
+        def re_filter(field: str, regex: object) -> callable:
+            if regex:
+                return lambda a: regex.search(str(a.get(field, "")))
             return lambda a: True
 
         # Filter agents by allowed states
