@@ -61,11 +61,11 @@ def test_maas_cmd_retry(mock_config_file):
         patch("time.sleep", return_value=None) as mocked_time_sleep,
     ):
         maas2 = Maas2(config=mock_config_file, job_data=job_json)
-        cmd = "my_maas_cmd"
+        cmd = ["my_maas_cmd"]
         with pytest.raises(ProvisioningError) as err:
             maas2.run_maas_cmd_with_retry(cmd)
-            assert err.messsage == "error"
 
+        assert "error" in str(err.value)
         assert mocked_time_sleep.call_count == 6
 
 
@@ -301,8 +301,10 @@ def test_get_maas_version(mock_run_maas_cmd, mock_config_file):
 
 
 @patch.object(Maas2, "run_maas_cmd_with_retry")
-def test_get_maas_version_failure(mock_run_maas_cmd, mock_config_file):
-    """Test that get_maas_version returns None when version not retrieved."""
+def test_get_maas_version_returns_none_on_empty_response(
+    mock_run_maas_cmd, mock_config_file
+):
+    """Test that get_maas_version returns None when version key is absent."""
     job_json = mock_config_file.parent / "job.json"
     job_json.write_text(json.dumps({"provision_data": {"ephemeral": True}}))
 
@@ -313,13 +315,29 @@ def test_get_maas_version_failure(mock_run_maas_cmd, mock_config_file):
         returncode=0,
         stdout=json.dumps({}).encode(),
     )
-    version = maas2.get_maas_version()
-    assert version is None
+    assert maas2.get_maas_version() is None
     mock_run_maas_cmd.assert_called_once_with(
         ["maas", "user", "version", "read"],
         max_retries=3,
         backoff_start=10,
     )
+
+
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_get_maas_version_returns_none_on_provisioning_error(
+    mock_run_maas_cmd, mock_config_file, caplog
+):
+    """Test that get_maas_version returns None on ProvisioningError."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({"provision_data": {"ephemeral": True}}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    mock_run_maas_cmd.side_effect = ProvisioningError("maas command failed")
+
+    assert maas2.get_maas_version() is None
+    assert "Unable to determine MAAS version" in caplog.text
+    assert "Proceeding without ephemeral deployment" in caplog.text
 
 
 @patch("time.sleep")

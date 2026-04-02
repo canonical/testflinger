@@ -83,7 +83,7 @@ class Maas2:
         # Check if this is a device where we need to clear the tpm (dawson)
         if self.config.get("clear_tpm"):
             self.clear_tpm()
-        provision_data = self.job_data.get("provision_data")
+        provision_data = self.job_data.get("provision_data") or {}
         # Default to a safe LTS if no distro is specified
         distro = provision_data.get("distro", "jammy")
         kernel = provision_data.get("kernel")
@@ -311,7 +311,7 @@ class Maas2:
         distro: str = "bionic",
         kernel: str | None = None,
         user_data: str | None = None,
-        storage_data: dict | None = None,
+        storage_data: list[dict] | None = None,
         ephemeral: bool = False,
     ) -> None:
         """Deploy the node in MAAS with the specified parameters.
@@ -526,13 +526,21 @@ class Maas2:
         """
         cmd = ["maas", self.maas_user, "version", "read"]
 
-        # Using the retry with a faster backoff to avoid long delays
-        proc = self.run_maas_cmd_with_retry(
-            cmd, max_retries=3, backoff_start=10
-        )
-        output_dict = json.loads(proc.stdout.decode())
-        version_str = output_dict.get("version") if output_dict else None
-        if not version_str:
+        try:
+            # Using the retry with a faster backoff to avoid long delays
+            proc = self.run_maas_cmd_with_retry(
+                cmd, max_retries=3, backoff_start=10
+            )
+            output_dict = json.loads(proc.stdout.decode())
+            version_str = output_dict.get("version") if output_dict else None
+            if not version_str:
+                return None
+
+            self._logger_info(f"MAAS version detected: {version_str}")
+            return tuple(int(x) for x in version_str.split("."))
+        except (ProvisioningError, ValueError) as exc:
+            self._logger_warning(
+                f"Unable to determine MAAS version: {exc}. "
+                "Proceeding without ephemeral deployment"
+            )
             return None
-        self._logger_info(f"MAAS version detected: {version_str}")
-        return tuple(int(x) for x in version_str.split("."))
