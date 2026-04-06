@@ -14,7 +14,7 @@ dependencies = [
 [dependency-groups]
 lint = ["ruff"]
 unit = ["coverage[toml]", "ops[testing]", "pytest"]
-integration = ["jubilant", "ops[testing]", "pytest"]
+integration = ["jubilant", "ops[testing]", "pytest", "requests"]
 
 [tool.coverage.run]
 branch = true
