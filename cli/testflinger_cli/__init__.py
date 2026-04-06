@@ -323,10 +323,11 @@ class TestflingerCli:
             help="Only show the job data, don't submit it",
         )
         parser.add_argument("--queue", "-q", help="Name of the queue to use")
-        parser.add_argument(
+        subgroup = parser.add_mutually_exclusive_group()
+        subgroup.add_argument(
             "--image", "-i", help="Name of the image to use for provisioning"
         )
-        parser.add_argument(
+        subgroup.add_argument(
             "--distro", help="Name of the distro to use for provisioning"
         )
         parser.add_argument(
@@ -1399,8 +1400,6 @@ class TestflingerCli:
         # Handle distro if provided
         provision_data = {}
         if self.args.distro:
-            if self.args.image:
-                sys.exit("--distro cannot be specified with --image")
             provision_data = {"provision_data": {"distro": self.args.distro}}
         else:
             try:

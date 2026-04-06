@@ -833,8 +833,13 @@ def test_reserve_with_distro(capsys, requests_mock):
     assert '"ssh_keys"' in std.out
 
 
-def test_reserve_distro_with_image_fails(requests_mock):
-    """Test that --distro and --image cannot be used together."""
+def test_reserve_distro_with_image_fails(requests_mock, capsys):
+    """Test that --distro and --image cannot be used together.
+    
+    Argparse's mutually_exclusive_group automatically prevents both
+    --distro and --image from being specified together, exiting with
+    code 2 and printing an error message to stderr.
+    """
     requests_mock.get(URL + "/v1/agents/queues", json={})
     requests_mock.get(URL + "/v1/agents/images/fake", json={})
     sys.argv = [
@@ -850,10 +855,73 @@ def test_reserve_distro_with_image_fails(requests_mock):
         "lp:fakeuser",
         "-d",
     ]
-    tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as exc_info:
-        tfcli.reserve()
-    assert exc_info.value.code == "--distro cannot be specified with --image"
+        testflinger_cli.TestflingerCli()
+    # Argparse exits with code 2 for mutually exclusive group violations
+    assert exc_info.value.code == 2
+    # Verify that the error message mentions the conflict
+    captured = capsys.readouterr()
+    assert "not allowed with argument" in captured.err
+
+
+def test_reserve_image_with_distro_fails(requests_mock, capsys):
+    """Test that --image and --distro cannot be used together.
+    
+    This is the inverse order of test_reserve_distro_with_image_fails,
+    ensuring mutual exclusivity works in both directions.
+    """
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "--distro",
+        "ubuntu-20.04",
+        "-k",
+        "lp:fakeuser",
+        "-d",
+    ]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli()
+    # Argparse exits with code 2 for mutually exclusive group violations
+    assert exc_info.value.code == 2
+    # Verify that the error message mentions the conflict
+    captured = capsys.readouterr()
+    assert "not allowed with argument" in captured.err
+
+
+def test_reserve_image_shorthand_with_distro_fails(requests_mock, capsys):
+    """Test that -i (shorthand for --image) and --distro are mutually exclusive.
+    
+    Verifies the mutually exclusive group works with both shorthand
+    and long-form flag combinations.
+    """
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "--distro",
+        "ubuntu-20.04",
+        "-k",
+        "lp:fakeuser",
+        "-d",
+    ]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli()
+    # Argparse exits with code 2 for mutually exclusive group violations
+    assert exc_info.value.code == 2
+    # Verify that the error message mentions the conflict
+    captured = capsys.readouterr()
+    assert "not allowed with argument" in captured.err
 
 
 @patch("builtins.input")
