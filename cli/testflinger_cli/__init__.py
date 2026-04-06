@@ -434,7 +434,7 @@ class TestflingerCli:
             ],
             help=(
                 "Fields to display in the agent table (comma-separated)."
-                " Available fields: {', '.join(FIELDS_CHOICES)}."
+                f" Available fields: {', '.join(FIELDS_CHOICES)}."
                 " Default: name,status,location,provision_type,comment"
             ),
         )
