@@ -654,6 +654,7 @@ dependencies = [
 integration = [
     { name = "jubilant" },
     { name = "ops", extra = ["testing"] },
+    { name = "pytest" },
 ]
 lint = [
     { name = "ruff" },
@@ -677,6 +678,7 @@ requires-dist = [
 integration = [
     { name = "jubilant" },
     { name = "ops", extras = ["testing"] },
+    { name = "pytest" },
 ]
 lint = [{ name = "ruff" }]
 unit = [
