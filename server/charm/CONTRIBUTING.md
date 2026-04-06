@@ -36,7 +36,7 @@ uvx --with tox-uv tox                           # runs 'format', 'lint', and 'un
 ```
 
 > [!NOTE]
-> Before running the integration tests, you require to build the charm 
+> Before running the integration tests, you need to build the charm.
 
 ## Build the Charm
 

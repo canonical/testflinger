@@ -38,7 +38,7 @@ include = [
 select = [
     "A",   # flake8-builtins
     "B",   # flake8-bugbear
-    "C4",  # comprenhension
+    "C4",  # comprehension
     "D",   # docstrings
     "DTZ", # flake8-datetimez
     "E",   # pycodestyle errors
@@ -58,7 +58,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = [
+"tests/**/*.py" = [
     "S101", # use of assert
 ]
 

@@ -22,7 +22,7 @@ Currently, supported relations are:
 
 - `mongodb_client`: for interfacing with `mongodb_client`
 - `mongodb_keyvault`: for interfacing with `mongodb_client` (for `secrets` encryption database)
-- `nginx-route`: for interfacing with `nginx_route`
+- `nginx-route`: for interfacing with `nginx-route`
 - `traefik-route`: for interfacing with `traefik_route`
 
 ## Contribute to the Testflinger Server Charm
