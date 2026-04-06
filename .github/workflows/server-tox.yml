@@ -119,4 +119,4 @@ jobs:
           if-no-files-found: error
           retention-days: 2
       - name: Run charm integration tests
-        run: uvx --with tox-uv tox -e charm-integration
+        run: uvx --with tox-uv tox -e integration
