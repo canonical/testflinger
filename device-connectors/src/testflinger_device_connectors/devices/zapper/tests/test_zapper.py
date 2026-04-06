@@ -20,7 +20,10 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices import (
+    DefaultDevice,
+    ProvisioningError,
+)
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 
@@ -169,8 +172,6 @@ class TestZapperConnectorRestApiCheck:
 
     def test_wait_ready_success(self, mocker):
         """Test wait_ready calls wait_online with correct parameters."""
-        from testflinger_device_connectors.devices import DefaultDevice
-
         mock_wait_online = mocker.patch.object(DefaultDevice, "wait_online")
 
         ZapperConnector.wait_ready("zapper-host", timeout=30)
@@ -181,8 +182,6 @@ class TestZapperConnectorRestApiCheck:
 
     def test_wait_ready_timeout(self, mocker):
         """Test wait_ready raises TimeoutError when server unavailable."""
-        from testflinger_device_connectors.devices import DefaultDevice
-
         mocker.patch.object(
             DefaultDevice, "wait_online", side_effect=TimeoutError
         )

@@ -16,9 +16,10 @@
 import subprocess
 from importlib import import_module
 from itertools import product
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 import pytest
+import requests
 
 from testflinger_device_connectors.cmd import STAGES
 from testflinger_device_connectors.devices import (
@@ -116,28 +117,13 @@ class TestCheckSshServerOnHost:
 class TestRebootControlHost:
     """Tests for DefaultDevice._reboot_control_host method."""
 
-    def test_reboot_control_host_no_script(self, mocker):
-        """Test reboot returns early when no script is configured."""
-        mocker.patch("builtins.open", mocker.mock_open())
-        mock_subprocess = mocker.patch("subprocess.run")
-        device = DefaultDevice({"device_ip": "1.1.1.1"})
-
-        device._reboot_control_host()
-
-        mock_subprocess.assert_not_called()
-
     def test_reboot_control_host_success(self, mocker):
         """Test reboot runs script commands successfully."""
         mocker.patch("builtins.open", mocker.mock_open())
         mock_subprocess = mocker.patch("subprocess.run")
-        device = DefaultDevice(
-            {
-                "device_ip": "1.1.1.1",
-                "control_host_reboot_script": ["cmd1", "cmd2"],
-            }
-        )
+        device = DefaultDevice({"device_ip": "1.1.1.1"})
 
-        device._reboot_control_host()
+        device._reboot_control_host(["cmd1", "cmd2"])
 
         assert mock_subprocess.call_count == 2
 
@@ -148,79 +134,114 @@ class TestRebootControlHost:
         error.stdout = "some stdout"
         error.stderr = "some stderr"
         mocker.patch("subprocess.run", side_effect=error)
-        device = DefaultDevice(
-            {
-                "device_ip": "1.1.1.1",
-                "control_host_reboot_script": ["cmd1"],
-            }
-        )
+        device = DefaultDevice({"device_ip": "1.1.1.1"})
 
         # Should not raise
-        device._reboot_control_host()
+        device._reboot_control_host(["cmd1"])
 
     def test_reboot_control_host_timeout_expired(self, mocker):
         """Test reboot handles TimeoutExpired gracefully."""
         mocker.patch("builtins.open", mocker.mock_open())
         timeout_error = subprocess.TimeoutExpired("cmd1", 60)
         mocker.patch("subprocess.run", side_effect=timeout_error)
-        device = DefaultDevice(
-            {
-                "device_ip": "1.1.1.1",
-                "control_host_reboot_script": ["cmd1"],
-            }
-        )
+        device = DefaultDevice({"device_ip": "1.1.1.1"})
 
         # Should not raise
-        device._reboot_control_host()
+        device._reboot_control_host(["cmd1"])
 
     def test_reboot_control_host_unexpected_error(self, mocker):
         """Test reboot handles unexpected exceptions gracefully."""
         mocker.patch("builtins.open", mocker.mock_open())
         mocker.patch("subprocess.run", side_effect=OSError("unexpected"))
-        device = DefaultDevice(
-            {
-                "device_ip": "1.1.1.1",
-                "control_host_reboot_script": ["cmd1"],
-            }
-        )
+        device = DefaultDevice({"device_ip": "1.1.1.1"})
 
         # Should not raise
-        device._reboot_control_host()
+        device._reboot_control_host(["cmd1"])
 
 
 class TestPreProvisionHook:
     """Tests for DefaultDevice.pre_provision_hook method."""
 
-    def test_pre_provision_hook_no_control_host(self, mocker):
+    def test_no_control_host(self, mocker):
         """Test hook returns early when no control_host configured."""
         mocker.patch("builtins.open", mocker.mock_open())
-        mock_subprocess = mocker.patch("subprocess.run")
+        mock_post = mocker.patch.object(requests, "post")
         device = DefaultDevice({"device_ip": "1.1.1.1"})
 
         device.pre_provision_hook()
 
-        # No SSH check should be called without control_host
-        mock_subprocess.assert_not_called()
+        mock_post.assert_not_called()
 
-    def test_pre_provision_hook_host_already_up(self, mocker):
-        """Test hook returns early when control host is already reachable."""
+    def test_no_reboot_script(self, mocker):
+        """Test hook returns early when no reboot script configured."""
         mocker.patch("builtins.open", mocker.mock_open())
-        mock_subprocess = mocker.patch("subprocess.run")
+        mock_post = mocker.patch.object(requests, "post")
         device = DefaultDevice(
             {"device_ip": "1.1.1.1", "control_host": "control-host"}
         )
 
         device.pre_provision_hook()
 
-        # SSH check was called once (host was up)
+        mock_post.assert_not_called()
+
+    def test_rest_poweroff_path(self, mocker):
+        """Test hook powers off via REST, reboots, and waits for REST."""
+        mocker.patch("builtins.open", mocker.mock_open())
+        mock_post = mocker.patch.object(requests, "post")
+        mock_post.return_value.raise_for_status = Mock()
+        mock_reboot = mocker.patch.object(
+            DefaultDevice, "_reboot_control_host"
+        )
+        mock_wait_offline = mocker.patch.object(DefaultDevice, "wait_offline")
+        mock_wait_ready = mocker.patch.object(DefaultDevice, "wait_ready")
+
+        device = DefaultDevice(
+            {
+                "device_ip": "1.1.1.1",
+                "control_host": "control-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+            }
+        )
+
+        device.pre_provision_hook()
+
+        mock_post.assert_called_once_with(
+            "http://control-host:8000/api/v1/system/poweroff", timeout=10
+        )
+        mock_wait_offline.assert_called_once_with(
+            DefaultDevice._check_rest_api_on_host, "control-host", 30
+        )
+        mock_reboot.assert_called_once_with(["reboot-cmd"])
+        mock_wait_ready.assert_called_once_with("control-host", timeout=300)
+
+    def test_ssh_fallback_host_already_up(self, mocker):
+        """Test SSH fallback skips reboot when host is reachable."""
+        mocker.patch("builtins.open", mocker.mock_open())
+        mocker.patch.object(
+            requests, "post", side_effect=requests.ConnectionError
+        )
+        mock_subprocess = mocker.patch("subprocess.run")
+        device = DefaultDevice(
+            {
+                "device_ip": "1.1.1.1",
+                "control_host": "control-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+            }
+        )
+
+        device.pre_provision_hook()
+
+        # Only the SSH check, no reboot
         mock_subprocess.assert_called_once()
 
-    def test_pre_provision_hook_reboots_and_waits(self, mocker):
-        """Test hook reboots host and waits when not reachable."""
+    def test_ssh_fallback_reboots_when_host_down(self, mocker):
+        """Test SSH fallback reboots and waits when host is unreachable."""
         mocker.patch("builtins.open", mocker.mock_open())
+        mocker.patch.object(
+            requests, "post", side_effect=requests.ConnectionError
+        )
         mocker.patch("time.sleep")
         mocker.patch("time.time", side_effect=[0, 1, 2, 3])
-        # First call fails (host down), subsequent calls succeed
         mocker.patch(
             "subprocess.run",
             side_effect=[
@@ -239,20 +260,23 @@ class TestPreProvisionHook:
 
         device.pre_provision_hook()
 
-        # Verify subprocess was called multiple times
         assert subprocess.run.call_count == 3
 
-    def test_pre_provision_hook_handles_timeout(self, mocker):
-        """Test hook handles timeout when wait_online times out."""
+    def test_ssh_fallback_handles_timeout(self, mocker):
+        """Test SSH fallback handles timeout gracefully."""
         mocker.patch("builtins.open", mocker.mock_open())
+        mocker.patch.object(
+            requests, "post", side_effect=requests.ConnectionError
+        )
         mocker.patch("time.sleep")
-        # Time progresses past timeout (need extra values for logging)
-        time_values = [0, 1, 2, 500] + [500] * 10
-        mocker.patch("time.time", side_effect=time_values)
-        # SSH check always fails
+        mocker.patch("time.time", side_effect=[0, 0, 500, 500])
         mocker.patch(
             "subprocess.run",
-            side_effect=subprocess.CalledProcessError(1, "nc"),
+            side_effect=[
+                subprocess.CalledProcessError(1, "nc"),  # SSH check fails
+                None,  # Reboot script succeeds
+                subprocess.CalledProcessError(1, "nc"),  # wait_online check
+            ],
         )
         device = DefaultDevice(
             {
