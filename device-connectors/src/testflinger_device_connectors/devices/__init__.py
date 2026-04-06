@@ -181,6 +181,21 @@ class DefaultControlHost:
         except subprocess.CalledProcessError as e:
             raise ConnectionError from e
 
+    def _check_ping(self) -> None:
+        """Check whether the control host responds to ping.
+
+        :raises ConnectionError: If the host does not respond.
+        """
+        try:
+            subprocess.run(
+                ["/usr/bin/ping", "-c", "1", "-W", "3", self.host],
+                check=True,
+                capture_output=True,
+            )
+            logger.debug("The control host %s responds to ping", self.host)
+        except subprocess.CalledProcessError as e:
+            raise ConnectionError from e
+
     def _check_rest_api(self) -> None:
         """Check whether the control host has an active REST API.
 
@@ -306,7 +321,7 @@ class DefaultControlHost:
             )
             requests.post(url, timeout=10).raise_for_status()
             with contextlib.suppress(TimeoutError):
-                self.wait_offline(self._check_rest_api, 30)
+                self.wait_offline(self._check_ping, 30)
             self.reboot()
             self.wait_ready(timeout=300)
         except requests.RequestException:

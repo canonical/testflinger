@@ -109,6 +109,32 @@ class TestCheckSshServerOnHost:
             DefaultControlHost("test-host")._check_ssh()
 
 
+class TestCheckPing:
+    """Tests for DefaultControlHost._check_ping method."""
+
+    def test_check_ping_success(self, mocker):
+        """Test ping check succeeds when host responds."""
+        mock_subprocess = mocker.patch("subprocess.run")
+
+        DefaultControlHost("test-host")._check_ping()
+
+        mock_subprocess.assert_called_once_with(
+            ["/usr/bin/ping", "-c", "1", "-W", "3", "test-host"],
+            check=True,
+            capture_output=True,
+        )
+
+    def test_check_ping_raises_connection_error(self, mocker):
+        """Test ping check raises ConnectionError when unreachable."""
+        mocker.patch(
+            "subprocess.run",
+            side_effect=subprocess.CalledProcessError(1, "ping"),
+        )
+
+        with pytest.raises(ConnectionError):
+            DefaultControlHost("test-host")._check_ping()
+
+
 class TestRebootControlHost:
     """Tests for DefaultControlHost.reboot method."""
 
@@ -208,13 +234,14 @@ class TestDefaultControlHostPowerCycle:
             DefaultControlHost, "wait_offline"
         )
         mock_wait_ready = mocker.patch.object(DefaultControlHost, "wait_ready")
+        host = DefaultControlHost("control-host", ["reboot-cmd"])
 
-        DefaultControlHost("control-host", ["reboot-cmd"]).power_cycle()
+        host.power_cycle()
 
         mock_post.assert_called_once_with(
             "http://control-host:8000/api/v1/system/poweroff", timeout=10
         )
-        mock_wait_offline.assert_called_once()
+        mock_wait_offline.assert_called_once_with(host._check_ping, 30)
         mock_reboot.assert_called_once()
         mock_wait_ready.assert_called_once_with(timeout=300)
 
