@@ -139,7 +139,6 @@ class ZapperConnector(ABC, DefaultDevice):
             return
 
         try:
-            ZapperConnector.wait_ready(control_host)
             ZapperConnector.typecmux_set_state(control_host, "OFF")
         except (TimeoutError, ConnectionError, Exception) as e:
             logger.debug(
@@ -149,12 +148,6 @@ class ZapperConnector(ABC, DefaultDevice):
     def provision(self, args):
         """Provision device when the command is invoked."""
         super().provision(args)
-
-        control_host = self.config["control_host"]
-        try:
-            ZapperConnector.wait_ready(control_host)
-        except TimeoutError as e:
-            raise ProvisioningError("Cannot reach the Zapper REST API") from e
 
         with open(args.job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)

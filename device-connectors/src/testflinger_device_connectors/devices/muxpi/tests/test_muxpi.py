@@ -20,7 +20,6 @@ import pytest
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
-from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 
 def test_check_ce_oem_iot_image(mocker):
@@ -110,8 +109,8 @@ def test_check_test_image_booted_fails(mocker):
 class TestMuxPiProvisionWithZapper:
     """Tests for MuxPi provision method with zapper configuration."""
 
-    def test_provision_with_zapper_waits_for_rest_api(self, mocker):
-        """Test provision waits for Zapper REST API when using zapper."""
+    def test_provision_with_zapper(self, mocker):
+        """Test provision proceeds normally when using zapper."""
         muxpi = MuxPi()
         muxpi.config = {
             "control_switch_local_cmd": "zapper sdwire set TS",
@@ -128,7 +127,6 @@ class TestMuxPiProvisionWithZapper:
         }
 
         mocker.patch("time.sleep")
-        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
         # Mock the rest of provision to avoid running actual provisioning
         mocker.patch.object(muxpi, "flash_test_image")
         mocker.patch.object(muxpi, "hardreset")
@@ -137,8 +135,6 @@ class TestMuxPiProvisionWithZapper:
         mocker.patch.object(muxpi, "run_post_provision_script")
 
         muxpi.provision()
-
-        mock_wait_ready.assert_called_once_with("zapper-host")
 
     def test_provision_without_zapper_reboots_sdwire(self, mocker):
         """Test provision reboots sdwire when not using zapper."""
@@ -159,7 +155,6 @@ class TestMuxPiProvisionWithZapper:
 
         mocker.patch("time.sleep")
         mock_reboot_sdwire = mocker.patch.object(muxpi, "reboot_sdwire")
-        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
         # Mock the rest of provision
         mocker.patch.object(muxpi, "flash_test_image")
         mocker.patch.object(muxpi, "hardreset")
@@ -170,4 +165,3 @@ class TestMuxPiProvisionWithZapper:
         muxpi.provision()
 
         mock_reboot_sdwire.assert_called_once()
-        mock_wait_ready.assert_not_called()
