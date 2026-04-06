@@ -1,5 +1,10 @@
+.. _explain_agents:
+
 Testflinger Agents
 ==================
+
+Agents in general
+-----------------
 
 The Testflinger agent is a per-machine service that runs on an agent host
 system. The agent is configured with a set of :doc:`queues <queues>` for which
@@ -11,11 +16,11 @@ it knows how to run jobs. When it is not running a job, the agent:
    * Uploads artifacts (if any) saved from the job to the server
 
 You can see a list of agents in the Testflinger web interface by clicking on the
-"Agents" link in the top navigation bar. It is also possible to list the agents
-via the ``list-agents`` subcommand of the testflinger CLI, as shown in :ref:`listing_agents`.
+"Agents" link in the top navigation bar or by using the ``list-agents``
+subcommand of the testflinger CLI. For more information, see :ref:`listing_agents`.
 
 Communication with the Server
------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The agent communicates with the server using a REST API. The agent polls the
 server for jobs to run at a configurable interval. When a job is found, the agent
@@ -34,26 +39,62 @@ able to communicate with the server. If an agent has not checked in after 7 days
 it will automatically be removed from the database and will no longer appear in
 the "Agents" list.
 
-.. _handling-agent-status:
+Agent Host Charms vs Agents
+---------------------------
 
-Agent Administration
---------------------
+Administrators of a Testflinger setup must understand the difference between an
+Agent and the Agent Host Charms. The Agent Host Charm is managed within a Juju
+environment is responsible for running the Agent itself.
 
-For more guidance, see :ref: `howto-manage-agent`.
+What is an Agent Host?
+~~~~~~~~~~~~~~~~~~~~~~
 
-Restarting an Agent
-~~~~~~~~~~~~~~~~~~~
+The host machine on which the Agent Host Charm and thus the Agent run on. This
+is different than the machine which the Agent's device connector will manage.
 
-When an agent needs to be re-executed due to something like a code update or a
-configuration change, it is important to shut it down safely so that it does not
-interfere with a job currently running. To do this, you can use the following method:
+Agent Host Administration
+-------------------------
+
+Agent Host Administration is the concept of managing the running agent charms
+on the agent's host machine via Juju. For guidance on how to manage running
+agent host charms, see :ref:`howto-manage-agent-host`.
+
+Restarting an Agent Host Charm
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When an agent host charm needs to be re-executed due to something like a code
+update or a configuration change, it is important to shut it down safely so
+that it does not interfere with a job currently running. To do this, you can
+use the following method:
+
+On the agent host machine:
 
 1. Send a SIGUSR1 signal to the agent's process
 
 This method will cause the agent to exit when it is no longer running
-a job. You will need to ensure something like ``systemd`` or ``supervisord`` is watching
-the agent process and restarting it if it exits in order to actually restart the
-agent.
+a job. You will need to ensure something like ``systemd`` or ``supervisord``
+is watching the agent process and restarting it if it exits in order to
+actually restart the agent.
+
+Agent Administration
+--------------------
+
+To manage a running agent a Testflinger administrative user can communicate with
+the Testflinger server to tell the Agent to go ``offline``, ``online``, or into
+``maintenance`` mode.
+
+Agent Operating Modes
+~~~~~~~~~~~~~~~~~~~~~
+
+The agent starts up as ``online`` and will stay ``online`` unless there is a
+recurring problem while trying to bring the target machine up. If an agent puts
+itself ``offline`` the status comment will look like this:
+
+- Set to offline by agent. Recovery failed during job '<job_id>' execution."
+
+Testflinger administrators can also change the status of running agents via the
+command line to either ``offline`` or ``maintenance``. See :ref:`howto-manage-agent`
+for more details.
 
 Set an Agent Offline (admin)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -115,150 +156,3 @@ to offline manually, execute the following command from the CLI:
 
    If you wish to change the status for multiple agents at the same time, you can define a list 
    of the agents you want to change status e.g. ``--agents agent1 agent2 ... agentN``
-
-Agent Selection
----------------
-
-.. _excluding_agents:
-
-Excluding Agents from Jobs
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When submitting a job, you can optionally specify a list of agents that should not run that job using the ``exclude_agents`` field in your job definition. This is useful in several scenarios:
-
-* Testing workarounds without certain agents
-* Avoiding agents known to have hardware or software issues
-* Preventing jobs from running on agents undergoing maintenance
-* Distributing testing across a subset of available agents
-
-When you exclude agents, the following applies:
-
-* Only agents listed in ``exclude_agents`` are prevented from running the job
-* Offline agents are automatically excluded (regardless of the ``exclude_agents`` list)
-* At least one available (online) agent must remain after applying exclusions
-* If all agents for a queue are excluded, the job submission will fail with an error message
-
-For example, to exclude agents named ``agent-1`` and ``agent-2`` from a job, add the following to your job definition:
-
-.. code-block:: yaml
-
-  job_queue: my-queue
-  exclude_agents:
-    - agent-1
-    - agent-2
-  # ... rest of job definition
-
-For more details on how to use this feature, see :doc:`../how-to/submit-job`.
-
-.. _listing_agents:
-
-Listing Agents
-~~~~~~~~~~~~~~
-
-A list of agents communicating with the server can be fetched via the command
-line and displayed in several formats. When collecting the list of agents for
-display, a variety of filters may also be applied. Aside from the filter for
-status, the filters all support use of regular expressions.
-
-The ``list-agents`` subcommand can provide output in three different modes:
-
-- Table output (default)
-
-  - Columns specified by comma separated list via ``--fields``
-
-- Status summary (``--summary``)
-
-- Single-column list of agent names (``-1``)
-
-In all cases, filtering can be applied to various fields, e.g:
-
-- Status can be filtered by specifying a list of included and excluded states
-
-  - Available states include: ``online``, ``offline``, and ``maintenance``
-
-    - Fine-grained online states are also available: ``waiting``, ``setup``,
-      ``provision``, ``firmware_update``, ``test``, ``allocate``, ``reserve``,
-      ``cleanup``
-
-  - States can be _excluded_ if they are preceded by a caret (``^``)
-
-    - e.g.: ``--filter-status online,^waiting``
-
-- Several other agent properties can also be filtered on using regular expression
-  matching. All of these take the form of ``--filter-<attribute>`` and will apply
-  regular expression matching against the agent's attribute value:
-
-  - ``--filter-name``
-
-  - ``--filter-queues``
-
-  - ``--filter-location``
-
-  - ``--filter-provision-type``
-
-  - ``--filter-comment``
-
-**Table mode (default)**
-
-If neither ``-1`` nor ``--summary`` are specified, the default is to output a
-table of agents matching the specified filters. The table fields can be selected
-by specifying a comma-separated list of fields via ``--fields``, including any
-of: name, status, location, provision_type, comment, job_id, queues. By default
-name, status, location, provision_type, and comment are displayed.
-
-.. code-block:: shell
-
-  $ testflinger list-agents
-  Name     Status   Location  Provision Type  Comment
-  ---------------------------------------------------
-  audino   waiting  TXR3-DH1  maas2
-  multi-3  waiting            multi
-  petilil  waiting  TXR3-DH1  maas2
-
-**Summary mode (--summary)**
-
-.. code-block:: shell
-
-  $ testflinger list-agents --summary
-  Online:           2413
-    waiting          2328
-    provision        28
-    test             30
-    reserve          27
-
-  Offline:          63
-    offline          55
-    maintenance      8
-
-Filtering, of course can be used with any output mode, for example:
-
-.. code-block:: shell
-
-  $ testflinger list-agents --summary --filter-status online,^waiting
-  Online:           78
-    provision        14
-    test             12
-    reserve          52
-
-  Offline:          0
-
-**Single-column list mode (-1)**
-
-If the purpose of listing the agents is intended to drive shell scripting, it
-may be desirable to have a single list of agent names. In single-column list
-mode (``-1``) output is suitable for further processing in shell scripts very
-much like ``ls -1`` would be used for files.
-
-Here's an example where the agents selected by the filter are set to ``online``
-within a for loop:
-
-.. code-block:: shell
-
-  $ for agent in $(testflinger list-agents --filter-queue "petilil|audino" -1); do testflinger admin set agent-status --agents $agent --status online; done
-  Agent audino status is now: waiting
-  Agent petilil status is now: waiting
-
-.. tip::
-
-   This can be particularly useful in combination with ``--filter-comment``
-   if good comments are made as agents are brought offline.

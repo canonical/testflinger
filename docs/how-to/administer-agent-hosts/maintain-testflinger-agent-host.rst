@@ -1,9 +1,12 @@
-.. _howto-manage-agent:
+.. _howto-manage-agent-host:
 
 Maintain a Testflinger Agent Host
-==================================
+=================================
 
-This guide outlines how to maintain a Testflinger agent host deployed with Juju.
+For disambiguation between Agents from Agent Host Charms see :ref:`explain_agents`
+and for guidance on Agent administration see: :ref:`howto-manage-agent`.
+
+This guide outlines how to maintain a Testflinger agent host deployed as a Juju charm.
 To deploy a Testflinger agent host, please read the :doc:`deploy-testflinger-agent-host` how-to guide.
 
 Pull latest code from Git
@@ -93,8 +96,8 @@ Stopping and restarting agents
 
 .. note::
 
-  The preferred way to handle agent status is via the CLI by following the instructions in the
-  :ref:`handling-agent-status` documentation.
+  The preferred way to handle agent status is via the CLI by following the
+  instructions in the :ref:`handling-agent-status` documentation.
 
 You can use the following command to stop a specific agent:
 

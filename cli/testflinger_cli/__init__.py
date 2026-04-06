@@ -727,11 +727,8 @@ class TestflingerCli:
     def _print_agent_summary(self, agents: list[dict]) -> None:
         """Print summary of agent statuses grouped by online/offline.
 
-        Agent states follow the job execution phase order:
-        - waiting: idle, ready for jobs
-        - setup, provision, firmware_update, test, allocate, reserve: running
-          job phases
-        - offline, maintenance: offline states
+        Agent states follow the job execution phase order, with offline states
+        displayed last.
 
         :param agents: List of agent dictionaries to summarize
         """

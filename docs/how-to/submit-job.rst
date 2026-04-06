@@ -1,7 +1,8 @@
 Submit a test job
-===================
+=================
 
-Once you have a YAML or JSON file with your :doc:`job definition <../reference/job-schema>`, you can submit the job to the main Testflinger server using the CLI:
+Once you have a YAML or JSON file with your :doc:`job definition <../reference/job-schema>`,
+you can submit the job to the main Testflinger server using the CLI:
 
 .. code-block:: shell
 
@@ -35,10 +36,29 @@ If you will only need the ``job_id`` for the polling command, you can use:
 
 This will submit and start polling right away.
 
-Excluding Agents from Running a Job
-------------------------------------
+.. _excluding_agents:
 
-You can optionally prevent specific agents from running your job by using the ``exclude_agents`` field in your job definition. This is useful when you want to avoid certain agents due to known issues, maintenance, or other testing requirements.
+Excluding Select Agents from Running a Job
+------------------------------------------
+
+When submitting a job, you can optionally specify a list of agents that should
+not run that job using the ``exclude_agents`` field in your job definition.
+This is useful in several scenarios:
+
+* Testing workarounds without certain agents
+* Avoiding agents known to have hardware or software issues
+* Preventing jobs from running on agents undergoing maintenance
+* Distributing testing across a subset of available agents
+
+When you exclude agents, the following applies:
+
+* Only agents listed in ``exclude_agents`` are prevented from running the job
+* Offline agents are automatically excluded (regardless of the ``exclude_agents`` list)
+* At least one available (online) agent must remain after applying exclusions
+* If all agents for a queue are excluded, the job submission will fail with an error message
+
+For example, to exclude agents named ``agent-1`` and ``agent-3`` from a job,
+consider the following job definition:
 
 .. code-block:: yaml
 
@@ -52,4 +72,6 @@ You can optionally prevent specific agents from running your job by using the ``
     test_cmds: |
       echo "This job will not run on agent-1 or agent-3"
 
-When you exclude agents, Testflinger will validate that at least one available agent can still run the job. If all agents in the queue are excluded, the job submission will fail with an error.
+Importantly, when you exclude agents, Testflinger will ensure that at least one
+agent is available and can still run the job. If all agents in the queue are
+excluded, the job submission will fail with an error.
