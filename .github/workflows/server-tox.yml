@@ -83,6 +83,12 @@ jobs:
         run: uvx --with tox-uv tox -e lint
       - name: Run charm unit tests
         run: uvx --with tox-uv tox -e unit
+      - name: Upload coverage
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+        with:
+          files: coverage.xml
+          flags: server
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   test_charm_integration:
     name: Run charm integration tests
