@@ -835,7 +835,7 @@ def test_reserve_with_distro(capsys, requests_mock):
 
 def test_reserve_distro_with_image_fails(requests_mock, capsys):
     """Test that --distro and --image cannot be used together.
-    
+
     Argparse's mutually_exclusive_group automatically prevents both
     --distro and --image from being specified together, exiting with
     code 2 and printing an error message to stderr.
@@ -866,7 +866,7 @@ def test_reserve_distro_with_image_fails(requests_mock, capsys):
 
 def test_reserve_image_with_distro_fails(requests_mock, capsys):
     """Test that --image and --distro cannot be used together.
-    
+
     This is the inverse order of test_reserve_distro_with_image_fails,
     ensuring mutual exclusivity works in both directions.
     """
@@ -895,8 +895,9 @@ def test_reserve_image_with_distro_fails(requests_mock, capsys):
 
 
 def test_reserve_image_shorthand_with_distro_fails(requests_mock, capsys):
-    """Test that -i (shorthand for --image) and --distro are mutually exclusive.
-    
+    """Test that -i (shorthand for --image) and --distro are mutually
+    exclusive.
+
     Verifies the mutually exclusive group works with both shorthand
     and long-form flag combinations.
     """
