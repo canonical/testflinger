@@ -178,8 +178,14 @@ class ZapperIoTPresetProvisionData(BaseZapperProvisionData):
 
     @validates_schema
     def validate_url_or_urls(self, data, **_):
-        """Validate that either `url` or `urls` is provided."""
-        if "url" not in data and "urls" not in data:
+        """Validate that exactly one of `url` or `urls` is provided."""
+        has_url = "url" in data
+        has_urls = "urls" in data
+        if has_url and has_urls:
+            raise ValidationError(
+                "Provide only one of 'url' or 'urls', not both."
+            )
+        if not has_url and not has_urls:
             raise ValidationError("Either 'url' or 'urls' must be provided.")
 
 
@@ -197,8 +203,14 @@ class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
 
     @validates_schema
     def validate_url_or_urls(self, data, **_):
-        """Validate that either `url` or `urls` is provided."""
-        if "url" not in data and "urls" not in data:
+        """Validate that exactly one of `url` or `urls` is provided."""
+        has_url = "url" in data
+        has_urls = "urls" in data
+        if has_url and has_urls:
+            raise ValidationError(
+                "Provide only one of 'url' or 'urls', not both."
+            )
+        if not has_url and not has_urls:
             raise ValidationError("Either 'url' or 'urls' must be provided.")
 
 
