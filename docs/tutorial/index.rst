@@ -96,6 +96,10 @@ To verify that the variable has been set, run:
 Now all the Testflinger requests made from your current terminal session will
 be directed to the new server.
 
+.. note::
+
+  If you want to temporarily use another server, add ``--server`` argument and the server URI in the command.
+
 Access to a Testflinger server is usually secured behind a firewall or with
 additional authentication and authorisation measures. Make sure that you have
 been granted the right access through your system administrator.
@@ -111,33 +115,28 @@ availability of remote resources.
 Before submitting a test job, you need to identify the appropriate job queue to
 use on the server. Queues are usually dedicated to one type of device.
 
-Run the following command in the terminal to retrieve the available job queues
-to use:
+Run the following command in the terminal to retrieve the available job queues to use:
 
 .. code-block:: shell
 
-  $ testflinger-cli list-agents --filter-status=online,^provision,^reserve,^testing --filter-provision-type=maas --filter-location="TOR" --
+  $ testflinger list-agents \
+  --filter-status=online,^provision,^reserve,^testing \
+  --filter-provision-type=maas \
+  --filter-queue "intel" \
+  --fields name,status,queues
 
-.. note::
-
-  If you want to temporarily use another server, add ``--server`` argument and
-  the server URI in the command. If you want to use a different server on a more
-  permanent basis, you can define it with TESTFLINGER_SERVER="http://testflinger.your-server.example.com"
-
-If the connection is successful, a list of job queues is returned with their queue names and short descriptions:
+If the connection is successful, a list of agents and their respective job queues is returned:
 
 .. code-block:: text
 
-  Advertised queues on this server:
-    example-queue-1 - for testing device model-1
-    example-queue-2 - for testing device model-2
-    example-queue-3 - for testing device model-3
-    ...
+  Name          Status   Queues
+  ------------------------------------------------------------------
+  agent-1       waiting  agent-1, nvidia-gpu, intel-cpu, big_ram
+  agent-7       waiting  agent-7, intel-cpu
 
 In this tutorial, let's assume that the job queue you will use is ``example-queue-1`` for a MAAS-provisioned device type.
 
 Alternatively, you can also visit the Web UI of this server at ``https://testflinger.example.com``, where the list of agents, queues and jobs are displayed.
-
 
 Define a test job
 -----------------

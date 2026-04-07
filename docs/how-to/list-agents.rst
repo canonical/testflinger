@@ -1,7 +1,7 @@
 .. _listing_agents:
 
 Listing Agents
-~~~~~~~~~~~~~~
+==============
 
 A list of agents communicating with the server can be fetched via the command
 line and displayed in several formats. When collecting the list of agents for
@@ -46,7 +46,8 @@ In all cases, filtering can be applied to various fields, e.g:
 
   - ``--filter-comment``
 
-**Table mode (default)**
+Table mode (default)
+-------------------------
 
 If neither ``-1`` nor ``--summary`` are specified, the default is to output a
 table of agents matching the specified filters. The table fields can be selected
@@ -63,7 +64,8 @@ name, status, location, provision_type, and comment are displayed.
   multi-3  waiting            multi
   petilil  waiting  TXR3-DH1  maas2
 
-**Summary mode (--summary)**
+Summary mode (--summary)
+----------------------------
 
 .. code-block:: shell
 
@@ -92,7 +94,8 @@ Filtering, of course can be used with any output mode, for example:
 
 .. _list-agents-scripting:
 
-**Single-column list mode (-1)**
+Single-column list mode (-1)
+------------------------------
 
 If the purpose of listing the agents is intended to drive shell scripting, it
 may be desirable to have a single list of agent names. In single-column list
