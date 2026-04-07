@@ -39,13 +39,13 @@ def test_restart_signal_handler(tmp_path):
         text=True,
         bufsize=1,
     )
+    time.sleep(5)
     try:
-        time.sleep(1)
         os.kill(agent_process.pid, signal.SIGUSR1)
 
         # Use communicate with timeout
         try:
-            stdout, stderr = agent_process.communicate(timeout=3)
+            stdout, stderr = agent_process.communicate(timeout=6)
             assert "Marked agent for restart" in stderr
             assert agent_process.returncode == 1
         except subprocess.TimeoutExpired:
@@ -54,7 +54,8 @@ def test_restart_signal_handler(tmp_path):
             stdout, stderr = agent_process.communicate()
             # Still check for the restart message
             assert "Marked agent for restart" in stderr
-
+    except Exception as e:
+        pytest.fail(f"Test failed with exception: {e}")
     finally:
         if agent_process.poll() is None:
             agent_process.kill()

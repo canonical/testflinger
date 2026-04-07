@@ -1,5 +1,11 @@
-.. _Ubuntu Discourse: https://discourse.ubuntu.com/c/certification/165
-.. _Juju CLI: https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/list-of-juju-cli-commands/run/
+.. _AppArmor: https://www.apparmor.net/
+.. _canonical/testflinger: https://github.com/canonical/testflinger
 .. _HPE Gen10: https://downloads.linux.hpe.com/SDR/repo/fwpp-gen10/
 .. _HPE Gen11: https://downloads.linux.hpe.com/SDR/repo/fwpp-gen11/
 .. _HPE Gen12: https://downloads.linux.hpe.com/SDR/repo/fwpp-gen12/
+.. _Juju CLI: https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/list-of-juju-cli-commands/run/
+.. _Security Policy: https://github.com/canonical/testflinger/blob/main/SECURITY.md
+.. _Security reporting and disclosure policy: https://ubuntu.com/security/disclosure-policy
+.. _snap: https://snapcraft.io/testflinger-cli
+.. _Ubuntu Code of Conduct: https://ubuntu.com/community/ethos/code-of-conduct
+.. _Ubuntu Discourse: https://discourse.ubuntu.com/c/certification/165

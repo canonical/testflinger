@@ -109,7 +109,7 @@ jobs:
           # Extract the contents to a local folder
           unzip -d unpacked-charm $CHARM
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe # v4.32.6
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           scan-type: 'fs'
           scan-ref: 'unpacked-charm'

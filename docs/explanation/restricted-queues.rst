@@ -1,3 +1,5 @@
+.. _restricted-queues:
+
 Restricted Queues
 =================
 

@@ -104,6 +104,7 @@ class MAASProvisionData(Schema):
     user_data = fields.String(required=False)
     # [TODO] Specify Nested schema to improve validation
     disks = fields.List(fields.Dict(), required=False)
+    ephemeral = fields.Boolean(required=False)
 
 
 class MultiProvisionData(Schema):

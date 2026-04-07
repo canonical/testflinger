@@ -1,3 +1,5 @@
+.. _extended-reservation:
+
 Extended Reservation
 ====================
 
