@@ -90,7 +90,11 @@ class DeviceConnector(ZapperConnector):
             except (ValueError, KeyError) as e:
                 raise ProvisioningError from e
 
-        urls = self.job_data["provision_data"].get("urls", [])
+        if url := self.job_data["provision_data"].get("url"):
+            urls = [url]
+        else:
+            urls = self.job_data["provision_data"].get("urls", [])
+
         try:
             validate_urls(urls)
         except ValueError as e:

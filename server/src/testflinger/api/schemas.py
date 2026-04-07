@@ -171,9 +171,16 @@ class ZapperIoTPresetProvisionData(BaseZapperProvisionData):
     This schema is used when using a preset for provisioning.
     """
 
-    urls = fields.List(fields.URL(), required=True, validate=Length(min=1))
+    url = fields.URL(required=False)
+    urls = fields.List(fields.URL(), required=False, validate=Length(min=1))
     preset = fields.String(required=True)
     preset_kwargs = fields.Dict(required=False)
+
+    @validates_schema
+    def validate_url_or_urls(self, data, **_):
+        """Validate that either `url` or `urls` is provided."""
+        if "url" not in data and "urls" not in data:
+            raise ValidationError("Either 'url' or 'urls' must be provided.")
 
 
 class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
@@ -182,10 +189,17 @@ class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
     This schema is used when using a custom plan for provisioning.
     """
 
-    urls = fields.List(fields.URL(), required=True, validate=Length(min=1))
+    url = fields.URL(required=False)
+    urls = fields.List(fields.URL(), required=False, validate=Length(min=1))
     ubuntu_sso_email = fields.Email(required=False)
     # [TODO] Specify Nested schema to improve validation
     provision_plan = fields.Dict(required=True)
+
+    @validates_schema
+    def validate_url_or_urls(self, data, **_):
+        """Validate that either `url` or `urls` is provided."""
+        if "url" not in data and "urls" not in data:
+            raise ValidationError("Either 'url' or 'urls' must be provided.")
 
 
 class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
