@@ -35,6 +35,10 @@ If you will only need the ``job_id`` for the polling command, you can use:
 
 This will submit and start polling right away.
 
+.. figure:: /images/submit-job.gif
+   :alt: Terminal graphic depicting live display of submit --poll with status line.
+   :align: center
+
 Excluding Agents from Running a Job
 ------------------------------------
 
