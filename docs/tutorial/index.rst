@@ -93,28 +93,36 @@ To verify that the variable has been set, run:
   $ printenv TESTFLINGER_SERVER
   https://testflinger.example.com
 
-Now all the Testflinger requests made from your current terminal session will be directed to the new server.
+Now all the Testflinger requests made from your current terminal session will
+be directed to the new server.
 
-Access to a Testflinger server is usually secured behind a firewall or with additional authentication and authorisation measures. Make sure that you have been granted the right access through your system administrator.
+Access to a Testflinger server is usually secured behind a firewall or with
+additional authentication and authorisation measures. Make sure that you have
+been granted the right access through your system administrator.
 
 For more information on authentication and authorisation, refer to :doc:`../how-to/authentication`.
 
 Check available queues on the server
 ------------------------------------
 
-You can now use the CLI to connect to a Testflinger server and check the availability of remote resources.
+You can now use the CLI to connect to a Testflinger server and check the
+availability of remote resources.
 
-Before submitting a test job, you need to identify the appropriate job queue to use on the server. Queues are usually dedicated to one type of device.
+Before submitting a test job, you need to identify the appropriate job queue to
+use on the server. Queues are usually dedicated to one type of device.
 
-Run the following command in the terminal to retrieve the available job queues to use:
+Run the following command in the terminal to retrieve the available job queues
+to use:
 
 .. code-block:: shell
 
-  $ testflinger-cli list-queues
+  $ testflinger-cli list-agents --filter-status=online,^provision,^reserve,^testing --filter-provision-type=maas --filter-location="TOR" --
 
 .. note::
 
-  If you want to temporarily use another server, add ``--server`` argument and the server URI in the command.
+  If you want to temporarily use another server, add ``--server`` argument and
+  the server URI in the command. If you want to use a different server on a more
+  permanent basis, you can define it with TESTFLINGER_SERVER="http://testflinger.your-server.example.com"
 
 If the connection is successful, a list of job queues is returned with their queue names and short descriptions:
 

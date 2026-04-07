@@ -95,8 +95,6 @@ agents on that queue, for example, to exclude agents named ``agent-1`` and
 
 For more details on how to use this feature, see :doc:`../how-to/submit-job`.
 
-.. _listing_agents:
-
 Listing Agents
 ~~~~~~~~~~~~~~
 
@@ -121,3 +119,5 @@ within a for loop:
 
    This can be particularly useful in combination with ``--filter-comment``
    if good comments are made as agents are brought offline.
+
+For more information, see :ref:`listing_agents`.
