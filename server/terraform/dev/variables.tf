@@ -2,7 +2,6 @@ variable "jwt_signing_key" {
   description = "The signing key for JWT tokens"
   sensitive   = true
   type        = string
-  default     = "secret"
 }
 
 variable "testflinger_secrets_master_key" {

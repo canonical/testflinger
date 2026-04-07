@@ -14,9 +14,9 @@ output "provides" {
 output "requires" {
   description = "Map of requires integration endpoints"
   value = {
-    mongodb_client = "mongodb_client"
-    mongodb_keyvault = "mongodb_client"
-    nginx_route    = "nginx-route"
-    traefik_route  = "traefik_route"
+    mongodb_client   = "mongodb_client"
+    mongodb_keyvault = "mongodb_keyvault"
+    nginx_route      = "nginx-route"
+    traefik_route    = "traefik-route"
   }
 }

@@ -71,9 +71,22 @@ multipass exec testflinger-juju -- terraform init
 
 Refer to the [README](README.md#api) for the full list of required variables.
 
-`terraform/dev` directory contains the required terraform files for deployment,
-modify them accordingly with the necessary variables such as the JWT signing key
-and secrets master key.
+The `terraform/dev` directory has sensitive values to be provided before
+deployment. Create a `terraform.tfvars` file inside `terraform/dev` with the 
+required secrets:
+
+```hcl
+jwt_signing_key                = "<your-jwt-signing-key>"
+testflinger_secrets_master_key = "<your-secrets-master-key>"
+```
+
+
+> [!NOTE]
+> Only `jwt_signing_key` is required.
+
+> [!WARNING]
+> Never commit `terraform.tfvars` to version control. The file is excluded via
+> `.gitignore` for this reason.
 
 ### Deploy
 

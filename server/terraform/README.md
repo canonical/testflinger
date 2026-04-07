@@ -1,8 +1,8 @@
 # Terraform module for Testflinger Server
 
-This is a Terraform module facilitating the deployment of the Testflinger Server charm,
-using the [Terraform Juju provider][juju-provider]. For more information, refer
-to the provider [documentation][juju-provider-docs].
+This is a Terraform module facilitating the deployment of the Testflinger Server
+charm, using the [Terraform Juju provider][juju-provider]. For more information,
+refer to the provider [documentation][juju-provider-docs].
 
 ## Requirements
 
@@ -17,7 +17,7 @@ The module offers the following configurable inputs:
 
 | Name | Type | Description | Required |
 | - | - | - | - |
-| `app_name` | string | Name of the Testflinger server application | True |
+| `app_name` | string | Name of the Testflinger server application | False |
 | `base` | string | Operating system base to use for the Testflinger server charm | False |
 | `channel` | string | Channel to use for the charm | False |
 | `config` | map(string) | Map of charm config options | False |
@@ -37,13 +37,16 @@ The module offers the following configurable inputs:
 
 ## Usage
 This module is intended to be used as part of a higher-level module.
-When defining one, users should ensure that Terraform is aware of the `model_uuid` dependency of the charm module.
+When defining one, users should ensure that Terraform is aware of the `model_uuid`
+dependency of the charm module.
 
 ### Define a `data` source
 
-Define a `data` source and pass to the `model_uuid` input a reference to the `data.juju_model` resource's name. 
-This will enable Terraform to look for a `model_uuid` resource with a name attribute equal to the one provided, 
-and apply only if this is present. Otherwise, it will fail before applying anything.
+Define a `data.juju_model` source that looks up the target Juju model by name,
+and pass the resulting UUID to the `model_uuid` input using `data.juju_model.<resource-name>.uuid`.
+This ensures Terraform resolves the model data source before applying the module. 
+If the named model cannot be found, Terraform will fail during planning or apply 
+before creating any resources.
 
 ```hcl
 data "juju_model" "testflinger_dev" {
