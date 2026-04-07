@@ -18,7 +18,7 @@ Set an Agent Offline
 
 .. note::
    The following action require an authenticated ``client_id`` with admin privileges, 
-   for more information please refer to :doc:`Create or edit Testflinger admin credentials <../how-to/create-admin-user>`,
+   for more information please refer to :doc:`Create or edit Testflinger admin credentials <../create-admin-user>`,
    if needed, to set an initial admin ``client_id``.
 
 Each agent is designed to process jobs indefinitely by listening for jobs in its specified queues
@@ -29,7 +29,7 @@ The procedure to take an agent offline could be one of the following:
 
 * Set agent to offline. 
 
-Setting an agent to ``offline`` rRequires specification of a reason for changing the agent status, provided as a ``--comment``:
+Setting an agent to ``offline`` requires specification of a reason for changing the agent status, provided as a ``--comment``:
 
 .. code-block:: shell
 
@@ -60,7 +60,7 @@ Set an Agent Online
 
 .. note::
    The following action require an authenticated ``client_id`` with admin privileges, 
-   for more information please refer to :doc:`Create or edit Testflinger admin credentials <../how-to/create-admin-user>` 
+   for more information please refer to :doc:`Create or edit Testflinger admin credentials <../create-admin-user>` 
    if needed to set an initial admin ``client_id``.
 
 To set an agent to online in order to recover from an unexpected agent failure or after being set 

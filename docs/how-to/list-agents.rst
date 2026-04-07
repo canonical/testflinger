@@ -28,7 +28,7 @@ In all cases, filtering can be applied to various fields, e.g:
       ``provision``, ``firmware_update``, ``test``, ``allocate``, ``reserve``,
       ``cleanup``
 
-  - States can be _excluded_ if they are preceded by a caret (``^``)
+  - States can be *excluded* if they are preceded by a caret (``^``)
 
     - e.g.: ``--filter-status online,^waiting``
 
