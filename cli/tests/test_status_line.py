@@ -382,7 +382,7 @@ class TestStatusLineReservedState:
             {"job_state": "reserve"},
             {"job_state": "reserve"},
             {"job_state": "reserve"},
-            {"job_state": "complete"},  # Exit the loop
+            {"job_state": "completed"},  # Exit the loop
         ]
         mock_get_state.side_effect = states
 

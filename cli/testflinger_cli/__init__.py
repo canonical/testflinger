@@ -296,7 +296,7 @@ class TestflingerCli:
     def _add_poll_args(self, subparsers):
         """Command line arguments for poll."""
         parser = subparsers.add_parser(
-            "poll", help="Poll for output from a job until it is completed"
+            "poll", help="Poll for output from a job until it is complete"
         )
         parser.set_defaults(func=self.poll_output)
         self._add_poll_args_generic(parser)
@@ -305,7 +305,7 @@ class TestflingerCli:
         """Command line arguments for poll-serial."""
         parser = subparsers.add_parser(
             "poll-serial",
-            help="Poll for serial output from a job until it is completed",
+            help="Poll for serial output from a job until it is complete",
         )
         parser.set_defaults(func=self.poll_serial)
         self._add_poll_args_generic(parser)
@@ -395,7 +395,7 @@ class TestflingerCli:
     def _add_results_args(self, subparsers):
         """Command line arguments for results."""
         parser = subparsers.add_parser(
-            "results", help="Get results JSON for a completed JOB_ID"
+            "results", help="Get results JSON for a complete JOB_ID"
         )
         parser.set_defaults(func=self.results)
         parser.add_argument("job_id").completer = partial(
@@ -604,7 +604,7 @@ class TestflingerCli:
         # Categorize jobs based on completion outcome
         jobs_waiting = []
         jobs_running = []
-        jobs_completed = []
+        jobs_complete = []
 
         for job in jobs_data:
             # Handle MongoDB date structure or plain string
@@ -620,8 +620,8 @@ class TestflingerCli:
             job_state = job.get("job_state", "").lower()
             if job_state == "waiting":
                 jobs_waiting.append(job_info)
-            elif job_state == "completed":
-                jobs_completed.append(job_info)
+            elif job_state == "complete":
+                jobs_complete.append(job_info)
             elif job_state not in ("cancelled",):  # Ignore cancelled jobs
                 # All non-waiting, non-complete, non-cancelled are "running"
                 jobs_running.append(job_info)
@@ -629,7 +629,7 @@ class TestflingerCli:
         return {
             "jobs_waiting": jobs_waiting,
             "jobs_running": jobs_running,
-            "jobs_completed": jobs_completed,
+            "jobs_complete": jobs_complete,
         }
 
     def _queue_status_format_json_output(self, agents_status, jobs_status):
@@ -682,7 +682,7 @@ class TestflingerCli:
                 [
                     f"Jobs waiting:    {len(jobs_status['jobs_waiting'])}",
                     f"Jobs running:    {len(jobs_status['jobs_running'])}",
-                    f"Jobs completed:  {len(jobs_status['jobs_completed'])}",
+                    f"Jobs complete:  {len(jobs_status['jobs_complete'])}",
                 ]
             )
 
@@ -702,7 +702,7 @@ class TestflingerCli:
             if exc.status == HTTPStatus.BAD_REQUEST:
                 sys.exit(
                     "Invalid job ID specified or the job is already "
-                    "completed/cancelled."
+                    "complete/cancelled."
                 )
             raise
 
@@ -1044,7 +1044,7 @@ class TestflingerCli:
         print(to_print)
 
     def results(self):
-        """Get results JSON for a completed JOB_ID."""
+        """Get results JSON for a complete JOB_ID."""
         try:
             results = self.client.get_results(self.args.job_id)
         except client.HTTPError as exc:
@@ -1124,7 +1124,7 @@ class TestflingerCli:
         return last_fragment_number, combined_logs
 
     def poll(self, log_type: LogType):
-        """Poll for output from a job until it is completed."""
+        """Poll for output from a job until it is complete."""
         start_fragment = self.args.start_fragment
         start_timestamp = self.args.start_timestamp
         job_id = self.args.job_id
@@ -1181,11 +1181,11 @@ class TestflingerCli:
             print(log_data, end="", flush=True)
 
     def poll_output(self):
-        """Poll for agent output from a job until it is completed."""
+        """Poll for agent output from a job until it is complete."""
         self.poll(LogType.STANDARD_OUTPUT)
 
     def poll_serial(self):
-        """Poll for serial output from a job until it is completed."""
+        """Poll for serial output from a job until it is complete."""
         self.poll(LogType.SERIAL_OUTPUT)
 
     def _on_state_change(self, job_state: str, job_details: dict) -> None:
@@ -1221,12 +1221,10 @@ class TestflingerCli:
             expire_time = now + timedelta(seconds=timeout)
             msg = f"Reservation expires at: [{expire_time.isoformat()}]"
             StatusLine.set_countdown(timeout)
-        elif job_state in ("cancelled", "completed"):
+        elif job_state in ("cancelled", "complete"):
             hours, minutes, seconds = StatusLine.get_elapsed_time()
             result_msg = (
-                "Job cancelled"
-                if job_state == "cancelled"
-                else "Job completed"
+                "Job cancelled" if job_state == "cancelled" else "Job complete"
             )
             msg = (
                 f"{result_msg} - Total time in use: "
@@ -1267,7 +1265,7 @@ class TestflingerCli:
 
         # If the job is already complete (e.g. late or after-action request to
         # poll) then we can skip using the StatusLine in a live manner
-        if job_state_data["job_state"] not in ("completed", "cancelled"):
+        if job_state_data["job_state"] not in ("complete", "cancelled"):
             StatusLine.init()
 
         prev_queue_pos = None
@@ -1298,7 +1296,7 @@ class TestflingerCli:
                     phase_status = job_state_data.get(phase)
                     if phase_status is not None:
                         print(
-                            f"\nPhase '{phase}' completed with "
+                            f"\nPhase '{phase}' complete with "
                             f"exit code: {phase_status}",
                             file=sys.stderr,
                         )
@@ -1309,7 +1307,7 @@ class TestflingerCli:
                         )
                         break
 
-                if job_state in ("cancelled", "completed"):
+                if job_state in ("cancelled", "complete"):
                     break
 
                 if job_state == "waiting":
@@ -1360,7 +1358,7 @@ class TestflingerCli:
         for job_id, jobdata in self.history.history.items():
             if self.args.status:
                 job_state = jobdata.get("job_state")
-                if job_state not in ("cancelled", "completed"):
+                if job_state not in ("cancelled", "complete"):
                     try:
                         job_state = self.get_job_state(job_id)["job_state"]
                         self.history.update(job_id, job_state)

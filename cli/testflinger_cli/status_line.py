@@ -47,6 +47,7 @@ class StatusLine:
     _countdown_start_value = 0
     _is_tty = False
     _last_template = ""
+    _last_template_state = None
     _prev_state = None
     _state_start_time = None
 
@@ -106,29 +107,24 @@ class StatusLine:
 
         :param state: New job state string
         """
-        # State changed - print elapsed time in previous state
-        if (
-            cls._prev_state
-            and state != cls._prev_state
-            and cls._state_start_time
-        ):
-            elapsed = int(time.time() - cls._state_start_time)
-            hours = elapsed // 3600
-            minutes = (elapsed % 3600) // 60
-            seconds = elapsed % 60
-            duration_str = f"{minutes} minutes {seconds} seconds"
-            if hours > 0:
-                duration_str = f"{hours} hours {duration_str}"
-            # Clear status line before printing to avoid mixed output
-            with cls._print_lock:
-                cls.clear()
-                _original_print(
-                    f"State '{cls._prev_state}' lasted {duration_str}"
-                )
-        cls.state = state
-        # Only update state start time on actual state change
-        if state != cls._prev_state:
-            cls._prev_state = state
+        # When the state changes, track the time
+        if cls.state != state:
+            if cls._state_start_time and cls.state:
+                elapsed = int(time.time() - cls._state_start_time)
+                hours = elapsed // 3600
+                minutes = (elapsed % 3600) // 60
+                seconds = elapsed % 60
+                duration_str = f"{minutes} minutes {seconds} seconds"
+                if hours > 0:
+                    duration_str = f"{hours} hours {duration_str}"
+                # Clear status line before printing to avoid mixed output
+                with cls._print_lock:
+                    cls.clear()
+                    _original_print(
+                        f"State '{cls.state}' lasted {duration_str}"
+                    )
+            cls._prev_state = cls.state
+            cls.state = state
             cls._state_start_time = time.time()
 
     @classmethod
@@ -148,14 +144,22 @@ class StatusLine:
 
         message = template.format(*args, **kwargs)
         cls.message = message
-        with cls._print_lock:
-            # Capture the status messages with timers to the console on status
-            # line (template) change.
-            if cls._last_template and template != cls._last_template:
+        # Capture the status messages with timers to the console on status
+        # line (template) change within the same state:
+        if (
+            cls._last_template
+            and template != cls._last_template
+            and cls._last_template_state == cls.state
+        ):
+            with cls._print_lock:
                 _original_print(
                     f"[{cls._get_timestamp()}] [{cls.state}] {message}"
                 )
+        # if we track the last template and what state it was for, we can log
+        # meaningful changes while within that state. We are already logging
+        # state changes in set_state
         cls._last_template = template
+        cls._last_template_state = cls.state
 
     @classmethod
     def _get_timestamp(cls):
