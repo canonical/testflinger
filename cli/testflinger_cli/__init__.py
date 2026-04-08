@@ -64,6 +64,9 @@ basedir = os.path.abspath(os.path.join(__file__, ".."))
 if os.path.exists(os.path.join(basedir, "setup.py")):
     sys.path.insert(0, basedir)
 
+STYLE_BOLD = "\033[1m"
+STYLE_RESET_ALL = "\033[0m"
+
 # Top-level (gross) states
 VALID_STATES = frozenset({"online", "offline", "maintenance"})
 # Define fine-grained state groupings and display order
@@ -750,18 +753,27 @@ class TestflingerCli:
             if state in OFFLINE_STATES
         )
 
+        # Print header
+        print(
+            "  ".join(
+                f"{STYLE_BOLD}{h.upper():<{w}}{STYLE_RESET_ALL}"
+                for h, w in zip(
+                    ["State", "Count", "Total"], (16, 6, 6), strict=True
+                )
+            )
+        )
         # Print summary
-        print(f"Online:           {overall_online}")
+        print(f"Online:                   {overall_online}")
         for state in ONLINE_STATES:
             count = state_counts.get(state, 0)
             if count > 0:
-                print(f"  {state:<16} {count}")
+                print(f"  {state:<16}{count}")
 
-        print(f"\nOffline:          {overall_offline}")
+        print(f"Offline:                  {overall_offline}")
         for state in OFFLINE_STATES:
             count = state_counts.get(state, 0)
             if count > 0:
-                print(f"  {state:<16} {count}")
+                print(f"  {state:<16}{count}")
 
     def _print_agent_table(self, agents: list[dict]) -> None:
         """Print agents in table format, supporting custom fields.
@@ -803,11 +815,10 @@ class TestflingerCli:
         # Print header
         print(
             "  ".join(
-                f"{h:<{w}}" for h, w in zip(headers, col_widths, strict=True)
+                f"{STYLE_BOLD}{h.upper():<{w}}{STYLE_RESET_ALL}"
+                for h, w in zip(headers, col_widths, strict=True)
             )
         )
-        print("-" * (sum(col_widths) + 2 * (len(col_widths) - 1)))
-
         # Print rows
         for agent in agents:
             row = []

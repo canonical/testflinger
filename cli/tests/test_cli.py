@@ -1283,10 +1283,14 @@ def test_agent_list_summary(capsys, requests_mock):
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.list_agents()
     std = capsys.readouterr()
-    assert "Online:           1" in std.out
-    assert "waiting" in std.out
-    assert "Offline:          1" in std.out
-    assert "offline" in std.out
+    # Remove ANSI codes for assertion
+    import re
+
+    clean_out = re.sub(r"\x1b\[[0-9;]*m", "", std.out)
+    assert "Online:" in clean_out and "1" in clean_out
+    assert "waiting" in clean_out
+    assert "Offline:" in clean_out and "1" in clean_out
+    assert "offline" in clean_out
 
 
 def test_agent_list_mutually_exclusive_1_and_summary(requests_mock):
@@ -1355,13 +1359,17 @@ def test_agent_list_table(capsys, requests_mock):
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.list_agents()
     std = capsys.readouterr()
-    assert "agent1" in std.out
-    assert "waiting" in std.out
-    assert "agent2" in std.out
-    assert "offline" in std.out
-    assert "Under maintenance" in std.out
-    assert "Name" in std.out  # Header
-    assert "Status" in std.out  # Header
+    # Remove ANSI codes for assertion
+    import re
+
+    clean_out = re.sub(r"\x1b\[[0-9;]*m", "", std.out)
+    assert "agent1" in clean_out
+    assert "waiting" in clean_out
+    assert "agent2" in clean_out
+    assert "offline" in clean_out
+    assert "Under maintenance" in clean_out
+    assert "NAME" in clean_out  # Header
+    assert "STATUS" in clean_out  # Header
 
 
 def test_agent_list_filter_by_status(capsys, requests_mock):
