@@ -11,7 +11,7 @@ system. The agent is configured with a set of :doc:`queues <queues>` for which
 it knows how to run jobs. When it is not running a job, the agent:
 
    * Asks the server for a job to run from the list of configured :doc:`queues <queues>`
-   * Dispatches the device connector to execute each :doc:`phase <../reference/test-phases>` of the job
+   * Dispatches the device connector to execute each :doc:`phase <../reference/test-phases>` of the job against the device under test (DUT)
    * Reports the results of the job back to the server
    * Uploads artifacts (if any) saved from the job to the server
 
@@ -59,23 +59,6 @@ Agent Host Administration is the concept of managing the running agent charms
 on the agent's host machine via Juju. For guidance on how to manage running
 agent host charms, see :ref:`howto-manage-agent-host`.
 
-Restarting an Agent Host Charm
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When an agent host charm needs to be re-executed due to something like a code
-update or a configuration change, it is important to shut it down safely so
-that it does not interfere with a job currently running. To do this, you can
-use the following method:
-
-On the agent host machine:
-
-1. Send a SIGUSR1 signal to the agent's process
-
-This method will cause the agent to exit when it is no longer running
-a job. You will need to ensure something like ``systemd`` or ``supervisord``
-is watching the agent process and restarting it if it exits in order to
-actually restart the agent.
-
 Agent Administration
 --------------------
 
@@ -96,63 +79,8 @@ Testflinger administrators can also change the status of running agents via the
 command line to either ``offline`` or ``maintenance``. See :ref:`howto-manage-agent`
 for more details.
 
-Set an Agent Offline (admin)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. note::
-   The following action require an authenticated ``client_id`` with admin privileges, 
-   for more information please refer to :doc:`Create or edit Testflinger admin credentials <../how-to/create-admin-user>` 
-   if needed to set an initial admin ``client_id``.
-
-Each agent is designed to process jobs indefinitely by listening for jobs in its specified queues
-until any job is available for them. If an agent needs to be set to offline to stop
-processing any jobs, its status can be modified from the CLI. This can be useful when there
-is some debugging or maintenance needed on the physical machine.
-The procedure to offline an agent could be one of the following:
-
-* Set agent to offline. 
-
-Requires a reason for changing the agent status:
-
-.. code-block:: shell
-
-   testflinger-cli admin set agent-status --status offline --agents <agent_name> --comment "<Offline Reason>"
-
-
-* Set agent to maintenance. 
-
-This status doesn't need to define a reason as it uses a predefined comment.
-
-.. code-block:: shell
-
-   testflinger-cli admin set agent-status --status maintenance --agents <agent_name>
-
-In both statuses, the agent will effectively stop processing jobs immediately if not processing 
-any job, otherwise it will wait until job completion to change agent status. It is important to note
-that in any of the above statuses, the agent will prevent restarting; if a restart signal is detected
-it will be deferred until the agent is marked online. 
-
-.. tip::
-
-    If you wish to change the status for multiple agents at the same time, you can define a list 
-    of the agents you want to change status e.g. ``--agents agent1 agent2 ... agentN``
-
-Set an Agent Online (admin)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. note::
-   The following action require an authenticated ``client_id`` with admin privileges, 
-   for more information please refer to :doc:`Create or edit Testflinger admin credentials <../how-to/create-admin-user>` 
-   if needed to set an initial admin ``client_id``.
-
-To set an agent to online in order to recover from an unexpected agent failure or after being set 
-to offline manually, execute the following command from the CLI:
-
-.. code-block:: shell
-
-   testflinger-cli admin set agent-status --status online --agents <agent_name>
-
-.. tip::
-
-   If you wish to change the status for multiple agents at the same time, you can define a list 
-   of the agents you want to change status e.g. ``--agents agent1 agent2 ... agentN``
+        Agent states follow the job execution phase order:
+        - waiting: idle, ready for jobs
+        - setup, provision, firmware_update, test, allocate, reserve: running
+          job phases
+        - offline, maintenance: offline states

@@ -36,11 +36,11 @@ pulled regularly. To pull any updates to the configurations, run the
 
   $ juju run <agent-host-charm-unit> update-configs
 
-
 The updated configurations will be applied and the agents will be restarted. If
 the agents are currently reserved or in a state where they cannot be restarted,
 then the updated configurations will not be applied until those agents are
 restarted.
+
 
 Update TF Scripts
 ------------------
@@ -91,8 +91,8 @@ stopped, or signalled, you can use:
 
    $ sudo supervisorctl maintail
 
-Stopping and restarting agents
-------------------------------
+Stopping and restarting Agent Host Charms
+------------------------------------------
 
 .. note::
 
@@ -114,3 +114,19 @@ run:
 .. code-block:: shell
 
    $ sudo supervisorctl signal USR1 <agent name>
+Restarting an Agent Host Charm
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When an agent host charm needs to be re-executed due to something like a code
+update or a configuration change, it is important to shut it down safely so
+that it does not interfere with a job currently running. To do this, you can
+use the following method:
+
+On the agent host machine:
+
+1. Send a SIGUSR1 signal to the agent's process
+
+This method will cause the agent to exit when it is no longer running
+a job. You will need to ensure something like ``systemd`` or ``supervisord``
+is watching the agent process and restarting it if it exits in order to
+actually restart the agent.
