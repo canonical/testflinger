@@ -82,7 +82,8 @@ testflinger_secrets_master_key = "<your-secrets-master-key>"
 
 
 > [!NOTE]
-> Only `jwt_signing_key` is required.
+> Only `jwt_signing_key` is required. In case `terraform.tfvars` is not provided
+> terraform will prompt for the value.
 
 > [!WARNING]
 > Never commit `terraform.tfvars` to version control. The file is excluded via
