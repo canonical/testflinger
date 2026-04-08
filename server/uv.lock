@@ -2065,7 +2065,7 @@ requires-dist = [
     { name = "marshmallow-oneofschema", specifier = "==3.2.0" },
     { name = "prometheus-client", specifier = ">=0.21.0" },
     { name = "prometheus-flask-exporter", specifier = ">=0.23.1" },
-    { name = "pyjwt", specifier = ">=2.8.0" },
+    { name = "pyjwt", specifier = ">=2.12.1" },
     { name = "pymongo", extras = ["encryption"], specifier = "<4.9.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "requests", specifier = ">=2.31.0" },
