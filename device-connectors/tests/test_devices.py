@@ -14,6 +14,7 @@
 """Tests for the devices module."""
 
 import subprocess
+import time
 from importlib import import_module
 from itertools import product
 from unittest.mock import MagicMock, Mock
@@ -227,6 +228,7 @@ class TestDefaultControlHostPowerCycle:
 
     def test_rest_poweroff_path(self, mocker):
         """Test power_cycle powers off via REST, reboots, and waits."""
+        _ = mocker.patch.object(time, "sleep")
         mock_post = mocker.patch.object(requests, "post")
         mock_post.return_value.raise_for_status = Mock()
         mock_reboot = mocker.patch.object(DefaultControlHost, "reboot")

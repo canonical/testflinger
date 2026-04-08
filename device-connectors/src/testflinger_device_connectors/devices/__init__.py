@@ -322,6 +322,7 @@ class DefaultControlHost:
             requests.post(url, timeout=10).raise_for_status()
             with contextlib.suppress(TimeoutError):
                 self.wait_offline(self._check_ping, 30)
+                time.sleep(10)  # extra safety time for shutdown
             self.reboot()
             self.wait_ready(timeout=300)
         except requests.RequestException:
