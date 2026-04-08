@@ -39,9 +39,6 @@ This will submit and start polling right away.
    :alt: Terminal graphic depicting live display of submit --poll with status line.
    :align: center
 
-# .. raw:: html
-#  <video controls src="/images/submit-job.mp4" width="100%"></video>
-
 Excluding Agents from Running a Job
 ------------------------------------
 
