@@ -73,7 +73,7 @@ Refer to the [README](README.md#api) for the full list of required variables.
 
 The `terraform/dev` directory has sensitive values to be provided before
 deployment. Create a `terraform.tfvars` file inside `terraform/dev` with the 
-required secrets:
+following secrets:
 
 ```hcl
 jwt_signing_key                = "<your-jwt-signing-key>"
@@ -119,15 +119,16 @@ try the following command on each IP address until you get a response:
 curl --connect-to ::<ip-address> http://testflinger.local/v1
 ```
 
-Once you find the IP address, add the following entry to your host machine's `/etc/hosts` file:
+Once you find the IP address, add the following entry to your host machine's
+`/etc/hosts` file:
 
 ```text
 <ip-address>   testflinger.local
 ```
 
-After that you should be able to reach the Testflinger frontend on your host machine's
-browser through `http://testflinger.local`. You should also be able to access the API 
-through `http://testflinger.local/v1/`.
+After that you should be able to reach the Testflinger frontend on your host
+machine's browser through `http://testflinger.local`. You should also be able 
+to access the API  through `http://testflinger.local/v1/`.
 
 ### Teardown
 

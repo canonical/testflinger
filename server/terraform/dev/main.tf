@@ -42,7 +42,7 @@ resource "juju_application" "ingress" {
 }
 
 # Juju integration between MongoDB and Testflinger application
-resource "juju_integration" "testflinger-database-relation" {
+resource "juju_integration" "testflinger_database_relation" {
   model_uuid = data.juju_model.testflinger_dev_model.uuid
 
   application {
@@ -57,7 +57,7 @@ resource "juju_integration" "testflinger-database-relation" {
 }
 
 # Juju integration between Nginx Ingress and Testflinger application
-resource "juju_integration" "testflinger-ingress-relation" {
+resource "juju_integration" "testflinger_ingress_relation" {
   model_uuid = data.juju_model.testflinger_dev_model.uuid
 
   application {
