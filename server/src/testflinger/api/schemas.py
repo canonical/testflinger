@@ -173,20 +173,31 @@ class ZapperIoTPresetProvisionData(BaseZapperProvisionData):
 
     url = fields.URL(required=False)
     urls = fields.List(fields.URL(), required=False, validate=Length(min=1))
+    attachments = fields.List(fields.Nested(Attachment), required=False)
     preset = fields.String(required=True)
     preset_kwargs = fields.Dict(required=False)
 
     @validates_schema
-    def validate_url_or_urls(self, data, **_):
-        """Validate that exactly one of `url` or `urls` is provided."""
-        has_url = "url" in data
-        has_urls = "urls" in data
-        if has_url and has_urls:
+    def validate_image_source(self, data, **_):
+        """Validate that at most one URL source is provided.
+
+        The image can come from ``url``, ``urls``, or a provision
+        attachment uploaded alongside the job. When the agent runs,
+        any uploaded attachment takes precedence over URLs.
+        """
+        if "url" in data and "urls" in data:
             raise ValidationError(
                 "Provide only one of 'url' or 'urls', not both."
             )
-        if not has_url and not has_urls:
-            raise ValidationError("Either 'url' or 'urls' must be provided.")
+        if (
+            "url" not in data
+            and "urls" not in data
+            and not data.get("attachments")
+        ):
+            raise ValidationError(
+                "Either 'url'/'urls' or a provision attachment must "
+                "be provided."
+            )
 
 
 class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
@@ -197,21 +208,32 @@ class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
 
     url = fields.URL(required=False)
     urls = fields.List(fields.URL(), required=False, validate=Length(min=1))
+    attachments = fields.List(fields.Nested(Attachment), required=False)
     ubuntu_sso_email = fields.Email(required=False)
     # [TODO] Specify Nested schema to improve validation
     provision_plan = fields.Dict(required=True)
 
     @validates_schema
-    def validate_url_or_urls(self, data, **_):
-        """Validate that exactly one of `url` or `urls` is provided."""
-        has_url = "url" in data
-        has_urls = "urls" in data
-        if has_url and has_urls:
+    def validate_image_source(self, data, **_):
+        """Validate that at most one URL source is provided.
+
+        The image can come from ``url``, ``urls``, or a provision
+        attachment uploaded alongside the job. When the agent runs,
+        any uploaded attachment takes precedence over URLs.
+        """
+        if "url" in data and "urls" in data:
             raise ValidationError(
                 "Provide only one of 'url' or 'urls', not both."
             )
-        if not has_url and not has_urls:
-            raise ValidationError("Either 'url' or 'urls' must be provided.")
+        if (
+            "url" not in data
+            and "urls" not in data
+            and not data.get("attachments")
+        ):
+            raise ValidationError(
+                "Either 'url'/'urls' or a provision attachment must "
+                "be provided."
+            )
 
 
 class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):

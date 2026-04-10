@@ -16,6 +16,7 @@
 
 import contextlib
 import logging
+from pathlib import Path
 from typing import Any, Dict, Tuple
 
 from testflinger_device_connectors.devices import (
@@ -28,6 +29,9 @@ from testflinger_device_connectors.devices.zapper_iot.parser import (
 )
 
 logger = logging.getLogger(__name__)
+
+# should mirror `testflinger_agent.config.ATTACHMENTS_DIR`
+ATTACHMENTS_DIR = "attachments"
 
 
 class DeviceConnector(ZapperConnector):
@@ -96,13 +100,32 @@ class DeviceConnector(ZapperConnector):
         if url := self.job_data["provision_data"].get("url"):
             urls = [url]
         else:
-            urls = self.job_data["provision_data"].get("urls", [])
+            urls = self.job_data["provision_data"].get("urls")
 
-        try:
-            validate_urls(urls)
-        except ValueError as e:
-            raise ProvisioningError from e
-        provisioning_data["urls"] = urls
+        attachments_dir = Path.cwd() / ATTACHMENTS_DIR / "provision"
+        attachments = (
+            sorted(
+                p for p in attachments_dir.iterdir() if p.is_file()
+            )
+            if attachments_dir.is_dir()
+            else []
+        )
+
+        if attachments:
+            self._boot_binary = attachments[0]
+        elif urls:
+            try:
+                validate_urls(urls)
+            except ValueError as e:
+                raise ProvisioningError from e
+            provisioning_data["urls"] = urls
+        else:
+            raise ProvisioningError(
+                'In the "provision_data" section of your job_data '
+                'you must provide either "url"/"urls" to specify where '
+                "to download an image from, or upload a provision "
+                "attachment."
+            )
 
         return ((), provisioning_data)
 

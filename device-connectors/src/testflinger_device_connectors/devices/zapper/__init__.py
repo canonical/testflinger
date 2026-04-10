@@ -23,7 +23,8 @@ validating the configuration and preparing the API arguments.
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Tuple
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 import requests
 
@@ -44,6 +45,7 @@ class ZapperConnector(ABC, DefaultDevice):
     ZAPPER_CONNECTION_TIMEOUT = 30
     ZAPPER_READ_TIMEOUT = 60 * 90
     ZAPPER_REST_PORT = 8000
+    _boot_binary: Optional[Path] = None
 
     def _api_post(self, endpoint: str, **kwargs) -> requests.Response:
         """Send a POST request to the Zapper REST API.
@@ -180,6 +182,10 @@ class ZapperConnector(ABC, DefaultDevice):
 
         Submits a provisioning job, streams SSE logs in real time,
         and checks the final job status.
+
+        When ``_boot_binary`` is set, the image is uploaded as a
+        multipart ``boot_binary`` field alongside the JSON payload;
+        otherwise the request is sent as plain JSON.
         """
         kwargs.update(
             {
@@ -190,14 +196,37 @@ class ZapperConnector(ABC, DefaultDevice):
             }
         )
 
-        resp = self._api_post(
-            "/api/v1/provision",
-            json={
-                "method": self.PROVISION_METHOD,
-                "args": list(args),
-                "kwargs": kwargs,
-            },
-        )
+        if self._boot_binary is not None:
+            logger.info(
+                "Uploading boot binary %s as multipart attachment",
+                self._boot_binary.name,
+            )
+            payload = json.dumps(
+                {
+                    "method": self.PROVISION_METHOD,
+                    "args": list(args),
+                    "kwargs": kwargs,
+                }
+            )
+            with open(self._boot_binary, "rb") as boot_binary_file:
+                resp = self._api_post(
+                    "/api/v1/provision",
+                    data={"request": payload},
+                    files={"boot_binary": boot_binary_file},
+                    timeout=(
+                        self.ZAPPER_CONNECTION_TIMEOUT,
+                        self.ZAPPER_READ_TIMEOUT,
+                    ),
+                )
+        else:
+            resp = self._api_post(
+                "/api/v1/provision",
+                json={
+                    "method": self.PROVISION_METHOD,
+                    "args": list(args),
+                    "kwargs": kwargs,
+                },
+            )
         job = resp.json()
         job_id = job["job_id"]
 

@@ -387,6 +387,39 @@ def test_add_job_zapper_iot_custom_provision_data_single_url(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
+def test_add_job_zapper_iot_preset_provision_data_attachment(mongo_app):
+    """Test that a job with zapper_iot_preset using an attachment works."""
+    provision_data = {
+        "attachments": [{"agent": "provision/image.img"}],
+        "preset": "fake",
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_zapper_iot_custom_provision_data_attachment(mongo_app):
+    """Test that a job with zapper_iot_custom using an attachment works."""
+    provision_data = {
+        "attachments": [{"agent": "provision/image.img"}],
+        "provision_plan": {},
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_zapper_iot_custom_provision_data_neither(mongo_app):
+    """Test that providing neither url/urls nor attachments fails."""
+    provision_data = {"provision_plan": {}}
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+
+
 def test_add_job_zapper_kvm_autoinstall_provision_data(mongo_app):
     """Test that a job with zapper_kvm_autoinstall provision_data works."""
     # Invalid URL fails
