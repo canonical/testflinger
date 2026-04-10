@@ -90,14 +90,10 @@ class DeviceConnector(ZapperConnector):
             except (ValueError, KeyError) as e:
                 raise ProvisioningError from e
 
-        url = self.job_data["provision_data"].get("url")
-        urls = self.job_data["provision_data"].get("urls", [])
-        if url and urls:
-            raise ProvisioningError(
-                "Provide only one of provision_data.url or provision_data.urls"
-            )
-        if url:
+        if url := self.job_data["provision_data"].get("url"):
             urls = [url]
+        else:
+            urls = self.job_data["provision_data"].get("urls", [])
 
         try:
             validate_urls(urls)

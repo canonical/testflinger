@@ -59,20 +59,6 @@ class ZapperIoTTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
-    def test_validate_configuration_both_url_and_urls(self):
-        """Test that providing both `url` and `urls` raises an error."""
-        device = DeviceConnector({"control_host": "zapper-host"})
-        device.job_data = {
-            "provision_data": {
-                "preset": "TestPreset",
-                "url": "http://test.tar.gz",
-                "urls": ["http://other.tar.gz"],
-            }
-        }
-
-        with self.assertRaises(ProvisioningError):
-            device._validate_configuration()
-
     def test_validate_configuration_ubuntu_sso_email(self):
         """Test the function username will be ubuntu_sso_email if provided."""
         device = DeviceConnector({"control_host": "zapper-host"})
@@ -118,7 +104,7 @@ class ZapperIoTTests(unittest.TestCase):
                     "run_stage": [
                         {"initial_login": {"method": "system-user"}},
                     ],
-                }
+                },
             }
         }
 
