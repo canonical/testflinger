@@ -17,6 +17,7 @@
 
 import importlib.metadata
 import os
+import posixpath
 import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -781,7 +782,7 @@ def agents_status_post(job_id, json_data):
     job_webhook = request_json.pop("job_status_webhook")
 
     # Webhook base URL configured on the server
-    webhook_url = os.environ.get("WEBHOOK_URL")
+    webhook_url = os.environ.get("WEBHOOK_ENDPOINT")
     if not webhook_url:
         # Abort if no webhook configured server-side
         abort(
@@ -797,6 +798,12 @@ def agents_status_post(job_id, json_data):
     if (
         parsed_server_url.scheme != parsed_job_url.scheme
         or parsed_server_url.netloc != parsed_job_url.netloc
+    ):
+        abort(HTTPStatus.FORBIDDEN, message="Unauthorized webhook URL")
+
+    # Validate normalized path matches exactly the configured webhook path.
+    if posixpath.normpath(parsed_server_url.path) != posixpath.normpath(
+        parsed_job_url.path
     ):
         abort(HTTPStatus.FORBIDDEN, message="Unauthorized webhook URL")
 
