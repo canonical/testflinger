@@ -28,6 +28,7 @@ from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import patch
 
+import jwt
 import pytest
 import requests
 import requests_mock as rmock
@@ -82,11 +83,12 @@ def test_cancel(requests_mock):
     tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as err:
         tfcli.cancel()
-    assert "already completed/cancelled" in err.value.args[0]
+    assert "already complete/cancelled" in err.value.args[0]
 
 
-def test_submit(capsys, tmp_path, requests_mock):
+def test_submit(capsys, tmp_path, requests_mock, auth_fixture):
     """Make sure jobid is read back from submitted job."""
+    auth_fixture("user")
     jobid = str(uuid.uuid1())
     fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
     testfile = tmp_path / "test.json"
@@ -104,11 +106,14 @@ def test_submit(capsys, tmp_path, requests_mock):
     assert jobid in std.out
 
 
-def test_submit_some_agents_excluded(capsys, tmp_path, requests_mock):
+def test_submit_some_agents_excluded(
+    capsys, tmp_path, requests_mock, auth_fixture
+):
     """
     Make sure job is submitted if there is at least one available agent with
     excluded_agents specified.
     """
+    auth_fixture("user")
     jobid = str(uuid.uuid1())
     fake_data = {
         "job_queue": "fake",
@@ -133,8 +138,11 @@ def test_submit_some_agents_excluded(capsys, tmp_path, requests_mock):
     assert jobid in std.out
 
 
-def test_submit_exclude_agents_is_a_list(capsys, tmp_path, requests_mock):
+def test_submit_exclude_agents_is_a_list(
+    capsys, tmp_path, requests_mock, auth_fixture
+):
     """Make sure proper error is generated if exclude_agents is not a list."""
+    auth_fixture("user")
     jobid = str(uuid.uuid1())
     fake_data = {
         "job_queue": "fake",
@@ -161,8 +169,9 @@ def test_submit_exclude_agents_is_a_list(capsys, tmp_path, requests_mock):
     )
 
 
-def test_submit_stdin(capsys, monkeypatch, requests_mock):
+def test_submit_stdin(capsys, monkeypatch, requests_mock, auth_fixture):
     """Make sure jobid is read back from submitted job via stdin."""
+    auth_fixture("user")
     jobid = str(uuid.uuid1())
     fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(fake_data)))
@@ -179,8 +188,9 @@ def test_submit_stdin(capsys, monkeypatch, requests_mock):
     assert jobid in std.out
 
 
-def test_submit_bad_data(tmp_path, requests_mock):
+def test_submit_bad_data(tmp_path, requests_mock, auth_fixture):
     """Ensure a 422 response from bad data shows the returned errors."""
+    auth_fixture("user")
     fake_data = {"badkey": "badvalue", "job_queue": "fake"}
     testfile = tmp_path / "test.json"
     testfile.write_text(json.dumps(fake_data))
@@ -339,8 +349,9 @@ def test_pack_attachments_with_reference(tmp_path):
         assert "test/file_3.bin" in filenames
 
 
-def test_submit_with_attachments(tmp_path):
+def test_submit_with_attachments(tmp_path, auth_fixture):
     """Make sure jobs with attachments are submitted correctly."""
+    auth_fixture("user")
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
@@ -360,6 +371,20 @@ def test_submit_with_attachments(tmp_path):
     tfcli = testflinger_cli.TestflingerCli()
 
     with Mocker() as mocker:
+        # register auth endpoint
+        fake_payload = {
+            "permissions": {"client_id": "my_client_id", "role": "user"}
+        }
+        fake_jwt_token = jwt.encode(
+            fake_payload, "my-secret", algorithm="HS256"
+        )
+        fake_return = {
+            "access_token": fake_jwt_token,
+            "token_type": "Bearer",
+            "expires_in": 30,
+            "refresh_token": str(uuid.uuid4()),
+        }
+        mocker.post(f"{URL}/v1/oauth2/token", json=fake_return)
         # register responses for job and attachment submission endpoints
         mock_response = {"job_id": job_id}
         mocker.post(f"{URL}/v1/job", json=mock_response)
@@ -373,12 +398,16 @@ def test_submit_with_attachments(tmp_path):
         tfcli.submit()
 
         # check the request history to confirm that:
+        # - there is a request to the queues endpoint
+        # - there is a request to the oauth2/token endpoint
         # - there is a request to the job submission endpoint
         # - there a request to the attachment submission endpoint
         history = mocker.request_history
-        assert len(history) == 3
-        assert history[1].path == "/v1/job"
-        assert history[2].path == f"/v1/job/{job_id}/attachments"
+        assert len(history) == 4
+        assert history[0].path == "/v1/queues/fake/agents"
+        assert history[1].path == "/v1/oauth2/token"
+        assert history[2].path == "/v1/job"
+        assert history[3].path == f"/v1/job/{job_id}/attachments"
 
         # extract the binary file data from the request
         # (`requests_mock` only provides access to the `PreparedRequest`)
@@ -396,8 +425,9 @@ def test_submit_with_attachments(tmp_path):
             assert json.load(attachment) == job_data
 
 
-def test_submit_attachments_retries(tmp_path):
+def test_submit_attachments_retries(tmp_path, auth_fixture):
     """Check retries after unsuccessful attachment submissions."""
+    auth_fixture("user")
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
@@ -420,6 +450,20 @@ def test_submit_attachments_retries(tmp_path):
     tfcli.config.data["attachments_tries"] = 4
 
     with Mocker() as mocker:
+        # register auth endpoint
+        fake_payload = {
+            "permissions": {"client_id": "my_client_id", "role": "user"}
+        }
+        fake_jwt_token = jwt.encode(
+            fake_payload, "my-secret", algorithm="HS256"
+        )
+        fake_return = {
+            "access_token": fake_jwt_token,
+            "token_type": "Bearer",
+            "expires_in": 30,
+            "refresh_token": str(uuid.uuid4()),
+        }
+        mocker.post(f"{URL}/v1/oauth2/token", json=fake_return)
         # register responses for job and attachment submission endpoints
         mock_response = {"job_id": job_id}
         mocker.post(f"{URL}/v1/job", json=mock_response)
@@ -441,17 +485,22 @@ def test_submit_attachments_retries(tmp_path):
         tfcli.submit()
 
         # check the request history to confirm that:
+        # - there is a request to the queues endpoint
+        # - there is a request to the oauth2/token endpoint
         # - there is a request to the job submission endpoint
         # - there are repeated requests to the attachment submission endpoint
         history = mocker.request_history
-        assert len(history) == 6
-        assert history[1].path == "/v1/job"
-        for entry in history[2:]:
+        assert len(history) == 7
+        assert history[0].path == "/v1/queues/fake/agents"
+        assert history[1].path == "/v1/oauth2/token"
+        assert history[2].path == "/v1/job"
+        for entry in history[3:]:
             assert entry.path == f"/v1/job/{job_id}/attachments"
 
 
-def test_submit_attachments_no_retries(tmp_path):
+def test_submit_attachments_no_retries(tmp_path, auth_fixture):
     """Check no retries after attachment submission fails unrecoverably."""
+    auth_fixture("user")
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
@@ -472,6 +521,20 @@ def test_submit_attachments_no_retries(tmp_path):
     tfcli.config.data["attachments_tries"] = 2
 
     with Mocker() as mocker:
+        # register auth endpoint
+        fake_payload = {
+            "permissions": {"client_id": "my_client_id", "role": "user"}
+        }
+        fake_jwt_token = jwt.encode(
+            fake_payload, "my-secret", algorithm="HS256"
+        )
+        fake_return = {
+            "access_token": fake_jwt_token,
+            "token_type": "Bearer",
+            "expires_in": 30,
+            "refresh_token": str(uuid.uuid4()),
+        }
+        mocker.post(f"{URL}/v1/oauth2/token", json=fake_return)
         # register responses for job and attachment submission endpoints
         mocker.post(f"{URL}/v1/job", json={"job_id": job_id})
         mocker.post(
@@ -489,19 +552,24 @@ def test_submit_attachments_no_retries(tmp_path):
             assert "failed to submit attachments" in exc_info.value
 
         # check the request history to confirm that:
+        # - there is a request to the queues endpoint
+        # - there is a request to the oauth2/token endpoint
         # - there is a request to the job submission endpoint
         # - there is a single request to the attachment submission endpoint:
         #   no retries
         # - there is a final request to cancel the action
         history = mocker.request_history
-        assert len(history) == 4
-        assert history[1].path == "/v1/job"
-        assert history[2].path == f"/v1/job/{job_id}/attachments"
-        assert history[3].path == f"/v1/job/{job_id}/action"
+        assert len(history) == 5
+        assert history[0].path == "/v1/queues/fake/agents"
+        assert history[1].path == "/v1/oauth2/token"
+        assert history[2].path == "/v1/job"
+        assert history[3].path == f"/v1/job/{job_id}/attachments"
+        assert history[4].path == f"/v1/job/{job_id}/action"
 
 
-def test_submit_attachments_timeout(tmp_path):
+def test_submit_attachments_timeout(tmp_path, auth_fixture):
     """Make timeout after repeated attachment submission timeouts."""
+    auth_fixture("user")
     job_id = str(uuid.uuid1())
     job_file = tmp_path / "test.json"
     job_data = {
@@ -524,6 +592,20 @@ def test_submit_attachments_timeout(tmp_path):
     tfcli.config.data["attachments_tries"] = 2
 
     with Mocker() as mocker:
+        # register auth endpoint
+        fake_payload = {
+            "permissions": {"client_id": "my_client_id", "role": "user"}
+        }
+        fake_jwt_token = jwt.encode(
+            fake_payload, "my-secret", algorithm="HS256"
+        )
+        fake_return = {
+            "access_token": fake_jwt_token,
+            "token_type": "Bearer",
+            "expires_in": 30,
+            "refresh_token": str(uuid.uuid4()),
+        }
+        mocker.post(f"{URL}/v1/oauth2/token", json=fake_return)
         # register responses for job and attachment submission endpoints
         mock_response = {"job_id": job_id}
         mocker.post(f"{URL}/v1/job", json=mock_response)
@@ -546,14 +628,18 @@ def test_submit_attachments_timeout(tmp_path):
             assert "failed to submit attachments" in exc_info.value
 
         # check the request history to confirm that:
+        # - there is a request to the queues endpoint
+        # - there is a request to the oauth2/token endpoint
         # - there is a request to the job submission endpoint
-        # - there a request to the attachment submission endpoint
+        # - there a request to the attachment submission endpoint (with retries)
         history = mocker.request_history
-        assert len(history) == 5
-        assert history[1].path == "/v1/job"
-        assert history[2].path == f"/v1/job/{job_id}/attachments"
+        assert len(history) == 6
+        assert history[0].path == "/v1/queues/fake/agents"
+        assert history[1].path == "/v1/oauth2/token"
+        assert history[2].path == "/v1/job"
         assert history[3].path == f"/v1/job/{job_id}/attachments"
-        assert history[4].path == f"/v1/job/{job_id}/action"
+        assert history[4].path == f"/v1/job/{job_id}/attachments"
+        assert history[5].path == f"/v1/job/{job_id}/action"
 
 
 def test_show(capsys, requests_mock):
@@ -709,11 +795,12 @@ def test_submit_no_agents_fails_excluded(capsys, tmp_path, requests_mock):
     )
 
 
-def test_submit_no_agents_wait(capsys, tmp_path, requests_mock):
+def test_submit_no_agents_wait(capsys, tmp_path, requests_mock, auth_fixture):
     """
     Test that submitting a job without online agents succeeds with
     --wait-for-available-agents.
     """
+    auth_fixture("user")
     jobid = str(uuid.uuid1())
     fake_return = {"job_id": jobid}
     requests_mock.post(f"{URL}/v1/job", json=fake_return)
@@ -1349,8 +1436,9 @@ def test_agent_status_json(capsys, requests_mock):
     assert std.out.strip() == json.dumps(expected_out, sort_keys=True)
 
 
-def test_queue_status(capsys, requests_mock):
+def test_queue_status(capsys, requests_mock, auth_fixture):
     """Validate that the status for the queue is retrieved."""
+    auth_fixture("user")
     fake_queue = "fake"
     fake_queue_data = [
         {"name": "fake_agent1", "state": "provision", "queues": ["fake"]},
@@ -1370,7 +1458,7 @@ def test_queue_status(capsys, requests_mock):
         },
         {
             "job_id": str(uuid.uuid1()),
-            "job_state": "completed",
+            "job_state": "complete",
             "created_at": "2023-10-13T15:22:30Z",
         },
     ]
@@ -1389,11 +1477,12 @@ def test_queue_status(capsys, requests_mock):
     assert "Offline:         1" in std.out
     assert "Jobs waiting:    1" in std.out
     assert "Jobs running:    1" in std.out
-    assert "Jobs completed:  1" in std.out
+    assert "Jobs complete:   1" in std.out
 
 
-def test_queue_status_verbose(capsys, requests_mock):
+def test_queue_status_verbose(capsys, requests_mock, auth_fixture):
     """Test verbose queue status shows individual job details."""
+    auth_fixture("user")
     fake_queue = "fake"
     fake_queue_data = [
         {"name": "fake_agent1", "state": "provision", "queues": ["fake"]},
@@ -1413,7 +1502,7 @@ def test_queue_status_verbose(capsys, requests_mock):
         },
         {
             "job_id": "8b0bb52f-08d8-4671-b275-55d84a965f7c",
-            "job_state": "completed",
+            "job_state": "complete",
             "created_at": "2023-10-13T15:22:30Z",
         },
     ]
@@ -1438,7 +1527,7 @@ def test_queue_status_verbose(capsys, requests_mock):
     assert "de153d8f-7d32-47d7-9a05-a20f2ef6bb35" in std.out
     assert "Jobs Running:" in std.out
     assert "ba73620d-6d1a-45ab-bb68-a640e4e4c489" in std.out
-    assert "Jobs Completed:" in std.out
+    assert "Jobs Complete:" in std.out
     assert "8b0bb52f-08d8-4671-b275-55d84a965f7c" in std.out
 
 
@@ -1536,8 +1625,11 @@ def test_get_commands_fails_if_incorrect_network(command, requests_mock):
     )
 
 
-def test_submit_with_poll_integration(tmp_path, requests_mock, monkeypatch):
+def test_submit_with_poll_integration(
+    tmp_path, requests_mock, monkeypatch, auth_fixture
+):
     """Test that submit --poll calls do_poll with the correct job_id."""
+    auth_fixture("user")
     jobid = str(uuid.uuid1())
     fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
     testfile = tmp_path / "test.json"
@@ -1587,7 +1679,7 @@ def test_live_polling_with_fragments_progression(
         iteration_count += 1
         # Run for 3 iterations then complete
         return (
-            {"job_state": "completed"}
+            {"job_state": "complete"}
             if iteration_count > 3
             else {"job_state": "running"}
         )
@@ -1679,7 +1771,7 @@ def test_live_polling_with_empty_poll(
     requests_mock.get(
         f"{URL}/v1/result/{job_id}",
         10 * [{"json": {"job_state": "active"}}]
-        + [{"json": {"job_state": "completed"}}],
+        + [{"json": {"job_state": "complete"}}],
     )
 
     # Mock log output with 10 empty responses
@@ -1829,7 +1921,7 @@ def test_poll_exponential_backoff_on_network_errors(
     requests_mock.get(
         f"{URL}/v1/result/{job_id}",
         [{"exc": requests.exceptions.ConnectionError}] * 5
-        + [{"json": {"job_state": "completed"}}],
+        + [{"json": {"job_state": "complete"}}],
     )
     requests_mock.get(
         f"{URL}/v1/result/{job_id}/log/output?start_fragment=0",
@@ -2050,7 +2142,7 @@ def test_jobs_with_get_status_scenarios(mock_get_status, capsys):
             # Job complete: already cached, won't call get_status
             "submission_time": submission_time,
             "queue": "queue-1",
-            "job_state": "completed",
+            "job_state": "complete",
         },
         job_ids[1]: {
             # HTTPError 400 (BAD_REQUEST)
@@ -2100,9 +2192,9 @@ def test_jobs_with_get_status_scenarios(mock_get_status, capsys):
     # Verify all jobs are shown despite various error scenarios
     # and that their statuses are correct
 
-    # job_ids[0]: cached "completed" status
+    # job_ids[0]: cached "complete" status
     assert job_ids[0] in captured.out
-    assert "completed" in captured.out.split(job_ids[0])[1].split("\n")[0]
+    assert "complete" in captured.out.split(job_ids[0])[1].split("\n")[0]
 
     # job_ids[1]: BAD_REQUEST error should result in "unknown" status
     assert job_ids[1] in captured.out

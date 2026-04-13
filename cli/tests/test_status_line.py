@@ -179,7 +179,7 @@ class TestStatusLineStateChanges:
 
         # Verify state changed
         assert StatusLine.state == "running"
-        assert StatusLine._prev_state == "running"
+        assert StatusLine._prev_state == "waiting"
 
         # Verify duration was printed
         mock_print.assert_called()

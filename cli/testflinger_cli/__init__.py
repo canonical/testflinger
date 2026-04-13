@@ -682,7 +682,7 @@ class TestflingerCli:
                 [
                     f"Jobs waiting:    {len(jobs_status['jobs_waiting'])}",
                     f"Jobs running:    {len(jobs_status['jobs_running'])}",
-                    f"Jobs complete:  {len(jobs_status['jobs_complete'])}",
+                    f"Jobs complete:   {len(jobs_status['jobs_complete'])}",
                 ]
             )
 
