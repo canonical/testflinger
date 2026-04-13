@@ -397,11 +397,11 @@ def test_submit_with_attachments(tmp_path, auth_fixture):
         # use cli to submit the job (processes `sys.argv` for arguments)
         tfcli.submit()
 
-        # check the request history to confirm that:
-        # - there is a request to the queues endpoint
-        # - there is a request to the oauth2/token endpoint
-        # - there is a request to the job submission endpoint
-        # - there a request to the attachment submission endpoint
+        # check the request history to confirm that there is a request to:
+        # - the queues endpoint
+        # - the oauth2/token endpoint
+        # - the job submission endpoint
+        # - the attachment submission endpoint
         history = mocker.request_history
         assert len(history) == 4
         assert history[0].path == "/v1/queues/fake/agents"
@@ -627,11 +627,11 @@ def test_submit_attachments_timeout(tmp_path, auth_fixture):
             tfcli.submit()
             assert "failed to submit attachments" in exc_info.value
 
-        # check the request history to confirm that:
-        # - there is a request to the queues endpoint
-        # - there is a request to the oauth2/token endpoint
-        # - there is a request to the job submission endpoint
-        # - there a request to the attachment submission endpoint (with retries)
+        # check the request history to confirm that there is a request to:
+        # - the queues endpoint
+        # - the oauth2/token endpoint
+        # - the job submission endpoint
+        # - the attachment submission endpoint (with retries)
         history = mocker.request_history
         assert len(history) == 6
         assert history[0].path == "/v1/queues/fake/agents"

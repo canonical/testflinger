@@ -1296,7 +1296,7 @@ class TestflingerCli:
                     phase_status = job_state_data.get(phase)
                     if phase_status is not None:
                         print(
-                            f"\nPhase '{phase}' complete with "
+                            f"\nPhase '{phase}' completed with "
                             f"exit code: {phase_status}",
                             file=sys.stderr,
                         )
