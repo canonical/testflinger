@@ -491,6 +491,8 @@ class TestflingerCharm(ops.CharmBase):
             "HTTP_PROXY": self.config["http_proxy"],
             "HTTPS_PROXY": self.config["https_proxy"],
             "NO_PROXY": self.config["no_proxy"],
+            "WEBHOOK_URL": self.config["webhook_url"],
+            "WEBHOOK_AUTH": self.config["webhook_auth"],
         }
         return env
 
