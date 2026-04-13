@@ -905,10 +905,67 @@ class TestClient:
         )
         provision_duration_count = prometheus_client.REGISTRY.get_sample_value(
             "phase_duration_seconds_count",
-            {"agent_id": agent_id, "test_phase": TestPhase.PROVISION},
+            {
+                "agent_id": agent_id,
+                "test_phase": TestPhase.PROVISION,
+                "identifier": self.config["identifier"],
+                "release": "",
+            },
         )
         assert total_provision_failures == 1
         assert total_jobs == 1
+        assert provision_duration_count == 1
+
+    def test_agent_metrics_release_label_after_provision(
+        self, agent, requests_mock
+    ):
+        """
+        Tests that after a successful provision the release label is populated
+        in the phase_duration_seconds metric from the DUT's os-release.
+        """
+        self.config["provision_command"] = "/bin/true"
+        agent_id = self.config["agent_id"]
+        mock_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test",
+            "provision_data": {"url": "foo"},
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
+        )
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/agents/data/{agent_id}",
+            json={"state": AgentState.WAITING, "restricted_to": {}},
+        )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+
+        device_info = {
+            "device_info": {"device_ip": "10.0.0.1", "agent_name": "test01"}
+        }
+        with (
+            patch("shutil.rmtree"),
+            patch("pathlib.Path.unlink"),
+            patch(
+                "testflinger_agent.job.TestflingerJob.get_device_info",
+                return_value=device_info,
+            ),
+            patch(
+                "testflinger_agent.agent.query_dut_release",
+                return_value="22.04.5",
+            ),
+        ):
+            agent.process_jobs()
+
+        provision_duration_count = prometheus_client.REGISTRY.get_sample_value(
+            "phase_duration_seconds_count",
+            {
+                "agent_id": agent_id,
+                "test_phase": TestPhase.PROVISION,
+                "identifier": self.config["identifier"],
+                "release": "22.04.5",
+            },
+        )
         assert provision_duration_count == 1
 
     def test_agent_recovery_failure_metrics(self, agent, requests_mock):

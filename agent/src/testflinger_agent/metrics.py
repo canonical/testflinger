@@ -42,11 +42,19 @@ class MetricsHandler(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def report_phase_duration(self, phase: str, duration: int):
+    def report_phase_duration(
+        self,
+        phase: str,
+        duration: int,
+        identifier: str = "",
+        release: str = "",
+    ):
         """Report the duration of a job phase to the metrics backend.
 
         :param phase: Phase that reports the duration
         :param duration: The duration of the phase in seconds
+        :param identifier: CID of the device
+        :param release: OS release label of the provisioned DUT
         """
         raise NotImplementedError
 
@@ -76,7 +84,7 @@ class PrometheusHandler(MetricsHandler):
         self.phase_duration = Histogram(
             "phase_duration_seconds",
             "Duration of each job phase in seconds since last agent restart",
-            ["agent_id", "test_phase"],
+            ["agent_id", "test_phase", "identifier", "release"],
             buckets=(60, 120, 300, 600, 1800, 3600, 7200, 14400),
         )
         self.recovery_failures = Counter(
@@ -104,13 +112,23 @@ class PrometheusHandler(MetricsHandler):
         """
         self.total_failures.labels(self.agent_id, phase).inc()
 
-    def report_phase_duration(self, phase: str, duration: int):
+    def report_phase_duration(
+        self,
+        phase: str,
+        duration: int,
+        identifier: str = "",
+        release: str = "",
+    ):
         """Track phase duration and push to gateway.
 
         :param phase: Phase that reports the duration
         :param duration: The duration of the phase in seconds
+        :param identifier: CID of the device
+        :param release: OS release label of the provisioned DUT
         """
-        self.phase_duration.labels(self.agent_id, phase).observe(duration)
+        self.phase_duration.labels(
+            self.agent_id, phase, identifier, release
+        ).observe(duration)
 
     def report_recovery_failures(self):
         """Increase total recovery failures counter and push to gateway."""
