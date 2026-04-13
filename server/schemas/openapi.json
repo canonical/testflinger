@@ -1432,7 +1432,7 @@
     },
     "/v1/job/{job_id}/events": {
       "post": {
-        "description": "to TestObserver.\n\nThe json sent to this endpoint may contain data such as the following:\n{\n\"agent_id\": \"<string>\",\n\"job_queue\": \"<string>\",\n\"job_status_webhook\": \"<URL as string>\",\n\"events\": [\n{\n\"event_name\": \"<string enum of events>\",\n\"timestamp\": \"<datetime>\",\n\"detail\": \"<string>\"\n},\n...\n]\n}",
+        "description": "to the server-configured webhook url.\n\nThe json sent to this endpoint may contain data such as the following:\n{\n\"agent_id\": \"<string>\",\n\"job_queue\": \"<string>\",\n\"job_status_webhook\": \"<URL as string>\",\n\"events\": [\n{\n\"event_name\": \"<string enum of events>\",\n\"timestamp\": \"<datetime>\",\n\"detail\": \"<string>\"\n},\n...\n]\n}\n\n:param job_id: UUID as a string for the job\n:param json_data: JSON data containing the status updates and webhook URL",
         "parameters": [
           {
             "in": "path",

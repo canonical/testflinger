@@ -20,6 +20,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
+from urllib.parse import urlparse
 
 import requests
 from apiflask import APIBlueprint, abort
@@ -749,7 +750,7 @@ def agents_provision_logs_post(agent_name, json_data):
 @v1.input(schemas.StatusUpdate, location="json")
 def agents_status_post(job_id, json_data):
     """Post status updates from the agent to the server to be forwarded
-    to TestObserver.
+    to the server-configured webhook url.
 
     The json sent to this endpoint may contain data such as the following:
     {
@@ -766,13 +767,47 @@ def agents_status_post(job_id, json_data):
         ]
     }
 
+    :param job_id: UUID as a string for the job
+    :param json_data: JSON data containing the status updates and webhook URL
     """
-    _ = job_id
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    if not database.job_exists(job_id):
+        abort(HTTPStatus.NOT_FOUND, message="Job not found")
+
     request_json = json_data
-    webhook_url = request_json.pop("job_status_webhook")
+
+    # Webhook specified in the job definition
+    job_webhook = request_json.pop("job_status_webhook")
+
+    # Webhook base URL configured on the server
+    webhook_url = os.environ.get("WEBHOOK_URL")
+    if not webhook_url:
+        # Abort if no webhook configured server-side
+        abort(
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            message="Webhook URL not configured",
+        )
+
+    # Validate that the job webhook targets the same host as the server-
+    # configured base URL to prevent the auth token from leaking to an
+    # untrusted destination.
+    parsed_server_url = urlparse(webhook_url)
+    parsed_job_url = urlparse(job_webhook)
+    if (
+        parsed_server_url.scheme != parsed_job_url.scheme
+        or parsed_server_url.netloc != parsed_job_url.netloc
+    ):
+        abort(HTTPStatus.FORBIDDEN, message="Unauthorized webhook URL")
+
+    # Attempt to get optional authentication header from server configuration
+    auth_headers = {}
+    if webhook_auth := os.environ.get("WEBHOOK_AUTH"):
+        auth_headers = {"Authorization": f"Bearer {webhook_auth}"}
+
     try:
-        s = requests.Session()
-        s.mount(
+        webhook_session = requests.Session()
+        webhook_session.mount(
             "",
             HTTPAdapter(
                 max_retries=Retry(
@@ -782,10 +817,28 @@ def agents_status_post(job_id, json_data):
                 )
             ),
         )
-        response = s.put(webhook_url, json=request_json, timeout=3)
+        response = webhook_session.put(
+            job_webhook,
+            json=request_json,
+            headers=auth_headers,
+            timeout=3,
+            allow_redirects=False,
+        )
+
+        # Auth failures can happen if server configuration is no longer valid
+        if response.status_code in (
+            HTTPStatus.UNAUTHORIZED,
+            HTTPStatus.FORBIDDEN,
+        ):
+            abort(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                message="Webhook authentication failed",
+            )
         return response.text, response.status_code
     except requests.exceptions.Timeout:
-        return "Webhook Timeout", 504
+        abort(HTTPStatus.GATEWAY_TIMEOUT, message="Webhook Timeout")
+    except requests.exceptions.RequestException:
+        abort(HTTPStatus.BAD_GATEWAY, message="Webhook unreachable")
 
 
 def check_valid_uuid(job_id):
