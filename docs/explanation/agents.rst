@@ -82,6 +82,5 @@ for more details.
 
         Agent states follow the job execution phase order:
         - waiting: idle, ready for jobs
-        - setup, provision, firmware_update, test, allocate, reserve: running
-          job phases
+        - setup, provision, firmware_update, test, allocate, reserve: running job phases
         - offline, maintenance: offline states
