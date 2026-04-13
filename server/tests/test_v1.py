@@ -894,14 +894,15 @@ def test_agents_provision_logs_post(mongo_app):
     assert agent_data["provision_streak_count"] == 1
 
 
-def test_agents_status_put(mongo_app, requests_mock):
+def test_agents_status_put(mongo_app, requests_mock, monkeypatch):
     """Test api to receive agent status requests."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
     job_output = app.post("/v1/job", json=job_data)
     job_id = job_output.json.get("job_id")
 
-    webhook = "http://mywebhook.com"
+    webhook = "http://mywebhook.com/v1/test-executions/1234/status_update"
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com")
     requests_mock.put(
         webhook, status_code=HTTPStatus.OK, text="webhook requested"
     )
@@ -918,8 +919,75 @@ def test_agents_status_put(mongo_app, requests_mock):
         ],
     }
     output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
-    assert 200 == output.status_code
+    assert output.status_code == HTTPStatus.OK
     assert "webhook requested" == output.text
+
+
+def test_agents_status_put_no_webhook_configured(mongo_app):
+    """Test events endpoint return server error if webhook not configured."""
+    app, _ = mongo_app
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    # job specifies correct endpoint
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": "http://mywebhook.com/v1/test-executions/1234/status_update",
+        "events": [],
+    }
+    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+
+    # Request should fail as webhook is not configured server-side
+    assert output.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+def test_agents_status_put_unauthorized_webhook(mongo_app, monkeypatch):
+    """Test that a webhook on an unknown host is rejected."""
+    app, _ = mongo_app
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com")
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    # Reject any path manipulated webhook url
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": "http://mywebhook.com.fake/v1/test-executions/1234/status_update",
+        "events": [],
+    }
+    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    assert output.status_code == HTTPStatus.FORBIDDEN
+
+
+def test_agents_status_put_with_auth_header(
+    mongo_app, requests_mock, monkeypatch
+):
+    """Test that WEBHOOK_AUTH is forwarded as a Bearer token."""
+    app, _ = mongo_app
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com")
+    monkeypatch.setenv("WEBHOOK_AUTH", "fake_token")
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    webhook = "http://mywebhook.com/v1/test-executions/1234/status_update"
+    requests_mock.put(
+        webhook, status_code=HTTPStatus.OK, text="webhook requested"
+    )
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": webhook,
+        "events": [],
+    }
+    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    assert output.status_code == HTTPStatus.OK
+    assert requests_mock.last_request.headers["Authorization"] == (
+        "Bearer fake_token"
+    )
 
 
 def test_get_agents_data(mongo_app):
