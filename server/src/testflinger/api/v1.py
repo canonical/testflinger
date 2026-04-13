@@ -814,16 +814,15 @@ def agents_status_post(job_id, json_data):
 
     try:
         webhook_session = requests.Session()
-        webhook_session.mount(
-            "",
-            HTTPAdapter(
-                max_retries=Retry(
-                    total=3,
-                    allowed_methods=frozenset(["PUT"]),
-                    backoff_factor=1,
-                )
-            ),
+        retry_adapter = HTTPAdapter(
+            max_retries=Retry(
+                total=3,
+                allowed_methods=frozenset(["PUT"]),
+                backoff_factor=1,
+            )
         )
+        webhook_session.mount("http://", retry_adapter)
+        webhook_session.mount("https://", retry_adapter)
         response = webhook_session.put(
             job_webhook,
             json=request_json,

@@ -631,5 +631,5 @@ def job_exists(job_id: str) -> bool:
     :return: True if the job exists, False otherwise.
     """
     return (
-        mongo.db.jobs.find_one({"job_id": job_id}, {"_id": False}) is not None
+        mongo.db.jobs.find_one({"job_id": job_id}, {"_id": True}) is not None
     )

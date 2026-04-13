@@ -2,9 +2,8 @@
 # See LICENSE file for licensing details.
 """Unit tests for config.py."""
 
-import base64
-
 import pytest
+
 from config import TestflingerServerConfig
 
 

@@ -117,7 +117,7 @@ config:
     webhook_endpoint:
       type: string
       default: "http://test-observer-api.local/v1/test-executions/"
-      description: The full qualified endpoint URL for the webhook to send test execution results to.
+      description: The fully qualified endpoint URL for the webhook to send test execution results to.
     webhook_auth:
       type: string
       default: ""
