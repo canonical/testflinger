@@ -5,7 +5,7 @@ variable "app_name" {
 }
 
 variable "base" {
-  description = "Operating system base to use for the Testflinger charm"
+  description = "Operating system base to use for the Testflinger Server charm"
   type        = string
   nullable    = true
   default     = null

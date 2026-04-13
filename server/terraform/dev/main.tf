@@ -56,7 +56,7 @@ resource "juju_integration" "testflinger_database_relation" {
   }
 }
 
-# Juju integration between Nginx Ingress and Testflinger application
+# Juju integration between Ingress and Testflinger application
 resource "juju_integration" "testflinger_ingress_relation" {
   model_uuid = data.juju_model.testflinger_dev_model.uuid
 
