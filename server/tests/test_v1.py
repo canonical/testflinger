@@ -901,7 +901,7 @@ def test_agents_status_put(mongo_app, requests_mock, monkeypatch):
     job_output = app.post("/v1/job", json=job_data)
     job_id = job_output.json.get("job_id")
 
-    webhook = "http://mywebhook.com/v1/test-executions"
+    webhook = "http://mywebhook.com/v1/test-executions/1234/status_update"
     monkeypatch.setenv(
         "WEBHOOK_ENDPOINT", "http://mywebhook.com/v1/test-executions"
     )
@@ -936,7 +936,7 @@ def test_agents_status_put_no_webhook_configured(mongo_app):
     status_update_data = {
         "agent_id": "agent1",
         "job_queue": "myjobqueue",
-        "job_status_webhook": "http://mywebhook.com/v1/test-executions",
+        "job_status_webhook": "http://mywebhook.com/v1/test-executions/1234/status_update",
         "events": [],
     }
     output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
@@ -979,7 +979,7 @@ def test_agents_status_put_with_auth_header(
     job_output = app.post("/v1/job", json=job_data)
     job_id = job_output.json.get("job_id")
 
-    webhook = "http://mywebhook.com/v1/test-executions"
+    webhook = "http://mywebhook.com/v1/test-executions/5678/status_update"
     requests_mock.put(
         webhook, status_code=HTTPStatus.OK, text="webhook requested"
     )
@@ -994,6 +994,26 @@ def test_agents_status_put_with_auth_header(
     assert requests_mock.last_request.headers["Authorization"] == (
         "Bearer fake_token"
     )
+
+
+def test_agents_status_put_rejects_base_webhook_path(mongo_app, monkeypatch):
+    """Test that direct posts to configured base webhook path are rejected."""
+    app, _ = mongo_app
+    monkeypatch.setenv(
+        "WEBHOOK_ENDPOINT", "http://mywebhook.com/v1/test-executions"
+    )
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": "http://mywebhook.com/v1/test-executions",
+        "events": [],
+    }
+    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    assert output.status_code == HTTPStatus.FORBIDDEN
 
 
 def test_agents_status_put_unauthorized_webhook_path_prefix_collision(

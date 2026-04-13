@@ -801,10 +801,10 @@ def agents_status_post(job_id, json_data):
     ):
         abort(HTTPStatus.FORBIDDEN, message="Unauthorized webhook URL")
 
-    # Validate normalized path matches exactly the configured webhook path.
-    if posixpath.normpath(parsed_server_url.path) != posixpath.normpath(
-        parsed_job_url.path
-    ):
+    # Enforce that the job webhook path is a subpath of the base URL
+    server_path = posixpath.normpath(parsed_server_url.path)
+    job_path = posixpath.normpath(parsed_job_url.path)
+    if not job_path.startswith(f"{server_path}/"):
         abort(HTTPStatus.FORBIDDEN, message="Unauthorized webhook URL")
 
     # Attempt to get optional authentication header from server configuration
