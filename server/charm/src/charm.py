@@ -37,6 +37,8 @@ from ops.pebble import Layer
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
+from config import TestflingerServerConfig
+
 logger = logging.getLogger(__name__)
 
 TESTFLINGER_ADMIN_ID = "testflinger-admin"
@@ -54,6 +56,9 @@ class TestflingerCharm(ops.CharmBase):
     def __init__(self, *args):
         """Initialize the charm."""
         super().__init__(*args)
+        self.typed_config = self.load_config(
+            TestflingerServerConfig, errors="blocked"
+        )
         self.pebble_service_name = "testflinger"
         self.pebble_check_name = "v1_up"
         self.container = self.unit.get_container("testflinger")
@@ -143,7 +148,7 @@ class TestflingerCharm(ops.CharmBase):
         # TODO: Remove nginx route when migration to traefik route is completed
         require_nginx_route(
             charm=self,
-            service_hostname=self.config["external_hostname"],
+            service_hostname=self.typed_config.external_hostname,
             service_name=self.app.name,
             service_port=DEFAULT_PORT,
         )
@@ -193,7 +198,7 @@ class TestflingerCharm(ops.CharmBase):
 
         testflinger_base_url = (
             self.traefik_route.external_host
-            or self.config.get("external_hostname", "")
+            or self.typed_config.external_hostname
         )
         if not testflinger_base_url:
             self.unit.status = ops.BlockedStatus(
@@ -345,7 +350,7 @@ class TestflingerCharm(ops.CharmBase):
 
     def _on_config_changed(self, _: ops.framework.EventBase) -> None:
         """Handle config changed event."""
-        new_key = self.config["testflinger_secrets_master_key"]
+        new_key = self.typed_config.testflinger_secrets_master_key
         stored_key = self._stored.previous_master_key
 
         # Rotate only if master key was previously defined, has changed,
@@ -389,7 +394,7 @@ class TestflingerCharm(ops.CharmBase):
         unit in BlockedStatus. The old key is read from StoredState and the
         new key from the current config.
         """
-        current_key = self.config["testflinger_secrets_master_key"]
+        current_key = self.typed_config.testflinger_secrets_master_key
         stored_key = self._stored.previous_master_key
 
         if not current_key:
@@ -423,7 +428,7 @@ class TestflingerCharm(ops.CharmBase):
     @property
     def _pebble_layer(self):
         """Return a dictionary representing a Pebble layer."""
-        keepalive = str(self.config["keepalive"])
+        keepalive = str(self.typed_config.keepalive)
         command = " ".join(
             [
                 "gunicorn",
@@ -482,17 +487,15 @@ class TestflingerCharm(ops.CharmBase):
             "MONGODB_USERNAME": db_data.get("db_username"),
             "MONGODB_PASSWORD": db_data.get("db_password"),
             "MONGODB_DATABASE": db_data.get("db_database"),
-            "MONGODB_MAX_POOL_SIZE": str(self.config["max_pool_size"]),
-            "JWT_SIGNING_KEY": self.config["jwt_signing_key"],
-            "TESTFLINGER_SECRETS_MASTER_KEY": self.config[
-                "testflinger_secrets_master_key"
-            ],
+            "MONGODB_MAX_POOL_SIZE": str(self.typed_config.max_pool_size),
+            "JWT_SIGNING_KEY": self.typed_config.jwt_signing_key,
+            "TESTFLINGER_SECRETS_MASTER_KEY": self.typed_config.testflinger_secrets_master_key,  # noqa: E501
             "TESTFLINGER_KEY_VAULT_URI": self._fetch_keyvault_uri() or "",
-            "HTTP_PROXY": self.config["http_proxy"],
-            "HTTPS_PROXY": self.config["https_proxy"],
-            "NO_PROXY": self.config["no_proxy"],
-            "WEBHOOK_URL": self.config["webhook_url"],
-            "WEBHOOK_AUTH": self.config["webhook_auth"],
+            "HTTP_PROXY": self.typed_config.http_proxy,
+            "HTTPS_PROXY": self.typed_config.https_proxy,
+            "NO_PROXY": self.typed_config.no_proxy,
+            "WEBHOOK_URL": self.typed_config.webhook_endpoint,
+            "WEBHOOK_AUTH": self.typed_config.webhook_auth,
         }
         return env
 

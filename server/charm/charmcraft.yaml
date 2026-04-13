@@ -114,14 +114,14 @@ config:
       type: string
       default: "localhost,127.0.0.1,::1"
       description: Resources that we should be able to access bypassing proxy
-    webhook_url:
+    webhook_endpoint:
       type: string
-      default: ""
-      description: The URL for the webhook to send notifications to.
+      default: "http://test-observer-api.local/v1/test-executions/"
+      description: The full qualified endpoint URL for the webhook to send test execution results to.
     webhook_auth:
       type: string
       default: ""
-      description: Optional bearer token for authenticating with the webhook url
+      description: Optional bearer token for authenticating with the webhook endpoint
 
 
 parts:

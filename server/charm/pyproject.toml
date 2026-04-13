@@ -9,6 +9,7 @@ dependencies = [
     "pymongo<4.9.0",
     "urllib3>=2.6.3",
     "cosl>=0.0.53",
+    "pydantic>=2.12,<3",
 ]
 
 [dependency-groups]
