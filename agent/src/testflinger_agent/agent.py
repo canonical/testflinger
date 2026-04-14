@@ -33,6 +33,7 @@ from testflinger_agent.handlers import (
 )
 from testflinger_agent.job import TestflingerJob
 from testflinger_agent.metrics import PrometheusHandler
+from testflinger_agent.os_release import query_dut_release
 
 try:
     # attempt importing a tarfile filter, to check if filtering is supported
@@ -299,6 +300,8 @@ class TestflingerAgent:
             rundir = None
             job = None
             event_emitter = None
+            release = ""
+            identifier = self.client.config.get("identifier", "")
             try:
                 job = TestflingerJob(job_data, self.client)
                 event_emitter = EventEmitter(
@@ -384,9 +387,27 @@ class TestflingerAgent:
                     exit_code, exit_event, exit_reason = job.run_test_phase(
                         phase, rundir
                     )
-                    # Measure phase duration and report to metrics handler
+                    phase_end = time.time()
+
+                    # Query DUT release after successful provision
+                    if phase == TestPhase.PROVISION and not exit_code:
+                        device_info = job.get_device_info(rundir)
+                        if device_info and (
+                            device_ip := device_info.get(
+                                "device_info", {}
+                            ).get("device_ip")
+                        ):
+                            username = (job_data.get("test_data") or {}).get(
+                                "test_username", "ubuntu"
+                            )
+                            release = query_dut_release(device_ip, username)
+
+                    # Report phase duration to metrics handler
                     self.metrics_handler.report_phase_duration(
-                        phase, int(time.time() - phase_start)
+                        phase,
+                        int(phase_end - phase_start),
+                        identifier=identifier,
+                        release=release,
                     )
                     self.client.post_influx(phase, exit_code)
                     event_emitter.emit_event(exit_event, exit_reason)

@@ -9,8 +9,8 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Bypass aproxy (for private-endpoint runners)
-      if: startsWith(runner.name, 'private-')
+    - name: Bypass aproxy (for private-endpoint runners) # This should only be done on ps6 runners, will break ps7 runners
+      if: startsWith(runner.name, 'private-') && contains(runner.name, '-ps6-')
       env:
         SERVER: ${{ inputs.server }}
       shell: bash
