@@ -604,7 +604,7 @@ class TestflingerCli:
         # Categorize jobs based on completion outcome
         jobs_waiting = []
         jobs_running = []
-        jobs_complete = []
+        jobs_completed = []
 
         for job in jobs_data:
             # Handle MongoDB date structure or plain string
@@ -621,7 +621,7 @@ class TestflingerCli:
             if job_state == "waiting":
                 jobs_waiting.append(job_info)
             elif job_state == "complete":
-                jobs_complete.append(job_info)
+                jobs_completed.append(job_info)
             elif job_state not in ("cancelled",):  # Ignore cancelled jobs
                 # All non-waiting, non-complete, non-cancelled are "running"
                 jobs_running.append(job_info)
@@ -629,7 +629,7 @@ class TestflingerCli:
         return {
             "jobs_waiting": jobs_waiting,
             "jobs_running": jobs_running,
-            "jobs_completed": jobs_complete,
+            "jobs_completed": jobs_completed,
         }
 
     def _queue_status_format_json_output(self, agents_status, jobs_status):
@@ -682,7 +682,7 @@ class TestflingerCli:
                 [
                     f"Jobs waiting:    {len(jobs_status['jobs_waiting'])}",
                     f"Jobs running:    {len(jobs_status['jobs_running'])}",
-                    f"Jobs completed:   {len(jobs_status['jobs_complete'])}",
+                    f"Jobs completed:   {len(jobs_status['jobs_completed'])}",
                 ]
             )
 

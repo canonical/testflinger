@@ -1477,7 +1477,7 @@ def test_queue_status(capsys, requests_mock, auth_fixture):
     assert "Offline:         1" in std.out
     assert "Jobs waiting:    1" in std.out
     assert "Jobs running:    1" in std.out
-    assert "Jobs complete:   1" in std.out
+    assert "Jobs completed:   1" in std.out
 
 
 def test_queue_status_verbose(capsys, requests_mock, auth_fixture):
@@ -1527,7 +1527,7 @@ def test_queue_status_verbose(capsys, requests_mock, auth_fixture):
     assert "de153d8f-7d32-47d7-9a05-a20f2ef6bb35" in std.out
     assert "Jobs Running:" in std.out
     assert "ba73620d-6d1a-45ab-bb68-a640e4e4c489" in std.out
-    assert "Jobs Complete:" in std.out
+    assert "Jobs Completed:" in std.out
     assert "8b0bb52f-08d8-4671-b275-55d84a965f7c" in std.out
 
 
