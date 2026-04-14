@@ -93,7 +93,7 @@ agents on that queue, for example, to exclude agents named ``agent-1`` and
     - agent-2
   # ... rest of job definition
 
-For more details on how to use this feature, see :doc:`../how-to/submit-job`.
+For more details on how to use this feature, see :doc:`../../how-to/submit-job`.
 
 Listing Agents
 ~~~~~~~~~~~~~~
