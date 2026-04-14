@@ -1838,11 +1838,14 @@ class TestflingerCli:
         except CredentialsError as exc:
             sys.exit(exc)
 
-        if auth_headers is None or self.client_id is None:
+        if auth_headers is None or self.auth.client_id is None:
             sys.exit("Error writing secret: Authentication is required")
 
         secret_data = {"value": self.args.value}
-        endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
+
+        # Remove leading slash if present to build the correct endpoint URL
+        path = self.args.path.lstrip("/")
+        endpoint = f"/v1/secrets/{self.auth.client_id}/{path}"
         try:
             self.client.put(endpoint, secret_data, headers=auth_headers)
         except client.HTTPError as exc:
@@ -1856,10 +1859,12 @@ class TestflingerCli:
         except CredentialsError as exc:
             sys.exit(exc)
 
-        if auth_headers is None or self.client_id is None:
+        if auth_headers is None or self.auth.client_id is None:
             sys.exit("Error deleting secret: Authentication is required")
 
-        endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
+        # Remove leading slash if present to build the correct endpoint URL
+        path = self.args.path.lstrip("/")
+        endpoint = f"/v1/secrets/{self.auth.client_id}/{path}"
         try:
             self.client.delete(endpoint, headers=auth_headers)
         except client.HTTPError as exc:
