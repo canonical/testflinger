@@ -629,7 +629,7 @@ class TestflingerCli:
         return {
             "jobs_waiting": jobs_waiting,
             "jobs_running": jobs_running,
-            "jobs_complete": jobs_complete,
+            "jobs_completed": jobs_complete,
         }
 
     def _queue_status_format_json_output(self, agents_status, jobs_status):
@@ -682,7 +682,7 @@ class TestflingerCli:
                 [
                     f"Jobs waiting:    {len(jobs_status['jobs_waiting'])}",
                     f"Jobs running:    {len(jobs_status['jobs_running'])}",
-                    f"Jobs complete:   {len(jobs_status['jobs_complete'])}",
+                    f"Jobs completed:   {len(jobs_status['jobs_complete'])}",
                 ]
             )
 

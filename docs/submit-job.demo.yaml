@@ -4,5 +4,5 @@ provision_data:
   ephemeral: True
 reserve_data:
   ssh_keys:
-    - lp:ajzobro
+    - lp:user
   timeout: 300
