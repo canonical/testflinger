@@ -350,7 +350,7 @@ class TestflingerCli:
             type=int,
             default=DEFAULT_RESERVE_TIMEOUT,
             help="Reservation timeout in seconds (default "
-            "{DEFAULT_RESERVE_TIMEOUT})",
+            f"{DEFAULT_RESERVE_TIMEOUT})",
         )
 
     def _add_status_args(self, subparsers):
