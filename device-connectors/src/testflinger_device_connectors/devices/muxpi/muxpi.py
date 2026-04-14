@@ -33,7 +33,6 @@ from testflinger_device_connectors.devices import (
     ProvisioningError,
     RecoveryError,
 )
-from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
@@ -216,14 +215,6 @@ class MuxPi:
         if "zapper" not in self.config.get("control_switch_local_cmd", ""):
             self.reboot_sdwire()
             time.sleep(5)
-        else:
-            _, control_host = self.get_credentials()
-            try:
-                ZapperConnector.wait_ready(control_host)
-            except TimeoutError as e:
-                raise ProvisioningError(
-                    "Cannot reach the Zapper REST API"
-                ) from e
 
         # determine where to get the provisioning image from
         source = self.job_data["provision_data"].get("url")

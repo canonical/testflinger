@@ -34,6 +34,31 @@ class ZapperIoTTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
+    def test_validate_configuration_single_url(self):
+        """Test the function accepts a single `url` string
+        and converts it to `urls` list.
+        """
+        device = DeviceConnector({"control_host": "zapper-host"})
+        device.job_data = {
+            "provision_data": {
+                "preset": "TestPreset",
+                "url": "http://test.tar.gz",
+            }
+        }
+
+        args, kwargs = device._validate_configuration()
+
+        expected = {
+            "username": "ubuntu",
+            "password": "ubuntu",
+            "preset": "TestPreset",
+            "preset_kwargs": None,
+            "urls": ["http://test.tar.gz"],
+        }
+
+        self.assertEqual(args, ())
+        self.assertDictEqual(kwargs, expected)
+
     def test_validate_configuration_ubuntu_sso_email(self):
         """Test the function username will be ubuntu_sso_email if provided."""
         device = DeviceConnector({"control_host": "zapper-host"})
@@ -79,7 +104,7 @@ class ZapperIoTTests(unittest.TestCase):
                     "run_stage": [
                         {"initial_login": {"method": "system-user"}},
                     ],
-                }
+                },
             }
         }
 

@@ -20,7 +20,10 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices import (
+    DefaultControlHost,
+    ProvisioningError,
+)
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 
@@ -126,69 +129,59 @@ class ZapperConnectorTests(unittest.TestCase):
 
 
 class TestZapperConnectorRestApiCheck:
-    """Tests for ZapperConnector REST API health check."""
+    """Tests for DefaultControlHost REST API health check."""
 
-    def test_check_rest_api_on_host_success(self, mocker):
-        """Test _check_rest_api_on_host succeeds when API is reachable."""
+    def test_check_rest_api_success(self, mocker):
+        """Test _check_rest_api succeeds when API is reachable."""
         mock_get = mocker.patch("requests.get")
         mock_get.return_value.raise_for_status = Mock()
 
-        ZapperConnector._check_rest_api_on_host("test-host")
+        DefaultControlHost("test-host")._check_rest_api()
 
         mock_get.assert_called_once_with(
             "http://test-host:8000/health", timeout=3
         )
 
-    def test_check_rest_api_on_host_raises_connection_error(self, mocker):
-        """Test the function raises ConnectionError on failure."""
-        mocker.patch(
-            "requests.get",
-            side_effect=requests.ConnectionError,
-        )
+    def test_check_rest_api_raises_connection_error(self, mocker):
+        """Test _check_rest_api raises ConnectionError on failure."""
+        mocker.patch("requests.get", side_effect=requests.ConnectionError)
 
         with pytest.raises(ConnectionError):
-            ZapperConnector._check_rest_api_on_host("test-host")
+            DefaultControlHost("test-host")._check_rest_api()
 
-    def test_check_rest_api_on_host_raises_on_timeout(self, mocker):
-        """Test the function raises ConnectionError on timeout."""
-        mocker.patch(
-            "requests.get",
-            side_effect=requests.Timeout,
-        )
+    def test_check_rest_api_raises_on_timeout(self, mocker):
+        """Test _check_rest_api raises ConnectionError on timeout."""
+        mocker.patch("requests.get", side_effect=requests.Timeout)
 
         with pytest.raises(ConnectionError):
-            ZapperConnector._check_rest_api_on_host("test-host")
+            DefaultControlHost("test-host")._check_rest_api()
 
-    def test_check_rest_api_on_host_raises_on_http_error(self, mocker):
-        """Test the function raises ConnectionError on non-2xx response."""
+    def test_check_rest_api_raises_on_http_error(self, mocker):
+        """Test _check_rest_api raises ConnectionError on non-2xx response."""
         mock_get = mocker.patch("requests.get")
         mock_get.return_value.raise_for_status.side_effect = requests.HTTPError
 
         with pytest.raises(ConnectionError):
-            ZapperConnector._check_rest_api_on_host("test-host")
+            DefaultControlHost("test-host")._check_rest_api()
 
     def test_wait_ready_success(self, mocker):
-        """Test wait_ready calls wait_online with correct parameters."""
-        from testflinger_device_connectors.devices import DefaultDevice
-
-        mock_wait_online = mocker.patch.object(DefaultDevice, "wait_online")
-
-        ZapperConnector.wait_ready("zapper-host", timeout=30)
-
-        mock_wait_online.assert_called_once_with(
-            ZapperConnector._check_rest_api_on_host, "zapper-host", 30
+        """Test wait_ready calls wait_online."""
+        mock_wait_online = mocker.patch.object(
+            DefaultControlHost, "wait_online"
         )
+
+        DefaultControlHost("zapper-host").wait_ready(timeout=30)
+
+        mock_wait_online.assert_called_once()
 
     def test_wait_ready_timeout(self, mocker):
         """Test wait_ready raises TimeoutError when server unavailable."""
-        from testflinger_device_connectors.devices import DefaultDevice
-
         mocker.patch.object(
-            DefaultDevice, "wait_online", side_effect=TimeoutError
+            DefaultControlHost, "wait_online", side_effect=TimeoutError
         )
 
         with pytest.raises(TimeoutError):
-            ZapperConnector.wait_ready("zapper-host")
+            DefaultControlHost("zapper-host").wait_ready()
 
 
 class TestZapperConnectorTypecmux:
@@ -254,28 +247,24 @@ class TestZapperConnectorDisconnectUsbStick:
         """Test disconnect_usb_stick succeeds when Zapper is available."""
         config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
 
-        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
         mock_typecmux = mocker.patch.object(
             ZapperConnector, "typecmux_set_state"
         )
 
         ZapperConnector.disconnect_usb_stick(config)
 
-        mock_wait_ready.assert_called_once_with("zapper-host")
         mock_typecmux.assert_called_once_with("zapper-host", "OFF")
 
     def test_disconnect_usb_stick_no_control_host(self, mocker):
         """Test disconnect_usb_stick skips when no control_host."""
         config = {"device_ip": "1.2.3.4"}
 
-        mock_wait_ready = mocker.patch.object(ZapperConnector, "wait_ready")
         mock_typecmux = mocker.patch.object(
             ZapperConnector, "typecmux_set_state"
         )
 
         ZapperConnector.disconnect_usb_stick(config)
 
-        mock_wait_ready.assert_not_called()
         mock_typecmux.assert_not_called()
 
     def test_disconnect_usb_stick_timeout_non_blocking(self, mocker):
@@ -283,32 +272,22 @@ class TestZapperConnectorDisconnectUsbStick:
         config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
 
         mocker.patch.object(
-            ZapperConnector, "wait_ready", side_effect=TimeoutError
-        )
-        mock_typecmux = mocker.patch.object(
-            ZapperConnector, "typecmux_set_state"
+            ZapperConnector, "typecmux_set_state", side_effect=TimeoutError
         )
 
         # Should not raise
         ZapperConnector.disconnect_usb_stick(config)
-
-        mock_typecmux.assert_not_called()
 
     def test_disconnect_usb_stick_connection_error_non_blocking(self, mocker):
         """Test disconnect_usb_stick handles connection error gracefully."""
         config = {"control_host": "zapper-host", "device_ip": "1.2.3.4"}
 
         mocker.patch.object(
-            ZapperConnector, "wait_ready", side_effect=ConnectionError
-        )
-        mock_typecmux = mocker.patch.object(
-            ZapperConnector, "typecmux_set_state"
+            ZapperConnector, "typecmux_set_state", side_effect=ConnectionError
         )
 
         # Should not raise
         ZapperConnector.disconnect_usb_stick(config)
-
-        mock_typecmux.assert_not_called()
 
 
 class TestZapperConnectorRestApi:

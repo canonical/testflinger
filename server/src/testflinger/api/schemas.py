@@ -171,9 +171,22 @@ class ZapperIoTPresetProvisionData(BaseZapperProvisionData):
     This schema is used when using a preset for provisioning.
     """
 
-    urls = fields.List(fields.URL(), required=True, validate=Length(min=1))
+    url = fields.URL(required=False)
+    urls = fields.List(fields.URL(), required=False, validate=Length(min=1))
     preset = fields.String(required=True)
     preset_kwargs = fields.Dict(required=False)
+
+    @validates_schema
+    def validate_url_or_urls(self, data, **_):
+        """Validate that exactly one of `url` or `urls` is provided."""
+        has_url = "url" in data
+        has_urls = "urls" in data
+        if has_url and has_urls:
+            raise ValidationError(
+                "Provide only one of 'url' or 'urls', not both."
+            )
+        if not has_url and not has_urls:
+            raise ValidationError("Either 'url' or 'urls' must be provided.")
 
 
 class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
@@ -182,10 +195,23 @@ class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
     This schema is used when using a custom plan for provisioning.
     """
 
-    urls = fields.List(fields.URL(), required=True, validate=Length(min=1))
+    url = fields.URL(required=False)
+    urls = fields.List(fields.URL(), required=False, validate=Length(min=1))
     ubuntu_sso_email = fields.Email(required=False)
     # [TODO] Specify Nested schema to improve validation
     provision_plan = fields.Dict(required=True)
+
+    @validates_schema
+    def validate_url_or_urls(self, data, **_):
+        """Validate that exactly one of `url` or `urls` is provided."""
+        has_url = "url" in data
+        has_urls = "urls" in data
+        if has_url and has_urls:
+            raise ValidationError(
+                "Provide only one of 'url' or 'urls', not both."
+            )
+        if not has_url and not has_urls:
+            raise ValidationError("Either 'url' or 'urls' must be provided.")
 
 
 class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):

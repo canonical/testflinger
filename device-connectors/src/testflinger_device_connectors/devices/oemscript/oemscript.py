@@ -120,7 +120,7 @@ class OemScript:
         ]
         proc = subprocess.run(
             cmd,
-            timeout=60 * 60,  # 1 hour - just in case
+            timeout=90 * 60,  # 1.5 hour - just in case
             check=False,
         )
         if proc.returncode:

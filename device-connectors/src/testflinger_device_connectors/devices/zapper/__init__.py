@@ -100,33 +100,6 @@ class ZapperConnector(ABC, DefaultDevice):
         return response
 
     @staticmethod
-    def _check_rest_api_on_host(host: str) -> None:
-        """Check if the host has an active Zapper REST API.
-
-        :raises ConnectionError: If the API is not reachable.
-        """
-        try:
-            url = f"http://{host}:{ZapperConnector.ZAPPER_REST_PORT}/health"
-            resp = requests.get(url, timeout=3)
-            resp.raise_for_status()
-            logger.debug("The host %s has an available REST API", host)
-        except requests.RequestException as e:
-            raise ConnectionError from e
-
-    @staticmethod
-    def wait_ready(host: str, timeout: int = 60) -> None:
-        """Wait for the Zapper REST API to become available on the host.
-
-        :param host: The host to check for REST API availability.
-        :param timeout: Maximum time to wait in seconds (default: 60).
-        :raises TimeoutError: If the API is not available within the timeout.
-        """
-        logger.info("Waiting for the Zapper REST API on control host %s", host)
-        DefaultDevice.wait_online(
-            ZapperConnector._check_rest_api_on_host, host, timeout
-        )
-
-    @staticmethod
     def typecmux_set_state(host: str, state: str) -> None:
         """Set the typecmux state on a Zapper host via the REST API.
 
@@ -166,7 +139,6 @@ class ZapperConnector(ABC, DefaultDevice):
             return
 
         try:
-            ZapperConnector.wait_ready(control_host)
             ZapperConnector.typecmux_set_state(control_host, "OFF")
         except (TimeoutError, ConnectionError, Exception) as e:
             logger.debug(
@@ -176,12 +148,6 @@ class ZapperConnector(ABC, DefaultDevice):
     def provision(self, args):
         """Provision device when the command is invoked."""
         super().provision(args)
-
-        control_host = self.config["control_host"]
-        try:
-            ZapperConnector.wait_ready(control_host)
-        except TimeoutError as e:
-            raise ProvisioningError("Cannot reach the Zapper REST API") from e
 
         with open(args.job_data, encoding="utf-8") as job_json:
             self.job_data = json.load(job_json)

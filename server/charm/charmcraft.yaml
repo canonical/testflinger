@@ -117,10 +117,10 @@ config:
 
 parts:
   charm:
-    plugin: charm
+    plugin: uv
     source: .
     build-packages: [pkg-config, libffi-dev, libssl-dev, build-essential]
-    build-snaps: [rustup]
+    build-snaps: [astral-uv, rustup]
     override-build: |
       # pydantic requires a higher version of rustc than what is in the archive
       # for 22.04

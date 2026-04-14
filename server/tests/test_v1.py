@@ -326,6 +326,31 @@ def test_add_job_zapper_iot_preset_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
+def test_add_job_zapper_iot_preset_provision_data_single_url(mongo_app):
+    """Test that a job with zapper_iot_preset using `url` (str) works."""
+    provision_data = {
+        "url": "http://example.com/image.img.xz",
+        "preset": "fake",
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_zapper_iot_preset_provision_data_both_url_and_urls(mongo_app):
+    """Test that providing both `url` and `urls` fails."""
+    provision_data = {
+        "url": "http://example.com/image.img.xz",
+        "urls": ["http://example.com/other.img.xz"],
+        "preset": "fake",
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+
+
 def test_add_job_zapper_iot_custom_provision_data(mongo_app):
     """Test that a job with zapper_iot_custom provision_data works."""
     # Empty URLs fails
@@ -342,6 +367,18 @@ def test_add_job_zapper_iot_custom_provision_data(mongo_app):
     # Valid job works
     provision_data = {
         "urls": ["http://example.com/image.img.xz"],
+        "provision_plan": {},
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_zapper_iot_custom_provision_data_single_url(mongo_app):
+    """Test that a job with zapper_iot_custom using `url` (str) works."""
+    provision_data = {
+        "url": "http://example.com/image.img.xz",
         "provision_plan": {},
     }
     job_data = {"job_queue": "test", "provision_data": provision_data}
