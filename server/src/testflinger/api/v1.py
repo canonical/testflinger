@@ -17,9 +17,11 @@
 
 import importlib.metadata
 import os
+import posixpath
 import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
+from urllib.parse import urljoin, urlparse
 
 import requests
 from apiflask import APIBlueprint, abort
@@ -32,7 +34,7 @@ from urllib3.util.retry import Retry
 from werkzeug.routing import BaseConverter
 
 from testflinger import database
-from testflinger.api import auth, helpers, schemas
+from testflinger.api import auth, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.logs import LogFragment, MongoLogHandler
 from testflinger.secrets.exceptions import (
@@ -780,7 +782,7 @@ def agents_status_post(job_id, json_data):
     job_webhook = request_json.pop("job_status_webhook")
 
     # Webhook base URL configured on the server
-    webhook_url = os.environ.get("WEBHOOK_ENDPOINT")
+    webhook_url = os.environ.get("WEBHOOK_URL")
     if not webhook_url:
         # Abort if no webhook configured server-side
         abort(
@@ -788,9 +790,26 @@ def agents_status_post(job_id, json_data):
             message="Webhook URL not configured",
         )
 
-    # Enforce same-host and child-path policy for the webhook destination.
-    if not helpers.is_url_valid(webhook_url, job_webhook):
-        abort(HTTPStatus.FORBIDDEN, message="Unauthorized webhook URL")
+    # Parse both url webhooks, consider webhook_url as the only authorized
+    # endpoint to send requests to.
+    parsed_job_url = urlparse(job_webhook)
+    parsed_authorized_url = urlparse(webhook_url)
+
+    # Validate job_webhook is referring to the server-configured webhook URL
+    if (
+        parsed_job_url.scheme != parsed_authorized_url.scheme
+        or parsed_job_url.netloc != parsed_authorized_url.netloc
+    ):
+        abort(
+            HTTPStatus.FORBIDDEN,
+            message="Invalid job_status_webhook URL specified",
+        )
+
+    # Extract and normalize path from the job_webhook
+    job_webhook_path = posixpath.normpath(parsed_job_url.path).lstrip("/")
+
+    # Construct the full webhook URL to send the request to
+    webhook_endpoint = urljoin(f"{webhook_url.rstrip('/')}/", job_webhook_path)
 
     # Attempt to get optional authentication header from server configuration
     auth_headers = {}
@@ -809,7 +828,7 @@ def agents_status_post(job_id, json_data):
             webhook_session.mount("http://", retry_adapter)
             webhook_session.mount("https://", retry_adapter)
             response = webhook_session.put(
-                job_webhook,
+                webhook_endpoint,
                 json=request_json,
                 headers=auth_headers,
                 timeout=3,

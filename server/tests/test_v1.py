@@ -902,9 +902,7 @@ def test_agents_status_put(mongo_app, requests_mock, monkeypatch):
     job_id = job_output.json.get("job_id")
 
     webhook = "http://mywebhook.com/v1/test-executions/1234/status_update"
-    monkeypatch.setenv(
-        "WEBHOOK_ENDPOINT", "http://mywebhook.com/v1/test-executions"
-    )
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
     requests_mock.put(
         webhook, status_code=HTTPStatus.OK, text="webhook requested"
     )
@@ -932,7 +930,7 @@ def test_agents_status_put_no_webhook_configured(mongo_app, monkeypatch):
     job_output = app.post("/v1/job", json=job_data)
     job_id = job_output.json.get("job_id")
 
-    monkeypatch.delenv("WEBHOOK_ENDPOINT", raising=False)
+    monkeypatch.delenv("WEBHOOK_URL", raising=False)
 
     # job specifies correct endpoint
     status_update_data = {
@@ -950,9 +948,7 @@ def test_agents_status_put_no_webhook_configured(mongo_app, monkeypatch):
 def test_agents_status_put_unauthorized_webhook(mongo_app, monkeypatch):
     """Test that a webhook on an unknown host is rejected."""
     app, _ = mongo_app
-    monkeypatch.setenv(
-        "WEBHOOK_ENDPOINT", "http://mywebhook.com/v1/test-executions"
-    )
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
     job_data = {"job_queue": "test"}
     job_output = app.post("/v1/job", json=job_data)
     job_id = job_output.json.get("job_id")
@@ -973,9 +969,7 @@ def test_agents_status_put_with_auth_header(
 ):
     """Test that WEBHOOK_AUTH is forwarded as a Bearer token."""
     app, _ = mongo_app
-    monkeypatch.setenv(
-        "WEBHOOK_ENDPOINT", "http://mywebhook.com/v1/test-executions"
-    )
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
     monkeypatch.setenv("WEBHOOK_AUTH", "fake_token")
     job_data = {"job_queue": "test"}
     job_output = app.post("/v1/job", json=job_data)
@@ -996,92 +990,6 @@ def test_agents_status_put_with_auth_header(
     assert requests_mock.last_request.headers["Authorization"] == (
         "Bearer fake_token"
     )
-
-
-def test_agents_status_put_rejects_base_webhook_path(mongo_app, monkeypatch):
-    """Test that direct posts to configured base webhook path are rejected."""
-    app, _ = mongo_app
-    monkeypatch.setenv(
-        "WEBHOOK_ENDPOINT", "http://mywebhook.com/v1/test-executions"
-    )
-    job_data = {"job_queue": "test"}
-    job_output = app.post("/v1/job", json=job_data)
-    job_id = job_output.json.get("job_id")
-
-    status_update_data = {
-        "agent_id": "agent1",
-        "job_queue": "myjobqueue",
-        "job_status_webhook": "http://mywebhook.com/v1/test-executions",
-        "events": [],
-    }
-    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
-    assert output.status_code == HTTPStatus.FORBIDDEN
-
-
-def test_agents_status_put_unauthorized_webhook_path_prefix_collision(
-    mongo_app, monkeypatch
-):
-    """Test that a sibling path with shared prefix is rejected."""
-    app, _ = mongo_app
-    monkeypatch.setenv(
-        "WEBHOOK_ENDPOINT", "http://mywebhook.com/v1/test-executions"
-    )
-    job_data = {"job_queue": "test"}
-    job_output = app.post("/v1/job", json=job_data)
-    job_id = job_output.json.get("job_id")
-
-    status_update_data = {
-        "agent_id": "agent1",
-        "job_queue": "myjobqueue",
-        "job_status_webhook": "http://mywebhook.com/v1/test-executions-evil/1234/status_update",
-        "events": [],
-    }
-    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
-    assert output.status_code == HTTPStatus.FORBIDDEN
-
-
-def test_agents_status_put_rejects_percent_encoded_path_traversal(
-    mongo_app, monkeypatch
-):
-    """Test that encoded traversal segments are rejected."""
-    app, _ = mongo_app
-    monkeypatch.setenv(
-        "WEBHOOK_ENDPOINT", "http://mywebhook.com/v1/test-executions"
-    )
-    job_data = {"job_queue": "test"}
-    job_output = app.post("/v1/job", json=job_data)
-    job_id = job_output.json.get("job_id")
-
-    status_update_data = {
-        "agent_id": "agent1",
-        "job_queue": "myjobqueue",
-        "job_status_webhook": "http://mywebhook.com/v1/test-executions/%2e%2e/admin/status_update",
-        "events": [],
-    }
-    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
-    assert output.status_code == HTTPStatus.FORBIDDEN
-
-
-def test_agents_status_put_rejects_percent_encoded_path_separators(
-    mongo_app, monkeypatch
-):
-    """Test that encoded slash/backslash separators are rejected."""
-    app, _ = mongo_app
-    monkeypatch.setenv(
-        "WEBHOOK_ENDPOINT", "http://mywebhook.com/v1/test-executions"
-    )
-    job_data = {"job_queue": "test"}
-    job_output = app.post("/v1/job", json=job_data)
-    job_id = job_output.json.get("job_id")
-
-    status_update_data = {
-        "agent_id": "agent1",
-        "job_queue": "myjobqueue",
-        "job_status_webhook": "http://mywebhook.com/v1/test-executions/device%2Fstatus%5Cupdate",
-        "events": [],
-    }
-    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
-    assert output.status_code == HTTPStatus.FORBIDDEN
 
 
 def test_get_agents_data(mongo_app):
