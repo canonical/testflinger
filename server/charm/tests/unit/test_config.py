@@ -29,47 +29,31 @@ def test_invalid_external_hostname():
         TestflingerServerConfig(external_hostname="https://testflinger.local")
 
 
-def test_valid_webhook_endpoint():
-    """Test that valid webhook endpoints are accepted."""
+def test_valid_webhook_url():
+    """Test that valid webhook urls are accepted."""
     config = TestflingerServerConfig(
-        webhook_endpoint="https://test-observer-api.local/v1/test-executions/"
+        webhook_url="https://test-observer-api.local/"
     )
-    assert (
-        config.webhook_endpoint
-        == "https://test-observer-api.local/v1/test-executions/"
-    )
+    assert config.webhook_url == "https://test-observer-api.local/"
 
     config = TestflingerServerConfig(
-        webhook_endpoint="http://test-observer-api.local/v1/test-executions/"
+        webhook_url="http://test-observer-api.local"
     )
-    assert (
-        config.webhook_endpoint
-        == "http://test-observer-api.local/v1/test-executions/"
-    )
+    assert config.webhook_url == "http://test-observer-api.local"
 
 
-def test_invalid_webhook_endpoint():
-    """Test that invalid webhook endpoints are rejected."""
-    # Reject webhook endpoints that do not include protocol
+def test_invalid_webhook_url():
+    """Test that invalid webhook urls are rejected."""
+    # Reject webhook url that do not include protocol
+    with pytest.raises(ValueError):
+        TestflingerServerConfig(webhook_url="test-observer-api.local")
+
+    # Reject webhook url that include path
     with pytest.raises(ValueError):
         TestflingerServerConfig(
-            webhook_endpoint="test-observer-api.local/v1/test-executions/"
+            webhook_url="https://test-observer-api.local/v1/test-executions/"
         )
 
-    # Reject webhook endpoints that do not include path
+    # Reject webhook url that does not include hostname
     with pytest.raises(ValueError):
-        TestflingerServerConfig(
-            webhook_endpoint="https://test-observer-api.local"
-        )
-
-    # Reject webhook endpoints that include only root path
-    with pytest.raises(ValueError):
-        TestflingerServerConfig(
-            webhook_endpoint="https://test-observer-api.local/"
-        )
-
-    # Reject webhook endpoints that does not include hostname
-    with pytest.raises(ValueError):
-        TestflingerServerConfig(
-            webhook_endpoint="https:///v1/test-executions/"
-        )
+        TestflingerServerConfig(webhook_url="https:///v1/test-executions/")

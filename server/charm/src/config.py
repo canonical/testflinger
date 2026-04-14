@@ -25,9 +25,7 @@ class TestflingerServerConfig(pydantic.BaseModel):
     http_proxy: str = ""
     https_proxy: str = ""
     no_proxy: str = "localhost,127.0.0.1,::1"
-    webhook_endpoint: str = (
-        "http://test-observer-api.local/v1/test-executions/"
-    )
+    webhook_url: str = "http://test-observer-api.local/"
     webhook_auth: str = ""
 
     @pydantic.field_validator("external_hostname")
@@ -40,18 +38,18 @@ class TestflingerServerConfig(pydantic.BaseModel):
             )
         return value
 
-    @pydantic.field_validator("webhook_endpoint")
+    @pydantic.field_validator("webhook_url")
     @classmethod
-    def validate_webhook_endpoint(cls, value):
-        """Validate that webhook_endpoint includes a protocol and path."""
+    def validate_webhook_url(cls, value):
+        """Validate that webhook_url includes a protocol and no paths."""
         parsed_webhook = urlparse(value)
         if parsed_webhook.scheme not in {"http", "https"}:
             raise ValueError(
-                "webhook_endpoint must include protocol (http:// or https://)"
+                "webhook_url must include protocol (http:// or https://)"
             )
         if not parsed_webhook.netloc:
-            raise ValueError("webhook_endpoint must include a host")
-        if parsed_webhook.path in {"", "/"}:
-            raise ValueError("webhook_endpoint must include a path")
+            raise ValueError("webhook_url must include a host")
+        if parsed_webhook.path not in {"", "/"}:
+            raise ValueError("webhook_url must not include a path")
 
         return value
