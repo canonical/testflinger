@@ -39,6 +39,12 @@ If the HTML build is successful, you can view the built documentation by opening
 
 > [!NOTE]  
 > The HTML build command supports [Git LFS][git-lfs]. Files stored with git-lfs will be checked out before the documentation build. Update `docs/.gitattributes` file to change the included file types.
+ 
+With respect to large files, there is now a demo of the submit command execution that is embedded as a `.mp4` file in the documentation. To regenerate this file, execute:
+
+```bash
+make vhs
+```
 
 ### Live preview
 
