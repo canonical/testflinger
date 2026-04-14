@@ -925,12 +925,14 @@ def test_agents_status_put(mongo_app, requests_mock, monkeypatch):
     assert "webhook requested" == output.text
 
 
-def test_agents_status_put_no_webhook_configured(mongo_app):
+def test_agents_status_put_no_webhook_configured(mongo_app, monkeypatch):
     """Test events endpoint return server error if webhook not configured."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
     job_output = app.post("/v1/job", json=job_data)
     job_id = job_output.json.get("job_id")
+
+    monkeypatch.delenv("WEBHOOK_ENDPOINT", raising=False)
 
     # job specifies correct endpoint
     status_update_data = {
@@ -1032,6 +1034,50 @@ def test_agents_status_put_unauthorized_webhook_path_prefix_collision(
         "agent_id": "agent1",
         "job_queue": "myjobqueue",
         "job_status_webhook": "http://mywebhook.com/v1/test-executions-evil/1234/status_update",
+        "events": [],
+    }
+    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    assert output.status_code == HTTPStatus.FORBIDDEN
+
+
+def test_agents_status_put_rejects_percent_encoded_path_traversal(
+    mongo_app, monkeypatch
+):
+    """Test that encoded traversal segments are rejected."""
+    app, _ = mongo_app
+    monkeypatch.setenv(
+        "WEBHOOK_ENDPOINT", "http://mywebhook.com/v1/test-executions"
+    )
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": "http://mywebhook.com/v1/test-executions/%2e%2e/admin/status_update",
+        "events": [],
+    }
+    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    assert output.status_code == HTTPStatus.FORBIDDEN
+
+
+def test_agents_status_put_rejects_percent_encoded_path_separators(
+    mongo_app, monkeypatch
+):
+    """Test that encoded slash/backslash separators are rejected."""
+    app, _ = mongo_app
+    monkeypatch.setenv(
+        "WEBHOOK_ENDPOINT", "http://mywebhook.com/v1/test-executions"
+    )
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": "http://mywebhook.com/v1/test-executions/device%2Fstatus%5Cupdate",
         "events": [],
     }
     output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)

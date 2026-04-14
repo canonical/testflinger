@@ -17,11 +17,9 @@
 
 import importlib.metadata
 import os
-import posixpath
 import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
-from urllib.parse import urlparse
 
 import requests
 from apiflask import APIBlueprint, abort
@@ -34,7 +32,7 @@ from urllib3.util.retry import Retry
 from werkzeug.routing import BaseConverter
 
 from testflinger import database
-from testflinger.api import auth, schemas
+from testflinger.api import auth, helpers, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.logs import LogFragment, MongoLogHandler
 from testflinger.secrets.exceptions import (
@@ -790,21 +788,8 @@ def agents_status_post(job_id, json_data):
             message="Webhook URL not configured",
         )
 
-    # Validate that the job webhook targets the same host as the server-
-    # configured base URL to prevent the auth token from leaking to an
-    # untrusted destination.
-    parsed_server_url = urlparse(webhook_url)
-    parsed_job_url = urlparse(job_webhook)
-    if (
-        parsed_server_url.scheme != parsed_job_url.scheme
-        or parsed_server_url.netloc != parsed_job_url.netloc
-    ):
-        abort(HTTPStatus.FORBIDDEN, message="Unauthorized webhook URL")
-
-    # Enforce that the job webhook path is a subpath of the base URL
-    server_path = posixpath.normpath(parsed_server_url.path)
-    job_path = posixpath.normpath(parsed_job_url.path)
-    if not job_path.startswith(f"{server_path}/"):
+    # Enforce same-host and child-path policy for the webhook destination.
+    if not helpers.is_url_valid(webhook_url, job_webhook):
         abort(HTTPStatus.FORBIDDEN, message="Unauthorized webhook URL")
 
     # Attempt to get optional authentication header from server configuration
@@ -813,34 +798,35 @@ def agents_status_post(job_id, json_data):
         auth_headers = {"Authorization": f"Bearer {webhook_auth}"}
 
     try:
-        webhook_session = requests.Session()
-        retry_adapter = HTTPAdapter(
-            max_retries=Retry(
-                total=3,
-                allowed_methods=frozenset(["PUT"]),
-                backoff_factor=1,
+        with requests.Session() as webhook_session:
+            retry_adapter = HTTPAdapter(
+                max_retries=Retry(
+                    total=3,
+                    allowed_methods=frozenset(["PUT"]),
+                    backoff_factor=1,
+                )
             )
-        )
-        webhook_session.mount("http://", retry_adapter)
-        webhook_session.mount("https://", retry_adapter)
-        response = webhook_session.put(
-            job_webhook,
-            json=request_json,
-            headers=auth_headers,
-            timeout=3,
-            allow_redirects=False,
-        )
+            webhook_session.mount("http://", retry_adapter)
+            webhook_session.mount("https://", retry_adapter)
+            response = webhook_session.put(
+                job_webhook,
+                json=request_json,
+                headers=auth_headers,
+                timeout=3,
+                allow_redirects=False,
+            )
 
-        # Auth failures can happen if server configuration is no longer valid
-        if response.status_code in (
-            HTTPStatus.UNAUTHORIZED,
-            HTTPStatus.FORBIDDEN,
-        ):
-            abort(
-                HTTPStatus.INTERNAL_SERVER_ERROR,
-                message="Webhook authentication failed",
-            )
-        return response.text, response.status_code
+            # Auth failures can happen if server configuration
+            # is no longer valid.
+            if response.status_code in (
+                HTTPStatus.UNAUTHORIZED,
+                HTTPStatus.FORBIDDEN,
+            ):
+                abort(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    message="Webhook authentication failed",
+                )
+            return response.text, response.status_code
     except requests.exceptions.Timeout:
         abort(HTTPStatus.GATEWAY_TIMEOUT, message="Webhook Timeout")
     except requests.exceptions.RequestException:
