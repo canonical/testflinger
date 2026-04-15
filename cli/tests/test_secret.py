@@ -23,7 +23,7 @@ from unittest.mock import mock_open, patch
 import pytest
 
 import testflinger_cli
-from testflinger_cli.consts import ServerRoles
+from testflinger_cli.enums import ServerRoles
 
 from .test_cli import URL
 

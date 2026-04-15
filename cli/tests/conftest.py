@@ -1,8 +1,8 @@
-# Copyright (C) 2025 Canonical Ltd.
+# Copyright (C) 2026 Canonical Ltd.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License.
+# the Free Software Foundation, version 3 of the License.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -18,6 +18,8 @@ import uuid
 
 import jwt
 import pytest
+
+from testflinger_cli.status_line import StatusLine
 
 from .test_cli import URL
 
@@ -63,3 +65,43 @@ def auth_fixture(monkeypatch, requests_mock):
         requests_mock.post(f"{URL}/v1/oauth2/token", json=fake_return)
 
     return _fixture
+
+
+@pytest.fixture(autouse=True)
+def reset_status_line():
+    """Reset StatusLine state before and after each test."""
+    # Reset before test
+    StatusLine._running = False
+    StatusLine._timer_thread = None
+    StatusLine._original_start_time = None
+    StatusLine._start_time = None
+    StatusLine._countdown_mode = False
+    StatusLine._countdown_start_value = 0
+    StatusLine._is_tty = False
+    StatusLine.message = ""
+    StatusLine.state = ""
+    StatusLine._prev_state = None
+    StatusLine._state_start_time = None
+    StatusLine._last_template = ""
+
+    yield
+
+    # Cleanup after test
+    if StatusLine._running:
+        StatusLine.stop()
+
+
+@pytest.fixture
+def mock_tty(monkeypatch):
+    """Mock sys.stdout.isatty() to return True before StatusLine.init() is
+     called.
+
+    This fixture must be used BEFORE StatusLine.init() is called in the test.
+    It patches sys.stdout.isatty() at the module level so StatusLine.init()
+    will see the mocked return value.
+    """
+    monkeypatch.setattr(
+        "testflinger_cli.status_line.sys.stdout.isatty", lambda: True
+    )
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+    yield

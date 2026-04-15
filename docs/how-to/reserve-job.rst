@@ -3,13 +3,20 @@ Reserve a device
 
 When you only need an SSH access to the DUT to manually interact with it, you can use a reserve job.
 
-To reserve a device, provide a job definition as the following:
+There are two ways to submit a reserve job:
+- submit a YAML job definition containing ``reserve_data``
+- use the ``reserve`` command with command-line parameters
+
+Using the a job definition file with ``reserve_data``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To reserve a device, provide a job definition which includes ``reserve_data`` such as the following:
 
 .. code-block:: yaml
 
   job_queue: <queue>
   provision_data:
-    <providion-data>
+    <provision-data>
   reserve_data:
     ssh_keys:
       - <id-provider>:<your-username>
@@ -38,3 +45,20 @@ can use to to access to the device.
 
 When you are finished with the device, you can end your reservation early by
 cancelling the job. See :doc:`../how-to/cancel-job`.
+
+Using the command line
+~~~~~~~~~~~~~~~~~~~~~~
+
+As an alternative for the most basic reserve jobs, you can use the ``reserve`` command to collect the information from the command line and put together a job definition on the fly.
+
+For a ``maas2`` device type, this requires the ``--distro`` parameter:
+
+.. code-block:: shell
+
+  $ testflinger-cli reserve --distro noble --key lp:user --key gh:user --timeout 7200 --queue maas_devices
+
+For most other device types, the ``--image`` parameter corresponds to the ``url:`` key in ``reserve_data``:
+
+.. code-block:: shell
+
+  $ testflinger-cli reserve --image https://image.xz --key lp:user --key gh:user --timeout 7200 --queue other

@@ -25,6 +25,7 @@ help:
 	@echo
 	@echo "-------------------------------------------------------------"
 	@echo "* watch, build and serve the documentation:  make run"
+	@echo "* only remake demo tapes with vhs:           make vhs"
 	@echo "* only build:                                make html"
 	@echo "* only serve:                                make serve"
 	@echo "* clean built doc files:                     make clean-doc"
@@ -44,7 +45,7 @@ help:
 .PHONY: help full-help html epub pdf linkcheck spelling woke \
         vale pa11y run serve install pa11y-install   \
         vale-install pdf-prep pdf-prep-force clean clean-doc \
-        lint-md check-lfs
+        lint-md check-lfs vhs
 
 full-help: $(VENVDIR)
 	@. $(VENV); $(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
@@ -54,7 +55,7 @@ full-help: $(VENVDIR)
 # If requirements are updated, venv should be rebuilt and timestamped.
 $(VENVDIR):
 	@echo "... setting up virtualenv"
-	python3 -m venv $(VENVDIR) || { echo "You must install python3-venv before you can build the documentation."; exit 1; }
+	@python3 -m venv $(VENVDIR) || { echo "You must install python3-venv before you can build the documentation."; exit 1; }
 	. $(VENV); pip install --require-virtualenv \
 	    	--upgrade -r $(SPHINXDIR)/requirements.txt \
             --log $(VENVDIR)/pip_install.log
@@ -62,6 +63,7 @@ $(VENVDIR):
             mv $(VENVDIR)/pip_list.txt $(VENVDIR)/pip_list.txt.bak
 	@. $(VENV); pip list --local --format=freeze > $(VENVDIR)/pip_list.txt
 	@touch $(VENVDIR)
+	echo "done"
 
 
 # Check if LFS files are present and checkout if needed.
@@ -92,6 +94,10 @@ run: install check-lfs
 # Does not depend on $(BUILDDIR) to rebuild properly at every run.
 html: install check-lfs
 	. $(VENV); $(SPHINXBUILD) -W --keep-going -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)" -w $(SPHINXDIR)/warnings.txt $(SPHINXOPTS)
+
+vhs:
+	@vhs -v || { echo "You must install vhs before you can regenerate the example images."; exit 1; }
+	vhs $(SOURCEDIR)/submit-job.tape 
 
 epub: install
 	. $(VENV); $(SPHINXBUILD) -b epub "$(SOURCEDIR)" "$(BUILDDIR)" -w $(SPHINXDIR)/warnings.txt $(SPHINXOPTS)
