@@ -50,6 +50,11 @@ For a ``maas2`` device type, this requires the ``--distro`` parameter:
 
   $ testflinger-cli reserve --distro noble --key lp:user --key gh:user --timeout 7200 --queue maas_devices
 
+.. tip::
+
+  For MAAS devices, you can use ephemeral (in-memory) deployments by using the ``--ephemeral`` flag.
+  This makes an in-memory deployment which is faster to provision and can be useful for simple validation jobs.
+
 For most other device types, the ``--image`` parameter corresponds to the ``url:`` key in ``reserve_data``:
 
 .. code-block:: shell
