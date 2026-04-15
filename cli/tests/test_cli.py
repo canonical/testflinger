@@ -920,6 +920,30 @@ def test_reserve_with_distro(capsys, requests_mock):
     assert '"ssh_keys"' in std.out
 
 
+def test_reserve_with_ephemeral(capsys, requests_mock):
+    """Test reserve with --ephemeral flag submits correct provision_data."""
+    requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+    requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "--distro",
+        "noble",
+        "-k",
+        "lp:fakeuser",
+        "--ephemeral",
+        "-d",  # dry-run to skip polling
+    ]
+    testflinger_cli.TestflingerCli().run()
+    std = capsys.readouterr()
+    assert '"distro": "noble"' in std.out
+    assert '"job_queue": "fake"' in std.out
+    assert '"ssh_keys"' in std.out
+    assert '"ephemeral": true' in std.out
+
+
 def test_reserve_distro_with_image_fails(requests_mock, capsys):
     """Test that --distro and --image cannot be used together.
 
