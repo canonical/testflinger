@@ -41,7 +41,7 @@ runs:
 
     # Use testflinger-setup by copying action from adjacent directory.
     # This is required so we can use the same reference as the one
-    # checkout by external workflow or action.
+    # checked out by external workflow or action.
     - name: Stage testflinger-setup from adjacent action directory
       shell: bash
       env:
