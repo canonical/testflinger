@@ -1400,16 +1400,21 @@ class TestflingerCli:
             self.do_list_queues()
         )
 
+        # Ephemeral only supported for MAAS deployments via distro argument
+        if self.args.ephemeral and not self.args.distro:
+            sys.exit(
+                "Error: --ephemeral option requires --distro to be specified."
+            )
+
         # Handle distro if provided
         provision_data = {}
         if self.args.distro:
-            # If distro is provided, we can assume this is a MAAS deployment
-            # Setting ephemeral based on user input.
+            # Only include ephemeral in provision_data if it's set
             provision_data = {
                 "provision_data": {
                     "distro": self.args.distro,
-                    "ephemeral": self.args.ephemeral,
                 }
+                | ({"ephemeral": True} if self.args.ephemeral else {})
             }
         else:
             try:

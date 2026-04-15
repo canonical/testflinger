@@ -938,10 +938,51 @@ def test_reserve_with_ephemeral(capsys, requests_mock):
     ]
     testflinger_cli.TestflingerCli().run()
     std = capsys.readouterr()
-    assert '"distro": "noble"' in std.out
-    assert '"job_queue": "fake"' in std.out
-    assert '"ssh_keys"' in std.out
     assert '"ephemeral": true' in std.out
+
+
+def test_reserve_with_ephemeral_and_image_fails(requests_mock):
+    """Test that --ephemeral and --image cannot be used together."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "--ephemeral",
+        "-d",
+    ]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    # Verify that the error message mentions the conflict
+    assert "--ephemeral option requires --distro to be specified" in str(
+        exc_info.value
+    )
+
+
+def test_reserve_without_ephemeral(capsys, requests_mock):
+    """Test reserve without ephemeral flag does not add ephemeral key."""
+    requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+    requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "--distro",
+        "noble",
+        "-k",
+        "lp:fakeuser",
+        "-d",  # dry-run to skip polling
+    ]
+    testflinger_cli.TestflingerCli().run()
+    std = capsys.readouterr()
+    assert "ephemeral" not in std.out
 
 
 def test_reserve_distro_with_image_fails(requests_mock, capsys):

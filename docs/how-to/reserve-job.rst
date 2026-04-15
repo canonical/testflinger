@@ -52,10 +52,13 @@ For a ``maas2`` device type, this requires the ``--distro`` parameter:
 
 .. tip::
 
-  For MAAS devices, you can use ephemeral (in-memory) deployments by using the ``--ephemeral`` flag.
-  This makes an in-memory deployment which is faster to provision and can be useful for simple validation jobs.
+  For MAAS devices, you can use ephemeral (in-memory) deployments by using the
+  ``--ephemeral`` flag when MAAS 3.5.0 or later is available.
+  This makes an in-memory deployment which is faster to provision and can be useful 
+  for simple validation jobs. On older MAAS versions, the ``--ephemeral`` flag is 
+  ignored and the deployment proceeds without ephemeral provisioning.
 
-For most other device types, the ``--image`` parameter corresponds to the ``url:`` key in ``reserve_data``:
+For most other device types, the ``--image`` parameter corresponds to the ``url:`` key in ``provision_data``:
 
 .. code-block:: shell
 
