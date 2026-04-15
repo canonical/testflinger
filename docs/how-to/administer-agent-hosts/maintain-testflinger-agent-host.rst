@@ -93,7 +93,6 @@ stopped, or signalled, you can use:
 
 Stopping and restarting agents
 ------------------------------
-------------------------------------------
 
 .. note::
 
