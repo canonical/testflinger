@@ -91,7 +91,8 @@ stopped, or signalled, you can use:
 
    $ sudo supervisorctl maintail
 
-Stopping and restarting Agent Host Charms
+Stopping and restarting agents
+------------------------------
 ------------------------------------------
 
 .. note::
@@ -109,10 +110,10 @@ Be aware that other actions on the charm such as ``update-configs`` might later
 cause this to restart the agents.
 
 
-Restarting an Agent Host Charm
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Restarting an agent
+^^^^^^^^^^^^^^^^^^^
 
-When an agent host charm needs to be re-executed due to something like a code
+When an agent needs to be re-executed due to something like a code
 update or a configuration change, it is important to shut it down safely so
 that it does not interfere with a job currently running. To signal an agent to
 safely restart when it's no longer running a job, you can run:
