@@ -13,6 +13,13 @@ import yaml
 from testflinger_cli.consts import SNAP_NAME, SNAP_PRIVATE_DIRS
 from testflinger_cli.errors import SnapPrivateFileError
 
+# Only accept paths that are separated by forward slashes
+# Expected format should not start or end with a slash
+# Examples of valid paths: "path", "my/secret/path"
+PATH_PATTERN = re.compile(
+    r"^[a-zA-Z_][a-zA-Z0-9_]*(?:\/[a-zA-Z_][a-zA-Z0-9_]*)*$"
+)
+
 
 def is_snap() -> bool:
     """Check if the current environment is in the Testflinger snap."""
@@ -233,3 +240,18 @@ def regex_arg(value):
         raise argparse.ArgumentTypeError(
             f"Invalid regex '{value}', error: {str(err)}"
         ) from err
+
+
+def regex_path(value, pattern: re.Pattern = PATH_PATTERN):
+    """Validate that a file path argument is a valid regex pattern.
+
+    :param value: The file path string to validate
+    :param pattern: The regex pattern to validate against
+    :return: The original value if valid
+    :raises ArgumentTypeError: If the value does not match the regex pattern
+    """
+    if not pattern.match(value):
+        raise argparse.ArgumentTypeError(
+            f"Invalid value '{value}', not a valid path"
+        )
+    return value

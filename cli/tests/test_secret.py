@@ -30,7 +30,7 @@ from .test_cli import URL
 
 @pytest.mark.parametrize(
     "test_path",
-    ["path", "my/secret/path", "/my/secret/path"],
+    ["path", "my/secret/path"],
 )
 def test_secret_write(auth_fixture, capsys, requests_mock, test_path):
     """Test successful secret write operation."""
@@ -38,7 +38,7 @@ def test_secret_write(auth_fixture, capsys, requests_mock, test_path):
     test_value = "secret_value_123"
 
     requests_mock.put(
-        f"{URL}/v1/secrets/my_client_id/{test_path.lstrip('/')}",
+        f"{URL}/v1/secrets/my_client_id/{test_path}",
         text="OK",
         status_code=HTTPStatus.OK,
     )
@@ -90,14 +90,14 @@ def test_secret_write_http_error(auth_fixture, requests_mock):
 
 @pytest.mark.parametrize(
     "test_path",
-    ["path", "my/secret/path", "/my/secret/path"],
+    ["path", "my/secret/path"],
 )
 def test_secret_delete(auth_fixture, capsys, requests_mock, test_path):
     """Test successful secret delete operation."""
     auth_fixture(ServerRoles.CONTRIBUTOR)
 
     requests_mock.delete(
-        f"{URL}/v1/secrets/my_client_id/{test_path.lstrip('/')}",
+        f"{URL}/v1/secrets/my_client_id/{test_path}",
         text="OK",
         status_code=HTTPStatus.OK,
     )
@@ -228,3 +228,36 @@ def test_secret_invalid_token_error(requests_mock, subcommand):
         tfcli.run()
 
     assert "Please reauthenticate with server" in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "test_path",
+    [
+        "/path",
+        "/my/secret/path/",
+        "invalid//path",
+        "invalid path",
+        "invalid\\path",
+        "/////path",
+        "path//////",
+    ],
+)
+def test_secret_write_invalid_path(auth_fixture, capsys, test_path):
+    """Test write operation is aborted for invalid paths."""
+    auth_fixture(ServerRoles.CONTRIBUTOR)
+    sys.argv = [
+        "",
+        "secret",
+        "write",
+        test_path,
+        "test_value",
+    ]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+
+    # Argparse exits with code 2 for argument errors
+    assert exc_info.value.code == 2
+    assert (
+        f"Invalid value '{test_path}', not a valid path"
+        in capsys.readouterr().err
+    )

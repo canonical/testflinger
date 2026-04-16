@@ -580,7 +580,9 @@ class TestflingerCli:
             "write", help="Write a secret value"
         )
         write_parser.set_defaults(func=self.secret_write)
-        write_parser.add_argument("path", help="Path for the secret")
+        write_parser.add_argument(
+            "path", help="Path for the secret", type=helpers.regex_path
+        )
         write_parser.add_argument("value", help="Value of the secret")
         self._add_auth_args(write_parser)
 
@@ -590,7 +592,9 @@ class TestflingerCli:
         )
         delete_parser.set_defaults(func=self.secret_delete)
         delete_parser.add_argument(
-            "path", help="Path for the secret to delete"
+            "path",
+            help="Path for the secret to delete",
+            type=helpers.regex_path,
         )
         self._add_auth_args(delete_parser)
 
@@ -1843,9 +1847,7 @@ class TestflingerCli:
 
         secret_data = {"value": self.args.value}
 
-        # Remove leading slash if present to build the correct endpoint URL
-        path = self.args.path.lstrip("/")
-        endpoint = f"/v1/secrets/{self.auth.client_id}/{path}"
+        endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
             self.client.put(endpoint, secret_data, headers=auth_headers)
         except client.HTTPError as exc:
@@ -1862,9 +1864,7 @@ class TestflingerCli:
         if auth_headers is None or self.auth.client_id is None:
             sys.exit("Error deleting secret: Authentication is required")
 
-        # Remove leading slash if present to build the correct endpoint URL
-        path = self.args.path.lstrip("/")
-        endpoint = f"/v1/secrets/{self.auth.client_id}/{path}"
+        endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
             self.client.delete(endpoint, headers=auth_headers)
         except client.HTTPError as exc:
