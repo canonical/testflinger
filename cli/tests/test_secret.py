@@ -30,7 +30,14 @@ from .test_cli import URL
 
 @pytest.mark.parametrize(
     "test_path",
-    ["path", "my/secret/path"],
+    [
+        "path",
+        "my/secret/path",
+        "path/1234",
+        "my/1234/path",
+        "my/secret-path",
+        "my/1path",
+    ],
 )
 def test_secret_write(auth_fixture, capsys, requests_mock, test_path):
     """Test successful secret write operation."""
@@ -90,7 +97,14 @@ def test_secret_write_http_error(auth_fixture, requests_mock):
 
 @pytest.mark.parametrize(
     "test_path",
-    ["path", "my/secret/path"],
+    [
+        "path",
+        "my/secret/path",
+        "path/1234",
+        "my/1234/path",
+        "my/secret-path",
+        "my/1path",
+    ],
 )
 def test_secret_delete(auth_fixture, capsys, requests_mock, test_path):
     """Test successful secret delete operation."""

@@ -16,9 +16,7 @@ from testflinger_cli.errors import SnapPrivateFileError
 # Only accept paths that are separated by forward slashes
 # Expected format should not start or end with a slash
 # Examples of valid paths: "path", "my/secret/path"
-PATH_PATTERN = re.compile(
-    r"^[a-zA-Z_][a-zA-Z0-9_]*(?:\/[a-zA-Z_][a-zA-Z0-9_]*)*$"
-)
+PATH_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$")
 
 
 def is_snap() -> bool:
