@@ -29,12 +29,15 @@ from pymongo.encryption import ClientEncryption
 from pymongo.errors import DuplicateKeyError, EncryptionError, PyMongoError
 
 from testflinger.database import get_mongo_uri
+from testflinger.owasp import OWASPLogger
 from testflinger.secrets.exceptions import StoreError
 from testflinger.secrets.mongo import MongoStore
 from testflinger.secrets.store import SecretsStore
 from testflinger.secrets.vault import VaultStore
 
 logger = logging.getLogger(__name__)
+logger = OWASPLogger(logger=logger)
+
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 formatter = logging.Formatter(

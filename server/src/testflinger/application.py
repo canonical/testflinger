@@ -28,6 +28,7 @@ from testflinger.database import setup_mongodb
 from testflinger.extensions import metrics
 from testflinger.oidc import app_register_oidc
 from testflinger.oidc.views import oidc_views
+from testflinger.owasp import OWASPLogger
 from testflinger.providers import ISODatetimeProvider
 from testflinger.views import views
 
@@ -49,7 +50,7 @@ def create_flask_app(config=None, secrets_store=None):
     tf_app.url_map.converters.update(log_type=LogTypeConverter)
     if config:
         tf_app.config.from_object(config)
-    tf_log = create_logger(tf_app)
+    tf_log = OWASPLogger(logger=create_logger(tf_app))
 
     if not tf_app.debug:
         stream_handler = logging.StreamHandler()

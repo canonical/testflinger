@@ -16,6 +16,7 @@
 
 """Testflinger API Auth module."""
 
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from functools import wraps
@@ -29,6 +30,10 @@ from flask import g, request
 from testflinger_common.enums import ServerRoles
 
 from testflinger import database
+from testflinger.owasp import OWASPLogger
+
+logger = logging.getLogger(__name__)
+logger = OWASPLogger(logger=logger)
 
 
 def hash_secret(secret: str):
@@ -261,7 +266,12 @@ def authenticate(func):
 
         # Store auth state if decoding was successful
         g.client_id = permissions["client_id"]
-        g.role = permissions.get("role", ServerRoles.CONTRIBUTOR)
+        role = permissions.get("role", ServerRoles.CONTRIBUTOR)
+        # Convert role string to enum if needed
+        if isinstance(role, str):
+            g.role = ServerRoles(role)
+        else:
+            g.role = role
         g.permissions = permissions
         g.is_authenticated = True
 
@@ -277,6 +287,16 @@ def require_role(*roles):
         @wraps(func)
         def wrapper(*args, **kwargs):
             if not g.is_authenticated:
+                logger.authz_fail(
+                    userid="unauthenticated",
+                    resource=request.path,
+                    description=(
+                        f"Unauthenticated access attempt to protected "
+                        f"endpoint {request.method} {request.path}"
+                    ),
+                    **OWASPLogger.get_request_metadata(request),
+                )
+
                 abort(
                     HTTPStatus.UNAUTHORIZED,
                     "Authentication is required for specified endpoint",
@@ -284,6 +304,17 @@ def require_role(*roles):
 
             if g.role not in roles:
                 role_list = ", ".join(r.value for r in roles)
+                logger.authz_fail(
+                    userid=g.client_id,
+                    resource=request.path,
+                    description=(
+                        f"Authorization denied: client {g.client_id} "
+                        f"with role {g.role.value} attempted "
+                        f"{request.method} {request.path} "
+                        f"(requires: {role_list})"
+                    ),
+                    **OWASPLogger.get_request_metadata(request),
+                )
                 abort(
                     HTTPStatus.FORBIDDEN,
                     f"Specified action requires role: {role_list}",
