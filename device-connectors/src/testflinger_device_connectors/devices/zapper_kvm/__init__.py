@@ -35,6 +35,8 @@ from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
+JAMMY_OEM_PRESET = "desktop-jammy-oem"
+
 
 class DeviceConnector(ZapperConnector):
     """Tool for provisioning baremetal with a given image."""
@@ -108,7 +110,7 @@ class DeviceConnector(ZapperConnector):
         )
 
     def _get_credentials(self, target: str | None = None) -> tuple[str, str]:
-        if target == "jammy-oem":
+        if target == JAMMY_OEM_PRESET:
             return "ubuntu", "u"
         else:
             return (
@@ -127,7 +129,7 @@ class DeviceConnector(ZapperConnector):
         for the Zapper `provision` API.
         """
         provision_data = {}
-        if "preset" in self.job_data["provision_data"]:
+        if preset := self.job_data["provision_data"].get("preset"):
             has_autoinstall = False
             for key, value in self.job_data["provision_data"].items():
                 if key.startswith("autoinstall"):
@@ -136,7 +138,7 @@ class DeviceConnector(ZapperConnector):
                     provision_data[key] = value
 
             provision_data["username"], provision_data["password"] = (
-                self._get_credentials("preset")
+                self._get_credentials(preset)
             )
 
             if has_autoinstall:
@@ -144,12 +146,22 @@ class DeviceConnector(ZapperConnector):
                     self._get_autoinstall_conf()
                 )
 
+            if preset == JAMMY_OEM_PRESET:
+                # control host only does recovery
+                provision_data.pop("url", None)
+
+                if alloem_url := self.job_data["provision_data"].get(
+                    "alloem_url"
+                ):
+                    provision_data["url"] = alloem_url
+                    provision_data.pop("alloem_url", None)
+
         elif "alloem_url" in self.job_data["provision_data"]:
             provision_data["url"] = self.job_data["provision_data"][
                 "alloem_url"
             ]
             provision_data["username"], provision_data["password"] = (
-                self._get_credentials("jammy-oem")
+                self._get_credentials(JAMMY_OEM_PRESET)
             )
             provision_data["autoinstall_conf"] = self._get_autoinstall_conf()
             provision_data["robot_tasks"] = self.job_data["provision_data"][
@@ -190,7 +202,11 @@ class DeviceConnector(ZapperConnector):
     def _post_run_actions(self, args):
         super()._post_run_actions(args)
 
-        if "alloem_url" in self.job_data["provision_data"]:
+        provision_data = self.job_data["provision_data"]
+        used_alloem = "alloem_url" in provision_data
+        is_jammy_oem_preset = provision_data.get("preset") == JAMMY_OEM_PRESET
+
+        if used_alloem or is_jammy_oem_preset:
             self._post_run_actions_oem(args)
 
     def _post_run_actions_oem(self, args):
