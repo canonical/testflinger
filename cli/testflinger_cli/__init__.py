@@ -1299,7 +1299,7 @@ class TestflingerCli:
                             "that requires client authorisation "
                             "without using client credentials. \n"
                             "See https://testflinger.readthedocs.io/en/latest"
-                            "/how-to/authentication.html for more details"
+                            "/how-to/authentication/ for more details"
                         )
                 else:
                     # This shouldn't happen, so let's get more information
