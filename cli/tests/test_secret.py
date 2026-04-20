@@ -37,6 +37,7 @@ from .test_cli import URL
         "my/1234/path",
         "my/secret-path",
         "my/1path",
+        "my/secret_path",
     ],
 )
 def test_secret_write(auth_fixture, capsys, requests_mock, test_path):
@@ -104,6 +105,7 @@ def test_secret_write_http_error(auth_fixture, requests_mock):
         "my/1234/path",
         "my/secret-path",
         "my/1path",
+        "my/secret_path",
     ],
 )
 def test_secret_delete(auth_fixture, capsys, requests_mock, test_path):

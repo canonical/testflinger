@@ -250,6 +250,9 @@ def regex_path(value, pattern: re.Pattern = PATH_PATTERN):
     """
     if not pattern.match(value):
         raise argparse.ArgumentTypeError(
-            f"Invalid value '{value}', not a valid path"
+            f"Invalid value '{value}', not a valid path. \n"
+            "Paths must only contain alphanumeric characters, hyphens (-), "
+            "underscores (_), and forward slashes (/). Additionally, "
+            "paths must not start or end with a forward slash (/)."
         )
     return value
