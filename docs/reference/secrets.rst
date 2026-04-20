@@ -30,6 +30,7 @@ Paths must follow these constraints:
 
 - Must be unique within a client's namespace
 - Only alphanumeric characters, hyphens ``(-)``, underscores ``(_)`` and forward slashes ``(/)`` are allowed
+- Must not start and end with a forward slash ``(/)``
 
 Environment variable names must follow standard shell naming conventions:
 
