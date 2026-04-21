@@ -17,6 +17,7 @@
 
 from abc import ABC, abstractmethod
 
+MAXIMUM_EXPIRATION_SECONDS = 60 * 60 * 24 * 365  # 1 year
 
 class SecretsStore(ABC):
     """
@@ -34,7 +35,14 @@ class SecretsStore(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def write(self, namespace: str, key: str, value: str):
+    def write(
+        self,
+        namespace: str,
+        key: str,
+        value: str,
+        expire_after: int = MAXIMUM_EXPIRATION_SECONDS,
+        ephemeral: bool = False,
+    ):
         """Write the `value` for `key` under `namespace`."""
         raise NotImplementedError
 
