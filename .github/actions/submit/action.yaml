@@ -239,7 +239,7 @@ runs:
         exit $EXIT_STATUS
 
     - name: Wait for job completion
-      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.reserve == 'false'
+      if: always() && !cancelled() && inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.reserve == 'false'
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
