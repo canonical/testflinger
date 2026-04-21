@@ -68,7 +68,9 @@ class MongoStore(SecretsStore):
 
         # Get secret expiration if any, delete if expired and raise an error
         expire_at = result.get("expire_at")
-        if expire_at is not None and expire_at < datetime.now(timezone.utc):
+        if expire_at is not None and expire_at.replace(
+            tzinfo=timezone.utc
+        ) < datetime.now(timezone.utc):
             self.delete(namespace, key)
             raise AccessError(f"Expired '{key}' under '{namespace}'")
 

@@ -1228,7 +1228,9 @@ def secrets_put(client_id, path, json_data):
             namespace=client_id,
             key=path,
             value=json_data["value"],
-            expire_after=json_data.get("expire_after", MAXIMUM_EXPIRATION_SECONDS),
+            expire_after=json_data.get(
+                "expire_after", MAXIMUM_EXPIRATION_SECONDS
+            ),
             ephemeral=json_data.get("ephemeral", False),
         )
     except AccessError as error:
