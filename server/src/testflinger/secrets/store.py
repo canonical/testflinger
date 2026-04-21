@@ -19,6 +19,7 @@ from abc import ABC, abstractmethod
 
 MAXIMUM_EXPIRATION_SECONDS = 60 * 60 * 24 * 365  # 1 year
 
+
 class SecretsStore(ABC):
     """
     Classes derived from this abstract base class implement the interface

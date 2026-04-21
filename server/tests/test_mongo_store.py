@@ -17,6 +17,8 @@
 
 import base64
 import os
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 from bson.binary import Binary
@@ -178,14 +180,28 @@ class TestMongoStore:
         ):
             mongo_store.read("test-namespace", "test-key")
 
+    @patch("testflinger.secrets.mongo.datetime")
     def test_write_success(
-        self, mongo_store, mock_collection, mock_client_encryption
+        self,
+        mock_datetime,
+        mongo_store,
+        mock_collection,
+        mock_client_encryption,
     ):
         """Test successful secret write."""
         encrypted_value = Binary(b"encrypted_data")
         mock_client_encryption.encrypt.return_value = encrypted_value
+        expiration_seconds = 3600
+        fixed_now = datetime(2026, 4, 21, tzinfo=timezone.utc)
+        mock_datetime.now.return_value = fixed_now
 
-        mongo_store.write("test-namespace", "test-key", "test-value")
+        mongo_store.write(
+            "test-namespace",
+            "test-key",
+            "test-value",
+            expire_after=expiration_seconds,
+            ephemeral=False,
+        )
 
         mock_client_encryption.encrypt.assert_called_once_with(
             value="test-value".encode("utf-8"),
@@ -194,7 +210,13 @@ class TestMongoStore:
         )
         mock_collection.replace_one.assert_called_once_with(
             {"key": "test-key"},
-            {"key": "test-key", "value": encrypted_value},
+            {
+                "key": "test-key",
+                "value": encrypted_value,
+                "updated_at": fixed_now,
+                "expire_at": fixed_now + timedelta(seconds=expiration_seconds),
+                "ephemeral": False,
+            },
             upsert=True,
         )
 

@@ -26,7 +26,7 @@ import pytest
 
 from testflinger import application, database
 from testflinger.secrets.exceptions import AccessError, StoreError
-from testflinger.secrets.store import SecretsStore
+from testflinger.secrets.store import MAXIMUM_EXPIRATION_SECONDS, SecretsStore
 
 
 @pytest.fixture
@@ -112,7 +112,13 @@ def test_secrets_put_success(app_with_store, client_id, path, value):
 
     # THEN: the request is successful
     assert response.status_code == HTTPStatus.OK
-    mock_secrets_store.write.assert_called_once_with(client_id, path, value)
+    mock_secrets_store.write.assert_called_once_with(
+        namespace=client_id,
+        key=path,
+        value=value,
+        expire_after=MAXIMUM_EXPIRATION_SECONDS,
+        ephemeral=False,
+    )
 
 
 def test_secrets_put_different_client_id(app_with_store):
@@ -193,7 +199,13 @@ def test_secrets_put_access_error(app_with_store):
 
     # THEN: the request is rejected
     assert response.status_code == HTTPStatus.BAD_REQUEST
-    mock_secrets_store.write.assert_called_once_with(client_id, path, "value")
+    mock_secrets_store.write.assert_called_once_with(
+        namespace=client_id,
+        key=path,
+        value="value",
+        expire_after=MAXIMUM_EXPIRATION_SECONDS,
+        ephemeral=False,
+    )
 
 
 def test_secrets_put_store_error(app_with_store):
@@ -214,7 +226,13 @@ def test_secrets_put_store_error(app_with_store):
 
     # THEN: the request is rejected
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
-    mock_secrets_store.write.assert_called_once_with(client_id, path, "value")
+    mock_secrets_store.write.assert_called_once_with(
+        namespace=client_id,
+        key=path,
+        value="value",
+        expire_after=MAXIMUM_EXPIRATION_SECONDS,
+        ephemeral=False,
+    )
 
 
 def test_secrets_put_no_store(testapp):
