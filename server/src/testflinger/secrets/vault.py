@@ -23,7 +23,7 @@ from testflinger.secrets.exceptions import (
     StoreError,
     UnexpectedError,
 )
-from testflinger.secrets.store import SecretsStore
+from testflinger.secrets.store import MAXIMUM_EXPIRATION_SECONDS, SecretsStore
 
 
 class VaultStore(SecretsStore):
@@ -66,8 +66,23 @@ class VaultStore(SecretsStore):
                 f"Unable to process response for '{key}' under '{namespace}'"
             ) from error
 
-    def write(self, namespace: str, key: str, value: str) -> bool:
-        """Write the `value` for `key` under `namespace`."""
+    def write(
+        self,
+        namespace: str,
+        key: str,
+        value: str,
+        expire_after: int = MAXIMUM_EXPIRATION_SECONDS,
+        ephemeral: bool = False,
+    ) -> bool:
+        """Write the `value` for `key` under `namespace`.
+
+        :param namespace: the namespace under which to store the secret
+        :param key: the key for the secret
+        :param value: the value of the secret to store
+        :param expire_after: Expiration time in seconds for the secret.
+        :param ephemeral: whether the secret should be deleted after being read
+        :returns: True if the secret was successfully stored, False otherwise
+        """
         # write (or update) the secret value using the Vault API
         try:
             self.client.secrets.kv.v2.create_or_update_secret(
