@@ -15,12 +15,14 @@
 
 """A Mongo-based implementation for the Testflinger secrets store."""
 
+from datetime import datetime, timedelta, timezone
+
 from pymongo import MongoClient
 from pymongo.encryption import Algorithm, ClientEncryption
 from pymongo.errors import ConnectionFailure, EncryptionError, OperationFailure
 
 from testflinger.secrets.exceptions import AccessError, StoreError
-from testflinger.secrets.store import SecretsStore
+from testflinger.secrets.store import MAXIMUM_EXPIRATION_SECONDS, SecretsStore
 
 
 class MongoStore(SecretsStore):
@@ -63,6 +65,13 @@ class MongoStore(SecretsStore):
             raise AccessError(f"Unable to access '{key}' under '{namespace}'")
 
         encrypted_value = result["value"]
+
+        # Get secret expiration if any, delete if expired and raise an error
+        expire_at = result.get("expire_at")
+        if expire_at is not None and expire_at < datetime.now(timezone.utc):
+            self.delete(namespace, key)
+            raise AccessError(f"Expired '{key}' under '{namespace}'")
+
         try:
             decrypted_value = self.cipher.decrypt(encrypted_value)
         except EncryptionError as error:
@@ -73,6 +82,12 @@ class MongoStore(SecretsStore):
             raise StoreError(
                 f"Failed to decrypt value for '{key}' under '{namespace}'"
             )
+
+        # If secret is ephemeral, delete it after reading
+        if result.get("ephemeral", False):
+            self.delete(namespace, key)
+
+        # Return the decrypted value as a UTF-8 string, if possible
         try:
             return decrypted_value.decode("utf-8")
         except UnicodeDecodeError as error:
@@ -80,8 +95,22 @@ class MongoStore(SecretsStore):
                 f"Failed to decrypt value for '{key}' under '{namespace}'"
             ) from error
 
-    def write(self, namespace: str, key: str, value: str):
-        """Write the `value` for `key` under `namespace`."""
+    def write(
+        self,
+        namespace: str,
+        key: str,
+        value: str,
+        expire_after: int = MAXIMUM_EXPIRATION_SECONDS,
+        ephemeral: bool = False,
+    ):
+        """Write the `value` for `key` under `namespace`.
+
+        :param namespace: The namespace under which to store the secret.
+        :param key: The key for the secret.
+        :param value: The value of the secret to store.
+        :param expire_after: Expiration time in seconds for the secret.
+        :param ephemeral: whether the secret should be deleted after being read
+        """
         try:
             encrypted_value = self.cipher.encrypt(
                 value=value.encode("utf-8"),
@@ -96,7 +125,14 @@ class MongoStore(SecretsStore):
         try:
             self.database.secrets[namespace].replace_one(
                 {"key": key},
-                {"key": key, "value": encrypted_value},
+                {
+                    "key": key,
+                    "value": encrypted_value,
+                    "updated_at": datetime.now(timezone.utc),
+                    "expire_at": datetime.now(timezone.utc)
+                    + timedelta(seconds=expire_after),
+                    "ephemeral": ephemeral,
+                },
                 upsert=True,
             )
         except OperationFailure as error:
