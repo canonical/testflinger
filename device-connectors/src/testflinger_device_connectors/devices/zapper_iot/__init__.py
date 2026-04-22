@@ -104,9 +104,7 @@ class DeviceConnector(ZapperConnector):
 
         attachments_dir = Path.cwd() / ATTACHMENTS_DIR / "provision"
         attachments = (
-            sorted(
-                p for p in attachments_dir.iterdir() if p.is_file()
-            )
+            sorted(p for p in attachments_dir.iterdir() if p.is_file())
             if attachments_dir.is_dir()
             else []
         )

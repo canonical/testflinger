@@ -73,6 +73,8 @@ ignore = [
 [tool.ruff.lint.pep8-naming]
 ignore-names = [
     "SerialLogger", # Function needs to follow snake_case, excluded to prevail style
+    "setUp",        # unittest.TestCase hook
+    "tearDown",     # unittest.TestCase hook
 ]
 
 [tool.ruff.lint.per-file-ignores]
