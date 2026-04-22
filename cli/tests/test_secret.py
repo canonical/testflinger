@@ -23,6 +23,7 @@ from unittest.mock import mock_open, patch
 import pytest
 
 import testflinger_cli
+from testflinger_cli.consts import DEFAULT_SECRET_EXPIRATION
 from testflinger_cli.enums import ServerRoles
 
 from .test_cli import URL
@@ -66,7 +67,10 @@ def test_secret_write(auth_fixture, capsys, requests_mock, test_path):
 
     # Verify the request was made with correct data
     last_request = requests_mock.last_request
-    assert last_request.json() == {"value": test_value}
+    assert last_request.json() == {
+        "value": test_value,
+        "expire_after": DEFAULT_SECRET_EXPIRATION,
+    }
 
 
 def test_secret_write_http_error(auth_fixture, requests_mock):
@@ -244,6 +248,65 @@ def test_secret_invalid_token_error(requests_mock, subcommand):
         tfcli.run()
 
     assert "Please reauthenticate with server" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("expiration", [60, 3600, 86400])
+def test_secret_write_with_expiration(auth_fixture, requests_mock, expiration):
+    """Test secret write sends correct expire_after value in request body."""
+    auth_fixture(ServerRoles.CONTRIBUTOR)
+    test_path = "my/secret/path"
+
+    requests_mock.put(
+        f"{URL}/v1/secrets/my_client_id/{test_path}",
+        text="OK",
+        status_code=HTTPStatus.OK,
+    )
+
+    sys.argv = [
+        "",
+        "secret",
+        "write",
+        test_path,
+        "secret_value",
+        "--expiration",
+        str(expiration),
+    ]
+
+    testflinger_cli.TestflingerCli().run()
+
+    assert requests_mock.last_request.json() == {
+        "value": "secret_value",
+        "expire_after": expiration,
+    }
+
+
+def test_secret_write_ephemeral(auth_fixture, requests_mock):
+    """Test secret write with expiration=0 sets ephemeral flag in request."""
+    auth_fixture(ServerRoles.CONTRIBUTOR)
+    test_path = "my/secret/path"
+
+    requests_mock.put(
+        f"{URL}/v1/secrets/my_client_id/{test_path}",
+        text="OK",
+        status_code=HTTPStatus.OK,
+    )
+
+    sys.argv = [
+        "",
+        "secret",
+        "write",
+        test_path,
+        "secret_value",
+        "--expiration",
+        "0",
+    ]
+
+    testflinger_cli.TestflingerCli().run()
+
+    assert requests_mock.last_request.json() == {
+        "value": "secret_value",
+        "ephemeral": True,
+    }
 
 
 @pytest.mark.parametrize(
