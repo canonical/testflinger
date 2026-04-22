@@ -51,10 +51,14 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             self.on.update_testflinger_action,
             self.on_update_testflinger_action,
         )
-        self.scrape_jobs = []
         self._grafana_agent = COSAgentProvider(
             self,
             scrape_configs=self.get_scrape_jobs,
+            refresh_events=[
+                self.on.config_changed,
+                self.on.update_configs_action,
+                self.on.upgrade_charm,
+            ],
         )
         self.framework.observe(self.on.secret_changed, self._on_secret_changed)
         self.framework.observe(self.on.update_status, self._on_update_status)
@@ -142,7 +146,6 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         ) as service_template:
             template = Template(service_template.read())
 
-        self.scrape_jobs = []
         for agent_dir in agent_dirs:
             agent_config_path = agent_dir
             agent_name = agent_dir.name
@@ -162,15 +165,6 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
                 agent_config_path=agent_config_path,
                 virtual_env_path=VIRTUAL_ENV_PATH,
                 metric_endpoint_port=metric_endpoint_port,
-            )
-            self.scrape_jobs.append(
-                {
-                    "job_name": agent_name,
-                    "metrics_path": "/metrics",
-                    "static_configs": [
-                        {"targets": [f"localhost:{metric_endpoint_port}"]}
-                    ],
-                }
             )
 
             with open(
@@ -324,7 +318,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         self.unit.status = ops.ActiveStatus()
 
     def get_scrape_jobs(self):
-        return self.scrape_jobs
+        return supervisord.get_supervisor_scrape_jobs()
 
 
 if __name__ == "__main__":

@@ -64,6 +64,24 @@ def get_supervisor_agents_port_mapping() -> dict[str, int]:
     return agent_port_mapping
 
 
+def get_supervisor_scrape_jobs() -> list[dict]:
+    """Build scrape jobs from persisted supervisor configs.
+
+    Returns:
+        list[dict]: COS-compatible scrape jobs for each configured agent.
+    """
+    return [
+        {
+            "job_name": agent_name,
+            "metrics_path": "/metrics",
+            "static_configs": [{"targets": [f"localhost:{port}"]}],
+        }
+        for agent_name, port in sorted(
+            get_supervisor_agents_port_mapping().items()
+        )
+    ]
+
+
 def parse_supervisor_config_file(
     conf_path: str,
 ) -> Tuple[Optional[str], Optional[int]]:
