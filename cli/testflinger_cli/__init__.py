@@ -49,7 +49,10 @@ from testflinger_cli import (
 )
 from testflinger_cli.admin import TestflingerAdminCLI
 from testflinger_cli.auth import TestflingerCliAuth
-from testflinger_cli.consts import DEFAULT_RESERVE_TIMEOUT
+from testflinger_cli.consts import (
+    DEFAULT_RESERVE_TIMEOUT,
+    DEFAULT_SECRET_EXPIRATION,
+)
 from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import (
     AttachmentError,
@@ -589,6 +592,12 @@ class TestflingerCli:
             "path", help="Path for the secret", type=helpers.regex_path
         )
         write_parser.add_argument("value", help="Value of the secret")
+        write_parser.add_argument(
+            "--expiration",
+            help="Seconds for the secret to live (0 for ephemeral secret)",
+            type=int,
+            default=DEFAULT_SECRET_EXPIRATION,
+        )
         self._add_auth_args(write_parser)
 
         # secret delete command
@@ -1862,7 +1871,11 @@ class TestflingerCli:
         if auth_headers is None or self.auth.client_id is None:
             sys.exit("Error writing secret: Authentication is required")
 
-        secret_data = {"value": self.args.value}
+        secret_data = {"value": self.args.value} | (
+            {"expire_after": self.args.expiration}
+            if self.args.expiration > 0
+            else {"ephemeral": True}
+        )
 
         endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
