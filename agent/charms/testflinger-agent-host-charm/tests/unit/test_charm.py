@@ -50,6 +50,47 @@ def test_update_tf_cmd_scripts_on_config_changed(
     mock_update_scripts.assert_called_once()
 
 
+@patch("charm.COSAgentProvider")
+@patch("charm.supervisord.get_supervisor_scrape_jobs")
+def test_cos_provider_reads_scrape_jobs_from_supervisor_configs(
+    mock_get_scrape_jobs,
+    mock_cos_provider,
+    ctx,
+    state_in,
+):
+    """Test scrape job publication uses persisted supervisor configs."""
+    expected_scrape_jobs = [
+        {
+            "job_name": "agent1",
+            "metrics_path": "/metrics",
+            "static_configs": [{"targets": ["localhost:8000"]}],
+        }
+    ]
+    mock_get_scrape_jobs.return_value = expected_scrape_jobs
+
+    ctx.run(ctx.on.start(), state=state_in())
+
+    scrape_configs = mock_cos_provider.call_args.kwargs["scrape_configs"]
+    assert scrape_configs() == expected_scrape_jobs
+
+
+@patch("charm.COSAgentProvider")
+def test_cos_provider_refreshes_on_update_configs_action(
+    mock_cos_provider,
+    ctx,
+    state_in,
+):
+    """Test COS refresh is wired to the expected charm events."""
+    ctx.run(ctx.on.start(), state=state_in())
+
+    refresh_events = mock_cos_provider.call_args.kwargs["refresh_events"]
+    assert [event.event_kind for event in refresh_events] == [
+        "config_changed",
+        "update_configs_action",
+        "upgrade_charm",
+    ]
+
+
 def test_blocked_on_no_secret(ctx, state_in, caplog):
     """Test blocked status when credentials-secret config is not set."""
     state_out = ctx.run(ctx.on.start(), state=state_in())
