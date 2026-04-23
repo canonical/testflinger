@@ -1,103 +1,79 @@
-# Juju deployment
+# Terraform module for Testflinger Server
 
-Local Juju and charm deployment via microk8s and terraform.
+This is a Terraform module facilitating the deployment of the Testflinger Server
+charm, using the [Terraform Juju provider][juju-provider]. For more information,
+refer to the provider [documentation][juju-provider-docs].
 
-## Setup a juju environment
+## Requirements
 
-It is recommended to install the pre-requisites on a VM rather than your host machine. To do so, first install multipass:
+This module requires a Juju model UUID to be available. Refer to the [usage section](#usage)
+below for more details.
 
-```bash
-sudo snap install multipass
+## API
+
+### Inputs
+
+The module offers the following configurable inputs:
+
+| Name | Type | Description | Required |
+| - | - | - | - |
+| `app_name` | string | Name of the Testflinger server application | False |
+| `base` | string | Operating system base to use for the Testflinger server charm | False |
+| `channel` | string | Channel to use for the charm | False |
+| `config` | map(string) | Map of charm config options | False |
+| `constraints` | string | Constraints to use for the Testflinger server application | False |
+| `model_uuid` | string | UUID of the Juju model to deploy into | True |
+| `revision` | number | Revision of the charm to use | False |
+| `units` | number | Number of units for the Testflinger server application | False |
+
+
+### Outputs
+
+| Name | Type | Description |
+| - | - | - |
+| `application` | object | The deployed application object |
+| `provides` | map(string) | Map of provides integration endpoints |
+| `requires` | map(string) | Map of requires integration endpoints |
+
+## Usage
+This module is intended to be used as part of a higher-level module.
+When defining one, users should ensure that Terraform is aware of the `model_uuid`
+dependency of the charm module.
+
+### Define a `data` source
+
+Define a `data.juju_model` source that looks up the target Juju model by name,
+and pass the resulting UUID to the `model_uuid` input using `data.juju_model.<resource-name>.uuid`.
+This ensures Terraform resolves the model data source before applying the module. 
+If the named model cannot be found, Terraform will fail during planning or apply 
+before creating any resources.
+
+```hcl
+data "juju_model" "testflinger_dev" {
+  name = "<model-name>"
+}
 ```
 
-Then launch a new VM instance using (this will take a while):
+### Create module
 
-```bash
-multipass launch noble --disk 50G --memory 4G --cpus 2 --name testflinger-juju --mount /path/to/testflinger:/home/ubuntu/testflinger --cloud-init /path/to/testflinger/server/terraform/cloud-init.yaml --timeout 1200
+Then call the module:
+
+```hcl
+module "testflinger" {
+  source          = "git::https://github.com/canonical/testflinger.git//server/terraform?ref=<tag>"
+  model_uuid      = data.juju_model.testflinger_dev.uuid
+  app_name        = "<name>"
+  config     = {
+      external_hostname              = "testflinger.local"
+      http_proxy                     = ""
+      https_proxy                    = ""
+      no_proxy                       = "localhost,127.0.0.1,::1"
+      max_pool_size                  = "100"
+      jwt_signing_key                = var.jwt_signing_key
+      testflinger_secrets_master_key = var.testflinger_secrets_master_key
+  }
+}
 ```
 
-Feel free to increase the storage, memory, cpu limits or change the VM name.
-
-Note that the initialization may timeout. That's fine as long as the setup actually completed. You can tell that the setup completed by checking if there are juju models created already:
-
-```bash
-multipass exec testflinger-juju -- juju models
-```
-
-## Initialize project's terraform
-
-Now that everything has been set up, you can initialize the project's terraform.
-
-In the terraform directory on your host machine, run:
-
-```bash
-multipass exec testflinger-juju -- terraform init
-```
-
-## Deploy everything
-
-In the terraform directory on your host machine, run:
-
-```bash
-multipass exec testflinger-juju -- terraform apply -auto-approve
-```
-
-Then wait for the deployment to settle and all the statuses to become active. You can watch the statuses via:
-
-```bash
-multipass exec testflinger-juju -- juju status --storage --relations --watch 5s
-```
-
-## Connect to your deployment
-
-Look at the IPv4 addresses of your testflinger-juju vm through:
-
-```bash
-multipass info testflinger-juju
-```
-
-One of these connect to the ingress enabled inside the VM. To figure out which one try the following command on each IP address until you get response:
-
-```bash
-curl --connect-to ::<ip-address> http://testflinger.local
-```
-
-Once you find the IP address add the following entry to your host machine's `/etc/hosts` file:
-
-```text
-<ip-address>   testflinger.local
-```
-
-After that you should be able to get to Testflinger frontend on your host machine's browser through the url `http://testflinger.local`. You should also be able to access the API through `http://testflinger.local/v1/`.
-
-## Teardown
-
-To take everything down you can start with terraform:
-
-```bash
-multipass exec testflinger-juju -- terraform destroy -auto-approve
-```
-
-The above step can take a while and may even get stuck with some applications in error state. You can watch it through:
-
-```bash
-multipass exec testflinger-juju -- juju status --storage --relations --watch 5s
-```
-
-To forcefully remove applications stuck in error state:
-
-```bash
-multipass exec testflinger-juju -- juju remove-application <application-name> --destroy-storage --force
-```
-
-Once everything is down and the juju model has been deleted you can stop the multipass VM:
-
-```bash
-multipass stop testflinger-juju
-```
-
-Optionally, delete the VM:
-
-```bash
-multipass delete --purge testflinger-juju
-```
+[juju-provider]: https://github.com/juju/terraform-provider-juju/
+[juju-provider-docs]: https://registry.terraform.io/providers/juju/juju/latest/docs

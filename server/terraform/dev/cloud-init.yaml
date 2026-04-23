@@ -25,6 +25,6 @@ runcmd:
     sed -i "s|server: .*|server: $server_url|g" /var/snap/microk8s/current/credentials/client.config
   - sudo -i -u ubuntu snap run juju add-cloud microk8s --controller localhost-controller
   - sudo -i -u ubuntu snap run juju add-model testflinger-dev-db localhost
-  - sudo -i -u ubuntu snap run juju deploy mongodb --channel 5/edge
+  - sudo -i -u ubuntu snap run juju deploy mongodb --channel 6/edge
   - sudo -i -u ubuntu snap run juju offer testflinger-dev-db.mongodb:database mongodb
   - sudo -i -u ubuntu snap run juju add-model testflinger-dev microk8s

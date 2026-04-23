@@ -1,7 +1,9 @@
 # Copyright (C) 2025 Canonical Ltd.
 """Tests for the helpers of Testflinger CLI."""
 
+import re
 import textwrap
+from argparse import ArgumentTypeError
 from pathlib import Path
 from unittest.mock import patch
 
@@ -14,6 +16,7 @@ from testflinger_cli.helpers import (
     is_snap,
     parse_filename,
     pretty_yaml_dump,
+    regex_arg,
 )
 
 
@@ -119,3 +122,42 @@ def test_prompt_for_queue_unknown_decline(mock_input):
 
     result = prompt_for_queue(queues)
     assert result == "queue1"
+
+
+def test_regex_arg_valid_pattern():
+    """Test regex_arg compiles valid regex patterns."""
+    pattern = regex_arg(r"test\d+")
+    assert isinstance(pattern, re.Pattern)
+    assert pattern.match("test123") is not None
+    assert pattern.match("testxyz") is None
+
+
+def test_regex_arg_simple_pattern():
+    """Test regex_arg with simple pattern."""
+    pattern = regex_arg("hello")
+    assert isinstance(pattern, re.Pattern)
+    assert pattern.search("hello world") is not None
+    assert pattern.search("goodbye") is None
+
+
+def test_regex_arg_complex_pattern():
+    """Test regex_arg with complex regex pattern."""
+    pattern = regex_arg(r"^[a-z]+@[a-z]+\.[a-z]+$")
+    assert isinstance(pattern, re.Pattern)
+    assert pattern.match("test@example.com") is not None
+    assert pattern.match("invalid.email") is None
+
+
+def test_regex_arg_invalid_pattern():
+    """Test regex_arg raises ArgumentTypeError for invalid regex."""
+    with pytest.raises(ArgumentTypeError) as exc_info:
+        regex_arg(r"[invalid")
+    assert "Invalid regex" in str(exc_info.value)
+    assert "[invalid" in str(exc_info.value)
+
+
+def test_regex_arg_empty_pattern():
+    """Test regex_arg with empty pattern."""
+    pattern = regex_arg("")
+    assert isinstance(pattern, re.Pattern)
+    assert pattern.search("anything") is not None

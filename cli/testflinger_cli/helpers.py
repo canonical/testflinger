@@ -1,6 +1,8 @@
 # Copyright (C) 2025 Canonical Ltd.
 """Helpers for the Testflinger CLI."""
 
+import argparse
+import re
 from datetime import datetime
 from os import getenv
 from pathlib import Path
@@ -10,6 +12,11 @@ import yaml
 
 from testflinger_cli.consts import SNAP_NAME, SNAP_PRIVATE_DIRS
 from testflinger_cli.errors import SnapPrivateFileError
+
+# Only accept paths that are separated by forward slashes
+# Expected format should not start or end with a slash
+# Examples of valid paths: "path", "my/secret/path"
+PATH_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$")
 
 
 def is_snap() -> bool:
@@ -194,3 +201,58 @@ def format_timestamp(timestamp_str: str) -> str:
         return dt.strftime("%Y-%m-%d %H:%M:%S")
     except (ValueError, AttributeError):
         return timestamp_str
+
+
+def parse_comma_list(choices: tuple | list[str]) -> callable:
+    """Create a comma-separated list parser.
+
+    :param choices: List of valid choices for each item in the
+        comma-separated list.
+    :return: A parser function that accepts comma-separated input and
+        returns a list of validated strings.
+    """
+
+    def _parse_comma_list(arg: str) -> list[str]:
+        value_list = [item.strip() for item in arg.split(",")]
+        for item in value_list:
+            if item not in choices:
+                raise argparse.ArgumentTypeError(
+                    f"invalid choice: '{item}' (choose from "
+                    f"{', '.join(choices)})"
+                )
+        return value_list
+
+    return _parse_comma_list
+
+
+def regex_arg(value):
+    """Compile and validate a regex pattern argument.
+
+    :param value: The regex pattern string to compile
+    :return: Compiled regex pattern
+    :raises ArgumentTypeError: If the regex pattern is invalid
+    """
+    try:
+        return re.compile(value)
+    except re.error as err:
+        raise argparse.ArgumentTypeError(
+            f"Invalid regex '{value}', error: {str(err)}"
+        ) from err
+
+
+def regex_path(value, pattern: re.Pattern = PATH_PATTERN):
+    """Validate that a file path argument is a valid regex pattern.
+
+    :param value: The file path string to validate
+    :param pattern: The regex pattern to validate against
+    :return: The original value if valid
+    :raises ArgumentTypeError: If the value does not match the regex pattern
+    """
+    if not pattern.match(value):
+        raise argparse.ArgumentTypeError(
+            f"Invalid value '{value}', not a valid path. \n"
+            "Paths must only contain alphanumeric characters, hyphens (-), "
+            "underscores (_), and forward slashes (/). Additionally, "
+            "paths must not start or end with a forward slash (/)."
+        )
+    return value

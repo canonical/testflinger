@@ -1,7 +1,12 @@
-Maintain a Testflinger Agent Host
-==================================
+.. _howto-manage-agent-host:
 
-This guide outlines how to maintain a Testflinger agent host deployed with Juju.
+Maintain a Testflinger Agent Host
+=================================
+
+For disambiguation between Agents from Agent Host Charms see :ref:`explain_agents`
+and for guidance on Agent administration see: :ref:`howto-manage-agent`.
+
+This guide outlines how to maintain a Testflinger agent host deployed as a Juju charm.
 To deploy a Testflinger agent host, please read the :doc:`deploy-testflinger-agent-host` how-to guide.
 
 Pull latest code from Git
@@ -31,11 +36,11 @@ pulled regularly. To pull any updates to the configurations, run the
 
   $ juju run <agent-host-charm-unit> update-configs
 
-
 The updated configurations will be applied and the agents will be restarted. If
 the agents are currently reserved or in a state where they cannot be restarted,
 then the updated configurations will not be applied until those agents are
 restarted.
+
 
 Update TF Scripts
 ------------------
@@ -91,8 +96,8 @@ Stopping and restarting agents
 
 .. note::
 
-  The preferred way to handle agent status is via the CLI by following the instructions in the
-  :ref:`handling-agent-status` documentation.
+  The preferred way to handle agent status is via the CLI by following the
+  instructions in the :ref:`handling-agent-status` documentation.
 
 You can use the following command to stop a specific agent:
 
@@ -103,9 +108,20 @@ You can use the following command to stop a specific agent:
 Be aware that other actions on the charm such as ``update-configs`` might later
 cause this to restart the agents.
 
-To signal an agent to safely restart when it's no longer running a job, you can
-run:
+
+Restarting an agent
+^^^^^^^^^^^^^^^^^^^
+
+When an agent needs to be re-executed due to something like a code
+update or a configuration change, it is important to shut it down safely so
+that it does not interfere with a job currently running. To signal an agent to
+safely restart when it's no longer running a job, you can run:
 
 .. code-block:: shell
 
    $ sudo supervisorctl signal USR1 <agent name>
+
+This method will cause the agent to exit when it is no longer running
+a job. You will need to ensure something like ``systemd`` or ``supervisord``
+is watching the agent process and restarting it if it exits in order to
+actually restart the agent.

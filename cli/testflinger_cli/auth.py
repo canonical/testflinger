@@ -26,7 +26,7 @@ import jwt
 from xdg_base_dirs import xdg_config_home
 
 from testflinger_cli import client
-from testflinger_cli.consts import ServerRoles
+from testflinger_cli.enums import ServerRoles
 from testflinger_cli.errors import (
     AuthenticationError,
     AuthorizationError,

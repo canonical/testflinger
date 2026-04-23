@@ -21,13 +21,14 @@ import contextlib
 import json
 import logging
 import os
+import re
 import sys
 import tarfile
 import tempfile
 import time
-from argparse import ArgumentParser
+from argparse import ArgumentParser, RawTextHelpFormatter
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import partial
 from http import HTTPStatus
 from pathlib import Path
@@ -48,6 +49,7 @@ from testflinger_cli import (
 )
 from testflinger_cli.admin import TestflingerAdminCLI
 from testflinger_cli.auth import TestflingerCliAuth
+from testflinger_cli.consts import DEFAULT_RESERVE_TIMEOUT
 from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import (
     AttachmentError,
@@ -56,6 +58,7 @@ from testflinger_cli.errors import (
     SnapPrivateFileError,
     UnknownStatusError,
 )
+from testflinger_cli.status_line import StatusLine
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +66,38 @@ logger = logging.getLogger(__name__)
 basedir = os.path.abspath(os.path.join(__file__, ".."))
 if os.path.exists(os.path.join(basedir, "setup.py")):
     sys.path.insert(0, basedir)
+
+STYLE_BOLD = "\033[1m"
+STYLE_RESET_ALL = "\033[0m"
+
+# Top-level (gross) states
+VALID_STATES = frozenset({"online", "offline", "maintenance"})
+# Define fine-grained state groupings and display order
+ONLINE_STATES = (
+    "waiting",
+    "setup",
+    "provision",
+    "firmware_update",
+    "test",
+    "allocate",
+    "reserve",
+    "cleanup",
+)
+OFFLINE_STATES = (
+    "offline",
+    "maintenance",
+)
+POSSIBLE_STATES = frozenset(VALID_STATES | set(ONLINE_STATES))
+
+FIELDS_CHOICES = (
+    "name",
+    "status",
+    "location",
+    "provision_type",
+    "comment",
+    "job_id",
+    "queues",
+)
 
 
 def cli():
@@ -79,6 +114,8 @@ def cli():
         sys.exit("Received KeyboardInterrupt")
     except (CredentialsError, NetworkError) as exc:
         sys.exit(exc)
+    finally:
+        StatusLine.stop()
 
 
 class TestflingerCli:
@@ -152,6 +189,7 @@ class TestflingerCli:
         self._add_cancel_args(subparsers)
         self._add_config_args(subparsers)
         self._add_jobs_args(subparsers)
+        self._add_list_agent_args(subparsers)
         self._add_list_queues_args(subparsers)
         self._add_login_args(subparsers)
         self._add_poll_args(subparsers)
@@ -291,7 +329,7 @@ class TestflingerCli:
     def _add_poll_args(self, subparsers):
         """Command line arguments for poll."""
         parser = subparsers.add_parser(
-            "poll", help="Poll for output from a job until it is completed"
+            "poll", help="Poll for output from a job until it is complete"
         )
         parser.set_defaults(func=self.poll_output)
         self._add_poll_args_generic(parser)
@@ -300,7 +338,7 @@ class TestflingerCli:
         """Command line arguments for poll-serial."""
         parser = subparsers.add_parser(
             "poll-serial",
-            help="Poll for serial output from a job until it is completed",
+            help="Poll for serial output from a job until it is complete",
         )
         parser.set_defaults(func=self.poll_serial)
         self._add_poll_args_generic(parser)
@@ -318,10 +356,11 @@ class TestflingerCli:
             help="Only show the job data, don't submit it",
         )
         parser.add_argument("--queue", "-q", help="Name of the queue to use")
-        parser.add_argument(
+        subgroup = parser.add_mutually_exclusive_group()
+        subgroup.add_argument(
             "--image", "-i", help="Name of the image to use for provisioning"
         )
-        parser.add_argument(
+        subgroup.add_argument(
             "--distro", help="Name of the distro to use for provisioning"
         )
         parser.add_argument(
@@ -342,8 +381,14 @@ class TestflingerCli:
         parser.add_argument(
             "--timeout",
             type=int,
-            default=3600,
-            help="Reservation timeout in seconds (default 3600)",
+            default=DEFAULT_RESERVE_TIMEOUT,
+            help="Reservation timeout in seconds (default "
+            f"{DEFAULT_RESERVE_TIMEOUT})",
+        )
+        parser.add_argument(
+            "--ephemeral",
+            action="store_true",
+            help="MAAS ephemeral (in-memory) deployment.",
         )
 
     def _add_status_args(self, subparsers):
@@ -367,6 +412,98 @@ class TestflingerCli:
             "--json", action="store_true", help="Print output in JSON format"
         )
 
+    def _add_list_agent_args(self, subparsers: object) -> None:
+        """Command line arguments for list of agents.
+
+        :param subparsers: The subparsers object from argparse
+        """
+        parser = subparsers.add_parser(
+            "list-agents",
+            help="List agents with optional filtering",
+            formatter_class=RawTextHelpFormatter,
+        )
+        parser.set_defaults(func=self.list_agents)
+        subgroup = parser.add_mutually_exclusive_group()
+        subgroup.add_argument(
+            "-1",
+            dest="single_column",
+            action="store_true",
+            help="Single-column list of one agent name per line (suitable for "
+            "piping)",
+        )
+        subgroup.add_argument(
+            "--summary",
+            action="store_true",
+            help="Show summary of online/offline agent counts",
+        )
+        subgroup.add_argument(
+            "--fields",
+            type=helpers.parse_comma_list(choices=FIELDS_CHOICES),
+            default=[
+                "name",
+                "status",
+                "location",
+                "provision_type",
+                "comment",
+            ],
+            help=(
+                "Fields to display in the agent table (comma-separated)."
+                f" Available fields: {', '.join(FIELDS_CHOICES)}."
+                " Default: name,status,location,provision_type,comment"
+            ),
+        )
+        parser.add_argument(
+            "--filter-status",
+            dest="filter_status",
+            type=helpers.parse_comma_list(
+                choices=[x.strip() for x in POSSIBLE_STATES]
+                + [f"^{x.strip()}" for x in POSSIBLE_STATES]
+            ),
+            default=None,
+            help=(
+                "Filter agents by status (comma-separated). "
+                "Use ^ prefix to exclude.\n"
+                f"Gross: {', '.join(VALID_STATES)}\n"
+                f"Fine: {', '.join(ONLINE_STATES)}\n"
+                "Example: --filter-status online,^waiting"
+            ),
+        )
+        parser.add_argument(
+            "--filter-name",
+            dest="filter_name",
+            type=helpers.regex_arg,
+            default=None,
+            help="Filter agents by name (regex)",
+        )
+        parser.add_argument(
+            "--filter-queues",
+            dest="filter_queues",
+            type=helpers.regex_arg,
+            default=None,
+            help="Filter agents by queues (regex, matches any queue)",
+        )
+        parser.add_argument(
+            "--filter-location",
+            dest="filter_location",
+            type=helpers.regex_arg,
+            default=None,
+            help="Filter agents by location (regex)",
+        )
+        parser.add_argument(
+            "--filter-provision-type",
+            dest="filter_provision_type",
+            type=helpers.regex_arg,
+            default=None,
+            help="Filter agents by provision-type (regex)",
+        )
+        parser.add_argument(
+            "--filter-comment",
+            dest="filter_comment",
+            type=helpers.regex_arg,
+            default=None,
+            help="Filter agents by comment (regex)",
+        )
+
     def _add_queue_status_args(self, subparsers):
         """Command line arguments for queue status."""
         parser = subparsers.add_parser(
@@ -388,7 +525,7 @@ class TestflingerCli:
     def _add_results_args(self, subparsers):
         """Command line arguments for results."""
         parser = subparsers.add_parser(
-            "results", help="Get results JSON for a completed JOB_ID"
+            "results", help="Get results JSON for a complete JOB_ID"
         )
         parser.set_defaults(func=self.results)
         parser.add_argument("job_id").completer = partial(
@@ -448,7 +585,9 @@ class TestflingerCli:
             "write", help="Write a secret value"
         )
         write_parser.set_defaults(func=self.secret_write)
-        write_parser.add_argument("path", help="Path for the secret")
+        write_parser.add_argument(
+            "path", help="Path for the secret", type=helpers.regex_path
+        )
         write_parser.add_argument("value", help="Value of the secret")
         self._add_auth_args(write_parser)
 
@@ -458,7 +597,9 @@ class TestflingerCli:
         )
         delete_parser.set_defaults(func=self.secret_delete)
         delete_parser.add_argument(
-            "path", help="Path for the secret to delete"
+            "path",
+            help="Path for the secret to delete",
+            type=helpers.regex_path,
         )
         self._add_auth_args(delete_parser)
 
@@ -507,6 +648,216 @@ class TestflingerCli:
             output = agent_status["state"]
         print(output)
 
+    def list_agents(self) -> None:
+        """List agents with optional filtering."""
+        try:
+            agents = self.client.get_all_agents()
+        except client.HTTPError as exc:
+            sys.exit(f"Error retrieving agents: {exc.msg}")
+        except (IOError, ValueError) as exc:
+            logger.debug("Unable to retrieve agents: %s", exc)
+            sys.exit(f"Error retrieving agents: {exc}")
+
+        # Filter agents based on arguments
+        filtered_agents = self._filter_agents(agents)
+
+        # Display output based on flags
+        if self.args.summary:
+            # just a summary of counts per status
+            self._print_agent_summary(filtered_agents)
+        elif self.args.single_column:
+            # single-column flag: machine names only
+            self._print_agent_names(filtered_agents)
+        else:
+            # table with details, supporting --fields
+            self._print_agent_table(filtered_agents)
+
+    def _filter_agents(self, agents: list[dict]) -> list[dict]:
+        """Filter agents based on command line arguments.
+
+        :param agents: List of agent dictionaries
+        :return: Filtered list of agents
+        """
+
+        def status_filter(a: dict) -> bool:
+            # Filter by status
+            if self.args.filter_status:
+                # Separate included and excluded statuses
+                allowed_states = {
+                    s for s in self.args.filter_status if not s.startswith("^")
+                }
+                if "online" in allowed_states:
+                    allowed_states.update(ONLINE_STATES)
+                if "offline" in allowed_states:
+                    allowed_states.update(OFFLINE_STATES)
+                # Start with all states if only exclusions are specified
+                if not allowed_states:
+                    # Only exclusions: start with all possible states
+                    allowed_states = set(POSSIBLE_STATES)
+
+                excluded_statuses = {
+                    s[1:] for s in self.args.filter_status if s.startswith("^")
+                }
+                if "online" in excluded_statuses:
+                    allowed_states.difference_update(ONLINE_STATES)
+                if "offline" in excluded_statuses:
+                    allowed_states.difference_update(OFFLINE_STATES)
+                allowed_states.difference_update(excluded_statuses)
+
+                return a.get("state") in allowed_states
+            else:
+                return True
+
+        # queues are a list within each agent dictionary
+        def queue_filter(agent: dict) -> bool:
+            return (
+                any(
+                    self.args.filter_queues.search(str(q))
+                    for q in agent.get("queues", [])
+                )
+                if self.args.filter_queues
+                else True
+            )
+
+        # everything else operates on a single value under the agent dictionary
+        def re_filter(field: str, regex: object) -> callable:
+            if regex:
+                return lambda a: regex.search(str(a.get(field, "")))
+            return lambda a: True
+
+        # Filter agents by allowed states
+        return [
+            a
+            for a in agents
+            if all(
+                (
+                    status_filter(a),
+                    queue_filter(a),
+                    re_filter("name", self.args.filter_name)(a),
+                    re_filter("location", self.args.filter_location)(a),
+                    re_filter(
+                        "provision_type", self.args.filter_provision_type
+                    )(a),
+                    re_filter("comment", self.args.filter_comment)(a),
+                )
+            )
+        ]
+
+    def _print_agent_summary(self, agents: list[dict]) -> None:
+        """Print summary of agent statuses grouped by online/offline.
+
+        Agent states follow the job execution phase order, with offline states
+        displayed last.
+
+        :param agents: List of agent dictionaries to summarize
+        """
+        # Count per state
+        state_counts = {}
+        for a in agents:
+            state = a.get("state", "unknown")
+            state_counts[state] = state_counts.get(state, 0) + 1
+
+        # Calculate totals
+        overall_online = sum(
+            count
+            for state, count in state_counts.items()
+            if state in ONLINE_STATES
+        )
+        overall_offline = sum(
+            count
+            for state, count in state_counts.items()
+            if state in OFFLINE_STATES
+        )
+
+        # Print header
+        print(
+            "  ".join(
+                f"{STYLE_BOLD}{h.upper():<{w}}{STYLE_RESET_ALL}"
+                for h, w in zip(
+                    ["State", "Count", "Total"], (16, 6, 6), strict=True
+                )
+            )
+        )
+        # Print summary
+        print(f"Online:                   {overall_online}")
+        for state in ONLINE_STATES:
+            count = state_counts.get(state, 0)
+            if count > 0:
+                print(f"  {state:<16}{count}")
+
+        print(f"Offline:                  {overall_offline}")
+        for state in OFFLINE_STATES:
+            count = state_counts.get(state, 0)
+            if count > 0:
+                print(f"  {state:<16}{count}")
+
+    def _print_agent_table(self, agents: list[dict]) -> None:
+        """Print agents in table format, supporting custom fields.
+
+        :param agents: List of agent dictionaries to display in table format
+        """
+        if not agents:
+            print("No agents found matching the filter criteria.")
+            return
+
+        # Map 'status' to 'state' in agent dicts for backward compatibility
+        field_map = {"status": "state"}
+
+        # Header names and valid fields
+        header_map = {
+            "name": "Name",
+            "status": "Status",
+            "location": "Location",
+            "provision_type": "Provision Type",
+            "comment": "Comment",
+            "job_id": "Job ID",
+            "queues": "Queues",
+        }
+        headers = [header_map[f] for f in self.args.fields]
+
+        # Calculate column widths
+        col_widths = []
+        for field, header in zip(self.args.fields, headers, strict=False):
+            key = field_map.get(field, field)
+            width = max(
+                len(header),
+                max(
+                    (len(str(agent.get(key, "-"))) for agent in agents),
+                    default=0,
+                ),
+            )
+            col_widths.append(width)
+
+        # Print header
+        print(
+            "  ".join(
+                f"{STYLE_BOLD}{h.upper():<{w}}{STYLE_RESET_ALL}"
+                for h, w in zip(headers, col_widths, strict=True)
+            )
+        )
+        # Print rows
+        for agent in agents:
+            row = []
+            for f, w in zip(self.args.fields, col_widths, strict=True):
+                key = field_map.get(f, f)
+                val = agent.get(key, "-")
+                # Convert list values to comma-separated string
+                if isinstance(val, list):
+                    val = ", ".join(str(v) for v in val)
+                row.append(f"{val:<{w}}")
+            print("  ".join(row))
+
+    def _print_agent_names(self, agents: list[dict]) -> None:
+        """Print agent names only (one per line).
+
+        Outputs one agent name per line, suitable for piping to other
+        commands.
+
+        :param agents: List of filtered agent dictionaries
+        """
+        for agent in agents:
+            print(agent.get("name", ""))
+
     def queue_status(self):
         """Show agent and job status in a specified queue."""
         # Get agent and job status data
@@ -551,6 +902,34 @@ class TestflingerCli:
 
         except UnknownStatusError as exc:
             sys.exit(exc)
+
+    def get_job_data(self, job_id: str) -> dict | None:
+        """Get the data for the specified job ID.
+
+        Retrieves job information (state, timeouts, provisioning/reserve data)
+        and phase information from the server. Raises specific errors for
+        missing data or invalid job IDs, returns None for other failures.
+
+        :param job_id: Job ID to retrieve data for
+        :raises NoJobDataError: When HTTP 204 (no data found)
+        :raises InvalidJobIdError: When HTTP 400 (invalid job ID)
+        :raises IOError: When network error occurs
+        :raises ValueError: When response cannot be parsed
+        :return: Job and phase statuses, or None if retrieval fails
+        """
+        try:
+            return self.client.get_job_data(job_id)
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NO_CONTENT:
+                raise errors.NoJobDataError from exc
+            if exc.status == HTTPStatus.BAD_REQUEST:
+                raise errors.InvalidJobIdError from exc
+            # re-raise any other HTTPError
+            raise
+        except (IOError, ValueError) as exc:
+            # For other types of network errors, or JSONDecodeError, log it.
+            logger.debug("Unable to retrieve job state: %s", exc)
+        return None
 
     def _get_jobs_status(self):
         """Retrieve the status of jobs in a specified queue."""
@@ -647,7 +1026,7 @@ class TestflingerCli:
                 [
                     f"Jobs waiting:    {len(jobs_status['jobs_waiting'])}",
                     f"Jobs running:    {len(jobs_status['jobs_running'])}",
-                    f"Jobs completed:  {len(jobs_status['jobs_completed'])}",
+                    f"Jobs completed:   {len(jobs_status['jobs_completed'])}",
                 ]
             )
 
@@ -667,7 +1046,7 @@ class TestflingerCli:
             if exc.status == HTTPStatus.BAD_REQUEST:
                 sys.exit(
                     "Invalid job ID specified or the job is already "
-                    "completed/cancelled."
+                    "complete/cancelled."
                 )
             raise
 
@@ -929,7 +1308,7 @@ class TestflingerCli:
                             "that requires client authorisation "
                             "without using client credentials. \n"
                             "See https://testflinger.readthedocs.io/en/latest"
-                            "/how-to/authentication.html for more details"
+                            "/how-to/authentication/ for more details"
                         )
                 else:
                     # This shouldn't happen, so let's get more information
@@ -989,21 +1368,17 @@ class TestflingerCli:
     def show(self):
         """Show the requested job JSON for a specified JOB_ID."""
         try:
-            results = self.client.show_job(self.args.job_id)
-        except client.HTTPError as exc:
-            if exc.status == HTTPStatus.NO_CONTENT:
-                sys.exit("No data found for that job id.")
-            if exc.status == HTTPStatus.BAD_REQUEST:
-                sys.exit(
-                    "Invalid job id specified. Check the job id "
-                    "to be sure it is correct"
-                )
-            # This shouldn't happen, so let's get more information
-            logger.error(
-                "Unexpected error status from testflinger server: %s",
-                exc.status,
+            results = self.get_job_data(self.args.job_id)
+        except errors.NoJobDataError:
+            sys.exit("No data found for that job id.")
+        except errors.InvalidJobIdError:
+            sys.exit(
+                "Invalid job id specified. Check the job id "
+                "to be sure it is correct"
             )
-            sys.exit(1)
+        except client.HTTPError as exc:
+            sys.exit(exc.msg)
+
         if self.args.yaml:
             to_print = helpers.pretty_yaml_dump(
                 results, sort_keys=True, indent=4, default_flow_style=False
@@ -1013,7 +1388,7 @@ class TestflingerCli:
         print(to_print)
 
     def results(self):
-        """Get results JSON for a completed JOB_ID."""
+        """Get results JSON for a complete JOB_ID."""
         try:
             results = self.client.get_results(self.args.job_id)
         except client.HTTPError as exc:
@@ -1093,7 +1468,7 @@ class TestflingerCli:
         return last_fragment_number, combined_logs
 
     def poll(self, log_type: LogType):
-        """Poll for output from a job until it is completed."""
+        """Poll for output from a job until it is complete."""
         start_fragment = self.args.start_fragment
         start_timestamp = self.args.start_timestamp
         job_id = self.args.job_id
@@ -1124,13 +1499,89 @@ class TestflingerCli:
 
         self.do_poll(job_id, log_type)
 
+    def _filter_and_print_logs(self, log_data: str) -> None:
+        """Filter and print log data.
+
+        In TTY mode: When a line matches the MAAS deployment time pattern,
+        update the status line instead of printing it to suppress noise.
+        All other lines pass through unfiltered.
+        In non-TTY mode: Print all logs as-is.
+
+        :param log_data: Log output to filter and print
+        """
+        if sys.stdout.isatty() and StatusLine.state == "provision":
+            # When actively monitoring a job as it runs, suppress clutter
+            for line in log_data.splitlines():
+                match = re.search(
+                    r"INFO:.*\s*\d+\s+minutes? passed since deployment\.\s*$",
+                    line,
+                )
+                if match:
+                    StatusLine.set_message("Deployment in progress...")
+                else:
+                    print(line)
+        else:
+            # Non-TTY mode: print everything
+            print(log_data, end="", flush=True)
+
     def poll_output(self):
-        """Poll for agent output from a job until it is completed."""
+        """Poll for agent output from a job until it is complete."""
         self.poll(LogType.STANDARD_OUTPUT)
 
     def poll_serial(self):
-        """Poll for serial output from a job until it is completed."""
+        """Poll for serial output from a job until it is complete."""
         self.poll(LogType.SERIAL_OUTPUT)
+
+    def _on_state_change(self, job_state: str, job_details: dict) -> None:
+        """Handle job state changes and update the status line message.
+
+        Updates the status line with state-specific messages and manages
+        countdown/elapsed timing. Handles transitions between job states
+        (waiting, running, provision, reserve, complete, cancelled).
+
+        Note: job_details will not be None entering into this function as it
+        will be handled in the outer scope.
+
+        :param job_state: The new job state string
+        :param job_details: Job details dict
+        """
+        msg = "Waiting on output..."
+        if job_state == "waiting":
+            msg = "Waiting on a node to become available..."
+        elif job_state == "running":
+            msg = "Waiting for deployment to finish..."
+        elif job_state == "provision":
+            msg = "Provisioning device..."
+        elif job_state == "reserve":
+            timeout = int(
+                job_details.get("reserve_data", {}).get(
+                    "timeout", DEFAULT_RESERVE_TIMEOUT
+                )
+            )
+            now = datetime.now().astimezone()
+            # TODO: not `now` but rather the reservation start time. At the
+            # present time, the reservation start time is not available in the
+            # job data and so this will have to be fixed once it it available.
+            expire_time = now + timedelta(seconds=timeout)
+            msg = f"Reservation expires at: [{expire_time.isoformat()}]"
+            StatusLine.set_countdown(timeout)
+        elif job_state in ("cancelled", "complete"):
+            hours, minutes, seconds = StatusLine.get_elapsed_time()
+            result_msg = (
+                "Job cancelled" if job_state == "cancelled" else "Job complete"
+            )
+            msg = (
+                f"{result_msg} - Total time in use: "
+                f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+            )
+
+        # if last state was counting down, start counting up.
+        if StatusLine.state == "reserve":
+            StatusLine.disable_countdown()
+
+        StatusLine.set_state(job_state)
+        if msg:
+            StatusLine.set_message(msg)
 
     def do_poll(
         self,
@@ -1147,36 +1598,43 @@ class TestflingerCli:
         phase = getattr(self.args, "phase", None)
 
         try:
+            job_details = self.get_job_data(job_id)
             job_state_data = self.get_job_state(job_id)
         except (errors.NoJobDataError, errors.InvalidJobIdError) as exc:
             sys.exit(str(exc))
-        job_state = job_state_data["job_state"]
-        self.history.update(job_id, job_state)
+
+        # Do not proceed if there are no job details available.
+        if not job_details:
+            sys.exit("Job details could not be fetched.")
+
+        # If the job is already complete (e.g. late or after-action request to
+        # poll) then we can skip using the StatusLine in a live manner
+        if job_state_data["job_state"] not in ("complete", "cancelled"):
+            StatusLine.init()
+
         prev_queue_pos = None
-        if job_state == "waiting":
-            print("This job is waiting on a node to become available.")
         cur_fragment = start_fragment
-        consecutive_empty_polls = 0
         while True:
             try:
                 job_state_data = self.get_job_state(job_id)
                 job_state = job_state_data["job_state"]
 
                 self.history.update(job_id, job_state)
+
                 last_fragment_number, log_data = self._get_combined_log_output(
                     job_id, log_type, phase, cur_fragment, start_timestamp
                 )
 
                 # Print logs before any check
                 if last_fragment_number >= 0 and log_data:
-                    print(log_data, end="", flush=True)
+                    self._filter_and_print_logs(log_data)
                     cur_fragment = last_fragment_number + 1
-                    consecutive_empty_polls = 0
-                else:
-                    consecutive_empty_polls += 1
-                    if consecutive_empty_polls == 9:
-                        consecutive_empty_polls = 0
-                        print("Waiting on output...", file=sys.stderr)
+
+                # If we just entered this state, initialize the StatusLine
+                # Note: we finish printing information about the last (and
+                # maybe also the current) state before updating our StatusLine
+                if job_state != StatusLine.state:
+                    self._on_state_change(job_state, job_details)
 
                 if phase:
                     phase_status = job_state_data.get(phase)
@@ -1193,7 +1651,7 @@ class TestflingerCli:
                         )
                         break
 
-                if job_state in ("cancelled", "complete", "completed"):
+                if job_state in ("cancelled", "complete"):
                     break
 
                 if job_state == "waiting":
@@ -1230,11 +1688,10 @@ class TestflingerCli:
                         continue
                     if choice == "y":
                         self.cancel(job_id)
+                        StatusLine.set_message("Job cancelled")
                 print(f"\nNext fragment number: {cur_fragment}")
                 # Both y and n will allow the external handler deal with it
                 raise
-
-        print(job_state)
 
     def jobs(self):
         """List the previously started test jobs."""
@@ -1245,7 +1702,7 @@ class TestflingerCli:
         for job_id, jobdata in self.history.history.items():
             if self.args.status:
                 job_state = jobdata.get("job_state")
-                if job_state not in ("cancelled", "complete", "completed"):
+                if job_state not in ("cancelled", "complete"):
                     try:
                         job_state = self.get_job_state(job_id)["job_state"]
                         self.history.update(job_id, job_state)
@@ -1282,12 +1739,22 @@ class TestflingerCli:
             self.do_list_queues()
         )
 
+        # Ephemeral only supported for MAAS deployments via distro argument
+        if self.args.ephemeral and not self.args.distro:
+            sys.exit(
+                "Error: --ephemeral option requires --distro to be specified."
+            )
+
         # Handle distro if provided
         provision_data = {}
         if self.args.distro:
-            if self.args.image:
-                sys.exit("--distro cannot be specified with --image")
-            provision_data = {"provision_data": {"distro": self.args.distro}}
+            # Only include ephemeral in provision_data if it's set
+            provision_data = {
+                "provision_data": {
+                    "distro": self.args.distro,
+                }
+                | ({"ephemeral": True} if self.args.ephemeral else {})
+            }
         else:
             try:
                 images = self.client.get_images(queue)
@@ -1360,9 +1827,9 @@ class TestflingerCli:
             return self.client.get_status(job_id)
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.NO_CONTENT:
-                raise errors.NoJobDataError() from exc
+                raise errors.NoJobDataError from exc
             if exc.status == HTTPStatus.BAD_REQUEST:
-                raise errors.InvalidJobIdError() from exc
+                raise errors.InvalidJobIdError from exc
             # For other HTTP errors, log and return unknown state
             logger.debug("HTTP error retrieving job state: %s", exc)
         except (IOError, ValueError) as exc:
@@ -1392,11 +1859,12 @@ class TestflingerCli:
         except CredentialsError as exc:
             sys.exit(exc)
 
-        if auth_headers is None or self.client_id is None:
+        if auth_headers is None or self.auth.client_id is None:
             sys.exit("Error writing secret: Authentication is required")
 
         secret_data = {"value": self.args.value}
-        endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
+
+        endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
             self.client.put(endpoint, secret_data, headers=auth_headers)
         except client.HTTPError as exc:
@@ -1410,10 +1878,10 @@ class TestflingerCli:
         except CredentialsError as exc:
             sys.exit(exc)
 
-        if auth_headers is None or self.client_id is None:
+        if auth_headers is None or self.auth.client_id is None:
             sys.exit("Error deleting secret: Authentication is required")
 
-        endpoint = f"/v1/secrets/{self.client_id}/{self.args.path}"
+        endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
             self.client.delete(endpoint, headers=auth_headers)
         except client.HTTPError as exc:

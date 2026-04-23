@@ -31,7 +31,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
     def test_get_credentials(self) -> None:
         connector = DeviceConnector({"control_host": "zapper-host"})
         connector.job_data = {}
-        assert connector._get_credentials("jammy-oem") == ("ubuntu", "u")
+        assert connector._get_credentials("desktop-jammy-oem") == (
+            "ubuntu",
+            "u",
+        )
         assert connector._get_credentials("preset") == ("ubuntu", "ubuntu")
         assert connector._get_credentials() == ("ubuntu", "ubuntu")
 
@@ -122,6 +125,70 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
+
+    def test_validate_configuration_jammy_oem_preset(self):
+        """Test that `desktop-jammy-oem` preset strips `url` from the
+        provision data since the control host only does recovery.
+        """
+        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://example.com/image.iso",
+                "preset": "desktop-jammy-oem",
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
+        args, kwargs = connector._validate_configuration()
+
+        self.assertNotIn("url", kwargs)
+        self.assertEqual(kwargs["preset"], "desktop-jammy-oem")
+        self.assertEqual(kwargs["username"], "ubuntu")
+        self.assertEqual(kwargs["password"], "u")
+
+    def test_validate_configuration_jammy_oem_preset_with_alloem_url(self):
+        """Test `desktop-jammy-oem` preset combined with `alloem_url`:
+        the original `url` is replaced by `alloem_url`, `alloem_url` is
+        removed from the payload, and jammy-oem credentials are used.
+        """
+        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://example.com/image.iso",
+                "alloem_url": "http://example.com/alloem.iso",
+                "preset": "desktop-jammy-oem",
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
+        args, kwargs = connector._validate_configuration()
+
+        self.assertEqual(kwargs["url"], "http://example.com/alloem.iso")
+        self.assertNotIn("alloem_url", kwargs)
+        self.assertEqual(kwargs["username"], "ubuntu")
+        self.assertEqual(kwargs["password"], "u")
+
+    def test_validate_configuration_jammy_oem_preset_no_url(self):
+        """Test `desktop-jammy-oem` preset does not raise when `url`
+        is already absent from provision data.
+        """
+        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "preset": "desktop-jammy-oem",
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
+        args, kwargs = connector._validate_configuration()
+
+        self.assertNotIn("url", kwargs)
 
     def test_validate_configuration_w_opt(self):
         """Test whether the validate_configuration function returns
@@ -515,6 +582,25 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"alloem_url": "file://image.iso"}
+        }
+        connector._copy_ssh_id = Mock()
+        connector._change_password = Mock()
+        connector._run_oem_script = Mock()
+
+        connector._post_run_actions("args")
+
+        connector._change_password.assert_called_with("ubuntu", "u")
+        connector._run_oem_script.assert_called_with("args")
+        connector._copy_ssh_id.assert_called()
+
+    def test_post_run_actions_jammy_oem_preset(self):
+        """Test the function updates the password and runs the OEM script
+        when the `desktop-jammy-oem` preset is in scope.
+        """
+        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
+        connector = DeviceConnector(fake_config)
+        connector.job_data = {
+            "provision_data": {"preset": "desktop-jammy-oem"}
         }
         connector._copy_ssh_id = Mock()
         connector._change_password = Mock()

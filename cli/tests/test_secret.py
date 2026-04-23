@@ -23,7 +23,7 @@ from unittest.mock import mock_open, patch
 import pytest
 
 import testflinger_cli
-from testflinger_cli.consts import ServerRoles
+from testflinger_cli.enums import ServerRoles
 
 from .test_cli import URL
 
@@ -33,6 +33,11 @@ from .test_cli import URL
     [
         "path",
         "my/secret/path",
+        "path/1234",
+        "my/1234/path",
+        "my/secret-path",
+        "my/1path",
+        "my/secret_path",
     ],
 )
 def test_secret_write(auth_fixture, capsys, requests_mock, test_path):
@@ -96,6 +101,11 @@ def test_secret_write_http_error(auth_fixture, requests_mock):
     [
         "path",
         "my/secret/path",
+        "path/1234",
+        "my/1234/path",
+        "my/secret-path",
+        "my/1path",
+        "my/secret_path",
     ],
 )
 def test_secret_delete(auth_fixture, capsys, requests_mock, test_path):
@@ -234,3 +244,36 @@ def test_secret_invalid_token_error(requests_mock, subcommand):
         tfcli.run()
 
     assert "Please reauthenticate with server" in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "test_path",
+    [
+        "/path",
+        "/my/secret/path/",
+        "invalid//path",
+        "invalid path",
+        "invalid\\path",
+        "/////path",
+        "path//////",
+    ],
+)
+def test_secret_write_invalid_path(auth_fixture, capsys, test_path):
+    """Test write operation is aborted for invalid paths."""
+    auth_fixture(ServerRoles.CONTRIBUTOR)
+    sys.argv = [
+        "",
+        "secret",
+        "write",
+        test_path,
+        "test_value",
+    ]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+
+    # Argparse exits with code 2 for argument errors
+    assert exc_info.value.code == 2
+    assert (
+        f"Invalid value '{test_path}', not a valid path"
+        in capsys.readouterr().err
+    )

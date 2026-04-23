@@ -733,3 +733,30 @@ def test_job_get_with_missing_client_id(app_with_store, agent_auth_header):
 
     # AND: the secrets store should not have been called
     mock_secrets_store.read.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "client_id,path,value",
+    (
+        ("client_1", "invalid path", "value"),
+        ("client_1", "path////", "value"),
+        ("client_1", "invalid//path", "value"),
+    ),
+)
+def test_secrets_invalid_path(app_with_store, client_id, path, value):
+    """Test writing a secret with invalid path through the API is rejected."""
+    # GIVEN: an app with a secrets store
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.write.return_value = None
+
+    # WHEN: an authorised request is sent to the PUT secrets endpoint
+    token = get_access_token(app_with_store, client_id, "client_key")
+    response = app_with_store.put(
+        f"/v1/secrets/{client_id}/{path}",
+        json={"value": value},
+        headers={"Authorization": token},
+    )
+
+    # THEN: the request is unsuccessful due to invalid path
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    mock_secrets_store.write.assert_not_called()

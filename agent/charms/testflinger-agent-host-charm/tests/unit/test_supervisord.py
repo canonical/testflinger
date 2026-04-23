@@ -62,6 +62,27 @@ def test_get_supervisor_agents_port_mapping(mock_exists, mock_iterdir):
     assert mapping == expected
 
 
+@patch("supervisord.get_supervisor_agents_port_mapping")
+def test_get_supervisor_scrape_jobs(mock_get_mapping):
+    """Test scrape jobs are rebuilt from persisted supervisor state."""
+    mock_get_mapping.return_value = {"agent2": 8001, "agent1": 8000}
+
+    scrape_jobs = supervisord.get_supervisor_scrape_jobs()
+
+    assert scrape_jobs == [
+        {
+            "job_name": "agent1",
+            "metrics_path": "/metrics",
+            "static_configs": [{"targets": ["localhost:8000"]}],
+        },
+        {
+            "job_name": "agent2",
+            "metrics_path": "/metrics",
+            "static_configs": [{"targets": ["localhost:8001"]}],
+        },
+    ]
+
+
 def test_parse_supervisor_config_file_invalid():
     """Test parsing invalid supervisor config file."""
     config_content = """

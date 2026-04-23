@@ -1,0 +1,8 @@
+job_queue: staging
+provision_data:
+  distro: noble
+  ephemeral: True
+reserve_data:
+  ssh_keys:
+    - lp:user
+  timeout: 300

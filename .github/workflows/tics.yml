@@ -44,6 +44,20 @@ jobs:
         uv export --no-emit-project --frozen --no-hashes --all-groups > requirements.txt
         pip install -r requirements.txt
 
+    # Server Charm 
+    - name: Gather coverage (server charm)
+      working-directory: server/charm
+      run: uvx tox run -e unit
+    - name: Install (server charm)
+      working-directory: server/charm
+      run: |
+        uv export --no-emit-project --frozen --no-hashes --all-groups > requirements.txt
+        pip install -r requirements.txt
+        
+        #manually install charm libs required dependencies
+        pip install psycopg
+        
+
     # CLI
     - name: Gather coverage (cli)
       working-directory: cli
@@ -78,6 +92,7 @@ jobs:
       run: |
         mkdir .coverage/
         mv server/coverage.xml .coverage/server_coverage.xml
+        mv server/charm/coverage.xml .coverage/server_charm_coverage.xml
         mv cli/coverage.xml .coverage/cli_coverage.xml
         mv agent/coverage.xml .coverage/agent_coverage.xml
         mv device-connectors/coverage.xml .coverage/device_connectors_coverage.xml

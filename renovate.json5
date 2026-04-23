@@ -3,6 +3,7 @@
   "extends": [
     "config:recommended"
   ],
+  "minimumReleaseAge": "14 days",
   "dependencyDashboard": false,
   "customManagers": [
     // Update rust version in charmcraft.yaml

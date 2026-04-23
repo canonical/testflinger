@@ -33,19 +33,17 @@ outputs:
 runs:
   using: composite
   steps:
-    # This action is necessary as a workaround for https://github.com/actions/runner/issues/895.
-    # Since contexts cannot be used in the `uses:` key, we can't guarantee that this action will
-    # use the same branch of testflinger-setup
-    - name: Checkout testflinger actions
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    # Use testflinger-setup by copying action from adjacent directory.
+    # This is required so we can use the same reference as the one
+    # checked out by external workflow or action.
+    - name: Stage testflinger-setup from adjacent action directory
+      shell: bash
       env:
-        GITHUB_REF: ${{ github.action_ref }}
-      with:
-        repository: canonical/testflinger
-        ref: ${{ env.GITHUB_REF }}
-        path: _tmp_testflinger-actions
-        sparse-checkout: .github/actions/testflinger-setup
-        persist-credentials: false
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        mkdir -p _tmp_testflinger-actions/.github/actions
+        cp -r "$ACTION_PATH/../testflinger-setup" \
+              _tmp_testflinger-actions/.github/actions/testflinger-setup
 
     - name: Setup Testflinger
       uses: ./_tmp_testflinger-actions/.github/actions/testflinger-setup

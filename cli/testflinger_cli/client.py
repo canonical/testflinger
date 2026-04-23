@@ -252,6 +252,14 @@ class Client:
         job_status["job_state"] = data.get("job_state")
         return job_status
 
+    def get_all_agents(self) -> list[dict]:
+        """Get all agents and their data.
+
+        :return: List of dicts containing all agent data.
+        """
+        endpoint = "/v1/agents/data"
+        return json.loads(self.get(endpoint))
+
     def get_agent_data(self, agent_name: str) -> dict:
         """Get all the data for a specified agent.
 
@@ -274,18 +282,6 @@ class Client:
             {"name": agent["name"], "status": agent["state"]} for agent in data
         ]
         return agents_status
-
-    def post_job_state(self, job_id, state):
-        """Post the status of a test job.
-
-        :param job_id:
-            ID for the test job
-        :param state:
-            Job state to set for the specified job
-        """
-        endpoint = "/v1/result/{}".format(job_id)
-        data = {"job_state": state}
-        self.post(endpoint, data)
 
     def submit_job(self, data: dict, headers: dict = None) -> str:
         """Submit a test job to the testflinger server.
@@ -339,13 +335,14 @@ class Client:
         endpoint = f"/v1/job/{job_id}/attachments"
         self.put_file(endpoint, path, timeout=timeout)
 
-    def show_job(self, job_id):
-        """Show the JSON job definition for the specified ID.
+    def get_job_data(self, job_id: str) -> dict:
+        """Get the JSON job definition for the specified ID.
 
-        :param job_id:
-            ID for the test job
-        :return:
-            JSON job definition for the specified ID
+        Retrieves the job definition containing job state, timeouts, and
+        provisioning/reserve configuration data.
+
+        :param job_id: ID for the test job
+        :return: JSON job definition for the specified ID
         """
         endpoint = "/v1/job/{}".format(job_id)
         return json.loads(self.get(endpoint))

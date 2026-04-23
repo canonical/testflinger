@@ -11,8 +11,9 @@ docker build -t [where is the images registry]/[image name]:[tag] .
 
 # Variables
 There are some environment variables that could be used to change the setting:
+
 |Variable|description|default|
-|--|--|--|
+| -- | -- | -- |
 |CONFIG\_DIR|where the configuration files are|/tmp/config|
 |INFLUX\_HOST|for testflinger-agent|127.0.0.1|
 |INFLUX\_PORT|for testflinger-agent|8086|

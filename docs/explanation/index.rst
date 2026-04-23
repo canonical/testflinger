@@ -10,7 +10,7 @@ Testflinger
 
 System components and functional features of Testflinger
 
-- :ref:`agents`
+- :ref:`explain_agents`
 - :ref:`extended-reservation`
 - :ref:`job-priority`
 - :ref:`queues`

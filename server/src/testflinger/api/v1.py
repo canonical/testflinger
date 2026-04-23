@@ -32,7 +32,7 @@ from urllib3.util.retry import Retry
 from werkzeug.routing import BaseConverter
 
 from testflinger import database
-from testflinger.api import auth, schemas
+from testflinger.api import auth, helpers, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.logs import LogFragment, MongoLogHandler
 from testflinger.owasp import OWASPLogger
@@ -1314,6 +1314,9 @@ def secrets_put(client_id, path, json_data):
             HTTPStatus.FORBIDDEN,
             message=f"'{client_id}' doesn't match authenticated client id",
         )
+
+    # Validate the secret path, if not valid, abort with Unprocessable Entity
+    helpers.validate_secret_path(path)
     try:
         current_app.secrets_store.write(client_id, path, json_data["value"])
     except AccessError as error:
@@ -1335,6 +1338,8 @@ def secrets_delete(client_id, path):
             HTTPStatus.FORBIDDEN,
             message=f"'{client_id}' doesn't match authenticated client id",
         )
+    # Validate the secret path, if not valid, abort with Unprocessable Entity
+    helpers.validate_secret_path(path)
     try:
         current_app.secrets_store.delete(client_id, path)
     except AccessError as error:

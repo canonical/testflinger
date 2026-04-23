@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_iot import DeviceConnector
@@ -282,6 +282,61 @@ class ZapperIoTTests(unittest.TestCase):
 
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
+
+    @patch("testflinger_device_connectors.devices.zapper_iot.SerialLogger")
+    @patch(
+        "testflinger_device_connectors.devices.zapper.ZapperConnector.provision"
+    )
+    def test_provision_wraps_super_with_serial_logger(
+        self, mock_super_provision, mock_serial_logger_factory
+    ):
+        """Test that provision starts SerialLogger before provisioning
+        and stops it afterwards.
+        """
+        mock_serial_proc = MagicMock()
+        mock_serial_logger_factory.return_value = mock_serial_proc
+
+        fake_config = {
+            "control_host": "zapper-host",
+            "serial_host": "serial-host",
+            "serial_port": 3000,
+        }
+        device = DeviceConnector(fake_config)
+        args = MagicMock()
+        device.provision(args)
+
+        mock_serial_logger_factory.assert_called_once_with(
+            "serial-host", 3000, "provision-serial.log"
+        )
+        mock_serial_proc.start.assert_called_once()
+        mock_super_provision.assert_called_once_with(args)
+        mock_serial_proc.stop.assert_called_once()
+
+    @patch("testflinger_device_connectors.devices.zapper_iot.SerialLogger")
+    @patch(
+        "testflinger_device_connectors.devices.zapper.ZapperConnector.provision"
+    )
+    def test_provision_stops_serial_logger_on_failure(
+        self, mock_super_provision, mock_serial_logger_factory
+    ):
+        """Test that SerialLogger is stopped even when provisioning fails."""
+        mock_serial_proc = MagicMock()
+        mock_serial_logger_factory.return_value = mock_serial_proc
+        mock_super_provision.side_effect = ProvisioningError("fail")
+
+        fake_config = {
+            "control_host": "zapper-host",
+            "serial_host": "serial-host",
+            "serial_port": 3000,
+        }
+        device = DeviceConnector(fake_config)
+        args = MagicMock()
+
+        with self.assertRaises(ProvisioningError):
+            device.provision(args)
+
+        mock_serial_proc.start.assert_called_once()
+        mock_serial_proc.stop.assert_called_once()
 
     @patch.object(DeviceConnector, "_copy_ssh_id")
     def test_post_run_actions_copy_ssh_id_no_provision_plan(

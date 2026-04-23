@@ -18,7 +18,10 @@ import contextlib
 import logging
 from typing import Any, Dict, Tuple
 
-from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices import (
+    ProvisioningError,
+    SerialLogger,
+)
 from testflinger_device_connectors.devices.zapper import ZapperConnector
 from testflinger_device_connectors.devices.zapper_iot.parser import (
     validate_urls,
@@ -102,6 +105,19 @@ class DeviceConnector(ZapperConnector):
         provisioning_data["urls"] = urls
 
         return ((), provisioning_data)
+
+    def provision(self, args):
+        """Provision device with serial logging."""
+        serial_host = self.config.get("serial_host")
+        serial_port = self.config.get("serial_port")
+        serial_proc = SerialLogger(
+            serial_host, serial_port, "provision-serial.log"
+        )
+        serial_proc.start()
+        try:
+            super().provision(args)
+        finally:
+            serial_proc.stop()
 
     def _post_run_actions(self, args):
         """Run further actions after Zapper API returns successfully."""

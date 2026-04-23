@@ -24,7 +24,7 @@ from string import Template
 
 from testflinger_cli import client
 from testflinger_cli.auth import require_role
-from testflinger_cli.consts import ServerRoles
+from testflinger_cli.enums import ServerRoles
 
 logger = logging.getLogger(__name__)
 
