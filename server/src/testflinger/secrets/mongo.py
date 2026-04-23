@@ -158,3 +158,18 @@ class MongoStore(SecretsStore):
             raise StoreError(
                 f"Unable to access store for '{key}' under '{namespace}'"
             ) from error
+
+    def exists(self, namespace: str, key: str) -> bool:
+        """Check if the `key` exists under `namespace`.
+
+        :param namespace: The namespace to check for the secret.
+        :param key: The key for the secret to check.
+        :returns: True if the secret exists, False otherwise.
+        """
+        try:
+            return (
+                self.database.secrets[namespace].find_one({"key": key})
+                is not None
+            )
+        except (OperationFailure, ConnectionFailure):
+            return False

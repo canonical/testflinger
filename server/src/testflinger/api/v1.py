@@ -134,12 +134,11 @@ def validate_secrets(data: dict):
     # check that all secrets paths correspond to stored secrets
     # (i.e. a job containing secrets cannot be submitted unless all its secrets
     # are accessible.)
-    inaccessible_paths = []
-    for secret_path in secrets.values():
-        try:
-            current_app.secrets_store.read(client_id, secret_path)
-        except (AccessError, StoreError, UnexpectedError):
-            inaccessible_paths.append(secret_path)
+    inaccessible_paths = [
+        secret_path
+        for secret_path in secrets.values()
+        if not current_app.secrets_store.exists(client_id, secret_path)
+    ]
     if inaccessible_paths:
         abort(
             HTTPStatus.UNPROCESSABLE_ENTITY,

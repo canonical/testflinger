@@ -121,3 +121,25 @@ class VaultStore(SecretsStore):
             raise StoreError(
                 f"Unable to access store for '{key}' under '{namespace}'"
             ) from error
+
+    def exists(self, namespace: str, key: str) -> bool:
+        """Check if the `key` exists under `namespace`.
+
+        :param namespace: The namespace to check for the secret.
+        :param key: The key for the secret to check.
+        :returns: True if the secret exists, False otherwise.
+        """
+        # read the corresponding entry from the Vault API
+        try:
+            return (
+                self.client.secrets.kv.v2.read_secret_version(
+                    path=f"{namespace}/{key}"
+                )
+                is not None
+            )
+        except (
+            self.hvac_access_errors,
+            hvac.exceptions.VaultError,
+            requests.exceptions.ConnectionError,
+        ):
+            return False

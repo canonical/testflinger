@@ -51,3 +51,8 @@ class SecretsStore(ABC):
     def delete(self, namespace: str, key: str):
         """Delete the value for `key` under `namespace`, if any."""
         raise NotImplementedError
+
+    @abstractmethod
+    def exists(self, namespace: str, key: str) -> bool:
+        """Validate `key` existence under `namespace`, if any."""
+        raise NotImplementedError
