@@ -16,7 +16,6 @@
 
 """Testflinger API Auth module."""
 
-import logging
 import os
 from datetime import datetime, timedelta, timezone
 from functools import wraps
@@ -26,14 +25,11 @@ import bcrypt
 import jwt
 from apiflask import abort
 from authlib.common.security import generate_token
-from flask import g, request
+from flask import current_app, g, request
 from testflinger_common.enums import ServerRoles
 
 from testflinger import database
 from testflinger.owasp import OWASPLogger
-
-logger = logging.getLogger(__name__)
-logger = OWASPLogger(logger=logger)
 
 
 def hash_secret(secret: str):
@@ -287,7 +283,7 @@ def require_role(*roles):
         @wraps(func)
         def wrapper(*args, **kwargs):
             if not g.is_authenticated:
-                logger.authz_fail(
+                current_app.owasp_logger.authz_fail(
                     userid="unauthenticated",
                     resource=request.path,
                     description=(
@@ -304,7 +300,7 @@ def require_role(*roles):
 
             if g.role not in roles:
                 role_list = ", ".join(r.value for r in roles)
-                logger.authz_fail(
+                current_app.owasp_logger.authz_fail(
                     userid=g.client_id,
                     resource=request.path,
                     description=(

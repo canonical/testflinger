@@ -19,7 +19,6 @@ import logging
 
 from apiflask import APIFlask
 from flask import request
-from flask.logging import create_logger
 from pymongo.errors import ConnectionFailure
 from werkzeug.exceptions import NotFound
 
@@ -50,12 +49,14 @@ def create_flask_app(config=None, secrets_store=None):
     tf_app.url_map.converters.update(log_type=LogTypeConverter)
     if config:
         tf_app.config.from_object(config)
-    tf_log = OWASPLogger(logger=create_logger(tf_app))
 
-    if not tf_app.debug:
-        stream_handler = logging.StreamHandler()
-        stream_handler.setLevel(logging.INFO)
-        tf_log.addHandler(stream_handler)
+    # Set up OWASP logger on the app
+    logger = OWASPLogger(logger=logging.getLogger(f"testflinger.{id(tf_app)}"))
+    logger.setLevel(logging.INFO)
+    # Only add explicit handler in production (not testing)
+    if not tf_app.config.get("TESTING"):
+        logger.addHandler(logging.StreamHandler())
+    tf_app.owasp_logger = logger
 
     tf_app.config["PROPAGATE_EXCEPTIONS"] = True
 
@@ -81,17 +82,17 @@ def create_flask_app(config=None, secrets_store=None):
 
     @tf_app.errorhandler(NotFound)
     def handle_404(exc):
-        tf_log.error("[404] Not found: %s", request.url)
+        tf_app.owasp_logger.error("[404] Not found: %s", request.url)
         return f"Not found: {exc}\n", 404
 
     @tf_app.errorhandler(ConnectionFailure)
     def handle_timeout(exc):
-        tf_log.exception("pymongo connection failure: %s", exc)
+        tf_app.owasp_logger.exception("pymongo connection failure: %s", exc)
         return "Server Connection Failure", 500
 
     @tf_app.errorhandler(Exception)
     def unhandled_exception(exc):
-        tf_log.exception("Unhandled Exception: %s", (exc))
+        tf_app.owasp_logger.exception("Unhandled Exception: %s", exc)
         return f"Unhandled Exception: {exc}\n", 500
 
     @tf_app.context_processor

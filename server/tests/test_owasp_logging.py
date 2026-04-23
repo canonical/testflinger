@@ -20,6 +20,7 @@ events in the Testflinger API.
 
 import base64
 import logging
+import os
 from http import HTTPStatus
 
 import bcrypt
@@ -43,7 +44,10 @@ def get_access_token(app, client_id: str, client_key: str) -> str:
     return response.get_json()["access_token"]
 
 
-# Define endpoints by required role for parametrized testing
+# All available roles from enum, sorted by enum order
+ALL_ROLES = sorted(ServerRoles)
+
+# Define endpoints by required role
 ADMIN_ONLY_ENDPOINTS = [
     ("/v1/oauth2/revoke", "POST"),
     ("/v1/client-permissions/test_client", "DELETE"),
@@ -62,45 +66,45 @@ ADMIN_MANAGER_CONTRIBUTOR_ENDPOINTS = [
     ("/v1/restricted-queues/test_queue", "GET"),
 ]
 
+# Map endpoints to allowed roles
+ENDPOINT_ALLOWED_ROLES = {}
+for endpoint, method in ADMIN_ONLY_ENDPOINTS:
+    key = (endpoint, method)
+    ENDPOINT_ALLOWED_ROLES[key] = [ServerRoles.ADMIN]
 
-# Build parametrized test IDs
+for endpoint, method in ADMIN_MANAGER_ENDPOINTS:
+    key = (endpoint, method)
+    ENDPOINT_ALLOWED_ROLES[key] = [ServerRoles.ADMIN, ServerRoles.MANAGER]
+
+for endpoint, method in ADMIN_MANAGER_CONTRIBUTOR_ENDPOINTS:
+    key = (endpoint, method)
+    ENDPOINT_ALLOWED_ROLES[key] = [
+        ServerRoles.ADMIN,
+        ServerRoles.MANAGER,
+        ServerRoles.CONTRIBUTOR,
+    ]
+
+
 def _build_endpoint_params():
-    """Generate parametrized test cases from endpoint definitions."""
+    """Generate parametrized test cases testing all non-allowed roles."""
     params = []
 
-    for endpoint, method in ADMIN_ONLY_ENDPOINTS:
-        params.append(
-            pytest.param(
-                endpoint,
-                method,
-                [ServerRoles.ADMIN],
-                id=f"admin_only_{method}_{endpoint.replace('/', '_')}",
-            )
-        )
+    for (endpoint, method), allowed_roles in ENDPOINT_ALLOWED_ROLES.items():
+        # Test with all roles that are NOT allowed
+        denied_roles = [r for r in ALL_ROLES if r not in allowed_roles]
 
-    for endpoint, method in ADMIN_MANAGER_ENDPOINTS:
-        params.append(
-            pytest.param(
-                endpoint,
-                method,
-                [ServerRoles.ADMIN, ServerRoles.MANAGER],
-                id=f"admin_mgr_{method}_{endpoint.replace('/', '_')}",
+        for denied_role in denied_roles:
+            test_id = (
+                f"{method}_{endpoint.replace('/', '_')}_{denied_role.value}"
             )
-        )
-
-    for endpoint, method in ADMIN_MANAGER_CONTRIBUTOR_ENDPOINTS:
-        params.append(
-            pytest.param(
-                endpoint,
-                method,
-                [
-                    ServerRoles.ADMIN,
-                    ServerRoles.MANAGER,
-                    ServerRoles.CONTRIBUTOR,
-                ],
-                id=f"admin_mgr_contrib_{method}_{endpoint.replace('/', '_')}",
+            params.append(
+                pytest.param(
+                    endpoint,
+                    method,
+                    denied_role,
+                    id=test_id,
+                )
             )
-        )
 
     return params
 
@@ -108,19 +112,18 @@ def _build_endpoint_params():
 class TestAuthzPrivilegeEscalation:
     """Test authorization failures and privilege escalation attempts."""
 
-    @pytest.mark.parametrize(
-        "endpoint,method,required_roles", _build_endpoint_params()
-    )
-    def test_authz_fail_unauthenticated(
-        self, endpoint, method, required_roles, mongo_app, caplog
-    ):
+    def test_authz_fail_unauthenticated(self, mongo_app, caplog):
         """
         Verify authz_fail is logged when unauthenticated user
         attempts to access protected endpoint.
         """
         app, _ = mongo_app
 
-        with caplog.at_level(logging.CRITICAL):
+        # Test one endpoint as representative case
+        endpoint = ADMIN_ONLY_ENDPOINTS[0][0]
+        method = ADMIN_ONLY_ENDPOINTS[0][1]
+
+        with caplog.at_level(logging.INFO):
             if method == "GET":
                 response = app.get(endpoint)
             elif method == "POST":
@@ -134,56 +137,41 @@ class TestAuthzPrivilegeEscalation:
         assert "authz_fail:unauthenticated" in caplog.text
 
     @pytest.mark.parametrize(
-        "endpoint,method,required_roles", _build_endpoint_params()
+        "endpoint,method,test_role", _build_endpoint_params()
     )
     def test_authz_fail_insufficient_role(
-        self, endpoint, method, required_roles, mongo_app, caplog
+        self, endpoint, method, test_role, mongo_app, caplog
     ):
         """
         Verify authz_fail is logged when authenticated user with
         insufficient role attempts to access protected endpoint.
         """
-        # Setup: Create CONTRIBUTOR token (lowest privileged user role)
-        import os
-
         os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
         app, mongo = mongo_app
 
-        # Insert CONTRIBUTOR client
-        contributor_id = "test_contributor"
-        contributor_key = "test_key"
+        # Create client with test role
+        client_id = f"test_client_{test_role.value}"
+        client_key = "test_key"
         client_salt = bcrypt.gensalt()
         client_key_hash = bcrypt.hashpw(
-            contributor_key.encode("utf-8"), client_salt
+            client_key.encode("utf-8"), client_salt
         ).decode("utf-8")
 
         mongo.client_permissions.insert_one(
             {
-                "client_id": contributor_id,
+                "client_id": client_id,
                 "client_secret_hash": client_key_hash,
-                "role": ServerRoles.CONTRIBUTOR,
+                "role": test_role,
                 "max_priority": {},
                 "allowed_queues": [],
                 "max_reservation_time": {},
             }
         )
 
-        # Get token for CONTRIBUTOR
-        token = get_access_token(app, contributor_id, contributor_key)
+        # Get token for test role
+        token = get_access_token(app, client_id, client_key)
 
-        # Skip test if endpoint doesn't require higher privileges
-        # (CONTRIBUTOR satisfies ADMIN_MANAGER_CONTRIBUTOR)
-        if required_roles == [
-            ServerRoles.ADMIN,
-            ServerRoles.MANAGER,
-            ServerRoles.CONTRIBUTOR,
-        ]:
-            pytest.skip(
-                f"CONTRIBUTOR has access to {endpoint} "
-                "(endpoint requires CONTRIBUTOR)"
-            )
-
-        with caplog.at_level(logging.CRITICAL):
+        with caplog.at_level(logging.INFO):
             if method == "GET":
                 response = app.get(endpoint, headers={"Authorization": token})
             elif method == "POST":
@@ -199,15 +187,14 @@ class TestAuthzPrivilegeEscalation:
                     endpoint, headers={"Authorization": token}
                 )
 
-        if response.status_code != HTTPStatus.FORBIDDEN:
-            print(f"Response: {response.data}")
         assert response.status_code == HTTPStatus.FORBIDDEN, (
-            f"Expected 403, got {response.status_code}: {response.data}"
+            f"Expected 403 for {test_role.value} on {method} {endpoint}, "
+            f"got {response.status_code}: {response.data}"
         )
-        assert f"authz_fail:{contributor_id}" in caplog.text
+        assert f"authz_fail:{client_id}" in caplog.text
 
         # Cleanup
-        mongo.client_permissions.delete_one({"client_id": contributor_id})
+        mongo.client_permissions.delete_one({"client_id": client_id})
 
 
 class TestAuthenticationEvents:

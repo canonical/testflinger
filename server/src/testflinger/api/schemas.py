@@ -136,7 +136,7 @@ class MuxPiProvisionData(Schema):
 class NoProvisionData(Schema):
     """Schema for the `provision_data` section of a no-provision job."""
 
-    skip = fields.Boolean(required=False, default=True)
+    skip = fields.Boolean(required=False, dump_default=True)
 
 
 class OEMAutoinstallProvisionData(Schema):

@@ -16,7 +16,6 @@
 
 import importlib
 import os
-from typing import TypedDict
 
 from owasp_logger import OWASPLogger as TrueOWASPLogger
 
@@ -25,18 +24,6 @@ from owasp_logger import OWASPLogger as TrueOWASPLogger
 #       without the need to change how logging is done everywhere else.
 
 TESTFLINGER_APP_ID = "com.canonical.testflinger"
-
-
-class RequestMetadata(TypedDict, total=False):
-    """Request metadata for OWASP logging."""
-
-    source_ip: str
-    host_ip: str
-    hostname: str
-    protocol: str
-    port: int
-    request_uri: str
-    request_method: str
 
 
 class OWASPLogger(TrueOWASPLogger):
@@ -50,7 +37,7 @@ class OWASPLogger(TrueOWASPLogger):
         super().__init__(*args, **kwargs)
 
     @staticmethod
-    def get_request_metadata(request) -> RequestMetadata:
+    def get_request_metadata(request) -> dict:
         """
         Extract OWASP metadata from Flask request context.
 
@@ -94,34 +81,3 @@ class OTELResource:
     def __repr__(self):
         """Return string representation of resource dict."""
         return str(self._dict)
-
-
-# logger.warning(pprint.pformat(request.environ))
-
-#  'HTTP_ACCEPT_ENCODING': 'gzip, deflate',
-#  'HTTP_ACCEPT_LANGUAGE': 'en-US,en;q=0.9',
-#  'HTTP_CACHE_CONTROL': 'max-age=0',
-#  'HTTP_CONNECTION': 'keep-alive',
-#  'HTTP_DNT': '1',
-#  'HTTP_HOST': '10.107.87.20:5000',
-#  'HTTP_UPGRADE_INSECURE_REQUESTS': '1',
-#  'HTTP_USER_AGENT': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
-#                     '(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
-#  'PATH_INFO': '/v1/',
-#  'QUERY_STRING': '',
-#  'RAW_URI': '/v1/',
-#  'REMOTE_ADDR': '10.107.87.1',
-#  'REMOTE_PORT': '59526',
-#  'REQUEST_METHOD': 'GET',
-#  'SCRIPT_NAME': '',
-#  'SERVER_NAME': '0.0.0.0',
-#  'SERVER_PORT': '5000',
-#  'SERVER_PROTOCOL': 'HTTP/1.1',
-#  'SERVER_SOFTWARE': 'gunicorn/25.0.1',
-#  'werkzeug.request': <Request 'http://10.107.87.20:5000/v1/' [GET]>,
-#  'wsgi.input_terminated': True,
-#  'wsgi.multiprocess': False,
-#  'wsgi.multithread': False,
-#  'wsgi.run_once': False,
-#  'wsgi.url_scheme': 'http',
-#  'wsgi.version': (1, 0)}
