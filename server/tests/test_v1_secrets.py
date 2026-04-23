@@ -232,6 +232,33 @@ def test_secrets_put_store_error(app_with_store):
     )
 
 
+def test_secrets_put_non_expiring_secret(app_with_store):
+    """Test writing a non-expiring secret with expire_after=None."""
+    # GIVEN: an app with a secrets store
+    client_id = "client_1"
+    path = "path/to/non-expiring-secret"
+    value = "never-expire"
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.write.return_value = None
+
+    # WHEN: an authorised request is sent with expire_after set to null
+    token = get_access_token(app_with_store, client_id, "client_key")
+    response = app_with_store.put(
+        f"/v1/secrets/{client_id}/{path}",
+        json={"value": value, "expire_after": None},
+        headers={"Authorization": token},
+    )
+
+    # THEN: the request is successful and non-expiring is forwarded
+    assert response.status_code == HTTPStatus.OK
+    mock_secrets_store.write.assert_called_once_with(
+        namespace=client_id,
+        key=path,
+        value=value,
+        expire_after=None,
+    )
+
+
 def test_secrets_put_no_store(testapp):
     """Test writing a secret without having set up a secrets store."""
     # GIVEN: an app without a secrets store

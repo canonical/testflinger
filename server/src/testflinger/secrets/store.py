@@ -41,7 +41,7 @@ class SecretsStore(ABC):
         namespace: str,
         key: str,
         value: str,
-        expire_after: int = DEFAULT_SECRET_EXPIRATION,
+        expire_after: int | None = DEFAULT_SECRET_EXPIRATION,
         ephemeral: bool = False,
     ):
         """Write the `value` for `key` under `namespace`."""

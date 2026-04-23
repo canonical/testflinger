@@ -630,7 +630,7 @@ class SecretIn(Schema):
     """Secret input schema."""
 
     value = fields.String(required=True)
-    expire_after = fields.Integer(required=False)
+    expire_after = fields.Integer(required=False, allow_none=True)
     ephemeral = fields.Boolean(required=False, default=False)
 
 

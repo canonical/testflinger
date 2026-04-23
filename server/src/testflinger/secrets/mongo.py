@@ -48,6 +48,27 @@ class MongoStore(SecretsStore):
         self.cipher = cipher
         self.data_key_name = data_key_name
         self.algorithm = algorithm
+        self._ttl_index_initialized_namespaces = set()
+
+    def _ensure_ttl_index(self, namespace: str):
+        """Create the TTL index for a namespace collection, if needed."""
+        if namespace in self._ttl_index_initialized_namespaces:
+            return
+
+        try:
+            self.database.secrets[namespace].create_index(
+                "expire_at", expireAfterSeconds=0
+            )
+        except OperationFailure as error:
+            raise AccessError(
+                f"Unable to access '{namespace}' namespace"
+            ) from error
+        except ConnectionFailure as error:
+            raise StoreError(
+                f"Unable to access store for '{namespace}' namespace"
+            ) from error
+
+        self._ttl_index_initialized_namespaces.add(namespace)
 
     def read(self, namespace: str, key: str) -> str:
         """Return the stored value for `key` under `namespace`."""
@@ -66,12 +87,11 @@ class MongoStore(SecretsStore):
 
         encrypted_value = result["value"]
 
-        # Get secret expiration if any, delete if expired and raise an error
+        # Deny access to expired secrets while waiting for MongoDB TTL cleanup
         expire_at = result.get("expire_at")
         if expire_at is not None and expire_at.replace(
             tzinfo=timezone.utc
         ) < datetime.now(timezone.utc):
-            self.delete(namespace, key)
             raise AccessError(f"Expired '{key}' under '{namespace}'")
 
         try:
@@ -102,7 +122,7 @@ class MongoStore(SecretsStore):
         namespace: str,
         key: str,
         value: str,
-        expire_after: int = DEFAULT_SECRET_EXPIRATION,
+        expire_after: int | None = DEFAULT_SECRET_EXPIRATION,
         ephemeral: bool = False,
     ):
         """Write the `value` for `key` under `namespace`.
@@ -110,7 +130,8 @@ class MongoStore(SecretsStore):
         :param namespace: The namespace under which to store the secret.
         :param key: The key for the secret.
         :param value: The value of the secret to store.
-        :param expire_after: Expiration time in seconds for the secret.
+        :param expire_after: Expiration time in seconds for the secret,
+            or None for no expiration.
         :param ephemeral: whether the secret should be deleted after being read
         """
         try:
@@ -125,16 +146,22 @@ class MongoStore(SecretsStore):
             ) from error
 
         try:
+            secret_document = {
+                "key": key,
+                "value": encrypted_value,
+                "updated_at": datetime.now(timezone.utc),
+                "ephemeral": ephemeral,
+            }
+
+            if not ephemeral and expire_after is not None:
+                self._ensure_ttl_index(namespace)
+                secret_document["expire_at"] = datetime.now(
+                    timezone.utc
+                ) + timedelta(seconds=expire_after)
+
             self.database.secrets[namespace].replace_one(
                 {"key": key},
-                {
-                    "key": key,
-                    "value": encrypted_value,
-                    "updated_at": datetime.now(timezone.utc),
-                    "expire_at": datetime.now(timezone.utc)
-                    + timedelta(seconds=expire_after),
-                    "ephemeral": ephemeral,
-                },
+                secret_document,
                 upsert=True,
             )
         except OperationFailure as error:

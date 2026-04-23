@@ -533,6 +533,7 @@
             "type": "boolean"
           },
           "expire_after": {
+            "nullable": true,
             "type": "integer"
           },
           "value": {

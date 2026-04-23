@@ -71,7 +71,7 @@ class VaultStore(SecretsStore):
         namespace: str,
         key: str,
         value: str,
-        expire_after: int = DEFAULT_SECRET_EXPIRATION,
+        expire_after: int | None = DEFAULT_SECRET_EXPIRATION,
         ephemeral: bool = False,
     ) -> bool:
         """Write the `value` for `key` under `namespace`.
