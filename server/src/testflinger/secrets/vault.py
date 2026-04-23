@@ -23,7 +23,7 @@ from testflinger.secrets.exceptions import (
     StoreError,
     UnexpectedError,
 )
-from testflinger.secrets.store import MAXIMUM_EXPIRATION_SECONDS, SecretsStore
+from testflinger.secrets.store import DEFAULT_SECRET_EXPIRATION, SecretsStore
 
 
 class VaultStore(SecretsStore):
@@ -71,7 +71,7 @@ class VaultStore(SecretsStore):
         namespace: str,
         key: str,
         value: str,
-        expire_after: int = MAXIMUM_EXPIRATION_SECONDS,
+        expire_after: int = DEFAULT_SECRET_EXPIRATION,
         ephemeral: bool = False,
     ) -> bool:
         """Write the `value` for `key` under `namespace`.
@@ -138,7 +138,7 @@ class VaultStore(SecretsStore):
                 is not None
             )
         except (
-            self.hvac_access_errors,
+            *self.hvac_access_errors,
             hvac.exceptions.VaultError,
             requests.exceptions.ConnectionError,
         ):

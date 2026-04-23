@@ -40,7 +40,7 @@ from testflinger.secrets.exceptions import (
     StoreError,
     UnexpectedError,
 )
-from testflinger.secrets.store import MAXIMUM_EXPIRATION_SECONDS
+from testflinger.secrets.store import DEFAULT_SECRET_EXPIRATION
 
 TESTFLINGER_ADMIN_ID = "testflinger-admin"
 
@@ -1227,10 +1227,13 @@ def secrets_put(client_id, path, json_data):
             namespace=client_id,
             key=path,
             value=json_data["value"],
-            expire_after=json_data.get(
-                "expire_after", MAXIMUM_EXPIRATION_SECONDS
-            ),
-            ephemeral=json_data.get("ephemeral", False),
+            **{"ephemeral": True}
+            if json_data.get("ephemeral", False)
+            else {
+                "expire_after": json_data.get(
+                    "expire_after", DEFAULT_SECRET_EXPIRATION
+                )
+            },
         )
     except AccessError as error:
         abort(HTTPStatus.BAD_REQUEST, message=str(error))

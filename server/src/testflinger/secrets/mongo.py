@@ -22,7 +22,7 @@ from pymongo.encryption import Algorithm, ClientEncryption
 from pymongo.errors import ConnectionFailure, EncryptionError, OperationFailure
 
 from testflinger.secrets.exceptions import AccessError, StoreError
-from testflinger.secrets.store import MAXIMUM_EXPIRATION_SECONDS, SecretsStore
+from testflinger.secrets.store import DEFAULT_SECRET_EXPIRATION, SecretsStore
 
 
 class MongoStore(SecretsStore):
@@ -102,7 +102,7 @@ class MongoStore(SecretsStore):
         namespace: str,
         key: str,
         value: str,
-        expire_after: int = MAXIMUM_EXPIRATION_SECONDS,
+        expire_after: int = DEFAULT_SECRET_EXPIRATION,
         ephemeral: bool = False,
     ):
         """Write the `value` for `key` under `namespace`.

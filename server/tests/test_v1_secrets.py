@@ -26,7 +26,7 @@ import pytest
 
 from testflinger import application, database
 from testflinger.secrets.exceptions import AccessError, StoreError
-from testflinger.secrets.store import MAXIMUM_EXPIRATION_SECONDS, SecretsStore
+from testflinger.secrets.store import DEFAULT_SECRET_EXPIRATION, SecretsStore
 
 
 @pytest.fixture
@@ -116,8 +116,7 @@ def test_secrets_put_success(app_with_store, client_id, path, value):
         namespace=client_id,
         key=path,
         value=value,
-        expire_after=MAXIMUM_EXPIRATION_SECONDS,
-        ephemeral=False,
+        expire_after=DEFAULT_SECRET_EXPIRATION,
     )
 
 
@@ -183,7 +182,7 @@ def test_secrets_put_no_authentication(app_with_store):
 
 def test_secrets_put_access_error(app_with_store):
     """Test writing a secret with an access error from the store."""
-    # GIVEN: an app with a secrets store where write raises an AccessErrpr
+    # GIVEN: an app with a secrets store where write raises an AccessError
     client_id = "client_1"
     path = "path/to/error/access"
     mock_secrets_store = app_with_store.application.secrets_store
@@ -203,8 +202,7 @@ def test_secrets_put_access_error(app_with_store):
         namespace=client_id,
         key=path,
         value="value",
-        expire_after=MAXIMUM_EXPIRATION_SECONDS,
-        ephemeral=False,
+        expire_after=DEFAULT_SECRET_EXPIRATION,
     )
 
 
@@ -230,8 +228,7 @@ def test_secrets_put_store_error(app_with_store):
         namespace=client_id,
         key=path,
         value="value",
-        expire_after=MAXIMUM_EXPIRATION_SECONDS,
-        ephemeral=False,
+        expire_after=DEFAULT_SECRET_EXPIRATION,
     )
 
 
@@ -377,7 +374,7 @@ def test_job_submit_with_secrets(app_with_store):
     # GIVEN: an app with a secrets store that returns values for valid paths
     client_id = "client_1"
     mock_secrets_store = app_with_store.application.secrets_store
-    mock_secrets_store.read.return_value = "secret_value"
+    mock_secrets_store.exists.return_value = True
 
     # WHEN: an authenticated job with secrets is submitted
     token = get_access_token(app_with_store, client_id, "client_key")
@@ -397,8 +394,8 @@ def test_job_submit_with_secrets(app_with_store):
 
     # THEN: the job is accepted and secrets are validated
     assert response.status_code == HTTPStatus.OK
-    mock_secrets_store.read.assert_any_call(client_id, "path/to/secret")
-    mock_secrets_store.read.assert_any_call(client_id, "tokens/api_key")
+    mock_secrets_store.exists.assert_any_call(client_id, "path/to/secret")
+    mock_secrets_store.exists.assert_any_call(client_id, "tokens/api_key")
 
     # AND: the client_id is added to the job data in the database
     job_id = response.get_json()["job_id"]
@@ -408,10 +405,10 @@ def test_job_submit_with_secrets(app_with_store):
 
 def test_job_submit_with_inaccessible_secret(app_with_store):
     """Test that submitting a job with an inaccessible secret fails."""
-    # GIVEN: an app with a secrets store where read raises an AccessError
+    # GIVEN: an app with a secrets store where read raises an OperationFailure
     client_id = "client_1"
     mock_secrets_store = app_with_store.application.secrets_store
-    mock_secrets_store.read.side_effect = AccessError("Secret not found")
+    mock_secrets_store.exists.return_value = False
 
     # WHEN: an authenticated job with invalid secrets is submitted
     token = get_access_token(app_with_store, client_id, "client_key")
@@ -438,13 +435,8 @@ def test_job_submit_with_some_inaccessible_secrets(app_with_store):
     client_id = "client_1"
     mock_secrets_store = app_with_store.application.secrets_store
 
-    def mock_read(client_id, path):
-        if path == "valid/path":
-            return "secret_value"
-        else:
-            raise AccessError("Secret not found")
-
-    mock_secrets_store.read.side_effect = mock_read
+    # Only valid/path exists, the other paths do not:
+    mock_secrets_store.exists.side_effect = lambda _, key: key == "valid/path"
 
     # WHEN: an authenticated job with an inaccessible secret is submitted
     token = get_access_token(app_with_store, client_id, "client_key")

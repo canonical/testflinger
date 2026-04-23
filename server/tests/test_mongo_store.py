@@ -484,6 +484,22 @@ class TestMongoStore:
         assert result == "test-secret-value"
         mock_collection.delete_one.assert_not_called()
 
+    def test_secret_exists_mongostore(self, mongo_store, mock_collection):
+        """Test exists method returns True if secret exists."""
+        mock_collection.find_one.return_value = {"key": "test-key"}
+
+        assert mongo_store.exists("test-namespace", "test-key") is True
+        mock_collection.find_one.assert_called_once_with({"key": "test-key"})
+
+    def test_secret_not_exists_mongostore(self, mongo_store, mock_collection):
+        """Test exists method returns False if secret does not exist."""
+        mock_collection.find_one.return_value = None
+
+        assert mongo_store.exists("test-namespace", "nonexistent-key") is False
+        mock_collection.find_one.assert_called_once_with(
+            {"key": "nonexistent-key"}
+        )
+
 
 class TestSetupMongoStore:
     """Test cases for setup_mongo_store function."""

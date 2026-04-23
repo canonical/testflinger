@@ -17,7 +17,7 @@
 
 from abc import ABC, abstractmethod
 
-MAXIMUM_EXPIRATION_SECONDS = 60 * 60 * 24 * 365  # 1 year
+DEFAULT_SECRET_EXPIRATION = 60 * 60 * 24 * 365  # 1 year
 
 
 class SecretsStore(ABC):
@@ -41,7 +41,7 @@ class SecretsStore(ABC):
         namespace: str,
         key: str,
         value: str,
-        expire_after: int = MAXIMUM_EXPIRATION_SECONDS,
+        expire_after: int = DEFAULT_SECRET_EXPIRATION,
         ephemeral: bool = False,
     ):
         """Write the `value` for `key` under `namespace`."""

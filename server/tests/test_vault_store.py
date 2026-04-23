@@ -161,6 +161,20 @@ class TestVaultStore:
             path="test-namespace/test-key"
         )
 
+    def test_secret_exists_vaultstore(self, vault_store, mock_client):
+        """Test exists method returns True if secret exists."""
+        mock_client.secrets.kv.v2.read_secret_version.return_value = {
+            "data": {"data": {"value": "test-secret-value"}}
+        }
+        assert vault_store.exists("test-namespace", "test-key") is True
+
+    def test_secret_not_exists_vaultstore(self, vault_store, mock_client):
+        """Test exists method returns False if secret does not exist."""
+        mock_client.secrets.kv.v2.read_secret_version.side_effect = (
+            hvac.exceptions.InvalidPath()
+        )
+        assert vault_store.exists("test-namespace", "test-key") is False
+
 
 class TestSecretsInit:
     """Test cases for secrets module initialization."""
