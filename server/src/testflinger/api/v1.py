@@ -959,7 +959,7 @@ def retrieve_token():
         )
 
     allowed_resources = auth.validate_client_key_pair(client_id, client_key)
-    if allowed_resources is None:
+    if not allowed_resources:
         current_app.owasp_logger.authn_login_fail(
             userid=client_id,
             description=(
@@ -984,13 +984,11 @@ def retrieve_token():
     )
 
     # Log successful authentication
-    role_value = str(role)
-    entitlements = [role_value] if role else ["default"]
+    entitlements = [role]
     current_app.owasp_logger.authn_login_success(
         userid=client_id,
         description=(
-            f"Client {client_id} successfully authenticated with "
-            f"role {role_value}"
+            f"Client {client_id} successfully authenticated with role {role}"
         ),
         **OWASPLogger.get_request_metadata(request),
     )
@@ -1165,7 +1163,7 @@ def delete_restricted_queue(queue_name: str, json_data: dict) -> dict:
 @v1.output(schemas.ClientPermissionsOut(many=True))
 def get_all_client_permissions() -> list[dict]:
     """Retrieve all client permissions from database."""
-    return database.get_client_permissions()
+    return database.get_all_client_permissions()
 
 
 @v1.get("/client-permissions/<client_id>")

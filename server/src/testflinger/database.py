@@ -473,20 +473,28 @@ def check_client_exists(client_id: str) -> bool:
     )
 
 
-def get_client_permissions(client_id: str | None = None) -> dict | list[dict]:
-    """Retrieve the client permissions for a specified user.
-
-    If no client_id is specified, will return the permissions from all users.
+def get_client_permissions(client_id: str) -> dict:
+    """Retrieve the client permissions for a specific user.
 
     :param client_id: User to retrieve permissions from.
     :return: Dictionary with the permissions for the user.
     """
     if client_id:
-        return mongo.db.client_permissions.find_one(
+        one = mongo.db.client_permissions.find_one(
             {"client_id": client_id}, {"_id": False}
         )
+        return one if one else {}
     else:
-        return mongo.db.client_permissions.find({}, {"_id": False})
+        return {}
+
+
+def get_all_client_permissions() -> list[dict]:
+    """Retrieve a list of all client permissions known; will return the
+    permissions from all users.
+
+    :return: List of dictionaries with the permissions for all users.
+    """
+    return mongo.db.client_permissions.find({}, {"_id": False})
 
 
 def create_or_update_client_permissions(
