@@ -37,8 +37,8 @@ from testflinger_cli.errors import (
 class TestflingerCliAuth:
     """Class to handle authentication and authorisation for Testflinger CLI."""
 
-    def __init__(self, client_id: str, secret_key: str, tf_client):
-        self.client_id = client_id
+    def __init__(self, client_id: str | None, secret_key: str, tf_client):
+        self.client_id: Optional[str] = client_id
         self.secret_key = secret_key
         self.client = tf_client
 
@@ -76,7 +76,7 @@ class TestflingerCliAuth:
 
         return None
 
-    def _authenticate_with_credentials(self) -> str:
+    def _authenticate_with_credentials(self) -> str | None:
         """Authenticate using client_id and secret_key."""
         try:
             response = self.client.authenticate(
@@ -87,8 +87,11 @@ class TestflingerCliAuth:
             return response["access_token"]
         except client.HTTPError as exc:
             self._handle_auth_error(exc)
+            return None
 
-    def _authenticate_with_refresh_token(self, refresh_token: str) -> str:
+    def _authenticate_with_refresh_token(
+        self, refresh_token: str
+    ) -> str | None:
         """Authenticate using stored refresh token."""
         try:
             response = self.client.refresh_authentication(refresh_token)
@@ -98,6 +101,7 @@ class TestflingerCliAuth:
                 self.clear_refresh_token()
                 raise InvalidTokenError(exc.msg) from exc
             self._handle_auth_error(exc)
+            return None
 
     def _handle_auth_error(self, exc: client.HTTPError) -> None:
         """Handle authentication HTTP errors."""
@@ -172,7 +176,7 @@ class TestflingerCliAuth:
 
         :return: Dict with the decoded JWT
         """
-        if not self.is_authenticated():
+        if not self.is_authenticated() or not self.jwt_token:
             return None
 
         try:
