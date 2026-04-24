@@ -14,9 +14,15 @@ AGENT_CONFIGS_PATH={{ agent_configs_path }}
 CONFIG_DIR="{{ config_dir }}"
 VIRTUAL_ENV_PATH="{{ virtual_env_path }}"
 
+# create artifacts directory to allow mounting in container
+mkdir -p "$PWD/artifacts"
+
 if [ -d "$VIRTUAL_ENV_PATH" ]; then
     docker run -t --name $agent_id \
-        -v $PWD:/home/ubuntu \
+        --workdir /home/ubuntu \
+        -v "$PWD/testflinger.json:/home/ubuntu/testflinger.json:ro" \
+        -v "$PWD/device-connector-error.json:/home/ubuntu/device-connector-error.json" \
+        -v "$PWD/artifacts:/home/ubuntu/artifacts" \
         -v ~/.ssh:/home/ubuntu/.ssh:ro \
         -v /srv/testflinger:/srv/testflinger \
         -v $AGENT_CONFIGS_PATH/$CONFIG_DIR/$agent_id:$AGENT_CONFIGS_PATH/$CONFIG_DIR/$agent_id \
@@ -24,7 +30,10 @@ if [ -d "$VIRTUAL_ENV_PATH" ]; then
         bash -c "(cd /srv/testflinger/device-connectors && sudo uv pip install . --system &> /dev/null) && PYTHONUNBUFFERED=1 testflinger-device-connector $PROVISION_TYPE runtest -c /$AGENT_CONFIGS_PATH/$CONFIG_DIR/$agent_id/default.yaml testflinger.json"
 else
     docker run -t --name $AGENT \
-        -v $PWD:/home/ubuntu \
+        --workdir /home/ubuntu \
+        -v "$PWD/testflinger.json:/home/ubuntu/testflinger.json:ro" \
+        -v "$PWD/device-connector-error.json:/home/ubuntu/device-connector-error.json" \
+        -v "$PWD/artifacts:/home/ubuntu/artifacts" \
         -v ~/.ssh:/home/ubuntu/.ssh:ro \
         -v /srv/testflinger-agent/$AGENT:/srv/testflinger-agent/$AGENT \
         $REGISTRY/$NAMESPACE/$IMAGE:$IMAGE_TAG \
