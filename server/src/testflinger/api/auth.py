@@ -40,9 +40,7 @@ def hash_secret(secret: str):
     return bcrypt.hashpw(secret.encode("utf-8"), bcrypt.gensalt()).decode()
 
 
-def validate_client_key_pair(
-    client_id: str | None, client_key: str | None
-) -> dict | None:
+def validate_client_key_pair(client_id: str, client_key: str) -> dict | None:
     """
     Check credentials for validity and returns their permissions.
 
@@ -55,11 +53,12 @@ def validate_client_key_pair(
     client_key_bytes = client_key.encode("utf-8")
     client_permissions_entry = database.get_client_permissions(client_id)
 
-    if client_permissions_entry is None or not bcrypt.checkpw(
+    if not client_permissions_entry or not bcrypt.checkpw(
         client_key_bytes,
         client_permissions_entry["client_secret_hash"].encode("utf8"),
     ):
         return None
+
     # Removing client_secret_hash for security purposes
     client_permissions_entry.pop("client_secret_hash", None)
     return client_permissions_entry
@@ -262,12 +261,7 @@ def authenticate(func):
 
         # Store auth state if decoding was successful
         g.client_id = permissions["client_id"]
-        role = permissions.get("role", ServerRoles.CONTRIBUTOR)
-        # Convert role string to enum if needed
-        if isinstance(role, str):
-            g.role = ServerRoles(role)
-        else:
-            g.role = role
+        g.role = ServerRoles(permissions.get("role", ServerRoles.CONTRIBUTOR))
         g.permissions = permissions
         g.is_authenticated = True
 

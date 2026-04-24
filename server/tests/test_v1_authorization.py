@@ -191,6 +191,34 @@ def test_missing_fields_in_token(mongo_app_with_permissions):
     assert "Invalid Token" in job_response.text
 
 
+def test_missing_role_defaults_to_contributor(mongo_app_with_permissions):
+    """Tests that missing role field in token defaults to CONTRIBUTOR role."""
+    app, _, client_id, _, _ = mongo_app_with_permissions
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    # Create token with valid client_id but no role field
+    token_payload = {
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        "iat": datetime.now(timezone.utc),
+        "sub": "access_token",
+        "permissions": {
+            "client_id": client_id,
+            "max_priority": {"*": 0},
+            # Note: intentionally omitting "role" field
+        },
+    }
+    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
+
+    # POST to an endpoint that requires CONTRIBUTOR role or higher
+    # A basic job post without priority should succeed with CONTRIBUTOR role
+    job = {"job_queue": "myqueue"}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+
+    # Should succeed (200 OK) because CONTRIBUTOR can post basic jobs
+    assert job_response.status_code == HTTPStatus.OK
+
+
 def test_job_get_with_priority(mongo_app_with_permissions, agent_auth_header):
     """Tests job get returns job with highest job priority."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
