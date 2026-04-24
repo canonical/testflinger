@@ -14,6 +14,8 @@
 """Unit tests for Zapper base device connector."""
 
 import logging
+import os
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -39,6 +41,17 @@ class MockConnector(ZapperConnector):
 
 class ZapperConnectorTests(unittest.TestCase):
     """Unit tests for ZapperConnector class."""
+
+    def setUp(self):
+        # Run in an empty cwd so attachment auto-detection in _run
+        # doesn't pick up stray files from the developer's workspace.
+        self._prev_cwd = os.getcwd()
+        self._tmpdir = tempfile.TemporaryDirectory()
+        os.chdir(self._tmpdir.name)
+
+    def tearDown(self):
+        os.chdir(self._prev_cwd)
+        self._tmpdir.cleanup()
 
     @patch("requests.get")
     @patch("requests.post")
@@ -321,6 +334,13 @@ class TestZapperConnectorRestApi:
 
 class TestZapperConnectorRun:
     """Tests for ZapperConnector._run SSE streaming and job lifecycle."""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_cwd(self, tmp_path, monkeypatch):
+        """Run each test in an empty cwd so attachment auto-detection
+        doesn't pick up stray files from the developer's workspace.
+        """
+        monkeypatch.chdir(tmp_path)
 
     @pytest.fixture()
     def connector(self):
@@ -620,3 +640,53 @@ class TestZapperConnectorRun:
             match="Provisioning failed for unknown reason.",
         ):
             connector._run()
+
+    def test_run_without_attachment_uses_json_endpoint(
+        self, mocker, connector, mock_post, tmp_path, monkeypatch
+    ):
+        """Test that _run posts plain JSON when no provision attachment
+        is present.
+        """
+        monkeypatch.chdir(tmp_path)
+        mock_get = mocker.patch("requests.get")
+        mock_sse = self._make_sse([])
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        connector._run()
+
+        call = mock_post.call_args
+        assert call[0][0].endswith("/api/v1/provision")
+        assert "json" in call[1]
+        assert "files" not in call[1]
+
+    def test_run_with_attachment_uses_multipart_endpoint(
+        self, mocker, connector, mock_post, tmp_path, monkeypatch
+    ):
+        """Test that _run posts multipart to /provision/multipart when a
+        provision attachment is present.
+        """
+        import json as _json
+
+        monkeypatch.chdir(tmp_path)
+        attach_dir = tmp_path / "attachments" / "provision"
+        attach_dir.mkdir(parents=True)
+        (attach_dir / "image.img").write_bytes(b"fake image data")
+
+        mock_get = mocker.patch("requests.get")
+        mock_sse = self._make_sse([])
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        connector._run()
+
+        call = mock_post.call_args
+        assert call[0][0].endswith("/api/v1/provision/multipart")
+        assert "files" in call[1]
+        assert "boot_binary" in call[1]["files"]
+        payload = _json.loads(call[1]["data"]["request"])
+        assert payload["method"] == "Test"

@@ -35,6 +35,9 @@ from testflinger_device_connectors.devices import (
 
 logger = logging.getLogger(__name__)
 
+# should mirror `testflinger_agent.config.ATTACHMENTS_DIR`
+ATTACHMENTS_DIR = "attachments"
+
 
 class ZapperConnector(ABC, DefaultDevice):
     """Abstract base class defining a common interface for Zapper-driven
@@ -45,7 +48,6 @@ class ZapperConnector(ABC, DefaultDevice):
     ZAPPER_CONNECTION_TIMEOUT = 30
     ZAPPER_READ_TIMEOUT = 60 * 90
     ZAPPER_REST_PORT = 8000
-    _boot_binary: Optional[Path] = None
 
     def _api_post(self, endpoint: str, **kwargs) -> requests.Response:
         """Send a POST request to the Zapper REST API.
@@ -177,15 +179,22 @@ class ZapperConnector(ABC, DefaultDevice):
         """
         raise NotImplementedError
 
+    @staticmethod
+    def _find_provision_attachment() -> Optional[Path]:
+        """Return the provision attachment if one was uploaded, else None."""
+        attachments_dir = Path.cwd() / ATTACHMENTS_DIR / "provision"
+        if not attachments_dir.is_dir():
+            return None
+        files = sorted(p for p in attachments_dir.iterdir() if p.is_file())
+        return files[0] if files else None
+
     def _run(self, *args, **kwargs):
         """Run the Zapper provisioning via the REST API.
 
         Submits a provisioning job, streams SSE logs in real time,
-        and checks the final job status.
-
-        When ``_boot_binary`` is set, the image is uploaded as a
-        multipart ``boot_binary`` field alongside the JSON payload;
-        otherwise the request is sent as plain JSON.
+        and checks the final job status. When a provision attachment
+        is present, the image is uploaded via the ``/multipart``
+        endpoint; otherwise the request is sent as plain JSON.
         """
         kwargs.update(
             {
@@ -195,23 +204,22 @@ class ZapperConnector(ABC, DefaultDevice):
                 "reboot_script": self.config["reboot_script"],
             }
         )
+        payload = {
+            "method": self.PROVISION_METHOD,
+            "args": list(args),
+            "kwargs": kwargs,
+        }
 
-        if self._boot_binary is not None:
+        attachment = self._find_provision_attachment()
+        if attachment is not None:
             logger.info(
                 "Uploading boot binary %s as multipart attachment",
-                self._boot_binary.name,
+                attachment.name,
             )
-            payload = json.dumps(
-                {
-                    "method": self.PROVISION_METHOD,
-                    "args": list(args),
-                    "kwargs": kwargs,
-                }
-            )
-            with open(self._boot_binary, "rb") as boot_binary_file:
+            with open(attachment, "rb") as boot_binary_file:
                 resp = self._api_post(
-                    "/api/v1/provision",
-                    data={"request": payload},
+                    "/api/v1/provision/multipart",
+                    data={"request": json.dumps(payload)},
                     files={"boot_binary": boot_binary_file},
                     timeout=(
                         self.ZAPPER_CONNECTION_TIMEOUT,
@@ -219,14 +227,8 @@ class ZapperConnector(ABC, DefaultDevice):
                     ),
                 )
         else:
-            resp = self._api_post(
-                "/api/v1/provision",
-                json={
-                    "method": self.PROVISION_METHOD,
-                    "args": list(args),
-                    "kwargs": kwargs,
-                },
-            )
+            resp = self._api_post("/api/v1/provision", json=payload)
+
         job = resp.json()
         job_id = job["job_id"]
 

@@ -1,7 +1,4 @@
-import os
-import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from testflinger_device_connectors.devices import ProvisioningError
@@ -10,18 +7,6 @@ from testflinger_device_connectors.devices.zapper_iot import DeviceConnector
 
 class ZapperIoTTests(unittest.TestCase):
     """Test Cases for the Zapper IoT class."""
-
-    def setUp(self):
-        # Run every test in an empty cwd so directory-based attachment
-        # detection in _validate_configuration doesn't pick up stray
-        # files from the developer's workspace.
-        self._prev_cwd = os.getcwd()
-        self._tmpdir = tempfile.TemporaryDirectory()
-        os.chdir(self._tmpdir.name)
-
-    def tearDown(self):
-        os.chdir(self._prev_cwd)
-        self._tmpdir.cleanup()
 
     def test_validate_configuration(self):
         """Test the function creates a proper provision_data
@@ -105,7 +90,6 @@ class ZapperIoTTests(unittest.TestCase):
         device = DeviceConnector({"control_host": "zapper-host"})
         device.job_data = {
             "provision_data": {
-                "url": "http://test.tar.gz",
                 "provision_plan": {
                     "config": {
                         "project_name": "name",
@@ -144,7 +128,7 @@ class ZapperIoTTests(unittest.TestCase):
                     {"initial_login": {"method": "system-user"}},
                 ],
             },
-            "urls": ["http://test.tar.gz"],
+            "urls": [],
             "preset": None,
             "preset_kwargs": None,
         }
@@ -161,7 +145,6 @@ class ZapperIoTTests(unittest.TestCase):
         device.job_data = {
             "provision_data": {
                 "ubuntu_sso_email": "test@example.com",
-                "url": "http://test.tar.gz",
                 "provision_plan": {
                     "config": {
                         "project_name": "name",
@@ -198,7 +181,7 @@ class ZapperIoTTests(unittest.TestCase):
                     {"initial_login": {"method": "console-conf"}},
                 ],
             },
-            "urls": ["http://test.tar.gz"],
+            "urls": [],
             "preset": None,
             "preset_kwargs": None,
         }
@@ -404,112 +387,6 @@ class ZapperIoTTests(unittest.TestCase):
         device._post_run_actions(args=None)
 
         mock_copy_ssh_id.assert_called_once()
-
-    def test_validate_configuration_with_attachment(self):
-        """Test that an attachment file in attachments/provision/ is detected
-        automatically and sets _boot_binary, taking precedence over urls.
-        """
-        device = DeviceConnector({"control_host": "zapper-host"})
-
-        attach_dir = Path("attachments") / "provision"
-        attach_dir.mkdir(parents=True)
-        image_file = attach_dir / "image.img"
-        image_file.write_bytes(b"fake image data")
-
-        device.job_data = {
-            "provision_data": {
-                "preset": "TestPreset",
-                "url": "http://test.tar.gz",
-            }
-        }
-
-        args, kwargs = device._validate_configuration()
-
-        self.assertEqual(args, ())
-        self.assertNotIn("urls", kwargs)
-        self.assertIsNotNone(device._boot_binary)
-        self.assertEqual(device._boot_binary.name, "image.img")
-
-    def test_validate_configuration_neither_url_nor_attachment_raises(self):
-        """Test the function raises when neither url/urls nor
-        an attachment is provided.
-        """
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "control_host": "zapper-host",
-            "reboot_script": ["cmd1", "cmd2"],
-        }
-        device = DeviceConnector(fake_config)
-        device.job_data = {
-            "provision_data": {
-                "preset": "TestPreset",
-            }
-        }
-
-        with self.assertRaises(ProvisioningError):
-            device._validate_configuration()
-
-    @patch.object(DeviceConnector, "_api_post")
-    @patch.object(DeviceConnector, "_api_get")
-    @patch.object(DeviceConnector, "_stream_sse_logs")
-    def test_run_with_attachment_uses_multipart(
-        self, mock_stream, mock_api_get, mock_api_post
-    ):
-        """Test that _run posts multipart when a boot binary is set."""
-        import json as _json
-
-        mock_api_post.return_value.json.return_value = {"job_id": "abc123"}
-        mock_api_get.return_value.json.return_value = {"status": "completed"}
-
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "control_host": "zapper-host",
-            "agent_name": "test-agent",
-            "reboot_script": ["reboot"],
-            "env": {},
-        }
-        device = DeviceConnector(fake_config)
-
-        with tempfile.NamedTemporaryFile(suffix=".img") as tmp:
-            tmp.write(b"binary image data")
-            tmp.flush()
-            device._boot_binary = Path(tmp.name)
-
-            device._run()
-
-        call_kwargs = mock_api_post.call_args.kwargs
-        self.assertIn("data", call_kwargs)
-        self.assertIn("files", call_kwargs)
-        self.assertIn("boot_binary", call_kwargs["files"])
-        # Verify the JSON payload structure
-        payload = _json.loads(call_kwargs["data"]["request"])
-        self.assertEqual(payload["method"], "ProvisioningIoT")
-
-    @patch.object(DeviceConnector, "_api_post")
-    @patch.object(DeviceConnector, "_api_get")
-    @patch.object(DeviceConnector, "_stream_sse_logs")
-    def test_run_without_attachment_uses_json(
-        self, mock_stream, mock_api_get, mock_api_post
-    ):
-        """Test that _run uses plain JSON when no boot binary is set."""
-        mock_api_post.return_value.json.return_value = {"job_id": "abc123"}
-        mock_api_get.return_value.json.return_value = {"status": "completed"}
-
-        fake_config = {
-            "device_ip": "1.1.1.1",
-            "control_host": "zapper-host",
-            "agent_name": "test-agent",
-            "reboot_script": ["reboot"],
-            "env": {},
-        }
-        device = DeviceConnector(fake_config)
-        device._boot_binary = None
-
-        device._run(urls=["http://example.com/image.img"])
-
-        call_kwargs = mock_api_post.call_args.kwargs
-        self.assertIn("json", call_kwargs)
-        self.assertNotIn("files", call_kwargs)
 
 
 if __name__ == "__main__":
