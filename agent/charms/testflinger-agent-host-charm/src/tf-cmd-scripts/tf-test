@@ -14,7 +14,7 @@ AGENT_CONFIGS_PATH={{ agent_configs_path }}
 CONFIG_DIR="{{ config_dir }}"
 VIRTUAL_ENV_PATH="{{ virtual_env_path }}"
 
-# pre-create attachments directory so it can be bind-mounted read-only
+# pre-create attachments directory so it can be bind-mounted
 mkdir -p "$PWD/attachments"
 
 if [ -d "$VIRTUAL_ENV_PATH" ]; then
