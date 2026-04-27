@@ -295,3 +295,323 @@ class TestAuthenticationEvents:
         # Cleanup
         mongo.client_permissions.delete_one({"client_id": test_client_id})
         mongo.refresh_tokens.delete_many({"client_id": test_client_id})
+
+
+class TestLoggingCompleteness:
+    """Comprehensive tests for all OWASP logging event scenarios."""
+
+    def test_oidc_success_login(self, oidc_app, caplog):
+        """Verify authn_login_success is logged for successful OIDC
+        callback.
+        """
+        from unittest.mock import Mock, patch
+
+        from authlib.common.security import generate_token
+        from flask import url_for
+
+        app, mongo = oidc_app
+
+        # Mock OIDC token response
+        mock_token = {
+            "access_token": generate_token(48),
+            "userinfo": {
+                "sub": "1234",
+                "name": "testuser",
+                "email": "test@example.com",
+            },
+        }
+
+        with patch(
+            "testflinger.oidc.views.current_app", new_callable=Mock
+        ) as mock_current_app:
+            # Setup the mock to match real Flask app behavior
+            mock_current_app.oauth.oidc.authorize_access_token.return_value = (
+                mock_token
+            )
+            mock_current_app.owasp_logger = app.owasp_logger
+
+            client = app.test_client()
+            with caplog.at_level(logging.INFO):
+                with app.test_request_context():
+                    response = client.get(url_for("oidc.callback"))
+
+            assert response.status_code == HTTPStatus.FOUND
+            assert "authn_login_success:testuser" in caplog.text
+
+    def test_oidc_failed_login(self, oidc_app, caplog):
+        """Verify authn_login_fail is logged for failed OIDC callback."""
+        from unittest.mock import Mock, patch
+
+        from authlib.integrations.base_client.errors import OAuthError
+        from flask import url_for
+
+        app, _ = oidc_app
+
+        with patch(
+            "testflinger.oidc.views.current_app", new_callable=Mock
+        ) as mock_current_app:
+            mock_current_app.oauth.oidc.authorize_access_token.side_effect = (
+                OAuthError("Invalid OAuth response")
+            )
+            mock_current_app.owasp_logger = app.owasp_logger
+
+            client = app.test_client()
+            with caplog.at_level(logging.INFO):
+                with app.test_request_context():
+                    response = client.get(url_for("oidc.callback"))
+
+            assert response.status_code == HTTPStatus.FOUND
+            assert "authn_login_fail:unknown" in caplog.text
+            assert "OAuthError" in caplog.text
+
+    def test_token_refresh_success(self, mongo_app_with_permissions, caplog):
+        """Verify authn_token_created logged for successful token refresh."""
+        import os
+
+        os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+        app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+        # Get initial token
+        token_response = app.post(
+            "/v1/oauth2/token",
+            headers=create_auth_header(client_id, client_key),
+        )
+        refresh_token = token_response.get_json()["refresh_token"]
+
+        # Refresh the token
+        with caplog.at_level(logging.INFO):
+            response = app.post(
+                "/v1/oauth2/refresh",
+                json={"refresh_token": refresh_token},
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        assert f"authn_token_created:{client_id}" in caplog.text
+        assert "Access token refreshed" in caplog.text
+
+    def test_token_reuse_expired(self, mongo_app_with_permissions, caplog):
+        """Verify authn_token_reuse is logged for expired token reuse."""
+        import os
+        from datetime import datetime, timedelta, timezone
+
+        from testflinger import database
+
+        os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+        app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+        # Get initial token
+        token_response = app.post(
+            "/v1/oauth2/token",
+            headers=create_auth_header(client_id, client_key),
+        )
+        refresh_token = token_response.get_json()["refresh_token"]
+
+        # Manually expire the token by modifying the database
+        expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        database.edit_refresh_token(refresh_token, {"expires_at": expires_at})
+
+        # Attempt to refresh with expired token
+        with caplog.at_level(logging.INFO):
+            response = app.post(
+                "/v1/oauth2/refresh",
+                json={"refresh_token": refresh_token},
+            )
+
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert f"authn_token_reuse:{client_id}" in caplog.text
+        assert "expired" in caplog.text
+
+    def test_token_reuse_revoked(self, mongo_app_with_permissions, caplog):
+        """Verify authn_token_reuse is logged for revoked token reuse."""
+        import os
+
+        from testflinger import database
+
+        os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+        app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+
+        # Get initial token
+        token_response = app.post(
+            "/v1/oauth2/token",
+            headers=create_auth_header(client_id, client_key),
+        )
+        refresh_token = token_response.get_json()["refresh_token"]
+
+        # Revoke the token
+        database.edit_refresh_token(refresh_token, {"revoked": True})
+
+        # Attempt to refresh with revoked token
+        with caplog.at_level(logging.INFO):
+            response = app.post(
+                "/v1/oauth2/refresh",
+                json={"refresh_token": refresh_token},
+            )
+
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert f"authn_token_reuse:{client_id}" in caplog.text
+        assert "revoked" in caplog.text
+
+    def test_user_created(self, mongo_app_with_permissions, caplog):
+        """Verify user_created event logged when new client created."""
+        import os
+
+        os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+        app, mongo, admin_client_id, admin_key, _ = mongo_app_with_permissions
+
+        admin_token = get_access_token(app, admin_client_id, admin_key)
+        new_client_id = "new_test_client_created"
+
+        with caplog.at_level(logging.INFO):
+            response = app.put(
+                f"/v1/client-permissions/{new_client_id}",
+                json={
+                    "client_secret": "new_secret",
+                    "role": ServerRoles.CONTRIBUTOR,
+                },
+                headers={"Authorization": admin_token},
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        # Verify log event contains userid, target_user, and entitlements
+        assert f"user_created:{admin_client_id}" in caplog.text
+        assert new_client_id in caplog.text
+        assert "CONTRIBUTOR" in caplog.text or "created" in caplog.text
+
+        # Cleanup
+        mongo.client_permissions.delete_one({"client_id": new_client_id})
+
+    def test_user_created_new_client(self, mongo_app_with_permissions, caplog):
+        """Verify user_created is logged when a new client is created."""
+        import os
+
+        os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+        app, mongo, admin_client_id, admin_key, _ = mongo_app_with_permissions
+
+        admin_token = get_access_token(app, admin_client_id, admin_key)
+        new_client_id = "new_test_client"
+
+        with caplog.at_level(logging.INFO):
+            response = app.put(
+                f"/v1/client-permissions/{new_client_id}",
+                json={
+                    "client_secret": "new_secret",
+                    "role": ServerRoles.CONTRIBUTOR,
+                },
+                headers={"Authorization": admin_token},
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        assert f"user_created:{admin_client_id}" in caplog.text
+        assert new_client_id in caplog.text
+        assert "created" in caplog.text
+
+        # Cleanup
+        mongo.client_permissions.delete_one({"client_id": new_client_id})
+
+    def test_user_updated(self, mongo_app_with_permissions, caplog):
+        """Verify user_updated event logged when client role changed."""
+        import os
+
+        os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+        app, mongo, admin_client_id, admin_key, _ = mongo_app_with_permissions
+
+        admin_token = get_access_token(app, admin_client_id, admin_key)
+        target_client_id = "update_test_client_explicit"
+
+        # Create client with CONTRIBUTOR role
+        app.put(
+            f"/v1/client-permissions/{target_client_id}",
+            json={
+                "client_secret": "new_secret",
+                "role": ServerRoles.CONTRIBUTOR,
+            },
+            headers={"Authorization": admin_token},
+        )
+
+        # Update to MANAGER role and capture logging
+        with caplog.at_level(logging.INFO):
+            response = app.put(
+                f"/v1/client-permissions/{target_client_id}",
+                json={"role": ServerRoles.MANAGER},
+                headers={"Authorization": admin_token},
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        # Verify log event contains userid, target_user, and new role
+        assert f"user_updated:{admin_client_id}" in caplog.text
+        assert target_client_id in caplog.text
+        assert "MANAGER" in caplog.text or "updated" in caplog.text
+
+        # Cleanup
+        mongo.client_permissions.delete_one({"client_id": target_client_id})
+
+    def test_user_updated_existing_client(
+        self, mongo_app_with_permissions, caplog
+    ):
+        """Verify user_updated is logged when an existing client is updated."""
+        import os
+
+        os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+        app, mongo, admin_client_id, admin_key, _ = mongo_app_with_permissions
+
+        admin_token = get_access_token(app, admin_client_id, admin_key)
+
+        # Create a new client first
+        new_client_id = "update_test_client"
+        app.put(
+            f"/v1/client-permissions/{new_client_id}",
+            json={
+                "client_secret": "new_secret",
+                "role": ServerRoles.CONTRIBUTOR,
+            },
+            headers={"Authorization": admin_token},
+        )
+
+        # Now update the client
+        caplog.clear()
+        with caplog.at_level(logging.INFO):
+            response = app.put(
+                f"/v1/client-permissions/{new_client_id}",
+                json={"role": ServerRoles.MANAGER},
+                headers={"Authorization": admin_token},
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        assert f"user_updated:{admin_client_id}" in caplog.text
+        assert new_client_id in caplog.text
+        assert "updated" in caplog.text
+
+        # Cleanup
+        mongo.client_permissions.delete_one({"client_id": new_client_id})
+
+    def test_user_deleted_client(self, mongo_app_with_permissions, caplog):
+        """Verify user_deleted is logged when a client is deleted."""
+        import os
+
+        os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+        app, mongo, admin_client_id, admin_key, _ = mongo_app_with_permissions
+
+        admin_token = get_access_token(app, admin_client_id, admin_key)
+
+        # Create a new client first
+        delete_test_client = "delete_test_client"
+        app.put(
+            f"/v1/client-permissions/{delete_test_client}",
+            json={
+                "client_secret": "new_secret",
+                "role": ServerRoles.CONTRIBUTOR,
+            },
+            headers={"Authorization": admin_token},
+        )
+
+        # Now delete the client
+        with caplog.at_level(logging.INFO):
+            response = app.delete(
+                f"/v1/client-permissions/{delete_test_client}",
+                headers={"Authorization": admin_token},
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        assert f"user_deleted:{admin_client_id}" in caplog.text
+        assert delete_test_client in caplog.text
+        assert "deleted" in caplog.text

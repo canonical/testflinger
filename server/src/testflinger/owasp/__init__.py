@@ -14,7 +14,6 @@
 
 """Stub to allow for use of Otel later by overloading OWASPLogger."""
 
-import importlib
 import os
 
 from owasp_logger import OWASPLogger as TrueOWASPLogger
@@ -58,26 +57,3 @@ class OWASPLogger(TrueOWASPLogger):
             "request_uri": request.path,
             "request_method": request.method,
         }
-
-
-class OTELResource:
-    """OTEL resource for tracing context."""
-
-    def __init__(self, g, request):
-        """Initialize OTEL resource from Flask context."""
-        try:
-            version = importlib.metadata.version("testflinger")
-        except importlib.metadata.PackageNotFoundError:
-            version = "devel"
-
-        self._dict = {
-            "HOSTNAME": os.environ.get("HOSTNAME"),
-            "MONGODB_HOST": os.environ.get("MONGODB_HOST"),
-            "OIDC_PROVIDER_ISSUER": os.environ.get("OIDC_PROVIDER_ISSUER"),
-            "SERVER_SOFTWARE": os.environ.get("SERVER_SOFTWARE"),
-            "TESTFLINGER_VERSION": version,
-        }
-
-    def __repr__(self):
-        """Return string representation of resource dict."""
-        return str(self._dict)

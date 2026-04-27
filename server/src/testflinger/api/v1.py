@@ -984,7 +984,7 @@ def retrieve_token():
     )
 
     # Log successful authentication
-    entitlements = [role]
+    entitlements = [str(role)]
     current_app.owasp_logger.authn_login_success(
         userid=client_id,
         description=(
@@ -997,8 +997,7 @@ def retrieve_token():
         entitlements=entitlements,
         description=(
             f"JWT access token and refresh token issued for "
-            f"client {client_id} with entitlements: "
-            f"{','.join(entitlements)}"
+            f"client {client_id} with role: {role}."
         ),
         **OWASPLogger.get_request_metadata(request),
     )
@@ -1025,6 +1024,19 @@ def refresh_access_token():
     client_permissions = database.get_client_permissions(client_id)
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     access_token = auth.generate_access_token(client_permissions, secret_key)
+
+    # Log token refresh
+    role = client_permissions.get("role")
+    entitlements = [role] if role else []
+    current_app.owasp_logger.authn_token_created(
+        userid=client_id,
+        entitlements=entitlements,
+        description=(
+            f"Access token refreshed for client {client_id} "
+            f"with entitlements: {','.join([str(e) for e in entitlements])}"
+        ),
+        **OWASPLogger.get_request_metadata(request),
+    )
 
     return {
         "access_token": access_token,
