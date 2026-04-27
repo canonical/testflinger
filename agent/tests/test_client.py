@@ -246,19 +246,19 @@ class TestClient:
     def test_save_artifacts_missing_artifacts_dir(
         self, client, requests_mock, tmp_path
     ):
-        """Test save_artifacts handles artifacts directory is missing."""
+        """Test no request is made if artifacts directory is missing."""
         job_id = str(uuid.uuid1())
         testflinger_data = {"job_id": job_id}
         testflinger_json = tmp_path / "testflinger.json"
         testflinger_json.write_text(json.dumps(testflinger_data))
         client.save_artifacts(tmp_path, job_id)
-        # No requests should be made to server since there are no artifacts
+        # No requests should be made to server as there is nothing to submit
         assert requests_mock.called is False
 
     def test_save_artifacts_empty_artifacts_dir(
         self, client, requests_mock, tmp_path
     ):
-        """Test save_artifacts handles artifacts directory is empty."""
+        """Test no request is made if artifacts directory is empty."""
         job_id = str(uuid.uuid1())
         testflinger_data = {"job_id": job_id}
         testflinger_json = tmp_path / "testflinger.json"
@@ -267,7 +267,7 @@ class TestClient:
         artifacts_dir = tmp_path / "artifacts"
         artifacts_dir.mkdir()
         client.save_artifacts(tmp_path, job_id)
-        # No requests should be made to server since there are no artifacts
+        # No requests should be made to server as there is nothing to submit
         assert requests_mock.called is False
 
     def test_transmit_job_outcome_missing_json(self, client, tmp_path, caplog):
