@@ -28,6 +28,7 @@ if [ -d "$VIRTUAL_ENV_PATH" ]; then
         -v $AGENT_CONFIGS_PATH/$CONFIG_DIR/$agent_id:$AGENT_CONFIGS_PATH/$CONFIG_DIR/$agent_id \
         $REGISTRY/$NAMESPACE/$IMAGE:$IMAGE_TAG \
         bash -c "(cd /srv/testflinger/device-connectors && sudo uv pip install . --system &> /dev/null) && PYTHONUNBUFFERED=1 testflinger-device-connector $PROVISION_TYPE runtest -c /$AGENT_CONFIGS_PATH/$CONFIG_DIR/$agent_id/default.yaml testflinger.json"
+    exit_code=$?
     docker cp "$agent_id:/home/ubuntu/artifacts" "$PWD/" 2>/dev/null || true
 else
     docker run -t --name $AGENT \
@@ -39,5 +40,7 @@ else
         -v /srv/testflinger-agent/$AGENT:/srv/testflinger-agent/$AGENT \
         $REGISTRY/$NAMESPACE/$IMAGE:$IMAGE_TAG \
         bash -c "(cd /srv/testflinger-agent/$AGENT/testflinger/device-connectors && sudo pip install . &> /dev/null) && PYTHONUNBUFFERED=1 testflinger-device-connector $PROVISION_TYPE runtest -c /srv/testflinger-agent/$AGENT/default.yaml testflinger.json"
+    exit_code=$?
     docker cp "$AGENT:/home/ubuntu/artifacts" "$PWD/" 2>/dev/null || true
 fi
+exit $exit_code
