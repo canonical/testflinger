@@ -420,6 +420,53 @@ def test_add_job_zapper_iot_custom_provision_data_neither(mongo_app):
     assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
 
 
+def test_add_job_zapper_iot_custom_provision_data_url_and_attachment(
+    mongo_app,
+):
+    """Test that providing both `url` and an attachment fails."""
+    provision_data = {
+        "url": "http://example.com/image.img.xz",
+        "attachments": [{"agent": "provision/image.img"}],
+        "provision_plan": {},
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+
+
+def test_add_job_zapper_iot_custom_provision_data_urls_and_attachment(
+    mongo_app,
+):
+    """Test that providing both `urls` and an attachment fails."""
+    provision_data = {
+        "urls": ["http://example.com/image.img.xz"],
+        "attachments": [{"agent": "provision/image.img"}],
+        "provision_plan": {},
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+
+
+def test_add_job_zapper_iot_custom_provision_data_multiple_attachments(
+    mongo_app,
+):
+    """Test that providing more than one attachment fails."""
+    provision_data = {
+        "attachments": [
+            {"agent": "provision/image.img"},
+            {"agent": "provision/extra.img"},
+        ],
+        "provision_plan": {},
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
+
+
 def test_add_job_zapper_kvm_autoinstall_provision_data(mongo_app):
     """Test that a job with zapper_kvm_autoinstall provision_data works."""
     # Invalid URL fails
