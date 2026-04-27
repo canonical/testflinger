@@ -14,11 +14,15 @@ AGENT_CONFIGS_PATH={{ agent_configs_path }}
 CONFIG_DIR="{{ config_dir }}"
 VIRTUAL_ENV_PATH="{{ virtual_env_path }}"
 
+# pre-create attachments directory so it can be bind-mounted read-only
+mkdir -p "$PWD/attachments"
+
 if [ -d "$VIRTUAL_ENV_PATH" ]; then
     docker run -t --name $agent_id \
         --workdir /home/ubuntu \
         -v "$PWD/testflinger.json:/home/ubuntu/testflinger.json:ro" \
         -v "$PWD/device-connector-error.json:/home/ubuntu/device-connector-error.json" \
+        -v "$PWD/attachments:/home/ubuntu/attachments" \
         -v ~/.ssh:/home/ubuntu/.ssh:ro \
         -v /srv/testflinger:/srv/testflinger \
         -v $AGENT_CONFIGS_PATH/$CONFIG_DIR/$agent_id:$AGENT_CONFIGS_PATH/$CONFIG_DIR/$agent_id \
@@ -30,6 +34,7 @@ else
         --workdir /home/ubuntu \
         -v "$PWD/testflinger.json:/home/ubuntu/testflinger.json:ro" \
         -v "$PWD/device-connector-error.json:/home/ubuntu/device-connector-error.json" \
+        -v "$PWD/attachments:/home/ubuntu/attachments" \
         -v ~/.ssh:/home/ubuntu/.ssh:ro \
         -v /srv/testflinger-agent/$AGENT:/srv/testflinger-agent/$AGENT \
         $REGISTRY/$NAMESPACE/$IMAGE:$IMAGE_TAG \
