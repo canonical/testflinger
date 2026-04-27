@@ -181,12 +181,18 @@ class ZapperConnector(ABC, DefaultDevice):
 
     @staticmethod
     def _find_provision_attachment() -> Optional[Path]:
-        """Return the provision attachment if one was uploaded, else None."""
+        """Return the provision attachment if one was uploaded, else None.
+
+        The server schema enforces at most one provision attachment per
+        Zapper IoT job, so the first regular file in the directory is
+        unambiguously the boot binary.
+        """
         attachments_dir = Path.cwd() / ATTACHMENTS_DIR / "provision"
         if not attachments_dir.is_dir():
             return None
-        files = sorted(p for p in attachments_dir.iterdir() if p.is_file())
-        return files[0] if files else None
+        return next(
+            (p for p in attachments_dir.iterdir() if p.is_file()), None
+        )
 
     def _run(self, *args, **kwargs):
         """Run the Zapper provisioning via the REST API.
