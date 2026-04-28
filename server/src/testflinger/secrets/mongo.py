@@ -145,20 +145,21 @@ class MongoStore(SecretsStore):
                 f"Failed to encrypt value for '{key}' under '{namespace}'"
             ) from error
 
+        secret_document = {
+            "key": key,
+            "value": encrypted_value,
+            "updated_at": datetime.now(timezone.utc),
+            "ephemeral": ephemeral,
+        }
+        # Only add expiration and create TTL index if secret is not ephemeral
+        # and has an expiration defined
+        if not ephemeral and expire_after is not None:
+            self._ensure_ttl_index(namespace)
+            secret_document["expire_at"] = datetime.now(
+                timezone.utc
+            ) + timedelta(seconds=expire_after)
+
         try:
-            secret_document = {
-                "key": key,
-                "value": encrypted_value,
-                "updated_at": datetime.now(timezone.utc),
-                "ephemeral": ephemeral,
-            }
-
-            if not ephemeral and expire_after is not None:
-                self._ensure_ttl_index(namespace)
-                secret_document["expire_at"] = datetime.now(
-                    timezone.utc
-                ) + timedelta(seconds=expire_after)
-
             self.database.secrets[namespace].replace_one(
                 {"key": key},
                 secret_document,
