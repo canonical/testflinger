@@ -44,13 +44,29 @@ class TestVaultStore:
     def test_read_success(self, vault_store, mock_client):
         """Test successful secret read."""
         mock_client.secrets.kv.v2.read_secret_version.return_value = {
-            "data": {"data": {"value": "test-secret-value"}}
+            "data": {
+                "data": {"value": "test-secret-value", "ephemeral": False}
+            }
         }
 
         result = vault_store.read("test-namespace", "test-key")
 
         assert result == "test-secret-value"
         mock_client.secrets.kv.v2.read_secret_version.assert_called_once_with(
+            path="test-namespace/test-key"
+        )
+        mock_client.secrets.kv.v2.delete_metadata_and_all_versions.assert_not_called()
+
+    def test_read_ephemeral_secret(self, vault_store, mock_client):
+        """Test reading an ephemeral secret deletes it afterwards."""
+        mock_client.secrets.kv.v2.read_secret_version.return_value = {
+            "data": {"data": {"value": "one-time-value", "ephemeral": True}}
+        }
+
+        result = vault_store.read("test-namespace", "test-key")
+
+        assert result == "one-time-value"
+        mock_client.secrets.kv.v2.delete_metadata_and_all_versions.assert_called_once_with(
             path="test-namespace/test-key"
         )
 
@@ -94,8 +110,54 @@ class TestVaultStore:
         vault_store.write("test-namespace", "test-key", "test-value")
 
         mock_client.secrets.kv.v2.create_or_update_secret.assert_called_once_with(
-            path="test-namespace/test-key", secret={"value": "test-value"}
+            path="test-namespace/test-key",
+            secret={"value": "test-value", "ephemeral": False},
         )
+
+    @pytest.mark.parametrize("expire_after", [60, 3600, 86400])
+    def test_write_with_expiration(
+        self, vault_store, mock_client, expire_after
+    ):
+        """Test write calls update_metadata with correct duration string."""
+        vault_store.write(
+            "test-namespace",
+            "test-key",
+            "test-value",
+            expire_after=expire_after,
+        )
+
+        mock_client.secrets.kv.v2.create_or_update_secret.assert_called_once_with(
+            path="test-namespace/test-key",
+            secret={"value": "test-value", "ephemeral": False},
+        )
+        mock_client.secrets.kv.v2.update_metadata.assert_called_once_with(
+            path="test-namespace/test-key",
+            delete_version_after=f"{expire_after}s",
+        )
+
+    def test_write_no_expiration(self, vault_store, mock_client):
+        """Test write with expire_after=None does not call update_metadata."""
+        vault_store.write(
+            "test-namespace", "test-key", "test-value", expire_after=None
+        )
+
+        mock_client.secrets.kv.v2.create_or_update_secret.assert_called_once_with(
+            path="test-namespace/test-key",
+            secret={"value": "test-value", "ephemeral": False},
+        )
+        mock_client.secrets.kv.v2.update_metadata.assert_not_called()
+
+    def test_write_ephemeral(self, vault_store, mock_client):
+        """Test ephemeral write stores the flag and skips update_metadata."""
+        vault_store.write(
+            "test-namespace", "test-key", "test-value", ephemeral=True
+        )
+
+        mock_client.secrets.kv.v2.create_or_update_secret.assert_called_once_with(
+            path="test-namespace/test-key",
+            secret={"value": "test-value", "ephemeral": True},
+        )
+        mock_client.secrets.kv.v2.update_metadata.assert_not_called()
 
     @pytest.mark.parametrize("error_cls", VaultStore.hvac_access_errors)
     def test_write_error(self, error_cls, vault_store, mock_client):

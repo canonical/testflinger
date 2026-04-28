@@ -58,6 +58,11 @@ class VaultStore(SecretsStore):
             raise StoreError(
                 f"Unable to access store for '{key}' under '{namespace}'"
             ) from error
+
+        # If secret is ephemeral, delete it after reading
+        if response.get("data", {}).get("data", {}).get("ephemeral", False):
+            self.delete(namespace, key)
+
         # retrieve the secret value from the entry and return it
         try:
             return response["data"]["data"]["value"]
@@ -86,8 +91,15 @@ class VaultStore(SecretsStore):
         # write (or update) the secret value using the Vault API
         try:
             self.client.secrets.kv.v2.create_or_update_secret(
-                path=f"{namespace}/{key}", secret={"value": value}
+                path=f"{namespace}/{key}",
+                secret={"value": value, "ephemeral": ephemeral},
             )
+            # Add expiration metadata if expire_after is set and not ephemeral
+            if expire_after is not None and not ephemeral:
+                self.client.secrets.kv.v2.update_metadata(
+                    path=f"{namespace}/{key}",
+                    delete_version_after=f"{expire_after}s",
+                )
         except self.hvac_access_errors as error:
             raise AccessError(
                 f"Unable to access '{key}' under '{namespace}'"
