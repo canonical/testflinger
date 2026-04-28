@@ -1245,6 +1245,7 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
 
     # Update permissions from json data
     permissions.update(json_data)
+    effective_role = permissions.get("role", ServerRoles.CONTRIBUTOR)
     database.create_or_update_client_permissions(client_id, permissions)
 
     # Log user management activity
@@ -1254,12 +1255,12 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
             userid=g.client_id,
             onuserid=client_id,
             attributes=(
-                f"role={new_role},max_priority,max_reservation_time,"
+                f"role={effective_role},max_priority,max_reservation_time,"
                 f"allowed_queues"
             ),
             description=(
                 f"Admin {g.client_id} updated permissions for "
-                f"client {client_id}: role={new_role}"
+                f"client {client_id}: role={effective_role}"
             ),
             **OWASPLogger.get_request_metadata(request),
         )
@@ -1269,10 +1270,10 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
         current_app.owasp_logger.user_created(
             userid=g.client_id,
             newuserid=client_id,
-            attributes=f"role={new_role},max_priority,max_reservation_time,allowed_queues",
+            attributes=f"role={effective_role},max_priority,max_reservation_time,allowed_queues",
             description=(
                 f"Admin {g.client_id} created new client {client_id} "
-                f"with role {new_role}"
+                f"with role {effective_role}"
             ),
             **OWASPLogger.get_request_metadata(request),
         )
