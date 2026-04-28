@@ -36,3 +36,24 @@ Environment variable names must follow standard shell naming conventions:
 
 - Must start with a letter or underscore
 - Can only contain letters, numbers and underscores
+
+Retention
+---------
+
+Secrets in Testflinger are by default retained for a year after which they
+are automatically removed. This is to prevent stale data to pile up and to let 
+users control the data retention of their private data automatically. 
+
+Users can:
+
+- Specify any expiration (in seconds) after which the secret is automatically removed.
+- Specify no expiration. If needed, users can still remove it manually.
+- Specify single use secrets. Useful if you don't want your data to be retained by 
+  Testflinger and remove it immediately after its first use. 
+
+.. note:: 
+
+    The expiration of the secret is considered from the time it was last created or updated.
+
+For more information on how to define expiration for a secret, 
+refer to :doc:`Use Secrets how-to guide <../how-to/use-secrets>`.
