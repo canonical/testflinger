@@ -268,7 +268,7 @@ def test_secret_write_with_expiration(auth_fixture, requests_mock, expiration):
         "write",
         test_path,
         "secret_value",
-        "--expiration",
+        "--expire-after",
         str(expiration),
     ]
 
@@ -280,8 +280,8 @@ def test_secret_write_with_expiration(auth_fixture, requests_mock, expiration):
     }
 
 
-def test_secret_write_ephemeral(auth_fixture, requests_mock):
-    """Test secret write with expiration=0 sets ephemeral flag in request."""
+def test_secret_write_no_expiration(auth_fixture, requests_mock):
+    """Test expire-after -1 sets None in expire_after in the request body."""
     auth_fixture(ServerRoles.CONTRIBUTOR)
     test_path = "my/secret/path"
 
@@ -297,8 +297,36 @@ def test_secret_write_ephemeral(auth_fixture, requests_mock):
         "write",
         test_path,
         "secret_value",
-        "--expiration",
-        "0",
+        "--expire-after",
+        "-1",
+    ]
+
+    testflinger_cli.TestflingerCli().run()
+
+    assert requests_mock.last_request.json() == {
+        "value": "secret_value",
+        "expire_after": None,
+    }
+
+
+def test_secret_write_single_use(auth_fixture, requests_mock):
+    """Test that single-use sets the ephemeral flag in the request body."""
+    auth_fixture(ServerRoles.CONTRIBUTOR)
+    test_path = "my/secret/path"
+
+    requests_mock.put(
+        f"{URL}/v1/secrets/my_client_id/{test_path}",
+        text="OK",
+        status_code=HTTPStatus.OK,
+    )
+
+    sys.argv = [
+        "",
+        "secret",
+        "write",
+        test_path,
+        "secret_value",
+        "--single-use",
     ]
 
     testflinger_cli.TestflingerCli().run()
@@ -307,6 +335,30 @@ def test_secret_write_ephemeral(auth_fixture, requests_mock):
         "value": "secret_value",
         "ephemeral": True,
     }
+
+
+def test_secret_write_single_use_and_expire_after_are_mutually_exclusive(
+    auth_fixture, capsys
+):
+    """Test that single-use and expire-after cannot be used together."""
+    auth_fixture(ServerRoles.CONTRIBUTOR)
+
+    sys.argv = [
+        "",
+        "secret",
+        "write",
+        "my/secret/path",
+        "secret_value",
+        "--single-use",
+        "--expire-after",
+        "3600",
+    ]
+
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+
+    assert exc_info.value.code == 2
+    assert "not allowed with argument" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

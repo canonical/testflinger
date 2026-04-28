@@ -592,11 +592,19 @@ class TestflingerCli:
             "path", help="Path for the secret", type=helpers.regex_path
         )
         write_parser.add_argument("value", help="Value of the secret")
-        write_parser.add_argument(
-            "--expiration",
-            help="Seconds for the secret to live (0 for ephemeral secret)",
+        expiry_group = write_parser.add_mutually_exclusive_group()
+        expiry_group.add_argument(
+            "--expire-after",
+            help=(
+                "Seconds until the secret expires. Use -1 for no expiration."
+            ),
             type=int,
             default=DEFAULT_SECRET_EXPIRATION,
+        )
+        expiry_group.add_argument(
+            "--single-use",
+            help="Secret will be deleted after the first time it is read.",
+            action="store_true",
         )
         self._add_auth_args(write_parser)
 
@@ -1871,11 +1879,15 @@ class TestflingerCli:
         if auth_headers is None or self.auth.client_id is None:
             sys.exit("Error writing secret: Authentication is required")
 
-        secret_data = {"value": self.args.value} | (
-            {"expire_after": self.args.expiration}
-            if self.args.expiration > 0
-            else {"ephemeral": True}
-        )
+        if self.args.single_use:
+            secret_data = {"value": self.args.value, "ephemeral": True}
+        else:
+            secret_data = {
+                "value": self.args.value,
+                "expire_after": self.args.expire_after
+                if self.args.expire_after > 0
+                else None,
+            }
 
         endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
