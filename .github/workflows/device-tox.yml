@@ -25,7 +25,7 @@ jobs:
     defaults:
       run:
         working-directory: device-connectors
-    runs-on: [self-hosted, linux, jammy, X64]
+    runs-on: ubuntu-latest
     permissions:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
     steps:
