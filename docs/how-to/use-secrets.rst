@@ -42,10 +42,10 @@ if you don't specify any expiration.
     testflinger-cli secret write path/to/secret 'my_secret_value' --expire-after 604800 # 7 days
 
 .. tip::
-    For a non expiry secret you can specify ``-1`` in the ``--expire-after`` argument
+    For a non-expiring secret you can specify ``-1`` in the ``--expire-after`` argument
 
-If you prefer for the secret to expire after its first use, you can also use the ``--single-use``
-argument.
+If you prefer the secret to be single-use and expire after its first use, you can also use the
+``--single-use`` argument.
 
 .. code-block:: shell
 

@@ -78,7 +78,7 @@ class VaultStore(SecretsStore):
         value: str,
         expire_after: int | None = DEFAULT_SECRET_EXPIRATION,
         ephemeral: bool = False,
-    ) -> bool:
+    ) -> None:
         """Write the `value` for `key` under `namespace`.
 
         :param namespace: the namespace under which to store the secret
@@ -86,7 +86,8 @@ class VaultStore(SecretsStore):
         :param value: the value of the secret to store
         :param expire_after: Expiration time in seconds for the secret.
         :param ephemeral: whether the secret should be deleted after being read
-        :returns: True if the secret was successfully stored, False otherwise
+        :raises AccessError: if the secret cannot be accessed
+        :raises StoreError: if there is an issue with the Vault store
         """
         # write (or update) the secret value using the Vault API
         try:

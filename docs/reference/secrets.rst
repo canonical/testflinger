@@ -48,7 +48,7 @@ Users can:
 
 - Specify any expiration (in seconds) after which the secret is automatically removed.
 - Specify no expiration. If needed, users can still remove it manually.
-- Specify single use secrets. Useful if you don't want your data to be retained by 
+- Specify single-use secrets. Useful if you don't want your data to be retained by 
   Testflinger and remove it immediately after its first use. 
 
 .. note:: 

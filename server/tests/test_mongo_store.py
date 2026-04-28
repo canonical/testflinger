@@ -18,7 +18,7 @@
 import base64
 import os
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from bson.binary import Binary
@@ -565,7 +565,16 @@ class TestMongoStore:
         mock_collection.find_one.return_value = {"key": "test-key"}
 
         assert mongo_store.exists("test-namespace", "test-key") is True
-        mock_collection.find_one.assert_called_once_with({"key": "test-key"})
+        mock_collection.find_one.assert_called_once_with(
+            {
+                "key": "test-key",
+                "$or": [
+                    {"expire_at": {"$exists": False}},
+                    {"expire_at": {"$gt": ANY}},
+                ],
+            },
+            {"_id": 1},
+        )
 
     def test_secret_not_exists_mongostore(self, mongo_store, mock_collection):
         """Test exists method returns False if secret does not exist."""
@@ -573,7 +582,14 @@ class TestMongoStore:
 
         assert mongo_store.exists("test-namespace", "nonexistent-key") is False
         mock_collection.find_one.assert_called_once_with(
-            {"key": "nonexistent-key"}
+            {
+                "key": "nonexistent-key",
+                "$or": [
+                    {"expire_at": {"$exists": False}},
+                    {"expire_at": {"$gt": ANY}},
+                ],
+            },
+            {"_id": 1},
         )
 
 

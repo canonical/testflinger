@@ -196,7 +196,16 @@ class MongoStore(SecretsStore):
         """
         try:
             return (
-                self.database.secrets[namespace].find_one({"key": key})
+                self.database.secrets[namespace].find_one(
+                    {
+                        "key": key,
+                        "$or": [
+                            {"expire_at": {"$exists": False}},
+                            {"expire_at": {"$gt": datetime.now(timezone.utc)}},
+                        ],
+                    },
+                    {"_id": 1},
+                )
                 is not None
             )
         except (OperationFailure, ConnectionFailure):

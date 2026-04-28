@@ -630,8 +630,18 @@ class SecretIn(Schema):
     """Secret input schema."""
 
     value = fields.String(required=True)
-    expire_after = fields.Integer(required=False, allow_none=True)
+    expire_after = fields.Integer(
+        required=False, allow_none=True, validate=validators.Range(min=1)
+    )
     ephemeral = fields.Boolean(required=False, default=False)
+
+    @validates_schema
+    def validate_expiration_or_ephemeral(self, data, **_):
+        """Reject requests that set both ephemeral and expire_after."""
+        if data.get("ephemeral") and data.get("expire_after"):
+            raise ValidationError(
+                "Provide either 'ephemeral' or 'expire_after', not both."
+            )
 
 
 class ResultLegacy(Schema):

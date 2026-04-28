@@ -1882,13 +1882,18 @@ class TestflingerCli:
         if self.args.single_use:
             secret_data = {"value": self.args.value, "ephemeral": True}
         else:
+            expire_after = self.args.expire_after
+            if expire_after == -1:
+                expire_after = None
+            elif expire_after <= 0:
+                sys.exit(
+                    "Error writing secret: --expire-after must be a positive "
+                    "integer or -1 for no expiration"
+                )
             secret_data = {
                 "value": self.args.value,
-                "expire_after": self.args.expire_after
-                if self.args.expire_after > 0
-                else None,
+                "expire_after": expire_after,
             }
-
         endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
             self.client.put(endpoint, secret_data, headers=auth_headers)
