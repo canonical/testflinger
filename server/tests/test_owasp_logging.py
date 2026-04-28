@@ -244,13 +244,13 @@ class TestAuthenticationEvents:
         # Token created event includes userid and entitlements
         assert f"authn_token_created:{client_id}" in caplog.text
 
-    def test_authn_token_revoked(self, mongo_app_with_permissions, caplog):
+    def test_authn_token_revoked(
+        self, mongo_app_with_permissions, caplog, monkeypatch
+    ):
         """Verify authn_token_revoked is logged when refresh token
         is revoked.
         """
-        import os
-
-        os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+        monkeypatch.setenv("JWT_SIGNING_KEY", "my_secret_key")
         app, mongo, client_id, client_key, _ = mongo_app_with_permissions
         admin_token = get_access_token(app, client_id, client_key)
 
