@@ -155,3 +155,10 @@ class ServerRoles(StrEnum):
     def __ge__(self, other: "ServerRoles") -> bool:
         """Implement of "greater-than-or-equal" between ServerRoles."""
         return not self < other
+
+    @classmethod
+    def _missing_(cls, value: object) -> "ServerRoles":
+        """Return CONTRIBUTOR for None or unrecognized role values."""
+        if value is None:
+            return cls.CONTRIBUTOR
+        raise ValueError(f"Unknown role value: {value!r}")

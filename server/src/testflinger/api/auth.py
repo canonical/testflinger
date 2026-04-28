@@ -359,7 +359,10 @@ def validate_refresh_token(token: str) -> dict:
         # Log attempt to reuse revoked token
         current_app.owasp_logger.authn_token_reuse(
             userid=token_entry.get("client_id", "unknown"),
-            tokenid=token[:16] + "...",
+            tokenid=str(
+                token_entry.get("_id")
+                or token_entry.get("client_id", "unknown")
+            ),
             description=(
                 f"Attempt to reuse revoked refresh token for client "
                 f"{token_entry.get('client_id', 'unknown')}"
@@ -377,7 +380,10 @@ def validate_refresh_token(token: str) -> dict:
             # Log attempt to reuse expired token
             current_app.owasp_logger.authn_token_reuse(
                 userid=token_entry.get("client_id", "unknown"),
-                tokenid=token[:16] + "...",
+                tokenid=str(
+                    token_entry.get("_id")
+                    or token_entry.get("client_id", "unknown")
+                ),
                 description=(
                     f"Attempt to reuse expired refresh token for client "
                     f"{token_entry.get('client_id', 'unknown')}"

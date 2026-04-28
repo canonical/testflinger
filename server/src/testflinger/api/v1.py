@@ -973,7 +973,7 @@ def retrieve_token():
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     access_token = auth.generate_access_token(allowed_resources, secret_key)
 
-    role = allowed_resources.get("role")
+    role = ServerRoles(allowed_resources.get("role"))
     if role in (ServerRoles.ADMIN, ServerRoles.MANAGER):
         refresh_expires_in = None
     else:
