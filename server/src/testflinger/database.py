@@ -494,7 +494,7 @@ def get_all_client_permissions() -> list[dict]:
 
     :return: List of dictionaries with the permissions for all users.
     """
-    return mongo.db.client_permissions.find({}, {"_id": False})
+    return list(mongo.db.client_permissions.find({}, {"_id": False}))
 
 
 def create_or_update_client_permissions(

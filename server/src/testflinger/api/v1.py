@@ -1064,11 +1064,12 @@ def revoke_refresh_token():
 
     database.edit_refresh_token(token, {"revoked": True})
 
-    # Log token revocation
+    # Log token revocation without exposing token material
     target_client_id = token_entry.get("client_id", "unknown")
+    token_log_id = str(token_entry.get("_id") or target_client_id)
     current_app.owasp_logger.authn_token_revoked(
         userid=target_client_id,
-        tokenid=token[:16] + "...",  # Log first 16 chars of token for tracking
+        tokenid=token_log_id,
         description=(
             f"Admin {g.client_id} revoked refresh token for client "
             f"{target_client_id}"
