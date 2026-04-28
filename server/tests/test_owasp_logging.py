@@ -140,13 +140,19 @@ class TestAuthzPrivilegeEscalation:
         "endpoint,method,test_role", _build_endpoint_params()
     )
     def test_authz_fail_insufficient_role(
-        self, endpoint, method, test_role, mongo_app, caplog
+        self,
+        endpoint,
+        method,
+        test_role,
+        mongo_app,
+        caplog,
+        monkeypatch,
     ):
         """
         Verify authz_fail is logged when authenticated user with
         insufficient role attempts to access protected endpoint.
         """
-        os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+        monkeypatch.setenv("JWT_SIGNING_KEY", "my_secret_key")
         app, mongo = mongo_app
 
         # Create client with test role
