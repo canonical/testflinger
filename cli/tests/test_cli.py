@@ -1110,7 +1110,7 @@ def test_reserve_with_yes_flag(mock_input, capsys, requests_mock):
     std = capsys.readouterr()
     # Verify yes flag worked by checking output contains JSON
     assert '"job_queue": "fake"' in std.out
-    assert '"url"' in std.out or '"image"' in std.out
+    assert '"url": "http' in std.out
 
 
 def test_reserve_custom_timeout(capsys, requests_mock):

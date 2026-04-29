@@ -973,7 +973,7 @@ def retrieve_token():
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     access_token = auth.generate_access_token(allowed_resources, secret_key)
 
-    role = ServerRoles(allowed_resources.get("role"))
+    role = ServerRoles(allowed_resources.get("role", ServerRoles.CONTRIBUTOR))
     if role in (ServerRoles.ADMIN, ServerRoles.MANAGER):
         refresh_expires_in = None
     else:
@@ -984,7 +984,7 @@ def retrieve_token():
     )
 
     # Log successful authentication
-    entitlements = [str(role)]
+    entitlements = [role]
     current_app.owasp_logger.authn_login_success(
         userid=client_id,
         description=(
@@ -1016,6 +1016,11 @@ def refresh_access_token():
     data = request.get_json()
     refresh_token = data.get("refresh_token")
     if not refresh_token:
+        current_app.owasp_logger.authn_login_fail(
+            userid="unknown",
+            description=("Access token requested without refresh token."),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
 
     token_entry = auth.validate_refresh_token(refresh_token)
@@ -1066,10 +1071,9 @@ def revoke_refresh_token():
 
     # Log token revocation without exposing token material
     target_client_id = token_entry.get("client_id", "unknown")
-    token_log_id = str(token_entry.get("_id") or target_client_id)
     current_app.owasp_logger.authn_token_revoked(
         userid=target_client_id,
-        tokenid=token_log_id,
+        tokenid=str(token_entry.get("_id") or "unknown"),
         description=(
             f"Admin {g.client_id} revoked refresh token for client "
             f"{target_client_id}"
@@ -1202,6 +1206,16 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
     """Add or create client permissions for a specified user."""
     # Testflinger Admin credential can't be modified from API!'
     if client_id == TESTFLINGER_ADMIN_ID:
+        current_app.owasp_logger.authz_admin(
+            userid=g.client_id,
+            admin_activity="set_client_permissions",
+            description=(
+                f"Authorization denied: client {g.client_id} with role "
+                f"{g.role} attempted to modify the system admin role "
+                f"{TESTFLINGER_ADMIN_ID} (forbidden)"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(
             HTTPStatus.UNPROCESSABLE_ENTITY,
             "Error: System admin client cannot by modified from API.",
@@ -1215,6 +1229,15 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
 
     # validation: client secret is required when creating permissions
     if not client_exist and not client_secret:
+        current_app.owasp_logger.authz_admin(
+            userid=g.client_id,
+            admin_activity="set_client_permissions",
+            description=(
+                f"Admin {g.client_id} attempted to create client {client_id} "
+                f"without required client_secret"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(
             HTTPStatus.BAD_REQUEST,
             "Error: Missing client_secret in request body for new client",
@@ -1227,6 +1250,16 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
     # validation: the requesting client can modify the client's permissions
     # only if its role is not inferior to the client's role
     if ServerRoles(g.role) < ServerRoles(current_role):
+        current_app.owasp_logger.authz_fail(
+            userid=g.client_id,
+            resource=request.path,
+            description=(
+                f"Authorization denied: client {g.client_id} with role "
+                f"{g.role} attempted to modify client {client_id} "
+                f"with role {current_role} (insufficient permissions)"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(
             HTTPStatus.FORBIDDEN,
             f"{g.client_id} has insufficient permissions "
@@ -1237,6 +1270,16 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
     # only if its role is not inferior to the client's new role
     new_role = json_data.get("role", None)
     if new_role and ServerRoles(g.role) < ServerRoles(new_role):
+        current_app.owasp_logger.authz_fail(
+            userid=g.client_id,
+            resource=request.path,
+            description=(
+                f"Authorization denied: client {g.client_id} with role "
+                f"{g.role} attempted to assign role {new_role} to client "
+                f"{client_id} (insufficient permissions)"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(
             HTTPStatus.FORBIDDEN,
             f"{g.client_id} has insufficient permissions "
@@ -1287,11 +1330,29 @@ def delete_client_permissions(client_id: str) -> str:
     """Delete client id along with its permissions."""
     # Testflinger Admin credential can't be removed from API!'
     if client_id == TESTFLINGER_ADMIN_ID:
+        current_app.owasp_logger.user_deleted(
+            userid=g.client_id,
+            onuserid=client_id,
+            description=(
+                f"Admin {g.client_id} attempted to delete system admin "
+                f"client {TESTFLINGER_ADMIN_ID} (forbidden)"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(
             HTTPStatus.UNPROCESSABLE_ENTITY,
             "Error: System admin client cannot by deleted from API.",
         )
     if not database.check_client_exists(client_id):
+        current_app.owasp_logger.user_deleted(
+            userid=g.client_id,
+            onuserid=client_id,
+            description=(
+                f"Admin {g.client_id} attempted to delete non-existent "
+                f"client {client_id}"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(
             HTTPStatus.NOT_FOUND,
             "Error: Specified client_id does not exist.",

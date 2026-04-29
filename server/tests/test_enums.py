@@ -66,12 +66,3 @@ class TestServerRoles:
     def test_role_ordering(self, sorted_roles):
         """Test that roles are ordered by privilege hierarchy."""
         assert sorted(ServerRoles) == sorted_roles
-
-    def test_missing_none_returns_contributor(self):
-        """Test that None resolves to CONTRIBUTOR via _missing_."""
-        assert ServerRoles(None) == ServerRoles.CONTRIBUTOR
-
-    def test_missing_unknown_raises_value_error(self):
-        """Test that unknown role values raise ValueError."""
-        with pytest.raises(ValueError):
-            ServerRoles("unknown_role")

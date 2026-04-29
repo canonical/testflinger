@@ -16,7 +16,6 @@
 """Tests for the `v1/secrets` endpoints."""
 
 import base64
-import os
 from datetime import datetime, timezone
 from http import HTTPStatus
 
@@ -30,9 +29,9 @@ from testflinger.secrets.store import SecretsStore
 
 
 @pytest.fixture
-def app_with_store(mocker):
+def app_with_store(mocker, monkeypatch):
     """Create a pytest fixture for an app with a database and store."""
-    os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+    monkeypatch.setenv("JWT_SIGNING_KEY", "my_secret_key")
     mock_mongo = mongomock.MongoClient()
 
     # mock database

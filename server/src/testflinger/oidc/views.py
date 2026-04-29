@@ -15,8 +15,6 @@
 #
 """OIDC related views for authenticated application."""
 
-import logging
-
 from authlib.integrations.base_client.errors import (
     MismatchingStateError,
     OAuthError,
@@ -34,8 +32,6 @@ from testflinger.database import register_web_client
 from testflinger.owasp import OWASPLogger
 
 oidc_views = Blueprint("oidc", __name__)
-
-logger = logging.getLogger(__name__)
 
 
 @oidc_views.route("/callback")
@@ -55,10 +51,13 @@ def callback():
         )
     except (MismatchingStateError, OAuthError) as err:
         # Log failed OIDC authentication
-        logger.warning("Oauth error during authentication: %s", str(err))
         current_app.owasp_logger.authn_login_fail(
             userid="unknown",
-            description=(f"OIDC authentication failed: {type(err).__name__}"),
+            description=(
+                f"OIDC authentication failed: {type(err).__name__};"
+                "Oauth error during authentication: %s",
+                str(err),
+            ),
             **OWASPLogger.get_request_metadata(request),
         )
     return redirect(url_for("testflinger.home"))
