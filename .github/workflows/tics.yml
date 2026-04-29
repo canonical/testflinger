@@ -78,6 +78,16 @@ jobs:
         uv export --no-emit-project --frozen --no-hashes --all-groups > requirements.txt
         pip install -r requirements.txt
 
+    # Agent Charm
+    - name: Gather coverage (agent charm)
+      working-directory: agent/charms/testflinger-agent-host-charm
+      run: uvx tox run -e unit
+    - name: Install (agent charm)
+      working-directory: agent/charms/testflinger-agent-host-charm
+      run: |
+        uv export --no-emit-project --frozen --no-hashes --all-groups > requirements.txt
+        pip install -r requirements.txt
+
     # Device Connectors
     - name: Gather coverage (device-connectors)
       working-directory: device-connectors
@@ -95,6 +105,7 @@ jobs:
         mv server/charm/coverage.xml .coverage/server_charm_coverage.xml
         mv cli/coverage.xml .coverage/cli_coverage.xml
         mv agent/coverage.xml .coverage/agent_coverage.xml
+        mv agent/charms/testflinger-agent-host-charm/coverage.xml .coverage/agent_charm_coverage.xml
         mv device-connectors/coverage.xml .coverage/device_connectors_coverage.xml
 
     - name: Run TiCS Analysis
