@@ -143,7 +143,8 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
         # now write the supervisord service files
         with open(
-            "templates/testflinger-agent.supervisord.conf.j2", "r"
+            self.charm_dir / "templates/testflinger-agent.supervisord.conf.j2",
+            "r",
         ) as service_template:
             template = Template(service_template.read())
 
