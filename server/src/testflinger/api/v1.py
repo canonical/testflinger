@@ -1210,6 +1210,7 @@ def delete_client_permissions(client_id: str) -> str:
 @v1.put("/secrets/<client_id>/<path:path>")
 @authenticate
 @v1.input(schemas.SecretIn, location="json")
+@v1.output(schemas.SecretOut)
 def secrets_put(client_id, path, json_data):
     """Store a secret value for the specified client_id and path."""
     if current_app.secrets_store is None:
@@ -1223,7 +1224,7 @@ def secrets_put(client_id, path, json_data):
     # Validate the secret path, if not valid, abort with Unprocessable Entity
     helpers.validate_secret_path(path)
     try:
-        current_app.secrets_store.write(
+        expire_at = current_app.secrets_store.write(
             namespace=client_id,
             key=path,
             value=json_data["value"],
@@ -1240,7 +1241,7 @@ def secrets_put(client_id, path, json_data):
     except (StoreError, UnexpectedError) as error:
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
-    return "OK"
+    return {"expires_at": expire_at}
 
 
 @v1.delete("/secrets/<client_id>/<path:path>")

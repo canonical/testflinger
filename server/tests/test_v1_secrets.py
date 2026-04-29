@@ -356,6 +356,49 @@ def test_secrets_put_ephemeral_and_expire_after(
     mock_secrets_store.write.assert_not_called()
 
 
+def test_secrets_put_return_expiration(app_with_store):
+    """Test that the response body contains the expiry datetime on write."""
+    # GIVEN: a store whose write returns a fixed expiry datetime
+    client_id = "client_1"
+    path = "path/to/secret"
+    fixed_expire_at = datetime(2027, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.write.return_value = fixed_expire_at
+
+    # WHEN: an authorised write request is sent
+    token = get_access_token(app_with_store, client_id, "client_key")
+    response = app_with_store.put(
+        f"/v1/secrets/{client_id}/{path}",
+        json={"value": "secret_value", "expire_after": 3600},
+        headers={"Authorization": token},
+    )
+
+    # THEN: the response contains the expiry datetime in ISO 8601 format
+    assert response.status_code == HTTPStatus.OK
+    assert response.get_json()["expires_at"] == fixed_expire_at.isoformat()
+
+
+def test_secrets_put_return_non_expiration(app_with_store):
+    """Test that the response body can contain null expires_at on write."""
+    # GIVEN: a store whose write returns None (no expiry)
+    client_id = "client_1"
+    path = "path/to/non-expiring"
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.write.return_value = None
+
+    # WHEN: an authorised write request is sent with expire_after=None
+    token = get_access_token(app_with_store, client_id, "client_key")
+    response = app_with_store.put(
+        f"/v1/secrets/{client_id}/{path}",
+        json={"value": "secret_value", "expire_after": None},
+        headers={"Authorization": token},
+    )
+
+    # THEN: the response contains expires_at as null
+    assert response.status_code == HTTPStatus.OK
+    assert response.get_json()["expires_at"] is None
+
+
 def test_secrets_put_no_store(testapp):
     """Test writing a secret without having set up a secrets store."""
     # GIVEN: an app without a secrets store

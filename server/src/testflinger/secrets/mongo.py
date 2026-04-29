@@ -124,15 +124,17 @@ class MongoStore(SecretsStore):
         value: str,
         expire_after: int | None = DEFAULT_SECRET_EXPIRATION,
         ephemeral: bool = False,
-    ):
+    ) -> datetime | None:
         """Write the `value` for `key` under `namespace`.
 
-        :param namespace: The namespace under which to store the secret.
-        :param key: The key for the secret.
-        :param value: The value of the secret to store.
-        :param expire_after: Expiration time in seconds for the secret,
-            or None for no expiration.
+        :param namespace: the namespace under which to store the secret
+        :param key: the key for the secret
+        :param value: the value of the secret to store
+        :param expire_after: Expiration time in seconds for the secret.
         :param ephemeral: whether the secret should be deleted after being read
+        :returns: The expiry datetime if a TTL was set, otherwise None.
+        :raises AccessError: if the secret cannot be accessed
+        :raises StoreError: if there is an issue with the MongoDB store
         """
         try:
             encrypted_value = self.cipher.encrypt(
@@ -153,11 +155,13 @@ class MongoStore(SecretsStore):
         }
         # Only add expiration and create TTL index if secret is not ephemeral
         # and has an expiration defined
+        expire_at = None
         if not ephemeral and expire_after is not None:
             self._ensure_ttl_index(namespace)
-            secret_document["expire_at"] = datetime.now(
-                timezone.utc
-            ) + timedelta(seconds=expire_after)
+            expire_at = datetime.now(timezone.utc) + timedelta(
+                seconds=expire_after
+            )
+            secret_document["expire_at"] = expire_at
 
         try:
             self.database.secrets[namespace].replace_one(
@@ -173,6 +177,8 @@ class MongoStore(SecretsStore):
             raise StoreError(
                 f"Unable to access store for '{key}' under '{namespace}'"
             ) from error
+
+        return expire_at
 
     def delete(self, namespace: str, key: str):
         """Delete the value for `key` under `namespace`, if any."""

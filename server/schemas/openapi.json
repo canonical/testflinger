@@ -546,6 +546,18 @@
         ],
         "type": "object"
       },
+      "SecretOut": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "description": "UTC datetime for secret expiration if TTL is set.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "StatusUpdate": {
         "additionalProperties": false,
         "properties": {
@@ -2376,7 +2388,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SecretOut"
+                }
               }
             },
             "description": "Successful response"

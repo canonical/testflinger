@@ -644,6 +644,18 @@ class SecretIn(Schema):
             )
 
 
+class SecretOut(Schema):
+    """Secret write output schema."""
+
+    expires_at = fields.DateTime(
+        required=False,
+        allow_none=True,
+        metadata={
+            "description": "UTC datetime for secret expiration if TTL is set."
+        },
+    )
+
+
 class ResultLegacy(Schema):
     """Legacy Result Post schema for backwards compatibility."""
 

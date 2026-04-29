@@ -15,6 +15,8 @@
 
 """A Vault-based implementation for the Testflinger secrets store."""
 
+from datetime import datetime, timedelta, timezone
+
 import hvac
 import requests
 
@@ -78,7 +80,7 @@ class VaultStore(SecretsStore):
         value: str,
         expire_after: int | None = DEFAULT_SECRET_EXPIRATION,
         ephemeral: bool = False,
-    ) -> None:
+    ) -> datetime | None:
         """Write the `value` for `key` under `namespace`.
 
         :param namespace: the namespace under which to store the secret
@@ -86,10 +88,13 @@ class VaultStore(SecretsStore):
         :param value: the value of the secret to store
         :param expire_after: Expiration time in seconds for the secret.
         :param ephemeral: whether the secret should be deleted after being read
+        :returns: The expiry datetime if a TTL was set, otherwise None.
         :raises AccessError: if the secret cannot be accessed
         :raises StoreError: if there is an issue with the Vault store
+        :returns: The expiry datetime if a TTL was set, otherwise None.
         """
         # write (or update) the secret value using the Vault API
+        expire_at = None
         try:
             self.client.secrets.kv.v2.create_or_update_secret(
                 path=f"{namespace}/{key}",
@@ -100,6 +105,9 @@ class VaultStore(SecretsStore):
                 self.client.secrets.kv.v2.update_metadata(
                     path=f"{namespace}/{key}",
                     delete_version_after=f"{expire_after}s",
+                )
+                expire_at = datetime.now(timezone.utc) + timedelta(
+                    seconds=expire_after
                 )
         except self.hvac_access_errors as error:
             raise AccessError(
@@ -112,6 +120,8 @@ class VaultStore(SecretsStore):
             raise StoreError(
                 f"Unable to access store for '{key}' under '{namespace}'"
             ) from error
+
+        return expire_at
 
     def delete(self, namespace: str, key: str):
         """Delete the value for `key` under `namespace`, if any."""
