@@ -109,6 +109,14 @@ parts:
 
       craftctl default
 
+  # Need a separate part for copying the templates
+  # uv plugin only copies `src` and `lib` directories into the final charm
+  templates:
+    plugin: dump
+    source: .
+    stage:
+    - templates
+
 provides:
   cos-agent:
     interface: cos_agent
