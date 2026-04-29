@@ -3,6 +3,7 @@ from pathlib import Path
 import jubilant
 import yaml
 from conftest import create_mock_token
+
 from defaults import LOCAL_TESTFLINGER_PATH, VIRTUAL_ENV_PATH
 
 TEST_CONFIG_01 = {

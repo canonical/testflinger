@@ -5,6 +5,7 @@ import os
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
+
 import supervisord
 
 SUPERVISOR_CONF_DIR = "/etc/supervisor/conf.d"

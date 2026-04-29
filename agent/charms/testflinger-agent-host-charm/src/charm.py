@@ -10,13 +10,15 @@ import os
 import sys
 from pathlib import Path
 
-import charm_utils
 import ops
+from charmlibs import apt
+from charms.grafana_agent.v0.cos_agent import COSAgentProvider
+from jinja2 import Template
+
+import charm_utils
 import supervisord
 import testflinger_client
 import testflinger_source
-from charmlibs import apt
-from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from common import copy_ssh_keys, run_with_logged_errors, update_charm_scripts
 from config import TestflingerAgentConfig
 from defaults import (
@@ -24,7 +26,6 @@ from defaults import (
     LOCAL_TESTFLINGER_PATH,
     VIRTUAL_ENV_PATH,
 )
-from jinja2 import Template
 
 logger = logging.getLogger(__name__)
 

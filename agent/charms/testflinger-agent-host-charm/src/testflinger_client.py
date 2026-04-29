@@ -8,6 +8,7 @@ from http import HTTPStatus
 from pathlib import Path
 
 import requests
+
 from common import write_file
 from defaults import DEFAULT_TOKEN_PATH
 

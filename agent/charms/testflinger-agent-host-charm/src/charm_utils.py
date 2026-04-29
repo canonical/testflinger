@@ -6,9 +6,10 @@ import shutil
 from pathlib import Path
 
 from charmlibs import apt, passwd
+from git import GitCommandError, Repo
+
 from config import TestflingerAgentConfig
 from defaults import AGENT_CONFIGS_PATH
-from git import GitCommandError, Repo
 
 logger = logging.getLogger(__name__)
 

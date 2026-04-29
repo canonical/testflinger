@@ -6,12 +6,13 @@ import os
 import subprocess
 from pathlib import Path
 
+from jinja2 import Template
+
 from config import TestflingerAgentConfig
 from defaults import (
     AGENT_CONFIGS_PATH,
     VIRTUAL_ENV_PATH,
 )
-from jinja2 import Template
 
 logger = logging.getLogger(__name__)
 

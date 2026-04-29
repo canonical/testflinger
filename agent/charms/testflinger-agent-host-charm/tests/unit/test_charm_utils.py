@@ -3,8 +3,9 @@
 
 from unittest.mock import patch
 
-import charm_utils
 import pytest
+
+import charm_utils
 
 
 @patch("charm_utils.apt.add_package")

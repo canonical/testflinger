@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import requests
+
 import testflinger_client
 from defaults import DEFAULT_TOKEN_PATH
 

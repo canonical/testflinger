@@ -6,9 +6,10 @@
 from collections.abc import Callable
 
 import pytest
+from ops import testing
+
 from charm import TestflingerAgentHostCharm
 from config import TestflingerAgentConfig
-from ops import testing
 
 
 @pytest.fixture

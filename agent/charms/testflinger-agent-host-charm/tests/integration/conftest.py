@@ -8,6 +8,7 @@ from pathlib import Path
 
 import jubilant
 import pytest
+
 from defaults import DEFAULT_TOKEN_PATH
 
 logger = logging.getLogger(__name__)
