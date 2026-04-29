@@ -1902,17 +1902,20 @@ class TestflingerCli:
         except client.HTTPError as exc:
             sys.exit(f"Error writing secret: [{exc.status}] {exc.msg}")
         print(f"Secret '{self.args.path}' written successfully")
-        try:
-            expires_at = json.loads(response).get("expires_at")
-        except (json.JSONDecodeError, AttributeError):
-            expires_at = None
-        if expires_at:
-            expiration_date = datetime.fromisoformat(expires_at).strftime(
-                "%Y-%m-%d %H:%M:%S %Z"
-            )
-            print(f"This secret will expire at {expiration_date}")
+        if self.args.single_use:
+            print("This secret will be deleted after first use")
         else:
-            print("This secret will not expire automatically")
+            try:
+                expires_at = json.loads(response).get("expires_at")
+            except (json.JSONDecodeError, AttributeError):
+                expires_at = None
+            if expires_at:
+                expiration_date = datetime.fromisoformat(expires_at).strftime(
+                    "%Y-%m-%d %H:%M:%S %Z"
+                )
+                print(f"This secret will expire at {expiration_date}")
+            else:
+                print("This secret will not expire automatically")
 
     def secret_delete(self):
         """Delete a secret for the authenticated client."""

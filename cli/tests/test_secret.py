@@ -339,7 +339,7 @@ def test_secret_write_single_use(auth_fixture, capsys, requests_mock):
     testflinger_cli.TestflingerCli().run()
 
     std = capsys.readouterr()
-    assert "This secret will not expire automatically" in std.out
+    assert "This secret will be deleted after first use" in std.out
     assert requests_mock.last_request.json() == {
         "value": "secret_value",
         "ephemeral": True,
