@@ -1896,10 +1896,23 @@ class TestflingerCli:
             }
         endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
-            self.client.put(endpoint, secret_data, headers=auth_headers)
+            response = self.client.put(
+                endpoint, secret_data, headers=auth_headers
+            )
         except client.HTTPError as exc:
             sys.exit(f"Error writing secret: [{exc.status}] {exc.msg}")
         print(f"Secret '{self.args.path}' written successfully")
+        try:
+            expires_at = json.loads(response).get("expires_at")
+        except (json.JSONDecodeError, AttributeError):
+            expires_at = None
+        if expires_at:
+            expiration_date = datetime.fromisoformat(expires_at).strftime(
+                "%Y-%m-%d %H:%M:%S %Z"
+            )
+            print(f"This secret will expire at {expiration_date}")
+        else:
+            print("This secret will not expire automatically")
 
     def secret_delete(self):
         """Delete a secret for the authenticated client."""
