@@ -4,6 +4,7 @@ Reserve a device
 When you only need an SSH access to the DUT to manually interact with it, you can use a reserve job.
 
 There are two ways to submit a reserve job:
+
 - submit a YAML job definition containing ``reserve_data``
 - use the ``reserve`` command with command-line parameters
 
