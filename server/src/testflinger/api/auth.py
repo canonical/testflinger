@@ -390,5 +390,6 @@ def validate_refresh_token(token: str) -> dict:
         token_entry["refresh_token"],
         {"last_accessed": datetime.now(timezone.utc)},
     )
+    token_entry.pop("_id")
 
     return token_entry

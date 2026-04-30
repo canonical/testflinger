@@ -555,7 +555,7 @@ def get_refresh_token_by_token(token: str) -> dict | None:
     :return: Dictionary with refresh token data, or None if not found.
     """
     return mongo.db.refresh_tokens.find_one(
-        {"refresh_token": token}, {"_id": False}
+        {"refresh_token": token}, {"_id": 1}
     )
 
 
