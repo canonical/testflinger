@@ -89,9 +89,9 @@ class MongoStore(SecretsStore):
 
         # Deny access to expired secrets while waiting for MongoDB TTL cleanup
         expire_at = result.get("expire_at")
-        if expire_at is not None and expire_at.replace(
-            tzinfo=timezone.utc
-        ) < datetime.now(timezone.utc):
+        if expire_at and expire_at.replace(tzinfo=timezone.utc) < datetime.now(
+            timezone.utc
+        ):
             raise AccessError(f"Expired '{key}' under '{namespace}'")
 
         try:

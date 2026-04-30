@@ -538,6 +538,7 @@
             "type": "integer"
           },
           "value": {
+            "minLength": 1,
             "type": "string"
           }
         },
