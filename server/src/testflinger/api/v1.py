@@ -1013,7 +1013,7 @@ def retrieve_token():
 @v1.post("/oauth2/refresh")
 def refresh_access_token():
     """Refresh access token using a valid refresh token."""
-    data = request.get_json()
+    data = request.get_json() or {}
     refresh_token = data.get("refresh_token")
     if not refresh_token:
         current_app.owasp_logger.authn_login_fail(

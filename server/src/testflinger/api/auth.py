@@ -281,7 +281,7 @@ def require_role(*roles):
                     userid="unauthenticated",
                     resource=request.path,
                     description=(
-                        f"Unauthenticated access attempt to protected "
+                        "Unauthenticated access attempt to protected "
                         f"endpoint {request.method} {request.path}"
                     ),
                     **OWASPLogger.get_request_metadata(request),

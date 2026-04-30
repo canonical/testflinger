@@ -54,9 +54,8 @@ def callback():
         current_app.owasp_logger.authn_login_fail(
             userid="unknown",
             description=(
-                f"OIDC authentication failed: {type(err).__name__};"
-                "Oauth error during authentication: %s",
-                str(err),
+                f"OIDC authentication failed: {type(err).__name__}; "
+                f"Oauth error during authentication: {err}"
             ),
             **OWASPLogger.get_request_metadata(request),
         )
