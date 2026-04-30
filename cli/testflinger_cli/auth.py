@@ -76,7 +76,7 @@ class TestflingerCliAuth:
 
         return None
 
-    def _authenticate_with_credentials(self) -> str:
+    def _authenticate_with_credentials(self) -> str | None:
         """Authenticate using client_id and secret_key."""
         try:
             response = self.client.authenticate(
@@ -86,9 +86,13 @@ class TestflingerCliAuth:
             self.store_refresh_token(response["refresh_token"])
             return response["access_token"]
         except client.HTTPError as exc:
+            # _handle_auth_error raises for 401/403 and returns None for
+            # any other HTTP error, so the caller may legitimately
+            # observe None on unexpected statuses.
             self._handle_auth_error(exc)
+            return None
 
-    def _authenticate_with_refresh_token(self, refresh_token: str) -> str:
+    def _authenticate_with_refresh_token(self, refresh_token: str) -> str | None:
         """Authenticate using stored refresh token."""
         try:
             response = self.client.refresh_authentication(refresh_token)
@@ -98,6 +102,7 @@ class TestflingerCliAuth:
                 self.clear_refresh_token()
                 raise InvalidTokenError(exc.msg) from exc
             self._handle_auth_error(exc)
+            return None
 
     def _handle_auth_error(self, exc: client.HTTPError) -> None:
         """Handle authentication HTTP errors."""
@@ -123,8 +128,8 @@ class TestflingerCliAuth:
             return None
 
         # Set client_id from config file to keep token owner
-        self.client_id = config_file.get("AUTH", "client_id", fallback=None)
-        return config_file.get("AUTH", "refresh_token", fallback=None)
+        self.client_id = config_file.get("AUTH", "client_id", fallback="")
+        return config_file.get("AUTH", "refresh_token", fallback="")
 
     def store_refresh_token(self, refresh_token: str) -> None:
         """Store refresh token for persistent login.
@@ -176,8 +181,11 @@ class TestflingerCliAuth:
             return None
 
         try:
+            # is_authenticated guarantees jwt_token is not None here, but
+            # mypy can't see through that so coerce to str for jwt.decode
+            # which expects str | bytes.
             decoded_jwt = jwt.decode(
-                self.jwt_token, options={"verify_signature": False}
+                self.jwt_token or "", options={"verify_signature": False}
             )
             return decoded_jwt
         except jwt.exceptions.DecodeError:
