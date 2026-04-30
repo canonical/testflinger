@@ -311,7 +311,7 @@ class TestflingerClient:
             id for the job
         """
         artifacts_dir = os.path.join(rundir, "artifacts")
-        if not os.path.isdir(artifacts_dir):
+        if not os.path.isdir(artifacts_dir) or not os.listdir(artifacts_dir):
             return
 
         with tempfile.TemporaryDirectory() as tmpdir:
