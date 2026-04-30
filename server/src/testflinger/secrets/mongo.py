@@ -127,6 +127,9 @@ class MongoStore(SecretsStore):
     ) -> datetime | None:
         """Write the `value` for `key` under `namespace`.
 
+        Secret TTL is defined by `expire_after` in seconds or `ephemeral`
+        with a mutual exclusion guaranteed by schema.
+
         :param namespace: the namespace under which to store the secret
         :param key: the key for the secret
         :param value: the value of the secret to store

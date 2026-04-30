@@ -44,7 +44,7 @@ if you don't specify any expiration.
 .. tip::
     For a non-expiring secret you can specify ``-1`` in the ``--expire-after`` argument
 
-If you prefer the secret to be single-use and expire after its first use, you can also use the
+If you prefer the secret to be single-use and expire after its first use, you can alternatively
 ``--single-use`` argument.
 
 .. code-block:: shell

@@ -629,7 +629,7 @@ class ClientPermissionsOut(Schema):
 class SecretIn(Schema):
     """Secret input schema."""
 
-    value = fields.String(required=True)
+    value = fields.String(required=True, validate=Length(min=1))
     expire_after = fields.Integer(
         required=False, allow_none=True, validate=validators.Range(min=1)
     )
