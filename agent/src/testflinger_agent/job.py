@@ -67,10 +67,17 @@ class TestflingerJob:
         )
 
     def get_runner(self, rundir: str, phase: TestPhase):
+        output_polling_interval = self.client.config.get(
+            "output_polling_interval", 10.0
+        )
         try:
             secrets = self.job_data[f"{phase}_data"]["secrets"]
         except KeyError:
-            return CommandRunner(cwd=rundir, env=self.client.config)
+            return CommandRunner(
+                cwd=rundir, 
+                env=self.client.config, 
+                output_polling_interval=output_polling_interval,
+            )
 
         # inject phase secrets into the environment
         environment = {
@@ -83,6 +90,7 @@ class TestflingerJob:
         return MaskingCommandRunner(
             cwd=rundir,
             env=environment,
+            output_polling_interval=output_polling_interval,
             masker=Masker(
                 patterns=list(secrets.values()), hash_length=self._hash_length
             ),
