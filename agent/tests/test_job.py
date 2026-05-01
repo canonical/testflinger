@@ -101,7 +101,7 @@ class TestJob:
         """Test that output timeout from job_data is respected."""
         timeout_str = "ERROR: Output timeout reached! (1s)"
         logfile = tmp_path / "testlog"
-        runner = CommandRunner(tmp_path, env={})
+        runner = CommandRunner(tmp_path, env={}, output_polling_interval=0.1)
         log_handler = FileLogHandler(logfile)
         runner.register_output_handler(log_handler)
         output_timeout_checker = OutputTimeoutChecker(1)
