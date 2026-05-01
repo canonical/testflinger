@@ -479,13 +479,12 @@ def get_client_permissions(client_id: str) -> dict:
     :param client_id: User to retrieve permissions from.
     :return: Dictionary with the permissions for the user.
     """
-    if client_id:
-        one = mongo.db.client_permissions.find_one(
+    return (
+        mongo.db.client_permissions.find_one(
             {"client_id": client_id}, {"_id": False}
         )
-        return one if one else {}
-    else:
-        return {}
+        or {}
+    )
 
 
 def get_all_client_permissions() -> list[dict]:
@@ -554,9 +553,7 @@ def get_refresh_token_by_token(token: str) -> dict | None:
 
     :return: Dictionary with refresh token data, or None if not found.
     """
-    return mongo.db.refresh_tokens.find_one(
-        {"refresh_token": token}, {"_id": 1}
-    )
+    return mongo.db.refresh_tokens.find_one({"refresh_token": token})
 
 
 def edit_refresh_token(token: str, update_fields: dict) -> None:
