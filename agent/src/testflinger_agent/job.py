@@ -74,8 +74,8 @@ class TestflingerJob:
             secrets = self.job_data[f"{phase}_data"]["secrets"]
         except KeyError:
             return CommandRunner(
-                cwd=rundir, 
-                env=self.client.config, 
+                cwd=rundir,
+                env=self.client.config,
                 output_polling_interval=output_polling_interval,
             )
 
