@@ -12,9 +12,24 @@ Work with jobs via Testflinger CLI
     install-cli
     change-server
     submit-job
+    retrieve-logs
     cancel-job
     reserve-job
     search-job
+    list-agents
     job-priority
     authentication
+    use-secrets
     manage-client-permissions
+    create-admin-user
+
+Testflinger administration
+-----------------------------------
+
+The following guides are intended for administrators of the different components of Testflinger,
+and outline tasks and best practices for operating and maintaining Testflinger deployments.
+
+.. toctree::
+    :maxdepth: 1
+
+    Administer agent hosts <administer-agent-hosts/index>

@@ -25,6 +25,7 @@ from datetime import datetime, timedelta
 from importlib import import_module
 from typing import Callable, Optional
 
+import requests
 import yaml
 
 import testflinger_device_connectors
@@ -144,6 +145,195 @@ class RealSerialLogger:
         self.proc.terminate()
 
 
+class DefaultControlHost:
+    """Manages all interactions with a control host.
+
+    Attributes:
+        host: The hostname or IP of the control host.
+        reboot_script: Ordered list of shell commands to trigger a reboot.
+    """
+
+    REST_PORT = 8000
+    POWEROFF_ENDPOINT = "/api/v1/system/poweroff"
+
+    def __init__(
+        self, host: str, reboot_script: Optional[list[str]] = None
+    ) -> None:
+        self.host = host
+        self.reboot_script = reboot_script or []
+
+    def _check_ssh(self) -> None:
+        """Check whether the control host has an active SSH server.
+
+        :raises ConnectionError: If the SSH server is not reachable.
+        """
+        timeout = 3
+        try:
+            subprocess.run(
+                ["/usr/bin/nc", "-z", "-w", str(timeout), self.host, "22"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            logger.debug(
+                "The control host %s has an available SSH server", self.host
+            )
+        except subprocess.CalledProcessError as e:
+            raise ConnectionError from e
+
+    def _check_ping(self) -> None:
+        """Check whether the control host responds to ping.
+
+        :raises ConnectionError: If the host does not respond.
+        """
+        try:
+            subprocess.run(
+                ["/usr/bin/ping", "-c", "1", "-W", "3", self.host],
+                check=True,
+                capture_output=True,
+            )
+            logger.debug("The control host %s responds to ping", self.host)
+        except subprocess.CalledProcessError as e:
+            raise ConnectionError from e
+
+    def _check_rest_api(self) -> None:
+        """Check whether the control host has an active REST API.
+
+        :raises ConnectionError: If the API is not reachable.
+        """
+        try:
+            url = f"http://{self.host}:{self.REST_PORT}/health"
+            resp = requests.get(url, timeout=3)
+            resp.raise_for_status()
+            logger.debug("The host %s has an available REST API", self.host)
+        except requests.RequestException as e:
+            raise ConnectionError from e
+
+    def wait_online(self, check: Callable, timeout: int) -> None:
+        """Poll using ``check`` until it succeeds or the timeout expires.
+
+        :param check: Callable that raises ConnectionError when unreachable.
+        :param timeout: Maximum seconds to wait.
+        :raises TimeoutError: If the host is not available within the timeout.
+        """
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                check()
+                break
+            except ConnectionError:
+                time.sleep(2)
+        else:
+            raise TimeoutError
+
+    def wait_offline(self, check: Callable, timeout: int) -> None:
+        """Poll using ``check`` until it raises or the timeout expires.
+
+        :param check: Callable that raises ConnectionError when unreachable.
+        :param timeout: Maximum seconds to wait.
+        :raises TimeoutError: If the host is still reachable after the timeout.
+        """
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                check()
+                time.sleep(2)
+            except ConnectionError:
+                break
+        else:
+            raise TimeoutError
+
+    def wait_ready(self, timeout: int = 60) -> None:
+        """Wait for the REST API to become available.
+
+        :param timeout: Maximum seconds to wait (default: 60).
+        :raises TimeoutError: If the API is not available within the timeout.
+        """
+        logger.info("Waiting for the REST API on control host %s", self.host)
+        self.wait_online(self._check_rest_api, timeout)
+
+    def reboot(self) -> None:
+        """Run the configured reboot script."""
+        logger.info("Running control host reboot script")
+        for cmd in self.reboot_script:
+            try:
+                logger.info("Executing: %s", cmd)
+                subprocess.run(
+                    cmd,
+                    shell=True,
+                    check=True,
+                    timeout=60,
+                    capture_output=True,
+                    text=True,
+                )
+            except subprocess.CalledProcessError as e:
+                logger.error(
+                    "Command failed: %s (exit code: %d)", cmd, e.returncode
+                )
+                if e.stdout:
+                    logger.error("stdout: %s", e.stdout)
+                if e.stderr:
+                    logger.error("stderr: %s", e.stderr)
+            except subprocess.TimeoutExpired:
+                logger.error("Command timed out after 60s: %s", cmd)
+            except Exception as e:
+                logger.error(
+                    "Unexpected error running command %s: %s", cmd, str(e)
+                )
+
+    def ssh_fallback(self) -> None:
+        """Reboot if SSH is unreachable, then wait for SSH to come back."""
+        with contextlib.suppress(ConnectionError):
+            self._check_ssh()
+            logger.debug("The control host is reachable over SSH.")
+            return
+
+        self.reboot()
+
+        timeout = 300
+        logger.info(
+            "Waiting for control host %s to come back online "
+            "(timeout: %d seconds)",
+            self.host,
+            timeout,
+        )
+        try:
+            self.wait_online(self._check_ssh, timeout)
+        except TimeoutError:
+            logger.error(
+                "Control host %s is not available "
+                "or the SSH server is not running after %d seconds",
+                self.host,
+                timeout,
+            )
+
+    def power_cycle(self) -> None:
+        """Power cycle the control host.
+
+        Tries to power off via the REST API, trigger a reboot, then wait for
+        the REST API to come back.  Falls back to SSH-based logic if the REST
+        API is not available.
+        """
+        try:
+            logger.info("Attempt to power cycle the control host.")
+            url = (
+                f"http://{self.host}:{self.REST_PORT}{self.POWEROFF_ENDPOINT}"
+            )
+            requests.post(url, timeout=10).raise_for_status()
+            with contextlib.suppress(TimeoutError):
+                self.wait_offline(self._check_ping, 30)
+                time.sleep(10)  # extra safety time for shutdown
+            self.reboot()
+            self.wait_ready(timeout=300)
+        except requests.RequestException:
+            logger.warning(
+                "The REST API is not available on %s, "
+                "falling back to SSH-based control host check",
+                self.host,
+            )
+            self.ssh_fallback()
+
+
 class DefaultDevice:
     """Defines a common class for all DeviceConnector to use default methods.
 
@@ -245,6 +435,15 @@ class DefaultDevice:
         if "env" not in config:
             config["env"] = {}
         config["env"].update(extra_env)
+
+        # inject test phase secrets into the environment
+        try:
+            secrets = test_opportunity["test_data"]["secrets"]
+        except KeyError:
+            pass
+        else:
+            config["env"].update(secrets)
+
         try:
             exitcode = testflinger_device_connectors.run_test_cmds(
                 test_cmds, config
@@ -407,6 +606,37 @@ class DefaultDevice:
             + "testflinger-cli cancel {}".format(job_id)
         )
         time.sleep(int(timeout))
+
+    def pre_provision_hook(self):
+        """Power cycle the control host before provisioning."""
+        if os.environ.get("DISABLE_CONTROL_HOST_POWERCYCLE"):
+            logger.info(
+                "Skipping control host power cycle "
+                "(DISABLE_CONTROL_HOST_POWERCYCLE is set)."
+            )
+            return
+
+        control_host: str = str(self.config.get("control_host", ""))
+        if not control_host:
+            logger.debug("No control host configured for this agent.")
+            return
+
+        reboot_script: list[str] = [
+            str(cmd)
+            for cmd in self.config.get("control_host_reboot_script", [])
+        ]
+        if not reboot_script:
+            logger.warning(
+                "No control_host_reboot_script configured, cannot reboot."
+            )
+            return
+
+        DefaultControlHost(control_host, reboot_script).power_cycle()
+
+    def provision(self, args):
+        """Run pre-provision hook."""
+        logger.info("Running pre-provision hook")
+        self.pre_provision_hook()
 
     def cleanup(self, _):
         """Clean up devices (default method)."""

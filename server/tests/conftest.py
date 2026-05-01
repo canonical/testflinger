@@ -17,14 +17,16 @@
 
 import os
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
+import jwt
 import mongomock
 import pytest
 from mongomock.gridfs import enable_gridfs_integration
+from testflinger_common.enums import ServerRoles
 
 from testflinger import application, database
-from testflinger.enums import ServerRoles
 
 
 @dataclass
@@ -103,3 +105,86 @@ def mongo_app_with_permissions(mongo_app):
     ]
     mongo.restricted_queues.insert_many(restricted_queues)
     yield app, mongo, client_id, client_key, max_priority
+
+
+@pytest.fixture
+def oidc_app(oidc_client, mongo_app, iam_server):
+    """Pytest fixture with OIDC app for web authentication tests."""
+    _, mongo = mongo_app
+
+    # Define OIDC variables for testing
+    os.environ.update(
+        {
+            "OIDC_CLIENT_ID": oidc_client.client_id,
+            "OIDC_CLIENT_SECRET": oidc_client.client_secret,
+            "OIDC_PROVIDER_ISSUER": iam_server.url,
+            "WEB_SECRET_KEY": "my_web_secret_key",
+        }
+    )
+
+    # Create Flask app with OIDC provider
+    oidc_app = application.create_flask_app(TestingConfig)
+
+    yield oidc_app, mongo
+
+
+@pytest.fixture
+def oidc_client(iam_server):
+    """Pytest fixture with OIDC client for testing web authentication."""
+    inst = iam_server.models.Client(
+        client_id="my_oidc_client_id",
+        client_secret="my-oidc-secret",  # noqa: S106
+        client_name="Testflinger Test",
+        client_uri="http://localhost:5000",
+        redirect_uris=["http://localhost:5000/auth/callback"],
+        grant_types=["authorization_code"],
+        response_types=["code", "token", "id_token"],
+        token_endpoint_auth_method="client_secret_basic",  # noqa: S106
+        scope=["openid", "profile", "email"],
+    )
+    iam_server.backend.save(inst)
+    yield inst
+    iam_server.backend.delete(inst)
+
+
+@pytest.fixture
+def user(iam_server):
+    """Pytest fixture for defining the OIDC users."""
+    user = iam_server.models.User(
+        user_name="testuser",
+        emails=["email@example.com"],
+        password="test_password",  # noqa: S106
+    )
+    iam_server.backend.save(user)
+    yield user
+    iam_server.backend.delete(user)
+
+
+@pytest.fixture
+def sorted_roles():
+    """Roles listed from least to most privileged."""
+    return [
+        ServerRoles.AGENT,
+        ServerRoles.CONTRIBUTOR,
+        ServerRoles.MANAGER,
+        ServerRoles.ADMIN,
+    ]
+
+
+@pytest.fixture
+def agent_auth_header():
+    """Pytest fixture that provides an Authorization header for an agent."""
+    secret_key = "my_secret_key"  # noqa: S105
+    os.environ["JWT_SIGNING_KEY"] = secret_key
+    expiration_time = datetime.now(timezone.utc) + timedelta(seconds=30)
+    token_payload = {
+        "exp": expiration_time,
+        "iat": datetime.now(timezone.utc),
+        "sub": "access_token",
+        "permissions": {
+            "client_id": "agent-id",
+            "role": ServerRoles.AGENT,
+        },
+    }
+    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
+    return {"Authorization": f"Bearer {token}"}

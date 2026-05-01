@@ -1,5 +1,5 @@
-Testflinger agent configuration options
-========================================
+Agent configuration options
+===========================
 
 By default, configuration of Testflinger agents is loaded from a YAML configuration file called ``testflinger-agent.conf``. You can specify a different file to use for config data using the ``-c`` option.
 

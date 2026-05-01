@@ -1,0 +1,66 @@
+[project]
+name = "testflinger-k8s-charm"
+version = "0.0.1"
+requires-python = ">=3.10"
+readme = "README.md"
+dependencies = [
+    "ops >= 2.2.0",
+    "bcrypt>=4.2.0",
+    "pymongo<4.9.0",
+    "urllib3>=2.6.3",
+    "cosl>=0.0.53",
+]
+
+[dependency-groups]
+lint = ["ruff"]
+unit = ["coverage[toml]", "ops[testing]", "pytest"]
+integration = ["jubilant", "ops[testing]", "pytest", "requests"]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+log_cli_level = "INFO"
+
+[tool.ruff]
+line-length = 79
+extend-exclude = ["lib"]
+include = [
+  "src/**/*.py",
+  "tests/**/*.py",
+]
+
+[tool.ruff.lint]
+select = [
+    "A",   # flake8-builtins
+    "B",   # flake8-bugbear
+    "C4",  # comprehension
+    "D",   # docstrings
+    "DTZ", # flake8-datetimez
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "G",   # flake8-logging-format
+    "I",   # isort
+    "LOG", # flake8-logging
+    "N",   # naming
+    "PLE", # pylint errors
+    "PLW", # pylint warnings
+    "S",   # flake8-bandit
+    "W",   # pycodestyle warnings
+]
+ignore = [
+    "D104", # docstring: Missing docstring in public package
+    "D205", # docstring: missing-blank-line-after-summary
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101", # use of assert
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"

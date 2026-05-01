@@ -2,7 +2,7 @@ Authentication using Testflinger CLI
 ====================================
 
 :doc:`Authentication <../explanation/authentication>` is required for submitting jobs with priority, 
-submitting jobs to a restricted queue, or reserving a machine for longer than 6 hours.
+submitting jobs to a restricted queue, reserving a machine for longer than 6 hours or using secrets.
 Authentication is also necessary to change an agent status, but this is limited to admin users only. 
 For more information, please refer to :doc:`Testflinger Agents <../explanation/agents>`.
 

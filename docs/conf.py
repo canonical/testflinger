@@ -177,9 +177,12 @@ sitemap_show_lastmod = True
 # Template and asset locations
 #######################
 
-#html_static_path = [".sphinx/_static"]
+html_static_path = [".sphinx/_static"]
 #templates_path = [".sphinx/_templates"]
 
+# Extra files to copy to the root of the documentation
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-html_extra_path
+html_extra_path = ["../server/schemas/openapi.json"]
 
 #############
 # Redirects #
@@ -256,7 +259,8 @@ extensions = [
     "sphinx_last_updated_by_git",
     "sphinx.ext.intersphinx",
     "sphinx_sitemap",
-    "sphinxcontrib.mermaid"
+    "sphinxcontrib.mermaid",
+    "sphinxcontrib.video"
 ]
 
 # Excludes files or directories from processing
@@ -269,7 +273,9 @@ exclude_patterns = [
 
 # Adds custom CSS files, located under 'html_static_path'
 
-# html_css_files = []
+html_css_files = [
+    "swagger-custom.css",
+]
 
 
 # Adds custom JavaScript files, located under 'html_static_path'

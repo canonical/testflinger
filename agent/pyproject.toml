@@ -1,12 +1,12 @@
 [build-system]
-requires = ["uv-build>=0.7,<0.8"]
+requires = ["uv-build>=0.9,<0.10"]
 build-backend = "uv_build"
 
 [project]
 name = "testflinger-agent"
 description = "Testflinger agent"
 readme = "README.md"
-version = "1.1.0"
+version = "1.2.0"
 authors = []
 requires-python = ">=3.10"
 dependencies = [
@@ -23,14 +23,14 @@ testflinger-agent = "testflinger_agent.cmd:main"
 
 [dependency-groups]
 charm = [
-    "charmcraft>=2.7.3",
     "cosl",
-    "gitpython==3.1.44",
+    "gitpython==3.1.46",
     "jinja2==3.1.6",
-    "juju>=3.5.2.1",
-    "ops>=1.4.0",
+    "charmlibs-passwd==1.0.0",
+    "charmlibs-apt==1.0.0.post0",
+    "jubilant>=1.6.2",
+    "ops[testing]",
     "pytest>=8.3.5",
-    "pytest-operator>=0.42.0",
 ]
 dev = [
     "pytest>=8.1.2",
@@ -41,9 +41,18 @@ dev = [
     "requests-mock>=1.12.1",
     "ruff>=0.11.6",
 ]
+test = [
+    "testflinger-device-connectors",
+]
 
 [tool.ruff]
 line-length = 79
+extend-exclude = ["charms/*/lib"]
+include = [
+    "src/**/*.py",
+    "tests/**/*.py",
+    "charms/**/*.py",
+]
 
 [tool.ruff.lint]
 select = [
@@ -93,3 +102,4 @@ convention = "pep257"
 
 [tool.uv.sources]
 testflinger-common = { path = "../common" }
+testflinger-device-connectors = { path = "../device-connectors" }

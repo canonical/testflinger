@@ -89,10 +89,13 @@ To trigger the firmware update phase, provide the following section in the job d
 
 Variables in ``firmware_update_data``:
 
-* ``version``: The desired firmware level on the device. Currently the only shared supported value among different machines is ``latest``, which upgrades all components in the device with the latest firmware release. For HPE server machines, user can specify a model-based release version string referring to [HPE Gen10](https://downloads.linux.hpe.com/SDR/repo/fwpp-gen10/), [HPE Gen11](https://downloads.linux.hpe.com/SDR/repo/fwpp-gen11/) and [HPE Gen12](https://downloads.linux.hpe.com/SDR/repo/fwpp-gen12/) firmware repositories. For example, ``2023.09.00.04`` is applicable for HPE Gen10 server machines.
+* ``version``: The desired firmware level on the device. Currently the only shared supported value among different machines is ``latest``, which upgrades all components in the device with the latest firmware release. 
+  
+  For HPE server machines, user can specify a model-based release version string referring to `HPE Gen10`_, `HPE Gen11`_ and `HPE Gen12`_ firmware repositories. For example, ``2023.09.00.04`` is applicable for HPE Gen10 server machines.
+
 * ``ignore_failure``: If set to false, Testflinger agent will suspend the job if ``firmware_update`` phase return a status other than 0, which implies there's a failure during ``firmware_update`` phase. If set to true, the job will continue regardless the status of ``firmware_update`` phase. The default value is ``false``.
 
-If either ``firmware_update_command`` is missing from the agent configuration, or the ``firmware_update_data`` section is missing from the job, this phase will be skipped.
+  If either ``firmware_update_command`` is missing from the agent configuration, or the ``firmware_update_data`` section is missing from the job, this phase will be skipped.
 
 
 * Example agent configuration:
@@ -282,7 +285,7 @@ the Testflinger agent host.
         chmod u+x attachments/test/script.sh
         attachments/test/script.sh
 
-  The `local` fields specify where the attachments are to be found locally,
+  The ``local`` fields specify where the attachments are to be found locally,
   e.g. on the machine where the CLI is executed. Unless otherwise specified,
   relative paths are interpreted in relation to the location of the Testflinger
   job file (which is convenient since the job file and the attachments are
@@ -300,8 +303,8 @@ the Testflinger agent host.
     │   └── my_test_script.sh
     └── ubuntu-22.04.4-preinstalled-desktop-arm64+raspi.img.xz
 
-  On the agent host, the attachments are placed under the `attachments` folder
-  and distributed in separate sub-folders according to phase. If an `agent`
+  On the agent host, the attachments are placed under the ``attachments`` folder
+  and distributed in separate sub-folders according to phase. If an ``agent``
   field is provided, the attachments are also moved or renamed accordingly.
   For the example above, the file tree on the agent host would look like this:
 
@@ -319,25 +322,103 @@ the Testflinger agent host.
             │   └── ubuntu-logo.png
             └── script.sh
 
-The Testflinger CLI also accepts an optional `--attachments-relative-to` argument.
+The Testflinger CLI also accepts an optional ``--attachments-relative-to`` argument.
 When provided, relative paths are interpreted in relation to this reference path,
 instead of the default,  i.e. the location of the Testflinger job file.
 
-In the example above, there is no `url` field under the `provision_data` to specify
-where to download the provisioning image from. Instead, there is a `use_attachment`
+In the example above, there is no ``url`` field under the ``provision_data`` to specify
+where to download the provisioning image from. Instead, there is a ``use_attachment``
 field that indicates which attachment should be used as a provisioning image.
-The presence of *either* `url` or `use_attachment` is required.
+The presence of *either* ``url`` or ``use_attachment`` is required.
 
 At the moment, only the :ref:`muxpi` device connector supports provisioning using an attached image.
 
-Output 
-------------
+Output and logging
+------------------
 
-When running Testflinger, your output will be automatically accumulated for each stage (setup, provision, test, cleanup) and sent to the Testflinger server, along with an exit status for each stage. 
+When running Testflinger, your output is automatically captured for each test phase and streamed to the Testflinger server in real-time as log fragments.
 
-If any stage encounters a non-zero exit code, no further stages will be executed, but the outcome will still be sent to the server.
+Log capture and streaming
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The agent captures two types of logs for each phase:
+
+**Standard output logs**
+  All console output from commands executed during the phase is captured and sent to the server as fragments. This includes:
+
+  - Setup and cleanup command output
+  - Device connector provisioning output
+  - Test command results
+  - Any stderr output from commands
+
+**Serial console logs**
+  For device connectors that support serial console access, the serial output is also captured during provisioning and testing. After each phase completes, the agent reads the serial log file and streams it to the server in chunks.
+
+Log fragment structure
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Each log fragment includes:
+
+- **fragment_number**: Sequential number starting from 0
+- **timestamp**: ISO 8601 timestamp when the fragment was created
+- **phase**: The test phase name (setup, provision, test, etc.)
+- **log_data**: The actual log content
+
+This structured approach allows you to:
+
+- Query logs by specific test phase
+- Retrieve logs from a specific time range
+- Get incremental updates using fragment numbers
+- Access logs multiple times (they are stored persistently)
+
+Exit status tracking
+~~~~~~~~~~~~~~~~~~~~
+
+Along with logs, each test phase records an exit status code:
+
+- **0**: Phase completed successfully
+- **Non-zero**: Phase failed
+
+If any stage encounters a non-zero exit code, no further stages will be executed, but the logs and outcome will still be sent to the server.
+
+Retrieving logs
+~~~~~~~~~~~~~~~
+
+See :doc:`../how-to/retrieve-logs` for detailed information on how to retrieve and query logs using the CLI or API.
 
 Artifact
 ---------
 
-If you want to save additional artifacts to the disk along with the output, create a directory for the artifacts from your test command. Any files in the artifacts directory under your test execution directory will automatically be compressed (``tar.gz``) and sent to the Testflinger server.
+You can save additional files from your test run by creating an ``artifacts`` directory in your test commands. 
+The Testflinger agent does not create this directory automatically so your test commands must create it and populate it with any files you want to preserve.
+
+After the job completes, the agent will:
+
+1. Check if an ``artifacts`` directory exists in the test execution directory
+2. Compress the directory into a ``tar.gz`` archive
+3. Upload the archive to the Testflinger server
+4. Delete the local ``artifacts`` directory from the agent host
+
+For example, under ``test_cmds``, you can create an artifacts directory and copy files there:
+
+.. code-block:: yaml
+    
+  job_queue: <queue>
+  provision_data:
+    <provision-data>
+  test_data:
+    test_cmds: |
+      ssh ubuntu@$DEVICE_IP 'uname -a > /tmp/system_info.txt'
+      mkdir -p artifacts
+      scp ubuntu@$DEVICE_IP:/tmp/system_info.txt artifacts/
+
+.. note::
+  
+  From the above example, the command enclosed in single quotes is executed on the remote device via SSH, 
+  while the next two commands are executed on the Testflinger Agent.
+
+Artifacts can later be retrieved using the CLI:
+
+.. code-block:: shell
+
+  testflinger-cli artifacts <job_id>

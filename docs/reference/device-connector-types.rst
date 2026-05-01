@@ -1,5 +1,5 @@
-Supported device connector types
-=================================
+Device connector types
+======================
 
 The following device connector types are currently supported. Note that with the exception of ``noprovision`` and ``maas2``, most of these device connectors require special hardware and/or configuration that is specific to our lab environment. However, the intent is that device connectors can be written to contain any amount of special handling necessary to handle any site-specific requirements.
  
@@ -107,6 +107,12 @@ The ``maas2`` device connector supports the following ``provision_data`` keys:
    * - ``disks``
      - Specify a custom disk configuration for the machine. For more information, see the
        :doc:`maas_storage`.
+   * - ``ephemeral``
+     - Set to ``true`` to deploy in-memory rather than to disk. Ephemeral deployment
+       is supported only with MAAS 3.5.0 and later; on older MAAS versions this
+       setting is ignored. For more information, see `MAAS documentation:
+       Ephemeral deployment
+       <https://canonical.com/maas/docs/about-deploying-machines#p-17464-ephemeral-os-deployments-maas-35>`_.
 
 
 .. _muxpi:
@@ -288,25 +294,23 @@ The ``oem_autoinstall`` device connector supports the following ``provision_data
     * - ``token_file``
       - Optional credentials file in :ref:`file attachments <file_attachments>` when ``url``
         requires authentication. These credentials will be used with HTTPBasicAuth
-        to download the image from ``url``. It must contain:
+        to download the image from ``url``. It must contain::
 
           username: $MY_USERNAME
 
           token: $MY_TOKEN
 
-        If ``url`` requires webdav authentication, then device will use rclone to copy the file.
+        If ``url`` requires WebDAV authentication, then device will use ``rclone`` to copy the file.
         The rclone configurations must be provided in the following format:
+
+        .. code-block:: ini
 
           [$PROJECT]
 
           type = webdav
-
           url = $URL
-
           vendor = other
-
           user = $USER
-
           pass = $PASSWORD
 
     * - ``user_data``

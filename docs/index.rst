@@ -57,6 +57,14 @@ In this documentation
 
       **Discussion and clarification** of key concepts
 
+.. grid:: 1 1 2 2
+
+   .. grid-item-card:: Testflinger Agent Hosts Administration
+      :link: /how-to/administer-agent-hosts/index
+      :link-type: doc
+
+      **Administration** tasks and best practices for operators of Testflinger Agent Hosts
+
 ---------
 
 Project and community
@@ -67,7 +75,8 @@ warmly welcomes community contributions, suggestions, fixes and
 constructive feedback.
 
 * This project follows the `Ubuntu Code of Conduct`_
-* This project is `hosted on GitHub`_ - contributions are welcome
+* This project is `hosted on GitHub <canonical/testflinger_>`_ - contributions are welcome
+* This project is governed by the Ubuntu `Security reporting and disclosure policy`_ 
 * :ref:`Interested in using Testflinger for your project? Get in touch! <home>`
 
 
@@ -79,6 +88,3 @@ constructive feedback.
    how-to/index
    reference/index
    explanation/index
-
-.. _Ubuntu Code of Conduct: https://ubuntu.com/community/ethos/code-of-conduct
-.. _hosted on GitHub: https://github.com/canonical/testflinger

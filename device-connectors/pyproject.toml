@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv-build>=0.7,<0.8"]
+requires = ["uv-build>=0.9,<0.10"]
 build-backend = "uv_build"
 
 [project]
@@ -10,10 +10,9 @@ license = { text = "GPLv3" }
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "jsonschema>=4.23.0",
     "pyyaml>=6.0.2",
     "requests>=2.32.3",
-    "rpyc<6",
+    "typing-extensions~=4.15.0",
     "validators>=0.34.0",
 ]
 
@@ -34,6 +33,10 @@ testflinger_device_connectors = ["data/**"]
 
 [tool.ruff]
 line-length = 79
+include = [
+  "src/**/*.py",
+  "tests/**/*.py",
+]
 
 [tool.ruff.lint]
 select = [

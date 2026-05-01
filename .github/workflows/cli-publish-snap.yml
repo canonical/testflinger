@@ -1,4 +1,5 @@
-name: Build Testflinger CLI
+name: "[cli] Build Testflinger CLI"
+run-name: "[cli] Build Testflinger CLI (${{ github.event.inputs.release || 'new build' }})"
 permissions:
   contents: read
 on:
@@ -27,13 +28,17 @@ on:
           - beta
           - edge
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   snap:
     name: Snap
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
           persist-credentials: false
       - name: Build snap
@@ -43,14 +48,25 @@ jobs:
           path: cli
       - name: Upload snapcraft logs
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: runtime-build-log
           path: |
             /home/runner/.cache/snapcraft/log/
             /home/runner/.local/state/snapcraft/log/
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: 'fs'
+          scan-ref: ${{ steps.build.outputs.snap }}
+          exit-code: 1
+          format: 'sarif'
+          vuln-type: library
+          output: 'snap-trivy-results.sarif'
+          # By default SARIF format enforces output of all vulnerabilities regardless of configured severities.
+          severity: 'UNKNOWN,LOW,MEDIUM,CRITICAL,HIGH'
       - name: Upload artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: testflinger-cli.snap
           path: ${{ steps.build.outputs.snap }}

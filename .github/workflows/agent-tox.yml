@@ -7,15 +7,21 @@ on:
     branches: [main]
     paths:
       - common/** # testflinger-agent depends on testflinger-common
+      - device-connectors/** # device connectors are used in agent tests
       - agent/**
       - .github/workflows/agent-tox.yml
       - codecov.yaml
   pull_request:
     paths:
       - common/** # testflinger-agent depends on testflinger-common
+      - device-connectors/** # device connectors are used in agent tests
       - agent/**
       - .github/workflows/agent-tox.yml
       - codecov.yaml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -23,45 +29,84 @@ jobs:
     defaults:
       run:
         working-directory: agent
-    runs-on: [self-hosted, linux, jammy, X64]
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
           persist-credentials: false
       - name: Install uv and set up Python
-        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6
+        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7.3.1
       - name: Check lock file
         run: uvx --with tox-uv tox -e lock
-      - name: Check formatting
-        run: uvx --with tox-uv tox -e format
       - name: Check linting
+        env:
+          RUFF_OUTPUT_FORMAT: sarif
+          RUFF_OUTPUT_FILE: results.sarif
         run: uvx --with tox-uv tox -e lint
       - name: Run unit tests
         run: uvx --with tox-uv tox -e unit
       - name: Upload coverage
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
           files: coverage.xml
           flags: agent
           token: ${{ secrets.CODECOV_TOKEN }}
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: results.sarif
+          path: agent/results.sarif
+
+      - name: Upload scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
+        with:
+          sarif_file: agent/results.sarif
+
   test_charm:
-    name: Run charm tests
+    name: Run charm unit tests
     defaults:
       run:
         working-directory: agent
-    runs-on: [self-hosted, linux, jammy, X64]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
           persist-credentials: false
       - name: Install uv and set up Python
-        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6
+        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7.3.1
+      - name: Run charm unit tests
+        run: uvx --with tox-uv tox -e charm-unit
+
+  test_charm_integration:
+    name: Run charm integration tests
+    defaults:
+      run:
+        working-directory: agent/charms/testflinger-agent-host-charm
+    runs-on: [self-hosted, linux, jammy, X64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7.3.1
       - name: Install concierge
         run: sudo snap install --classic concierge
       - name: Prepare Juju
         run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=latest/stable -p machine
-      - name: Run charm tests
-        run: uvx --with tox-uv tox -e charm
+      - name: Pack charm
+        run: charmcraft pack --verbose
+      - name: Upload charm as an artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: agent-charm
+          path: agent/charms/testflinger-agent-host-charm/*.charm
+          if-no-files-found: error
+          retention-days: 2
+      - name: Run charm integration tests
+        run: uvx --with tox-uv tox -e charm-integration

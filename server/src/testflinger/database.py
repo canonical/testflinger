@@ -22,6 +22,7 @@ from typing import Any
 
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
+from testflinger_common.enums import ServerRoles
 
 # Constants for TTL indexes
 REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
@@ -88,6 +89,11 @@ def create_indexes():
         "updated_at", expireAfterSeconds=OUTPUT_EXPIRATION
     )
 
+    # Remove logs after 7 days
+    mongo.db.logs.create_index(
+        "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
     # Remove artifacts after 7 days
     mongo.db.fs.chunks.create_index(
         "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
@@ -114,6 +120,11 @@ def create_indexes():
     # Faster lookups for common queries
     mongo.db.jobs.create_index("job_id")
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
+
+    # Faster lookups for logs
+    mongo.db.logs.create_index(
+        ["job_id", "log_type", "phase", "fragment_number"]
+    )
 
 
 def save_file(data: Any, filename: str):
@@ -179,19 +190,30 @@ def add_job(job: dict):
     mongo.db.jobs.insert_one(job)
 
 
-def pop_job(queue_list):
-    """Get the next job in the queue."""
-    # The queue name and the job are returned, but we don't need the queue now
+def pop_job(queue_list: list[str], agent_name: str) -> dict | None:
+    """Get the next job in the queue.
+
+    :param queue_list: List of queues to search for jobs
+    :param agent_name: Name of the agent requesting the job (used to filter
+        and prevent excluded agents from taking work they shouldn't)
+
+    :returns: The next job in the queue, or None if no job is available.
+    """
     try:
+        # Allow an agent who's top job(s) would be excluded from running to
+        # reach deeper into the queue to find a job it can run.
+        query_filter = {
+            "result_data.job_state": "waiting",
+            "job_data.job_queue": {"$in": queue_list},
+            "$or": [
+                {"job_data.attachments_status": {"$exists": False}},
+                {"job_data.attachments_status": "complete"},
+            ],
+            "job_data.exclude_agents": {"$nin": [agent_name]},
+        }
+
         response = mongo.db.jobs.find_one_and_update(
-            {
-                "result_data.job_state": "waiting",
-                "job_data.job_queue": {"$in": queue_list},
-                "$or": [
-                    {"job_data.attachments_status": {"$exists": False}},
-                    {"job_data.attachments_status": "complete"},
-                ],
-            },
+            query_filter,
             {"$set": {"result_data.job_state": "running"}},
             projection={
                 "job_id": True,
@@ -266,6 +288,18 @@ def get_jobs_on_queue(queue: str) -> list[dict]:
     """Get the jobs that are assigned on a specific queue."""
     jobs = mongo.db.jobs.find({"job_data.job_queue": queue})
     return list(jobs)
+
+
+def get_num_incomplete_jobs_on_queue(queue: str) -> int:
+    """Get the number of incomplete jobs on a specific queue."""
+    return mongo.db.jobs.count_documents(
+        {
+            "job_data.job_queue": queue,
+            "result_data.job_state": {
+                "$nin": ["complete", "completed", "cancelled"]
+            },
+        }
+    )
 
 
 def calculate_percentiles(data: list) -> dict:
@@ -439,14 +473,6 @@ def check_client_exists(client_id: str) -> bool:
     )
 
 
-def add_client_permissions(data: dict) -> None:
-    """Create a new client_id along with its permissions.
-
-    :param data: client_id along with its permissions
-    """
-    mongo.db.client_permissions.insert_one(data)
-
-
 def get_client_permissions(client_id: str | None = None) -> dict | list[dict]:
     """Retrieve the client permissions for a specified user.
 
@@ -463,14 +489,16 @@ def get_client_permissions(client_id: str | None = None) -> dict | list[dict]:
         return mongo.db.client_permissions.find({}, {"_id": False})
 
 
-def edit_client_permissions(client_id: str, update_fields: dict) -> None:
-    """Edit client_id with specified new permissions.
+def create_or_update_client_permissions(
+    client_id: str, client_permissions: dict
+) -> None:
+    """Create or update client_id with specified permissions.
 
-    :param client_id: client_id to update permissions
-    :param update_fields: Updated permissions.
+    :param client_id: client_id to set permissions
+    :param client_permissions: Permissions to set to client_id.
     """
     mongo.db.client_permissions.update_one(
-        {"client_id": client_id}, {"$set": update_fields}
+        {"client_id": client_id}, {"$set": client_permissions}, upsert=True
     )
 
 
@@ -540,3 +568,57 @@ def delete_refresh_token(token: str) -> None:
     :param token: The refresh token to delete.
     """
     mongo.db.refresh_tokens.delete_one({"refresh_token": token})
+
+
+def check_web_client_exists(sub: str):
+    """Validate the existance of a web client.
+
+    :param sub: Unique subject identifier returned by OIDC provider
+    :return: True or False based on client existance
+    """
+    return (
+        mongo.db.web_clients.find_one({"openid_sub": sub}, {"_id": False})
+        is not None
+    )
+
+
+def register_web_client(oidc_token: dict):
+    """Create a new web client upon first authentication.
+
+    If client already exists, will update the last login.
+
+    :param oidc_token: User information returned from OIDC provider.
+    """
+    sub = oidc_token["userinfo"]["sub"]
+    if check_web_client_exists(sub):
+        mongo.db.web_clients.update_one(
+            {"openid_sub": sub},
+            {"$set": {"last_login": datetime.now(timezone.utc)}},
+        )
+    else:
+        mongo.db.web_clients.insert_one(
+            {
+                "openid_sub": sub,
+                "email": oidc_token["userinfo"]["email"],
+                "name": oidc_token["userinfo"]["name"],
+                "created_at": datetime.now(timezone.utc),
+                "last_login": datetime.now(timezone.utc),
+                "role": ServerRoles.CONTRIBUTOR,
+            }
+        )
+
+
+def get_job_results(job_id: str):
+    """Retrieve results for a specific job id."""
+    return mongo.db.jobs.find_one(
+        {"job_id": job_id}, {"result_data": True, "_id": False}
+    )
+
+
+def add_job_results(job_id: str, json_data: dict):
+    """Add results to specified job id with "result_data" prepended."""
+    # First, we need to prepend "result_data" to each key in the result_data
+    for key in list(json_data):
+        json_data[f"result_data.{key}"] = json_data.pop(key)
+
+    mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})

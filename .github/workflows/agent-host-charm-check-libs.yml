@@ -19,10 +19,10 @@ jobs:
     runs-on: [self-hosted, linux, jammy, X64]
     permissions:
       contents: read
-      pull-requests: write
+      pull-requests: write  # necessary to add label
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
           fetch-depth: 0
           persist-credentials: false

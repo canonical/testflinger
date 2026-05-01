@@ -18,7 +18,10 @@ import subprocess
 import unittest
 from unittest.mock import Mock, call, patch
 
-from testflinger_device_connectors.devices import DefaultDevice
+from testflinger_device_connectors.devices import (
+    DefaultControlHost,
+    DefaultDevice,
+)
 
 
 class DefaultDeviceTests(unittest.TestCase):
@@ -90,6 +93,38 @@ class DefaultDeviceTests(unittest.TestCase):
         )
         expected = call(cmd.split(), timeout=30)
         mock_check.assert_has_calls(10 * [expected])
+
+    @patch("time.sleep", Mock())
+    @patch("time.time", side_effect=[0, 1, 2, 3])
+    def test_wait_online_success(self, _mock_time):
+        """Test wait_online returns when the check succeeds."""
+        check = Mock(side_effect=[ConnectionError, None])
+        DefaultControlHost("host").wait_online(check, 10)
+        assert check.call_count == 2
+
+    @patch("time.sleep", Mock())
+    @patch("time.time", side_effect=[0, 5, 11])
+    def test_wait_online_timeout(self, _mock_time):
+        """Test wait_online raises TimeoutError when check never succeeds."""
+        check = Mock(side_effect=ConnectionError)
+        with self.assertRaises(TimeoutError):
+            DefaultControlHost("host").wait_online(check, 10)
+
+    @patch("time.sleep", Mock())
+    @patch("time.time", side_effect=[0, 1, 2, 3])
+    def test_wait_offline_success(self, _mock_time):
+        """Test wait_offline returns when the check starts failing."""
+        check = Mock(side_effect=[None, ConnectionError])
+        DefaultControlHost("host").wait_offline(check, 10)
+        assert check.call_count == 2
+
+    @patch("time.sleep", Mock())
+    @patch("time.time", side_effect=[0, 5, 11])
+    def test_wait_offline_timeout(self, _mock_time):
+        """Test wait_offline raises TimeoutError when host stays online."""
+        check = Mock()
+        with self.assertRaises(TimeoutError):
+            DefaultControlHost("host").wait_offline(check, 10)
 
     def test_write_device_info(self):
         """Validate device-info file can be read upon class initialization."""

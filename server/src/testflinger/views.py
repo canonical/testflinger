@@ -16,6 +16,7 @@
 """Additional views not associated with the API."""
 
 from datetime import datetime, timedelta, timezone
+from http import HTTPStatus
 
 from flask import (
     Blueprint,
@@ -29,6 +30,7 @@ from prometheus_client import generate_latest
 
 from testflinger import database
 from testflinger.database import mongo
+from testflinger.logs import MongoLogHandler
 
 views = Blueprint("testflinger", __name__)
 
@@ -76,7 +78,7 @@ def agent_detail(agent_id):
         response = make_response(
             render_template("agent_not_found.html", agent_id=agent_id)
         )
-        response.status_code = 404
+        response.status_code = HTTPStatus.NOT_FOUND
         return response
 
     restricted_queues = database.get_restricted_queues()
@@ -88,6 +90,20 @@ def agent_detail(agent_id):
         else []
         for queue in agent_info.get("queues", [])
     }
+
+    queue_info = []
+    for queue_name in agent_info.pop("queues", []):
+        queue_data = mongo.db.queues.find_one({"name": queue_name})
+        if not queue_data:
+            # If it's not an advertised queue, create some dummy data
+            queue_data = {"description": ""}
+        queue_data["name"] = queue_name
+        queue_data["numjobs"] = database.get_num_incomplete_jobs_on_queue(
+            queue_name
+        )
+        queue_info.append(queue_data)
+
+    agent_info["queues"] = queue_info
 
     # We want to include the start/stop dates so that default values
     # can be filled in for the date pickers
@@ -132,9 +148,17 @@ def job_detail(job_id):
     job_data = mongo.db.jobs.find_one({"job_id": job_id})
     if not job_data:
         response = make_response(
-            render_template("job_not_found.html", job_id=job_id), 404
+            render_template("job_not_found.html", job_id=job_id),
+            HTTPStatus.NOT_FOUND,
         )
         return response
+
+    if result_data := job_data.get("result_data"):
+        if not any(
+            key.endswith(("_output", "_serial")) for key in result_data.keys()
+        ):
+            log_handler = MongoLogHandler(mongo)
+            log_handler.format_logs_as_results(job_id, result_data)
     return render_template("job_detail.html", job=job_data)
 
 
@@ -176,13 +200,8 @@ def queues_data():
 
     # Get job counts for each queue
     for queue in queue_data:
-        queue["numjobs"] = mongo.db.jobs.count_documents(
-            {
-                "job_data.job_queue": queue["name"],
-                "result_data.job_state": {
-                    "$nin": ["complete", "completed", "cancelled"]
-                },
-            }
+        queue["numjobs"] = database.get_num_incomplete_jobs_on_queue(
+            queue["name"]
         )
     return queue_data
 

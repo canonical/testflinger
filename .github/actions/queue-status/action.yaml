@@ -1,0 +1,83 @@
+name: Get a Testflinger queue's status
+description: Show the status of agents and jobs in a specified queue
+inputs:
+  queue:
+    description: "Name of queue to query queue-status with"
+    required: true
+  server:
+    description: The Testflinger server to use
+    required: false
+    default: testflinger.canonical.com
+outputs:
+  agents_in_queue:
+    description: 'Number of agents in the queue'
+    value: ${{ steps.queue-status.outputs.agents_in_queue }}
+  available:
+    description: 'Number of agents with state "available"'
+    value: ${{ steps.queue-status.outputs.available }}
+  busy:
+    description: 'Number of agents with state "busy"'
+    value: ${{ steps.queue-status.outputs.busy }}
+  offline:
+    description: 'Number of agents with state "offline"'
+    value: ${{ steps.queue-status.outputs.offline }}
+  jobs_waiting:
+    description: 'Number of jobs waiting in the queue'
+    value: ${{ steps.queue-status.outputs.jobs_waiting }}
+  jobs_running:
+    description: 'Number of jobs running on agents in the queue'
+    value: ${{ steps.queue-status.outputs.jobs_running }}
+  jobs_completed:
+    description: 'Number of jobs completed in the queue'
+    value: ${{ steps.queue-status.outputs.jobs_completed }}
+runs:
+  using: composite
+  steps:
+    # Use testflinger-setup by copying action from adjacent directory.
+    # This is required so we can use the same reference as the one
+    # checked out by external workflow or action.
+    - name: Stage testflinger-setup from adjacent action directory
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        mkdir -p _tmp_testflinger-actions/.github/actions
+        cp -r "$ACTION_PATH/../testflinger-setup" \
+              _tmp_testflinger-actions/.github/actions/testflinger-setup
+
+    - name: Setup Testflinger
+      uses: ./_tmp_testflinger-actions/.github/actions/testflinger-setup
+      with:
+        server: ${{ inputs.server }}
+
+    - name: Cleanup temporary checkout
+      shell: bash
+      run: rm -rf ./_tmp_testflinger-actions
+
+    - name: Query testflinger-cli queue-status ${{ inputs.queue }}
+      id: queue-status
+      shell: bash
+      env:
+        SERVER: https://${{ inputs.server }}
+        QUEUE: ${{ inputs.queue }}
+      run: |
+        echo "::group::Get $QUEUE queue-status"
+        RESULT=$(testflinger --server "$SERVER" queue-status "$QUEUE")
+        echo "$RESULT"
+        
+        MAP=(
+          'agents_in_queue|Agents in queue'
+          'available|Available'
+          'busy|Busy'
+          'offline|Offline'
+          'jobs_waiting|Jobs waiting'
+          'jobs_running|Jobs running'
+          'jobs_completed|Jobs completed'
+        )
+
+        for line in "${MAP[@]}"; do
+          IFS='|' read -r out_key label <<< "$line"
+          value=$(printf '%s\n' "$RESULT" | awk -F': *' -v lbl="$label" '$1==lbl {print $2}')
+          echo "${out_key}=${value}" >> "$GITHUB_OUTPUT"
+        done
+        echo "::endgroup::"

@@ -46,12 +46,17 @@ You can create a new ``client_id`` by using individual arguments or by using ``j
 
 .. tip::
 
-   If role is not provided either as argument or in JSON object, it will default to ``contributor``.
+   If ``role`` is not provided either as argument or in JSON object, it will default to ``contributor``.
+   
+   Also, if ``max-priority`` and ``max-reservation`` are not provided, it will default to empty permissions: ``'{}'``
 
-Edit ``client_id``
-~~~~~~~~~~~~~~~~~~
+Update ``client_id``
+~~~~~~~~~~~~~~~~~~~~
 
-You can edit an existing ``client_id`` by using the same ``set`` subcommand with the necessary modifications
+You can edit an existing ``client_id`` by using the same ``set`` subcommand with only the necessary modifications. 
+
+In the following examples, both max_priority and max_reservation are to be updated but providing single argument is also valid.
+This can be useful for secret rotation (by specifying just ``--testflinger-client-secret``) without modifying the other permissions.
 
 .. code-block:: shell
 

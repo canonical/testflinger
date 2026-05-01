@@ -1,4 +1,5 @@
-name: Release testflinger-k8s charm
+name: "[server] Release testflinger-k8s charm"
+run-name: "[server] Release testflinger-k8s charm (${{ github.event_name == 'push' && 'beta' || github.event.inputs.channel }})"
 permissions:
   contents: read
 on:
@@ -18,6 +19,10 @@ on:
           - latest/beta
           - latest/edge
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
 
@@ -26,29 +31,29 @@ jobs:
     name: Build and Push Charm
     runs-on: [self-hosted, linux, jammy, X64]
     permissions:
-      actions: read
-      contents: write
-      packages: write
+      actions: read  # necessary to read runner information
+      contents: write  # necessary to create tag(s)
+      packages: write  # necessary to create push image
 
     env:
       IMAGE_NAME: ${{ github.repository }}
 
     steps:
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         with:
           cache-binary: false
-          config-inline: |
+          buildkitd-config-inline: |
             [registry."docker.io"]
               mirrors = ["https://github-runner-dockerhub-cache.canonical.com:5000"]
 
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
           persist-credentials: false
 
       - name: Log in to the Container registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -56,12 +61,12 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push backend Docker image
-        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: ./server
           build-contexts: |
@@ -70,6 +75,12 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+      - name: Modify charmcraft.yaml OCI Image
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          IMAGE_FROM_BRANCH: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+        run: sed -i "s|ghcr.io/canonical/testflinger:main|$IMAGE_FROM_BRANCH|g" server/charm/charmcraft.yaml
+
       - name: Upload charm to charmhub
         uses: canonical/charming-actions/upload-charm@1753e0803f70445132e92acd45c905aba6473225 # 2.7.0
         with:
@@ -77,3 +88,39 @@ jobs:
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           channel: ${{ github.event_name == 'push' && 'latest/beta' || github.event.inputs.channel }}
+
+  scan:
+    needs: build-and-push-charm
+    name: Scan Charm with Trivy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+    env:
+      CHANNEL: ${{ github.event_name == 'push' && 'beta' || github.event_name == 'schedule' && 'stable' || github.event.inputs.channel }}
+    steps:
+      - name: Install Juju
+        run: sudo snap install juju --classic
+      - name: Download and Unpack Charm
+        run: |
+          CHANNEL=$(echo "$CHANNEL" | sed "-e s,latest/,,")
+          CHARM=$(juju download testflinger-k8s --channel=$CHANNEL 2>&1 | grep ".charm$" | sed -e 's/.*\(testflinger.*.charm\)/\1/')
+
+          # Extract the contents to a local folder
+          unzip -d unpacked-charm $CHARM
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: 'fs'
+          scan-ref: 'unpacked-charm'
+          exit-code: 1
+          format: 'sarif'
+          vuln-type: library
+          output: 'testflinger-k8s-trivy-results.sarif'
+          # By default, SARIF format enforces output of all vulnerabilities regardless of configured severities.
+          severity: 'UNKNOWN,LOW,MEDIUM,CRITICAL,HIGH'
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
+        with:
+          sarif_file: 'testflinger-k8s-trivy-results.sarif'
+          wait-for-processing: "true"

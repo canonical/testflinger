@@ -1,0 +1,18 @@
+issuer: http://dex:5556/dex
+storage:
+  type: memory
+web:
+  http: 0.0.0.0:5556
+staticClients:
+  - id: testflinger-client
+    redirectURIs:
+      - 'http://testflinger-server:5000/auth/callback'
+      - 'http://localhost:5000/auth/callback'
+    name: 'Testflinger Dev'
+    secret: my-oidc-secret
+enablePasswordDB: true
+staticPasswords:
+  - email: "testflinger@example.com"
+    hash: "$2a$10$FWI.y.8Zpa9PhTTcV6GDIuxPzrwYJoiVCimgCA427HoyR5FR50mBu"
+    username: "testflinger-admin"
+    userID: "1234"

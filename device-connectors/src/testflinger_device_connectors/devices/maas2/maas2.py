@@ -35,6 +35,8 @@ from testflinger_device_connectors.devices.maas2.maas_storage import (
 
 logger = logging.getLogger(__name__)
 
+MAAS_EPHEMERAL_SUPPORT_VERSION = (3, 5, 0)
+
 
 class Maas2:
     """Device Connector for Maas2."""
@@ -49,6 +51,7 @@ class Maas2:
         self.agent_name = self.config.get("agent_name")
         self.timeout_min = int(self.config.get("timeout_min", 60))
         self.maas_storage = MaasStorage(self.maas_user, self.node_id)
+        self.debug = self.job_data.get("debug", False)
 
     def _logger_debug(self, message):
         logger.debug("MAAS: %s", message)
@@ -80,13 +83,14 @@ class Maas2:
         # Check if this is a device where we need to clear the tpm (dawson)
         if self.config.get("clear_tpm"):
             self.clear_tpm()
-        provision_data = self.job_data.get("provision_data")
+        provision_data = self.job_data.get("provision_data") or {}
         # Default to a safe LTS if no distro is specified
-        distro = provision_data.get("distro", "xenial")
+        distro = provision_data.get("distro", "jammy")
         kernel = provision_data.get("kernel")
         user_data = provision_data.get("user_data")
         storage_data = provision_data.get("disks")
-        self.deploy_node(distro, kernel, user_data, storage_data)
+        ephemeral = provision_data.get("ephemeral", False)
+        self.deploy_node(distro, kernel, user_data, storage_data, ephemeral)
 
     def cleanup(self):
         """Try to release the node in maas at the end of the job."""
@@ -303,8 +307,21 @@ class Maas2:
             retry_count += 1
 
     def deploy_node(
-        self, distro="bionic", kernel=None, user_data=None, storage_data=None
-    ):
+        self,
+        distro: str = "jammy",
+        kernel: str | None = None,
+        user_data: str | None = None,
+        storage_data: list[dict] | None = None,
+        ephemeral: bool = False,
+    ) -> None:
+        """Deploy the node in MAAS with the specified parameters.
+
+        :param distro: The distribution series to deploy (default: bionic)
+        :param kernel: Optional kernel to use for deployment
+        :param user_data: Optional user data to pass to the deployment
+        :param storage_data: Optional storage configuration to apply
+        :param ephemeral: Whether to deploy the node as ephemeral (RAM only)
+        """
         # Deploy the node in maas, default to bionic if nothing is specified
         self.recover()
         status = self.node_status()
@@ -365,6 +382,16 @@ class Maas2:
         if user_data:
             data = base64.b64encode(user_data.encode()).decode()
             cmd.append("user_data={}".format(data))
+
+        # Ephemeral deployment is only supported in MAAS >= 3.5.0
+        if (
+            ephemeral
+            and (maas_version := self.get_maas_version()) is not None
+            and maas_version >= MAAS_EPHEMERAL_SUPPORT_VERSION
+        ):
+            cmd.append("ephemeral_deploy=true")
+            self._logger_info("Deployment set to ephemeral")
+
         proc = self.run_maas_cmd_with_retry(cmd)
 
         # Make sure the device is available before returning
@@ -444,7 +471,12 @@ class Maas2:
     def node_release(self):
         """Release the node to make it available again."""
         cmd = ["maas", self.maas_user, "machine", "release", self.node_id]
-        subprocess.run(cmd, check=False)
+        # Use the retry method to validate if cmd execution succeded
+        proc = self.run_maas_cmd_with_retry(cmd)
+        output = proc.stdout.decode()
+        if self.debug:
+            # Use logger_info to not modify agent config file
+            self._logger_info(output)
         # Make sure the device is available before returning
         for _ in range(0, 30):
             time.sleep(10)
@@ -456,6 +488,9 @@ class Maas2:
                 self.agent_name, status
             )
         )
+        # release was unsuccessful, log the output if not already done
+        if not self.debug:
+            self._logger_error(output)
         raise RecoveryError("Device recovery failed!")
 
     def set_flat_storage_layout(self):
@@ -468,8 +503,44 @@ class Maas2:
             self.node_id,
             "storage_layout=flat",
         ]
-        proc = subprocess.run(cmd, check=False)
+        proc = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
+        )
+        output = proc.stdout.decode()
+        if self.debug:
+            # Use logger_info to not modify agent config file
+            self._logger_info(output)
+
         if proc.returncode:
             self._logger_error(
                 "Unable to set flat disk layout, attempting to continue anyway"
             )
+            # set-storage-layout failed, log the output if not already done
+            if not self.debug:
+                self._logger_error(output)
+
+    def get_maas_version(self) -> tuple[int, ...] | None:
+        """Get MAAS instance version.
+
+        :return: MAAS version as a tuple of ints if available, else None
+        """
+        cmd = ["maas", self.maas_user, "version", "read"]
+
+        try:
+            # Using the retry with a faster backoff to avoid long delays
+            proc = self.run_maas_cmd_with_retry(
+                cmd, max_retries=3, backoff_start=10
+            )
+            output_dict = json.loads(proc.stdout.decode())
+            version_str = output_dict.get("version") if output_dict else None
+            if not version_str:
+                return None
+
+            self._logger_info(f"MAAS version detected: {version_str}")
+            return tuple(int(x) for x in version_str.split("."))
+        except (ProvisioningError, ValueError) as exc:
+            self._logger_warning(
+                f"Unable to determine MAAS version: {exc}. "
+                "Proceeding without ephemeral deployment"
+            )
+            return None

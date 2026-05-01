@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.zapper_iot import DeviceConnector
@@ -12,7 +12,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function creates a proper provision_data
         dictionary when valid data are provided.
         """
-        device = DeviceConnector({})
+        device = DeviceConnector({"control_host": "zapper-host"})
         device.job_data = {
             "provision_data": {
                 "preset": "TestPreset",
@@ -34,9 +34,34 @@ class ZapperIoTTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
+    def test_validate_configuration_single_url(self):
+        """Test the function accepts a single `url` string
+        and converts it to `urls` list.
+        """
+        device = DeviceConnector({"control_host": "zapper-host"})
+        device.job_data = {
+            "provision_data": {
+                "preset": "TestPreset",
+                "url": "http://test.tar.gz",
+            }
+        }
+
+        args, kwargs = device._validate_configuration()
+
+        expected = {
+            "username": "ubuntu",
+            "password": "ubuntu",
+            "preset": "TestPreset",
+            "preset_kwargs": None,
+            "urls": ["http://test.tar.gz"],
+        }
+
+        self.assertEqual(args, ())
+        self.assertDictEqual(kwargs, expected)
+
     def test_validate_configuration_ubuntu_sso_email(self):
         """Test the function username will be ubuntu_sso_email if provided."""
-        device = DeviceConnector({})
+        device = DeviceConnector({"control_host": "zapper-host"})
         device.job_data = {
             "provision_data": {
                 "ubuntu_sso_email": "test@example.com",
@@ -62,7 +87,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function validates a custom test plan
         when provided.
         """
-        device = DeviceConnector({})
+        device = DeviceConnector({"control_host": "zapper-host"})
         device.job_data = {
             "provision_data": {
                 "provision_plan": {
@@ -79,7 +104,7 @@ class ZapperIoTTests(unittest.TestCase):
                     "run_stage": [
                         {"initial_login": {"method": "system-user"}},
                     ],
-                }
+                },
             }
         }
 
@@ -116,7 +141,7 @@ class ZapperIoTTests(unittest.TestCase):
         when provided and an ubuntu_sso_email is provided.
         The username should be overridden with the ubuntu_sso_email.
         """
-        device = DeviceConnector({})
+        device = DeviceConnector({"control_host": "zapper-host"})
         device.job_data = {
             "provision_data": {
                 "ubuntu_sso_email": "test@example.com",
@@ -172,6 +197,7 @@ class ZapperIoTTests(unittest.TestCase):
         """
         fake_config = {
             "device_ip": "1.1.1.1",
+            "control_host": "zapper-host",
             "reboot_script": ["cmd1", "cmd2"],
         }
         device = DeviceConnector(fake_config)
@@ -202,6 +228,7 @@ class ZapperIoTTests(unittest.TestCase):
         """
         fake_config = {
             "device_ip": "1.1.1.1",
+            "control_host": "zapper-host",
             "reboot_script": ["cmd1", "cmd2"],
         }
         device = DeviceConnector(fake_config)
@@ -220,6 +247,7 @@ class ZapperIoTTests(unittest.TestCase):
         """
         fake_config = {
             "device_ip": "1.1.1.1",
+            "control_host": "zapper-host",
             "reboot_script": ["cmd1", "cmd2"],
         }
         device = DeviceConnector(fake_config)
@@ -236,6 +264,7 @@ class ZapperIoTTests(unittest.TestCase):
         """
         fake_config = {
             "device_ip": "1.1.1.1",
+            "control_host": "zapper-host",
             "reboot_script": ["cmd1", "cmd2"],
         }
         device = DeviceConnector(fake_config)
@@ -254,6 +283,61 @@ class ZapperIoTTests(unittest.TestCase):
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
 
+    @patch("testflinger_device_connectors.devices.zapper_iot.SerialLogger")
+    @patch(
+        "testflinger_device_connectors.devices.zapper.ZapperConnector.provision"
+    )
+    def test_provision_wraps_super_with_serial_logger(
+        self, mock_super_provision, mock_serial_logger_factory
+    ):
+        """Test that provision starts SerialLogger before provisioning
+        and stops it afterwards.
+        """
+        mock_serial_proc = MagicMock()
+        mock_serial_logger_factory.return_value = mock_serial_proc
+
+        fake_config = {
+            "control_host": "zapper-host",
+            "serial_host": "serial-host",
+            "serial_port": 3000,
+        }
+        device = DeviceConnector(fake_config)
+        args = MagicMock()
+        device.provision(args)
+
+        mock_serial_logger_factory.assert_called_once_with(
+            "serial-host", 3000, "provision-serial.log"
+        )
+        mock_serial_proc.start.assert_called_once()
+        mock_super_provision.assert_called_once_with(args)
+        mock_serial_proc.stop.assert_called_once()
+
+    @patch("testflinger_device_connectors.devices.zapper_iot.SerialLogger")
+    @patch(
+        "testflinger_device_connectors.devices.zapper.ZapperConnector.provision"
+    )
+    def test_provision_stops_serial_logger_on_failure(
+        self, mock_super_provision, mock_serial_logger_factory
+    ):
+        """Test that SerialLogger is stopped even when provisioning fails."""
+        mock_serial_proc = MagicMock()
+        mock_serial_logger_factory.return_value = mock_serial_proc
+        mock_super_provision.side_effect = ProvisioningError("fail")
+
+        fake_config = {
+            "control_host": "zapper-host",
+            "serial_host": "serial-host",
+            "serial_port": 3000,
+        }
+        device = DeviceConnector(fake_config)
+        args = MagicMock()
+
+        with self.assertRaises(ProvisioningError):
+            device.provision(args)
+
+        mock_serial_proc.start.assert_called_once()
+        mock_serial_proc.stop.assert_called_once()
+
     @patch.object(DeviceConnector, "_copy_ssh_id")
     def test_post_run_actions_copy_ssh_id_no_provision_plan(
         self, mock_copy_ssh_id
@@ -261,7 +345,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function copy the ssh id if there is no provision plan
         and without ubuntu_sso_email.
         """
-        fake_config = {"device_ip": "1.1.1.1"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
         device = DeviceConnector(fake_config)
         device.job_data = {"provision_data": {}}
         device._post_run_actions(args=None)
@@ -274,7 +358,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function does not copy the ssh id if there is
         buntu_sso_email.
         """
-        fake_config = {"device_ip": "1.1.1.1"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
         device = DeviceConnector(fake_config)
         device.job_data = {
             "provision_data": {
@@ -291,7 +375,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function copies the ssh id if the
         initial login method is Not console-conf.
         """
-        fake_config = {"device_ip": "1.1.1.1"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
         device = DeviceConnector(fake_config)
         device.job_data = {
             "provision_data": {

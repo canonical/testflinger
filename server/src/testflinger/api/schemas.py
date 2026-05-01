@@ -15,13 +15,12 @@
 #
 """Testflinger v1 OpenAPI schemas."""
 
-from apiflask import Schema, fields
+from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
 from marshmallow import ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
 from testflinger_common.duration import DurationParseError, parse_duration
-
-from testflinger.enums import ServerRoles
+from testflinger_common.enums import ServerRoles, TestPhase
 
 ValidJobStates = (
     "setup",
@@ -36,6 +35,8 @@ ValidJobStates = (
     "completed",
     "active",  # fake state for jobs that are not completed or cancelled
 )
+
+TestPhases = [phase.value for phase in TestPhase]
 
 
 class ProvisionLogsIn(Schema):
@@ -103,6 +104,7 @@ class MAASProvisionData(Schema):
     user_data = fields.String(required=False)
     # [TODO] Specify Nested schema to improve validation
     disks = fields.List(fields.Dict(), required=False)
+    ephemeral = fields.Boolean(required=False)
 
 
 class MultiProvisionData(Schema):
@@ -148,6 +150,7 @@ class OEMAutoinstallProvisionData(Schema):
     authorized_keys = fields.String(required=False)
     zapper_iso_url = fields.String(required=False)
     zapper_iso_type = fields.String(required=False)
+    update_user_data = fields.Boolean(required=False)
 
 
 class OEMScriptProvisionData(Schema):
@@ -168,9 +171,22 @@ class ZapperIoTPresetProvisionData(BaseZapperProvisionData):
     This schema is used when using a preset for provisioning.
     """
 
-    urls = fields.List(fields.URL(), required=True, validate=Length(min=1))
+    url = fields.URL(required=False)
+    urls = fields.List(fields.URL(), required=False, validate=Length(min=1))
     preset = fields.String(required=True)
     preset_kwargs = fields.Dict(required=False)
+
+    @validates_schema
+    def validate_url_or_urls(self, data, **_):
+        """Validate that exactly one of `url` or `urls` is provided."""
+        has_url = "url" in data
+        has_urls = "urls" in data
+        if has_url and has_urls:
+            raise ValidationError(
+                "Provide only one of 'url' or 'urls', not both."
+            )
+        if not has_url and not has_urls:
+            raise ValidationError("Either 'url' or 'urls' must be provided.")
 
 
 class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
@@ -179,10 +195,23 @@ class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
     This schema is used when using a custom plan for provisioning.
     """
 
-    urls = fields.List(fields.URL(), required=True, validate=Length(min=1))
+    url = fields.URL(required=False)
+    urls = fields.List(fields.URL(), required=False, validate=Length(min=1))
     ubuntu_sso_email = fields.Email(required=False)
     # [TODO] Specify Nested schema to improve validation
     provision_plan = fields.Dict(required=True)
+
+    @validates_schema
+    def validate_url_or_urls(self, data, **_):
+        """Validate that exactly one of `url` or `urls` is provided."""
+        has_url = "url" in data
+        has_urls = "urls" in data
+        if has_url and has_urls:
+            raise ValidationError(
+                "Provide only one of 'url' or 'urls', not both."
+            )
+        if not has_url and not has_urls:
+            raise ValidationError("Either 'url' or 'urls' must be provided.")
 
 
 class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
@@ -193,6 +222,7 @@ class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
 
     url = fields.URL(required=True)
     robot_tasks = fields.List(fields.String(), required=True)
+    robot_retries = fields.Integer(required=False)
     autoinstall_storage_layout = fields.String(required=False)
     ubuntu_sso_email = fields.Email(required=False)
     autoinstall_base_user_data = fields.String(required=False)
@@ -208,6 +238,7 @@ class ZapperKVMOEM2204ProvisionData(BaseZapperProvisionData):
 
     alloem_url = fields.URL(required=True)
     robot_tasks = fields.List(fields.String(), required=True)
+    robot_retries = fields.Integer(required=False)
     url = fields.URL(required=False)
     oem = fields.String(required=False)
 
@@ -220,8 +251,29 @@ class ZapperKVMGenericProvisionData(BaseZapperProvisionData):
 
     url = fields.URL(required=True)
     robot_tasks = fields.List(fields.String(), required=True)
+    robot_retries = fields.Integer(required=False)
     live_image = fields.Boolean(required=True)
     wait_until_ssh = fields.Boolean(required=True)
+
+
+class ZapperKVMPresetProvisionData(BaseZapperProvisionData):
+    """Schema for the `provision_data` section of a Zapper KVM job.
+
+    This schema is used when using a preset for provisioning.
+    """
+
+    alloem_url = fields.URL(required=False)
+    autoinstall_base_user_data = fields.String(required=False)
+    autoinstall_oem = fields.Boolean(required=False)
+    autoinstall_storage_layout = fields.String(required=False)
+    cmdline_append = fields.String(required=False)
+    live_image = fields.Boolean(required=False)
+    oem = fields.String(required=False)
+    preset = fields.String(required=True)
+    robot_tasks = fields.List(fields.String(), required=False)
+    ubuntu_sso_email = fields.Email(required=False)
+    url = fields.URL(required=False)
+    wait_until_ssh = fields.Boolean(required=False)
 
 
 class ProvisionData(OneOfSchema):
@@ -235,11 +287,12 @@ class ProvisionData(OneOfSchema):
         "noprovision": NoProvisionData,
         "oem_autoinstall": OEMAutoinstallProvisionData,
         "oem_script": OEMScriptProvisionData,
-        "zapper_iot_preset": ZapperIoTPresetProvisionData,
         "zapper_iot_custom": ZapperIoTCustomProvisionData,
+        "zapper_iot_preset": ZapperIoTPresetProvisionData,
         "zapper_kvm_autoinstall": ZapperKVMAutoinstallProvisionData,
-        "zapper_kvm_oem_2204": ZapperKVMOEM2204ProvisionData,
         "zapper_kvm_generic": ZapperKVMGenericProvisionData,
+        "zapper_kvm_oem_2204": ZapperKVMOEM2204ProvisionData,
+        "zapper_kvm_preset": ZapperKVMPresetProvisionData,
     }
 
     def get_obj_type(self, obj):
@@ -276,6 +329,11 @@ class TestData(Schema):
     # that specifies values for environment variables
     test_username = fields.String(required=False)
     test_password = fields.String(required=False)
+    secrets = fields.Dict(
+        keys=fields.String(validate=Regexp(r"^[a-zA-Z_][a-zA-Z0-9_]*$")),
+        values=fields.String(validate=Regexp(r"^[a-zA-Z0-9_/-]+$")),
+        required=False,
+    )
 
 
 class DurationField(fields.Field):
@@ -319,7 +377,7 @@ class Job(Schema):
     parent_job_id = fields.String(required=False)
     name = fields.String(required=False)
     tags = fields.List(fields.String(), required=False)
-    job_queue = fields.String(required=True)
+    job_queue = fields.String(required=True, validate=Length(min=1))
     global_timeout = fields.Integer(required=False)
     output_timeout = fields.Integer(required=False)
     allocation_timeout = fields.Integer(required=False)
@@ -334,6 +392,10 @@ class Job(Schema):
     reserve_data = fields.Nested(ReserveData, required=False)
     job_status_webhook = fields.String(required=False)
     job_priority = fields.Integer(required=False)
+    exclude_agents = fields.List(
+        fields.String(), required=False, load_default=list
+    )
+    debug = fields.Boolean(required=False)
 
 
 class JobId(Schema):
@@ -367,8 +429,8 @@ class JobSearchResponse(Schema):
     jobs = fields.List(fields.Nested(Job), required=True)
 
 
-class Result(Schema):
-    """Result schema."""
+class ResultGet(Schema):
+    """Result Get schema."""
 
     setup_status = fields.Integer(required=False)
     setup_output = fields.String(required=False)
@@ -391,6 +453,18 @@ class Result(Schema):
     cleanup_status = fields.Integer(required=False)
     cleanup_output = fields.String(required=False)
     cleanup_serial = fields.String(required=False)
+    device_info = fields.Dict(required=False)
+    job_state = fields.String(required=False)
+
+
+class ResultPost(Schema):
+    """Result Post schema."""
+
+    status = fields.Dict(
+        keys=fields.String(validate=OneOf(TestPhases)),
+        values=fields.Integer(),
+        required=False,
+    )
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
 
@@ -423,6 +497,45 @@ class RestrictedQueueOut(Schema):
 
     queue = fields.String(required=True)
     owners = fields.List(fields.String(), required=True)
+
+
+class LogPost(Schema):
+    """Schema for POST of log fragments."""
+
+    fragment_number = fields.Integer(required=True)
+    timestamp = fields.DateTime(required=True)
+    phase = fields.String(required=True, validate=OneOf(TestPhases))
+    log_data = fields.String(required=True)
+
+
+class LogGetItem(Schema):
+    """Schema for GET of logs for a single phase."""
+
+    last_fragment_number = fields.Integer(required=True)
+    log_data = fields.String(required=True)
+
+
+class LogGet(Schema):
+    """Schema for GET of logs for multiple phases."""
+
+    output = fields.Dict(
+        keys=fields.String(validate=OneOf(TestPhases)),
+        values=fields.Nested(LogGetItem),
+    )
+    serial = fields.Dict(
+        keys=fields.String(validate=OneOf(TestPhases)),
+        values=fields.Nested(LogGetItem),
+    )
+
+
+class LogQueryParams(Schema):
+    """Schema for Log GET Query parameters."""
+
+    start_fragment = fields.Integer(
+        required=False, validate=validators.Range(min=0)
+    )
+    start_timestamp = fields.DateTime(required=False)
+    phase = fields.String(required=False, validate=OneOf(TestPhases))
 
 
 job_empty = {
@@ -480,15 +593,17 @@ images_out = {
 class ClientPermissionsIn(Schema):
     """Client Permissions output schema."""
 
-    client_id = fields.String(required=False)  # Optional for schema reuse
     client_secret = fields.String(required=False)  # Optional for schema reuse
     max_priority = fields.Dict(
         keys=fields.String(),
         values=fields.Integer(),
-        required=True,
-        allow_none=True,
+        required=False,
     )
-    max_reservation_time = fields.Dict(required=True, allow_none=True)
+    max_reservation_time = fields.Dict(
+        keys=fields.String(),
+        values=fields.Integer(),
+        required=False,
+    )
     role = fields.String(
         required=False, validate=OneOf([role.value for role in ServerRoles])
     )
@@ -515,3 +630,71 @@ class SecretIn(Schema):
     """Secret input schema."""
 
     value = fields.String(required=True)
+
+
+class ResultLegacy(Schema):
+    """Legacy Result Post schema for backwards compatibility."""
+
+    # TODO: Remove this schema after deprecating legacy endpoints
+    setup_status = fields.Integer(required=False)
+    setup_output = fields.String(required=False)
+    setup_serial = fields.String(required=False)
+    provision_status = fields.Integer(required=False)
+    provision_output = fields.String(required=False)
+    provision_serial = fields.String(required=False)
+    firmware_update_status = fields.Integer(required=False)
+    firmware_update_output = fields.String(required=False)
+    firmware_update_serial = fields.String(required=False)
+    test_status = fields.Integer(required=False)
+    test_output = fields.String(required=False)
+    test_serial = fields.String(required=False)
+    allocate_status = fields.Integer(required=False)
+    allocate_output = fields.String(required=False)
+    allocate_serial = fields.String(required=False)
+    reserve_status = fields.Integer(required=False)
+    reserve_output = fields.String(required=False)
+    reserve_serial = fields.String(required=False)
+    cleanup_status = fields.Integer(required=False)
+    cleanup_output = fields.String(required=False)
+    cleanup_serial = fields.String(required=False)
+    device_info = fields.Dict(required=False)
+    job_state = fields.String(required=False)
+
+
+class ResultSchema(OneOfSchema):
+    """Polymorphic schema for posting results in new and legacy formats."""
+
+    type_schemas = {
+        "new": ResultPost,
+        "legacy": ResultLegacy,
+    }
+
+    def get_obj_type(self, obj):
+        """Get object type depending on which schema is correctly parsed."""
+        return self.get_data_type(obj)
+
+    def get_data_type(self, data):
+        """Get schema type depending on which schema is correctly parsed."""
+        # Try legacy first
+        try:
+            ResultLegacy().load(data)
+            return "legacy"
+        except ValidationError:
+            # If legacy fails, try new format
+            try:
+                ResultPost().load(data)
+                return "new"
+            except ValidationError as err:
+                # Re-raise the last validation error with more context
+                raise ValidationError(
+                    "Invalid result data schema. "
+                    f"Data does not match either legacy or new format: {err}"
+                ) from err
+
+    def _dump(self, obj, **kwargs):
+        result = super()._dump(obj, **kwargs)
+        # Parent dump injects the type field:
+        #   result[self.type_field] = self.get_obj_type(obj)
+        # So we need to remove it
+        result.pop(self.type_field)
+        return result

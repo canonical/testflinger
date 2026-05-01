@@ -18,6 +18,8 @@ import os
 import shutil
 import tempfile
 import time
+from dataclasses import asdict, dataclass
+from http import HTTPStatus
 from pathlib import Path
 from typing import Dict, List
 from urllib.parse import urljoin
@@ -25,12 +27,24 @@ from urllib.parse import urljoin
 import requests
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
+from requests import HTTPError
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from testflinger_common.enums import LogType
+from urllib3.util import Retry
 
-from testflinger_agent.errors import TFServerError
+from testflinger_agent.errors import InvalidTokenError, TFServerError
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class LogEndpointInput:
+    """Schema for Testflinger Log endpoints."""
+
+    fragment_number: int
+    timestamp: str
+    phase: str
+    log_data: str
 
 
 class TestflingerClient:
@@ -43,7 +57,7 @@ class TestflingerClient:
             "server_address", "https://testflinger.canonical.com"
         )
         if not self.server.lower().startswith("http"):
-            self.server = "http://" + self.server
+            self.server = f"http://{self.server}"
         self.session = self._requests_retry(retries=5)
         self.influx_agent_db = "agent_jobs"
         self.influx_client = self._configure_influx()
@@ -88,7 +102,23 @@ class TestflingerClient:
         else:
             return influx_client
 
-    def check_jobs(self):
+    def _update_session_auth(self) -> None:
+        """Ensure session has valid authentication.
+
+        This handles both token-based and cookie-based authentication.
+        """
+        # Update Bearer token header
+        access_token = self.get_access_token()
+        if access_token:
+            self.session.headers.update(
+                {"Authorization": f"Bearer {access_token}"}
+            )
+
+        # Update session cookies
+        if not self.session.cookies:
+            self.post_agent_data({"job_id": ""})
+
+    def check_jobs(self) -> dict | None:
         """Check for new jobs for on the Testflinger server.
 
         If the agent has restricted queues, only accept jobs from those queues.
@@ -109,17 +139,31 @@ class TestflingerClient:
         job_uri = urljoin(self.server, "/v1/job")
         logger.debug("Requesting a job")
         try:
+            self._update_session_auth()
             job_request = self.session.get(
                 job_uri, params={"queue": queue_list}, timeout=30
             )
+            job_request.raise_for_status()
             if job_request.content:
                 return job_request.json()
-            else:
-                return None
+        except InvalidTokenError:
+            logger.error(
+                "Invalid refresh token. "
+                "Make sure the token file is correct and try again."
+            )
+        except HTTPError as exc:
+            if exc.response.status_code in (
+                HTTPStatus.UNAUTHORIZED,
+                HTTPStatus.FORBIDDEN,
+            ):
+                logger.error("Agent not authorized to request jobs.")
+            logger.error(exc)
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
             # Wait a little extra before trying again
             time.sleep(60)
+
+        return None
 
     def get_attachments(self, job_id: str, path: Path):
         """Download the attachment archive associated with a job.
@@ -146,33 +190,6 @@ class TestflingerClient:
         job_data = self.get_result(job_id)
         if job_data:
             return job_data.get("job_state")
-
-    def repost_job(self, job_data):
-        """Resubmit the job to the testflinger server with the same id.
-
-        :param job_id:
-            id for the job on which we want to post results
-        """
-        job_uri = urljoin(self.server, "/v1/job")
-        job_id = job_data.get("job_id")
-        logger.info("Resubmitting job: %s", job_id)
-        job_output = """
-            There was an unrecoverable error while running this stage. Your job
-            will attempt to be automatically resubmitted back to the queue.
-            Resubmitting job: {}\n""".format(job_id)
-        self.post_live_output(job_id, job_output)
-        try:
-            job_request = self.session.post(job_uri, json=job_data)
-        except requests.exceptions.RequestException as exc:
-            logger.error(exc)
-            raise TFServerError("other exception") from exc
-        if not job_request:
-            logger.error(
-                "Unable to re-post job to: %s (error: %d)",
-                job_uri,
-                job_request.status_code,
-            )
-            raise TFServerError(job_request.status_code)
 
     def post_job_state(self, job_id, phase):
         """Update the job_state on the testflinger server."""
@@ -270,15 +287,19 @@ class TestflingerClient:
             logger.exception("Unable to save artifacts")
 
         # Do not retransmit outcome if it's already been done and removed
-        outcome_file = os.path.join(rundir, "testflinger-outcome.json")
-        if os.path.isfile(outcome_file):
+        outcome_file = Path(rundir) / "testflinger-outcome.json"
+        if outcome_file.is_file():
             logger.info("Submitting job outcome for job: %s", job_id)
-            with open(outcome_file) as f:
+            with outcome_file.open() as f:
                 data = json.load(f)
+                # Only include status in posted results
+                # TODO: Remove pop once backward compatibility is not needed
+                data.pop("output", None)
+                data.pop("serial", None)
                 data["job_state"] = "complete"
                 self.post_result(job_id, data)
             # Remove the outcome file so we don't retransmit
-            os.unlink(outcome_file)
+            outcome_file.unlink()
         shutil.rmtree(rundir)
 
     def save_artifacts(self, rundir, job_id):
@@ -290,7 +311,7 @@ class TestflingerClient:
             id for the job
         """
         artifacts_dir = os.path.join(rundir, "artifacts")
-        if not os.path.isdir(artifacts_dir):
+        if not os.path.isdir(artifacts_dir) or not os.listdir(artifacts_dir):
             return
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -305,7 +326,7 @@ class TestflingerClient:
             artifact_uri = urljoin(
                 self.server, "/v1/result/{}/artifact".format(job_id)
             )
-            with open(artifact_file + ".tar.gz", "rb") as tarball:
+            with open(f"{artifact_file}.tar.gz", "rb") as tarball:
                 file_upload = {"file": ("file", tarball, "application/x-gzip")}
                 artifact_request = self.session.post(
                     artifact_uri, files=file_upload, timeout=600
@@ -320,25 +341,28 @@ class TestflingerClient:
             else:
                 shutil.rmtree(artifacts_dir)
 
-    def post_live_output(self, job_id, data):
-        """Post output data to the testflinger server for this job.
+    def post_log(
+        self,
+        job_id: str,
+        log_input: LogEndpointInput,
+        log_type: LogType,
+    ) -> bool:
+        """Post log data to the testflinger server for this job.
 
-        :param job_id:
-            id for the job on which we want to post results
-        :param data:
-            string with latest output data
+        :param job_id: id for the job
+        :param log_input: Dataclass with all of the keys for the log endpoint
+        :param log_type: Enum of different log types the server accepts
+        :returns: True if log was posted successfully, False otherwise
         """
-        output_uri = urljoin(
-            self.server, "/v1/result/{}/output".format(job_id)
-        )
+        endpoint = urljoin(self.server, f"/v1/result/{job_id}/log/{log_type}")
         try:
-            job_request = self.session.post(
-                output_uri, data=data.encode("utf-8"), timeout=60
+            request = self.session.post(
+                endpoint, json=asdict(log_input), timeout=60
             )
         except requests.exceptions.RequestException as exc:
             logger.error(exc)
             return False
-        return bool(job_request)
+        return request.ok
 
     def post_advertised_queues(self):
         """Post the list of advertised queues to testflinger server."""
@@ -516,3 +540,45 @@ class TestflingerClient:
             # Exponentially increase interval between rechecks
             interval = min(interval * (2**retry_count), max_interval)
             retry_count += 1
+
+    def get_access_token(self, timeout=30) -> str | None:
+        """Exchange a refresh token for an acess token.
+
+        This is used for authenticating with the Testflinger server.
+        Access token is short lived, so we need to refresh it upon request.
+
+        :param timeout: timeout in seconds for completing HTTP request
+        :returns: Access token string if successful, None otherwise
+        :raises: InvalidTokenError if refresh token is invalid
+        """
+        token_file = self.config.get("token_file")
+        refresh_url = urljoin(self.server, "/v1/oauth2/refresh")
+
+        if token_file:
+            try:
+                with Path(token_file).open() as f:
+                    token_data = json.load(f)
+            except (OSError, json.JSONDecodeError) as exc:
+                logger.error("Failed to read token file: %s", exc)
+                return None
+
+            refresh_token = token_data.get("refresh_token")
+            try:
+                response = self.session.post(
+                    refresh_url,
+                    json={"refresh_token": refresh_token},
+                    timeout=timeout,
+                )
+                response.raise_for_status()
+                token_data = response.json()
+                return token_data["access_token"]
+            except HTTPError as exc:
+                if exc.response.status_code == HTTPStatus.BAD_REQUEST:
+                    # Server returns a json error message on bad request
+                    # This handles missing or invalid refresh tokens
+                    logger.error(exc.response.json().get("message"))
+                    raise InvalidTokenError from exc
+            except requests.exceptions.RequestException as exc:
+                logger.error("Failed to refresh access token: %s", exc)
+
+        return None

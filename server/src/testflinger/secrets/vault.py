@@ -16,6 +16,7 @@
 """A Vault-based implementation for the Testflinger secrets store."""
 
 import hvac
+import requests
 
 from testflinger.secrets.exceptions import (
     AccessError,
@@ -50,7 +51,10 @@ class VaultStore(SecretsStore):
             raise AccessError(
                 f"Unable to access '{key}' under '{namespace}'"
             ) from error
-        except hvac.exceptions.VaultError as error:
+        except (
+            hvac.exceptions.VaultError,
+            requests.exceptions.ConnectionError,
+        ) as error:
             raise StoreError(
                 f"Unable to access store for '{key}' under '{namespace}'"
             ) from error
@@ -73,7 +77,10 @@ class VaultStore(SecretsStore):
             raise AccessError(
                 f"Unable to access '{key}' under '{namespace}'"
             ) from error
-        except hvac.exceptions.VaultError as error:
+        except (
+            hvac.exceptions.VaultError,
+            requests.exceptions.ConnectionError,
+        ) as error:
             raise StoreError(
                 f"Unable to access store for '{key}' under '{namespace}'"
             ) from error
@@ -92,7 +99,10 @@ class VaultStore(SecretsStore):
             raise AccessError(
                 f"Unable to access '{key}' under '{namespace}'"
             ) from error
-        except hvac.exceptions.VaultError as error:
+        except (
+            hvac.exceptions.VaultError,
+            requests.exceptions.ConnectionError,
+        ) as error:
             raise StoreError(
                 f"Unable to access store for '{key}' under '{namespace}'"
             ) from error

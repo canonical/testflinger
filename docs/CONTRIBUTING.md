@@ -6,6 +6,10 @@ The documentation is hosted on Read the Docs for public access:
 
 https://canonical-testflinger.readthedocs-hosted.com
 
+## Large files (e.g. images)
+
+This project uses [Git LFS](https://git-lfs.com) for managing large files. Be sure to check `docs/.gitattributes` and to install git-lfs (`apt install git-lfs`) before adding and committing new large files to the documentation. 
+
 ## Syntax and style
 
 The documentation is written in [reStructuredText (reST)][rst] which allows for rich formatting and features. For a quick reference of the commonly used syntax, such as links and cross-references, you can refer to [reST syntax guide][rst-syntax-guide] under the starter pack documentation.
@@ -35,6 +39,12 @@ If the HTML build is successful, you can view the built documentation by opening
 
 > [!NOTE]  
 > The HTML build command supports [Git LFS][git-lfs]. Files stored with git-lfs will be checked out before the documentation build. Update `docs/.gitattributes` file to change the included file types.
+ 
+With respect to large files, there is now a demo of the submit command execution that is embedded as a `.mp4` file in the documentation. To regenerate this file, execute:
+
+```bash
+make vhs
+```
 
 ### Live preview
 

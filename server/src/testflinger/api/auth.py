@@ -26,9 +26,17 @@ import jwt
 from apiflask import abort
 from authlib.common.security import generate_token
 from flask import g, request
+from testflinger_common.enums import ServerRoles
 
 from testflinger import database
-from testflinger.enums import ServerRoles
+
+
+def hash_secret(secret: str):
+    """Securely hash a secret before storing in database.
+
+    :param secret: Secret to be hashed with bcrypt library
+    """
+    return bcrypt.hashpw(secret.encode("utf-8"), bcrypt.gensalt()).decode()
 
 
 def validate_client_key_pair(
@@ -235,7 +243,7 @@ def authenticate(func):
 
         # Initialize auth state
         g.client_id = None
-        g.role = ServerRoles.USER
+        g.role = None
         g.permissions = {}
         g.is_authenticated = False
 
@@ -286,28 +294,6 @@ def require_role(*roles):
         return wrapper
 
     return decorator
-
-
-def check_role_hierarchy(user_role: str, target_role: str) -> bool:
-    """
-    Check role of current user to validate if authorized to perform action.
-
-    :param user_role: Role of the user making the request.
-    :param target_role: Role being assigned or modified.
-    :return: True if allowed, False otherwise.
-    """
-    role_levels = {
-        ServerRoles.USER: 1,
-        ServerRoles.CONTRIBUTOR: 2,
-        ServerRoles.MANAGER: 3,
-        ServerRoles.ADMIN: 4,
-    }
-
-    current_level = role_levels.get(user_role, 0)
-    target_level = role_levels.get(target_role, 0)
-
-    # Users can modify roles at their level or below
-    return current_level >= target_level
 
 
 def generate_refresh_token(client_id: str, expires_in: int | None) -> str:

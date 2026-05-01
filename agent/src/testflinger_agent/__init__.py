@@ -18,6 +18,7 @@ import os
 import time
 from collections import deque
 from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
 from threading import Timer
 from urllib.parse import urljoin
 
@@ -48,7 +49,7 @@ class ReqBufferHandler(logging.Handler):
     def __init__(self, agent, server):
         super().__init__()
         if not server.lower().startswith("http"):
-            server = "http://" + server
+            server = f"http://{server}"
         uri = urljoin(server, "/v1/agents/data/")
         self.url = urljoin(uri, agent)
         self.qdepth = 100  # messages
@@ -121,6 +122,7 @@ def start_agent():
     args = parse_args()
     config = load_config(args.config)
     config["metrics_endpoint_port"] = args.metrics_port
+    config["token_file"] = str(args.token_file)
     configure_logging(config)
     check_interval = config.get("polling_interval")
     client = TestflingerClient(config)
@@ -213,4 +215,11 @@ def parse_args():
         type=int,
         help="Port to expose metrics endpoint on",
     )
+    parser.add_argument(
+        "--token-file",
+        default="/var/lib/testflinger-agent/refresh_token",
+        type=Path,
+        help="Path to the refresh token file used for authentication",
+    )
+
     return parser.parse_args()

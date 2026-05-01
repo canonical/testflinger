@@ -26,7 +26,7 @@ import jwt
 from xdg_base_dirs import xdg_config_home
 
 from testflinger_cli import client
-from testflinger_cli.consts import ServerRoles
+from testflinger_cli.enums import ServerRoles
 from testflinger_cli.errors import (
     AuthenticationError,
     AuthorizationError,
@@ -37,8 +37,8 @@ from testflinger_cli.errors import (
 class TestflingerCliAuth:
     """Class to handle authentication and authorisation for Testflinger CLI."""
 
-    def __init__(self, client_id: str, secret_key: str, tf_client):
-        self.client_id = client_id
+    def __init__(self, client_id: str | None, secret_key: str, tf_client):
+        self.client_id: Optional[str] = client_id
         self.secret_key = secret_key
         self.client = tf_client
 
@@ -46,9 +46,6 @@ class TestflingerCliAuth:
         config_home = xdg_config_home()
         config_home.mkdir(parents=True, exist_ok=True)
         self.auth_config = config_home / "testflinger-cli-auth.conf"
-
-        # Fetch JWT token to fail fast in case of any auth error.
-        _ = self.jwt_token
 
     def is_authenticated(self) -> bool:
         """Validate if user is currently authenticated.
@@ -60,27 +57,27 @@ class TestflingerCliAuth:
     def authenticate(self) -> str | None:
         """Authenticate with server and retrieve access and refresh tokens.
 
+        Authentication can be made via explicit command line arguments,
+        environment variables or refresh token in that order of priority.
+
         :raises AuthenticationError: Invalid credentials were provided
         :raises AuthorizationError: User is not authorized
         :raises InvalidTokenError: Refresh token already expired
         :return: string with access token (jwt token)
         """
-        # Attempt to get the refresh token from snap directory
+        # Authenticate with credentials if provided in args or env file
+        if self.client_id and self.secret_key:
+            return self._authenticate_with_credentials()
+
+        # Authenticate with refresh token if available
         refresh_token = self.get_stored_refresh_token()
         if refresh_token:
-            try:
-                # Use refresh token to get new access_token
-                response = self.client.refresh_authentication(refresh_token)
-                return response["access_token"]
-            except client.HTTPError as exc:
-                if exc.status == HTTPStatus.BAD_REQUEST:
-                    # Token is already expired or revoked, clear to force login
-                    self.clear_refresh_token()
-                    raise InvalidTokenError(exc.msg) from exc
+            return self._authenticate_with_refresh_token(refresh_token)
 
-        # Attempt login with credentials if no refresh token
-        if self.client_id is None or self.secret_key is None:
-            return None
+        return None
+
+    def _authenticate_with_credentials(self) -> str | None:
+        """Authenticate using client_id and secret_key."""
         try:
             response = self.client.authenticate(
                 self.client_id, self.secret_key
@@ -89,11 +86,29 @@ class TestflingerCliAuth:
             self.store_refresh_token(response["refresh_token"])
             return response["access_token"]
         except client.HTTPError as exc:
-            if exc.status == HTTPStatus.UNAUTHORIZED:
-                raise AuthenticationError from exc
-            if exc.status == HTTPStatus.FORBIDDEN:
-                raise AuthorizationError from exc
-        return None
+            self._handle_auth_error(exc)
+            return None
+
+    def _authenticate_with_refresh_token(
+        self, refresh_token: str
+    ) -> str | None:
+        """Authenticate using stored refresh token."""
+        try:
+            response = self.client.refresh_authentication(refresh_token)
+            return response["access_token"]
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.BAD_REQUEST:
+                self.clear_refresh_token()
+                raise InvalidTokenError(exc.msg) from exc
+            self._handle_auth_error(exc)
+            return None
+
+    def _handle_auth_error(self, exc: client.HTTPError) -> None:
+        """Handle authentication HTTP errors."""
+        if exc.status == HTTPStatus.UNAUTHORIZED:
+            raise AuthenticationError from exc
+        if exc.status == HTTPStatus.FORBIDDEN:
+            raise AuthorizationError from exc
 
     @cached_property
     def jwt_token(self) -> str | None:
@@ -105,14 +120,15 @@ class TestflingerCliAuth:
 
         :return: refresh token if any, otherwise None
         """
-        if self.auth_config.exists():
-            config_file = configparser.ConfigParser()
+        config_file = configparser.ConfigParser()
+        try:
             config_file.read(self.auth_config)
-            refresh_token = config_file.get(
-                "AUTH", "refresh_token", fallback=None
-            )
-            return refresh_token
-        return None
+        except FileNotFoundError:
+            return None
+
+        # Set client_id from config file to keep token owner
+        self.client_id = config_file.get("AUTH", "client_id", fallback=None)
+        return config_file.get("AUTH", "refresh_token", fallback=None)
 
     def store_refresh_token(self, refresh_token: str) -> None:
         """Store refresh token for persistent login.
@@ -120,7 +136,10 @@ class TestflingerCliAuth:
         :param refresh_token: refresh token to store in SNAP_USER_DATA
         """
         config_file = configparser.ConfigParser()
-        config_file["AUTH"] = {"refresh_token": refresh_token}
+        config_file["AUTH"] = {
+            "client_id": self.client_id,
+            "refresh_token": refresh_token,
+        }
         try:
             with self.auth_config.open("w") as file:
                 config_file.write(file)
@@ -157,7 +176,7 @@ class TestflingerCliAuth:
 
         :return: Dict with the decoded JWT
         """
-        if not self.is_authenticated():
+        if not self.is_authenticated() or not self.jwt_token:
             return None
 
         try:
@@ -174,14 +193,14 @@ class TestflingerCliAuth:
         with contextlib.suppress(AuthenticationError, AuthorizationError):
             _ = self.jwt_token
 
-    def get_user_role(self) -> str:
+    def get_user_role(self) -> str | None:
         """Retrieve the role for the user from the decoded jwt.
 
-        :return: String with the role, defaults to 'user' if not authenticated.
+        :return: String with the role, return None if not authenticated.
         """
         decoded_token = self.decode_jwt_token()
         if not decoded_token:
-            return ServerRoles.USER
+            return None
 
         permissions = decoded_token.get("permissions", {})
         # If there is a decoded token, the user was authenticated

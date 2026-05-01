@@ -37,31 +37,36 @@ Once the installation is finished, you can execute the ``testflinger-cli`` comma
   $ testflinger-cli --help
 
   usage: testflinger-cli [-h] [-c CONFIGFILE] [-d] [--server SERVER]
-                        {artifacts,cancel,config,jobs,list-queues,poll,reserve,results,show,status,submit}
-                        ...
+                         {admin,artifacts,cancel,config,jobs,list-agents,list-queues,login,poll,poll-serial,reserve,status,agent-status,queue-status,results,show,submit,secret}
+                         ...
 
   positional arguments:
-    {artifacts,cancel,config,jobs,list-queues,poll,queue-status,reserve,results,show,status,submit}
+    {admin,artifacts,cancel,config,jobs,list-agents,list-queues,login,poll,poll-serial,reserve,status,agent-status,queue-status,results,show,submit,secret}
+      admin               Admin commands. Requires authentication
       artifacts           Download a tarball of artifacts saved for a specified job
       cancel              Tell the server to cancel a specified JOB_ID
       config              Get or set configuration options
       jobs                List the previously started test jobs
+      list-agents         List agents with optional filtering
       list-queues         List the advertised queues on the Testflinger server
+      login               Authenticate with server
       poll                Poll for output from a job until it is completed
-      queue-status        Show the status of agents and jobs in a specified queue
+      poll-serial         Poll for serial output from a job until it is completed
       reserve             Install and reserve a system
+      status              Show the status of a specified JOB_ID
+      agent-status        Show the status of a specified agent
+      queue-status        Show the status of the agents in a specified queue
       results             Get results JSON for a completed JOB_ID
       show                Show the requested job JSON for a specified JOB_ID
-      status              Show the status of a specified JOB_ID
       submit              Submit a new test job to the server
+      secret              Manage secrets. Requires authentication
 
-  optional arguments:
+  options:
     -h, --help            show this help message and exit
     -c CONFIGFILE, --configfile CONFIGFILE
                           Configuration file to use
     -d, --debug           Enable debug logging
     --server SERVER       Testflinger server to use
-
 
 Congratulations, your Testflinger CLI is ready for use!
 
@@ -88,43 +93,50 @@ To verify that the variable has been set, run:
   $ printenv TESTFLINGER_SERVER
   https://testflinger.example.com
 
-Now all the Testflinger requests made from your current terminal session will be directed to the new server.
+Now all the Testflinger requests made from your current terminal session will
+be directed to the new server.
 
-Access to a Testflinger server is usually secured behind a firewall or with additional authentication and authorisation measures. Make sure that you have been granted the right access through your system administrator.
+.. note::
+
+  If you want to temporarily use another server, add ``--server`` argument and the server URI in the command.
+
+Access to a Testflinger server is usually secured behind a firewall or with
+additional authentication and authorisation measures. Make sure that you have
+been granted the right access through your system administrator.
 
 For more information on authentication and authorisation, refer to :doc:`../how-to/authentication`.
 
 Check available queues on the server
 ------------------------------------
 
-You can now use the CLI to connect to a Testflinger server and check the availability of remote resources.
+You can now use the CLI to connect to a Testflinger server and check the
+availability of remote resources.
 
-Before submitting a test job, you need to identify the appropriate job queue to use on the server. Queues are usually dedicated to one type of device.
+Before submitting a test job, you need to identify the appropriate job queue to
+use on the server. Queues are usually dedicated to one type of device.
 
 Run the following command in the terminal to retrieve the available job queues to use:
 
 .. code-block:: shell
 
-  $ testflinger-cli list-queues
+  $ testflinger list-agents \
+  --filter-status=online,^provision,^reserve,^testing \
+  --filter-provision-type=maas \
+  --filter-queue "intel" \
+  --fields name,status,queues
 
-.. note::
-
-  If you want to temporarily use another server, add ``--server`` argument and the server URI in the command.
-
-If the connection is successful, a list of job queues is returned with their queue names and short descriptions:
+If the connection is successful, a list of agents and their respective job queues is returned:
 
 .. code-block:: text
 
-  Advertised queues on this server:
-    example-queue-1 - for testing device model-1
-    example-queue-2 - for testing device model-2
-    example-queue-3 - for testing device model-3
-    ...
+  Name          Status   Queues
+  ------------------------------------------------------------------
+  agent-1       waiting  agent-1, nvidia-gpu, intel-cpu, big_ram
+  agent-7       waiting  agent-7, intel-cpu
 
 In this tutorial, let's assume that the job queue you will use is ``example-queue-1`` for a MAAS-provisioned device type.
 
 Alternatively, you can also visit the Web UI of this server at ``https://testflinger.example.com``, where the list of agents, queues and jobs are displayed.
-
 
 Define a test job
 -----------------

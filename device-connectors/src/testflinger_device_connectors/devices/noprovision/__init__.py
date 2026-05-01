@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 class DeviceConnector(DefaultDevice):
     def provision(self, args):
+        super().provision(args)
+
         device = Noprovision(args.config)
         test_username = testflinger_device_connectors.get_test_username(
             args.job_data

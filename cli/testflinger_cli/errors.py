@@ -29,7 +29,31 @@ class UnknownStatusError(Exception):
         )
 
 
-class AuthenticationError(Exception):
+class NoJobDataError(Exception):
+    """Exception thrown when job has no data (HTTP 204 No Content)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "No data found for that job id. Check the "
+            "job id to be sure it is correct"
+        )
+
+
+class InvalidJobIdError(Exception):
+    """Exception thrown when job id is invalid (HTTP 400 Bad Request)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Invalid job id specified. Check the job id "
+            "to be sure it is correct"
+        )
+
+
+class CredentialsError(Exception):
+    """Base class for errors related to authentication and authorization."""
+
+
+class AuthenticationError(CredentialsError):
     """Exception thrown when unable to authenticate with the server."""
 
     def __init__(self) -> None:
@@ -39,7 +63,7 @@ class AuthenticationError(Exception):
         )
 
 
-class AuthorizationError(Exception):
+class AuthorizationError(CredentialsError):
     """Exception thrown when unable to get correct authorization
     for sending request to the server.
     """
@@ -57,7 +81,7 @@ class AuthorizationError(Exception):
         return self.message
 
 
-class InvalidTokenError(Exception):
+class InvalidTokenError(CredentialsError):
     """Exception thrown when refresh token is missing, invalid,
     revoked or expired.
     """
@@ -67,4 +91,18 @@ class InvalidTokenError(Exception):
             "Authentication with Testflinger server failed with "
             f"following reason: {reason} "
             "Please reauthenticate with server."
+        )
+
+
+class NetworkError(Exception):
+    """Exception thrown when unable to communicate with server."""
+
+
+class VPNError(NetworkError):
+    """Exception for when a VPN connection is required but not established."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "403 Forbidden Error: Server access requires a VPN connection.\n"
+            "Please make sure you are connected to the VPN and try again."
         )

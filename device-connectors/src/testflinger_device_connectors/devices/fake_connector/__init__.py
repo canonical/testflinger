@@ -32,6 +32,8 @@ class DeviceConnector(DefaultDevice):
 
     def provision(self, args):
         """Begin dummy provision."""
+        super().provision(args)
+
         with open(args.job_data) as json_file:
             job_data = json.load(json_file)
         provision_data = job_data.get("provision_data", {})

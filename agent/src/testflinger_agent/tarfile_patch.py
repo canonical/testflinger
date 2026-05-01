@@ -59,7 +59,7 @@ def _get_filtered_attrs(member, dest_path, for_data=True):
     # Strip leading / (tar's directory separator) from filenames.
     # Include os.sep (target OS directory separator) as well.
     if name.startswith(("/", os.sep)):
-        name = new_attrs["name"] = member.path.lstrip("/" + os.sep)
+        name = new_attrs["name"] = member.path.lstrip(f"/{os.sep}")
     if os.path.isabs(name):
         # Path is absolute even after stripping.
         # For example, 'C:/foo' on Windows.

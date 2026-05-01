@@ -214,7 +214,7 @@ class MuxPi:
         # If this is not a zapper, reboot before provisioning
         if "zapper" not in self.config.get("control_switch_local_cmd", ""):
             self.reboot_sdwire()
-        time.sleep(5)
+            time.sleep(5)
 
         # determine where to get the provisioning image from
         source = self.job_data["provision_data"].get("url")
@@ -704,6 +704,8 @@ class MuxPi:
                     return True
                 except subprocess.CalledProcessError as e:
                     logger.info("ssh-id-copy failed with %s", e)
+                except subprocess.TimeoutExpired as e:
+                    logger.info("ssh-id-copy timed out after %s", e)
 
         # If we get here, then we didn't boot in time
         raise ProvisioningError("Failed to boot test image!")

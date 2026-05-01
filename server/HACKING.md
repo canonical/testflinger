@@ -16,7 +16,7 @@ This will setup Testflinger running on port 5000, along with MongoDB and Vault.
 To get this running on your system:
 
 ```shell
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 If you want to manage client credentials in your local database, you can use
@@ -51,6 +51,22 @@ The defaults are intended to be used with a server running on
 `http://localhost:5000` which is what will be deployed by default if you use
 the docker-compose setup above. So if this is what you want, you can just
 call it with no options.
+
+For testing routes that require SSO, the above docker-compose file also includes a development setup by using a generic IdP provider. 
+The following entry must be added to `/etc/hosts` to allow localhost to perform the callback redirection to `dex` container:
+
+```
+127.0.0.1 localhost dex
+```
+
+Users and OIDC values can be easily configured through `devel/dex-config.yaml`. 
+For testing a sample user is already added with the following credentials:
+
+```
+email: testlinger@example.com
+username: "testflinger-admin"
+password: testflinger
+```
 
 ### Multipass
 

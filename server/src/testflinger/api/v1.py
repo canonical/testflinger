@@ -21,24 +21,27 @@ import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
 
-import bcrypt
 import requests
 from apiflask import APIBlueprint, abort
 from flask import current_app, g, jsonify, request, send_file
+from marshmallow import ValidationError
 from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
+from testflinger_common.enums import LogType, ServerRoles, TestPhase
 from urllib3.util.retry import Retry
-from werkzeug.exceptions import BadRequest
+from werkzeug.routing import BaseConverter
 
 from testflinger import database
-from testflinger.api import auth, schemas
+from testflinger.api import auth, helpers, schemas
 from testflinger.api.auth import authenticate, require_role
-from testflinger.enums import ServerRoles
+from testflinger.logs import LogFragment, MongoLogHandler
 from testflinger.secrets.exceptions import (
     AccessError,
     StoreError,
     UnexpectedError,
 )
+
+TESTFLINGER_ADMIN_ID = "testflinger-admin"
 
 jobs_metric = Counter(
     "jobs", "Number of jobs", ["queue"], namespace="testflinger"
@@ -73,15 +76,27 @@ def get_version():
 @authenticate
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
-def job_post(json_data: dict):
+def job_post(json_data: dict) -> dict:
     """Add a job to the queue."""
-    try:
-        job_queue = json_data.get("job_queue")
-    except (AttributeError, BadRequest):
-        # Set job_queue to None so we take the failure path below
-        job_queue = ""
-    if not job_queue:
-        abort(422, message="Invalid data or no job_queue specified")
+    job_queue = json_data["job_queue"]
+    exclude_agents = json_data["exclude_agents"]
+    if exclude_agents:
+        # Make sure that there are at least some agents in the selected queue
+        # which can run this job.
+        agents_can_run = [
+            agent
+            for agent in database.get_agents_on_queue(job_queue)
+            if agent["name"] not in exclude_agents
+        ]
+        if not agents_can_run:
+            abort(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                message="There are no agents on the specified queue that are "
+                "allowed to run this job",
+            )
+
+    validate_secrets(json_data)
+
     try:
         job = job_builder(json_data)
     except ValueError:
@@ -97,6 +112,46 @@ def job_post(json_data: dict):
     return jsonify(job_id=job.get("job_id"))
 
 
+def validate_secrets(data: dict):
+    """Validate that all secret paths in the job exist in the secrets store."""
+    try:
+        secrets = data["test_data"]["secrets"]
+    except KeyError:
+        return
+
+    # a secrets store must be set up
+    if current_app.secrets_store is None:
+        abort(HTTPStatus.UNPROCESSABLE_ENTITY, message="No secrets store")
+
+    # the client must be authenticated in order to access their own secrets
+    if (client_id := g.client_id) is None:
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            message="Missing client ID (user not authenticated)",
+        )
+
+    # check that all secrets paths correspond to stored secrets
+    # (i.e. a job containing secrets cannot be submitted unless all its secrets
+    # are accessible.)
+    inaccessible_paths = []
+    for secret_path in secrets.values():
+        try:
+            current_app.secrets_store.read(client_id, secret_path)
+        except (AccessError, StoreError, UnexpectedError):
+            inaccessible_paths.append(secret_path)
+    if inaccessible_paths:
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            message=(
+                "Inaccessible secret paths: "
+                + ", ".join(sorted(inaccessible_paths))
+            ),
+        )
+
+    # side-effect: store client ID with job (so that secrets are retrievable)
+    data["client_id"] = client_id
+
+
 def has_attachments(data: dict) -> bool:
     """Predicate if the job described by `data` involves attachments."""
     return any(
@@ -107,7 +162,7 @@ def has_attachments(data: dict) -> bool:
     )
 
 
-def job_builder(data: dict):
+def job_builder(data: dict) -> dict:
     """Build a job from a dictionary of data."""
     job = {
         "created_at": datetime.now(timezone.utc),
@@ -143,18 +198,61 @@ def job_builder(data: dict):
 
 
 @v1.get("/job")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.output(schemas.Job)
 @v1.doc(responses=schemas.job_empty)
 def job_get():
     """Request a job to run from supported queues."""
     queue_list = request.args.getlist("queue")
     if not queue_list:
-        return "No queue(s) specified in request", 400
-    job = database.pop_job(queue_list=queue_list)
-    if job:
-        job["started_at"] = datetime.now(timezone.utc)
-        return jsonify(job)
-    return {}, 204
+        abort(
+            HTTPStatus.BAD_REQUEST, message="No queue(s) specified in request"
+        )
+    agent_name = request.cookies.get("agent_name")
+    if not agent_name:
+        abort(HTTPStatus.UNAUTHORIZED, message="Agent not identified")
+    job = database.pop_job(queue_list=queue_list, agent_name=agent_name)
+    if not job:
+        return jsonify({}), HTTPStatus.NO_CONTENT
+    if (secrets := retrieve_secrets(job)) is not None:
+        job["test_data"]["secrets"] = secrets
+    job["started_at"] = datetime.now(timezone.utc)
+    return jsonify(job)
+
+
+def retrieve_secrets(data: dict) -> dict | None:
+    """
+    Retrieve all secrets from the secrets store.
+
+    Any secrets that are not accessible at the time of retrieval will be
+    resolved to the empty string, instead of the retrieval failing.
+    It is the responsibility of the consumer of the secrets to account for
+    this possibility. This is a design decision and it mirrors how undefined
+    secrets are handled in other platforms such as GitHub.
+    """
+    try:
+        secrets = data["test_data"]["secrets"]
+    except KeyError:
+        return None
+
+    # a secrets store must be set up and the client_id must have been specified
+    if (
+        current_app.secrets_store is None
+        or (client_id := data.get("client_id")) is None
+    ):
+        return dict.fromkeys(secrets, "")
+
+    result = {}
+    for identifier, secret_path in secrets.items():
+        try:
+            secret_value = current_app.secrets_store.read(
+                client_id, secret_path
+            )
+        except (AccessError, StoreError, UnexpectedError):
+            secret_value = ""
+        result[identifier] = secret_value
+    return result
 
 
 @v1.get("/job/<job_id>")
@@ -267,51 +365,6 @@ def search_jobs(query_data):
     return jsonify(list(jobs))
 
 
-@v1.post("/result/<job_id>")
-@v1.input(schemas.Result, location="json")
-def result_post(job_id, json_data):
-    """Post a result for a specified job_id.
-
-    :param job_id:
-        UUID as a string for the job
-    """
-    if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
-
-    # fail if input payload is larger than the BSON size limit
-    # https://www.mongodb.com/docs/manual/reference/limits/
-    content_length = request.content_length
-    if content_length and content_length >= 16 * 1024 * 1024:
-        abort(413, message="Payload too large")
-
-    # First, we need to prepend "result_data" to each key in the result_data
-    for key in list(json_data):
-        json_data[f"result_data.{key}"] = json_data.pop(key)
-
-    database.mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
-    return "OK"
-
-
-@v1.get("/result/<job_id>")
-@v1.output(schemas.Result)
-def result_get(job_id):
-    """Return results for a specified job_id.
-
-    :param job_id:
-        UUID as a string for the job
-    """
-    if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
-    response = database.mongo.db.jobs.find_one(
-        {"job_id": job_id}, {"result_data": True, "_id": False}
-    )
-
-    if not response or not (results := response.get("result_data")):
-        return "", 204
-    results = response.get("result_data")
-    return results
-
-
 @v1.post("/result/<job_id>/artifact")
 def artifacts_post(job_id):
     """Post artifact bundle for a specified job_id.
@@ -346,86 +399,134 @@ def artifacts_get(job_id):
     return send_file(file, download_name="artifact.tar.gz")
 
 
-@v1.get("/result/<job_id>/output")
-def output_get(job_id):
-    """Get latest output for a specified job ID.
+class LogTypeConverter(BaseConverter):
+    """Class to validate log type route parameter."""
 
-    :param job_id:
-        UUID as a string for the job
-    :return:
-        Output lines
+    def to_python(self, value):
+        """Validate log type URL parameter."""
+        try:
+            return LogType(value)
+        except ValueError as err:
+            raise ValidationError("Invalid log type") from err
+
+    def to_url(self, obj):
+        """Get string representation of log type."""
+        return obj.value
+
+
+@v1.get("/result/<job_id>/log/<log_type:log_type>")
+@v1.output(schemas.LogGet)
+def log_get(job_id: str, log_type: LogType):
+    """Get logs for a specified job_id.
+
+    :param job_id: UUID as a string for the job
+    :param log_type: LogType enum value for the type of log requested
+    :raises HTTPError: If the job_id is not a valid UUID or if invalid query
+    :return: Dictionary with log data
+    """
+    args = request.args
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job id\n")
+    query_schema = schemas.LogQueryParams()
+    try:
+        query_params = query_schema.load(args)
+    except ValidationError as err:
+        abort(HTTPStatus.BAD_REQUEST, message=err.messages)
+    start_fragment = query_params.get("start_fragment", 0)
+    start_timestamp = query_params.get("start_timestamp")
+    phase = query_params.get("phase")
+    log_handler = MongoLogHandler(database.mongo)
+
+    # Return logs for all phases if unspecified
+    if phase is None:
+        phases = TestPhase
+    else:
+        phases = [TestPhase(phase)]
+
+    return {
+        log_type: {
+            phase.value: log_handler.retrieve_logs(
+                job_id,
+                log_type,
+                phase.value,
+                start_fragment,
+                start_timestamp,
+            )
+            for phase in phases
+        }
+    }
+
+
+@v1.post("/result/<job_id>/log/<log_type:log_type>")
+@v1.input(schemas.LogPost, location="json")
+def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
+    """Post logs for a specified job ID.
+
+    :param job_id: UUID as a string for the job
+    :param log_type: LogType enum value for the type of log being posted
+    :raises HTTPError: If the job_id is not a valid UUID
+    :param json_data: Dictionary with log data
     """
     if not check_valid_uuid(job_id):
-        return "Invalid job id\n", 400
-    response = database.mongo.db.output.find_one_and_delete(
-        {"job_id": job_id}, {"_id": False}
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    log_fragment = LogFragment(
+        job_id,
+        log_type,
+        json_data["phase"],
+        json_data["fragment_number"],
+        json_data["timestamp"],
+        json_data["log_data"],
     )
-    output = response.get("output", []) if response else None
-    if output:
-        return "\n".join(output)
-    return "", 204
-
-
-@v1.post("/result/<job_id>/output")
-def output_post(job_id):
-    """Post output for a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    :param data:
-        A string containing the latest lines of output to post
-    """
-    if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
-    data = request.get_data().decode("utf-8")
-    timestamp = datetime.now(timezone.utc)
-    database.mongo.db.output.update_one(
-        {"job_id": job_id},
-        {"$set": {"updated_at": timestamp}, "$push": {"output": data}},
-        upsert=True,
-    )
+    log_handler = MongoLogHandler(database.mongo)
+    log_handler.store_log_fragment(log_fragment)
     return "OK"
 
 
-@v1.get("/result/<job_id>/serial_output")
-def serial_output_get(job_id):
-    """Get latest serial output for a specified job ID.
+@v1.post("/result/<job_id>")
+@v1.input(schemas.ResultSchema, location="json")
+def result_post(job_id: str, json_data: dict) -> str:
+    """Post a result for a specified job_id.
 
-    :param job_id:
-        UUID as a string for the job
-    :return:
-        Output lines
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: If the job_id is not a valid UUID
     """
     if not check_valid_uuid(job_id):
-        return "Invalid job id\n", 400
-    response = database.mongo.db.serial_output.find_one_and_delete(
-        {"job_id": job_id}, {"_id": False}
-    )
-    output = response.get("serial_output", []) if response else None
-    if output:
-        return "\n".join(output)
-    return "", 204
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
 
+    # fail if input payload is larger than the BSON size limit
+    # https://www.mongodb.com/docs/manual/reference/limits/
+    content_length = request.content_length
+    if content_length and content_length >= 16 * 1024 * 1024:
+        abort(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, message="Payload too large")
 
-@v1.post("/result/<job_id>/serial_output")
-def serial_output_post(job_id):
-    """Post output for a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    :param data:
-        A string containing the latest lines of output to post
-    """
-    if not check_valid_uuid(job_id):
-        abort(400, message="Invalid job_id specified")
-    data = request.get_data().decode("utf-8")
-    timestamp = datetime.now(timezone.utc)
-    database.mongo.db.serial_output.update_one(
-        {"job_id": job_id},
-        {"$set": {"updated_at": timestamp}, "$push": {"serial_output": data}},
-        upsert=True,
-    )
+    database.add_job_results(job_id, json_data)
     return "OK"
+
+
+@v1.get("/result/<job_id>")
+@v1.output(schemas.ResultGet)
+def result_get(job_id: str):
+    """Return results for a specified job_id.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: If the job_id is not a valid UUID
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+
+    response = database.get_job_results(job_id)
+
+    if not response or not (result_data := response.get("result_data")):
+        return "", HTTPStatus.NO_CONTENT
+
+    if any(key.endswith(("_output", "_serial")) for key in result_data.keys()):
+        # Legacy result format detected; return as-is
+        # TODO: Remove this path after deprecating legacy endpoints
+        return result_data
+
+    # Reconstruct result format with logs and phase statuses
+    log_handler = MongoLogHandler(database.mongo)
+    return log_handler.format_logs_as_results(job_id, result_data)
 
 
 @v1.post("/job/<job_id>/action")
@@ -594,7 +695,13 @@ def agents_post(agent_name, json_data):
         {"$set": json_data, "$push": {"log": {"$each": log, "$slice": -100}}},
         upsert=True,
     )
-    return "OK"
+
+    # Set a session cookie to identify the agent for future requests
+    response = jsonify({"status": "OK"})
+    response.set_cookie(
+        "agent_name", agent_name, httponly=True, samesite="Strict"
+    )
+    return response
 
 
 @v1.post("/agents/provision_logs/<agent_name>")
@@ -760,7 +867,10 @@ def queue_wait_time_percentiles_get():
 def get_agents_on_queue(queue_name):
     """Get the list of all data for agents listening to a specified queue."""
     if not database.queue_exists(queue_name):
-        return [], HTTPStatus.NOT_FOUND
+        abort(
+            HTTPStatus.NOT_FOUND,
+            message=f"Queue '{queue_name}' does not exist.",
+        )
 
     agents = database.get_agents_on_queue(queue_name)
     if not agents:
@@ -1015,99 +1125,63 @@ def get_client_permissions(client_id) -> list[dict]:
     return database.get_client_permissions(client_id)
 
 
-@v1.post("/client-permissions")
-@authenticate
-@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
-@v1.input(schemas.ClientPermissionsIn)
-def create_client_permissions(json_data: dict) -> str:
-    """Set client permissions for a specified user."""
-    # Validate data include client credentials as those are not Schema required
-    try:
-        client_id = json_data["client_id"]
-        client_secret = json_data.pop("client_secret")
-    except KeyError:
-        abort(
-            HTTPStatus.BAD_REQUEST,
-            "Error: Missing client_id or client_secret in request body",
-        )
-
-    if database.check_client_exists(client_id):
-        abort(HTTPStatus.CONFLICT, "Error: Client already exists")
-
-    # Check role hierarchy
-    target_role = json_data.get("role", ServerRoles.CONTRIBUTOR)
-    if not auth.check_role_hierarchy(g.role, target_role):
-        abort(
-            HTTPStatus.FORBIDDEN,
-            (
-                "Insufficient permissions to create "
-                f"client with role: {target_role}"
-            ),
-        )
-
-    # If role was not specified, use default role specified in target role
-    json_data["role"] = target_role
-    # Hash the password and add it to json_data
-    client_secret_hash = bcrypt.hashpw(
-        client_secret.encode("utf-8"), bcrypt.gensalt()
-    ).decode()
-    json_data["client_secret_hash"] = client_secret_hash
-
-    # Add client_id and its permissions in database
-    database.add_client_permissions(json_data)
-
-    return "OK"
-
-
 @v1.put("/client-permissions/<client_id>")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
 @v1.input(schemas.ClientPermissionsIn)
-def edit_client_permissions(client_id: str, json_data: dict) -> str:
-    """Edit client permissions for a specified user."""
-    if not database.check_client_exists(client_id):
+def set_client_permissions(client_id: str, json_data: dict) -> str:
+    """Add or create client permissions for a specified user."""
+    # Testflinger Admin credential can't be modified from API!'
+    if client_id == TESTFLINGER_ADMIN_ID:
         abort(
-            HTTPStatus.NOT_FOUND,
-            "Error: Specified client_id does not exist.",
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            "Error: System admin client cannot by modified from API.",
         )
 
-    # Get current client permissions to check current role
-    current_permissions = database.get_client_permissions(client_id)
-    # If role not in permissions, will set default for backward compatibility
-    current_role = current_permissions.get("role", ServerRoles.CONTRIBUTOR)
+    client_secret = json_data.pop("client_secret", None)
+    permissions = database.get_client_permissions(client_id) or {}
+    client_exist = bool(permissions)
+    # Default role for backward compatibility
+    current_role = permissions.get("role", ServerRoles.CONTRIBUTOR)
 
-    # Check role hierarchy
-    if not auth.check_role_hierarchy(g.role, current_role):
+    # validation: client secret is required when creating permissions
+    if not client_exist and not client_secret:
+        abort(
+            HTTPStatus.BAD_REQUEST,
+            "Error: Missing client_secret in request body for new client",
+        )
+
+    if client_secret:
+        client_secret_hash = auth.hash_secret(client_secret)
+        json_data["client_secret_hash"] = client_secret_hash
+
+    # validation: the requesting client can modify the client't permissions
+    # only if its role is not inferior to the client's role
+    if ServerRoles(g.role) < ServerRoles(current_role):
         abort(
             HTTPStatus.FORBIDDEN,
-            (
-                "Insufficient permissions to modify "
-                f"client with role: {current_role}"
-            ),
+            f"{g.client_id} has insufficient permissions "
+            f"to modify client '{client_id}'",
         )
 
-    # Remove client_credentials if exist in json_data
-    json_data.pop("client_id", None)
-    json_data.pop("client_secret", None)
+    # validation: the requesting client can modify the client't role
+    # only if its role is not inferior to the client's new role
+    new_role = json_data.get("role", None)
+    if new_role and ServerRoles(g.role) < ServerRoles(new_role):
+        abort(
+            HTTPStatus.FORBIDDEN,
+            f"{g.client_id} has insufficient permissions "
+            f"to assign role '{new_role}' to client '{client_id}'",
+        )
 
-    # Retrieve non null values
-    update_fields = {
-        key: value for key, value in json_data.items() if value is not None
-    }
+    # Update permissions from json data
+    permissions.update(json_data)
+    database.create_or_update_client_permissions(client_id, permissions)
 
-    # Check role hierarchy for new role if being updated
-    if "role" in update_fields:
-        new_role = update_fields["role"]
-        if not auth.check_role_hierarchy(g.role, new_role):
-            abort(
-                HTTPStatus.FORBIDDEN,
-                f"Insufficient permissions to assign role: {new_role}",
-            )
-
-    # Edit permissions in database
-    database.edit_client_permissions(client_id, update_fields)
-
-    return "OK"
+    if client_exist:
+        return f"Updated permissions for client '{client_id}'"
+    else:
+        return f"Created permissions for client '{client_id}'"
 
 
 @v1.delete("/client-permissions/<client_id>")
@@ -1116,7 +1190,7 @@ def edit_client_permissions(client_id: str, json_data: dict) -> str:
 def delete_client_permissions(client_id: str) -> str:
     """Delete client id along with its permissions."""
     # Testflinger Admin credential can't be removed from API!'
-    if client_id == "testflinger-admin":
+    if client_id == TESTFLINGER_ADMIN_ID:
         abort(
             HTTPStatus.UNPROCESSABLE_ENTITY,
             "Error: System admin client cannot by deleted from API.",
@@ -1145,6 +1219,9 @@ def secrets_put(client_id, path, json_data):
             HTTPStatus.FORBIDDEN,
             message=f"'{client_id}' doesn't match authenticated client id",
         )
+
+    # Validate the secret path, if not valid, abort with Unprocessable Entity
+    helpers.validate_secret_path(path)
     try:
         current_app.secrets_store.write(client_id, path, json_data["value"])
     except AccessError as error:
@@ -1166,6 +1243,8 @@ def secrets_delete(client_id, path):
             HTTPStatus.FORBIDDEN,
             message=f"'{client_id}' doesn't match authenticated client id",
         )
+    # Validate the secret path, if not valid, abort with Unprocessable Entity
+    helpers.validate_secret_path(path)
     try:
         current_app.secrets_store.delete(client_id, path)
     except AccessError as error:
@@ -1173,4 +1252,90 @@ def secrets_delete(client_id, path):
     except (StoreError, UnexpectedError) as error:
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
+    return "OK"
+
+
+@v1.get("/result/<job_id>/output")
+def legacy_output_get(job_id: str) -> str:
+    """Legacy endpoint to get job output for a specified job_id.
+
+    TODO: Remove after CLI/agent migration completes.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: BAD_REQUEST when job_id is invalid
+    :return: Plain text output
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    response = database.mongo.db.output.find_one_and_delete(
+        {"job_id": job_id}, {"_id": False}
+    )
+    output = response.get("output", []) if response else None
+    if output:
+        return "\n".join(output)
+    return "", HTTPStatus.NO_CONTENT
+
+
+@v1.post("/result/<job_id>/output")
+def legacy_output_post(job_id: str) -> str:
+    """Legacy endpoint to post output for a specified job_id.
+
+    TODO: Remove after CLI/agent migration completes.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: BAD_REQUEST when job_id is invalid
+    :return: "OK" on success
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    data = request.get_data().decode("utf-8")
+    timestamp = datetime.now(timezone.utc)
+    database.mongo.db.output.update_one(
+        {"job_id": job_id},
+        {"$set": {"updated_at": timestamp}, "$push": {"output": data}},
+        upsert=True,
+    )
+    return "OK"
+
+
+@v1.get("/result/<job_id>/serial_output")
+def legacy_serial_output_get(job_id: str) -> str:
+    """Legacy endpoint to get latest serial output for a specified job ID.
+
+    TODO: Remove after CLI/agent migration completes.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: BAD_REQUEST when job_id is invalid
+    :return: Plain text serial output
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    response = database.mongo.db.serial_output.find_one_and_delete(
+        {"job_id": job_id}, {"_id": False}
+    )
+    output = response.get("serial_output", []) if response else None
+    if output:
+        return "\n".join(output)
+    return "", HTTPStatus.NO_CONTENT
+
+
+@v1.post("/result/<job_id>/serial_output")
+def legacy_serial_output_post(job_id: str) -> str:
+    """Legacy endpoint to post serial output for a specified job ID.
+
+    TODO: Remove after CLI/agent migration completes.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: BAD_REQUEST when job_id is invalid
+    :return: "OK" on success
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    data = request.get_data().decode("utf-8")
+    timestamp = datetime.now(timezone.utc)
+    database.mongo.db.serial_output.update_one(
+        {"job_id": job_id},
+        {"$set": {"updated_at": timestamp}, "$push": {"serial_output": data}},
+        upsert=True,
+    )
     return "OK"

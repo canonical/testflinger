@@ -19,17 +19,28 @@
 import logging
 import sys
 
+import bcrypt
 import ops
 from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseCreatedEvent,
     DatabaseRequires,
 )
+from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
 from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
 from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+from charms.traefik_k8s.v0.traefik_route import (
+    TraefikRouteRequirer,
+    TraefikRouteRequirerReadyEvent,
+)
 from ops.main import main
 from ops.pebble import Layer
+from pymongo import MongoClient
+from pymongo.errors import PyMongoError
 
 logger = logging.getLogger(__name__)
+
+TESTFLINGER_ADMIN_ID = "testflinger-admin"
+DEFAULT_PORT = 5000
 
 
 class TestflingerCharm(ops.CharmBase):
@@ -48,16 +59,28 @@ class TestflingerCharm(ops.CharmBase):
         self.container = self.unit.get_container("testflinger")
         self._stored.set_default(
             reldata={},
+            previous_master_key="",
         )
 
+        # TODO: Remove nginx route when migration to traefik route is completed
         self._require_nginx_route()
+        self._setup_traefik_route()
 
         self.mongodb = DatabaseRequires(
             self,
             relation_name="mongodb_client",
             database_name="testflinger_db",
         )
+        self.mongodb_keyvault = DatabaseRequires(
+            self,
+            relation_name="mongodb_keyvault",
+            database_name="encryption",
+        )
 
+        # Initialize Grafana dashboard provider
+        self.grafana_dashboard_provider = GrafanaDashboardProvider(charm=self)
+
+        # Define Prometheus scrape endpoint
         self._prometheus_scraping = MetricsEndpointProvider(
             self,
             relation_name="metrics-endpoint",
@@ -78,9 +101,37 @@ class TestflingerCharm(ops.CharmBase):
             self._on_mongodb_client_relation_removed,
         )
         self.framework.observe(
+            self.mongodb_keyvault.on.database_created,
+            self._on_mongodb_keyvault_relation_changed,
+        )
+        self.framework.observe(
+            self.mongodb_keyvault.on.endpoints_changed,
+            self._on_mongodb_keyvault_relation_changed,
+        )
+        self.framework.observe(
+            self.on.mongodb_keyvault_relation_broken,
+            self._on_mongodb_keyvault_relation_changed,
+        )
+        self.framework.observe(
             self.on.testflinger_pebble_ready, self._on_testflinger_pebble_ready
         )
         self.framework.observe(self.on.config_changed, self._on_config_changed)
+        self.framework.observe(
+            self.on.set_admin_password_action, self.on_set_admin_password
+        )
+        self.framework.observe(
+            self.on.retry_key_rotation_action,
+            self._on_retry_key_rotation_action,
+        )
+        # TODO: Remove nginx route when migration to traefik route is completed
+        self.framework.observe(
+            self.on.nginx_route_relation_changed,
+            self._on_route_relation_changed,
+        )
+        self.framework.observe(
+            self.on.nginx_route_relation_broken,
+            self._on_route_relation_changed,
+        )
 
     @property
     def version(self) -> str:
@@ -88,12 +139,122 @@ class TestflingerCharm(ops.CharmBase):
         return "Version ?"
 
     def _require_nginx_route(self):
+        """Set up nginx route for the service."""
+        # TODO: Remove nginx route when migration to traefik route is completed
         require_nginx_route(
             charm=self,
             service_hostname=self.config["external_hostname"],
             service_name=self.app.name,
-            service_port=5000,
+            service_port=DEFAULT_PORT,
         )
+
+    def _setup_traefik_route(self):
+        """Set up ingress for the service."""
+        self.traefik_route = TraefikRouteRequirer(
+            self,
+            relation=self.model.get_relation("traefik-route"),
+            relation_name="traefik-route",
+        )
+        self.framework.observe(
+            self.traefik_route.on.ready, self._on_traefik_ready
+        )
+
+    def _on_traefik_ready(self, event: TraefikRouteRequirerReadyEvent) -> None:
+        """Handle TraefikRouteRequirer ready event."""
+        if not self._check_route_conflict():
+            return
+        if self.unit.is_leader():
+            self._configure_traefik_route()
+
+    def _check_route_conflict(self) -> bool:
+        """Check if attempting to use two different route providers."""
+        nginx = self.model.relations.get("nginx-route")
+        traefik = self.model.relations.get("traefik-route")
+        if nginx and traefik:
+            self.unit.status = ops.BlockedStatus(
+                "Can't use both nginx and traefik route providers."
+            )
+            return False
+        return True
+
+    def _on_route_relation_changed(
+        self, event: ops.RelationChangedEvent
+    ) -> None:
+        """Handle relation changed event to check for route conflicts."""
+        if not self._check_route_conflict():
+            return
+
+    def _configure_traefik_route(self):
+        """Set configuration required for traefik route."""
+        # Only submit configuration if the relation is ready
+        if not self.traefik_route.is_ready():
+            logger.info("Traefik route relation is not ready yet")
+            return
+
+        testflinger_base_url = (
+            self.traefik_route.external_host
+            or self.config.get("external_hostname", "")
+        )
+        if not testflinger_base_url:
+            self.unit.status = ops.BlockedStatus(
+                "external_hostname must be set for traefik-route"
+            )
+            return
+        external_hostname = (
+            testflinger_base_url.replace("https://", "")
+            .replace("http://", "")
+            .rstrip("/")
+        )
+
+        # Open the required port in the unit
+        self.unit.open_port("tcp", DEFAULT_PORT)
+
+        service_url = f"http://{self.app.name}.{self.model.name}.svc.cluster.local:{DEFAULT_PORT}"
+        identifier = f"{self.model.name}-{self.app.name}"
+
+        config = {
+            "http": {
+                "middlewares": {
+                    "https-redirect": {
+                        "redirectScheme": {
+                            "scheme": "https",
+                            "permanent": True,
+                        }
+                    }
+                },
+                "routers": {
+                    f"juju-{identifier}-router": {
+                        "rule": f"Host(`{external_hostname}`)",
+                        "service": f"juju-{identifier}-service",
+                        "entryPoints": ["web"],
+                        "middlewares": ["https-redirect"],
+                    },
+                    f"juju-{identifier}-router-tls": {
+                        "rule": f"Host(`{external_hostname}`)",
+                        "service": f"juju-{identifier}-service",
+                        "entryPoints": ["websecure"],
+                        "tls": {},
+                    },
+                },
+                "services": {
+                    f"juju-{identifier}-service": {
+                        "loadBalancer": {
+                            "servers": [{"url": service_url}],
+                            "passHostHeader": True,
+                        }
+                    }
+                },
+            }
+        }
+
+        logger.info(
+            "Submitting Traefik configuration for %s at root path "
+            "with HTTP→HTTPS redirect and load balancing across all %s units",
+            external_hostname,
+            self.app,
+        )
+        self.traefik_route.submit_to_traefik(config=config)
+        self.unit.status = ops.ActiveStatus()
 
     def _on_testflinger_pebble_ready(
         self, event: ops.PebbleReadyEvent
@@ -155,12 +316,109 @@ class TestflingerCharm(ops.CharmBase):
         self.unit.status = ops.WaitingStatus("Waiting for database relation")
         sys.exit()
 
-    def _on_config_changed(self, _: ops.framework.EventBase) -> None:
-        """
-        Handle config changed event
-        We need to accept the event as an argument, but we don't use it.
-        """
+    def _on_mongodb_keyvault_relation_changed(
+        self, _: ops.framework.EventBase
+    ) -> None:
+        """Event is fired when the key vault relation is created or removed."""
         self._update_layer_and_restart()
+
+    def _fetch_keyvault_uri(self) -> str | None:
+        """Get the key vault MongoDB URI from the keyvault relation."""
+        for val in self.mongodb_keyvault.fetch_relation_data().values():
+            if val and "uris" in val:
+                return val["uris"]
+        return None
+
+    def _run_rotation(self, app_env: dict) -> str:
+        """Run rotate_mongo_secrets_key inside the container.
+
+        :param app_env: Environment variables to pass to the script.
+        :returns: stdout from the script.
+        :raises ops.pebble.ExecError: If the script exits with a non-zero code.
+        """
+        process = self.container.exec(
+            ["rotate_mongo_secrets_key"],
+            environment=app_env,
+        )
+        stdout, _ = process.wait_output()
+        return stdout
+
+    def _on_config_changed(self, _: ops.framework.EventBase) -> None:
+        """Handle config changed event."""
+        new_key = self.config["testflinger_secrets_master_key"]
+        stored_key = self._stored.previous_master_key
+
+        # Rotate only if master key was previously defined, has changed,
+        # and this is the leader unit.
+        if stored_key and new_key != stored_key and self.unit.is_leader():
+            if not self.container.can_connect():
+                self.unit.status = ops.WaitingStatus(
+                    "Waiting for Pebble in workload container"
+                )
+                return
+
+            # Inject both old and new master keys into the environment
+            env = {
+                **self.app_environment,
+                "TESTFLINGER_SECRETS_MASTER_KEY": stored_key,
+                "TESTFLINGER_SECRETS_NEW_MASTER_KEY": new_key,
+            }
+            try:
+                logger.info("Master key changed, rotating Data Encryption Key")
+                self._run_rotation(env)
+            except ops.pebble.ExecError as exc:
+                logger.error(
+                    "Key rotation failed: %s. "
+                    "Run the 'retry-key-rotation' action to retry.",
+                    exc.stderr,
+                )
+                self.unit.status = ops.BlockedStatus(
+                    "MongoDB CSFLE Master Key rotation failed."
+                )
+                return
+
+        logger.info("Successfully updated MongoDB CSFLE Master Key")
+        # Store the new master key for future rotations
+        self._stored.previous_master_key = new_key
+        self._update_layer_and_restart()
+
+    def _on_retry_key_rotation_action(self, event: ops.ActionEvent) -> None:
+        """Retry a failed MongoDB CSFLE Master Key rotation.
+
+        Use this when a testflinger_secrets_master_key config change left the
+        unit in BlockedStatus. The old key is read from StoredState and the
+        new key from the current config.
+        """
+        current_key = self.config["testflinger_secrets_master_key"]
+        stored_key = self._stored.previous_master_key
+
+        if not current_key:
+            event.fail("testflinger_secrets_master_key is not configured")
+            return
+
+        if not self.unit.is_leader():
+            event.fail("Action can only be executed on leader unit")
+            return
+
+        if not stored_key or stored_key == current_key:
+            event.fail("No pending key rotation found")
+            return
+
+        if not self.container.can_connect():
+            event.fail("Container is not ready")
+            return
+
+        env = {
+            **self.app_environment,
+            "TESTFLINGER_SECRETS_MASTER_KEY": stored_key,
+            "TESTFLINGER_SECRETS_NEW_MASTER_KEY": current_key,
+        }
+        try:
+            output = self._run_rotation(env)
+            self._stored.previous_master_key = current_key
+            event.set_results({"result": output.strip()})
+        except ops.pebble.ExecError as exc:
+            event.fail(f"Rotation failed: {exc.stderr}")
 
     @property
     def _pebble_layer(self):
@@ -226,6 +484,10 @@ class TestflingerCharm(ops.CharmBase):
             "MONGODB_DATABASE": db_data.get("db_database"),
             "MONGODB_MAX_POOL_SIZE": str(self.config["max_pool_size"]),
             "JWT_SIGNING_KEY": self.config["jwt_signing_key"],
+            "TESTFLINGER_SECRETS_MASTER_KEY": self.config[
+                "testflinger_secrets_master_key"
+            ],
+            "TESTFLINGER_KEY_VAULT_URI": self._fetch_keyvault_uri() or "",
             "HTTP_PROXY": self.config["http_proxy"],
             "HTTPS_PROXY": self.config["https_proxy"],
             "NO_PROXY": self.config["no_proxy"],
@@ -266,6 +528,79 @@ class TestflingerCharm(ops.CharmBase):
             "db_database": database,
         }
         return db_data
+
+    def on_set_admin_password(self, event: ops.ActionEvent):
+        """Update or set admin password to admin user."""
+        # Do not perform action if we are not application leader
+        if not self.unit.is_leader():
+            event.fail("Action can only be executed on leader unit")
+            return
+
+        admin_secret = event.params.get("password")
+        if not admin_secret:
+            event.fail("Password parameter is required")
+            return
+
+        try:
+            db = self.connect_to_mongodb()
+            if db is None:
+                event.fail("Unable to connect to MongoDB")
+                return
+
+            admin_secret_hash = bcrypt.hashpw(
+                admin_secret.encode("utf-8"), bcrypt.gensalt()
+            ).decode()
+
+            if self.check_client_exist(db):
+                # Update existing admin user to rotate its password
+                db.client_permissions.update_one(
+                    {"client_id": TESTFLINGER_ADMIN_ID},
+                    {"$set": {"client_secret_hash": admin_secret_hash}},
+                )
+                event.set_results(
+                    {"result": "Admin password updated successfully"}
+                )
+            else:
+                # Create new admin user
+                db.client_permissions.insert_one(
+                    {
+                        "client_id": TESTFLINGER_ADMIN_ID,
+                        "client_secret_hash": admin_secret_hash,
+                        "role": "admin",
+                    }
+                )
+                event.set_results(
+                    {"result": "Admin user created successfully"}
+                )
+
+        except PyMongoError as e:
+            logger.error("MongoDB operation failed: %s", str(e))
+            event.fail(f"MongoDB operation failed: {str(e)}")
+
+    def connect_to_mongodb(self):
+        """Get Mongo credentials from relation data and setup connection."""
+        # Determine if we are already connected to database
+        relation_data = self.mongodb.fetch_relation_data()
+        if not relation_data:
+            logger.error("Unable to retrieve database information")
+            return None
+
+        # Get db_data from relation.
+        db_data = next(iter(relation_data.values()))
+        if db_data and "uris" in db_data:
+            mongo_client = MongoClient(host=db_data["uris"])
+            return mongo_client[db_data["database"]]
+
+        return None
+
+    def check_client_exist(self, db: MongoClient):
+        """Validate if client_id already exists in collection."""
+        return (
+            db.client_permissions.count_documents(
+                {"client_id": TESTFLINGER_ADMIN_ID}, limit=1
+            )
+            != 0
+        )
 
 
 if __name__ == "__main__":

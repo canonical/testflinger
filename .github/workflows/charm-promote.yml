@@ -30,6 +30,10 @@ on:
           - latest/beta
           - latest/edge
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   promote-charm:
     name: Promote Charm
@@ -49,7 +53,7 @@ jobs:
             exit 1
           fi
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
           persist-credentials: false
       - name: Promote Charm

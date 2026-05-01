@@ -35,6 +35,8 @@ from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
+JAMMY_OEM_PRESET = "desktop-jammy-oem"
+
 
 class DeviceConnector(ZapperConnector):
     """Tool for provisioning baremetal with a given image."""
@@ -59,8 +61,7 @@ class DeviceConnector(ZapperConnector):
         """Autoinstall-related keys are pre-fixed with `autoinstall_`.
 
         If any of those arguments are provided and valid, the function
-        returns an autoinstall_conf dictionary, including the agent
-        SSH public key.
+        returns an autoinstall_conf dictionary.
         """
         autoinstall_conf = {}
 
@@ -101,8 +102,6 @@ class DeviceConnector(ZapperConnector):
             logger.info("Autoinstall-related keys were not provided.")
             return None
 
-        autoinstall_conf["authorized_keys"] = [self._read_ssh_key()]
-
         return autoinstall_conf
 
     def _read_ssh_key(self) -> str:
@@ -110,61 +109,113 @@ class DeviceConnector(ZapperConnector):
             Path("~/.ssh/id_rsa.pub").expanduser().read_text(encoding="utf-8")
         )
 
+    def _get_credentials(self, target: str | None = None) -> tuple[str, str]:
+        if target == JAMMY_OEM_PRESET:
+            return "ubuntu", "u"
+        else:
+            return (
+                self.job_data.get("test_data", {}).get(
+                    "test_username", "ubuntu"
+                ),
+                self.job_data.get("test_data", {}).get(
+                    "test_password", "ubuntu"
+                ),
+            )
+
+    OPTIONAL_KEYS = (
+        "cmdline_append",
+        "skip_download",
+        "wait_until_ssh",
+        "live_image",
+        "ubuntu_sso_email",
+        "robot_retries",
+    )
+
     def _validate_configuration(
         self,
     ) -> Tuple[Tuple, Dict[str, Any]]:
         """Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
-        if "alloem_url" in self.job_data["provision_data"]:
-            url = self.job_data["provision_data"]["alloem_url"]
-            username = "ubuntu"
-            password = "u"
-            retries = max(
-                2, self.job_data["provision_data"].get("robot_retries", 1)
-            )
+        job_provision = self.job_data["provision_data"]
+
+        if "preset" in job_provision:
+            provision_data = self._build_preset_payload()
+        elif "alloem_url" in job_provision:
+            provision_data = self._build_alloem_payload()
         else:
-            url = self.job_data["provision_data"]["url"]
-            username = self.job_data.get("test_data", {}).get(
-                "test_username", "ubuntu"
-            )
-            password = self.job_data.get("test_data", {}).get(
-                "test_password", "ubuntu"
-            )
-            retries = self.job_data["provision_data"].get("robot_retries", 1)
+            provision_data = self._build_default_payload()
 
-        provisioning_data = {
-            "url": url,
-            "username": username,
-            "password": password,
-            "robot_retries": retries,
-            "autoinstall_conf": self._get_autoinstall_conf(),
-            "robot_tasks": self.job_data["provision_data"]["robot_tasks"],
-        }
-
-        # Let's handle defaults on the Zapper side adding only the explicitly
-        # specified keys to the `provision_data` dict.
-        optionals = [
-            "cmdline_append",
-            "skip_download",
-            "wait_until_ssh",
-            "live_image",
-            "ubuntu_sso_email",
-        ]
-        provisioning_data.update(
+        provision_data["authorized_keys"] = [self._read_ssh_key()]
+        # Let Zapper handle defaults — only forward explicitly-set keys.
+        provision_data.update(
             {
-                opt: self.job_data["provision_data"][opt]
-                for opt in optionals
-                if opt in self.job_data["provision_data"]
+                opt: job_provision[opt]
+                for opt in self.OPTIONAL_KEYS
+                if opt in job_provision
             }
         )
 
-        return ((), provisioning_data)
+        return ((), provision_data)
+
+    def _build_preset_payload(self) -> Dict[str, Any]:
+        job_provision = self.job_data["provision_data"]
+        preset = job_provision["preset"]
+
+        provision_data = {
+            key: value
+            for key, value in job_provision.items()
+            if not key.startswith("autoinstall")
+        }
+        has_autoinstall = any(
+            key.startswith("autoinstall") for key in job_provision
+        )
+
+        provision_data["username"], provision_data["password"] = (
+            self._get_credentials(preset)
+        )
+        if has_autoinstall:
+            provision_data["autoinstall_conf"] = self._get_autoinstall_conf()
+
+        if preset == JAMMY_OEM_PRESET:
+            # control host only does recovery
+            provision_data.pop("url", None)
+            if alloem_url := job_provision.get("alloem_url"):
+                provision_data["url"] = alloem_url
+                provision_data.pop("alloem_url", None)
+
+        return provision_data
+
+    def _build_alloem_payload(self) -> Dict[str, Any]:
+        job_provision = self.job_data["provision_data"]
+        username, password = self._get_credentials(JAMMY_OEM_PRESET)
+        return {
+            "url": job_provision["alloem_url"],
+            "username": username,
+            "password": password,
+            "autoinstall_conf": self._get_autoinstall_conf(),
+            "robot_tasks": job_provision["robot_tasks"],
+        }
+
+    def _build_default_payload(self) -> Dict[str, Any]:
+        job_provision = self.job_data["provision_data"]
+        username, password = self._get_credentials()
+        return {
+            "url": job_provision["url"],
+            "username": username,
+            "password": password,
+            "autoinstall_conf": self._get_autoinstall_conf(),
+            "robot_tasks": job_provision["robot_tasks"],
+        }
 
     def _post_run_actions(self, args):
         super()._post_run_actions(args)
 
-        if "alloem_url" in self.job_data["provision_data"]:
+        provision_data = self.job_data["provision_data"]
+        used_alloem = "alloem_url" in provision_data
+        is_jammy_oem_preset = provision_data.get("preset") == JAMMY_OEM_PRESET
+
+        if used_alloem or is_jammy_oem_preset:
             self._post_run_actions_oem(args)
 
     def _post_run_actions_oem(self, args):

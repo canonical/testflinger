@@ -9,14 +9,14 @@ readme = "README.md"
 license-files = ["COPYING"]
 dependencies = [
   "argcomplete>=3.6.1",
-  "pyjwt>=2.10.1",
+  "pyjwt>=2.12.1",
   "pyyaml>=6.0.2",
   "requests>=2.32.3",
   "strenum>=0.4.15",
   "xdg-base-dirs>=6.0.2",
 ]
 dynamic = ["version"]
-requires-python = ">= 3.10"
+requires-python = ">=3.10"
 
 [project.scripts]
 testflinger-cli = "testflinger_cli:cli"
@@ -24,6 +24,7 @@ testflinger = "testflinger_cli:cli"
 
 [dependency-groups]
 dev = [
+  "freezegun>=1.5.0",
   "pytest>=8.3.5",
   "pytest-cov>=6.0.0",
   "pytest-mock>=3.14.0",
@@ -33,6 +34,10 @@ dev = [
 
 [tool.ruff]
 line-length = 79
+include = [
+  "testflinger_cli/**/*.py",
+  "tests/**/*.py",
+]
 
 [tool.ruff.lint]
 select = [
@@ -60,7 +65,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"testflinger_cli/tests/*" = [
+"**/tests/*" = [
   "S101", # use of assert
   "S105", # use of harcoded passwords for mock
   "S108", # use of temporary file or directory

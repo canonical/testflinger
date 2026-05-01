@@ -7,28 +7,35 @@ on:
       - main
     paths:
       - .github/actions/submit/action.yaml
+      - .github/actions/testflinger-setup/action.yaml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   auto-tag-submit-action:
     name: Create version tag for the submit action
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # necessary for writing tag
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
           fetch-depth: 0  # necessary for semantic versioning
+          filter: blob:none # exclude file contents for faster checkout
           persist-credentials: true  # necessary for pushing tags
 
       - name: Generate semantic version
         id: version
-        uses: PaulHatch/semantic-version@a8f8f59fd7f0625188492e945240f12d7ad2dca3  # v5.4.0
+        uses: PaulHatch/semantic-version@f29500c9d60a99ed5168e39ee367e0976884c46e  # v6.0.1
         with:
-          namespace: "submit"
+          tag_prefix: "submit/v"
           major_pattern: "breaking(submit):"
           minor_pattern: "feat(submit):"
+          change_path: ".github/actions/submit/ .github/actions/testflinger-setup/"
           search_commit_body: true
           enable_prerelease_mode: false
 

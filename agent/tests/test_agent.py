@@ -1,3 +1,17 @@
+# Copyright (C) 2016 Canonical
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import json
 import os
 import re
@@ -12,7 +26,7 @@ from unittest.mock import patch
 import prometheus_client
 import pytest
 import requests_mock as rmock
-from testflinger_common.enums import AgentState, TestEvent, TestPhase
+from testflinger_common.enums import AgentState, LogType, TestEvent, TestPhase
 
 import testflinger_agent
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
@@ -73,7 +87,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"):
             agent.process_jobs()
         setuplog = open(
@@ -96,7 +110,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"):
             agent.process_jobs()
         provisionlog = open(
@@ -121,7 +135,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"):
             agent.process_jobs()
         testlog = open(
@@ -155,7 +169,7 @@ class TestClient:
         }
 
         with rmock.Mocker() as mocker:
-            mocker.post(rmock.ANY, status_code=200)
+            mocker.post(rmock.ANY, status_code=HTTPStatus.OK)
             # mock response to requesting jobs
             mocker.get(f"{agent.client.server}/v1", status_code=HTTPStatus.OK)
             mocker.get(
@@ -219,7 +233,7 @@ class TestClient:
         }
 
         with rmock.Mocker() as mocker:
-            mocker.post(rmock.ANY, status_code=200)
+            mocker.post(rmock.ANY, status_code=HTTPStatus.OK)
             # mock response to requesting jobs
             mocker.get(f"{agent.client.server}/v1", status_code=HTTPStatus.OK)
             mocker.get(
@@ -282,7 +296,7 @@ class TestClient:
         }
 
         with rmock.Mocker() as mocker:
-            mocker.post(rmock.ANY, status_code=200)
+            mocker.post(rmock.ANY, status_code=HTTPStatus.OK)
             # mock response to requesting jobs
             mocker.get(f"{agent.client.server}/v1", status_code=HTTPStatus.OK)
             mocker.get(
@@ -333,7 +347,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"):
             agent.process_jobs()
         testlog = open(
@@ -359,8 +373,8 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
-        requests_mock.post(rmock.ANY, status_code=200)
-        with patch("shutil.rmtree"), patch("os.unlink"):
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        with patch("shutil.rmtree"), patch("pathlib.Path.unlink"):
             agent.process_jobs()
         outcome_file = os.path.join(
             os.path.join(
@@ -371,8 +385,8 @@ class TestClient:
         )
         with open(outcome_file) as f:
             outcome_data = json.load(f)
-        assert outcome_data.get("provision_status") == 1
-        assert outcome_data.get("test_status") is None
+        assert outcome_data.get("status").get("provision") == 1
+        assert outcome_data.get("status").get("test") is None
 
     def test_phase_timeout(self, agent, requests_mock):
         # Make sure the status code of a timed-out phase is correct
@@ -392,8 +406,8 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job?queue=test",
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
-        requests_mock.post(rmock.ANY, status_code=200)
-        with patch("shutil.rmtree"), patch("os.unlink"):
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        with patch("shutil.rmtree"), patch("pathlib.Path.unlink"):
             agent.process_jobs()
         outcome_file = os.path.join(
             os.path.join(
@@ -404,7 +418,7 @@ class TestClient:
         )
         with open(outcome_file) as f:
             outcome_data = json.load(f)
-        assert outcome_data.get("test_status") == 247
+        assert outcome_data.get("status").get("test") == 247
 
     def test_retry_transmit(self, agent, requests_mock):
         # Make sure we retry sending test results
@@ -424,7 +438,7 @@ class TestClient:
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch.object(
             testflinger_agent.client.TestflingerClient, "transmit_job_outcome"
         ) as mock_transmit_job_outcome:
@@ -461,20 +475,18 @@ class TestClient:
             m.get(
                 "http://127.0.0.1:8000/v1/job?queue=test", json=fake_job_data
             )
-            m.get("http://127.0.0.1:8000/v1/result/" + job_id, text="{}")
-            m.post("http://127.0.0.1:8000/v1/result/" + job_id, text="{}")
+            m.get(f"http://127.0.0.1:8000/v1/result/{job_id}", text="{}")
+            m.post(f"http://127.0.0.1:8000/v1/result/{job_id}", text="{}")
             m.post(
-                "http://127.0.0.1:8000/v1/result/" + job_id + "/output",
+                f"http://127.0.0.1:8000/v1/result/{job_id}/log/{LogType.STANDARD_OUTPUT}",
                 text="{}",
             )
             m.post(
-                "http://127.0.0.1:8000/v1/agents/data/"
-                + self.config.get("agent_id"),
+                f"http://127.0.0.1:8000/v1/agents/data/{self.config.get('agent_id')}",
                 text="OK",
             )
             m.get(
-                "http://127.0.0.1:8000/v1/agents/data/"
-                + self.config.get("agent_id"),
+                f"http://127.0.0.1:8000/v1/agents/data/{self.config.get('agent_id')}",
                 [
                     {
                         "text": json.dumps(
@@ -525,7 +537,7 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
-        requests_mock.post(status_url, status_code=200)
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"):
             agent.process_jobs()
 
@@ -566,10 +578,10 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
-        requests_mock.post(status_url, status_code=200)
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/result/" + job_id,
+            f"http://127.0.0.1:8000/v1/result/{job_id}",
             json={"job_state": "cancelled"},
         )
         with patch("shutil.rmtree"):
@@ -608,7 +620,7 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
-        requests_mock.post(status_url, status_code=200)
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         with patch("shutil.rmtree"):
             agent.process_jobs()
@@ -646,7 +658,7 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
-        requests_mock.post(status_url, status_code=200)
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         with patch("shutil.rmtree"):
             agent.process_jobs()
@@ -736,7 +748,7 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
-        requests_mock.post(status_url, status_code=200)
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         provision_exception_info = {
             "provision_exception_info": {
@@ -809,7 +821,7 @@ class TestClient:
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
-        requests_mock.post(status_url, status_code=200)
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         provision_exception_info = {
             "provision_exception_info": {
@@ -865,10 +877,11 @@ class TestClient:
 
     def test_agent_metrics(self, agent, requests_mock):
         """
-        Tests that total job and total job failures metrics are increased
-        when running a job.
+        Tests that total job, total job failures, and phase duration metrics
+        are tracked when running a job.
         """
         self.config["provision_command"] = "/bin/false"
+        agent_id = self.config["agent_id"]
         mock_job_data = {
             "job_id": str(uuid.uuid1()),
             "job_queue": "test",
@@ -879,19 +892,125 @@ class TestClient:
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v1/agents/data/{agent_id}",
             json={"state": AgentState.WAITING, "restricted_to": {}},
         )
-        requests_mock.post(rmock.ANY, status_code=200)
-        with patch("shutil.rmtree"), patch("os.unlink"):
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        with patch("shutil.rmtree"), patch("pathlib.Path.unlink"):
             agent.process_jobs()
 
-        total_jobs = prometheus_client.REGISTRY.get_sample_value("jobs_total")
+        total_jobs = prometheus_client.REGISTRY.get_sample_value(
+            "jobs_total", {"agent_id": agent_id}
+        )
         total_provision_failures = prometheus_client.REGISTRY.get_sample_value(
-            "failures_total", {"test_phase": "provision"}
+            "failures_total",
+            {"agent_id": agent_id, "test_phase": TestPhase.PROVISION},
+        )
+        provision_duration_count = prometheus_client.REGISTRY.get_sample_value(
+            "phase_duration_seconds_count",
+            {
+                "agent_id": agent_id,
+                "test_phase": TestPhase.PROVISION,
+                "identifier": self.config["identifier"],
+                "release": "",
+            },
         )
         assert total_provision_failures == 1
         assert total_jobs == 1
+        assert provision_duration_count == 1
+
+    def test_agent_metrics_release_label_after_provision(
+        self, agent, requests_mock
+    ):
+        """
+        Tests that after a successful provision the release label is populated
+        in the phase_duration_seconds metric from the DUT's os-release.
+        """
+        self.config["provision_command"] = "/bin/true"
+        agent_id = self.config["agent_id"]
+        mock_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test",
+            "provision_data": {"url": "foo"},
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
+        )
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/agents/data/{agent_id}",
+            json={"state": AgentState.WAITING, "restricted_to": {}},
+        )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+
+        device_info = {
+            "device_info": {"device_ip": "10.0.0.1", "agent_name": "test01"}
+        }
+        with (
+            patch("shutil.rmtree"),
+            patch("pathlib.Path.unlink"),
+            patch(
+                "testflinger_agent.job.TestflingerJob.get_device_info",
+                return_value=device_info,
+            ),
+            patch(
+                "testflinger_agent.agent.query_dut_release",
+                return_value="22.04.5",
+            ),
+        ):
+            agent.process_jobs()
+
+        provision_duration_count = prometheus_client.REGISTRY.get_sample_value(
+            "phase_duration_seconds_count",
+            {
+                "agent_id": agent_id,
+                "test_phase": TestPhase.PROVISION,
+                "identifier": self.config["identifier"],
+                "release": "22.04.5",
+            },
+        )
+        assert provision_duration_count == 1
+
+    def test_agent_recovery_failure_metrics(self, agent, requests_mock):
+        """
+        Tests that recovery failure metrics are tracked when a phase
+        exits with code 46.
+        """
+        self.config["provision_command"] = "bash -c 'exit 46'"
+        agent_id = self.config["agent_id"]
+        job_id = str(uuid.uuid1())
+        mock_job_data = {
+            "job_id": job_id,
+            "job_queue": "test",
+            "provision_data": {"url": "foo"},
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test", json=mock_job_data
+        )
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/agents/data/{agent_id}",
+            [
+                {
+                    "text": json.dumps(
+                        {"state": AgentState.WAITING, "restricted_to": {}}
+                    )
+                },
+                {
+                    "text": json.dumps(
+                        {"state": AgentState.OFFLINE, "restricted_to": {}}
+                    )
+                },
+            ],
+        )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        with patch("shutil.rmtree"), patch("pathlib.Path.unlink"):
+            agent.process_jobs()
+
+        recovery_failures = prometheus_client.REGISTRY.get_sample_value(
+            "recovery_failures_total", {"agent_id": agent_id}
+        )
+        assert recovery_failures == 1
+        assert agent.check_offline()
 
     def test_missing_agent_state(self, agent, requests_mock, caplog):
         """Test default state for an agent is offline if unable to retrieve."""
@@ -912,7 +1031,7 @@ class TestClient:
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
             status_code=HTTPStatus.NOT_FOUND,
         )
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"):
             agent.process_jobs()
         assert "Failed to retrieve agent data" in caplog.text
@@ -938,3 +1057,22 @@ class TestClient:
             agent.client.wait_for_server_connectivity(interval=1)
             # First attempt is also unsuccessful
             assert "Testflinger server unreachable" in caplog.text
+
+    def test_get_job_data_success(self, agent):
+        """Test get_job_data returns job when successful."""
+        fake_job = {"job_id": "123", "job_queue": "test"}
+        with patch.object(agent.client, "check_jobs", return_value=fake_job):
+            result = agent.get_job_data()
+        assert result == fake_job
+
+    def test_get_job_data_returns_none(self, agent):
+        """When check_jobs returns None, get_job_data returns None."""
+        with patch.object(
+            agent.client,
+            "check_jobs",
+            return_value=None,
+        ):
+            result = agent.get_job_data()
+
+        # Verify None is returned when check_jobs returns None
+        assert result is None

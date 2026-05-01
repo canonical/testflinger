@@ -28,12 +28,22 @@ from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
 class ZapperKVMConnectorTests(unittest.TestCase):
     """Unit tests for ZapperConnector KVM class."""
 
+    def test_get_credentials(self) -> None:
+        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector.job_data = {}
+        assert connector._get_credentials("desktop-jammy-oem") == (
+            "ubuntu",
+            "u",
+        )
+        assert connector._get_credentials("preset") == ("ubuntu", "ubuntu")
+        assert connector._get_credentials() == ("ubuntu", "ubuntu")
+
     def test_validate_configuration(self):
         """Test whether the validate_configuration function returns
         the expected data merging the relevant bits from conf and job
         data when passing only the required arguments.
         """
-        connector = DeviceConnector({})
+        connector = DeviceConnector({"control_host": "zapper-host"})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -46,6 +56,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
 
         connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
         args, kwargs = connector._validate_configuration()
 
         expected = {
@@ -54,17 +65,137 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "password": "ubuntu",
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
             "robot_tasks": ["job.robot", "another.robot"],
-            "robot_retries": 1,
+            "authorized_keys": ["mykey"],
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
+
+    def test_validate_configuration_preset(self):
+        """Test whether the validate_configuration function returns
+        the expected data merging the relevant bits from conf and job
+        data when passing only the required arguments.
+        """
+        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "preset": "preset-test",
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
+        args, kwargs = connector._validate_configuration()
+
+        expected = {
+            "preset": "preset-test",
+            "username": "ubuntu",
+            "password": "ubuntu",
+            "authorized_keys": ["mykey"],
+        }
+        self.assertEqual(args, ())
+        self.assertDictEqual(kwargs, expected)
+
+    def test_validate_configuration_preset_with_overriding_items(self):
+        """Test whether the validate_configuration function returns
+        the expected data merging the relevant bits from conf and job
+        data when passing only the required arguments.
+        """
+        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://test",
+                "preset": "preset-test",
+                "username": "custom-user",
+                "password": "custom-password",
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
+        args, kwargs = connector._validate_configuration()
+
+        expected = {
+            "url": "http://test",
+            "preset": "preset-test",
+            "username": "ubuntu",
+            "password": "ubuntu",
+            "authorized_keys": ["mykey"],
+        }
+        self.assertEqual(args, ())
+        self.assertDictEqual(kwargs, expected)
+
+    def test_validate_configuration_jammy_oem_preset(self):
+        """Test that `desktop-jammy-oem` preset strips `url` from the
+        provision data since the control host only does recovery.
+        """
+        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://example.com/image.iso",
+                "preset": "desktop-jammy-oem",
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
+        args, kwargs = connector._validate_configuration()
+
+        self.assertNotIn("url", kwargs)
+        self.assertEqual(kwargs["preset"], "desktop-jammy-oem")
+        self.assertEqual(kwargs["username"], "ubuntu")
+        self.assertEqual(kwargs["password"], "u")
+
+    def test_validate_configuration_jammy_oem_preset_with_alloem_url(self):
+        """Test `desktop-jammy-oem` preset combined with `alloem_url`:
+        the original `url` is replaced by `alloem_url`, `alloem_url` is
+        removed from the payload, and jammy-oem credentials are used.
+        """
+        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://example.com/image.iso",
+                "alloem_url": "http://example.com/alloem.iso",
+                "preset": "desktop-jammy-oem",
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
+        args, kwargs = connector._validate_configuration()
+
+        self.assertEqual(kwargs["url"], "http://example.com/alloem.iso")
+        self.assertNotIn("alloem_url", kwargs)
+        self.assertEqual(kwargs["username"], "ubuntu")
+        self.assertEqual(kwargs["password"], "u")
+
+    def test_validate_configuration_jammy_oem_preset_no_url(self):
+        """Test `desktop-jammy-oem` preset does not raise when `url`
+        is already absent from provision data.
+        """
+        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "preset": "desktop-jammy-oem",
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
+        args, kwargs = connector._validate_configuration()
+
+        self.assertNotIn("url", kwargs)
 
     def test_validate_configuration_w_opt(self):
         """Test whether the validate_configuration function returns
         the expected data merging the relevant bits from conf and job
         data when passing all the optional arguments.
         """
-        connector = DeviceConnector({})
+        connector = DeviceConnector({"control_host": "zapper-host"})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -74,7 +205,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                     "another.robot",
                 ],
                 "autoinstall_storage_layout": "lvm",
-                "robot_retries": 3,
+                "robot_retries": 1,
                 "cmdline_append": "more arguments",
                 "skip_download": True,
                 "wait_until_ssh": True,
@@ -88,6 +219,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
 
         connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
         args, kwargs = connector._validate_configuration()
 
         expected = {
@@ -96,12 +228,13 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "password": "password",
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
             "robot_tasks": ["job.robot", "another.robot"],
-            "robot_retries": 3,
+            "robot_retries": 1,
             "cmdline_append": "more arguments",
             "skip_download": True,
             "wait_until_ssh": True,
             "live_image": False,
             "ubuntu_sso_email": "username@domain.com",
+            "authorized_keys": ["mykey"],
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -113,7 +246,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         password are hardcoded and the Zapper shall try the procedures
         at least twice because it can fail on purpose.
         """
-        connector = DeviceConnector({})
+        connector = DeviceConnector({"control_host": "zapper-host"})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -132,6 +265,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
 
         connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
         args, kwargs = connector._validate_configuration()
 
         expected = {
@@ -140,7 +274,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "password": "u",
             "autoinstall_conf": connector._get_autoinstall_conf.return_value,
             "robot_tasks": ["job.robot", "another.robot"],
-            "robot_retries": 2,
+            "authorized_keys": ["mykey"],
         }
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
@@ -198,13 +332,11 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                 "test_password": "password",
             },
         }
-        connector._read_ssh_key = Mock(return_value="mykey")
 
         conf = connector._get_autoinstall_conf()
 
         expected = {
             "storage_layout": "lvm",
-            "authorized_keys": ["mykey"],
         }
         self.assertDictEqual(conf, expected)
 
@@ -236,14 +368,12 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         }
 
         connector._validate_base_user_data = Mock()
-        connector._read_ssh_key = Mock(return_value="mykey")
         conf = connector._get_autoinstall_conf()
 
         connector._validate_base_user_data.assert_called_once_with("content")
         expected = {
             "storage_layout": "lvm",
             "base_user_data": "content",
-            "authorized_keys": ["mykey"],
         }
         self.assertDictEqual(conf, expected)
 
@@ -251,7 +381,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the autoinstall configuration includes oem_autoinstall
         user-data file + 'direct' storage layout when 'oem:true'.
         """
-        fake_config = {"device_ip": "localhost"}
+        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
         connector = DeviceConnector(fake_config)
         connector.job_data = {
             "job_queue": "queue",
@@ -269,7 +399,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             },
         }
 
-        connector._read_ssh_key = Mock(return_value="mykey")
         conf = connector._get_autoinstall_conf()
 
         user_data_oem = (
@@ -279,7 +408,6 @@ class ZapperKVMConnectorTests(unittest.TestCase):
 
         expected = {
             "storage_layout": "direct",
-            "authorized_keys": ["mykey"],
             "base_user_data": encoded_user_data.decode(),
         }
         self.assertDictEqual(conf, expected)
@@ -424,7 +552,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function runs a command over SSH to change the
         original password to the one specified in test_data.
         """
-        fake_config = {"device_ip": "localhost"}
+        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
         connector = DeviceConnector(fake_config)
         connector.job_data = {"test_data": {"test_password": "new_password"}}
 
@@ -450,10 +578,29 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function updates the password and run the OEM script
         when `alloem_url` is in scope.
         """
-        fake_config = {"device_ip": "localhost"}
+        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
         connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"alloem_url": "file://image.iso"}
+        }
+        connector._copy_ssh_id = Mock()
+        connector._change_password = Mock()
+        connector._run_oem_script = Mock()
+
+        connector._post_run_actions("args")
+
+        connector._change_password.assert_called_with("ubuntu", "u")
+        connector._run_oem_script.assert_called_with("args")
+        connector._copy_ssh_id.assert_called()
+
+    def test_post_run_actions_jammy_oem_preset(self):
+        """Test the function updates the password and runs the OEM script
+        when the `desktop-jammy-oem` preset is in scope.
+        """
+        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
+        connector = DeviceConnector(fake_config)
+        connector.job_data = {
+            "provision_data": {"preset": "desktop-jammy-oem"}
         }
         connector._copy_ssh_id = Mock()
         connector._change_password = Mock()
@@ -469,7 +616,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function raises the ProvisioningError
         exception in case one of the SSH commands fail.
         """
-        fake_config = {"device_ip": "localhost"}
+        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
         connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"alloem_url": "file://image.iso"}
@@ -499,7 +646,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function raises the ProvisioningError
         exception in case one of the SSH commands times out.
         """
-        fake_config = {"device_ip": "localhost"}
+        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
         connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"alloem_url": "file://image.iso"}
@@ -527,7 +674,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         ssh_path = mock_path.return_value.expanduser.return_value
         ssh_path.read_text.return_value = "mykey"
 
-        fake_config = {"device_ip": "localhost"}
+        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
         connector = DeviceConnector(fake_config)
         key = connector._read_ssh_key()
         self.assertEqual(key, "mykey")

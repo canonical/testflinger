@@ -14,13 +14,18 @@
 
 import json
 import uuid
+from datetime import datetime, timezone
+from http import HTTPStatus
 from unittest.mock import patch
 
 import pytest
 import requests_mock as rmock
+from requests.exceptions import RequestException
+from testflinger_common.enums import LogType
 
+from testflinger_agent.client import LogEndpointInput
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
-from testflinger_agent.errors import TFServerError
+from testflinger_agent.errors import InvalidTokenError, TFServerError
 
 
 class TestClient:
@@ -37,7 +42,8 @@ class TestClient:
         yield _TestflingerClient(config)
 
     def test_check_jobs_empty(self, client, requests_mock):
-        requests_mock.get(rmock.ANY, status_code=200)
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         job_data = client.check_jobs()
         assert job_data is None
 
@@ -47,6 +53,7 @@ class TestClient:
             "job_queue": "test_queue",
         }
         requests_mock.get(rmock.ANY, json=fake_job_data)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         job_data = client.check_jobs()
         assert job_data == fake_job_data
 
@@ -68,6 +75,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job",
             json=fake_job_data,
         )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         job_data = client.check_jobs()
         params = requests_mock.last_request.qs.get("queue")
         assert params == ["test_queue"]
@@ -88,6 +96,7 @@ class TestClient:
             "http://127.0.0.1:8000/v1/job",
             json=fake_job_data,
         )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         job_data = client.check_jobs()
         params = requests_mock.last_request.qs.get("queue")
         assert params == ["queue1"]
@@ -98,7 +107,7 @@ class TestClient:
         Ensure that the server api /v1/agents/queues was called with
         the correct queue data.
         """
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         client.post_advertised_queues()
         assert requests_mock.last_request.json() == {
             "test_queue": "test_queue"
@@ -109,7 +118,7 @@ class TestClient:
         Ensure that the server api /v1/agents/images was called with
         the correct image data.
         """
-        requests_mock.post(rmock.ANY, status_code=200)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         client.post_advertised_images()
         assert requests_mock.last_request.json() == {
             "test_queue": {"test_image": "url: http://foo"}
@@ -125,7 +134,7 @@ class TestClient:
         requests_mock.post(
             "http://127.0.0.1:8000/v1/agents/provision_logs/"
             f"{client.config['agent_id']}",
-            status_code=200,
+            status_code=HTTPStatus.OK,
         )
         client.post_provision_log(job_id, exit_code, detail)
         last_request = requests_mock.last_request.json()
@@ -142,7 +151,8 @@ class TestClient:
         testflinger_outcome_json = tmp_path / "testflinger-outcome.json"
         testflinger_outcome_json.write_text("{}")
         requests_mock.post(
-            f"http://127.0.0.1:8000/v1/result/{job_id}", status_code=200
+            f"http://127.0.0.1:8000/v1/result/{job_id}",
+            status_code=HTTPStatus.OK,
         )
         client.transmit_job_outcome(tmp_path)
         assert requests_mock.last_request.json() == {"job_state": "complete"}
@@ -162,7 +172,8 @@ class TestClient:
         testflinger_outcome_json = tmp_path / "testflinger-outcome.json"
         testflinger_outcome_json.write_text("{}")
         requests_mock.post(
-            f"http://127.0.0.1:8000/v1/result/{job_id}", status_code=200
+            f"http://127.0.0.1:8000/v1/result/{job_id}",
+            status_code=HTTPStatus.OK,
         )
 
         # Simulate an error during save_artifacts
@@ -178,7 +189,8 @@ class TestClient:
         """
         job_id = str(uuid.uuid1())
         requests_mock.post(
-            f"http://127.0.0.1:8000/v1/result/{job_id}", status_code=404
+            f"http://127.0.0.1:8000/v1/result/{job_id}",
+            status_code=HTTPStatus.NOT_FOUND,
         )
         with pytest.raises(TFServerError):
             client.post_result(job_id, {})
@@ -191,7 +203,8 @@ class TestClient:
         """
         job_id = str(uuid.uuid1())
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/result/{job_id}", status_code=404
+            f"http://127.0.0.1:8000/v1/result/{job_id}",
+            status_code=HTTPStatus.NOT_FOUND,
         )
         response = client.get_result(job_id)
         assert response == {}
@@ -205,7 +218,7 @@ class TestClient:
         job_id = str(uuid.uuid1())
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/job/{job_id}/attachments",
-            status_code=404,
+            status_code=HTTPStatus.NOT_FOUND,
         )
 
         with pytest.raises(TFServerError):
@@ -216,16 +229,46 @@ class TestClient:
         """Test that transmit_job_outcome sends artifacts if they exist."""
         artifacts_dir = tmp_path / "artifacts"
         artifacts_dir.mkdir()
+
+        # For transmitting artifacts, directory should not be empty
+        (artifacts_dir / "test.txt").write_text("test")
         job_id = str(uuid.uuid1())
         testflinger_data = {"job_id": job_id}
         testflinger_json = tmp_path / "testflinger.json"
         testflinger_json.write_text(json.dumps(testflinger_data))
         requests_mock.post(
             f"http://127.0.0.1:8000/v1/result/{job_id}/artifact",
-            status_code=200,
+            status_code=HTTPStatus.OK,
         )
         client.transmit_job_outcome(tmp_path)
         assert requests_mock.called
+
+    def test_save_artifacts_missing_artifacts_dir(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test no request is made if artifacts directory is missing."""
+        job_id = str(uuid.uuid1())
+        testflinger_data = {"job_id": job_id}
+        testflinger_json = tmp_path / "testflinger.json"
+        testflinger_json.write_text(json.dumps(testflinger_data))
+        client.save_artifacts(tmp_path, job_id)
+        # No requests should be made to server as there is nothing to submit
+        assert requests_mock.called is False
+
+    def test_save_artifacts_empty_artifacts_dir(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test no request is made if artifacts directory is empty."""
+        job_id = str(uuid.uuid1())
+        testflinger_data = {"job_id": job_id}
+        testflinger_json = tmp_path / "testflinger.json"
+        testflinger_json.write_text(json.dumps(testflinger_data))
+        # Create an empty artifacts directory
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        client.save_artifacts(tmp_path, job_id)
+        # No requests should be made to server as there is nothing to submit
+        assert requests_mock.called is False
 
     def test_transmit_job_outcome_missing_json(self, client, tmp_path, caplog):
         """
@@ -243,7 +286,8 @@ class TestClient:
         webhook = "http://foo"
         job_id = str(uuid.uuid1())
         requests_mock.post(
-            f"http://127.0.0.1:8000/v1/job/{job_id}/events", status_code=200
+            f"http://127.0.0.1:8000/v1/job/{job_id}/events",
+            status_code=HTTPStatus.OK,
         )
         events = [
             {
@@ -273,7 +317,8 @@ class TestClient:
         """
         job_id = str(uuid.uuid1())
         requests_mock.post(
-            f"http://127.0.0.1:8000/v1/job/{job_id}/events", status_code=404
+            f"http://127.0.0.1:8000/v1/job/{job_id}/events",
+            status_code=HTTPStatus.NOT_FOUND,
         )
         client.post_status_update("", "", [], job_id)
         assert "Unable to post status updates" in caplog.text
@@ -291,3 +336,471 @@ class TestClient:
 
         data = client.get_agent_data("test_agent")
         assert data == agent_data
+
+    def test_agent_registration_and_cookie_workflow(
+        self, client, requests_mock
+    ):
+        """Test agent registration and cookie workflow."""
+        # Step 1: Agent registers with server
+        agent_data = {
+            "state": "waiting",
+            "queues": ["test_queue"],
+            "location": "here",
+        }
+        requests_mock.post(
+            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            status_code=HTTPStatus.OK,
+            headers={
+                "Set-Cookie": (
+                    "agent_name=test_agent; HttpOnly; SameSite=Strict"
+                )
+            },
+        )
+        # Registration call (from _post_initial_agent_data in agent.py)
+        client.post_agent_data(agent_data)
+        assert requests_mock.called
+
+        # Step 2: Agent requests a job and should include the cookie
+        fake_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test_queue",
+            "exclude_agents": [],
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            json={},  # "restricted_to": {}},
+        )
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job",
+            json=fake_job_data,
+            headers={
+                "Set-Cookie": (
+                    "agent_name=test_agent; HttpOnly; SameSite=Strict"
+                )
+            },
+        )
+
+        # Session should automatically handle cookies after first response
+        # The session persists cookies across requests
+        job_data = client.check_jobs()
+        assert job_data == fake_job_data
+
+        # Verify the session made the request (session handles cookies)
+        assert requests_mock.last_request.method == "GET"
+        assert "/v1/job" in requests_mock.last_request.url
+
+    def test_check_jobs_without_agent_registration_reregisters(
+        self, client, requests_mock
+    ):
+        """
+        Test that check_jobs handles 401 (no agent_name cookie) by
+        re-registering the agent and returning None.
+        """
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job",
+            status_code=HTTPStatus.UNAUTHORIZED,
+            json={"message": "Agent not identified"},
+        )
+        requests_mock.post(
+            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            status_code=HTTPStatus.OK,
+        )
+
+        # check_jobs should handle 401 by re-registering and returning None
+        result = client.check_jobs()
+        assert result is None
+
+        # Verify that post_agent_data was called for re-registration, i.e.
+        # the POST /agents/data/<agent_name> endpoint was called, once.
+        post_requests = [
+            req
+            for req in requests_mock.request_history
+            if req.method == "POST"
+        ]
+        assert len(post_requests) == 1
+        assert post_requests[0].json() == {"job_id": ""}
+
+    def test_check_jobs_request_exception(self, client):
+        """
+        Test that check_jobs handles RequestException (network failure)
+        by logging error and sleeping.
+        """
+        network_error = RequestException("Connection refused")
+
+        with patch.object(client.session, "get", side_effect=network_error):
+            with patch("testflinger_agent.client.logger") as mock_logger:
+                with patch(
+                    "testflinger_agent.client.time.sleep"
+                ) as mock_sleep:
+                    result = client.check_jobs()
+
+        # Verify logger.error was called with the exception
+        mock_logger.error.assert_called_with(network_error)
+        # Verify time.sleep(60) was called
+        mock_sleep.assert_called_with(60)
+        # Verify None is returned (no job available after network error)
+        assert result is None
+
+    def test_missing_token_file(self, client, requests_mock):
+        """Test that agent handles missing token file gracefully."""
+        client.config["token_file"] = "/wrong/path/token"  # noqa: S105
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+
+        # Should return None and not raise an exception
+        result = client.check_jobs()
+        assert result is None
+
+    def test_get_job_fails_token_invalid(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test no job is returned if refresh token is invalid."""
+        # Create a token file with an invalid refresh token
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(
+            json.dumps({"refresh_token": "invalid-token"})  # noqa: S106
+        )
+        client.config["token_file"] = str(token_file)
+
+        # Mock the refresh endpoint to return BAD_REQUEST for invalid token
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            status_code=HTTPStatus.BAD_REQUEST,
+            json={"message": "Invalid refresh token."},
+        )
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+
+        result = client.check_jobs()
+        assert result is None
+
+    def test_get_job_success_on_valid_token(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test that job data is returned on valid token."""
+        # Create a valid token file
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        # Mock refresh endpoint to return valid access token
+        fake_access_token = "valid-access-token"  # noqa: S105
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            json={"access_token": fake_access_token},
+        )
+        # Mock post agent data endpoint for retrieving session cookie
+        requests_mock.post(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"job_id": ""},
+        )
+        # Mock agent data endpoint
+        requests_mock.get(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        # Mock job endpoint with job data
+        fake_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test_queue",
+        }
+        requests_mock.get(
+            f"{client.server}/v1/job",
+            json=fake_job_data,
+        )
+
+        result = client.check_jobs()
+        assert result == fake_job_data
+
+        # Verify Authorization header was set
+        job_request = [
+            r for r in requests_mock.request_history if "/v1/job" in r.url
+        ][0]
+        auth_header = job_request.headers.get("Authorization")
+        assert auth_header == f"Bearer {fake_access_token}"
+
+    def test_get_job_incorrect_role(self, client, requests_mock, tmp_path):
+        """Test that no job is returned if access token has incorrect role."""
+        # Create a valid token file
+        token_file = tmp_path / "token"
+        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        # Mock refresh endpoint to return valid access token
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            json={"access_token": "test-access-token"},
+        )
+        # Mock post agent data endpoint for retrieving session cookie
+        requests_mock.post(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"job_id": ""},
+        )
+        # Mock agent data endpoint
+        requests_mock.get(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        # Mock job endpoint to return forbidden due to incorrect role
+        requests_mock.get(
+            f"{client.server}/v1/job",
+            status_code=HTTPStatus.FORBIDDEN,
+            json={"message": "Specified action requires role: agent"},
+        )
+
+        result = client.check_jobs()
+        assert result is None
+
+    def test_malformed_token_file(self, client, requests_mock, tmp_path):
+        """Test that agent handles malformed JSON in token file gracefully."""
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text("not valid json{{{")
+        client.config["token_file"] = str(token_file)
+
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+
+        # Should return None and not raise an exception
+        result = client.check_jobs()
+        assert result is None
+
+    def test_get_access_token_raises_on_bad_request(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test that get_access_token raises InvalidTokenError on 400 error."""
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(json.dumps({"refresh_token": "invalid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        # Mock the refresh endpoint to return BAD_REQUEST
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            status_code=HTTPStatus.BAD_REQUEST,
+            json={"message": "Invalid refresh token."},
+        )
+
+        with pytest.raises(InvalidTokenError):
+            client.get_access_token()
+
+    def test_get_access_token_returns_none_on_server_error(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test that a non-400 HTTP error returns None."""
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+        )
+
+        result = client.get_access_token()
+        assert result is None
+
+    def test_get_access_token_refresh_network_error(
+        self, client, requests_mock, tmp_path, caplog
+    ):
+        """Test that a network error during token refresh is handled."""
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        # Mock the refresh endpoint to raise a connection error
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            exc=RequestException("Connection refused"),
+        )
+        requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+
+        result = client.check_jobs()
+        assert result is None
+        assert "Failed to refresh access token" in caplog.text
+
+    def test_get_job_missing_token_header(self, client, requests_mock):
+        """Test no job is returned if access token is missing from header."""
+        # No token file configured, so no Authorization header will be set
+        client.config["token_file"] = None
+
+        # Mock agent data endpoint
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        requests_mock.get(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        # Mock job endpoint to return as no access token provided in header
+        requests_mock.get(
+            f"{client.server}/v1/job",
+            status_code=HTTPStatus.UNAUTHORIZED,
+            json={
+                "message": "Authentication is required for specified endpoint"
+            },
+        )
+
+        result = client.check_jobs()
+        assert result is None
+
+    def test_update_session_auth_headers(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test authentication headers gets updated on new access token."""
+        # Create a valid token file
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        first_access_token = "access-token-1"  # noqa: S105
+        second_access_token = "access-token-2"  # noqa: S105
+
+        # Mock refresh endpoint to return different tokens on each call
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            [
+                {"json": {"access_token": first_access_token}},
+                {"json": {"access_token": second_access_token}},
+            ],
+        )
+        # Mock post agent data endpoint for retrieving session cookie
+        requests_mock.post(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"job_id": ""},
+        )
+        # Mock agent data endpoint
+        requests_mock.get(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        # Mock job endpoint
+        requests_mock.get(
+            f"{client.server}/v1/job",
+            json={},
+        )
+
+        # First call should set the header with the first access token
+        client.check_jobs()
+        assert (
+            client.session.headers["Authorization"]
+            == f"Bearer {first_access_token}"
+        )
+
+        # Second call should update the header with the new access token
+        client.check_jobs()
+        assert (
+            client.session.headers["Authorization"]
+            == f"Bearer {second_access_token}"
+        )
+
+    def test_update_session_auth_refreshes_cookies(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test session cookies are refreshed when empty."""
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            json={"access_token": "test-token"},  # noqa: S106
+        )
+        requests_mock.post(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"job_id": ""},
+        )
+
+        # Cookies are empty, so post_agent_data should be called
+        assert not client.session.cookies
+        client._update_session_auth()
+
+        # Verify the post to agent data was made for cookie refresh
+        agent_data_calls = [
+            request
+            for request in requests_mock.request_history
+            if request.method == "POST"
+            and "/v1/agents/data/test_agent" in request.url
+        ]
+        assert len(agent_data_calls) == 1
+
+    def test_update_session_auth_skips_cookie_refresh(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test session skips cookie refresh when cookies already exist."""
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            json={"access_token": "test-token"},  # noqa: S106
+        )
+
+        # Pre-populate session cookies so post_agent_data is skipped
+        client.session.cookies.set("session", "existing-cookie")
+        client._update_session_auth()
+
+        # Verify no post to agent data was made
+        agent_data_calls = [
+            request
+            for request in requests_mock.request_history
+            if request.method == "POST"
+            and "/v1/agents/data/test_agent" in request.url
+        ]
+        assert len(agent_data_calls) == 0
+
+    @pytest.mark.parametrize(
+        "log_type", [LogType.STANDARD_OUTPUT, LogType.SERIAL_OUTPUT]
+    )
+    def test_post_log_success(self, client, requests_mock, log_type):
+        job_id = str(uuid.uuid4())
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/result/{job_id}/log/{log_type}",
+            status_code=HTTPStatus.OK,
+        )
+        log_input = LogEndpointInput(
+            fragment_number=0,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            phase="test",
+            log_data="output_log_data",
+        )
+        assert client.post_log(job_id, log_input, log_type) is True
+
+    @pytest.mark.parametrize(
+        "log_type", [LogType.STANDARD_OUTPUT, LogType.SERIAL_OUTPUT]
+    )
+    def test_post_log_failure_server_error(
+        self, client, requests_mock, log_type
+    ):
+        job_id = str(uuid.uuid4())
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/result/{job_id}/log/{log_type}",
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+        )
+        log_input = LogEndpointInput(
+            fragment_number=0,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            phase="test",
+            log_data="output_log_data",
+        )
+        assert client.post_log(job_id, log_input, log_type) is False
+
+    @pytest.mark.parametrize(
+        "log_type", [LogType.STANDARD_OUTPUT, LogType.SERIAL_OUTPUT]
+    )
+    def test_post_log_failure_request_exception(
+        self, client, requests_mock, log_type
+    ):
+        job_id = str(uuid.uuid4())
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/result/{job_id}/log/{log_type}",
+            exc=RequestException("connection error"),
+        )
+        log_input = LogEndpointInput(
+            fragment_number=0,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            phase="test",
+            log_data="output_log_data",
+        )
+        assert client.post_log(job_id, log_input, log_type) is False

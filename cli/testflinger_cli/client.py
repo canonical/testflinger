@@ -20,13 +20,20 @@ import base64
 import json
 import logging
 import sys
+import time
 import urllib.parse
 from http import HTTPStatus
 from pathlib import Path
 
 import requests
 
+from testflinger_cli.enums import LogType, TestPhase
+from testflinger_cli.errors import VPNError
+
 logger = logging.getLogger(__name__)
+
+# Maximum backoff delay in seconds
+MAX_BACKOFF_TIME = 60
 
 
 class HTTPError(Exception):
@@ -54,27 +61,26 @@ class Client:
         """
         try:
             error_json = req.json()
-            error_message = error_json.get("message", req.text)
+        except ValueError as exc:
+            # If server sent 403 without JSON object, this means that request
+            # was aborted by a VPN issue rather than an actual server response
+            if req.status_code == HTTPStatus.FORBIDDEN:
+                raise VPNError from exc
 
-            # For schema validation errors, try to get detailed error info
-            if (
-                req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-                and "detail" in error_json
-            ):
-                detail = error_json["detail"]
-                if isinstance(detail, dict) and "json" in detail:
-                    validation_errors = detail["json"]
-                    error_details = ", ".join(
-                        [
-                            f"{field}: {msg}"
-                            for field, msg in validation_errors.items()
-                        ]
-                    )
-                    error_message = f"{error_message} - {error_details}"
+            # Raise HTTPError with clear text message if any other ValueError
+            raise HTTPError(status=req.status_code, msg=req.text) from exc
 
-        except ValueError:
-            # Return clear text if output is not JSON
-            error_message = req.text
+        # flask `abort` returns a JSON object with error message
+        error_message = error_json.get("message", req.text)
+        # For schema validation errors, try to get detailed error info
+        if req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY and (
+            validation_errors := error_json.get("detail", {}).get("json", {})
+        ):
+            error_details = ", ".join(
+                f"{field}: {msg}" for field, msg in validation_errors.items()
+            )
+            error_message = f"{error_message} - {error_details}"
+
         raise HTTPError(status=req.status_code, msg=error_message)
 
     def get(
@@ -100,6 +106,9 @@ class Client:
                     self.error_count,
                     exc,
                 )
+            # Exponential backoff before re-raising exception
+            backoff_delay = min(2**self.error_count, MAX_BACKOFF_TIME)
+            time.sleep(backoff_delay)
             raise
         # If request was not successful, raise HTTPError with parsed response
         if req.status_code != HTTPStatus.OK:
@@ -228,19 +237,28 @@ class Client:
                 raise
             response.raise_for_status()
 
-    def get_status(self, job_id):
+    def get_status(self, job_id: str) -> dict:
         """Get the status of a test job.
 
-        :param job_id:
-            ID for the test job
-        :return:
-            String containing the job_state for the specified ID
-            (waiting, setup, provision, test, reserved, released,
-             cancelled, completed)
+        :param job_id: ID for the test job
+        :return: data containing the job state and each test phase status
         """
         endpoint = "/v1/result/{}".format(job_id)
         data = json.loads(self.get(endpoint))
-        return data.get("job_state")
+        job_status = {
+            phase.value: data.get(f"{phase.value}_status")
+            for phase in TestPhase
+        }
+        job_status["job_state"] = data.get("job_state")
+        return job_status
+
+    def get_all_agents(self) -> list[dict]:
+        """Get all agents and their data.
+
+        :return: List of dicts containing all agent data.
+        """
+        endpoint = "/v1/agents/data"
+        return json.loads(self.get(endpoint))
 
     def get_agent_data(self, agent_name: str) -> dict:
         """Get all the data for a specified agent.
@@ -264,18 +282,6 @@ class Client:
             {"name": agent["name"], "status": agent["state"]} for agent in data
         ]
         return agents_status
-
-    def post_job_state(self, job_id, state):
-        """Post the status of a test job.
-
-        :param job_id:
-            ID for the test job
-        :param state:
-            Job state to set for the specified job
-        """
-        endpoint = "/v1/result/{}".format(job_id)
-        data = {"job_state": state}
-        self.post(endpoint, data)
 
     def submit_job(self, data: dict, headers: dict = None) -> str:
         """Submit a test job to the testflinger server.
@@ -329,13 +335,14 @@ class Client:
         endpoint = f"/v1/job/{job_id}/attachments"
         self.put_file(endpoint, path, timeout=timeout)
 
-    def show_job(self, job_id):
-        """Show the JSON job definition for the specified ID.
+    def get_job_data(self, job_id: str) -> dict:
+        """Get the JSON job definition for the specified ID.
 
-        :param job_id:
-            ID for the test job
-        :return:
-            JSON job definition for the specified ID
+        Retrieves the job definition containing job state, timeouts, and
+        provisioning/reserve configuration data.
+
+        :param job_id: ID for the test job
+        :return: JSON job definition for the specified ID
         """
         endpoint = "/v1/job/{}".format(job_id)
         return json.loads(self.get(endpoint))
@@ -369,27 +376,32 @@ class Client:
                 if chunk:
                     artifact.write(chunk)
 
-    def get_output(self, job_id):
-        """Get the latest output for a specified test job.
+    def get_logs(
+        self,
+        job_id: str,
+        log_type: LogType,
+        phase: TestPhase,
+        start_fragment: int,
+        start_timestamp: str,
+    ) -> dict:
+        """Get the latest output/serial output for a specified test job.
 
-        :param job_id:
-            ID for the test job
-        :return:
-            String containing the latest output from the job
+        :param job_id: ID for the test job
+        :param log_type: Enum representing normal output or serial output
+        :param phase: Phase to retrieve logs for
+        :param start_fragment: First log fragment to start from
+        :param start_timestamp: Timestamp to start retrieving logs from
+        :return: Combined log fragments and latest fragment number.
         """
-        endpoint = "/v1/result/{}/output".format(job_id)
-        return self.get(endpoint)
-
-    def get_serial_output(self, job_id):
-        """Get the latest serial output for a specified test job.
-
-        :param job_id:
-            ID for the test job
-        :return:
-            String containing the latest serial output from the job
-        """
-        endpoint = "/v1/result/{}/serial_output".format(job_id)
-        return self.get(endpoint)
+        endpoint = f"/v1/result/{job_id}/log/{log_type.value}"
+        params = {"start_fragment": start_fragment}
+        if start_timestamp is not None:
+            params["start_timestamp"] = start_timestamp.isoformat()
+        if phase is not None:
+            params["phase"] = phase
+        encoded_params = urllib.parse.urlencode(params)
+        complete_url_frag = f"{endpoint}?{encoded_params}"
+        return json.loads(self.get(complete_url_frag))
 
     def get_job_position(self, job_id):
         """Get the status of a test job.
@@ -414,7 +426,7 @@ class Client:
 
     def get_images(self, queue):
         """Get the advertised images from the testflinger server."""
-        endpoint = "/v1/agents/images/" + queue
+        endpoint = f"/v1/agents/images/{queue}"
         data = self.get(endpoint)
         try:
             return json.loads(data)
@@ -447,24 +459,15 @@ class Client:
         data = {"state": status, "comment": comment}
         self.post(endpoint, data)
 
-    def create_client_permissions(self, auth_header: dict, json_data: dict):
-        """Create new client_id with specified permissions.
-
-        :param auth_header: Auth header required to perform POST request
-        :param json_data: JSON with all client permissions
-        """
-        endpoint = "/v1/client-permissions"
-        self.post(endpoint, data=json_data, headers=auth_header)
-
-    def edit_client_permissions(self, auth_header: dict, json_data: dict):
-        """Edit existing client_id permissions.
+    def set_client_permissions(self, auth_header: dict, json_data: dict):
+        """Set existing client_id permissions.
 
         :param auth_header: Auth header required to perform PUT request
         :param json_data: JSON with updated client permissions
         """
         client_id = json_data.pop("client_id")
         endpoint = f"/v1/client-permissions/{client_id}"
-        self.put(endpoint, data=json_data, headers=auth_header)
+        return self.put(endpoint, data=json_data, headers=auth_header)
 
     def get_client_permissions(
         self, auth_header: dict, tf_client_id: str | None = None

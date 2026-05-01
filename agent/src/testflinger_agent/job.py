@@ -14,16 +14,25 @@
 
 import json
 import logging
-import os
 import time
 from pathlib import Path
 from typing import Optional
 
-from testflinger_agent.errors import TFServerError
+from testflinger_common.enums import TestPhase
 
-from .handlers import LiveOutputHandler, LogUpdateHandler
-from .runner import CommandRunner, RunnerEvents
-from .stop_condition_checkers import (
+from testflinger_agent.errors import TFServerError
+from testflinger_agent.handlers import (
+    FileLogHandler,
+    OutputLogHandler,
+    SerialLogHandler,
+)
+from testflinger_agent.masking import Masker
+from testflinger_agent.runner import (
+    CommandRunner,
+    MaskingCommandRunner,
+    RunnerEvents,
+)
+from testflinger_agent.stop_condition_checkers import (
     GlobalTimeoutChecker,
     JobCancelledChecker,
     OutputTimeoutChecker,
@@ -36,6 +45,9 @@ class TestflingerJob:
     __test__ = False
     """This prevents pytest from trying to run this class as a test."""
 
+    # secrets are masked with a hash of this length
+    _hash_length: int = 6
+
     def __init__(self, job_data, client):
         """
         :param job_data:
@@ -47,6 +59,34 @@ class TestflingerJob:
         self.job_data = job_data
         self.job_id = job_data.get("job_id")
         self.phase = "unknown"
+        self.live_output_handler = OutputLogHandler(
+            self.client, self.job_id, self.phase
+        )
+        self.serial_output_handler = SerialLogHandler(
+            self.client, self.job_id, self.phase
+        )
+
+    def get_runner(self, rundir: str, phase: TestPhase):
+        try:
+            secrets = self.job_data[f"{phase}_data"]["secrets"]
+        except KeyError:
+            return CommandRunner(cwd=rundir, env=self.client.config)
+
+        # inject phase secrets into the environment
+        environment = {
+            **self.client.config,
+            **secrets,
+        }
+        # remove phase secrets from the job data
+        del self.job_data[f"{phase}_data"]["secrets"]
+
+        return MaskingCommandRunner(
+            cwd=rundir,
+            env=environment,
+            masker=Masker(
+                patterns=list(secrets.values()), hash_length=self._hash_length
+            ),
+        )
 
     def run_test_phase(self, phase, rundir):
         """Run the specified test phase in rundir.
@@ -60,7 +100,7 @@ class TestflingerJob:
             if there was no command to run
         """
         self.phase = phase
-        cmd = self.client.config.get(phase + "_command")
+        cmd = self.client.config.get(f"{phase}_command")
         node = self.client.config.get("agent_id")
         if not cmd:
             logger.info("No %s_command configured, skipping...", phase)
@@ -82,23 +122,17 @@ class TestflingerJob:
                     "Skipping %s phase as requested in job data", phase
                 )
                 return 0, None, None
-        results_file = os.path.join(rundir, "testflinger-outcome.json")
-        output_log = os.path.join(rundir, phase + ".log")
-        serial_log = os.path.join(rundir, phase + "-serial.log")
+        results_file = Path(rundir) / "testflinger-outcome.json"
+        output_log = Path(rundir) / f"{phase}.log"
+        serial_log = Path(rundir) / f"{phase}-serial.log"
 
         logger.info("Running %s_command: %s", phase, cmd)
-        output_polling_interval = self.client.config.get(
-            "output_polling_interval", 10.0
-        )
-        runner = CommandRunner(
-            cwd=rundir,
-            env=self.client.config,
-            output_polling_interval=output_polling_interval,
-        )
-        output_log_handler = LogUpdateHandler(output_log)
-        live_output_handler = LiveOutputHandler(self.client, self.job_id)
-        runner.register_output_handler(output_log_handler)
-        runner.register_output_handler(live_output_handler)
+        runner = self.get_runner(rundir, phase)
+        output_file_handler = FileLogHandler(output_log)
+        self.live_output_handler.phase = phase
+        self.serial_output_handler.phase = phase
+        runner.register_output_handler(output_file_handler)
+        runner.register_output_handler(self.live_output_handler)
 
         # Reserve phase uses a separate timeout handler
         if phase != "reserve":
@@ -155,45 +189,47 @@ class TestflingerJob:
             exitcode = 100
             exit_reason = str(exc)  # noqa: F841 - ignore this until it's used
         finally:
+            # Write serial log file generated in device connector to
+            # the serial log endpoint if the file exists
+            self.serial_output_handler.write_from_file(serial_log)
             self._update_phase_results(
-                results_file, phase, exitcode, output_log, serial_log
+                results_file,
+                phase,
+                exitcode,
             )
         if phase == "allocate":
             self.allocate_phase(rundir)
         return exitcode, exit_event, exit_reason
 
     def _update_phase_results(
-        self, results_file, phase, exitcode, output_log, serial_log
+        self, results_file: Path, phase: str, exitcode: int
     ):
         """Update the results file with the results of the specified phase.
 
-        :param results_file:
-            Path to the results file
-        :param phase:
-            Name of the phase
-        :param exitcode:
-            Exitcode from the device agent
-        :param output_log:
-            Path to the output log file
-        :param serial_log:
-            Path to the serial log file
+        This also sends the phase results to the server.
+
+        :param results_file: Path to the results file
+        :param phase: Name of the phase to report results for
+        :param exitcode: Exit code from the phase
         """
-        # the default for `output_bytes` when it is not explicitly set
-        # in the agent config is specified in the config schema
-        max_log_size = self.client.config["output_bytes"]
-        with open(results_file, "r+") as results:
+        # Store phase status results in file first to accumulate all statuses
+        with results_file.open("r+") as results:
             outcome_data = json.load(results)
-            if os.path.exists(output_log):
-                outcome_data[phase + "_output"] = read_truncated(
-                    output_log, size=max_log_size
-                )
-            if os.path.exists(serial_log):
-                outcome_data[phase + "_serial"] = read_truncated(
-                    serial_log, max_log_size
-                )
-            outcome_data[phase + "_status"] = exitcode
+            phase_status = outcome_data.setdefault("status", {})
+            phase_status[phase] = exitcode
             results.seek(0)
             json.dump(outcome_data, results)
+
+        # Send cumulative phase status to server
+        try:
+            self.client.post_result(self.job_id, outcome_data)
+        except TFServerError as exc:
+            logger.warning(
+                "Failed to post %s phase results for job %s: %s",
+                phase,
+                self.job_id,
+                exc,
+            )
 
     def allocate_phase(self, rundir):
         """
@@ -289,26 +325,3 @@ class TestflingerJob:
                 return None
 
         return None
-
-
-def read_truncated(filename: str, size: int) -> str:
-    """Return a string corresponding to the last bytes of a text file.
-
-    Include a warning message at the end of the returned value if the file
-    has been truncated.
-
-    :param filename:
-        The name of the text file
-    :param size:
-        Maximum number of bytes to be read from the end of the file
-        (overrides default `output_bytes` value in the agent config)
-    """
-    with open(filename, "r", encoding="utf-8", errors="ignore") as file:
-        end = file.seek(0, 2)
-        if end > size:
-            file.seek(end - size, 0)
-            return file.read() + (
-                f"\nWARNING: File truncated to its last {size} bytes!"
-            )
-        file.seek(0, 0)
-        return file.read()

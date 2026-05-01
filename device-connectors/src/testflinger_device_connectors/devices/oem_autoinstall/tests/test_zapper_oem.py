@@ -30,6 +30,7 @@ class ZapperOemTests(unittest.TestCase):
         if config is None:
             config = {
                 "device_ip": "192.168.1.100",
+                "control_host": "zapper-host",
                 "reboot_script": "snmp 1.2.3.4.5.6.7",
             }
         return ZapperOem(config)
@@ -50,6 +51,7 @@ class ZapperOemTests(unittest.TestCase):
             "zapper_iso_url": "http://example.com/image.iso",
             "zapper_iso_type": "bootstrap",
             "device_ip": "192.168.1.100",
+            "update_user_data": False,
             "username": "ubuntu",
             "password": "insecure",
             "reboot_script": "snmp 1.2.3.4.5.6.7",
@@ -105,6 +107,7 @@ class ZapperOemTests(unittest.TestCase):
             "zapper_iso_url": "http://example.com/image.iso",
             "zapper_iso_type": "stock",
             "device_ip": "192.168.1.100",
+            "update_user_data": False,
             "username": "testuser",
             "password": "testpass",
             "reboot_script": "snmp 1.2.3.4.5.6.7",
@@ -142,7 +145,8 @@ class ZapperOemTests(unittest.TestCase):
 
     def test_validate_configuration_missing_device_ip(self):
         """Test _validate_configuration with missing device_ip."""
-        device = self._create_device(config={})  # Empty config
+        # Config with control_host but missing device_ip
+        device = self._create_device(config={"control_host": "zapper-host"})
         device.job_data = {
             "provision_data": {
                 "zapper_iso_url": "http://example.com/image.iso",

@@ -1,0 +1,2680 @@
+# Copyright (C) 2022 Canonical
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+"""Unit tests for testflinger-cli."""
+
+import io
+import json
+import os
+import re
+import sys
+import tarfile
+import time
+import uuid
+from http import HTTPStatus
+from pathlib import Path
+from unittest.mock import patch
+
+import jwt
+import pytest
+import requests
+import requests_mock as rmock
+from requests_mock import Mocker
+
+import testflinger_cli
+from testflinger_cli.client import HTTPError
+from testflinger_cli.enums import LogType
+from testflinger_cli.errors import (
+    InvalidJobIdError,
+    NetworkError,
+    NoJobDataError,
+)
+
+URL = "https://testflinger.canonical.com"
+
+
+def test_status(capsys, requests_mock):
+    """Status should report job_state data."""
+    jobid = str(uuid.uuid1())
+    fake_return = {"job_state": "completed"}
+    requests_mock.get(f"{URL}/v1/result/{jobid}", json=fake_return)
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.status()
+    std = capsys.readouterr()
+    assert std.out == "completed\n"
+
+
+def test_cancel_503(requests_mock):
+    """Cancel should fail loudly if cancel action returns 503."""
+    jobid = str(uuid.uuid1())
+    requests_mock.post(
+        f"{URL}/v1/job/{jobid}/action",
+        status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+    )
+    sys.argv = ["", "cancel", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(HTTPError) as err:
+        tfcli.cancel()
+    assert err.value.status == 503
+
+
+def test_cancel(requests_mock):
+    """Cancel should fail if /v1/job/<job_id>/action URL returns 400 code."""
+    jobid = str(uuid.uuid1())
+    requests_mock.post(
+        f"{URL}/v1/job/{jobid}/action",
+        status_code=HTTPStatus.BAD_REQUEST,
+    )
+    sys.argv = ["", "cancel", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as err:
+        tfcli.cancel()
+    assert "already complete/cancelled" in err.value.args[0]
+
+
+def test_submit(capsys, tmp_path, requests_mock, auth_fixture):
+    """Make sure jobid is read back from submitted job."""
+    auth_fixture("user")
+    jobid = str(uuid.uuid1())
+    fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+    sys.argv = ["", "submit", str(testfile)]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.submit()
+    std = capsys.readouterr()
+    assert jobid in std.out
+
+
+def test_submit_some_agents_excluded(
+    capsys, tmp_path, requests_mock, auth_fixture
+):
+    """
+    Make sure job is submitted if there is at least one available agent with
+    excluded_agents specified.
+    """
+    auth_fixture("user")
+    jobid = str(uuid.uuid1())
+    fake_data = {
+        "job_queue": "fake",
+        "provision_data": {"distro": "fake"},
+        "exclude_agents": ["fake_agent"],
+    }
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[
+            {"name": "fake_agent", "state": "waiting"},
+            {"name": "fake_agent_2", "state": "waiting"},
+        ],
+    )
+    sys.argv = ["", "submit", str(testfile)]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.run()
+    std = capsys.readouterr()
+    assert jobid in std.out
+
+
+def test_submit_exclude_agents_is_a_list(
+    capsys, tmp_path, requests_mock, auth_fixture
+):
+    """Make sure proper error is generated if exclude_agents is not a list."""
+    auth_fixture("user")
+    jobid = str(uuid.uuid1())
+    fake_data = {
+        "job_queue": "fake",
+        "provision_data": {"distro": "fake"},
+        "exclude_agents": "fake_agent",
+    }
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[
+            {"name": "fake_agent", "state": "waiting"},
+            {"name": "fake_agent_2", "state": "waiting"},
+        ],
+    )
+    sys.argv = ["", "submit", str(testfile)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as err:
+        tfcli.run()
+    assert (
+        "Error: exclude_agents must be a list if provided." in err.value.code
+    )
+
+
+def test_submit_stdin(capsys, monkeypatch, requests_mock, auth_fixture):
+    """Make sure jobid is read back from submitted job via stdin."""
+    auth_fixture("user")
+    jobid = str(uuid.uuid1())
+    fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(fake_data)))
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+    sys.argv = ["", "submit", "-"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.submit()
+    std = capsys.readouterr()
+    assert jobid in std.out
+
+
+def test_submit_bad_data(tmp_path, requests_mock, auth_fixture):
+    """Ensure a 422 response from bad data shows the returned errors."""
+    auth_fixture("user")
+    fake_data = {"badkey": "badvalue", "job_queue": "fake"}
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+    # return 422 and "expected error"
+    requests_mock.post(
+        f"{URL}/v1/job",
+        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        text="expected error",
+    )
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+    sys.argv = ["", "submit", str(testfile)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as err:
+        tfcli.submit()
+    assert (
+        "Unexpected error status from testflinger server: [422] expected error"
+        in err.value.code
+    )
+
+
+def test_pack_attachments(tmp_path):
+    """Make sure attachments are packed correctly."""
+    attachments = [
+        Path() / "file_0.bin",
+        Path() / "folder" / "file_1.bin",
+    ]
+    attachment_path = tmp_path / "attachments"
+
+    # create attachment files in the attachment path
+    for file in attachments:
+        attachment = attachment_path / file
+        attachment.parent.mkdir(parents=True)
+        attachment.write_bytes(os.urandom(128))
+
+    attachment_data = {
+        "test": [
+            {
+                # relative local file path
+                "local": str(attachments[0])
+            },
+            {
+                # relative local file path in folder
+                "local": str(attachments[1])
+            },
+            {
+                # absolute local file path, agent path in folder
+                "local": str((attachment_path / attachments[0]).resolve()),
+                "agent": "folder/file_2.bin",
+            },
+            {
+                # relative local path is a directory
+                "local": str(attachments[1].parent),
+                "agent": "folder/deeper/",
+            },
+            {
+                # agent path is absolute (stripped, becomes relative)
+                "local": str(attachments[0]),
+                "agent": "/file_3.bin",
+            },
+        ]
+    }
+
+    # the job.yaml is also in the attachments path
+    # (and relative attachment paths are interpreted in relation to that)
+    sys.argv = ["", "submit", f"{attachment_path}/job.yaml"]
+    tfcli = testflinger_cli.TestflingerCli()
+    archive = tmp_path / "attachments.tar.gz"
+    tfcli.pack_attachments(archive, attachment_data)
+
+    with tarfile.open(archive) as archive:
+        filenames = archive.getnames()
+        print(filenames)
+        assert "test/file_0.bin" in filenames
+        assert "test/folder/file_1.bin" in filenames
+        assert "test/folder/file_2.bin" in filenames
+        assert "test/folder/deeper/file_1.bin" in filenames
+        assert "test/file_3.bin" in filenames
+
+
+def test_pack_attachments_with_reference(tmp_path):
+    """Make sure attachments are packed correctly when using a reference."""
+    attachments = [
+        Path() / "file_0.bin",
+        Path() / "folder" / "file_1.bin",
+    ]
+    attachment_path = tmp_path / "attachments"
+
+    # create attachment files
+    for file in attachments:
+        attachment = attachment_path / file
+        attachment.parent.mkdir(parents=True)
+        attachment.write_bytes(os.urandom(128))
+
+    attachment_data = {
+        "test": [
+            {
+                # relative local file path
+                "local": str(attachments[0])
+            },
+            {
+                # relative local file path in folder
+                "local": str(attachments[1])
+            },
+            {
+                # absolute local file path, agent path in folder
+                "local": str((attachment_path / attachments[0]).resolve()),
+                "agent": "folder/file_2.bin",
+            },
+            {
+                # relative local path is a directory
+                "local": str(attachments[1].parent),
+                "agent": "folder/deeper/",
+            },
+            {
+                # agent path is absolute (stripped, becomes relative)
+                "local": str(attachments[0]),
+                "agent": "/file_3.bin",
+            },
+        ]
+    }
+
+    # the job.yaml is in the tmp_path
+    # (so packing the attachments with fail without specifying that
+    # attachments are relative to the attachments path)
+    sys.argv = ["", "submit", f"{tmp_path}/job.yaml"]
+    tfcli = testflinger_cli.TestflingerCli()
+    archive = tmp_path / "attachments.tar.gz"
+    with pytest.raises(FileNotFoundError):
+        # this fails because the job file is in `tmp_path` whereas
+        # attachments are in `tmp_path/attachments`
+        tfcli.pack_attachments(archive, attachment_data)
+
+    # the job.yaml is in the tmp_path
+    # (but now attachments are relative to the attachments path)
+    sys.argv = [
+        "",
+        "submit",
+        f"{tmp_path}/job.yaml",
+        "--attachments-relative-to",
+        f"{attachment_path}",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    archive = tmp_path / "attachments.tar.gz"
+    tfcli.pack_attachments(archive, attachment_data)
+
+    with tarfile.open(archive) as archive:
+        filenames = archive.getnames()
+        print(filenames)
+        assert "test/file_0.bin" in filenames
+        assert "test/folder/file_1.bin" in filenames
+        assert "test/folder/file_2.bin" in filenames
+        assert "test/folder/deeper/file_1.bin" in filenames
+        assert "test/file_3.bin" in filenames
+
+
+def test_submit_with_attachments(tmp_path, auth_fixture):
+    """Make sure jobs with attachments are submitted correctly."""
+    auth_fixture("user")
+    job_id = str(uuid.uuid1())
+    job_file = tmp_path / "test.json"
+    job_data = {
+        "job_queue": "fake",
+        "test_data": {
+            "attachments": [
+                {
+                    # include the submission JSON itself as a test attachment
+                    "local": str(job_file)
+                }
+            ]
+        },
+    }
+    job_file.write_text(json.dumps(job_data))
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with Mocker() as mocker:
+        # register auth endpoint
+        fake_payload = {
+            "permissions": {"client_id": "my_client_id", "role": "user"}
+        }
+        fake_jwt_token = jwt.encode(
+            fake_payload, "my-secret", algorithm="HS256"
+        )
+        fake_return = {
+            "access_token": fake_jwt_token,
+            "token_type": "Bearer",
+            "expires_in": 30,
+            "refresh_token": str(uuid.uuid4()),
+        }
+        mocker.post(f"{URL}/v1/oauth2/token", json=fake_return)
+        # register responses for job and attachment submission endpoints
+        mock_response = {"job_id": job_id}
+        mocker.post(f"{URL}/v1/job", json=mock_response)
+        mocker.post(f"{URL}/v1/job/{job_id}/attachments")
+        mocker.get(
+            f"{URL}/v1/queues/fake/agents",
+            json=[{"name": "fake_agent", "state": "waiting"}],
+        )
+
+        # use cli to submit the job (processes `sys.argv` for arguments)
+        tfcli.submit()
+
+        # check the request history to confirm that there is a request to:
+        # - the queues endpoint
+        # - the oauth2/token endpoint
+        # - the job submission endpoint
+        # - the attachment submission endpoint
+        history = mocker.request_history
+        assert len(history) == 4
+        assert history[0].path == "/v1/queues/fake/agents"
+        assert history[1].path == "/v1/oauth2/token"
+        assert history[2].path == "/v1/job"
+        assert history[3].path == f"/v1/job/{job_id}/attachments"
+
+        # extract the binary file data from the request
+        # (`requests_mock` only provides access to the `PreparedRequest`)
+        match = re.search(b"\r\n\r\n(.+)\r\n--", history[-1].body, re.DOTALL)
+        data = match.group(1)
+        # write the binary data to a file
+        with open("attachments.tar.gz", "wb") as attachments:
+            attachments.write(data)
+        # and check that the contents match the originals
+        with tarfile.open("attachments.tar.gz") as attachments:
+            filenames = attachments.getnames()
+            assert len(filenames) == 1
+            attachments.extract(filenames[0], filter="data")
+        with open(filenames[0], "r", encoding="utf-8") as attachment:
+            assert json.load(attachment) == job_data
+
+
+def test_submit_attachments_retries(tmp_path, auth_fixture):
+    """Check retries after unsuccessful attachment submissions."""
+    auth_fixture("user")
+    job_id = str(uuid.uuid1())
+    job_file = tmp_path / "test.json"
+    job_data = {
+        "job_queue": "fake",
+        "test_data": {
+            "attachments": [
+                {
+                    # include the submission JSON itself as a test attachment
+                    "local": str(job_file)
+                }
+            ]
+        },
+    }
+    job_file.write_text(json.dumps(job_data))
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.config.data["attachments_retry_wait"] = 1
+    tfcli.config.data["attachments_timeout"] = 2
+    tfcli.config.data["attachments_tries"] = 4
+
+    with Mocker() as mocker:
+        # register auth endpoint
+        fake_payload = {
+            "permissions": {"client_id": "my_client_id", "role": "user"}
+        }
+        fake_jwt_token = jwt.encode(
+            fake_payload, "my-secret", algorithm="HS256"
+        )
+        fake_return = {
+            "access_token": fake_jwt_token,
+            "token_type": "Bearer",
+            "expires_in": 30,
+            "refresh_token": str(uuid.uuid4()),
+        }
+        mocker.post(f"{URL}/v1/oauth2/token", json=fake_return)
+        # register responses for job and attachment submission endpoints
+        mock_response = {"job_id": job_id}
+        mocker.post(f"{URL}/v1/job", json=mock_response)
+        mocker.post(
+            f"{URL}/v1/job/{job_id}/attachments",
+            [
+                {"exc": requests.exceptions.ConnectionError},
+                {"exc": requests.exceptions.ConnectTimeout},
+                {"exc": requests.exceptions.ReadTimeout},
+                {"status_code": 200},
+            ],
+        )
+        mocker.get(
+            f"{URL}/v1/queues/fake/agents",
+            json=[{"name": "fake_agent", "state": "waiting"}],
+        )
+
+        # use cli to submit the job (processes `sys.argv` for arguments)
+        tfcli.submit()
+
+        # check the request history to confirm that:
+        # - there is a request to the queues endpoint
+        # - there is a request to the oauth2/token endpoint
+        # - there is a request to the job submission endpoint
+        # - there are repeated requests to the attachment submission endpoint
+        history = mocker.request_history
+        assert len(history) == 7
+        assert history[0].path == "/v1/queues/fake/agents"
+        assert history[1].path == "/v1/oauth2/token"
+        assert history[2].path == "/v1/job"
+        for entry in history[3:]:
+            assert entry.path == f"/v1/job/{job_id}/attachments"
+
+
+def test_submit_attachments_no_retries(tmp_path, auth_fixture):
+    """Check no retries after attachment submission fails unrecoverably."""
+    auth_fixture("user")
+    job_id = str(uuid.uuid1())
+    job_file = tmp_path / "test.json"
+    job_data = {
+        "job_queue": "fake",
+        "test_data": {
+            "attachments": [
+                {
+                    # include the submission JSON itself as a test attachment
+                    "local": str(job_file)
+                }
+            ]
+        },
+    }
+    job_file.write_text(json.dumps(job_data))
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.config.data["attachments_tries"] = 2
+
+    with Mocker() as mocker:
+        # register auth endpoint
+        fake_payload = {
+            "permissions": {"client_id": "my_client_id", "role": "user"}
+        }
+        fake_jwt_token = jwt.encode(
+            fake_payload, "my-secret", algorithm="HS256"
+        )
+        fake_return = {
+            "access_token": fake_jwt_token,
+            "token_type": "Bearer",
+            "expires_in": 30,
+            "refresh_token": str(uuid.uuid4()),
+        }
+        mocker.post(f"{URL}/v1/oauth2/token", json=fake_return)
+        # register responses for job and attachment submission endpoints
+        mocker.post(f"{URL}/v1/job", json={"job_id": job_id})
+        mocker.post(
+            f"{URL}/v1/job/{job_id}/attachments", [{"status_code": 400}]
+        )
+        mocker.post(f"{URL}/v1/job/{job_id}/action", [{"status_code": 200}])
+        mocker.get(
+            f"{URL}/v1/queues/fake/agents",
+            json=[{"name": "fake_agent", "state": "waiting"}],
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            # use cli to submit the job (processes `sys.argv` for arguments)
+            tfcli.submit()
+            assert "failed to submit attachments" in exc_info.value
+
+        # check the request history to confirm that:
+        # - there is a request to the queues endpoint
+        # - there is a request to the oauth2/token endpoint
+        # - there is a request to the job submission endpoint
+        # - there is a single request to the attachment submission endpoint:
+        #   no retries
+        # - there is a final request to cancel the action
+        history = mocker.request_history
+        assert len(history) == 5
+        assert history[0].path == "/v1/queues/fake/agents"
+        assert history[1].path == "/v1/oauth2/token"
+        assert history[2].path == "/v1/job"
+        assert history[3].path == f"/v1/job/{job_id}/attachments"
+        assert history[4].path == f"/v1/job/{job_id}/action"
+
+
+def test_submit_attachments_timeout(tmp_path, auth_fixture):
+    """Make timeout after repeated attachment submission timeouts."""
+    auth_fixture("user")
+    job_id = str(uuid.uuid1())
+    job_file = tmp_path / "test.json"
+    job_data = {
+        "job_queue": "fake",
+        "test_data": {
+            "attachments": [
+                {
+                    # include the submission JSON itself as a test attachment
+                    "local": str(job_file)
+                }
+            ]
+        },
+    }
+    job_file.write_text(json.dumps(job_data))
+
+    sys.argv = ["", "submit", str(job_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.config.data["attachments_retry_wait"] = 1
+    tfcli.config.data["attachments_timeout"] = 2
+    tfcli.config.data["attachments_tries"] = 2
+
+    with Mocker() as mocker:
+        # register auth endpoint
+        fake_payload = {
+            "permissions": {"client_id": "my_client_id", "role": "user"}
+        }
+        fake_jwt_token = jwt.encode(
+            fake_payload, "my-secret", algorithm="HS256"
+        )
+        fake_return = {
+            "access_token": fake_jwt_token,
+            "token_type": "Bearer",
+            "expires_in": 30,
+            "refresh_token": str(uuid.uuid4()),
+        }
+        mocker.post(f"{URL}/v1/oauth2/token", json=fake_return)
+        # register responses for job and attachment submission endpoints
+        mock_response = {"job_id": job_id}
+        mocker.post(f"{URL}/v1/job", json=mock_response)
+        mocker.post(
+            f"{URL}/v1/job/{job_id}/attachments",
+            [
+                {"exc": requests.exceptions.ReadTimeout},
+                {"exc": requests.exceptions.ReadTimeout},
+            ],
+        )
+        mocker.post(f"{URL}/v1/job/{job_id}/action", [{"status_code": 200}])
+        mocker.get(
+            f"{URL}/v1/queues/fake/agents",
+            json=[{"name": "fake_agent", "state": "waiting"}],
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            # use cli to submit the job (processes `sys.argv` for arguments)
+            tfcli.submit()
+            assert "failed to submit attachments" in exc_info.value
+
+        # check the request history to confirm that there is a request to:
+        # - the queues endpoint
+        # - the oauth2/token endpoint
+        # - the job submission endpoint
+        # - the attachment submission endpoint (with retries)
+        history = mocker.request_history
+        assert len(history) == 6
+        assert history[0].path == "/v1/queues/fake/agents"
+        assert history[1].path == "/v1/oauth2/token"
+        assert history[2].path == "/v1/job"
+        assert history[3].path == f"/v1/job/{job_id}/attachments"
+        assert history[4].path == f"/v1/job/{job_id}/attachments"
+        assert history[5].path == f"/v1/job/{job_id}/action"
+
+
+def test_show(capsys, requests_mock):
+    """Exercise show command."""
+    jobid = str(uuid.uuid1())
+    fake_return = {"job_state": "completed"}
+    requests_mock.get(f"{URL}/v1/job/{jobid}", json=fake_return)
+    sys.argv = ["", "show", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.show()
+    std = capsys.readouterr()
+    assert "completed" in std.out
+
+
+def test_show_yaml(capsys, requests_mock):
+    """Exercise show command."""
+    jobid = str(uuid.uuid1())
+    fake_return = {"job_state": "completed"}
+    requests_mock.get(f"{URL}/v1/job/{jobid}", json=fake_return)
+    sys.argv = ["", "show", jobid, "--yaml"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.show()
+    std = capsys.readouterr()
+    assert "completed" in std.out
+
+
+def test_show_no_data_found(requests_mock):
+    """Test show command with no data found (HTTP 204)."""
+    jobid = str(uuid.uuid1())
+    requests_mock.get(
+        f"{URL}/v1/job/{jobid}", status_code=HTTPStatus.NO_CONTENT
+    )
+    sys.argv = ["", "show", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.show()
+    assert str(exc_info.value) == "No data found for that job id."
+
+
+def test_show_invalid_job_id(requests_mock):
+    """Test show command with invalid job ID (HTTP 400)."""
+    jobid = "invalid-id"
+    requests_mock.get(
+        f"{URL}/v1/job/{jobid}", status_code=HTTPStatus.BAD_REQUEST
+    )
+    sys.argv = ["", "show", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.show()
+    assert "Invalid job id specified" in str(exc_info.value)
+
+
+def test_show_unexpected_http_error(requests_mock):
+    """Test show command with unexpected HTTP error."""
+    jobid = str(uuid.uuid1())
+    error_msg = "Internal server error"
+    requests_mock.get(
+        f"{URL}/v1/job/{jobid}",
+        status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+        json={"error": error_msg},
+    )
+    sys.argv = ["", "show", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit):
+        tfcli.show()
+
+
+def test_results(capsys, requests_mock):
+    """Results should report job_state data."""
+    jobid = str(uuid.uuid1())
+    fake_return = {"job_state": "completed"}
+    requests_mock.get(f"{URL}/v1/result/{jobid}", json=fake_return)
+    sys.argv = ["", "results", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.results()
+    std = capsys.readouterr()
+    assert "completed" in std.out
+
+
+def test_list_queues(capsys, requests_mock):
+    """list_queues should report queues."""
+    fake_return = {"queue1": "description1", "queue2": "description2"}
+    requests_mock.get(URL + "/v1/agents/queues", json=fake_return)
+    sys.argv = ["", "list-queues"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_queues()
+    std = capsys.readouterr()
+    assert "queue1 - description1" in std.out
+    assert "queue2 - description2" in std.out
+
+
+def test_list_queues_connection_error(caplog, requests_mock):
+    """list_queues should report queues."""
+    requests_mock.get(
+        f"{URL}/v1/agents/queues", status_code=HTTPStatus.NOT_FOUND
+    )
+    sys.argv = ["", "list-queues"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_queues()
+    assert "Unable to get a list of queues from the server." in caplog.text
+
+
+def test_submit_no_agents_fails(capsys, tmp_path, requests_mock):
+    """Test that submitting a job without online agents fails."""
+    requests_mock.get(URL + "/v1/queues/fake/agents", json=[])
+    fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.submit()
+    assert exc_info.value.code == 1
+    assert (
+        "ERROR: No online agents available for queue fake"
+        in capsys.readouterr().out
+    )
+
+
+def test_submit_no_agents_fails_excluded(capsys, tmp_path, requests_mock):
+    """
+    Test that submitting a job where the only online agents are excluded from
+    running the job fails appropriately.
+    """
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[
+            {"name": "fake_agent", "state": "waiting"},
+            {"name": "fake_agent_2", "state": "waiting"},
+            {"name": "fake_agent_3", "state": "waiting"},
+        ],
+    )
+    fake_data = {
+        "job_queue": "fake",
+        "provision_data": {"distro": "fake"},
+        "exclude_agents": [
+            "fake_agent",
+            "fake_agent_2",
+            "fake_agent_3",
+            "fake_agent_4",
+        ],
+    }
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.submit()
+    assert exc_info.value.code == 1
+    assert (
+        "ERROR: No online agents available for queue fake"
+        in capsys.readouterr().out
+    )
+
+
+def test_submit_no_agents_wait(capsys, tmp_path, requests_mock, auth_fixture):
+    """
+    Test that submitting a job without online agents succeeds with
+    --wait-for-available-agents.
+    """
+    auth_fixture("user")
+    jobid = str(uuid.uuid1())
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[],
+    )
+    fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file), "--wait-for-available-agents"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.submit()
+    assert (
+        "WARNING: No online agents available for queue fake"
+        in capsys.readouterr().out
+    )
+
+
+def test_submit_to_non_existing_queue(tmp_path, requests_mock):
+    """Test submitting a job fails if queue does not exist."""
+    jobid = str(uuid.uuid1())
+    fake_queue = "fake"
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        status_code=HTTPStatus.NOT_FOUND,
+        text=f"Queue '{fake_queue}' does not exist.",
+    )
+    fake_data = {"job_queue": fake_queue, "provision_data": {"distro": "fake"}}
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file), "--wait-for-available-agents"]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    assert f"Queue '{fake_queue}' does not exist." in str(exc_info.value)
+
+
+def test_submit_without_queue(tmp_path):
+    """Test submitting a job fails if queue is not specified."""
+    fake_data = {"provision_data": {"distro": "fake"}}
+    test_file = tmp_path / "test.json"
+    test_file.write_text(json.dumps(fake_data))
+    sys.argv = ["", "submit", str(test_file)]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    assert "Queue was not specified in job" in str(exc_info.value)
+
+
+def test_reserve(capsys, requests_mock):
+    """Ensure reserve command generates correct JSON output."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "-d",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert '"job_queue": "fake"' in std.out
+    assert '"url": "http://face_image.xz"' in std.out
+    assert '"ssh_keys"' in std.out
+    assert '"lp:fakeuser"' in std.out
+    assert '"timeout": 3600' in std.out
+
+
+def test_reserve_with_distro(capsys, requests_mock):
+    """Test reserve with --distro flag submits correct provision_data."""
+    jobid = "testid123"
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.post(URL + "/v1/job", json={"job_id": jobid})
+    requests_mock.get(
+        URL + "/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+    # Mock position and result to handle polling
+    requests_mock.get(URL + f"/v1/job/{jobid}/position", text="1")
+    requests_mock.get(
+        URL + f"/v1/result/{jobid}", json={"job_state": "completed"}
+    )
+    requests_mock.get(
+        URL + f"/v1/result/{jobid}/log/output?start_fragment=0",
+        json={
+            "output": {
+                "test": {
+                    "last_fragment_number": 0,
+                    "log_data": "test output",
+                }
+            }
+        },
+    )
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "--distro",
+        "ubuntu-20.04",
+        "-k",
+        "lp:fakeuser",
+        "-d",  # dry-run to skip polling
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert '"distro": "ubuntu-20.04"' in std.out
+    assert '"job_queue": "fake"' in std.out
+    assert '"ssh_keys"' in std.out
+
+
+def test_reserve_with_ephemeral(capsys, requests_mock):
+    """Test reserve with --ephemeral flag submits correct provision_data."""
+    requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+    requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "--distro",
+        "noble",
+        "-k",
+        "lp:fakeuser",
+        "--ephemeral",
+        "-d",  # dry-run to skip polling
+    ]
+    testflinger_cli.TestflingerCli().run()
+    std = capsys.readouterr()
+    assert '"ephemeral": true' in std.out
+
+
+def test_reserve_with_ephemeral_and_image_fails(requests_mock):
+    """Test that --ephemeral and --image cannot be used together."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "--ephemeral",
+        "-d",
+    ]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+    # Verify that the error message mentions the conflict
+    assert "--ephemeral option requires --distro to be specified" in str(
+        exc_info.value
+    )
+
+
+def test_reserve_without_ephemeral(capsys, requests_mock):
+    """Test reserve without ephemeral flag does not add ephemeral key."""
+    requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
+    requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "--distro",
+        "noble",
+        "-k",
+        "lp:fakeuser",
+        "-d",  # dry-run to skip polling
+    ]
+    testflinger_cli.TestflingerCli().run()
+    std = capsys.readouterr()
+    assert "ephemeral" not in std.out
+
+
+def test_reserve_distro_with_image_fails(requests_mock, capsys):
+    """Test that --distro and --image cannot be used together.
+
+    Argparse's mutually_exclusive_group automatically prevents both
+    --distro and --image from being specified together, exiting with
+    code 2 and printing an error message to stderr.
+    """
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "--distro",
+        "ubuntu-20.04",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "-d",
+    ]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli()
+    # Argparse exits with code 2 for mutually exclusive group violations
+    assert exc_info.value.code == 2
+    # Verify that the error message mentions the conflict
+    captured = capsys.readouterr()
+    assert "not allowed with argument" in captured.err
+
+
+def test_reserve_image_with_distro_fails(requests_mock, capsys):
+    """Test that --image and --distro cannot be used together.
+
+    This is the inverse order of test_reserve_distro_with_image_fails,
+    ensuring mutual exclusivity works in both directions.
+    """
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "--distro",
+        "ubuntu-20.04",
+        "-k",
+        "lp:fakeuser",
+        "-d",
+    ]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli()
+    # Argparse exits with code 2 for mutually exclusive group violations
+    assert exc_info.value.code == 2
+    # Verify that the error message mentions the conflict
+    captured = capsys.readouterr()
+    assert "not allowed with argument" in captured.err
+
+
+def test_reserve_image_shorthand_with_distro_fails(requests_mock, capsys):
+    """Test that -i (shorthand for --image) and --distro are mutually
+    exclusive.
+
+    Verifies the mutually exclusive group works with both shorthand
+    and long-form flag combinations.
+    """
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "--distro",
+        "ubuntu-20.04",
+        "-k",
+        "lp:fakeuser",
+        "-d",
+    ]
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli()
+    # Argparse exits with code 2 for mutually exclusive group violations
+    assert exc_info.value.code == 2
+    # Verify that the error message mentions the conflict
+    captured = capsys.readouterr()
+    assert "not allowed with argument" in captured.err
+
+
+@patch("builtins.input")
+def test_reserve_with_yes_flag(mock_input, capsys, requests_mock):
+    """Test reserve command with --yes flag skips confirmation prompt."""
+    jobid = "testid456"
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    requests_mock.post(URL + "/v1/job", json={"job_id": jobid})
+    requests_mock.get(
+        URL + "/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+    # Mock input to fail if called (should not be called with -y flag)
+    mock_input.side_effect = AssertionError(
+        "input() should not be called with --yes flag"
+    )
+
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "-d",  # dry-run to skip polling
+        "-y",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    # Verify yes flag worked by checking output contains JSON
+    assert '"job_queue": "fake"' in std.out
+    assert '"url"' in std.out or '"image"' in std.out
+
+
+def test_reserve_custom_timeout(capsys, requests_mock):
+    """Test reserve command includes custom timeout in reserve_data."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "--timeout",
+        "7200",
+        "-d",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert '"timeout": 7200' in std.out
+
+
+@patch("testflinger_cli.helpers.prompt_for_image")
+def test_reserve_no_image_or_distro(mock_image, capsys, requests_mock):
+    """Test reserve when user opts to proceed with no provision data."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+
+    # Mock prompt_for_image to return None (user chooses no provision data)
+    mock_image.return_value = None
+
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-k",
+        "lp:fakeuser",
+        "-d",  # dry-run to skip polling
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert '"job_queue": "fake"' in std.out
+    assert '"ssh_keys"' in std.out
+    # Should not have provision_data key when no image/distro provided
+    assert '"url"' not in std.out and '"distro"' not in std.out
+
+
+def test_reserve_dry_run_json_output(capsys, requests_mock):
+    """Test reserve --dry-run shows JSON output without submitting."""
+    requests_mock.get(URL + "/v1/agents/queues", json={})
+    requests_mock.get(URL + "/v1/agents/images/fake", json={})
+    sys.argv = [
+        "",
+        "reserve",
+        "-q",
+        "fake",
+        "-i",
+        "http://face_image.xz",
+        "-k",
+        "lp:fakeuser",
+        "-d",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.reserve()
+    std = capsys.readouterr()
+    assert "The following job will be submitted:" in std.out
+    # Verify JSON structure (not YAML)
+    assert '"job_queue"' in std.out
+    assert '"reserve_data"' in std.out
+    assert '"provision_data"' in std.out
+    assert '"ssh_keys"' in std.out
+
+
+def test_poll_args_generic_parsing():
+    """Test that generic poll arguments are parsed correctly."""
+    sys.argv = [
+        "",
+        "poll",
+        "--oneshot",
+        "--start_fragment",
+        "5",
+        "--start_timestamp",
+        "2023-01-01T00:00:00",
+        "--phase",
+        "test",
+        "--json",
+        "test-job-id",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    assert tfcli.args.oneshot is True
+    assert tfcli.args.start_fragment == 5
+    assert tfcli.args.start_timestamp.year == 2023
+    assert tfcli.args.phase == "test"
+    assert tfcli.args.json is True
+    assert tfcli.args.job_id == "test-job-id"
+
+
+def test_poll_serial_args_generic_parsing():
+    """Test that generic poll-serial arguments are parsed correctly."""
+    sys.argv = [
+        "",
+        "poll-serial",
+        "--start_fragment",
+        "10",
+        "--phase",
+        "provision",
+        "test-job-id",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    assert tfcli.args.start_fragment == 10
+    assert tfcli.args.phase == "provision"
+    assert tfcli.args.job_id == "test-job-id"
+
+
+def test_get_combined_log_output_single_phase(requests_mock):
+    """Test _get_combined_log_output for a specific phase."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "output": {
+            "test": {
+                "last_fragment_number": 42,
+                "log_data": "test phase output",
+            }
+        }
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/log/output?start_fragment=0",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    last_fragment, log_data = tfcli._get_combined_log_output(
+        job_id, LogType.STANDARD_OUTPUT, "test", 0, None
+    )
+
+    assert last_fragment == 42
+    assert log_data == "test phase output"
+
+
+def test_get_combined_log_output_all_phases(requests_mock):
+    """Test _get_combined_log_output combining all phases."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "output": {
+            "setup": {"last_fragment_number": 10, "log_data": "setup output"},
+            "test": {"last_fragment_number": 20, "log_data": "test output"},
+            "cleanup": {
+                "last_fragment_number": 30,
+                "log_data": "cleanup output",
+            },
+        }
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/log/output?start_fragment=0",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    last_fragment, log_data = tfcli._get_combined_log_output(
+        job_id, LogType.STANDARD_OUTPUT, None, 0, None
+    )
+
+    assert last_fragment == 30  # max fragment number
+    assert "setup output" in log_data
+    assert "test output" in log_data
+    assert "cleanup output" in log_data
+
+
+def test_poll_output_oneshot(capsys, requests_mock):
+    """Test poll command with --oneshot flag."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "output": {
+            "test": {"last_fragment_number": 5, "log_data": "test output data"}
+        }
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/log/output?start_fragment=0",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll", "--oneshot", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit):
+        tfcli.poll_output()
+
+    std = capsys.readouterr()
+    assert "test output data" in std.out
+    assert "Last Fragment Number: 5" in std.out
+
+
+def test_poll_output_json_mode(capsys, requests_mock):
+    """Test poll command with --json flag."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "output": {
+            "test": {"last_fragment_number": 5, "log_data": "test output data"}
+        }
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/log/output?start_fragment=0",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll", "--json", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit):
+        tfcli.poll_output()
+
+    std = capsys.readouterr()
+    assert json.loads(std.out) == mock_response
+
+
+def test_poll_serial_oneshot(capsys, requests_mock):
+    """Test poll-serial command with --oneshot flag."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "serial": {
+            "test": {
+                "last_fragment_number": 3,
+                "log_data": "serial output data",
+            }
+        }
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/log/serial?start_fragment=0",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll-serial", "--oneshot", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit):
+        tfcli.poll_serial()
+
+    std = capsys.readouterr()
+    assert "serial output data" in std.out
+    assert "Last Fragment Number: 3" in std.out
+
+
+def test_poll_waiting_on_output(capsys, requests_mock):
+    """Test poll command when no output is available yet."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "output": {"test": {"last_fragment_number": -1, "log_data": ""}}
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/log/output?start_fragment=0",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll", "--oneshot", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit):
+        tfcli.poll_output()
+
+    std = capsys.readouterr()
+    assert "Waiting on Output" in std.out
+
+
+def test_poll_with_start_fragment_and_timestamp(requests_mock):
+    """Test poll command with start_fragment and start_timestamp parameters."""
+    job_id = str(uuid.uuid1())
+    start_timestamp = "2023-01-01T00:00:00"
+
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/log/output?"
+        "start_fragment=10&start_timestamp=2023-01-01T00%3A00%3A00",
+        json={
+            "output": {
+                "test": {"last_fragment_number": 15, "log_data": "output"}
+            }
+        },
+    )
+
+    sys.argv = [
+        "",
+        "poll",
+        "--oneshot",
+        "--start_fragment",
+        "10",
+        "--start_timestamp",
+        start_timestamp,
+        job_id,
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # This should make the request with the correct parameters
+    with pytest.raises(SystemExit):
+        tfcli.poll_output()
+
+
+def test_poll_with_phase_filter(requests_mock):
+    """Test poll command with phase filter."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "output": {
+            "provision": {
+                "last_fragment_number": 8,
+                "log_data": "provision logs only",
+            }
+        }
+    }
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}/log/output?start_fragment=0&phase=provision",
+        json=mock_response,
+    )
+
+    sys.argv = ["", "poll", "--oneshot", "--phase", "provision", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit):
+        tfcli.poll_output()
+
+
+def test_poll_serial(capsys, requests_mock):
+    """Tests that serial output is polled from the correct endpoint."""
+    job_id = str(uuid.uuid1())
+    mock_response = {
+        "serial": {
+            "test": {"last_fragment_number": 2, "log_data": "serial output"}
+        }
+    }
+    requests_mock.get(
+        URL + f"/v1/result/{job_id}/log/serial?start_fragment=0",
+        json=mock_response,
+    )
+    sys.argv = ["", "poll-serial", "--oneshot", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit):
+        tfcli.poll_serial()
+    std = capsys.readouterr()
+    assert "serial output" in std.out
+
+
+def test_agent_status(capsys, requests_mock):
+    """Validate that the status of the agent is retrieved."""
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": "fake_agent",
+        "queues": ["fake"],
+        "state": "waiting",
+        "provision_streak_count": 1,
+        "provision_streak_type": "pass",
+    }
+    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
+    sys.argv = ["", "agent-status", fake_agent]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.agent_status()
+    std = capsys.readouterr()
+    assert "waiting" in std.out
+
+
+def test_agent_status_json(capsys, requests_mock):
+    """Validate that the status of the agent is retrieved."""
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": "fake_agent",
+        "queues": ["fake"],
+        "state": "waiting",
+        "provision_streak_count": 1,
+        "provision_streak_type": "pass",
+    }
+    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
+    sys.argv = ["", "agent-status", fake_agent, "--json"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.agent_status()
+    std = capsys.readouterr()
+    expected_out = {
+        "agent": "fake_agent",
+        "status": "waiting",
+        "queues": ["fake"],
+        "provision_streak_count": 1,
+        "provision_streak_type": "pass",
+    }
+    assert std.out.strip() == json.dumps(expected_out, sort_keys=True)
+
+
+def test_agent_list_names_only(capsys, requests_mock):
+    """Validate list-agents -1 returns agent names only."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent2",
+            "state": "offline",
+            "queues": ["queue1"],
+            "comment": "Offline reason",
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "-1"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    std = capsys.readouterr()
+    assert "agent1\n" in std.out
+    assert "agent2\n" in std.out
+
+
+def test_agent_list_summary(capsys, requests_mock):
+    """Validate list-agents --summary shows counts."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent2",
+            "state": "offline",
+            "queues": ["queue1"],
+            "comment": "Offline reason",
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "--summary"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    std = capsys.readouterr()
+    # Remove ANSI codes for assertion
+    import re
+
+    clean_out = re.sub(r"\x1b\[[0-9;]*m", "", std.out)
+    assert "Online:" in clean_out and "1" in clean_out
+    assert "waiting" in clean_out
+    assert "Offline:" in clean_out and "1" in clean_out
+    assert "offline" in clean_out
+
+
+def test_agent_list_mutually_exclusive_1_and_summary(requests_mock):
+    """Validate list-agents -1 and --summary are mutually exclusive."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "-1", "--summary"]
+    with pytest.raises(SystemExit):
+        testflinger_cli.TestflingerCli()
+
+
+def test_agent_list_fields_not_applicable_with_1(requests_mock):
+    """Validate list-agents --fields is not applicable with -1."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "-1", "--fields", "name,status"]
+    with pytest.raises(SystemExit):
+        testflinger_cli.TestflingerCli()
+
+
+def test_agent_list_fields_not_applicable_with_summary(requests_mock):
+    """Validate list-agents --fields is not applicable with --summary."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "--summary", "--fields", "name,status"]
+    with pytest.raises(SystemExit):
+        testflinger_cli.TestflingerCli()
+
+
+def test_agent_list_table(capsys, requests_mock):
+    """Validate list-agents default shows table format."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+            "job_id": "job123",
+        },
+        {
+            "name": "agent2",
+            "state": "offline",
+            "queues": ["queue1"],
+            "comment": "Under maintenance",
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    std = capsys.readouterr()
+    # Remove ANSI codes for assertion
+    import re
+
+    clean_out = re.sub(r"\x1b\[[0-9;]*m", "", std.out)
+    assert "agent1" in clean_out
+    assert "waiting" in clean_out
+    assert "agent2" in clean_out
+    assert "offline" in clean_out
+    assert "Under maintenance" in clean_out
+    assert "NAME" in clean_out  # Header
+    assert "STATUS" in clean_out  # Header
+
+
+def test_agent_list_filter_by_status(capsys, requests_mock):
+    """Validate list-agents --filter-status filters agents."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent2",
+            "state": "offline",
+            "queues": ["queue1"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "--filter-status", "offline"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    std = capsys.readouterr()
+    assert "agent2" in std.out
+    assert "agent1" not in std.out
+
+
+def test_agent_list_filter_by_multiple_statuses(capsys, requests_mock):
+    """Validate list-agents --filter-status with comma-separated values."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent2",
+            "state": "offline",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent3",
+            "state": "setup",
+            "queues": ["queue1"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = [
+        "",
+        "list-agents",
+        "--filter-status",
+        "offline,waiting",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    std = capsys.readouterr()
+    assert "agent1" in std.out
+    assert "agent2" in std.out
+    assert "agent3" not in std.out
+
+
+def test_agent_list_filter_status_exclude(capsys, requests_mock):
+    """Validate list-agents --filter-status with exclusion (^ prefix)."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent2",
+            "state": "setup",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent3",
+            "state": "offline",
+            "queues": ["queue1"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = [
+        "",
+        "list-agents",
+        "--filter-status",
+        "online,^waiting",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    std = capsys.readouterr()
+    assert "agent1" not in std.out
+    assert "agent2" in std.out
+    assert "agent3" not in std.out
+
+
+def test_agent_list_filter_status_exclude_only(capsys, requests_mock):
+    """Validate list-agents --filter-status with only exclusion."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent2",
+            "state": "setup",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent3",
+            "state": "offline",
+            "queues": ["queue1"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = [
+        "",
+        "list-agents",
+        "--filter-status",
+        "^offline",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    std = capsys.readouterr()
+    assert "agent1" in std.out
+    assert "agent2" in std.out
+    assert "agent3" not in std.out
+
+
+def test_agent_list_filter_by_queue(capsys, requests_mock):
+    """Validate list-agents --filter-queue filters agents by queue."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent2",
+            "state": "waiting",
+            "queues": ["queue2"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "--filter-queues", "queue1"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    std = capsys.readouterr()
+    assert "agent1" in std.out
+    assert "agent2" not in std.out
+
+
+def test_agent_list_filter_by_name_pattern(capsys, requests_mock):
+    """Validate list-agents --filter-agent filters agents by regex."""
+    fake_agents = [
+        {
+            "name": "agent-prod-1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent-dev-1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent-test-1",
+            "state": "waiting",
+            "queues": ["queue2"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "--filter-name", "prod|dev"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    std = capsys.readouterr()
+    assert "agent-prod-1" in std.out
+    assert "agent-dev-1" in std.out
+    assert "agent-test-1" not in std.out
+
+
+def test_agent_list_combined_filters(capsys, requests_mock):
+    """Validate list-agents with multiple filters combined."""
+    fake_agents = [
+        {
+            "name": "agent-prod-1",
+            "state": "waiting",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent-prod-2",
+            "state": "offline",
+            "queues": ["queue1"],
+        },
+        {
+            "name": "agent-dev-1",
+            "state": "waiting",
+            "queues": ["queue2"],
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = [
+        "",
+        "list-agents",
+        "--filter-queue",
+        "queue1",
+        "--filter-status",
+        "offline",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    std = capsys.readouterr()
+    assert "agent-prod-2" in std.out
+    assert "agent-prod-1" not in std.out
+    assert "agent-dev-1" not in std.out
+
+
+def test_agent_list_mutually_exclusive_flags(requests_mock):
+    """Validate list-agents rejects -1 and --summary together."""
+    requests_mock.get(f"{URL}/v1/agents/data", json=[])
+    sys.argv = ["", "list-agents", "-1", "--summary"]
+    with pytest.raises(SystemExit):
+        testflinger_cli.TestflingerCli()
+
+
+@patch.object(testflinger_cli.TestflingerCli, "_print_agent_names")
+@patch.object(testflinger_cli.TestflingerCli, "_filter_agents")
+def test_agent_list_calls_print_names(
+    mock_filter_agents, mock_print_names, requests_mock
+):
+    """Validate -1 flag calls _print_agent_names."""
+    fake_agents = [{"name": "agent1", "state": "waiting"}]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    mock_filter_agents.return_value = fake_agents
+    sys.argv = ["", "list-agents", "-1"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    mock_filter_agents.assert_called_once_with(fake_agents)
+    mock_print_names.assert_called_once_with(fake_agents)
+
+
+@patch.object(testflinger_cli.TestflingerCli, "_print_agent_summary")
+@patch.object(testflinger_cli.TestflingerCli, "_filter_agents")
+def test_agent_list_calls_print_summary(
+    mock_filter_agents, mock_print_summary, requests_mock
+):
+    """Validate --summary flag calls _print_agent_summary."""
+    fake_agents = [{"name": "agent1", "state": "waiting"}]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    mock_filter_agents.return_value = fake_agents
+    sys.argv = ["", "list-agents", "--summary"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    mock_filter_agents.assert_called_once_with(fake_agents)
+    mock_print_summary.assert_called_once_with(fake_agents)
+
+
+@patch.object(testflinger_cli.TestflingerCli, "_print_agent_table")
+@patch.object(testflinger_cli.TestflingerCli, "_filter_agents")
+def test_agent_list_calls_print_table(
+    mock_filter_agents, mock_print_table, requests_mock
+):
+    """Validate default call uses _print_agent_table."""
+    fake_agents = [{"name": "agent1", "state": "waiting"}]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    mock_filter_agents.return_value = fake_agents
+    sys.argv = ["", "list-agents"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    mock_filter_agents.assert_called_once_with(fake_agents)
+    mock_print_table.assert_called_once_with(fake_agents)
+
+
+def test_queue_status(capsys, requests_mock, auth_fixture):
+    """Validate that the status for the queue is retrieved."""
+    auth_fixture("user")
+    fake_queue = "fake"
+    fake_queue_data = [
+        {"name": "fake_agent1", "state": "provision", "queues": ["fake"]},
+        {"name": "fake_agent2", "state": "offline", "queues": ["fake"]},
+    ]
+
+    fake_job_data = [
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "waiting",
+            "created_at": "2023-10-13T15:22:46Z",
+        },
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "running",
+            "created_at": "2023-10-13T15:22:40Z",
+        },
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "complete",
+            "created_at": "2023-10-13T15:22:30Z",
+        },
+    ]
+
+    requests_mock.get(
+        f"{URL}/v1/queues/{fake_queue}/agents", json=fake_queue_data
+    )
+    requests_mock.get(f"{URL}/v1/queues/{fake_queue}/jobs", json=fake_job_data)
+    sys.argv = ["", "queue-status", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.queue_status()
+    std = capsys.readouterr()
+    assert "Agents in queue: 2" in std.out
+    assert "Available:       0" in std.out
+    assert "Busy:            1" in std.out
+    assert "Offline:         1" in std.out
+    assert "Jobs waiting:    1" in std.out
+    assert "Jobs running:    1" in std.out
+    assert "Jobs completed:   1" in std.out
+
+
+def test_queue_status_verbose(capsys, requests_mock, auth_fixture):
+    """Test verbose queue status shows individual job details."""
+    auth_fixture("user")
+    fake_queue = "fake"
+    fake_queue_data = [
+        {"name": "fake_agent1", "state": "provision", "queues": ["fake"]},
+        {"name": "fake_agent2", "state": "offline", "queues": ["fake"]},
+    ]
+
+    fake_job_data = [
+        {
+            "job_id": "de153d8f-7d32-47d7-9a05-a20f2ef6bb35",
+            "job_state": "waiting",
+            "created_at": "2023-10-13T15:22:46Z",
+        },
+        {
+            "job_id": "ba73620d-6d1a-45ab-bb68-a640e4e4c489",
+            "job_state": "running",
+            "created_at": "2023-10-13T15:22:40Z",
+        },
+        {
+            "job_id": "8b0bb52f-08d8-4671-b275-55d84a965f7c",
+            "job_state": "complete",
+            "created_at": "2023-10-13T15:22:30Z",
+        },
+    ]
+
+    requests_mock.get(
+        f"{URL}/v1/queues/{fake_queue}/agents", json=fake_queue_data
+    )
+    requests_mock.get(f"{URL}/v1/queues/{fake_queue}/jobs", json=fake_job_data)
+    sys.argv = ["", "queue-status", "--verbose", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.queue_status()
+    std = capsys.readouterr()
+
+    # Should show agent status
+    assert "Agents in queue: 2" in std.out
+    assert "Available:       0" in std.out
+    assert "Busy:            1" in std.out
+    assert "Offline:         1" in std.out
+
+    # Should show individual job details (no counts in verbose mode)
+    assert "Jobs Waiting:" in std.out
+    assert "de153d8f-7d32-47d7-9a05-a20f2ef6bb35" in std.out
+    assert "Jobs Running:" in std.out
+    assert "ba73620d-6d1a-45ab-bb68-a640e4e4c489" in std.out
+    assert "Jobs Completed:" in std.out
+    assert "8b0bb52f-08d8-4671-b275-55d84a965f7c" in std.out
+
+
+def test_queue_status_json(capsys, requests_mock):
+    """Test JSON output for queue status."""
+    fake_queue = "fake"
+    fake_queue_data = [
+        {"name": "fake_agent1", "state": "provision", "queues": ["fake"]},
+        {"name": "fake_agent2", "state": "offline", "queues": ["fake"]},
+    ]
+
+    fake_job_data = [
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "waiting",
+            "created_at": "2023-10-13T15:22:46Z",
+        },
+        {
+            "job_id": str(uuid.uuid1()),
+            "job_state": "completed",
+            "created_at": "2023-10-13T15:22:30Z",
+        },
+    ]
+
+    requests_mock.get(
+        f"{URL}/v1/queues/{fake_queue}/agents", json=fake_queue_data
+    )
+    requests_mock.get(f"{URL}/v1/queues/{fake_queue}/jobs", json=fake_job_data)
+    sys.argv = ["", "queue-status", "--json", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.queue_status()
+    std = capsys.readouterr()
+
+    # Parse JSON output (non-verbose should only have jobs_waiting)
+    output_data = json.loads(std.out)
+    assert output_data["queue"] == fake_queue
+    assert len(output_data["agents"]) == 2
+    assert len(output_data["jobs_waiting"]) == 1
+    # Non-verbose mode should only include jobs_waiting
+    assert "jobs_completed" not in output_data
+    assert "jobs_running" not in output_data
+
+
+def test_queue_status_empty_queue(capsys, requests_mock):
+    """Test queue status with no agents (original behavior)."""
+    fake_queue = "empty"
+
+    requests_mock.get(
+        f"{URL}/v1/queues/{fake_queue}/agents",
+        status_code=HTTPStatus.NO_CONTENT,
+    )
+    sys.argv = ["", "queue-status", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.queue_status()
+    assert "No agent is listening on" in str(exc_info.value)
+
+
+def test_queue_status_nonexistent_queue(requests_mock):
+    """Test queue status with nonexistent queue (original behavior)."""
+    fake_queue = "nonexistent"
+
+    requests_mock.get(
+        f"{URL}/v1/queues/{fake_queue}/agents",
+        status_code=HTTPStatus.NOT_FOUND,
+        text=f"Queue '{fake_queue}' does not exist.",
+    )
+    sys.argv = ["", "queue-status", fake_queue]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.queue_status()
+    assert f"Queue '{fake_queue}' does not exist." in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "command", ["status", "agent-status", "queue-status", "show"]
+)
+def test_get_commands_fails_if_incorrect_network(command, requests_mock):
+    """Test VPN errors results in SystemExit."""
+    requests_mock.get(rmock.ANY, status_code=HTTPStatus.FORBIDDEN)
+    # Command list is not exhaustive but indicates others will fail as well
+    sys.argv = ["", command, ""]
+    with pytest.raises(NetworkError) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+
+    assert (
+        "403 Forbidden Error: Server access requires a VPN connection."
+        in str(exc_info.value)
+    )
+    assert (
+        "Please make sure you are connected to the VPN and try again."
+        in str(exc_info.value)
+    )
+
+
+def test_submit_with_poll_integration(
+    tmp_path, requests_mock, monkeypatch, auth_fixture
+):
+    """Test that submit --poll calls do_poll with the correct job_id."""
+    auth_fixture("user")
+    jobid = str(uuid.uuid1())
+    fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
+    testfile = tmp_path / "test.json"
+    testfile.write_text(json.dumps(fake_data))
+
+    fake_return = {"job_id": jobid}
+    requests_mock.post(f"{URL}/v1/job", json=fake_return)
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+
+    sys.argv = ["", "submit", str(testfile), "--poll"]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Track calls to do_poll
+    poll_calls = []
+
+    def mock_do_poll(*args, **kwargs):
+        poll_calls.append((args, kwargs))
+        # Don't actually poll to avoid infinite loop
+        return
+
+    monkeypatch.setattr(tfcli, "do_poll", mock_do_poll)
+
+    tfcli.submit()
+
+    # Verify do_poll was called with the job_id from the submission
+    assert len(poll_calls) == 1
+    args, kwargs = poll_calls[0]
+    assert args[0] == jobid  # First argument should be the submitted job_id
+
+
+@patch("time.sleep")
+def test_live_polling_with_fragments_progression(
+    mock_sleep, capsys, requests_mock, monkeypatch
+):
+    """Test live polling uses cur_fragment and progresses through fragments."""
+    job_id = str(uuid.uuid1())
+
+    # Track fragment progression
+    fragment_requests = []
+    iteration_count = 0
+
+    def mock_get_job_state(self, job_id_arg):
+        nonlocal iteration_count
+        iteration_count += 1
+        # Run for 3 iterations then complete
+        return (
+            {"job_state": "complete"}
+            if iteration_count > 3
+            else {"job_state": "running"}
+        )
+
+    def mock_get_combined_log_output(
+        self, job_id_arg, log_type, phase, fragment, timestamp
+    ):
+        # Track what fragment was requested
+        fragment_requests.append(fragment)
+
+        last_fragment = fragment + 2  # Simulate new data
+        log_data = f"Fragment {fragment} -> {last_fragment}: New log data\n"
+
+        return last_fragment, log_data
+
+    def mock_history_update(job_id_arg, state):
+        pass
+
+    # Start with fragment 5
+    sys.argv = ["", "poll", "--start_fragment", "5", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Set up mocks on the instance
+    monkeypatch.setattr(
+        tfcli,
+        "get_job_state",
+        lambda job_id_arg: mock_get_job_state(tfcli, job_id_arg),
+    )
+
+    def combined_log_wrapper_2(
+        job_id_arg, log_type, phase, fragment, timestamp
+    ):
+        return mock_get_combined_log_output(
+            tfcli, job_id_arg, log_type, phase, fragment, timestamp
+        )
+
+    monkeypatch.setattr(
+        tfcli, "_get_combined_log_output", combined_log_wrapper_2
+    )
+    monkeypatch.setattr(tfcli.history, "update", mock_history_update)
+
+    # Mock client.show_job (required by do_poll)
+    tfcli.client.get_job_data = lambda job_id_arg: {
+        "job_state": "running",
+        "timeout": 3600,
+    }
+
+    # Run the polling
+    tfcli.do_poll(job_id)
+
+    captured = capsys.readouterr()
+
+    # Verify fragment progression
+    assert len(fragment_requests) >= 2
+
+    # First request should use start_fragment (5)
+    assert fragment_requests[0] == 5
+
+    # Verify fragment progression - each request uses last_fragment + 1
+    for i in range(len(fragment_requests) - 1):
+        # Expected fragment number should be 1 higher than the last
+        # fragment number
+        cur_fragment = fragment_requests[i]
+        expected_fragment = cur_fragment + 3
+        assert fragment_requests[i + 1] == expected_fragment
+        expected_string = (
+            f"Fragment {cur_fragment} -> {cur_fragment + 2}: New log data\n"
+        )
+        assert expected_string in captured.out
+
+    # Should have slept between iterations
+    assert len(mock_sleep.call_args_list) >= 2
+
+
+@patch("time.sleep")
+def test_live_polling_with_empty_poll(
+    mock_sleep, capsys, requests_mock, mock_tty
+):
+    """Test that live output handles empty polls correctly."""
+    job_id = str(uuid.uuid1())
+
+    # Mock job detail (show_job)
+    requests_mock.get(
+        f"{URL}/v1/job/{job_id}",
+        json={"job_state": "active", "timeout": 3600},
+    )
+
+    # Mock job status
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}",
+        10 * [{"json": {"job_state": "active"}}]
+        + [{"json": {"job_state": "complete"}}],
+    )
+
+    # Mock log output with 10 empty responses
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}/log/output",
+        10
+        * [
+            {
+                "json": {
+                    "output": {
+                        "test": {"last_fragment_number": -1, "log_data": ""}
+                    }
+                }
+            }
+        ]
+        + [
+            {
+                "json": {
+                    "output": {
+                        "test": {"last_fragment_number": 0, "log_data": "data"}
+                    }
+                }
+            }
+        ],
+    )
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.run()
+
+    capsys.readouterr()
+    # In TTY mode with StatusLine, output is handled via status line thread.
+    # Just verify sleep calls indicate polling happened.
+    assert len(mock_sleep.call_args_list) >= 9
+
+
+@patch("time.sleep")
+def test_live_polling_by_phase(mock_sleep, capsys, requests_mock, monkeypatch):
+    """Test live polling by phase exits when target phase completes."""
+    job_id = str(uuid.uuid1())
+
+    # Mock job detail (show_job)
+    requests_mock.get(
+        f"{URL}/v1/job/{job_id}",
+        json={"job_state": "provision", "timeout": 3600},
+    )
+
+    # Mock job status checks
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}",
+        2
+        * [
+            {
+                "json": {
+                    "job_state": "provision",
+                    "setup_status": 0,
+                    "provision_status": 0,
+                    "test_status": None,
+                }
+            }
+        ]
+        + [
+            {
+                "json": {
+                    "job_state": "test",
+                    "setup_status": 0,
+                    "provision_status": 0,
+                    "test_status": 0,
+                }
+            }
+        ],
+    )
+
+    # Mock log output for test phase
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}/log/output",
+        [
+            {
+                "json": {
+                    "output": {
+                        "test": {
+                            "last_fragment_number": 0,
+                            "log_data": "Running tests...\n",
+                        }
+                    }
+                }
+            },
+            {
+                "json": {
+                    "output": {
+                        "test": {
+                            "last_fragment_number": 1,
+                            "log_data": "Tests passed!\n",
+                        }
+                    }
+                }
+            },
+        ],
+    )
+
+    sys.argv = ["", "poll", "--phase", "test", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Run the polling
+    tfcli.do_poll(job_id)
+
+    captured = capsys.readouterr()
+
+    # Verify the output contains the phase completion message
+    assert "Phase 'test' completed with exit code: 0" in captured.err
+    assert f"testflinger poll {job_id} --start_fragment 2" in captured.err
+
+    # Verify logs were printed
+    assert "Running tests..." in captured.out
+    assert "Tests passed!" in captured.out
+
+
+def test_get_job_state_network_error(requests_mock):
+    """Test get_job_state returns dict on network errors."""
+    jobid = str(uuid.uuid1())
+    requests_mock.get(
+        f"{URL}/v1/result/{jobid}", exc=requests.exceptions.ConnectionError
+    )
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+    result = tfcli.get_job_state(jobid)
+
+    # Ensure the return type is dict
+    assert isinstance(result, dict)
+    assert result == {"job_state": "unknown"}
+
+
+@patch("time.sleep")
+def test_poll_exponential_backoff_on_network_errors(
+    mock_sleep, capsys, requests_mock, monkeypatch
+):
+    """Test that polling uses exponential backoff on network errors."""
+    job_id = str(uuid.uuid1())
+
+    # Mock job detail (show_job)
+    requests_mock.get(
+        f"{URL}/v1/job/{job_id}",
+        json={"job_state": "running", "timeout": 3600},
+    )
+
+    # Mock both endpoints to fail 5 times then succeed
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}",
+        [{"exc": requests.exceptions.ConnectionError}] * 5
+        + [{"json": {"job_state": "complete"}}],
+    )
+    requests_mock.get(
+        f"{URL}/v1/result/{job_id}/log/output?start_fragment=0",
+        [{"exc": requests.exceptions.ConnectionError}] * 5
+        + [
+            {
+                "json": {
+                    "output": {
+                        "test": {"last_fragment_number": 1, "log_data": ""}
+                    }
+                }
+            }
+        ],
+    )
+
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.do_poll(job_id)
+
+    # Verify exponential backoff pattern
+    sleep_calls = [call[0][0] for call in mock_sleep.call_args_list]
+    assert len(sleep_calls) >= 5
+    assert sleep_calls[0] == 2  # 2^1 = 2
+    assert sleep_calls[1] == 4  # 2^2 = 4
+    assert sleep_calls[2] == 8  # 2^3 = 8
+    assert sleep_calls[3] == 16  # 2^4 = 16
+    assert sleep_calls[4] == 32  # 2^5 = 32
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_status_with_bad_request_error(mock_get_status):
+    """Test status command exits with error message on HTTPError 400.
+
+    Exercises get_job_state() raising InvalidJobIdError.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.status()
+
+    assert "Invalid job id specified" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_status_with_no_content_error(mock_get_status):
+    """Test status command exits with error message on HTTPError 204.
+
+    When get_job_state() encounters a 204 No Content response, it raises
+    NoJobDataError, which status() catches and exits with an error message.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.NO_CONTENT, msg="No content"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        tfcli.status()
+
+    assert "No data found for that job id" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_get_job_state_other_http_error(mock_get_status):
+    """Test get_job_state returns unknown state on HTTPError (non 204/400).
+
+    When get_job_state() encounters an HTTP error that's not 204 or 400,
+    it logs the error and returns {"job_state": "unknown"}.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.INTERNAL_SERVER_ERROR, msg="Server error"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Should return unknown state without exiting
+    result = tfcli.get_job_state(jobid)
+    assert result == {"job_state": "unknown"}
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_get_job_state_success(mock_get_status):
+    """Test get_job_state returns status dict on successful call.
+
+    When client.get_status() succeeds, get_job_state() returns the status
+    dict directly without modification.
+    """
+    expected_status = {
+        "job_state": "active",
+        "setup_status": 0,
+        "provision_status": 0,
+        "test_status": None,
+    }
+
+    mock_get_status.return_value = expected_status
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # Should return the status dict from client.get_status()
+    result = tfcli.get_job_state(jobid)
+    assert result == expected_status
+    assert result["job_state"] == "active"
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_get_job_state_raises_no_job_data_error(mock_get_status):
+    """Test get_job_state raises NoJobDataError on HTTPError 204.
+
+    When client.get_status() returns HTTP 204 No Content, get_job_state()
+    raises NoJobDataError with a user-friendly error message.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.NO_CONTENT, msg="No content"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(NoJobDataError) as exc_info:
+        tfcli.get_job_state(jobid)
+
+    assert "No data found for that job id" in str(exc_info.value)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_get_job_state_raises_invalid_job_id_error(mock_get_status):
+    """Test get_job_state raises InvalidJobIdError on HTTPError 400.
+
+    When client.get_status() returns HTTP 400 Bad Request, get_job_state()
+    raises InvalidJobIdError with a user-friendly error message.
+    """
+    mock_get_status.side_effect = HTTPError(
+        status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
+    )
+
+    jobid = str(uuid.uuid1())
+    sys.argv = ["", "status", jobid]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(InvalidJobIdError) as exc_info:
+        tfcli.get_job_state(jobid)
+
+    assert "Invalid job id specified" in str(exc_info.value)
+
+
+@patch("testflinger_cli.TestflingerCli.get_job_data")
+@patch("testflinger_cli.TestflingerCli.get_job_state")
+def test_poll_with_bad_request_error(mock_get_state, mock_get_job_data):
+    """Test poll command exits cleanly on HTTPError 400.
+
+    Verifies do_poll() exits with a user-friendly error message when
+    get_job_state() raises InvalidJobIdError (preserves original behavior).
+    """
+    mock_get_job_data.return_value = {
+        "job_state": "running",
+        "timeout": 3600,
+    }
+    mock_get_state.side_effect = InvalidJobIdError()
+
+    job_id = str(uuid.uuid1())
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # do_poll raises InvalidJobIdError on bad request
+    with pytest.raises(SystemExit):
+        tfcli.do_poll(job_id)
+
+
+@patch("testflinger_cli.TestflingerCli.get_job_data")
+@patch("testflinger_cli.TestflingerCli.get_job_state")
+def test_poll_with_no_content_error(mock_get_state, mock_get_job_data):
+    """Test poll command exits cleanly on HTTPError 204.
+
+    Verifies do_poll() exits with a user-friendly error message when
+    get_job_state() raises NoJobDataError (preserves original behavior).
+    """
+    mock_get_job_data.return_value = {
+        "job_state": "running",
+        "timeout": 3600,
+    }
+    mock_get_state.side_effect = NoJobDataError()
+
+    job_id = str(uuid.uuid1())
+    sys.argv = ["", "poll", job_id]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    # do_poll raises NoJobDataError on no content
+    with pytest.raises(SystemExit):
+        tfcli.do_poll(job_id)
+
+
+@patch("testflinger_cli.client.Client.get_status")
+def test_jobs_with_get_status_scenarios(mock_get_status, capsys):
+    """Test jobs() with various get_status response scenarios.
+
+    Ensures that the jobs list, with the --status flag, completes in the event
+    of various get_status outcomes. Exercises jobs() and get_job_state().
+    """
+    # Create jobs with different scenarios to test the branches in get_status
+    job_ids = [str(uuid.uuid1()) for _ in range(5)]
+    submission_time = time.time()
+
+    history_data = {
+        job_ids[0]: {
+            # Job complete: already cached, won't call get_status
+            "submission_time": submission_time,
+            "queue": "queue-1",
+            "job_state": "complete",
+        },
+        job_ids[1]: {
+            # HTTPError 400 (BAD_REQUEST)
+            "submission_time": submission_time,
+            "queue": "queue-2",
+        },
+        job_ids[2]: {
+            # HTTPError 204 (NO_CONTENT)
+            "submission_time": submission_time,
+            "queue": "queue-3",
+        },
+        job_ids[3]: {
+            # IOError
+            "submission_time": submission_time,
+            "queue": "queue-4",
+        },
+        job_ids[4]: {
+            # Success
+            "submission_time": submission_time,
+            "queue": "queue-5",
+        },
+    }
+
+    # Mock get_status to return different scenarios
+    def side_effect(job_id):
+        if job_id == job_ids[1]:
+            raise HTTPError(
+                status=HTTPStatus.BAD_REQUEST, msg="Invalid job id"
+            )
+        elif job_id == job_ids[2]:
+            raise HTTPError(status=HTTPStatus.NO_CONTENT, msg="No content")
+        elif job_id == job_ids[3]:
+            raise IOError("Connection lost")
+        elif job_id == job_ids[4]:
+            return {"job_state": "active"}
+
+    mock_get_status.side_effect = side_effect
+
+    sys.argv = ["", "jobs", "--status"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.args.status = True
+    tfcli.history.history = history_data
+
+    tfcli.jobs()
+
+    captured = capsys.readouterr()
+    # Verify all jobs are shown despite various error scenarios
+    # and that their statuses are correct
+
+    # job_ids[0]: cached "complete" status
+    assert job_ids[0] in captured.out
+    assert "complete" in captured.out.split(job_ids[0])[1].split("\n")[0]
+
+    # job_ids[1]: BAD_REQUEST error should result in "unknown" status
+    assert job_ids[1] in captured.out
+    assert "unknown" in captured.out.split(job_ids[1])[1].split("\n")[0]
+
+    # job_ids[2]: NO_CONTENT error should result in "unknown" status
+    assert job_ids[2] in captured.out
+    assert "unknown" in captured.out.split(job_ids[2])[1].split("\n")[0]
+
+    # job_ids[3]: IOError should result in "unknown" status
+    assert job_ids[3] in captured.out
+    assert "unknown" in captured.out.split(job_ids[3])[1].split("\n")[0]
+
+    # job_ids[4]: successful get_status returns "active"
+    assert job_ids[4] in captured.out
+    assert "active" in captured.out.split(job_ids[4])[1].split("\n")[0]

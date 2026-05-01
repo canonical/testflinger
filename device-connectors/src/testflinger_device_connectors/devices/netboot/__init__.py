@@ -38,6 +38,9 @@ class DeviceConnector(DefaultDevice):
         """Provision device when the command is invoked."""
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
+
+        super().provision(args)
+
         device = Netboot(args.config)
         image = testflinger_device_connectors.get_image(args.job_data)
         if not image:
