@@ -53,7 +53,7 @@ Users can:
 
 .. note:: 
 
-    The expiration of the secret is neasured from the time it was last created or updated.
+    The expiration of the secret is measured from the time it was last created or updated.
 
 For more information on how to define expiration for a secret, 
 refer to :doc:`Use Secrets how-to guide <../how-to/use-secrets>`.
