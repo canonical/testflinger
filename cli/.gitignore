@@ -1,3 +1,5 @@
 attachments.tar.gz
 test/test.json
 coverage.xml
+
+.coverage
