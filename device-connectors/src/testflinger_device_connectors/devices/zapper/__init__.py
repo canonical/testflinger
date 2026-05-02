@@ -23,7 +23,8 @@ validating the configuration and preparing the API arguments.
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Tuple
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 import requests
 
@@ -33,6 +34,9 @@ from testflinger_device_connectors.devices import (
 )
 
 logger = logging.getLogger(__name__)
+
+# should mirror `testflinger_agent.config.ATTACHMENTS_DIR`
+ATTACHMENTS_DIR = "attachments"
 
 
 class ZapperConnector(ABC, DefaultDevice):
@@ -175,11 +179,22 @@ class ZapperConnector(ABC, DefaultDevice):
         """
         raise NotImplementedError
 
+    @staticmethod
+    def _find_provision_attachment() -> Optional[Path]:
+        """Return the provision attachment if one was uploaded, else None."""
+        attachments_dir = Path.cwd() / ATTACHMENTS_DIR / "provision"
+        try:
+            return next(p for p in attachments_dir.iterdir() if p.is_file())
+        except (FileNotFoundError, NotADirectoryError, StopIteration):
+            return None
+
     def _run(self, *args, **kwargs):
         """Run the Zapper provisioning via the REST API.
 
         Submits a provisioning job, streams SSE logs in real time,
-        and checks the final job status.
+        and checks the final job status. When a provision attachment
+        is present, the image is uploaded via the ``/multipart``
+        endpoint; otherwise the request is sent as plain JSON.
         """
         kwargs.update(
             {
@@ -189,15 +204,31 @@ class ZapperConnector(ABC, DefaultDevice):
                 "reboot_script": self.config["reboot_script"],
             }
         )
+        payload = {
+            "method": self.PROVISION_METHOD,
+            "args": list(args),
+            "kwargs": kwargs,
+        }
 
-        resp = self._api_post(
-            "/api/v1/provision",
-            json={
-                "method": self.PROVISION_METHOD,
-                "args": list(args),
-                "kwargs": kwargs,
-            },
-        )
+        attachment = self._find_provision_attachment()
+        if attachment is not None:
+            logger.info(
+                "Uploading boot binary %s as multipart attachment",
+                attachment.name,
+            )
+            with open(attachment, "rb") as boot_binary_file:
+                resp = self._api_post(
+                    "/api/v1/provision/multipart",
+                    data={"request": json.dumps(payload)},
+                    files={"boot_binary": boot_binary_file},
+                    timeout=(
+                        self.ZAPPER_CONNECTION_TIMEOUT,
+                        self.ZAPPER_READ_TIMEOUT,
+                    ),
+                )
+        else:
+            resp = self._api_post("/api/v1/provision", json=payload)
+
         job = resp.json()
         job_id = job["job_id"]
 

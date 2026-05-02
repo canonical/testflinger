@@ -165,53 +165,58 @@ class BaseZapperProvisionData(Schema):
     zapper_provisioning_timeout = fields.Integer(required=False)
 
 
-class ZapperIoTPresetProvisionData(BaseZapperProvisionData):
+class BaseZapperIoTProvisionData(BaseZapperProvisionData):
+    """Shared schema for Zapper IoT jobs.
+
+    The boot image can come from ``url``, ``urls``, or a single
+    provision attachment uploaded alongside the job. Exactly one of
+    these sources must be provided.
+    """
+
+    url = fields.URL(required=False)
+    urls = fields.List(fields.URL(), required=False, validate=Length(min=1))
+    attachments = fields.List(
+        fields.Nested(Attachment),
+        required=False,
+        validate=Length(max=1),
+    )
+
+    @validates_schema
+    def validate_boot_image_source(self, data, **_):
+        """Validate that exactly one boot image source is provided."""
+        sources = [
+            name for name in ("url", "urls", "attachments") if data.get(name)
+        ]
+        if not sources:
+            raise ValidationError(
+                "One of 'url', 'urls', or a provision attachment "
+                "must be provided."
+            )
+        if len(sources) > 1:
+            raise ValidationError(
+                f"Provide only one boot image source; got multiple: {sources}."
+            )
+
+
+class ZapperIoTPresetProvisionData(BaseZapperIoTProvisionData):
     """Schema for the `provision_data` section of a Zapper IoT job.
 
     This schema is used when using a preset for provisioning.
     """
 
-    url = fields.URL(required=False)
-    urls = fields.List(fields.URL(), required=False, validate=Length(min=1))
     preset = fields.String(required=True)
     preset_kwargs = fields.Dict(required=False)
 
-    @validates_schema
-    def validate_url_or_urls(self, data, **_):
-        """Validate that exactly one of `url` or `urls` is provided."""
-        has_url = "url" in data
-        has_urls = "urls" in data
-        if has_url and has_urls:
-            raise ValidationError(
-                "Provide only one of 'url' or 'urls', not both."
-            )
-        if not has_url and not has_urls:
-            raise ValidationError("Either 'url' or 'urls' must be provided.")
 
-
-class ZapperIoTCustomProvisionData(BaseZapperProvisionData):
+class ZapperIoTCustomProvisionData(BaseZapperIoTProvisionData):
     """Schema for the `provision_data` section of a Zapper IoT job.
 
     This schema is used when using a custom plan for provisioning.
     """
 
-    url = fields.URL(required=False)
-    urls = fields.List(fields.URL(), required=False, validate=Length(min=1))
     ubuntu_sso_email = fields.Email(required=False)
     # [TODO] Specify Nested schema to improve validation
     provision_plan = fields.Dict(required=True)
-
-    @validates_schema
-    def validate_url_or_urls(self, data, **_):
-        """Validate that exactly one of `url` or `urls` is provided."""
-        has_url = "url" in data
-        has_urls = "urls" in data
-        if has_url and has_urls:
-            raise ValidationError(
-                "Provide only one of 'url' or 'urls', not both."
-            )
-        if not has_url and not has_urls:
-            raise ValidationError("Either 'url' or 'urls' must be provided.")
 
 
 class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
