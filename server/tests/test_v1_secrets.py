@@ -26,7 +26,7 @@ import pytest
 
 from testflinger import application, database
 from testflinger.secrets.exceptions import AccessError, StoreError
-from testflinger.secrets.store import SecretsStore
+from testflinger.secrets.store import DEFAULT_SECRET_EXPIRATION, SecretsStore
 
 
 @pytest.fixture
@@ -112,7 +112,12 @@ def test_secrets_put_success(app_with_store, client_id, path, value):
 
     # THEN: the request is successful
     assert response.status_code == HTTPStatus.OK
-    mock_secrets_store.write.assert_called_once_with(client_id, path, value)
+    mock_secrets_store.write.assert_called_once_with(
+        namespace=client_id,
+        key=path,
+        value=value,
+        expire_after=DEFAULT_SECRET_EXPIRATION,
+    )
 
 
 def test_secrets_put_different_client_id(app_with_store):
@@ -177,7 +182,7 @@ def test_secrets_put_no_authentication(app_with_store):
 
 def test_secrets_put_access_error(app_with_store):
     """Test writing a secret with an access error from the store."""
-    # GIVEN: an app with a secrets store where write raises an AccessErrpr
+    # GIVEN: an app with a secrets store where write raises an AccessError
     client_id = "client_1"
     path = "path/to/error/access"
     mock_secrets_store = app_with_store.application.secrets_store
@@ -193,7 +198,12 @@ def test_secrets_put_access_error(app_with_store):
 
     # THEN: the request is rejected
     assert response.status_code == HTTPStatus.BAD_REQUEST
-    mock_secrets_store.write.assert_called_once_with(client_id, path, "value")
+    mock_secrets_store.write.assert_called_once_with(
+        namespace=client_id,
+        key=path,
+        value="value",
+        expire_after=DEFAULT_SECRET_EXPIRATION,
+    )
 
 
 def test_secrets_put_store_error(app_with_store):
@@ -214,7 +224,179 @@ def test_secrets_put_store_error(app_with_store):
 
     # THEN: the request is rejected
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
-    mock_secrets_store.write.assert_called_once_with(client_id, path, "value")
+    mock_secrets_store.write.assert_called_once_with(
+        namespace=client_id,
+        key=path,
+        value="value",
+        expire_after=DEFAULT_SECRET_EXPIRATION,
+    )
+
+
+def test_secrets_put_non_expiring_secret(app_with_store):
+    """Test writing a non-expiring secret with expire_after=None."""
+    # GIVEN: an app with a secrets store
+    client_id = "client_1"
+    path = "path/to/non-expiring-secret"
+    value = "never-expire"
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.write.return_value = None
+
+    # WHEN: an authorised request is sent with expire_after set to null
+    token = get_access_token(app_with_store, client_id, "client_key")
+    response = app_with_store.put(
+        f"/v1/secrets/{client_id}/{path}",
+        json={"value": value, "expire_after": None},
+        headers={"Authorization": token},
+    )
+
+    # THEN: the request is successful and non-expiring is forwarded
+    assert response.status_code == HTTPStatus.OK
+    mock_secrets_store.write.assert_called_once_with(
+        namespace=client_id,
+        key=path,
+        value=value,
+        expire_after=None,
+    )
+
+
+@pytest.mark.parametrize("expire_after", [60, 3600, 86400])
+def test_secrets_put_with_custom_expiration(app_with_store, expire_after):
+    """Test writing a secret with a custom expire_after value."""
+    # GIVEN: an app with a secrets store
+    client_id = "client_1"
+    path = "path/to/secret"
+    value = "secret_value"
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.write.return_value = None
+
+    # WHEN: an authorised request is sent with a custom expire_after
+    token = get_access_token(app_with_store, client_id, "client_key")
+    response = app_with_store.put(
+        f"/v1/secrets/{client_id}/{path}",
+        json={"value": value, "expire_after": expire_after},
+        headers={"Authorization": token},
+    )
+
+    # THEN: the request is successful and expire_after is sent to the store
+    assert response.status_code == HTTPStatus.OK
+    mock_secrets_store.write.assert_called_once_with(
+        namespace=client_id,
+        key=path,
+        value=value,
+        expire_after=expire_after,
+    )
+
+
+def test_secrets_put_ephemeral(app_with_store):
+    """Test writing ephemeral secret sets the ephemeral flag in the store."""
+    # GIVEN: an app with a secrets store
+    client_id = "client_1"
+    path = "path/to/ephemeral-secret"
+    value = "one_time_value"
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.write.return_value = None
+
+    # WHEN: an authorised request is sent with ephemeral=True
+    token = get_access_token(app_with_store, client_id, "client_key")
+    response = app_with_store.put(
+        f"/v1/secrets/{client_id}/{path}",
+        json={"value": value, "ephemeral": True},
+        headers={"Authorization": token},
+    )
+
+    # THEN: the request is successful and the store is called with ephemeral
+    assert response.status_code == HTTPStatus.OK
+    mock_secrets_store.write.assert_called_once_with(
+        namespace=client_id,
+        key=path,
+        value=value,
+        ephemeral=True,
+    )
+
+
+def test_secrets_put_invalid_expire_after(app_with_store):
+    """Test writing a secret with a non-integer expire_after is rejected."""
+    # GIVEN: an app with a secrets store
+    client_id = "client_1"
+    path = "path/to/secret"
+    mock_secrets_store = app_with_store.application.secrets_store
+
+    # WHEN: an authorised request is sent with a string expire_after
+    token = get_access_token(app_with_store, client_id, "client_key")
+    response = app_with_store.put(
+        f"/v1/secrets/{client_id}/{path}",
+        json={"value": "value", "expire_after": "not-a-number"},
+        headers={"Authorization": token},
+    )
+
+    # THEN: the schema rejects the request and the store is never called
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    mock_secrets_store.write.assert_not_called()
+
+
+def test_secrets_put_ephemeral_and_expire_after(
+    app_with_store,
+):
+    """Test that setting both ephemeral and expire_after is rejected."""
+    # GIVEN: an app with a secrets store
+    client_id = "client_1"
+    path = "path/to/secret"
+    mock_secrets_store = app_with_store.application.secrets_store
+
+    # WHEN: an authorised request is sent with both ephemeral and expire_after
+    token = get_access_token(app_with_store, client_id, "client_key")
+    response = app_with_store.put(
+        f"/v1/secrets/{client_id}/{path}",
+        json={"value": "value", "ephemeral": True, "expire_after": 3600},
+        headers={"Authorization": token},
+    )
+
+    # THEN: the schema rejects the request and the store is never called
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    mock_secrets_store.write.assert_not_called()
+
+
+def test_secrets_put_return_expiration(app_with_store):
+    """Test that the response body contains the expiry datetime on write."""
+    # GIVEN: a store whose write returns a fixed expiry datetime
+    client_id = "client_1"
+    path = "path/to/secret"
+    fixed_expire_at = datetime(2027, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.write.return_value = fixed_expire_at
+
+    # WHEN: an authorised write request is sent
+    token = get_access_token(app_with_store, client_id, "client_key")
+    response = app_with_store.put(
+        f"/v1/secrets/{client_id}/{path}",
+        json={"value": "secret_value", "expire_after": 3600},
+        headers={"Authorization": token},
+    )
+
+    # THEN: the response contains the expiry datetime in ISO 8601 format
+    assert response.status_code == HTTPStatus.OK
+    assert response.get_json()["expires_at"] == fixed_expire_at.isoformat()
+
+
+def test_secrets_put_return_non_expiration(app_with_store):
+    """Test that the response body can contain null expires_at on write."""
+    # GIVEN: a store whose write returns None (no expiry)
+    client_id = "client_1"
+    path = "path/to/non-expiring"
+    mock_secrets_store = app_with_store.application.secrets_store
+    mock_secrets_store.write.return_value = None
+
+    # WHEN: an authorised write request is sent with expire_after=None
+    token = get_access_token(app_with_store, client_id, "client_key")
+    response = app_with_store.put(
+        f"/v1/secrets/{client_id}/{path}",
+        json={"value": "secret_value", "expire_after": None},
+        headers={"Authorization": token},
+    )
+
+    # THEN: the response contains expires_at as null
+    assert response.status_code == HTTPStatus.OK
+    assert response.get_json()["expires_at"] is None
 
 
 def test_secrets_put_no_store(testapp):
@@ -359,7 +541,7 @@ def test_job_submit_with_secrets(app_with_store):
     # GIVEN: an app with a secrets store that returns values for valid paths
     client_id = "client_1"
     mock_secrets_store = app_with_store.application.secrets_store
-    mock_secrets_store.read.return_value = "secret_value"
+    mock_secrets_store.exists.return_value = True
 
     # WHEN: an authenticated job with secrets is submitted
     token = get_access_token(app_with_store, client_id, "client_key")
@@ -379,8 +561,8 @@ def test_job_submit_with_secrets(app_with_store):
 
     # THEN: the job is accepted and secrets are validated
     assert response.status_code == HTTPStatus.OK
-    mock_secrets_store.read.assert_any_call(client_id, "path/to/secret")
-    mock_secrets_store.read.assert_any_call(client_id, "tokens/api_key")
+    mock_secrets_store.exists.assert_any_call(client_id, "path/to/secret")
+    mock_secrets_store.exists.assert_any_call(client_id, "tokens/api_key")
 
     # AND: the client_id is added to the job data in the database
     job_id = response.get_json()["job_id"]
@@ -390,10 +572,11 @@ def test_job_submit_with_secrets(app_with_store):
 
 def test_job_submit_with_inaccessible_secret(app_with_store):
     """Test that submitting a job with an inaccessible secret fails."""
-    # GIVEN: an app with a secrets store where read raises an AccessError
+    # GIVEN: an app with a secrets store where exists returns False
+    # due to inaccessible secret path
     client_id = "client_1"
     mock_secrets_store = app_with_store.application.secrets_store
-    mock_secrets_store.read.side_effect = AccessError("Secret not found")
+    mock_secrets_store.exists.return_value = False
 
     # WHEN: an authenticated job with invalid secrets is submitted
     token = get_access_token(app_with_store, client_id, "client_key")
@@ -420,13 +603,8 @@ def test_job_submit_with_some_inaccessible_secrets(app_with_store):
     client_id = "client_1"
     mock_secrets_store = app_with_store.application.secrets_store
 
-    def mock_read(client_id, path):
-        if path == "valid/path":
-            return "secret_value"
-        else:
-            raise AccessError("Secret not found")
-
-    mock_secrets_store.read.side_effect = mock_read
+    # Only valid/path exists, the other paths do not:
+    mock_secrets_store.exists.side_effect = lambda _, key: key == "valid/path"
 
     # WHEN: an authenticated job with an inaccessible secret is submitted
     token = get_access_token(app_with_store, client_id, "client_key")

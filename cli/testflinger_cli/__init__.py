@@ -49,7 +49,10 @@ from testflinger_cli import (
 )
 from testflinger_cli.admin import TestflingerAdminCLI
 from testflinger_cli.auth import TestflingerCliAuth
-from testflinger_cli.consts import DEFAULT_RESERVE_TIMEOUT
+from testflinger_cli.consts import (
+    DEFAULT_RESERVE_TIMEOUT,
+    DEFAULT_SECRET_EXPIRATION,
+)
 from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import (
     AttachmentError,
@@ -589,6 +592,20 @@ class TestflingerCli:
             "path", help="Path for the secret", type=helpers.regex_path
         )
         write_parser.add_argument("value", help="Value of the secret")
+        expiry_group = write_parser.add_mutually_exclusive_group()
+        expiry_group.add_argument(
+            "--expire-after",
+            help=(
+                "Seconds until the secret expires. Use -1 for no expiration."
+            ),
+            type=int,
+            default=DEFAULT_SECRET_EXPIRATION,
+        )
+        expiry_group.add_argument(
+            "--single-use",
+            help="Secret will be deleted after the first time it is read.",
+            action="store_true",
+        )
         self._add_auth_args(write_parser)
 
         # secret delete command
@@ -1862,14 +1879,43 @@ class TestflingerCli:
         if auth_headers is None or self.auth.client_id is None:
             sys.exit("Error writing secret: Authentication is required")
 
-        secret_data = {"value": self.args.value}
-
+        if self.args.single_use:
+            secret_data = {"value": self.args.value, "ephemeral": True}
+        else:
+            expire_after = self.args.expire_after
+            if expire_after == -1:
+                expire_after = None
+            elif expire_after <= 0:
+                sys.exit(
+                    "Error writing secret: --expire-after must be a positive "
+                    "integer or -1 for no expiration"
+                )
+            secret_data = {
+                "value": self.args.value,
+                "expire_after": expire_after,
+            }
         endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
-            self.client.put(endpoint, secret_data, headers=auth_headers)
+            response = self.client.put(
+                endpoint, secret_data, headers=auth_headers
+            )
         except client.HTTPError as exc:
             sys.exit(f"Error writing secret: [{exc.status}] {exc.msg}")
         print(f"Secret '{self.args.path}' written successfully")
+        if self.args.single_use:
+            print("This secret will be deleted after first use")
+        else:
+            try:
+                expires_at = json.loads(response).get("expires_at")
+            except (json.JSONDecodeError, AttributeError):
+                expires_at = None
+            if expires_at:
+                expiration_date = datetime.fromisoformat(expires_at).strftime(
+                    "%Y-%m-%d %H:%M:%S %Z"
+                )
+                print(f"This secret will expire at {expiration_date}")
+            else:
+                print("This secret will not expire automatically")
 
     def secret_delete(self):
         """Delete a secret for the authenticated client."""

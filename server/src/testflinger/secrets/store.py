@@ -16,6 +16,9 @@
 """Abstract base class defining the interface to the secrets store."""
 
 from abc import ABC, abstractmethod
+from datetime import datetime
+
+DEFAULT_SECRET_EXPIRATION = 60 * 60 * 24 * 365  # 1 year
 
 
 class SecretsStore(ABC):
@@ -34,11 +37,30 @@ class SecretsStore(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def write(self, namespace: str, key: str, value: str):
-        """Write the `value` for `key` under `namespace`."""
+    def write(
+        self,
+        namespace: str,
+        key: str,
+        value: str,
+        expire_after: int | None = DEFAULT_SECRET_EXPIRATION,
+        ephemeral: bool = False,
+    ) -> datetime | None:
+        """Write the `value` for `key` under `namespace`.
+
+        :param namespace: the namespace under which to store the secret
+        :param key: the key for the secret
+        :param value: the value of the secret to store
+        :param expire_after: Expiration time in seconds for the secret.
+        :param ephemeral: whether the secret should be deleted after being read
+        """
         raise NotImplementedError
 
     @abstractmethod
     def delete(self, namespace: str, key: str):
         """Delete the value for `key` under `namespace`, if any."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def exists(self, namespace: str, key: str) -> bool:
+        """Validate `key` existence under `namespace`, if any."""
         raise NotImplementedError

@@ -40,6 +40,7 @@ from testflinger.secrets.exceptions import (
     StoreError,
     UnexpectedError,
 )
+from testflinger.secrets.store import DEFAULT_SECRET_EXPIRATION
 
 TESTFLINGER_ADMIN_ID = "testflinger-admin"
 
@@ -133,12 +134,11 @@ def validate_secrets(data: dict):
     # check that all secrets paths correspond to stored secrets
     # (i.e. a job containing secrets cannot be submitted unless all its secrets
     # are accessible.)
-    inaccessible_paths = []
-    for secret_path in secrets.values():
-        try:
-            current_app.secrets_store.read(client_id, secret_path)
-        except (AccessError, StoreError, UnexpectedError):
-            inaccessible_paths.append(secret_path)
+    inaccessible_paths = [
+        secret_path
+        for secret_path in secrets.values()
+        if not current_app.secrets_store.exists(client_id, secret_path)
+    ]
     if inaccessible_paths:
         abort(
             HTTPStatus.UNPROCESSABLE_ENTITY,
@@ -1210,6 +1210,7 @@ def delete_client_permissions(client_id: str) -> str:
 @v1.put("/secrets/<client_id>/<path:path>")
 @authenticate
 @v1.input(schemas.SecretIn, location="json")
+@v1.output(schemas.SecretOut)
 def secrets_put(client_id, path, json_data):
     """Store a secret value for the specified client_id and path."""
     if current_app.secrets_store is None:
@@ -1223,13 +1224,24 @@ def secrets_put(client_id, path, json_data):
     # Validate the secret path, if not valid, abort with Unprocessable Entity
     helpers.validate_secret_path(path)
     try:
-        current_app.secrets_store.write(client_id, path, json_data["value"])
+        expire_at = current_app.secrets_store.write(
+            namespace=client_id,
+            key=path,
+            value=json_data["value"],
+            **{"ephemeral": True}
+            if json_data.get("ephemeral", False)
+            else {
+                "expire_after": json_data.get(
+                    "expire_after", DEFAULT_SECRET_EXPIRATION
+                )
+            },
+        )
     except AccessError as error:
         abort(HTTPStatus.BAD_REQUEST, message=str(error))
     except (StoreError, UnexpectedError) as error:
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
-    return "OK"
+    return {"expires_at": expire_at}
 
 
 @v1.delete("/secrets/<client_id>/<path:path>")

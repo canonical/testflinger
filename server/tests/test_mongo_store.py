@@ -17,6 +17,8 @@
 
 import base64
 import os
+from datetime import datetime, timedelta, timezone
+from unittest.mock import ANY, patch
 
 import pytest
 from bson.binary import Binary
@@ -178,14 +180,28 @@ class TestMongoStore:
         ):
             mongo_store.read("test-namespace", "test-key")
 
+    @patch("testflinger.secrets.mongo.datetime")
     def test_write_success(
-        self, mongo_store, mock_collection, mock_client_encryption
+        self,
+        mock_datetime,
+        mongo_store,
+        mock_collection,
+        mock_client_encryption,
     ):
         """Test successful secret write."""
         encrypted_value = Binary(b"encrypted_data")
         mock_client_encryption.encrypt.return_value = encrypted_value
+        expiration_seconds = 3600
+        fixed_now = datetime(2026, 4, 21, tzinfo=timezone.utc)
+        mock_datetime.now.return_value = fixed_now
 
-        mongo_store.write("test-namespace", "test-key", "test-value")
+        mongo_store.write(
+            "test-namespace",
+            "test-key",
+            "test-value",
+            expire_after=expiration_seconds,
+            ephemeral=False,
+        )
 
         mock_client_encryption.encrypt.assert_called_once_with(
             value="test-value".encode("utf-8"),
@@ -194,8 +210,17 @@ class TestMongoStore:
         )
         mock_collection.replace_one.assert_called_once_with(
             {"key": "test-key"},
-            {"key": "test-key", "value": encrypted_value},
+            {
+                "key": "test-key",
+                "value": encrypted_value,
+                "updated_at": fixed_now,
+                "expire_at": fixed_now + timedelta(seconds=expiration_seconds),
+                "ephemeral": False,
+            },
             upsert=True,
+        )
+        mock_collection.create_index.assert_called_once_with(
+            "expire_at", expireAfterSeconds=0
         )
 
     def test_write_encryption_error(
@@ -334,6 +359,238 @@ class TestMongoStore:
 
         mock_database.secrets.__getitem__.assert_called_with(namespace)
         mock_collection.find_one.assert_called_once_with({"key": key})
+
+    @pytest.mark.parametrize("expiration_seconds", [60, 3600, 24 * 3600])
+    def test_write_with_expiration(
+        self,
+        mongo_store,
+        mock_collection,
+        mock_client_encryption,
+        expiration_seconds,
+    ):
+        """Test expiration time is set correctly on write."""
+        encrypted_value = Binary(b"encrypted_data")
+        mock_client_encryption.encrypt.return_value = encrypted_value
+        fixed_now = datetime(2026, 4, 21, tzinfo=timezone.utc)
+
+        with patch("testflinger.secrets.mongo.datetime") as mock_datetime:
+            mock_datetime.now.return_value = fixed_now
+            mongo_store.write(
+                "test-namespace",
+                "test-key",
+                "test-value",
+                expire_after=expiration_seconds,
+                ephemeral=False,
+            )
+
+        mock_client_encryption.encrypt.assert_called_once_with(
+            value="test-value".encode("utf-8"),
+            algorithm=mongo_store.algorithm,
+            key_alt_name="test-key",
+        )
+        mock_collection.replace_one.assert_called_once_with(
+            {"key": "test-key"},
+            {
+                "key": "test-key",
+                "value": encrypted_value,
+                "updated_at": fixed_now,
+                "expire_at": fixed_now + timedelta(seconds=expiration_seconds),
+                "ephemeral": False,
+            },
+            upsert=True,
+        )
+        mock_collection.create_index.assert_called_once_with(
+            "expire_at", expireAfterSeconds=0
+        )
+
+    def test_write_ephemeral_secret(
+        self, mongo_store, mock_collection, mock_client_encryption
+    ):
+        """Test ephemeral is set correctly on write if set to True."""
+        encrypted_value = Binary(b"encrypted_data")
+        mock_client_encryption.encrypt.return_value = encrypted_value
+        fixed_now = datetime(2026, 4, 21, tzinfo=timezone.utc)
+
+        with patch("testflinger.secrets.mongo.datetime") as mock_datetime:
+            mock_datetime.now.return_value = fixed_now
+
+            mongo_store.write(
+                "test-namespace",
+                "test-key",
+                "test-value",
+                expire_after=3600,
+                ephemeral=True,
+            )
+
+            mock_client_encryption.encrypt.assert_called_once_with(
+                value="test-value".encode("utf-8"),
+                algorithm=mongo_store.algorithm,
+                key_alt_name="test-key",
+            )
+            mock_collection.replace_one.assert_called_once_with(
+                {"key": "test-key"},
+                {
+                    "key": "test-key",
+                    "value": encrypted_value,
+                    "updated_at": fixed_now,
+                    "ephemeral": True,
+                },
+                upsert=True,
+            )
+            mock_collection.create_index.assert_not_called()
+
+    @patch("testflinger.secrets.mongo.datetime")
+    def test_write_non_expiring_secret(
+        self,
+        mock_datetime,
+        mongo_store,
+        mock_collection,
+        mock_client_encryption,
+    ):
+        """Test non-expiring secret write does not set expire_at."""
+        encrypted_value = Binary(b"encrypted_data")
+        mock_client_encryption.encrypt.return_value = encrypted_value
+        fixed_now = datetime(2026, 4, 21, tzinfo=timezone.utc)
+        mock_datetime.now.return_value = fixed_now
+
+        mongo_store.write(
+            "test-namespace",
+            "test-key",
+            "test-value",
+            expire_after=None,
+            ephemeral=False,
+        )
+
+        mock_client_encryption.encrypt.assert_called_once_with(
+            value="test-value".encode("utf-8"),
+            algorithm=mongo_store.algorithm,
+            key_alt_name="test-key",
+        )
+        mock_collection.replace_one.assert_called_once_with(
+            {"key": "test-key"},
+            {
+                "key": "test-key",
+                "value": encrypted_value,
+                "updated_at": fixed_now,
+                "ephemeral": False,
+            },
+            upsert=True,
+        )
+        mock_collection.create_index.assert_not_called()
+
+    @patch("testflinger.secrets.mongo.datetime")
+    def test_ttl_index_created_lazily_per_namespace(
+        self,
+        mock_datetime,
+        mongo_store,
+        mock_collection,
+        mock_client_encryption,
+    ):
+        """TTL index should be created only once per namespace."""
+        encrypted_value = Binary(b"encrypted_data")
+        mock_client_encryption.encrypt.return_value = encrypted_value
+        fixed_now = datetime(2026, 4, 21, tzinfo=timezone.utc)
+        mock_datetime.now.return_value = fixed_now
+
+        mongo_store.write(
+            "test-namespace",
+            "first-key",
+            "first-value",
+            expire_after=3600,
+            ephemeral=False,
+        )
+        mongo_store.write(
+            "test-namespace",
+            "second-key",
+            "second-value",
+            expire_after=3600,
+            ephemeral=False,
+        )
+
+        mock_collection.create_index.assert_called_once_with(
+            "expire_at", expireAfterSeconds=0
+        )
+
+    def test_ephemeral_secret_deletion_on_read(
+        self, mongo_store, mock_collection, mock_client_encryption
+    ):
+        """Test that reading an ephemeral secret calls delete_one."""
+        encrypted_value = Binary(b"encrypted_data")
+        mock_collection.find_one.return_value = {
+            "key": "test-key",
+            "value": encrypted_value,
+            "ephemeral": True,
+        }
+        mock_client_encryption.decrypt.return_value = b"test-secret-value"
+
+        result = mongo_store.read("test-namespace", "test-key")
+
+        assert result == "test-secret-value"
+        mock_collection.delete_one.assert_called_once_with({"key": "test-key"})
+
+    def test_expired_secret_read(self, mongo_store, mock_collection):
+        """Test read expired secret raises AccessError."""
+        expired_time = datetime.now(timezone.utc) - timedelta(seconds=60)
+        mock_collection.find_one.return_value = {
+            "key": "test-key",
+            "value": Binary(b"encrypted_data"),
+            "expire_at": expired_time,
+        }
+
+        with pytest.raises(
+            AccessError,
+            match="Expired 'test-key' under 'test-namespace'",
+        ):
+            mongo_store.read("test-namespace", "test-key")
+
+    def test_secret_not_deleted_if_not_expired(
+        self, mongo_store, mock_collection, mock_client_encryption
+    ):
+        """Test read non-expired secret does not call delete_one."""
+        future_time = datetime.now(timezone.utc) + timedelta(seconds=3600)
+        mock_collection.find_one.return_value = {
+            "key": "test-key",
+            "value": Binary(b"encrypted_data"),
+            "expire_at": future_time,
+        }
+        mock_client_encryption.decrypt.return_value = b"test-secret-value"
+
+        result = mongo_store.read("test-namespace", "test-key")
+
+        assert result == "test-secret-value"
+        mock_collection.delete_one.assert_not_called()
+
+    def test_secret_exists_mongostore(self, mongo_store, mock_collection):
+        """Test exists method returns True if secret exists."""
+        mock_collection.find_one.return_value = {"key": "test-key"}
+
+        assert mongo_store.exists("test-namespace", "test-key") is True
+        mock_collection.find_one.assert_called_once_with(
+            {
+                "key": "test-key",
+                "$or": [
+                    {"expire_at": {"$exists": False}},
+                    {"expire_at": {"$gt": ANY}},
+                ],
+            },
+            {"_id": 1},
+        )
+
+    def test_secret_not_exists_mongostore(self, mongo_store, mock_collection):
+        """Test exists method returns False if secret does not exist."""
+        mock_collection.find_one.return_value = None
+
+        assert mongo_store.exists("test-namespace", "nonexistent-key") is False
+        mock_collection.find_one.assert_called_once_with(
+            {
+                "key": "nonexistent-key",
+                "$or": [
+                    {"expire_at": {"$exists": False}},
+                    {"expire_at": {"$gt": ANY}},
+                ],
+            },
+            {"_id": 1},
+        )
 
 
 class TestSetupMongoStore:

@@ -33,6 +33,24 @@ that is automatically determined by the authenticated Testflinger ``client-id``.
 .. tip::
     To update the secret value, you can simply run the same command again with the new value. 
 
+Additionally, you can specify the expiration of the secret based on how long you
+want this data to be retained by Testflinger (in seconds). The default retention period is 1 year
+if you don't specify any expiration.
+
+.. code-block:: shell
+
+    testflinger-cli secret write path/to/secret 'my_secret_value' --expire-after 604800 # 7 days
+
+.. tip::
+    For a non-expiring secret you can specify ``-1`` in the ``--expire-after`` argument
+
+If you prefer the secret to be single-use and expire after its first use, you can alternatively
+``--single-use`` argument.
+
+.. code-block:: shell
+
+    testflinger-cli secret write path/to/secret 'my_secret_value' --single-use
+
 Use a Secret in a job
 ---------------------
 

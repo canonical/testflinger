@@ -634,7 +634,31 @@ class ClientPermissionsOut(Schema):
 class SecretIn(Schema):
     """Secret input schema."""
 
-    value = fields.String(required=True)
+    value = fields.String(required=True, validate=Length(min=1))
+    expire_after = fields.Integer(
+        required=False, allow_none=True, validate=validators.Range(min=1)
+    )
+    ephemeral = fields.Boolean(required=False, default=False)
+
+    @validates_schema
+    def validate_expiration_or_ephemeral(self, data, **_):
+        """Reject requests that set both ephemeral and expire_after."""
+        if data.get("ephemeral") and data.get("expire_after"):
+            raise ValidationError(
+                "Provide either 'ephemeral' or 'expire_after', not both."
+            )
+
+
+class SecretOut(Schema):
+    """Secret write output schema."""
+
+    expires_at = fields.DateTime(
+        required=False,
+        allow_none=True,
+        metadata={
+            "description": "UTC datetime for secret expiration if TTL is set."
+        },
+    )
 
 
 class ResultLegacy(Schema):

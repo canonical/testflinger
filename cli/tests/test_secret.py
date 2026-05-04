@@ -23,6 +23,7 @@ from unittest.mock import mock_open, patch
 import pytest
 
 import testflinger_cli
+from testflinger_cli.consts import DEFAULT_SECRET_EXPIRATION
 from testflinger_cli.enums import ServerRoles
 
 from .test_cli import URL
@@ -47,7 +48,7 @@ def test_secret_write(auth_fixture, capsys, requests_mock, test_path):
 
     requests_mock.put(
         f"{URL}/v1/secrets/my_client_id/{test_path}",
-        text="OK",
+        json={"expires_at": "2027-01-01T00:00:00+00:00"},
         status_code=HTTPStatus.OK,
     )
 
@@ -63,10 +64,14 @@ def test_secret_write(auth_fixture, capsys, requests_mock, test_path):
 
     std = capsys.readouterr()
     assert f"Secret '{test_path}' written successfully" in std.out
+    assert "This secret will expire at 2027-01-01 00:00:00 UTC" in std.out
 
     # Verify the request was made with correct data
     last_request = requests_mock.last_request
-    assert last_request.json() == {"value": test_value}
+    assert last_request.json() == {
+        "value": test_value,
+        "expire_after": DEFAULT_SECRET_EXPIRATION,
+    }
 
 
 def test_secret_write_http_error(auth_fixture, requests_mock):
@@ -244,6 +249,125 @@ def test_secret_invalid_token_error(requests_mock, subcommand):
         tfcli.run()
 
     assert "Please reauthenticate with server" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("expiration", [60, 3600, 86400])
+def test_secret_write_with_expiration(
+    auth_fixture, capsys, requests_mock, expiration
+):
+    """Test secret write sends correct expire_after value in request body."""
+    auth_fixture(ServerRoles.CONTRIBUTOR)
+    test_path = "my/secret/path"
+
+    requests_mock.put(
+        f"{URL}/v1/secrets/my_client_id/{test_path}",
+        json={"expires_at": "2027-06-01T12:00:00+00:00"},
+        status_code=HTTPStatus.OK,
+    )
+
+    sys.argv = [
+        "",
+        "secret",
+        "write",
+        test_path,
+        "secret_value",
+        "--expire-after",
+        str(expiration),
+    ]
+
+    testflinger_cli.TestflingerCli().run()
+
+    std = capsys.readouterr()
+    assert "This secret will expire at 2027-06-01 12:00:00 UTC" in std.out
+    assert requests_mock.last_request.json() == {
+        "value": "secret_value",
+        "expire_after": expiration,
+    }
+
+
+def test_secret_write_no_expiration(auth_fixture, capsys, requests_mock):
+    """Test expire-after -1 sets None in expire_after in the request body."""
+    auth_fixture(ServerRoles.CONTRIBUTOR)
+    test_path = "my/secret/path"
+
+    requests_mock.put(
+        f"{URL}/v1/secrets/my_client_id/{test_path}",
+        json={"expires_at": None},
+        status_code=HTTPStatus.OK,
+    )
+
+    sys.argv = [
+        "",
+        "secret",
+        "write",
+        test_path,
+        "secret_value",
+        "--expire-after",
+        "-1",
+    ]
+
+    testflinger_cli.TestflingerCli().run()
+
+    std = capsys.readouterr()
+    assert "This secret will not expire automatically" in std.out
+    assert requests_mock.last_request.json() == {
+        "value": "secret_value",
+        "expire_after": None,
+    }
+
+
+def test_secret_write_single_use(auth_fixture, capsys, requests_mock):
+    """Test that single-use sets the ephemeral flag in the request body."""
+    auth_fixture(ServerRoles.CONTRIBUTOR)
+    test_path = "my/secret/path"
+
+    requests_mock.put(
+        f"{URL}/v1/secrets/my_client_id/{test_path}",
+        json={"expires_at": None},
+        status_code=HTTPStatus.OK,
+    )
+
+    sys.argv = [
+        "",
+        "secret",
+        "write",
+        test_path,
+        "secret_value",
+        "--single-use",
+    ]
+
+    testflinger_cli.TestflingerCli().run()
+
+    std = capsys.readouterr()
+    assert "This secret will be deleted after first use" in std.out
+    assert requests_mock.last_request.json() == {
+        "value": "secret_value",
+        "ephemeral": True,
+    }
+
+
+def test_secret_write_single_use_and_expire_after_are_mutually_exclusive(
+    auth_fixture, capsys
+):
+    """Test that single-use and expire-after cannot be used together."""
+    auth_fixture(ServerRoles.CONTRIBUTOR)
+
+    sys.argv = [
+        "",
+        "secret",
+        "write",
+        "my/secret/path",
+        "secret_value",
+        "--single-use",
+        "--expire-after",
+        "3600",
+    ]
+
+    with pytest.raises(SystemExit) as exc_info:
+        testflinger_cli.TestflingerCli().run()
+
+    assert exc_info.value.code == 2
+    assert "not allowed with argument" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
