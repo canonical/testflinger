@@ -1,5 +1,6 @@
 # Copyright 2025 Canonical
 # See LICENSE file for licensing details.
+"""Unit tests for common module."""
 
 import base64
 from pathlib import Path

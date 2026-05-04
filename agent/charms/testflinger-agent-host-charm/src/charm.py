@@ -3,7 +3,7 @@
 # See LICENSE file for licensing details.
 #
 # Learn more at: https://juju.is/docs/sdk
-
+"""Testflinger Agent Host Charm."""
 
 import logging
 import os
@@ -36,6 +36,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
     """Base charm for testflinger agent host systems."""
 
     def __init__(self, *args):
+        """Charm initialization."""
         super().__init__(*args)
         self.typed_config = self.load_config(
             TestflingerAgentConfig, errors="blocked"
@@ -273,6 +274,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         return True
 
     def on_config_changed(self, _):
+        """Handle on config changed event."""
         self.unit.status = ops.MaintenanceStatus(
             "Handling config_changed hook"
         )
@@ -320,6 +322,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         self.unit.status = ops.ActiveStatus()
 
     def get_scrape_jobs(self):
+        """Get the scrape jobs for the Grafana Agent."""
         return supervisord.get_supervisor_scrape_jobs()
 
 

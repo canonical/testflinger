@@ -30,6 +30,7 @@ class TestflingerAgentConfig(pydantic.BaseModel):
     @pydantic.field_validator("testflinger_server")
     @classmethod
     def validate_server(cls, value):
+        """Validate testflinger_server config option includes a protocol."""
         if not value.startswith(("http://", "https://")):
             raise ValueError(
                 "testflinger_server must include protocol (http:// or https://)"

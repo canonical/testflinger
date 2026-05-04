@@ -57,14 +57,7 @@ select = [
     "S",   # flake8-bandit 
     "W",   # pycodestyle warnings
 ]
-ignore = [
-    "D100", # docstring: Missing docstring in public module
-    "D102", # docstring: Missing docstring in public method
-    "D103", # docstring: Missing docstring in public function
-    "D104", # docstring: Missing docstring in public package
-    "D107", # docstring: Missing docstring in __init__
-    "D205", # docstring: missing-blank-line-after-summary
-]
+ignore = []
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [

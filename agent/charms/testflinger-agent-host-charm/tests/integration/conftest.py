@@ -1,3 +1,7 @@
+# Copyright 2026 Canonical
+# See LICENSE file for licensing details.
+"""Fixtures for charm integration tests."""
+
 import json
 import logging
 import os

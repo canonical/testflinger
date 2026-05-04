@@ -1,5 +1,6 @@
 # Copyright 2026 Canonical
 # See LICENSE file for licensing details.
+"""Unit tests for testflinger_client module."""
 
 import json
 from datetime import datetime, timedelta, timezone

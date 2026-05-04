@@ -1,5 +1,6 @@
 # Copyright 2026 Canonical
 # See LICENSE file for licensing details.
+"""Unit tests for charm_utils module."""
 
 from unittest.mock import patch
 

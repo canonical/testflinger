@@ -1,5 +1,6 @@
 # Copyright 2026 Canonical
 # See LICENSE file for licensing details.
+"""Utility functions for the Testflinger Agent Host charm."""
 
 import logging
 import shutil
@@ -42,7 +43,8 @@ def setup_docker():
 
 
 def update_config_files(config: TestflingerAgentConfig):
-    """
+    """Update the agent configuration files.
+
     Clone the config files from the repo and swap it in for whatever is
     in AGENT_CONFIGS_PATH.
     """

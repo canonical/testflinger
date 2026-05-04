@@ -1,3 +1,7 @@
+# Copyright 2026 Canonical
+# See LICENSE file for licensing details.
+"""Integration tests for the charm."""
+
 from pathlib import Path
 
 import jubilant
