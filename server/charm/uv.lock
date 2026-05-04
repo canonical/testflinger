@@ -784,6 +784,7 @@ dependencies = [
     { name = "bcrypt" },
     { name = "cosl" },
     { name = "ops" },
+    { name = "pydantic" },
     { name = "pymongo" },
     { name = "urllib3" },
 ]
@@ -809,6 +810,7 @@ requires-dist = [
     { name = "bcrypt", specifier = ">=4.2.0" },
     { name = "cosl", specifier = ">=0.0.53" },
     { name = "ops", specifier = ">=2.2.0" },
+    { name = "pydantic", specifier = ">=2.12,<3" },
     { name = "pymongo", specifier = "<4.9.0" },
     { name = "urllib3", specifier = ">=2.6.3" },
 ]
