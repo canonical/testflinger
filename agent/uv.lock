@@ -1068,6 +1068,7 @@ name = "testflinger-device-connectors"
 version = "0.0.2"
 source = { directory = "../device-connectors" }
 dependencies = [
+    { name = "pytest-xdist" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "typing-extensions" },
@@ -1076,6 +1077,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "pytest-xdist", specifier = ">=3.8.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "typing-extensions", specifier = "~=4.15.0" },
