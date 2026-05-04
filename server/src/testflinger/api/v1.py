@@ -828,8 +828,8 @@ def agents_status_post(job_id, json_data):
                 allow_redirects=False,
             )
 
-            # Auth failures can happen if server configuration
-            # is no longer valid.
+            # Auth failures can happen if webhook authentication
+            # is no longer valid or missing entirely.
             if response.status_code in (
                 HTTPStatus.UNAUTHORIZED,
                 HTTPStatus.FORBIDDEN,
