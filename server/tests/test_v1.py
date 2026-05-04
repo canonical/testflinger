@@ -1150,6 +1150,38 @@ def test_agents_status_put_webhook_unreachable(
     assert output.status_code == HTTPStatus.BAD_GATEWAY
 
 
+@pytest.mark.parametrize(
+    "webhook_status", [HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN]
+)
+def test_agents_status_put_webhook_auth_failure(
+    mongo_app, requests_mock, monkeypatch, webhook_status
+):
+    """Test that auth errors from the webhook server results in 500 error."""
+    app, _ = mongo_app
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
+    monkeypatch.setenv("WEBHOOK_AUTH", "fake_token")
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    webhook = "http://mywebhook.com/v1/test-executions/1234/status_update"
+    requests_mock.put(webhook, status_code=webhook_status)
+
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": webhook,
+        "events": [],
+    }
+    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+
+    # Testflinger server should return 500 error if the webhook server
+    # responds with an auth error, as this indicates a misconfiguration
+    # that needs to be fixed at charm level by an admin.
+    assert output.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+    assert "Webhook authentication failed" in output.get_data(as_text=True)
+
+
 def test_get_agents_data(mongo_app):
     """Test api to retrieve agent data."""
     app, _ = mongo_app
