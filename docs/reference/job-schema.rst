@@ -64,7 +64,11 @@ The following table lists the key elements that a job definition file should con
 Example jobs in YAML
 ----------------------------
 
-The following example YAML file defines a job that provisions the Ubuntu Core 22 system on a Raspberry Pi 4 device. The job retrieves the image from the given URL, provisions the image on the device at IP address stored in the ``$DEVICE_IP`` environment variable, and prints the distribution-specific information on the provisioned device:
+The following example YAML file defines a job that provisions the Ubuntu Core 22
+system on a Raspberry Pi 4 device. The job retrieves the image from the given URL,
+provisions the image on the device at IP address stored in the ``$DEVICE_IP`` 
+environment variable, and prints the distribution-specific information on the 
+provisioned device:
 
 .. code-block:: yaml
 
@@ -77,14 +81,27 @@ The following example YAML file defines a job that provisions the Ubuntu Core 22
     test_cmds: |
       ssh -t ubuntu@$DEVICE_IP lsb_release -a
 
-Data specified in the ``provision_data`` section varies on device types. For example, to provision server images on a MAAS device, the ``distro`` field should be used to indicate the system version. The following YAML file defines a job that provisions the Ubuntu 22.04 LTS (Jammy Jellyfish) server install image on a MAAS device and prints the information about its processors and network interface configurations:
+Data specified in the ``provision_data`` section varies on device types. For example,
+to provision Ubuntu images on a MAAS device, the ``distro`` field should be used to 
+indicate the system version. The following YAML file defines a job that provisions the 
+Ubuntu 22.04 LTS (Jammy Jellyfish) image on a MAAS device and prints the information 
+about its processors and network interface configurations. As this is a simple
+validation job, we can use ephemeral (in-memory) provisioning to speed up the provisioning:
 
 .. code-block:: yaml
 
   job_queue: maas-x86-node 
   provision_data:   
-    distro: jammy 
+    distro: jammy
+    ephemeral: true # Optional key, default is false if not provided.
   test_data:
     test_cmds: |
       ssh ubuntu@$DEVICE_IP cat /proc/cpuinfo
       ssh ubuntu@$DEVICE_IP ifconfig
+
+.. tip::
+
+  Ephemeral deployments are only supported for MAAS devices. Additionally, this requires 
+  MAAS 3.5.0 or later. If the ``ephemeral`` key is set to ``true`` but the MAAS version 
+  does not support ephemeral deployments, the key will be ignored and the deployment will 
+  proceed without ephemeral provisioning.
