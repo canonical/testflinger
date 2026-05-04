@@ -627,3 +627,14 @@ def add_job_results(job_id: str, json_data: dict):
         json_data[f"result_data.{key}"] = json_data.pop(key)
 
     mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
+
+
+def job_exists(job_id: str) -> bool:
+    """Validate job exists on database.
+
+    :param job_id: The job ID to check.
+    :return: True if the job exists, False otherwise.
+    """
+    return (
+        mongo.db.jobs.find_one({"job_id": job_id}, {"_id": True}) is not None
+    )
