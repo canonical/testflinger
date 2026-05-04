@@ -124,6 +124,9 @@ class ServerRoles(StrEnum):
     CONTRIBUTOR = "contributor"
     AGENT = "agent"
 
+    def __str__(self):
+        return self.value
+
     def __lt__(self, other: "ServerRoles") -> bool:
         """Implement of "less-than" between ServerRoles."""
         if not isinstance(other, ServerRoles):

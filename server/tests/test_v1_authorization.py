@@ -19,6 +19,7 @@ restricted queues.
 """
 
 import base64
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
@@ -189,6 +190,34 @@ def test_missing_fields_in_token(mongo_app_with_permissions):
     )
     assert 403 == job_response.status_code
     assert "Invalid Token" in job_response.text
+
+
+def test_missing_role_defaults_to_contributor(mongo_app_with_permissions):
+    """Tests that missing role field in token defaults to CONTRIBUTOR role."""
+    app, _, client_id, _, _ = mongo_app_with_permissions
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    # Create token with valid client_id but no role field
+    token_payload = {
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        "iat": datetime.now(timezone.utc),
+        "sub": "access_token",
+        "permissions": {
+            "client_id": client_id,
+            "max_priority": {"*": 0},
+            # Note: intentionally omitting "role" field
+        },
+    }
+    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
+
+    # POST to an endpoint that requires CONTRIBUTOR role or higher
+    # A basic job post without priority should succeed with CONTRIBUTOR role
+    job = {"job_queue": "myqueue"}
+    job_response = app.post(
+        "/v1/job", json=job, headers={"Authorization": token}
+    )
+
+    # Should succeed (200 OK) because CONTRIBUTOR can post basic jobs
+    assert job_response.status_code == HTTPStatus.OK
 
 
 def test_job_get_with_priority(mongo_app_with_permissions, agent_auth_header):
@@ -655,10 +684,10 @@ def test_get_single_client_permissions(mongo_app_with_permissions):
     mongo.client_permissions.delete_one({"client_id": "test_client"})
 
 
-def test_add_client_permissions(mongo_app_with_permissions):
+def test_add_client_permissions(mongo_app_with_permissions, caplog):
     """Test adding a client_id and its permissions."""
-    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-    token = get_access_token(app, client_id, client_key)
+    app, mongo, admin_client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, admin_client_id, client_key)
 
     # Define client_id and permissions
     client_id = "test_client"
@@ -669,11 +698,12 @@ def test_add_client_permissions(mongo_app_with_permissions):
         "role": ServerRoles.CONTRIBUTOR,
     }
 
-    output = app.put(
-        f"/v1/client-permissions/{client_id}",
-        json=client_permissions,
-        headers={"Authorization": token},
-    )
+    with caplog.at_level(logging.INFO):
+        output = app.put(
+            f"/v1/client-permissions/{client_id}",
+            json=client_permissions,
+            headers={"Authorization": token},
+        )
 
     # Retrieve data from Database
     client_entry = mongo.client_permissions.find_one({"client_id": client_id})
@@ -691,11 +721,15 @@ def test_add_client_permissions(mongo_app_with_permissions):
     assert "client_secret_hash" in client_entry
     assert client_entry["client_secret_hash"] != clear_password
 
+    # Verify OWASP user_created event is logged
+    assert f"user_created:{admin_client_id}" in caplog.text
+    assert client_id in caplog.text
+
     # Cleanup test client
     mongo.client_permissions.delete_one({"client_id": "test_client"})
 
 
-def test_edit_client_permissions(mongo_app_with_permissions):
+def test_edit_client_permissions(mongo_app_with_permissions, caplog):
     """Test editing a client_id and its permissions."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
     token = get_access_token(app, client_id, client_key)
@@ -717,11 +751,12 @@ def test_edit_client_permissions(mongo_app_with_permissions):
         "role": ServerRoles.MANAGER,
     }
 
-    output = app.put(
-        "/v1/client-permissions/test_client",
-        json=updated_permissions,
-        headers={"Authorization": token},
-    )
+    with caplog.at_level(logging.INFO):
+        output = app.put(
+            "/v1/client-permissions/test_client",
+            json=updated_permissions,
+            headers={"Authorization": token},
+        )
     assert output.status_code == HTTPStatus.OK
 
     # Verify the updated data
@@ -737,11 +772,15 @@ def test_edit_client_permissions(mongo_app_with_permissions):
     # Ensure client_secret_hash is unchanged
     assert client_entry["client_secret_hash"] == "hashed_password"  # noqa S105
 
+    # Verify OWASP user_updated event is logged
+    assert f"user_updated:{client_id}" in caplog.text
+    assert "test_client" in caplog.text
+
     # Cleanup test client
     mongo.client_permissions.delete_one({"client_id": "test_client"})
 
 
-def test_delete_client_permissions(mongo_app_with_permissions):
+def test_delete_client_permissions(mongo_app_with_permissions, caplog):
     """Test deleting a client_id and its permissions."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
     token = get_access_token(app, client_id, client_key)
@@ -757,14 +796,20 @@ def test_delete_client_permissions(mongo_app_with_permissions):
         }
     )
 
-    output = app.delete(
-        "/v1/client-permissions/test_client", headers={"Authorization": token}
-    )
+    with caplog.at_level(logging.INFO):
+        output = app.delete(
+            "/v1/client-permissions/test_client",
+            headers={"Authorization": token},
+        )
     assert output.status_code == HTTPStatus.OK
 
     client_id_list = list(mongo.client_permissions.find({}))
     client_ids = [client["client_id"] for client in client_id_list]
-    assert "clientA" not in client_ids
+    assert "test_client" not in client_ids
+
+    # Verify OWASP user_deleted event is logged
+    assert f"user_deleted:{client_id}" in caplog.text
+    assert "test_client" in caplog.text
 
 
 def test_delete_non_existing_client(mongo_app_with_permissions):

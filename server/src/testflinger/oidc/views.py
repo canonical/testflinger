@@ -15,8 +15,6 @@
 #
 """OIDC related views for authenticated application."""
 
-import logging
-
 from authlib.integrations.base_client.errors import (
     MismatchingStateError,
     OAuthError,
@@ -25,15 +23,15 @@ from flask import (
     Blueprint,
     current_app,
     redirect,
+    request,
     session,
     url_for,
 )
 
 from testflinger.database import register_web_client
+from testflinger.owasp import OWASPLogger
 
 oidc_views = Blueprint("oidc", __name__)
-
-logger = logging.getLogger(__name__)
 
 
 @oidc_views.route("/callback")
@@ -43,8 +41,24 @@ def callback():
         token = current_app.oauth.oidc.authorize_access_token()
         session["user"] = token["userinfo"]["name"]
         register_web_client(token)
+        # Log successful OIDC authentication
+        current_app.owasp_logger.authn_login_success(
+            userid=token["userinfo"]["name"],
+            description=(
+                f"User {token['userinfo']['name']} authenticated via OIDC"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
     except (MismatchingStateError, OAuthError) as err:
-        logger.warning("Oauth error during authentication: %s", str(err))
+        # Log failed OIDC authentication
+        current_app.owasp_logger.authn_login_fail(
+            userid="unknown",
+            description=(
+                f"OIDC authentication failed: {type(err).__name__}; "
+                f"Oauth error during authentication: {err}"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
     return redirect(url_for("testflinger.home"))
 
 

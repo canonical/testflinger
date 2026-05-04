@@ -35,6 +35,7 @@ from testflinger import database
 from testflinger.api import auth, helpers, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.logs import LogFragment, MongoLogHandler
+from testflinger.owasp import OWASPLogger
 from testflinger.secrets.exceptions import (
     AccessError,
     StoreError,
@@ -932,24 +933,47 @@ def retrieve_token():
     """
     auth_header = request.authorization
     if auth_header is None:
+        current_app.owasp_logger.authn_login_fail(
+            userid="unknown",
+            description=(
+                "Authentication attempt with missing authorization header"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         return "No authorization header specified", 401
 
     client_id = auth_header["username"]
     client_key = auth_header["password"]
     if client_id is None or client_key is None:
+        current_app.owasp_logger.authn_login_fail(
+            userid=client_id or "unknown",
+            description=(
+                f"Authentication attempt with incomplete credentials "
+                f"(client_id={client_id is not None})"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         return (
             "Client id and key must be specified in authorization header",
             401,
         )
 
     allowed_resources = auth.validate_client_key_pair(client_id, client_key)
-    if allowed_resources is None:
+    if not allowed_resources:
+        current_app.owasp_logger.authn_login_fail(
+            userid=client_id,
+            description=(
+                f"Authentication attempt for client {client_id} with "
+                f"invalid credentials"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         return "Invalid client id or client key", 401
 
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     access_token = auth.generate_access_token(allowed_resources, secret_key)
 
-    role = allowed_resources.get("role")
+    role = ServerRoles(allowed_resources.get("role", ServerRoles.CONTRIBUTOR))
     if role in (ServerRoles.ADMIN, ServerRoles.MANAGER):
         refresh_expires_in = None
     else:
@@ -957,6 +981,25 @@ def retrieve_token():
 
     refresh_token = auth.generate_refresh_token(
         client_id, expires_in=refresh_expires_in
+    )
+
+    # Log successful authentication
+    entitlements = [role]
+    current_app.owasp_logger.authn_login_success(
+        userid=client_id,
+        description=(
+            f"Client {client_id} successfully authenticated with role {role}"
+        ),
+        **OWASPLogger.get_request_metadata(request),
+    )
+    current_app.owasp_logger.authn_token_created(
+        userid=client_id,
+        entitlements=entitlements,
+        description=(
+            f"JWT access token and refresh token issued for "
+            f"client {client_id} with role: {role}."
+        ),
+        **OWASPLogger.get_request_metadata(request),
     )
 
     return {
@@ -970,9 +1013,14 @@ def retrieve_token():
 @v1.post("/oauth2/refresh")
 def refresh_access_token():
     """Refresh access token using a valid refresh token."""
-    data = request.get_json()
+    data = request.get_json() or {}
     refresh_token = data.get("refresh_token")
     if not refresh_token:
+        current_app.owasp_logger.authn_login_fail(
+            userid="unknown",
+            description=("Access token requested without refresh token."),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
 
     token_entry = auth.validate_refresh_token(refresh_token)
@@ -981,6 +1029,19 @@ def refresh_access_token():
     client_permissions = database.get_client_permissions(client_id)
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     access_token = auth.generate_access_token(client_permissions, secret_key)
+
+    # Log token refresh
+    role = client_permissions.get("role")
+    entitlements = [role] if role else []
+    current_app.owasp_logger.authn_token_created(
+        userid=client_id,
+        entitlements=entitlements,
+        description=(
+            f"Access token refreshed for client {client_id} "
+            f"with entitlements: {','.join([str(e) for e in entitlements])}"
+        ),
+        **OWASPLogger.get_request_metadata(request),
+    )
 
     return {
         "access_token": access_token,
@@ -994,7 +1055,7 @@ def refresh_access_token():
 @require_role(ServerRoles.ADMIN)
 def revoke_refresh_token():
     """Revoke a refresh token. Only admins can perform this action."""
-    data = request.get_json()
+    data = request.get_json() or {}
     token = data.get("refresh_token")
     if not token:
         abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
@@ -1007,6 +1068,18 @@ def revoke_refresh_token():
         abort(HTTPStatus.BAD_REQUEST, "Refresh token has already been revoked")
 
     database.edit_refresh_token(token, {"revoked": True})
+
+    # Log token revocation without exposing token material
+    target_client_id = token_entry.get("client_id", "unknown")
+    current_app.owasp_logger.authn_token_revoked(
+        userid=target_client_id,
+        tokenid=str(token_entry.get("_id") or "unknown"),
+        description=(
+            f"Admin {g.client_id} revoked refresh token for client "
+            f"{target_client_id}"
+        ),
+        **OWASPLogger.get_request_metadata(request),
+    )
 
     return {"status": "OK"}
 
@@ -1107,7 +1180,7 @@ def delete_restricted_queue(queue_name: str, json_data: dict) -> dict:
 @v1.output(schemas.ClientPermissionsOut(many=True))
 def get_all_client_permissions() -> list[dict]:
     """Retrieve all client permissions from database."""
-    return database.get_client_permissions()
+    return database.get_all_client_permissions()
 
 
 @v1.get("/client-permissions/<client_id>")
@@ -1133,6 +1206,16 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
     """Add or create client permissions for a specified user."""
     # Testflinger Admin credential can't be modified from API!'
     if client_id == TESTFLINGER_ADMIN_ID:
+        current_app.owasp_logger.authz_admin(
+            userid=g.client_id,
+            admin_activity="set_client_permissions",
+            description=(
+                f"Authorization denied: client {g.client_id} with role "
+                f"{g.role} attempted to modify the system admin role "
+                f"{TESTFLINGER_ADMIN_ID} (forbidden)"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(
             HTTPStatus.UNPROCESSABLE_ENTITY,
             "Error: System admin client cannot by modified from API.",
@@ -1146,6 +1229,15 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
 
     # validation: client secret is required when creating permissions
     if not client_exist and not client_secret:
+        current_app.owasp_logger.authz_admin(
+            userid=g.client_id,
+            admin_activity="set_client_permissions",
+            description=(
+                f"Admin {g.client_id} attempted to create client {client_id} "
+                f"without required client_secret"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(
             HTTPStatus.BAD_REQUEST,
             "Error: Missing client_secret in request body for new client",
@@ -1155,19 +1247,39 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
         client_secret_hash = auth.hash_secret(client_secret)
         json_data["client_secret_hash"] = client_secret_hash
 
-    # validation: the requesting client can modify the client't permissions
+    # validation: the requesting client can modify the client's permissions
     # only if its role is not inferior to the client's role
     if ServerRoles(g.role) < ServerRoles(current_role):
+        current_app.owasp_logger.authz_fail(
+            userid=g.client_id,
+            resource=request.path,
+            description=(
+                f"Authorization denied: client {g.client_id} with role "
+                f"{g.role} attempted to modify client {client_id} "
+                f"with role {current_role} (insufficient permissions)"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(
             HTTPStatus.FORBIDDEN,
             f"{g.client_id} has insufficient permissions "
             f"to modify client '{client_id}'",
         )
 
-    # validation: the requesting client can modify the client't role
+    # validation: the requesting client can modify the client's role
     # only if its role is not inferior to the client's new role
     new_role = json_data.get("role", None)
     if new_role and ServerRoles(g.role) < ServerRoles(new_role):
+        current_app.owasp_logger.authz_fail(
+            userid=g.client_id,
+            resource=request.path,
+            description=(
+                f"Authorization denied: client {g.client_id} with role "
+                f"{g.role} attempted to assign role {new_role} to client "
+                f"{client_id} (insufficient permissions)"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(
             HTTPStatus.FORBIDDEN,
             f"{g.client_id} has insufficient permissions "
@@ -1176,11 +1288,38 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
 
     # Update permissions from json data
     permissions.update(json_data)
+    effective_role = permissions.get("role", ServerRoles.CONTRIBUTOR)
     database.create_or_update_client_permissions(client_id, permissions)
 
+    # Log user management activity
     if client_exist:
+        # User updated
+        current_app.owasp_logger.user_updated(
+            userid=g.client_id,
+            onuserid=client_id,
+            attributes=(
+                f"role={effective_role},max_priority,max_reservation_time,"
+                f"allowed_queues"
+            ),
+            description=(
+                f"Admin {g.client_id} updated permissions for "
+                f"client {client_id}: role={effective_role}"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         return f"Updated permissions for client '{client_id}'"
     else:
+        # User created
+        current_app.owasp_logger.user_created(
+            userid=g.client_id,
+            newuserid=client_id,
+            attributes=f"role={effective_role},max_priority,max_reservation_time,allowed_queues",
+            description=(
+                f"Admin {g.client_id} created new client {client_id} "
+                f"with role {effective_role}"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         return f"Created permissions for client '{client_id}'"
 
 
@@ -1191,11 +1330,29 @@ def delete_client_permissions(client_id: str) -> str:
     """Delete client id along with its permissions."""
     # Testflinger Admin credential can't be removed from API!'
     if client_id == TESTFLINGER_ADMIN_ID:
+        current_app.owasp_logger.user_deleted(
+            userid=g.client_id,
+            onuserid=client_id,
+            description=(
+                f"Admin {g.client_id} attempted to delete system admin "
+                f"client {TESTFLINGER_ADMIN_ID} (forbidden)"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(
             HTTPStatus.UNPROCESSABLE_ENTITY,
             "Error: System admin client cannot by deleted from API.",
         )
     if not database.check_client_exists(client_id):
+        current_app.owasp_logger.user_deleted(
+            userid=g.client_id,
+            onuserid=client_id,
+            description=(
+                f"Admin {g.client_id} attempted to delete non-existent "
+                f"client {client_id}"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(
             HTTPStatus.NOT_FOUND,
             "Error: Specified client_id does not exist.",
@@ -1203,6 +1360,17 @@ def delete_client_permissions(client_id: str) -> str:
 
     # Delete entry from database
     database.delete_client_permissions(client_id)
+
+    # Log user deletion
+    current_app.owasp_logger.user_deleted(
+        userid=g.client_id,
+        onuserid=client_id,
+        description=(
+            f"Admin {g.client_id} deleted client {client_id} and all "
+            f"associated permissions"
+        ),
+        **OWASPLogger.get_request_metadata(request),
+    )
 
     return "OK"
 

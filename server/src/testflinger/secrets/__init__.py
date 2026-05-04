@@ -35,6 +35,7 @@ from testflinger.secrets.store import SecretsStore
 from testflinger.secrets.vault import VaultStore
 
 logger = logging.getLogger(__name__)
+
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 formatter = logging.Formatter(

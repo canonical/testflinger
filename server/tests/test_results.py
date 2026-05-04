@@ -259,4 +259,5 @@ def test_invalid_uuid_post_endpoints(mongo_app, endpoint, data):
         response = app.post(endpoint, data="test")
 
     assert response.status_code == HTTPStatus.BAD_REQUEST
-    assert "Invalid job" in response.text or "Invalid job_id" in response.text
+    assert "Invalid job" in response.text
+    assert "Invalid job_id" in response.text

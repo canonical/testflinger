@@ -25,10 +25,11 @@ import bcrypt
 import jwt
 from apiflask import abort
 from authlib.common.security import generate_token
-from flask import g, request
+from flask import current_app, g, request
 from testflinger_common.enums import ServerRoles
 
 from testflinger import database
+from testflinger.owasp import OWASPLogger
 
 
 def hash_secret(secret: str):
@@ -39,9 +40,7 @@ def hash_secret(secret: str):
     return bcrypt.hashpw(secret.encode("utf-8"), bcrypt.gensalt()).decode()
 
 
-def validate_client_key_pair(
-    client_id: str | None, client_key: str | None
-) -> dict | None:
+def validate_client_key_pair(client_id: str, client_key: str) -> dict | None:
     """
     Check credentials for validity and returns their permissions.
 
@@ -54,11 +53,12 @@ def validate_client_key_pair(
     client_key_bytes = client_key.encode("utf-8")
     client_permissions_entry = database.get_client_permissions(client_id)
 
-    if client_permissions_entry is None or not bcrypt.checkpw(
+    if not client_permissions_entry or not bcrypt.checkpw(
         client_key_bytes,
         client_permissions_entry["client_secret_hash"].encode("utf8"),
     ):
         return None
+
     # Removing client_secret_hash for security purposes
     client_permissions_entry.pop("client_secret_hash", None)
     return client_permissions_entry
@@ -261,7 +261,7 @@ def authenticate(func):
 
         # Store auth state if decoding was successful
         g.client_id = permissions["client_id"]
-        g.role = permissions.get("role", ServerRoles.CONTRIBUTOR)
+        g.role = ServerRoles(permissions.get("role", ServerRoles.CONTRIBUTOR))
         g.permissions = permissions
         g.is_authenticated = True
 
@@ -277,13 +277,34 @@ def require_role(*roles):
         @wraps(func)
         def wrapper(*args, **kwargs):
             if not g.is_authenticated:
+                current_app.owasp_logger.authz_fail(
+                    userid="unauthenticated",
+                    resource=request.path,
+                    description=(
+                        "Unauthenticated access attempt to protected "
+                        f"endpoint {request.method} {request.path}"
+                    ),
+                    **OWASPLogger.get_request_metadata(request),
+                )
+
                 abort(
                     HTTPStatus.UNAUTHORIZED,
                     "Authentication is required for specified endpoint",
                 )
 
             if g.role not in roles:
-                role_list = ", ".join(r.value for r in roles)
+                role_list = ", ".join(str(r) for r in roles)
+                current_app.owasp_logger.authz_fail(
+                    userid=g.client_id,
+                    resource=request.path,
+                    description=(
+                        f"Authorization denied: client {g.client_id} "
+                        f"with role {g.role} attempted "
+                        f"{request.method} {request.path} "
+                        f"(requires: {role_list})"
+                    ),
+                    **OWASPLogger.get_request_metadata(request),
+                )
                 abort(
                     HTTPStatus.FORBIDDEN,
                     f"Specified action requires role: {role_list}",
@@ -335,6 +356,16 @@ def validate_refresh_token(token: str) -> dict:
         abort(HTTPStatus.BAD_REQUEST, "Invalid refresh token.")
 
     if token_entry["revoked"]:
+        # Log attempt to reuse revoked token
+        current_app.owasp_logger.authn_token_reuse(
+            userid=token_entry.get("client_id", "unknown"),
+            tokenid=token_entry.get("_id", "unknown"),
+            description=(
+                f"Attempt to reuse revoked refresh token for client "
+                f"{token_entry.get('client_id', 'unknown')}"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
         abort(HTTPStatus.BAD_REQUEST, "Refresh token revoked.")
 
     expires_at = token_entry.get("expires_at")
@@ -343,6 +374,16 @@ def validate_refresh_token(token: str) -> dict:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
 
         if expires_at < datetime.now(timezone.utc):
+            # Log attempt to reuse expired token
+            current_app.owasp_logger.authn_token_reuse(
+                userid=token_entry.get("client_id", "unknown"),
+                tokenid=token_entry.get("_id", "unknown"),
+                description=(
+                    f"Attempt to reuse expired refresh token for client "
+                    f"{token_entry.get('client_id', 'unknown')}"
+                ),
+                **OWASPLogger.get_request_metadata(request),
+            )
             abort(HTTPStatus.BAD_REQUEST, "Refresh token expired")
 
     database.edit_refresh_token(

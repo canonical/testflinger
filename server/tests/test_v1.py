@@ -1376,8 +1376,8 @@ def test_job_post_exclude_agents_not_list(mongo_app):
     }
     output = app.post("/v1/job", json=job_data)
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-    msg = output.json.get("message", "").lower()
-    assert "must be a list" in msg or "list" in str(output.json).lower()
+    assert "Validation error" in str(output.json)
+    assert "Not a valid list." in str(output.json)
 
 
 def test_job_post_exclude_agents_all_excluded(mongo_app):
@@ -1397,7 +1397,8 @@ def test_job_post_exclude_agents_all_excluded(mongo_app):
     output = app.post("/v1/job", json=job_data)
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     msg = output.json.get("message", "").lower()
-    assert "no agents" in msg or "agent" in str(output.json).lower()
+    assert "no agents" in msg
+    assert "agent" in str(output.json).lower()
 
 
 def test_pop_job_respects_exclude_agents(mongo_app, agent_auth_header):

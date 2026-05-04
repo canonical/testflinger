@@ -473,20 +473,27 @@ def check_client_exists(client_id: str) -> bool:
     )
 
 
-def get_client_permissions(client_id: str | None = None) -> dict | list[dict]:
-    """Retrieve the client permissions for a specified user.
-
-    If no client_id is specified, will return the permissions from all users.
+def get_client_permissions(client_id: str) -> dict:
+    """Retrieve the client permissions for a specific user.
 
     :param client_id: User to retrieve permissions from.
     :return: Dictionary with the permissions for the user.
     """
-    if client_id:
-        return mongo.db.client_permissions.find_one(
+    return (
+        mongo.db.client_permissions.find_one(
             {"client_id": client_id}, {"_id": False}
         )
-    else:
-        return mongo.db.client_permissions.find({}, {"_id": False})
+        or {}
+    )
+
+
+def get_all_client_permissions() -> list[dict]:
+    """Retrieve a list of all client permissions known; will return the
+    permissions from all users.
+
+    :return: List of dictionaries with the permissions for all users.
+    """
+    return list(mongo.db.client_permissions.find({}, {"_id": False}))
 
 
 def create_or_update_client_permissions(
@@ -546,9 +553,7 @@ def get_refresh_token_by_token(token: str) -> dict | None:
 
     :return: Dictionary with refresh token data, or None if not found.
     """
-    return mongo.db.refresh_tokens.find_one(
-        {"refresh_token": token}, {"_id": False}
-    )
+    return mongo.db.refresh_tokens.find_one({"refresh_token": token})
 
 
 def edit_refresh_token(token: str, update_fields: dict) -> None:

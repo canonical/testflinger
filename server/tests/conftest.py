@@ -15,7 +15,6 @@
 #
 """Fixtures for testing."""
 
-import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -67,12 +66,12 @@ def testapp():
 
 
 @pytest.fixture
-def mongo_app_with_permissions(mongo_app):
+def mongo_app_with_permissions(mongo_app, monkeypatch):
     """
     Pytest fixture that adds permissions
     to the mock db for priority.
     """
-    os.environ["JWT_SIGNING_KEY"] = "my_secret_key"
+    monkeypatch.setenv("JWT_SIGNING_KEY", "my_secret_key")
     app, mongo = mongo_app
     client_id = "my_client_id"
     client_key = "my_client_key"
@@ -108,19 +107,15 @@ def mongo_app_with_permissions(mongo_app):
 
 
 @pytest.fixture
-def oidc_app(oidc_client, mongo_app, iam_server):
+def oidc_app(oidc_client, mongo_app, iam_server, monkeypatch):
     """Pytest fixture with OIDC app for web authentication tests."""
     _, mongo = mongo_app
 
     # Define OIDC variables for testing
-    os.environ.update(
-        {
-            "OIDC_CLIENT_ID": oidc_client.client_id,
-            "OIDC_CLIENT_SECRET": oidc_client.client_secret,
-            "OIDC_PROVIDER_ISSUER": iam_server.url,
-            "WEB_SECRET_KEY": "my_web_secret_key",
-        }
-    )
+    monkeypatch.setenv("OIDC_CLIENT_ID", oidc_client.client_id)
+    monkeypatch.setenv("OIDC_CLIENT_SECRET", oidc_client.client_secret)
+    monkeypatch.setenv("OIDC_PROVIDER_ISSUER", iam_server.url)
+    monkeypatch.setenv("WEB_SECRET_KEY", "my_web_secret_key")
 
     # Create Flask app with OIDC provider
     oidc_app = application.create_flask_app(TestingConfig)
@@ -172,10 +167,10 @@ def sorted_roles():
 
 
 @pytest.fixture
-def agent_auth_header():
+def agent_auth_header(monkeypatch):
     """Pytest fixture that provides an Authorization header for an agent."""
     secret_key = "my_secret_key"  # noqa: S105
-    os.environ["JWT_SIGNING_KEY"] = secret_key
+    monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
     expiration_time = datetime.now(timezone.utc) + timedelta(seconds=30)
     token_payload = {
         "exp": expiration_time,
