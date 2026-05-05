@@ -627,19 +627,6 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-<<<<<<< HEAD
-charm = [
-    { name = "charmlibs-apt", specifier = "==1.0.0.post0" },
-    { name = "charmlibs-passwd", specifier = "==1.0.0" },
-    { name = "cosl" },
-    { name = "gitpython", specifier = "==3.1.47" },
-    { name = "jinja2", specifier = "==3.1.6" },
-    { name = "jubilant", specifier = ">=1.6.2" },
-    { name = "ops", extras = ["testing"] },
-    { name = "pytest", specifier = ">=8.3.5" },
-]
-=======
->>>>>>> 9aafe12e (refactor(agent): migrate charm to uv plugin)
 dev = [
     { name = "pytest", specifier = ">=8.1.2" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
