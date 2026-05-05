@@ -129,6 +129,7 @@ class TestJob:
         timeout_str = "complete\n"
         logfile = tmp_path / "provision.log"
         fake_job_data = {"output_timeout": 1, "provision_data": {"url": "foo"}}
+        self.config["output_polling_interval"] = 0.1
         self.config["provision_command"] = "bash -c 'sleep 2 && echo complete'"
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         job = _TestflingerJob(fake_job_data, client)
