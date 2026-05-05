@@ -7,7 +7,7 @@ dependencies = [
     "ops >= 3.5.0",
     "urllib3>=2.6.3",
     "cosl>=0.0.53",
-    "gitpython==3.1.46",
+    "gitpython==3.1.47",
     "jinja2==3.1.6",
     "maturin==1.8.6",
     "charmlibs-passwd==1.0.0",
