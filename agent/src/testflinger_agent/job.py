@@ -67,9 +67,7 @@ class TestflingerJob:
         )
 
     def get_runner(self, rundir: str, phase: TestPhase):
-        output_polling_interval = self.client.config.get(
-            "output_polling_interval", 10.0
-        )
+        output_polling_interval = self.client.config["output_polling_interval"]
         try:
             secrets = self.job_data[f"{phase}_data"]["secrets"]
         except KeyError:
