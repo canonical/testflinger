@@ -1738,7 +1738,6 @@ class TestflingerCli:
             )
             queue = jobdata["queue"]
             print(f"{job_id} {job_state:9} {timestamp:%a %b %d %H:%M} {queue}")
-        print()
 
     def list_queues(self):
         """List the advertised queues on the current Testflinger server."""

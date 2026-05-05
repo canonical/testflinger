@@ -2678,3 +2678,44 @@ def test_jobs_with_get_status_scenarios(mock_get_status, capsys):
     # job_ids[4]: successful get_status returns "active"
     assert job_ids[4] in captured.out
     assert "active" in captured.out.split(job_ids[4])[1].split("\n")[0]
+
+
+def test_jobs_no_trailing_blank_line(capsys):
+    """Output of `jobs` must not end with an empty line.
+
+    Regression test for the issue where ``testflinger jobs | tail -1``
+    returned the empty trailing line instead of the most recent job.
+    """
+    job_ids = [str(uuid.uuid1()) for _ in range(2)]
+    submission_time = time.time()
+    history_data = {
+        job_ids[0]: {
+            "submission_time": submission_time,
+            "queue": "queue-a",
+            "job_state": "complete",
+        },
+        job_ids[1]: {
+            "submission_time": submission_time + 1,
+            "queue": "queue-b",
+            "job_state": "complete",
+        },
+    }
+
+    sys.argv = ["", "jobs"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.args.status = False
+    tfcli.history.history = history_data
+
+    tfcli.jobs()
+
+    captured = capsys.readouterr()
+    lines = captured.out.split("\n")
+    # `print` always appends one newline; the meaningful "no trailing blank"
+    # invariant is that there is no SECOND newline after the last job row.
+    assert lines[-1] == "", "expected trailing newline from final print"
+    assert lines[-2] != "", (
+        "jobs output ended with a blank line; "
+        "`testflinger jobs | tail -1` would return empty"
+    )
+    # The last meaningful line should contain the most recently submitted job.
+    assert job_ids[1] in lines[-2]
