@@ -120,6 +120,22 @@ config:
       type: string
       default: ""
       description: Optional bearer token for authenticating with the webhook endpoint
+    web_secret_key:
+      type: string
+      default: ""
+      description: The secret key used for signing web sessions and cookies
+    oidc_client_id:
+      type: string
+      default: ""
+      description: The OIDC client ID used for authenticating with the OIDC provider
+    oidc_client_secret:
+      type: string
+      default: ""
+      description: The OIDC client secret used for authenticating with the OIDC provider
+    oidc_provider_issuer:
+      type: string
+      default: ""
+      description: The OIDC provider issuer URL for authenticating users
 
 
 parts:
