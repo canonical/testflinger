@@ -496,6 +496,10 @@ class TestflingerCharm(ops.CharmBase):
             "NO_PROXY": self.typed_config.no_proxy,
             "WEBHOOK_URL": self.typed_config.webhook_url,
             "WEBHOOK_AUTH": self.typed_config.webhook_auth,
+            "WEB_SECRET_KEY": self.typed_config.web_secret_key,
+            "OIDC_CLIENT_ID": self.typed_config.oidc_client_id,
+            "OIDC_CLIENT_SECRET": self.typed_config.oidc_client_secret,
+            "OIDC_PROVIDER_ISSUER": self.typed_config.oidc_provider_issuer,
         }
         return env
 
