@@ -57,3 +57,83 @@ def test_invalid_webhook_url():
     # Reject webhook url that does not include hostname
     with pytest.raises(ValueError):
         TestflingerServerConfig(webhook_url="https:///v1/test-executions/")
+
+
+def test_valid_oidc_configuration():
+    """Test that OIDC configuration is validated correctly."""
+    # Valid OIDC config with all parameters set
+    config = TestflingerServerConfig(
+        oidc_client_id="client-id",
+        oidc_client_secret="client-secret",  # noqa: S106
+        oidc_provider_issuer="https://oidc-provider.local",
+        web_secret_key="web-secret-key",  # noqa: S106
+    )
+    assert config.oidc_client_id == "client-id"
+    assert config.oidc_client_secret == "client-secret"  # noqa: S105
+    assert config.oidc_provider_issuer == "https://oidc-provider.local"
+    assert config.web_secret_key == "web-secret-key"  # noqa: S105
+
+
+def test_invalid_oidc_configuration():
+    """Test that invalid OIDC configuration raises validation error."""
+    # Missing web_secret_key
+    with pytest.raises(ValueError):
+        TestflingerServerConfig(
+            oidc_client_id="client-id",
+            oidc_client_secret="client-secret",  # noqa: S106
+            oidc_provider_issuer="https://oidc-provider.local",
+        )
+
+    # Missing oidc_provider_issuer
+    with pytest.raises(ValueError):
+        TestflingerServerConfig(
+            oidc_client_id="client-id",
+            oidc_client_secret="client-secret",  # noqa: S106
+            web_secret_key="web-secret-key",  # noqa: S106
+        )
+
+    # Missing oidc_secret_key
+    with pytest.raises(ValueError):
+        TestflingerServerConfig(
+            oidc_client_id="client-id",
+            oidc_provider_issuer="https://oidc-provider.local",
+            web_secret_key="web-secret-key",  # noqa: S106
+        )
+
+    # Missing oidc_client_id
+    with pytest.raises(ValueError):
+        TestflingerServerConfig(
+            oidc_client_secret="client-secret",  # noqa: S106
+            oidc_provider_issuer="https://oidc-provider.local",
+            web_secret_key="web-secret-key",  # noqa: S106
+        )
+
+
+def test_invalid_oidc_provider_issuer():
+    """Test that invalid OIDC provider issuer raises validation error."""
+    # Reject oidc_provider_issuer that do not include protocol
+    with pytest.raises(ValueError):
+        TestflingerServerConfig(
+            oidc_client_id="client-id",
+            oidc_client_secret="client-secret",  # noqa: S106
+            oidc_provider_issuer="oidc-provider.local",
+            web_secret_key="web-secret-key",  # noqa: S106
+        )
+
+    # Reject oidc_provider_issuer that include path
+    with pytest.raises(ValueError):
+        TestflingerServerConfig(
+            oidc_client_id="client-id",
+            oidc_client_secret="client-secret",  # noqa: S106
+            oidc_provider_issuer="https://oidc-provider.local/issuer",
+            web_secret_key="web-secret-key",  # noqa: S106
+        )
+
+    # Reject oidc_provider_issuer that does not include hostname
+    with pytest.raises(ValueError):
+        TestflingerServerConfig(
+            oidc_client_id="client-id",
+            oidc_client_secret="client-secret",  # noqa: S106
+            oidc_provider_issuer="https:///issuer",
+            web_secret_key="web-secret-key",  # noqa: S106
+        )
