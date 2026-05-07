@@ -21,6 +21,7 @@ from apiflask import APIFlask
 from flask import request
 from pymongo.errors import ConnectionFailure
 from werkzeug.exceptions import NotFound
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from testflinger.api.v1 import LogTypeConverter, v1
 from testflinger.database import setup_mongodb
@@ -106,6 +107,11 @@ def create_flask_app(config=None, secrets_store=None):
                 ".", "_"
             )
         }
+
+    # Tell Flask it's behind a proxy so it can properly handle redirects
+    tf_app.wsgi_app = ProxyFix(
+        tf_app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+    )
 
     tf_app.register_blueprint(views)
     tf_app.register_blueprint(v1, url_prefix="/v1")
