@@ -1,10 +1,12 @@
 # Copyright 2026 Canonical
 # See LICENSE file for licensing details.
+"""Unit tests for charm_utils module."""
 
 from unittest.mock import patch
 
-import charm_utils
 import pytest
+
+import charm_utils
 
 
 @patch("charm_utils.apt.add_package")

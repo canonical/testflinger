@@ -1,5 +1,7 @@
 # Copyright 2026 Canonical
 # See LICENSE file for licensing details.
+"""Module for interacting with the Testflinger server."""
+
 import base64
 import json
 import logging
@@ -8,6 +10,7 @@ from http import HTTPStatus
 from pathlib import Path
 
 import requests
+
 from common import write_file
 from defaults import DEFAULT_TOKEN_PATH
 

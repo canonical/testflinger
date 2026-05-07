@@ -1,5 +1,6 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
+"""Supervisord utilities for managing agent processes."""
 
 import logging
 import re
@@ -169,7 +170,8 @@ def assign_metrics_port(
 
 
 def supervisor_update():
-    """
+    """Update supervisord to apply any changes to config files.
+
     Once supervisord service files have been written, new agents will be
     automatically started, and missing agents will be removed by running
     `supervisorctl update`. This only applies to supervisor conf files
@@ -180,8 +182,9 @@ def supervisor_update():
 
 
 def restart_agents():
-    """
-    Mark all agents as needing a restart when they are not running a job
+    """Restart all agents via supervisor signal.
+
+    This marks all agents as needing a restart when they are not running a job
     so that they read any updated config files and run the latest
     version of the agent code.
     """

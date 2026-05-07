@@ -1,13 +1,15 @@
 # Copyright 2024 Canonical
 # See LICENSE file for licensing details.
+"""Module for managing Testflinger agent source code."""
 
 import logging
 import os
 import shutil
 
+from git import Repo
+
 from common import run_with_logged_errors
 from defaults import DEFAULT_BRANCH, DEFAULT_TESTFLINGER_REPO, VIRTUAL_ENV_PATH
-from git import Repo
 
 # Only keep these directories from the repo in the sparse checkout
 CHECKOUT_DIRS = ("agent", "common", "device-connectors")

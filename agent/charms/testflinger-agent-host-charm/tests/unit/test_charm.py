@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 #
 # Learn more about testing at: https://juju.is/docs/sdk/testing
-
+"""Unit tests for charm code."""
 
 from unittest.mock import patch
 
@@ -139,6 +139,7 @@ def test_blocked_on_secret_incorrect_fields(ctx, state_in, caplog):
 def test_start_blocked_on_authentication_failure(
     mock_authenticate, ctx, state_in, secret
 ):
+    """Test blocked status when authentication with TF server fails."""
     state = state_in(
         config={"credentials-secret": secret.id},
         secrets=[secret],
@@ -181,6 +182,7 @@ def test_config_changed_blocked_on_authentication_failure(
     state_in,
     secret,
 ):
+    """Test blocked status when authentication fails during config_changed."""
     state = state_in(
         config={"credentials-secret": secret.id},
         secrets=[secret],

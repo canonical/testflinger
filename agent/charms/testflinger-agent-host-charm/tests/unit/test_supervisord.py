@@ -1,10 +1,12 @@
 # Copyright 2025 Canonical
 # See LICENSE file for licensing details.
+"""Unit tests for supervisord module."""
 
 import os
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
+
 import supervisord
 
 SUPERVISOR_CONF_DIR = "/etc/supervisor/conf.d"

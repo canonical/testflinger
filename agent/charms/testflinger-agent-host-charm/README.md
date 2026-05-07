@@ -1,6 +1,7 @@
 # Testflinger Agent Host Charm
 
 [![Charmcraft][charmcraft-badge]][charmcraft-site]
+[![Test Charm][test-badge]][test-site]
 [![uv Status][uv-badge]][uv-site]
 [![Ruff status][ruff-badge]][ruff-site]
 
@@ -77,7 +78,8 @@ You can report any issues, bugs, or feature requests on the project's
 
 The Testflinger Agent Host Charm is open source. Contributions are welcome.
 
-If you're interested, start with the [charm contribution guide](CONTRIBUTING.md).
+If you're interested, start with the
+[charm contribution guide](CONTRIBUTING.md).
 
 ## License and Copyright
 
@@ -85,11 +87,13 @@ The Testflinger Agent Host Charm is released under the [Apache-2.0 license](LICE
 
 © 2026 Canonical Ltd.
 
-[juju]: https://canonical.com/juju
 [charmcraft-badge]: https://charmhub.io/testflinger-agent-host/badge.svg
 [charmcraft-site]: https://charmhub.io/testflinger-agent-host
+[test-badge]: https://github.com/canonical/testflinger/actions/workflows/agent-tox.yml/badge.svg
+[test-site]: https://github.com/canonical/testflinger/actions/workflows/agent-tox.yml
 [uv-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json
 [uv-site]: https://github.com/astral-sh/uv
 [ruff-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
 [ruff-site]: https://github.com/astral-sh/ruff
+[juju]: https://canonical.com/juju
 [canonical/testflinger]: https://github.com/canonical/testflinger

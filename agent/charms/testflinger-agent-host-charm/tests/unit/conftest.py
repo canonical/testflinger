@@ -2,13 +2,15 @@
 # See LICENSE file for licensing details.
 #
 # Learn more about testing at: https://juju.is/docs/sdk/testing
+"""Fixtures for charm unit tests."""
 
 from collections.abc import Callable
 
 import pytest
+from ops import testing
+
 from charm import TestflingerAgentHostCharm
 from config import TestflingerAgentConfig
-from ops import testing
 
 
 @pytest.fixture

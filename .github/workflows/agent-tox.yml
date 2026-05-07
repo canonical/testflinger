@@ -70,7 +70,7 @@ jobs:
     name: Run charm unit tests
     defaults:
       run:
-        working-directory: agent
+        working-directory: agent/charms/testflinger-agent-host-charm
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -80,7 +80,7 @@ jobs:
       - name: Install uv and set up Python
         uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7.3.1
       - name: Run charm unit tests
-        run: uvx --with tox-uv tox -e charm-unit
+        run: uvx --with tox-uv tox -e unit
 
   test_charm_integration:
     name: Run charm integration tests
@@ -109,4 +109,4 @@ jobs:
           if-no-files-found: error
           retention-days: 2
       - name: Run charm integration tests
-        run: uvx --with tox-uv tox -e charm-integration
+        run: uvx --with tox-uv tox -e integration

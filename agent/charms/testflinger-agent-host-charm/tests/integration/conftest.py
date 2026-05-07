@@ -1,3 +1,7 @@
+# Copyright 2026 Canonical
+# See LICENSE file for licensing details.
+"""Fixtures for charm integration tests."""
+
 import json
 import logging
 import os
@@ -8,6 +12,7 @@ from pathlib import Path
 
 import jubilant
 import pytest
+
 from defaults import DEFAULT_TOKEN_PATH
 
 logger = logging.getLogger(__name__)

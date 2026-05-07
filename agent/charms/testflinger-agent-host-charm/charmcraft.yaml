@@ -96,10 +96,10 @@ config:
 
 parts:
   charm:
-    plugin: charm
+    plugin: uv
     source: .
     build-packages: [pkg-config, libffi-dev, libssl-dev]
-    build-snaps: [rustup]
+    build-snaps: [astral-uv, rustup]
     override-build: |
       # pydantic requires a higher version of rustc than what is in the archive
       # for 22.04
@@ -108,6 +108,14 @@ parts:
       rustup default 1.93.1  # renovate: charmcraft-rust-latest
 
       craftctl default
+
+  # Need a separate part for copying the templates
+  # uv plugin only copies `src` and `lib` directories into the final charm
+  templates:
+    plugin: dump
+    source: .
+    stage:
+    - templates
 
 provides:
   cos-agent:

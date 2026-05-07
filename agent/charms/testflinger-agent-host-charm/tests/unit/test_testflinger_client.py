@@ -1,5 +1,6 @@
 # Copyright 2026 Canonical
 # See LICENSE file for licensing details.
+"""Unit tests for testflinger_client module."""
 
 import json
 from datetime import datetime, timedelta, timezone
@@ -8,6 +9,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import requests
+
 import testflinger_client
 from defaults import DEFAULT_TOKEN_PATH
 

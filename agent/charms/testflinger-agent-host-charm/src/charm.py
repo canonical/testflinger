@@ -3,20 +3,22 @@
 # See LICENSE file for licensing details.
 #
 # Learn more at: https://juju.is/docs/sdk
-
+"""Testflinger Agent Host Charm."""
 
 import logging
 import os
 import sys
 from pathlib import Path
 
-import charm_utils
 import ops
+from charmlibs import apt
+from charms.grafana_agent.v0.cos_agent import COSAgentProvider
+from jinja2 import Template
+
+import charm_utils
 import supervisord
 import testflinger_client
 import testflinger_source
-from charmlibs import apt
-from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from common import copy_ssh_keys, run_with_logged_errors, update_charm_scripts
 from config import TestflingerAgentConfig
 from defaults import (
@@ -24,7 +26,6 @@ from defaults import (
     LOCAL_TESTFLINGER_PATH,
     VIRTUAL_ENV_PATH,
 )
-from jinja2 import Template
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
     """Base charm for testflinger agent host systems."""
 
     def __init__(self, *args):
+        """Charm initialization."""
         super().__init__(*args)
         self.typed_config = self.load_config(
             TestflingerAgentConfig, errors="blocked"
@@ -142,7 +144,8 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
         # now write the supervisord service files
         with open(
-            "templates/testflinger-agent.supervisord.conf.j2", "r"
+            self.charm_dir / "templates/testflinger-agent.supervisord.conf.j2",
+            "r",
         ) as service_template:
             template = Template(service_template.read())
 
@@ -271,6 +274,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         return True
 
     def on_config_changed(self, _):
+        """Handle on config changed event."""
         self.unit.status = ops.MaintenanceStatus(
             "Handling config_changed hook"
         )
@@ -318,6 +322,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         self.unit.status = ops.ActiveStatus()
 
     def get_scrape_jobs(self):
+        """Get the scrape jobs for the Grafana Agent."""
         return supervisord.get_supervisor_scrape_jobs()
 
 

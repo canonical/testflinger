@@ -1,14 +1,16 @@
 # Copyright 2026 Canonical
 # See LICENSE file for licensing details.
+"""Utility functions for the Testflinger Agent Host charm."""
 
 import logging
 import shutil
 from pathlib import Path
 
 from charmlibs import apt, passwd
+from git import GitCommandError, Repo
+
 from config import TestflingerAgentConfig
 from defaults import AGENT_CONFIGS_PATH
-from git import GitCommandError, Repo
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +43,8 @@ def setup_docker():
 
 
 def update_config_files(config: TestflingerAgentConfig):
-    """
+    """Update the agent configuration files.
+
     Clone the config files from the repo and swap it in for whatever is
     in AGENT_CONFIGS_PATH.
     """

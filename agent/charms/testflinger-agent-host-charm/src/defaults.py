@@ -1,5 +1,6 @@
 # Copyright 2024 Canonical
 # See LICENSE file for licensing details.
+"""Default values for the Testflinger Agent Host charm."""
 
 AGENT_CONFIGS_PATH = "/srv/agent-configs"
 DEFAULT_TESTFLINGER_REPO = "https://github.com/canonical/testflinger.git"

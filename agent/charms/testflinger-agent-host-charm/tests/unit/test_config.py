@@ -5,6 +5,7 @@
 import base64
 
 import pytest
+
 from config import TestflingerAgentConfig
 
 

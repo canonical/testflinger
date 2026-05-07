@@ -1,5 +1,6 @@
 # Copyright 2024 Canonical
 # See LICENSE file for licensing details.
+"""Unit tests for testflinger_source module."""
 
 from unittest.mock import patch
 
