@@ -187,7 +187,6 @@ import tempfile
 import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
-
 import yaml
 from cosl import DashboardPath40UID, LZMABase64
 from cosl.types import type_convert_stored
@@ -218,7 +217,7 @@ LIBAPI = 0
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
 
-LIBPATCH = 46
+LIBPATCH = 48
 
 PYDEPS = ["cosl >= 0.0.50"]
 
@@ -586,9 +585,19 @@ class CharmedDashboard:
                     datasources[template_value["name"]] = template_value["query"].lower()
 
             # Put our own variables in the template
+            # We only want to inject our own dropdowns IFF they are NOT
+            # already in the template coming over relation data.
+            # We'll store all dropdowns in the template from the provider
+            # in a set. We'll add our own if they are not in this set.
+            existing_names = {
+                item.get("name")
+                for item in dict_content["templating"]["list"]
+            }
+
             for d in template_dropdowns:  # type: ignore
-                if d not in dict_content["templating"]["list"]:
+                if d.get("name") not in existing_names:
                     dict_content["templating"]["list"].insert(0, d)
+                    existing_names.add(d.get("name"))
 
         dict_content = cls._replace_template_fields(dict_content, datasources, existing_templates)
         return json.dumps(dict_content)
@@ -1636,29 +1645,60 @@ class GrafanaDashboardConsumer(Object):
             self.on.dashboards_changed.emit()  # pyright: ignore
 
     def _to_external_object(self, relation_id, dashboard):
+        decompressed = LZMABase64.decompress(dashboard["content"])
+        as_dict = json.loads(decompressed)
+
+        dashboard_title = as_dict.get("title", "")
+        dashboard_uid = as_dict.get("uid", "")
+
+        try:
+            dashboard_version = int(as_dict["version"])
+        except (KeyError, ValueError):
+            logger.warning("Dashboard '%s' (uid '%s') is missing a '.version' field or is invalid (must be integer); using '0' as fallback", dashboard_title, dashboard_uid)
+            dashboard_version = 0
+
         return {
             "id": dashboard["original_id"],
             "relation_id": relation_id,
             "charm": dashboard["template"]["charm"],
-            "content": LZMABase64.decompress(dashboard["content"]),
+            "content": decompressed,
+            "dashboard_uid": dashboard_uid,
+            "dashboard_version": dashboard_version,
+            "dashboard_title": dashboard_title,
         }
 
     @property
     def dashboards(self) -> List[Dict]:
         """Get a list of known dashboards across all instances of the monitored relation.
 
+        Filters out dashboards with the same uid, keeping only the one with the highest version.
+        When more than one dashboard have the same uid and version, keep the first one when
+        sorted by (relation_id, content) in reverse lexicographic order (highest relid first).
+
         Returns: a list of known dashboards. The JSON of each of the dashboards is available
             in the `content` field of the corresponding `dict`.
         """
-        dashboards = []
+        d: Dict[str, dict] = {}
 
         for _, (relation_id, dashboards_for_relation) in enumerate(
             self.get_peer_data("dashboards").items()
         ):
             for dashboard in dashboards_for_relation:
-                dashboards.append(self._to_external_object(relation_id, dashboard))
+                obj = self._to_external_object(relation_id, dashboard)
 
-        return dashboards
+                key = obj.get("dashboard_uid")
+                if key is None or str(key).strip() == "":
+                    # At this point, we assume that a `.uid` is present so we do not render a fallback identifier here. Instead, we omit it.
+                    logger.error("dashboard '%s' from relation id '%s' is missing a '.uid' field; omitted", obj["dashboard_title"], obj["relation_id"])
+                    continue
+
+                if key in d:
+                    d[key] = max(d[key], obj, key=lambda o: (o["dashboard_version"], o["relation_id"], o["content"]))
+                    logger.warning("deduplicate dashboard '%s' (uid '%s') - kept version '%s' from relation id '%s'", d[key]["dashboard_title"], d[key]["dashboard_uid"], d[key]["dashboard_version"], d[key]["relation_id"])
+                else:
+                    d[key] = obj
+
+        return list(d.values())
 
     def _get_stored_dashboards(self, relation_id: int) -> list:
         """Pull stored dashboards out of the peer data bucket."""
