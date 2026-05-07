@@ -55,8 +55,6 @@ charm-libs:
     version: "0"
   - lib: prometheus_k8s.prometheus_scrape
     version: "0"
-  - lib: observability_libs.juju_topology
-    version: "0"
   - lib: grafana_k8s.grafana_dashboard
     version: "0"
   - lib: traefik_k8s.traefik_route
