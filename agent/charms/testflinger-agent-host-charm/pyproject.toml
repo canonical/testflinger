@@ -9,7 +9,7 @@ dependencies = [
     "cosl>=0.0.53",
     "gitpython==3.1.47",
     "jinja2==3.1.6",
-    "charmlibs-passwd==1.0.0",
+    "charmlibs-passwd==1.0.1",
     "charmlibs-apt==1.0.0.post0",
     "requests>=2.33.1",
     "pydantic>=2.12,<3",
