@@ -27,16 +27,15 @@ from .helpers import (
     MONGODB_CHARM,
     DNSResolverHTTPAdapter,
     app_is_up,
-    get_k8s_ingress_ip,
+    get_k8s_ingress_object_ip,
     retry,
 )
 
 logger = logging.getLogger(__name__)
 
-TRAEFIK_INGRESS_CHARM = "traefik-k8s"
+INGRESS_CHARM = "ingress-configurator"
 DEFAULT_EXTERNAL_HOSTNAME = "testflinger.local"
-TRAEFIK_EXTERNAL_HOSTNAME = "testflinger.test.com"
-INGRESS_NAME = "traefik"
+INGRESS_NAME = "ingress"
 
 
 @pytest.mark.juju_setup
@@ -48,10 +47,8 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
             "upstream-source"
         ],
     }
-    # Set default external hostname in Testflinger charm config
-    config = {"external_hostname": DEFAULT_EXTERNAL_HOSTNAME}
     juju.deploy(
-        charm_path.resolve(), app=APP_NAME, resources=resources, config=config
+        charm_path.resolve(), app=APP_NAME, resources=resources
     )
 
     # Deploy the mongodb-k8s charm
@@ -62,22 +59,24 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     juju.integrate(f"{APP_NAME}:mongodb_keyvault", f"{MONGODB_CHARM}:database")
     juju.wait(jubilant.all_active)
 
+    # Set default external hostname in the Ingress Configurator charm config
+    config = {"external_hostname": DEFAULT_EXTERNAL_HOSTNAME}
     # Deploy the traefik-k8s charm
     juju.deploy(
-        TRAEFIK_INGRESS_CHARM,
+        INGRESS_CHARM,
         app=INGRESS_NAME,
-        channel="latest/stable",
+        channel="latest/edge",
         config=config,
         trust=True,
     )
-    # Wait for traefik to be active
-    logger.info("Waiting for traefik to be active")
+    # Wait for ingress-configurator to be active
+    logger.info("Waiting for ingress-configurator to be active")
     juju.wait(jubilant.all_active)
 
     # Establish the ingress relation
-    logger.info("Integrating traefik-route relation")
+    logger.info("Integrating ingress relation")
     juju.integrate(
-        f"{APP_NAME}:traefik-route", f"{INGRESS_NAME}:traefik-route"
+        f"{APP_NAME}:ingress", f"{INGRESS_NAME}:ingress"
     )
     logger.info("Waiting for integration to complete")
     juju.wait(jubilant.all_active)
@@ -85,13 +84,13 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
 
 @retry(retry_num=5, retry_sleep_sec=10)
 def test_ingress_is_up_default_hostname(juju: jubilant.Juju):
-    """Test that the deployed application is up and responding via traefik.
+    """Test that the deployed application is up and responding via ingress.
 
-    External hostname is configured in Testflinger charm config.
+    External hostname is configured in Ingress Configurator charm config.
     """
     model = juju.show_model()
-    ingress_ip = get_k8s_ingress_ip(model.short_name, f"{INGRESS_NAME}-lb")
-    logger.info("Traefik ingress IP: %s", ingress_ip)
+    ingress_ip = get_k8s_ingress_object_ip(model.short_name)
+    logger.info("Ingress IP: %s", ingress_ip)
     session = requests.Session()
     session.mount(
         "http://",
@@ -101,36 +100,7 @@ def test_ingress_is_up_default_hostname(juju: jubilant.Juju):
         "https://",
         DNSResolverHTTPAdapter(DEFAULT_EXTERNAL_HOSTNAME, ingress_ip),
     )
-    base_url = f"https://{DEFAULT_EXTERNAL_HOSTNAME}"
-    result = app_is_up(base_url, session=session)
-    logger.info("Connectivity test: %s", "PASS" if result else "FAIL")
-    assert result
-
-
-@retry(retry_num=5, retry_sleep_sec=10)
-def test_ingress_is_up_traefik_hostname(juju: jubilant.Juju):
-    """Test that the deployed application is up and responding via traefik.
-
-    External hostname is configured in Traefik application config.
-    """
-    model = juju.show_model()
-    ingress_ip = get_k8s_ingress_ip(model.short_name, f"{INGRESS_NAME}-lb")
-    logger.info("Traefik ingress IP: %s", ingress_ip)
-
-    # Set traefik external hostname
-    juju.config(INGRESS_NAME, {"external_hostname": TRAEFIK_EXTERNAL_HOSTNAME})
-    juju.wait(jubilant.all_active)
-
-    session = requests.Session()
-    session.mount(
-        "http://",
-        DNSResolverHTTPAdapter(TRAEFIK_EXTERNAL_HOSTNAME, ingress_ip),
-    )
-    session.mount(
-        "https://",
-        DNSResolverHTTPAdapter(TRAEFIK_EXTERNAL_HOSTNAME, ingress_ip),
-    )
-    base_url = f"https://{TRAEFIK_EXTERNAL_HOSTNAME}"
+    base_url = f"http://{DEFAULT_EXTERNAL_HOSTNAME}"
     result = app_is_up(base_url, session=session)
     logger.info("Connectivity test: %s", "PASS" if result else "FAIL")
     assert result

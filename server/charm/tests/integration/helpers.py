@@ -121,6 +121,32 @@ def retry(retry_num: int, retry_sleep_sec: int) -> callable:
     return decorator
 
 
+def get_k8s_ingress_object_ip(model: str) -> str:
+    """Get the external IP from a Kubernetes Ingress object's status.
+
+    :param model: The Juju model (used as the K8s namespace).
+    :return: The external IP address from the Ingress object's status.
+    """
+    try:
+        return subprocess.run(  # noqa: S603
+            [
+                "/snap/bin/kubectl",
+                "--namespace",
+                model,
+                "get",
+                "ingress",
+                "-o",
+                "jsonpath={.items[0].status.loadBalancer.ingress[0].ip}",
+            ],
+            check=True,
+            text=True,
+            capture_output=True,
+        ).stdout.strip()
+    except subprocess.CalledProcessError as exc:
+        logger.error("Failed to get ingress object IP: %s", exc)
+        raise
+
+
 def get_k8s_ingress_ip(model: str, service_name: str) -> str:
     """Get the external IP of a Kubernetes service LoadBalancer.
 
