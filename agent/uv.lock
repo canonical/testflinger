@@ -34,11 +34,11 @@ wheels = [
 
 [[package]]
 name = "charmlibs-passwd"
-version = "1.0.0"
+version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7a/2e/f5edfbb9ef02db55be0b79c702be0c4ae735bf2a34f019b6dbc0f5ce79f1/charmlibs_passwd-1.0.0.tar.gz", hash = "sha256:abb676a9575be249a6847099f9ba2160d898398866e2e555cc38880d072612d3", size = 16139, upload-time = "2026-01-22T00:37:56.263Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bd/b3/220b6aa7bed9b189723db0231dec128e5a4e9bc69266f225b36a790eee0b/charmlibs_passwd-1.0.1.tar.gz", hash = "sha256:e108456b040b2af29a0db6e273a0609fb1719043ae3c4c7926c37f0ce2990ce7", size = 16233, upload-time = "2026-03-16T22:43:49.686Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/93/c9/d1d3399b436cf22eb43942f22ca7ed7a87c80fe593c6917ecd80e751eaf1/charmlibs_passwd-1.0.0-py3-none-any.whl", hash = "sha256:04d687eeace142c57b745baa43ee78b337d41f3ce4060099d88c0c283d25ada8", size = 5011, upload-time = "2026-01-22T00:37:54.941Z" },
+    { url = "https://files.pythonhosted.org/packages/55/12/d994526c5e42185305411d5a880f441db0fc6b3dd576346186c93c5ad2f7/charmlibs_passwd-1.0.1-py3-none-any.whl", hash = "sha256:77d68d99791531ca24250cf8bfa3129dc21847d006bd987dcdfc95055679289f", size = 5020, upload-time = "2026-03-16T22:43:48.306Z" },
 ]
 
 [[package]]
@@ -1027,7 +1027,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 charm = [
     { name = "charmlibs-apt", specifier = "==1.0.0.post0" },
-    { name = "charmlibs-passwd", specifier = "==1.0.0" },
+    { name = "charmlibs-passwd", specifier = "==1.0.1" },
     { name = "cosl" },
     { name = "gitpython", specifier = "==3.1.47" },
     { name = "jinja2", specifier = "==3.1.6" },
