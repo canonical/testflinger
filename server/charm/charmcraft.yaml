@@ -32,8 +32,8 @@ requires:
   nginx-route:
     interface: nginx-route
     limit: 1
-  traefik-route:
-    interface: traefik_route
+  ingress:
+    interface: ingress
     limit: 1
 
 provides:
@@ -57,8 +57,8 @@ charm-libs:
     version: "0"
   - lib: grafana_k8s.grafana_dashboard
     version: "0"
-  - lib: traefik_k8s.traefik_route
-    version: "0"
+  - lib: traefik_k8s.ingress
+    version: "2"
 
 base: ubuntu@22.04
 platforms:
