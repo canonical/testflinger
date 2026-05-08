@@ -21,6 +21,7 @@ _short_help:
     @echo '- {{CYAN}}just check-schema{{NORMAL}} (Check server schema is up to date)'
     @echo '- {{CYAN}}just schema{{NORMAL}} (Generate server schema)'
     @echo ''
+    @echo '{{BOLD}}Show help for the docs recipes: {{CYAN}}just docs help{{NORMAL}}'
     @echo '{{BOLD}}Build the docs: {{CYAN}}just docs{{NORMAL}}'
 
 # === COMPONENT DEFINITIONS ===
