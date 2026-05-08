@@ -19,6 +19,7 @@ import re
 from pathlib import Path
 
 import jubilant
+import pytest
 import requests
 
 from .helpers import (
@@ -35,6 +36,7 @@ DEFAULT_EXTERNAL_HOSTNAME = "testflinger.local"
 INGRESS_NAME = "ingress"
 
 
+@pytest.mark.juju_setup
 def test_deploy(charm_path: Path, juju: jubilant.Juju):
     """Test deploying the charm under test with ingress relation."""
     # Deploy the testflinger charm
@@ -86,3 +88,11 @@ def test_ingress_is_up(juju: jubilant.Juju):
     )
     base_url = f"http://{DEFAULT_EXTERNAL_HOSTNAME}"
     assert app_is_up(base_url, session=session)
+
+
+@pytest.mark.juju_teardown
+def test_destroy(juju: jubilant.Juju):
+    """Tear down the charm under test."""
+    juju.remove_application(APP_NAME)
+    juju.remove_application(MONGODB_CHARM)
+    juju.remove_application(INGRESS_NAME)

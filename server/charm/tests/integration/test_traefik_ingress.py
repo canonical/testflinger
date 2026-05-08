@@ -18,6 +18,7 @@ import logging
 from pathlib import Path
 
 import jubilant
+import pytest
 import requests
 
 from .helpers import (
@@ -38,6 +39,7 @@ TRAEFIK_EXTERNAL_HOSTNAME = "testflinger.test.com"
 INGRESS_NAME = "traefik"
 
 
+@pytest.mark.juju_setup
 def test_deploy(charm_path: Path, juju: jubilant.Juju):
     """Test deploying the charm under test with traefik ingress relation."""
     # Deploy the testflinger charm
@@ -132,3 +134,11 @@ def test_ingress_is_up_traefik_hostname(juju: jubilant.Juju):
     result = app_is_up(base_url, session=session)
     logger.info("Connectivity test: %s", "PASS" if result else "FAIL")
     assert result
+
+
+@pytest.mark.juju_teardown
+def test_destroy(juju: jubilant.Juju):
+    """Tear down the charm under test."""
+    juju.remove_application(APP_NAME)
+    juju.remove_application(MONGODB_CHARM)
+    juju.remove_application(INGRESS_NAME)
