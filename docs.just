@@ -29,7 +29,7 @@ clean-doc:
 clean:
     make clean
 
-[doc('Check links in the documentation.')]
+[doc('Check out Git LFS files used by the documentation.')]
 check-lfs:
     make check-lfs
 

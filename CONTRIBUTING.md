@@ -38,6 +38,7 @@ Within a subproject, you can set up the virtual environment with the following
 command:
 
 ```shell
+cd <component>
 uv sync
 ```
 
@@ -64,7 +65,7 @@ just add <component> <flags> <package>
 e.g.
 
 ```shell
-just add server 'urllib>=2.6.3'
+just add server 'requests>=2.32.3'
 ```
 
 Alternatively, you can also use `uv` within each component subproject:
@@ -92,6 +93,7 @@ just remove <component> <package>
 
 Alternatively, you can also use `uv` within each component subproject:
 ```shell
+cd <component>
 uv remove <package>
 ```
 
@@ -113,6 +115,7 @@ just lock <component>
 Or alternatively, within each subproject directory:
 
 ```shell
+cd <component>
 uv lock
 ```
 
@@ -152,6 +155,7 @@ If using `uv`, you can run `tox` from the root of the subproject where you made 
 To run tox with `uv`, use:
 
 ```shell
+cd <component>
 uvx --with tox-uv tox
 ```
 
@@ -160,6 +164,7 @@ If you have `tox` installed, you can also just run `tox` from the subproject.
 In case of any linting or formatting errors, all solvable fixes can be applied with:
 
 ```shell
+cd <component>
 uvx --with tox-uv tox run -e format
 ```
 
@@ -178,6 +183,7 @@ just check-schema
 Alternatively, within the `server/` directory:
 
 ```shell
+cd server/
 uvx --with tox-uv tox run -e check-schema
 ```
 
@@ -190,6 +196,7 @@ just schema
 Or alternatively, within the `server/` directory:
 
 ```shell
+cd server/
 uvx --with tox-uv tox run -e schema
 ```
 
