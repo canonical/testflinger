@@ -101,11 +101,7 @@ def create_flask_app(config=None, secrets_store=None):
 
     @tf_app.context_processor
     def inject_vanilla_framework_version():
-        return {
-            "vanilla_framework_version": VANILLA_FRAMEWORK_VERSION.replace(
-                ".", "_"
-            )
-        }
+        return {"vanilla_framework_version": VANILLA_FRAMEWORK_VERSION}
 
     tf_app.register_blueprint(views)
     tf_app.register_blueprint(v1, url_prefix="/v1")
