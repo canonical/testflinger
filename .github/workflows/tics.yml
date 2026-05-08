@@ -109,7 +109,7 @@ jobs:
         mv device-connectors/coverage.xml .coverage/device_connectors_coverage.xml
 
     - name: Run TiCS Analysis
-      uses: tiobe/tics-github-action@faf5066082a31b2517574270b45e3df92aa39a35 # v3.7.1
+      uses: tiobe/tics-github-action@3300ccc8de3c938cb83dc940ec4d07096c1bf185 # v3.9.1
       with:
         mode: qserver
         project: testflinger
