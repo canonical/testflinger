@@ -38,7 +38,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install uv and set up Python
-        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7.3.1
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6
       - name: Check lock file
         run: uvx --with tox-uv tox -e lock
       - name: Check linting
@@ -78,7 +78,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install uv and set up Python
-        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7.3.1
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6
       - name: Run charm unit tests
         run: uvx --with tox-uv tox -e unit
 
@@ -94,7 +94,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install uv and set up Python
-        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7.3.1
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6
       - name: Install concierge
         run: sudo snap install --classic concierge
       - name: Prepare Juju
