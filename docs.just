@@ -9,7 +9,7 @@ run:
 help:
     @just --list docs --unsorted
 
-[doc('Only remake demo tapes with vh.')]
+[doc('Only remake demo tapes with vhs.')]
 vhs:
     make vhs
 

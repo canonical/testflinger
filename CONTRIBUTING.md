@@ -133,7 +133,6 @@ just check <component>
 
 This will run all available checks for the specified component. You can also run them individually:
 
-
 - `just lint <component>` (Check code against coding style standards)
 - `just format <component>` (Apply coding style standards to code)
 - `just unit <component>` (Run unit tests)
