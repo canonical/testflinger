@@ -5,8 +5,6 @@
 import json
 import logging
 import os
-import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -37,20 +35,6 @@ def create_mock_token(juju: jubilant.Juju, app_name: str):
         f"echo '{token_data}' > {DEFAULT_TOKEN_PATH}",
         unit=f"{app_name}/0",
     )
-
-
-@pytest.fixture(scope="module")
-def juju(request: pytest.FixtureRequest):
-    """Create temporary Juju model for running tests."""
-    with jubilant.temp_model() as juju:
-        juju.wait_timeout = 600
-        yield juju
-
-        if request.session.testsfailed:
-            logger.info("Collecting Juju logs...")
-            time.sleep(0.5)  # Wait for Juju to process logs.
-            log = juju.debug_log(limit=1000)
-            print(log, end="", file=sys.stderr)
 
 
 @pytest.fixture(scope="session")
