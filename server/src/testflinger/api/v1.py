@@ -776,24 +776,22 @@ def agents_status_post(job_id, json_data):
     if not database.job_exists(job_id):
         abort(HTTPStatus.NOT_FOUND, message="Job not found")
 
-    request_json = json_data
-
     # Webhook specified in the job definition
-    job_webhook = request_json.pop("job_status_webhook")
+    job_webhook = json_data.pop("job_status_webhook")
 
     # Webhook base URL configured on the server
-    webhook_url = os.environ.get("WEBHOOK_URL")
-    if not webhook_url:
+    authorized_webhook_url = os.environ.get("WEBHOOK_URL")
+    if not authorized_webhook_url:
         # Abort if no webhook configured server-side
         abort(
             HTTPStatus.INTERNAL_SERVER_ERROR,
             message="Webhook URL not configured",
         )
 
-    # Parse both url webhooks, consider webhook_url as the only authorized
+    # Parse both URLs; authorized_webhook_url is the only permitted
     # endpoint to send requests to.
     parsed_job_url = urlparse(job_webhook)
-    parsed_authorized_url = urlparse(webhook_url)
+    parsed_authorized_url = urlparse(authorized_webhook_url)
 
     # Validate job_webhook is referring to the server-configured webhook URL
     if (
@@ -814,16 +812,16 @@ def agents_status_post(job_id, json_data):
         with requests.Session() as webhook_session:
             retry_adapter = HTTPAdapter(
                 max_retries=Retry(
-                    total=3,
+                    total=1,
                     allowed_methods=frozenset(["PUT"]),
-                    backoff_factor=1,
                 )
             )
-            webhook_session.mount("http://", retry_adapter)
-            webhook_session.mount("https://", retry_adapter)
+            webhook_session.mount(
+                f"{parsed_authorized_url.scheme}://", retry_adapter
+            )
             response = webhook_session.put(
                 job_webhook,
-                json=request_json,
+                json=json_data,
                 headers=auth_headers,
                 timeout=3,
                 allow_redirects=False,

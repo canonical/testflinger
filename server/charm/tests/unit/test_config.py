@@ -48,12 +48,6 @@ def test_invalid_webhook_url():
     with pytest.raises(ValueError):
         TestflingerServerConfig(webhook_url="test-observer-api.local")
 
-    # Reject webhook url that include path
-    with pytest.raises(ValueError):
-        TestflingerServerConfig(
-            webhook_url="https://test-observer-api.local/v1/test-executions/"
-        )
-
     # Reject webhook url that does not include hostname
     with pytest.raises(ValueError):
         TestflingerServerConfig(webhook_url="https:///v1/test-executions/")

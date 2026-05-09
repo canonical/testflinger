@@ -24,7 +24,10 @@ class TestflingerServerConfig(pydantic.BaseModel):
     @pydantic.field_validator("external_hostname")
     @classmethod
     def validate_external_hostname(cls, value):
-        """Validate that external_hostname does not include protocol."""
+        """Validate that external_hostname does not include HTTP scheme.
+
+        Protocol to be used is defined by the ingress controller.
+        """
         if value.startswith(("http://", "https://")):
             raise ValueError(
                 "external_hostname must not include protocol (http:// or https://)"
@@ -42,7 +45,5 @@ class TestflingerServerConfig(pydantic.BaseModel):
             )
         if not parsed_webhook.netloc:
             raise ValueError("webhook_url must include a host")
-        if parsed_webhook.path not in {"", "/"}:
-            raise ValueError("webhook_url must not include a path")
 
         return value
