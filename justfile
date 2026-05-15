@@ -12,6 +12,7 @@ _short_help:
     @echo '- Run all checks for all components: {{CYAN}}just check-all{{NORMAL}}'
     @echo '- Run {{CYAN}}ruff format{{NORMAL}} for all components: {{CYAN}}just format-all{{NORMAL}}'
     @echo '- Run {{CYAN}}ruff{{NORMAL}} for all components: {{CYAN}}just lint-all{{NORMAL}}'
+    @echo '- Run unit tests for all components: {{CYAN}}just unit-all{{NORMAL}}'
     @echo ''
     @echo '{{BOLD}}Run individual checks for a component:{{NORMAL}}'
     @echo '- {{CYAN}}just check <component>{{NORMAL}} (Run all checks: lint, format, unit tests)'
@@ -85,6 +86,17 @@ lint-all:
     for component in {{all_components}}; do
         echo "=== Linting $component ==="
         just lint "$component" || ((FAILURES+=1))
+    done
+    echo "$FAILURES component(s) failed."
+    exit $FAILURES
+
+[doc('Run `unit` for all components, failing afterwards if any errors are found.')]
+unit-all:
+    #!/usr/bin/env -S bash -e
+    FAILURES=0
+    for component in {{all_components}}; do
+        echo "=== Running unit tests for $component ==="
+        just unit "$component" || ((FAILURES+=1))
     done
     echo "$FAILURES component(s) failed."
     exit $FAILURES
