@@ -1,7 +1,7 @@
 # Docs recipes, continue using Makefile as source of truth
 set working-directory := 'docs'
 
-[doc('Watch, build, and serve the docs.')]
+[doc('Serve, build and auto-rebuild on change')]
 run:
     make run
 
