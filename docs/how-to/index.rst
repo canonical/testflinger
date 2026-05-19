@@ -33,3 +33,4 @@ and outline tasks and best practices for operating and maintaining Testflinger d
     :maxdepth: 1
 
     Administer agent hosts <administer-agent-hosts/index>
+    Administer Testflinger server <administer-server/index>
