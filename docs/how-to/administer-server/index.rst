@@ -7,3 +7,4 @@ This section contains guides on how to deploy and manage Testflinger Server.
     :maxdepth: 1
 
     deploy-testflinger-server
+    maintain-testflinger-server
