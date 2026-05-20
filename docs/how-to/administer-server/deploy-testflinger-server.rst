@@ -32,7 +32,7 @@ model, the Testflinger server charm and the NGINX Ingress Integrator charm
 are deployed.
 
 To allow the Testflinger server to communicate with the MongoDB database we
-need to setup a cross-model relation. This is achieved by offering the ``database``
+need to set up a cross-model relation. This is achieved by offering the ``database``
 endpoint from the machine model and consuming it in the K8s model as a SAAS 
 application. The Testflinger server charm is then related with both
 the ingress charm and the MongoDB SAAS via `Juju Integration <Juju Integration_>`_ 
@@ -234,7 +234,7 @@ repository.
 .. important::
 
   The Terraform module will only deploy the Testflinger server charm, it is
-  user responsibility to setup a Terraform plan that deploys the Ingress charm
+  user responsibility to set up a Terraform plan that deploys the Ingress charm
   and configures the required relations. For a sample Terraform plan, 
   please refer to the `server/terraform/dev/main.tf <testflinger-terraform-dev_>`_ 
   file in the Testflinger repository.
