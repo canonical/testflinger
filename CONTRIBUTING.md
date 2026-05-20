@@ -19,12 +19,26 @@ You can install `uv` with snap:
 sudo snap install --classic astral-uv
 ```
 
+Additionally, this project uses [just] as a task runner, you can install it with:
+
+```shell
+uv tool install rust-just
+```
+
+Then run `just` from anywhere in the repository for usage.
+
 ### Development Environment
+
+[just] provides an alternative way to run formatting, linting and unit tests without needing to be located in each subproject.
+All `just` recipes in this repository use `uv` underneath.
+
+If you prefer using `uv` directly, you'll need to set up your virtual environments manually.
 
 Within a subproject, you can set up the virtual environment with the following
 command:
 
 ```shell
+cd <component>
 uv sync
 ```
 
@@ -40,11 +54,25 @@ To learn more about `uv`, refer to the [`uv` documentation][uv].
 
 #### Add a Dependency
 
-To add a new dependency to a subproject, please use `uv`, as
-it will automatically add it to both the `pyproject.toml` and `uv.lock` files:
+To add a new dependency to a component, please use `just`, as
+it will automatically add it to both the `pyproject.toml` and `uv.lock` files
+for the specified component.
 
 ```shell
-uv add ...
+just add <component> <flags> <package>
+```
+
+e.g.
+
+```shell
+just add server 'requests>=2.32.3'
+```
+
+Alternatively, you can also use `uv` within each component subproject:
+
+```shell
+cd <component>
+uv add <package>
 ```
 
 If the dependency is only a development dependency, please add it to the `dev`
@@ -55,12 +83,18 @@ To learn more about the `uv add` command, refer to the
 
 ### Remove a Dependency
 
-To remove a dependency from a subproject, please use `uv`, as
+To remove a dependency from a subproject, please use `just`, as
 it will automatically remove it from both the `pyproject.toml` and `uv.lock`
 files:
 
 ```shell
-uv remove ...
+just remove <component> <package>
+```
+
+Alternatively, you can also use `uv` within each component subproject:
+```shell
+cd <component>
+uv remove <package>
 ```
 
 If the dependency is only a development dependency, please remove it from the
@@ -75,6 +109,13 @@ If there is a discrepancy between a subproject's `pyproject.toml` and lock file,
 you can generate the lock file (`uv.lock`) with:
 
 ```shell
+just lock <component>
+```
+
+Or alternatively, within each subproject directory:
+
+```shell
+cd <component>
 uv lock
 ```
 
@@ -84,12 +125,36 @@ To learn more about the `uv lock` command, refer to the
 ## Testing
 
 All of the linters, format checkers, and unit tests can be run automatically.
-Before pushing anything, it's a good idea to run `tox` from the root of the
-subproject where you made changes.
+Before pushing anything, it's a good idea to run tests for the specified component:
+
+```shell
+just check <component>
+```
+
+This will run all available checks for the specified component. You can also run them individually:
+
+- `just lint <component>` (Check code against coding style standards)
+- `just format <component>` (Apply coding style standards to code)
+- `just unit <component>` (Run unit tests)
+
+Or run checks for all components at the same time:
+
+```shell
+just check-all
+```
+
+Or run linting for all components at the same time:
+
+```shell
+just lint-all
+```
+
+If using `uv`, you can run `tox` from the root of the subproject where you made changes.
 
 To run tox with `uv`, use:
 
 ```shell
+cd <component>
 uvx --with tox-uv tox
 ```
 
@@ -98,6 +163,7 @@ If you have `tox` installed, you can also just run `tox` from the subproject.
 In case of any linting or formatting errors, all solvable fixes can be applied with:
 
 ```shell
+cd <component>
 uvx --with tox-uv tox run -e format
 ```
 
@@ -110,12 +176,26 @@ same pull request. The CI check will fail if the spec is out of sync.
 To check if the specification is up-to-date, run:
 
 ```shell
+just check-schema
+```
+
+Alternatively, within the `server/` directory:
+
+```shell
+cd server/
 uvx --with tox-uv tox run -e check-schema
 ```
 
-If the check fails, regenerate the spec from the `server/` directory:
+If the check fails, regenerate the spec:
 
 ```shell
+just schema
+```
+
+Or alternatively, within the `server/` directory:
+
+```shell
+cd server/
 uvx --with tox-uv tox run -e schema
 ```
 
@@ -164,6 +244,7 @@ Testflinger documentation is maintained under the [`docs/`](./docs/) subdirector
 To submit changes to the documentation, please read the [documentation contributing guide](./docs/CONTRIBUTING.md).
 
 [uv]: https://docs.astral.sh/uv
+[just]: https://github.com/casey/just
 [uv-add]: https://docs.astral.sh/uv/reference/cli/#uv-add
 [uv-remove]: https://docs.astral.sh/uv/reference/cli/#uv-remove
 [uv-lock]: https://docs.astral.sh/uv/reference/cli/#uv-lock
