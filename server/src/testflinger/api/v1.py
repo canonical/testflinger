@@ -20,6 +20,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
+from urllib.parse import urlparse
 
 import requests
 from apiflask import APIBlueprint, abort
@@ -750,7 +751,7 @@ def agents_provision_logs_post(agent_name, json_data):
 @v1.input(schemas.StatusUpdate, location="json")
 def agents_status_post(job_id, json_data):
     """Post status updates from the agent to the server to be forwarded
-    to TestObserver.
+    to the server-configured webhook url.
 
     The json sent to this endpoint may contain data such as the following:
     {
@@ -767,26 +768,80 @@ def agents_status_post(job_id, json_data):
         ]
     }
 
+    :param job_id: UUID as a string for the job
+    :param json_data: JSON data containing the status updates and webhook URL
     """
-    _ = job_id
-    request_json = json_data
-    webhook_url = request_json.pop("job_status_webhook")
-    try:
-        s = requests.Session()
-        s.mount(
-            "",
-            HTTPAdapter(
-                max_retries=Retry(
-                    total=3,
-                    allowed_methods=frozenset(["PUT"]),
-                    backoff_factor=1,
-                )
-            ),
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+    if not database.job_exists(job_id):
+        abort(HTTPStatus.NOT_FOUND, message="Job not found")
+
+    # Webhook specified in the job definition
+    job_webhook = json_data.pop("job_status_webhook")
+
+    # Webhook base URL configured on the server
+    authorized_webhook_url = os.environ.get("WEBHOOK_URL")
+    if not authorized_webhook_url:
+        # Abort if no webhook configured server-side
+        abort(
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            message="Webhook URL not configured",
         )
-        response = s.put(webhook_url, json=request_json, timeout=3)
-        return response.text, response.status_code
+
+    # Parse both URLs; authorized_webhook_url is the only permitted
+    # endpoint to send requests to.
+    parsed_job_url = urlparse(job_webhook)
+    parsed_authorized_url = urlparse(authorized_webhook_url)
+
+    # Validate job_webhook is referring to the server-configured webhook URL
+    if (
+        parsed_job_url.scheme != parsed_authorized_url.scheme
+        or parsed_job_url.netloc != parsed_authorized_url.netloc
+    ):
+        abort(
+            HTTPStatus.FORBIDDEN,
+            message="Invalid job_status_webhook URL specified",
+        )
+
+    # Attempt to get optional authentication header from server configuration
+    auth_headers = {}
+    if webhook_auth := os.environ.get("WEBHOOK_AUTH"):
+        auth_headers = {"Authorization": f"Bearer {webhook_auth}"}
+
+    try:
+        with requests.Session() as webhook_session:
+            retry_adapter = HTTPAdapter(
+                max_retries=Retry(
+                    total=1,
+                    allowed_methods=frozenset(["PUT"]),
+                )
+            )
+            webhook_session.mount(
+                f"{parsed_authorized_url.scheme}://", retry_adapter
+            )
+            response = webhook_session.put(
+                job_webhook,
+                json=json_data,
+                headers=auth_headers,
+                timeout=3,
+                allow_redirects=False,
+            )
+
+            # Auth failures can happen if webhook authentication
+            # is no longer valid or missing entirely.
+            if response.status_code in (
+                HTTPStatus.UNAUTHORIZED,
+                HTTPStatus.FORBIDDEN,
+            ):
+                abort(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    message="Webhook authentication failed",
+                )
+            return response.text, response.status_code
     except requests.exceptions.Timeout:
-        return "Webhook Timeout", 504
+        abort(HTTPStatus.GATEWAY_TIMEOUT, message="Webhook Timeout")
+    except requests.exceptions.RequestException:
+        abort(HTTPStatus.BAD_GATEWAY, message="Webhook unreachable")
 
 
 def check_valid_uuid(job_id):
