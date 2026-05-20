@@ -22,8 +22,23 @@ MongoDB as a K8s application.
 The following diagram illustrates the architecture of the Testflinger
 server deployment:
 
-.. image:: ../../images/testflinger_architecture.png
+.. image:: ../../images/testflinger_architecture.svg
    :alt: Testflinger server architecture diagram
+
+In the above diagram, there is a single `Juju Controller <Juju Controller_>`_ 
+that manages both the K8s and machine `Juju models <Juju Model_>`_. 
+In the machine model, only the MongoDB charm is deployed, while in the K8s
+model, the Testflinger server charm and the NGINX Ingress Integrator charm
+are deployed.
+
+To allow the Testflinger server to communicate with the MongoDB database we
+need to setup a cross-model relation. This is achieved by offering the ``database``
+endpoint from the machine model and consuming it in the K8s model as a SAAS 
+application. The Testflinger server charm is then related with both
+the ingress charm and the MongoDB SAAS via `Juju Integration <Juju Integration_>`_ 
+to enable API access and database connectivity. For a more detailed guide
+on how the cross-model relation is set up, please refer to the 
+`Juju How to Manage offers guide <Juju Offers Guide_>`_.
 
 Prerequisites
 -------------
@@ -83,20 +98,15 @@ Set up the Juju controllers needed for the Testflinger server deployment.
 
 .. code-block:: shell
 
-  # Workaround to get localhost-controller to connect to microk8s
-  $ server_url=$(microk8s config | grep server | awk '{print $2;}')
-  $ sed -i "s|server: .*|server: $server_url|g" \
-      /var/snap/microk8s/current/credentials/client.config
-  $ juju bootstrap microk8s microk8s-controller
   $ juju bootstrap localhost localhost-controller
-  $ juju add-cloud microk8s --controller localhost-controller
+  $ microk8s config | juju add-k8s localhost-microk8s --controller localhost-controller
 
 Then create the models for the server and database deployments.
 
 .. code-block:: shell
 
   $ juju add-model testflinger-db localhost
-  $ juju add-model testflinger microk8s
+  $ juju add-model testflinger localhost-microk8s
 
 MongoDB deployment
 ------------------
@@ -109,6 +119,8 @@ Deploy the MongoDB charm into the ``testflinger-db`` model.
 
 Once the deployment is complete, offer the MongoDB endpoint so that it can
 be consumed by the Testflinger server application in the K8s model.
+For more information on how to use Juju ``offer``, please refer to the 
+`Juju offer CLI reference <Juju Offer_>`_.
 
 .. code-block:: shell
 
@@ -128,11 +140,13 @@ Juju CLI
 The following steps outline how to deploy the Testflinger server charm
 using the Juju CLI.
 
-First, consume the MongoDB endpoint offered in the previous step.
+First, consume the MongoDB endpoint offered in the previous step. For 
+more information on how to use Juju ``consume``, please refer to the 
+`Juju consume CLI reference <Juju Consume_>`_.
 
 .. code-block:: shell
 
-  $ juju consume localhost:admin/testflinger-db.mongodb
+  $ juju consume localhost-controller:admin/testflinger-db.mongodb
 
 Deploy the Testflinger server charm.
 
@@ -157,7 +171,7 @@ Relate the Testflinger server application with the MongoDB endpoint.
 
 .. code-block:: shell
 
-  $ juju integrate testflinger-k8s mongodb
+  $ juju integrate testflinger-k8s:mongodb_client mongodb:database
 
 Monitor the deployment progress until all units are active.
 
@@ -172,13 +186,36 @@ expose the Testflinger server API.
 
   $ juju deploy nginx-ingress-integrator --trust
   $ juju integrate nginx-ingress-integrator testflinger-k8s
-  $ juju config testflinger-k8s external-hostname=testflinger.local
+  $ juju config testflinger-k8s external_hostname=testflinger.local
 
 The deployment finishes when the status shows ``Ingress IP(s): 127.0.0.1``
 on ``nginx-ingress-integrator``. The IP addresses may differ based on your
-Kubernetes cluster setup.
+Kubernetes cluster setup. You can run the `juju status` command to 
+monitor the status of the deployment and check the assigned ingress IP address.
 
-.. important::
+.. code-block:: shell
+
+  $ juju status --storage --relations
+    Model        Controller            Cloud/Region                  Version  SLA          Timestamp
+    testflinger  localhost-controller  localhost-microk8s/localhost  3.6.21   unsupported  11:49:45-06:00
+
+    SAAS     Status  Store                 URL
+    mongodb  active  localhost-controller  admin/testflinger-db.mongodb
+
+    App                       Version  Status  Scale  Charm                     Channel        Rev  Address        Exposed  Message
+    nginx-ingress-integrator  24.2.0   active      1  nginx-ingress-integrator  latest/stable  203  10.152.183.35  no       Ingress IP(s): 127.0.0.1
+    testflinger-k8s           ...      active      1  testflinger-k8s           latest/stable  288  10.152.183.88  no       
+
+    Unit                         Workload  Agent  Address       Ports  Message
+    nginx-ingress-integrator/0*  active    idle   10.1.153.199         Ingress IP(s): 127.0.0.1
+    testflinger-k8s/0*           active    idle   10.1.153.198         
+
+    Integration provider                  Requirer                              Interface       Type     Message
+    mongodb:database                      testflinger-k8s:mongodb_client        mongodb_client  regular  
+    nginx-ingress-integrator:nginx-peers  nginx-ingress-integrator:nginx-peers  nginx-instance  peer     
+    nginx-ingress-integrator:nginx-route  testflinger-k8s:nginx-route           nginx-route     regular  
+
+.. warning::
 
   The above ingress deployment steps are intended for testing and
   development purposes. For production deployments, it is recommended to
@@ -193,6 +230,14 @@ Testflinger also provides a Terraform module that automates the deployment
 of the Testflinger server. The module is located in the
 `server/terraform/ <testflinger-terraform_>`_ directory of the Testflinger
 repository.
+
+.. important::
+
+  The Terraform module will only deploy the Testflinger server charm, it is
+  user responsibility to setup a Terraform plan that deploys the Ingress charm
+  and configures the required relations. For a sample Terraform plan, 
+  please refer to the `server/terraform/dev/main.tf <testflinger-terraform-dev_>`_ 
+  file in the Testflinger repository.
 
 Variables
 ~~~~~~~~~
@@ -260,3 +305,13 @@ The CLI should not error out, though the list of agents may be empty.
 
 Refer to the :doc:`/reference/cli-config` reference for details on
 configuring the CLI.
+
+.. _Juju Consume: https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/list-of-juju-cli-commands/consume/
+.. _Juju Controller: https://documentation.ubuntu.com/juju/3.6/reference/controller/
+.. _Juju Offers Guide: https://documentation.ubuntu.com/juju/3.6/howto/manage-offers/#manage-offers
+.. _Juju Integration: https://documentation.ubuntu.com/juju/3.6/reference/relation/
+.. _Juju Model: https://documentation.ubuntu.com/juju/3.6/reference/model/
+.. _Juju Offer: https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/list-of-juju-cli-commands/offer/
+.. _nginx-ingress-tls: https://documentation.ubuntu.com/nginx-ingress-integrator-charm/latest/how-to/secure-an-ingress-with-tls/
+.. _testflinger-terraform: https://github.com/canonical/testflinger/tree/main/server/terraform
+.. _testflinger-terraform-dev: https://github.com/canonical/testflinger/blob/main/server/terraform/dev/main.tf

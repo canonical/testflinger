@@ -4,11 +4,9 @@
 .. _HPE Gen11: https://downloads.linux.hpe.com/SDR/repo/fwpp-gen11/
 .. _HPE Gen12: https://downloads.linux.hpe.com/SDR/repo/fwpp-gen12/
 .. _Juju CLI: https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/list-of-juju-cli-commands/run/
-.. _nginx-ingress-tls: https://documentation.ubuntu.com/nginx-ingress-integrator-charm/latest/how-to/secure-an-ingress-with-tls/
 .. _Security Policy: https://github.com/canonical/testflinger/blob/main/SECURITY.md
 .. _Security reporting and disclosure policy: https://ubuntu.com/security/disclosure-policy
 .. _snap: https://snapcraft.io/testflinger-cli
-.. _testflinger-terraform: https://github.com/canonical/testflinger/tree/main/server/terraform
 .. _Ubuntu Code of Conduct: https://ubuntu.com/community/ethos/code-of-conduct
 .. _Ubuntu Discourse: https://discourse.ubuntu.com/c/certification/165
 
