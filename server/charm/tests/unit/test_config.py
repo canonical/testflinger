@@ -120,7 +120,10 @@ def test_invalid_oidc_provider_issuer():
         oidc_provider_issuer="https://keycloak.example.com/realms/myrealm",
         web_secret_key="web-secret-key",  # noqa: S106
     )
-    assert config.oidc_provider_issuer == "https://keycloak.example.com/realms/myrealm"
+    assert (
+        config.oidc_provider_issuer
+        == "https://keycloak.example.com/realms/myrealm"
+    )
 
     config = TestflingerServerConfig(
         oidc_client_id="client-id",
