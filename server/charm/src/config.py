@@ -18,6 +18,7 @@ class TestflingerServerConfig(pydantic.BaseModel):
     http_proxy: str = ""
     https_proxy: str = ""
     no_proxy: str = "localhost,127.0.0.1,::1"
+    behind_proxy: bool = False
     webhook_url: str = "http://test-observer-api.local/"
     webhook_auth: str = ""
     web_secret_key: str = ""

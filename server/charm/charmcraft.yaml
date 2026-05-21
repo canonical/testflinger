@@ -112,6 +112,13 @@ config:
       type: string
       default: "localhost,127.0.0.1,::1"
       description: Resources that we should be able to access bypassing proxy
+    behind_proxy:
+      type: boolean
+      default: false
+      description: |
+        Whether the application is running behind a proxy. 
+        Required if OIDC is enabled and the application is running behind a proxy,
+        so that redirects from the OIDC provider can be properly handled.
     webhook_url:
       type: string
       default: "http://test-observer-api.local/"
