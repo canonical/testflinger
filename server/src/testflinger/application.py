@@ -16,6 +16,7 @@
 """Setup the Testflinger web application."""
 
 import logging
+import os
 
 from apiflask import APIFlask
 from flask import request
@@ -105,9 +106,10 @@ def create_flask_app(config=None, secrets_store=None):
         return {"vanilla_framework_version": VANILLA_FRAMEWORK_VERSION}
 
     # Tell Flask it's behind a proxy so it can properly handle redirects
-    tf_app.wsgi_app = ProxyFix(
-        tf_app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
-    )
+    if os.environ.get("BEHIND_PROXY", "false").lower() == "true":
+        tf_app.wsgi_app = ProxyFix(
+            tf_app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+        )
 
     tf_app.register_blueprint(views)
     tf_app.register_blueprint(v1, url_prefix="/v1")
