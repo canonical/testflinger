@@ -86,7 +86,7 @@ def test_invalid_oidc_configuration():
             web_secret_key="web-secret-key",  # noqa: S106
         )
 
-    # Missing oidc_secret_key
+    # Missing oidc_client_secret
     with pytest.raises(ValueError):
         TestflingerServerConfig(
             oidc_client_id="client-id",
@@ -114,14 +114,21 @@ def test_invalid_oidc_provider_issuer():
             web_secret_key="web-secret-key",  # noqa: S106
         )
 
-    # Reject oidc_provider_issuer that include path
-    with pytest.raises(ValueError):
-        TestflingerServerConfig(
-            oidc_client_id="client-id",
-            oidc_client_secret="client-secret",  # noqa: S106
-            oidc_provider_issuer="https://oidc-provider.local/issuer",
-            web_secret_key="web-secret-key",  # noqa: S106
-        )
+    config = TestflingerServerConfig(
+        oidc_client_id="client-id",
+        oidc_client_secret="client-secret",  # noqa: S106
+        oidc_provider_issuer="https://keycloak.example.com/realms/myrealm",
+        web_secret_key="web-secret-key",  # noqa: S106
+    )
+    assert config.oidc_provider_issuer == "https://keycloak.example.com/realms/myrealm"
+
+    config = TestflingerServerConfig(
+        oidc_client_id="client-id",
+        oidc_client_secret="client-secret",  # noqa: S106
+        oidc_provider_issuer="https://oidc-provider.local/",
+        web_secret_key="web-secret-key",  # noqa: S106
+    )
+    assert config.oidc_provider_issuer == "https://oidc-provider.local"
 
     # Reject oidc_provider_issuer that does not include hostname
     with pytest.raises(ValueError):

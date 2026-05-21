@@ -56,7 +56,7 @@ class TestflingerServerConfig(pydantic.BaseModel):
     @pydantic.field_validator("oidc_provider_issuer")
     @classmethod
     def validate_oidc_provider_issuer(cls, value):
-        """Validate oidc_provider_issuer includes a protocol and no paths."""
+        """Validate oidc_provider_issuer includes a scheme and host."""
         if not value:
             return value
 
@@ -67,9 +67,7 @@ class TestflingerServerConfig(pydantic.BaseModel):
             )
         if not parsed_oidc.netloc:
             raise ValueError("oidc_provider_issuer must include a host")
-        if parsed_oidc.path != "":
-            raise ValueError("oidc_provider_issuer must not include a path")
-        return value
+        return value.rstrip("/")
 
     @pydantic.model_validator(mode="after")
     def validate_oidc_config(self):
