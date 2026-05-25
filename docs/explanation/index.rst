@@ -10,6 +10,7 @@ Testflinger
 
 System components and functional features of Testflinger
 
+- :ref:`architecture`
 - :ref:`explain_agents`
 - :ref:`extended-reservation`
 - :ref:`job-priority`
@@ -29,6 +30,7 @@ Access control, credential management, and data protection mechanisms
     :maxdepth: 1
     :hidden:
 
+    architecture
     agents
     queues
     job-priority

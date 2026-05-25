@@ -6,39 +6,10 @@ Deploy a Testflinger Server
 This guide outlines the steps to deploy a Testflinger server using Juju and
 the Testflinger server charm from Charmhub.
 
-Architecture
-------------
-
-The Testflinger server is a Kubernetes (K8s) application deployed using Juju.
-As a backend, it uses a MongoDB database that stores all data related to
-Testflinger, including job definitions, job results, agent information,
-and more.
-
-The preferred way to deploy MongoDB is to use the MongoDB machine charm,
-which deploys a MongoDB instance on a virtual machine (VM). This can
-improve performance and reduce resource complexity compared to deploying
-MongoDB as a K8s application.
-
-The following diagram illustrates the architecture of the Testflinger
-server deployment:
-
-.. image:: ../../images/testflinger_architecture.svg
-   :alt: Testflinger server architecture diagram
-
-In the above diagram, there is a single `Juju Controller <Juju Controller_>`_ 
-that manages both the K8s and machine `Juju models <Juju Model_>`_. 
-In the machine model, only the MongoDB charm is deployed, while in the K8s
-model, the Testflinger server charm and the NGINX Ingress Integrator charm
-are deployed.
-
-To allow the Testflinger server to communicate with the MongoDB database we
-need to set up a cross-model relation. This is achieved by offering the ``database``
-endpoint from the machine model and consuming it in the K8s model as a SAAS 
-application. The Testflinger server charm is then related with both
-the ingress charm and the MongoDB SAAS via `Juju Integration <Juju Integration_>`_ 
-to enable API access and database connectivity. For a more detailed guide
-on how the cross-model relation is set up, please refer to the 
-`Juju How to Manage offers guide <Juju Offers Guide_>`_.
+Testflinger server runs as a Kubernetes application and uses MongoDB as its
+backend. In this guide, MongoDB is deployed as a machine charm and connected
+to the server through a Juju cross-model relation. For more details, see the 
+:doc:`../../explanation/architecture` explanation.
 
 Prerequisites
 -------------
@@ -57,7 +28,7 @@ Install the following dependencies:
 
   $ sudo apt-get install git
   $ sudo snap install juju lxd
-  $ sudo snap install microk8s --channel 1.32-strict
+  $ sudo snap install microk8s --channel <latest_version>-strict
   $ sudo snap install terraform --classic
 
 .. note::
@@ -131,7 +102,7 @@ Testflinger server deployment
 
 .. tip::
 
-  The following steps assume you are located in the k8s model, otherwise you can
+  The next steps assume you are located in the k8s model, otherwise you can
   switch by running ``juju switch testflinger``.
 
 Juju CLI
@@ -307,10 +278,6 @@ Refer to the :doc:`/reference/cli-config` reference for details on
 configuring the CLI.
 
 .. _Juju Consume: https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/list-of-juju-cli-commands/consume/
-.. _Juju Controller: https://documentation.ubuntu.com/juju/3.6/reference/controller/
-.. _Juju Offers Guide: https://documentation.ubuntu.com/juju/3.6/howto/manage-offers/#manage-offers
-.. _Juju Integration: https://documentation.ubuntu.com/juju/3.6/reference/relation/
-.. _Juju Model: https://documentation.ubuntu.com/juju/3.6/reference/model/
 .. _Juju Offer: https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/list-of-juju-cli-commands/offer/
 .. _nginx-ingress-tls: https://documentation.ubuntu.com/nginx-ingress-integrator-charm/latest/how-to/secure-an-ingress-with-tls/
 .. _testflinger-terraform: https://github.com/canonical/testflinger/tree/main/server/terraform
