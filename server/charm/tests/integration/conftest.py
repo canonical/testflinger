@@ -16,28 +16,11 @@
 
 import logging
 import os
-import sys
-import time
 from pathlib import Path
 
-import jubilant
 import pytest
 
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="module")
-def juju(request: pytest.FixtureRequest):
-    """Create temporary Juju model for running tests."""
-    with jubilant.temp_model() as juju:
-        juju.wait_timeout = 600
-        yield juju
-
-        if request.session.testsfailed:
-            logger.info("Collecting Juju logs...")
-            time.sleep(0.5)  # Wait for Juju to process logs.
-            log = juju.debug_log(limit=1000)
-            print(log, end="", file=sys.stderr)
 
 
 @pytest.fixture(scope="session")

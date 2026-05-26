@@ -17,12 +17,14 @@
 from pathlib import Path
 
 import jubilant
+import pytest
 
 from .helpers import APP_NAME, METADATA, MONGODB_CHARM, app_is_up, retry
 
 DEFAULT_HTTP_PORT = 5000
 
 
+@pytest.mark.juju_setup
 def test_deploy(charm_path: Path, juju: jubilant.Juju):
     """Deploy the charm under test.
 
@@ -52,3 +54,10 @@ def test_application_is_up(juju: jubilant.Juju):
     ip = juju.status().apps[APP_NAME].units[f"{APP_NAME}/0"].address
     base_url = f"http://{ip}:{DEFAULT_HTTP_PORT}"
     assert app_is_up(base_url)
+
+
+@pytest.mark.juju_teardown
+def test_destroy(juju: jubilant.Juju):
+    """Tear down the charm under test."""
+    juju.remove_application(APP_NAME)
+    juju.remove_application(MONGODB_CHARM)
