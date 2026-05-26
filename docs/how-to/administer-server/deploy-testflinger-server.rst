@@ -33,7 +33,7 @@ Install the following dependencies:
 
 .. note::
 
-  Juju requires the strict version of the ``microk8s`` snap to be installed.
+   Juju 3.x requires the strict version of the ``microk8s`` snap to be installed.
 
 LXD
 ^^^
@@ -46,7 +46,9 @@ Make sure LXD is initialized.
 
 .. note::
 
-  Feel free to initialize LXD with a configuration that suits your needs.
+  Feel free to initialize LXD with a configuration that suits your needs. 
+  LXD is only used in this setup to deploy the machine charms, specifically
+  the MongoDB machine charm.
 
 
 MicroK8s
@@ -151,7 +153,8 @@ Monitor the deployment progress until all units are active.
   $ juju status --storage --relations --watch 5s
 
 Once all units are active, deploy and configure the ingress charm to
-expose the Testflinger server API.
+expose the Testflinger server API. In this example, we will use the
+NGINX Ingress Integrator charm. 
 
 .. code-block:: shell
 

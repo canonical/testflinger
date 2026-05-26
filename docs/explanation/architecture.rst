@@ -25,8 +25,7 @@ server deployment:
 In the above diagram, there is a single `Juju Controller <Juju Controller_>`_ 
 that manages both the K8s and machine `Juju models <Juju Model_>`_. 
 In the machine model, only the MongoDB charm is deployed, while in the K8s
-model, the Testflinger server charm and the NGINX Ingress Integrator charm
-are deployed.
+model, the Testflinger server charm and the ingress charm are deployed.
 
 To allow the Testflinger server to communicate with the MongoDB database we
 need to set up a cross-model relation. This is achieved by offering the ``database``
