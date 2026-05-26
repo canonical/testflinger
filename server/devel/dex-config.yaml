@@ -8,6 +8,7 @@ staticClients:
     redirectURIs:
       - 'http://testflinger-server:5000/auth/callback'
       - 'http://localhost:5000/auth/callback'
+      - 'http://127.0.0.1:5000/auth/callback'
     name: 'Testflinger Dev'
     secret: my-oidc-secret
 enablePasswordDB: true

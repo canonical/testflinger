@@ -21,10 +21,8 @@ from http import HTTPStatus
 from flask import (
     Blueprint,
     make_response,
-    redirect,
     render_template,
     request,
-    url_for,
 )
 from prometheus_client import generate_latest
 
@@ -38,7 +36,7 @@ views = Blueprint("testflinger", __name__)
 @views.route("/")
 def home():
     """Home view."""
-    return redirect(url_for("testflinger.agents"))
+    return render_template("homepage.html")
 
 
 @views.route("/metrics")
