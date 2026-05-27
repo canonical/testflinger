@@ -28,11 +28,11 @@ from testflinger.api import v1
 
 
 def test_home(mongo_app):
-    """Test that queries to / are redirected to /agents."""
+    """Test that the homepage contains the welcome message."""
     app, _ = mongo_app
     response = app.get("/")
-    assert 302 == response.status_code
-    assert "/agents" == response.headers.get("Location")
+    assert response.status_code == HTTPStatus.OK
+    assert b"Welcome to Testflinger" in response.data
 
 
 def test_add_job_invalid_reserve_data(mongo_app):
