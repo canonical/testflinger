@@ -21,9 +21,12 @@ import mongomock
 import pytest
 from mongomock.gridfs import enable_gridfs_integration
 
-from testflinger.database import retrieve_file, save_file
-
-DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days in seconds
+from testflinger.database import (
+    DEFAULT_EXPIRATION,
+    create_indexes,
+    retrieve_file,
+    save_file,
+)
 
 # Enable GridFS support once for all tests in this module.
 enable_gridfs_integration()
@@ -47,6 +50,7 @@ def test_save_file_as_chunks(mock_mongo):
 
     file_id = file_doc["_id"]
     chunks = list(mock_mongo.db["fs.chunks"].find({"files_id": file_id}))
+    assert chunks, "Expected at least one GridFS chunk document"
     for chunk in chunks:
         assert "uploadDate" in chunk
         assert chunk["uploadDate"] == file_doc["uploadDate"]
@@ -71,16 +75,35 @@ def test_retrieve_file_raises_for_missing_file(mock_mongo):
 @patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
 def test_create_indexes_gridfs_collections(mock_mongo):
     """Test TTL indexes are created on fs.chunks and fs.files collections."""
-    mock_mongo.db["fs.chunks"].create_index(
-        "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
-    )
-    mock_mongo.db["fs.files"].create_index(
-        "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
-    )
+    # exclude compound indexes that are not relevant for gridFS
+    # as those are not supported by mongomock
+    with (
+        patch.object(mock_mongo.db.jobs, "create_index"),
+        patch.object(mock_mongo.db.logs, "create_index"),
+    ):
+        create_indexes()
 
     chunks_indexes = mock_mongo.db["fs.chunks"].index_information()
     files_indexes = mock_mongo.db["fs.files"].index_information()
 
-    # We expect at least the default _id index plus the TTL index on uploadDate
-    assert len(chunks_indexes) > 1
-    assert len(files_indexes) > 1
+    # Validate TTL index exists and has the expected expiry.
+    chunks_ttl = next(
+        (
+            info
+            for info in chunks_indexes.values()
+            if info.get("key") == [("uploadDate", 1)]
+        ),
+        None,
+    )
+    files_ttl = next(
+        (
+            info
+            for info in files_indexes.values()
+            if info.get("key") == [("uploadDate", 1)]
+        ),
+        None,
+    )
+    assert chunks_ttl is not None
+    assert chunks_ttl.get("expireAfterSeconds") == DEFAULT_EXPIRATION
+    assert files_ttl is not None
+    assert files_ttl.get("expireAfterSeconds") == DEFAULT_EXPIRATION
