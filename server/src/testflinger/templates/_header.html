@@ -27,7 +27,7 @@
       {% if not oidc_enabled or session.user %}
         {% include "_nav_bar.html" %}
       {% else %}
-        <ul class="p-navigation__items">
+        <ul class="p-navigation__items" aria-hidden="true">
         </ul>
       {% endif %}
       {% if oidc_enabled %}
