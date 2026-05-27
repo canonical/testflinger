@@ -95,10 +95,10 @@ def create_indexes():
     )
 
     # Remove artifacts after 7 days
-    mongo.db.fs.chunks.create_index(
+    mongo.db["fs.chunks"].create_index(
         "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
     )
-    mongo.db.fs.files.create_index(
+    mongo.db["fs.files"].create_index(
         "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
     )
 
@@ -134,8 +134,8 @@ def save_file(data: Any, filename: str):
     storage = GridFS(mongo.db)
     file_id = storage.put(data, filename=filename)
     # Add a timestamp to the chunks - do this so we can set a TTL for them
-    timestamp = mongo.db.fs.files.find_one({"_id": file_id})["uploadDate"]
-    mongo.db.fs.chunks.update_many(
+    timestamp = mongo.db["fs.files"].find_one({"_id": file_id})["uploadDate"]
+    mongo.db["fs.chunks"].update_many(
         {"files_id": file_id}, {"$set": {"uploadDate": timestamp}}
     )
 
