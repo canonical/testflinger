@@ -1,21 +1,29 @@
+# Copyright (C) 2026 Canonical
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Helper functions for integration tests."""
 
 import functools
 import logging
-import subprocess
 import time
-from pathlib import Path
 from urllib.parse import urlparse
 
+import jubilant
 import requests
-import yaml
 from requests.adapters import HTTPAdapter
 
 logger = logging.getLogger(__name__)
-
-METADATA = yaml.safe_load(Path("charmcraft.yaml").read_text(encoding="utf-8"))
-APP_NAME = METADATA["name"]
-MONGODB_CHARM = "mongodb-k8s"
 
 
 class DNSResolverHTTPAdapter(HTTPAdapter):
@@ -121,55 +129,11 @@ def retry(retry_num: int, retry_sleep_sec: int) -> callable:
     return decorator
 
 
-def get_k8s_ingress_object_ip(model: str) -> str:
-    """Get the external IP from a Kubernetes Ingress object's status.
+def get_haproxy_ip(juju: jubilant.Juju) -> str:
+    """Get the public IP address of the haproxy unit.
 
-    :param model: The Juju model (used as the K8s namespace).
-    :return: The external IP address from the Ingress object's status.
+    :param juju: The Juju instance for the machine model.
+    :return: The public IP address of the haproxy unit.
     """
-    try:
-        return subprocess.run(  # noqa: S603
-            [
-                "/snap/bin/kubectl",
-                "--namespace",
-                model,
-                "get",
-                "ingress",
-                "-o",
-                "jsonpath={.items[0].status.loadBalancer.ingress[0].ip}",
-            ],
-            check=True,
-            text=True,
-            capture_output=True,
-        ).stdout.strip()
-    except subprocess.CalledProcessError as exc:
-        logger.error("Failed to get ingress object IP: %s", exc)
-        raise
-
-
-def get_k8s_ingress_ip(model: str, service_name: str) -> str:
-    """Get the external IP of a Kubernetes service LoadBalancer.
-
-    :param model: The Juju model.
-    :param service_name: The name of the Kubernetes service.
-    :return: The external IP address of the service.
-    """
-    try:
-        return subprocess.run(  # noqa: S603
-            [
-                "/snap/bin/kubectl",
-                "--namespace",
-                model,
-                "get",
-                "service",
-                service_name,
-                "-o",
-                "jsonpath={.status.loadBalancer.ingress[0].ip}",
-            ],
-            check=True,
-            text=True,
-            capture_output=True,
-        ).stdout.strip()
-    except subprocess.CalledProcessError as exc:
-        logger.error("Failed to get service IP: %s", exc)
-        raise
+    status = juju.status()
+    return status.apps["haproxy"].units["haproxy/0"].address

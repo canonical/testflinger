@@ -22,18 +22,15 @@ import jubilant
 import pytest
 import requests
 
-from .helpers import (
+from .consts import (
     APP_NAME,
-    METADATA,
+    DEFAULT_EXTERNAL_HOSTNAME,
+    INGRESS_NAME,
     MONGODB_CHARM,
-    DNSResolverHTTPAdapter,
-    app_is_up,
-    retry,
+    NGINX_INGRESS_CHARM,
+    UPSTREAM_SOURCE,
 )
-
-NGINX_INGRESS_CHARM = "nginx-ingress-integrator"
-DEFAULT_EXTERNAL_HOSTNAME = "testflinger.local"
-INGRESS_NAME = "ingress"
+from .helpers import DNSResolverHTTPAdapter, app_is_up, retry
 
 
 @pytest.mark.juju_setup
@@ -41,9 +38,7 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     """Test deploying the charm under test with ingress relation."""
     # Deploy the testflinger charm
     resources = {
-        "testflinger-image": METADATA["resources"]["testflinger-image"][
-            "upstream-source"
-        ],
+        "testflinger-image": UPSTREAM_SOURCE,
     }
     juju.deploy(charm_path.resolve(), app=APP_NAME, resources=resources)
 

@@ -19,9 +19,8 @@ from pathlib import Path
 import jubilant
 import pytest
 
-from .helpers import APP_NAME, METADATA, MONGODB_CHARM, app_is_up, retry
-
-DEFAULT_HTTP_PORT = 5000
+from .consts import APP_NAME, DEFAULT_HTTP_PORT, MONGODB_CHARM, UPSTREAM_SOURCE
+from .helpers import app_is_up, retry
 
 
 @pytest.mark.juju_setup
@@ -33,9 +32,7 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     """
     # Deploy the testflinger charm
     resources = {
-        "testflinger-image": METADATA["resources"]["testflinger-image"][
-            "upstream-source"
-        ],
+        "testflinger-image": UPSTREAM_SOURCE,
     }
     juju.deploy(charm_path.resolve(), app=APP_NAME, resources=resources)
 
