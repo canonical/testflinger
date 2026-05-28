@@ -16,11 +16,47 @@
 
 import logging
 import os
+import sys
+import time
 from pathlib import Path
 
+import jubilant
 import pytest
 
 logger = logging.getLogger(__name__)
+
+K8S_CONTROLLER = os.getenv("JUJU_K8S_CONTROLLER")
+MACHINE_CONTROLLER = os.getenv("JUJU_MACHINE_CONTROLLER")
+
+
+def collect_juju_logs(
+    request: pytest.FixtureRequest, juju: jubilant.Juju
+) -> None:
+    """Print Juju debug logs to stderr when tests fail."""
+    if not request.session.testsfailed:
+        return
+    logger.info("Collecting Juju logs from model '%s'", juju.model)
+    time.sleep(0.5)
+    log = juju.debug_log(limit=1000)
+    print(log, end="", file=sys.stderr)
+
+
+@pytest.fixture(scope="module")
+def k8s_juju(request: pytest.FixtureRequest):
+    """Create temporary K8s model for running tests."""
+    with jubilant.temp_model(controller=K8S_CONTROLLER) as juju:
+        juju.wait_timeout = 600
+        yield juju
+        collect_juju_logs(request, juju)
+
+
+@pytest.fixture(scope="module")
+def machine_juju(request: pytest.FixtureRequest):
+    """Create temporary machine model."""
+    with jubilant.temp_model(controller=MACHINE_CONTROLLER) as juju:
+        juju.wait_timeout = 600
+        yield juju
+        collect_juju_logs(request, juju)
 
 
 @pytest.fixture(scope="session")

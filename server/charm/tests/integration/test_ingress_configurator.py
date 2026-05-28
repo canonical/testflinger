@@ -15,11 +15,11 @@
 """Ingress Integration tests for Testflinger Juju charm."""
 
 import logging
+import os
 from pathlib import Path
 
 import jubilant
 import pytest
-import pytest_jubilant
 import requests
 
 from .consts import (
@@ -38,58 +38,52 @@ from .helpers import DNSResolverHTTPAdapter, app_is_up, get_haproxy_ip, retry
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope="module")
-def machine_juju(juju_factory: pytest_jubilant.JujuFactory):
-    """Juju instance for the machine model hosting haproxy."""
-    yield juju_factory.get_juju(suffix="machine")
-
-
 @pytest.mark.juju_setup
 def test_deploy(
-    charm_path: Path, juju: jubilant.Juju, machine_juju: jubilant.Juju
+    charm_path: Path, k8s_juju: jubilant.Juju, machine_juju: jubilant.Juju
 ):
     """Test deploying the charm under test with haproxy ingress via CMR."""
-    # First deploy haproxy in the machine model
+    # Deploy haproxy and self-signed-certificates
     machine_juju.deploy(HAPROXY_CHARM, channel="2.8/edge", trust=True)
     machine_juju.deploy(SELFSIGNED_CHARM)
     machine_juju.config(
         HAPROXY_CHARM, {"external-hostname": HAPROXY_EXTERNAL_HOSTNAME}
     )
     machine_juju.integrate(HAPROXY_CHARM, f"{SELFSIGNED_CHARM}:certificates")
-
     logger.info("Waiting for machine model to be active")
     machine_juju.wait(jubilant.all_active)
 
     # Offer haproxy-route endpoint from machine model
-    machine_juju.cli(
-        "offer",
-        f"{HAPROXY_CHARM}:haproxy-route",
-        HAPROXY_CHARM,
-    )
+    machine_juju.offer(HAPROXY_CHARM, endpoint="haproxy-route")
 
     # Consume the offered haproxy route in the testflinger model (cross-model)
-    juju.cli("consume", f"admin/{machine_juju.model}.{HAPROXY_CHARM}")
+    machine_controller = os.getenv("JUJU_MACHINE_CONTROLLER")
+    offer_url = (
+        f"{machine_controller}:{machine_juju.model}.{HAPROXY_CHARM}"
+        if machine_controller
+        else f"{machine_juju.model}.{HAPROXY_CHARM}"
+    )
+    k8s_juju.consume(offer_url, owner="admin")
 
     # Deploy the testflinger charm
-    resources = {
-        "testflinger-image": UPSTREAM_SOURCE,
-    }
-    juju.deploy(charm_path.resolve(), app=APP_NAME, resources=resources)
+    k8s_juju.deploy(
+        charm_path.resolve(),
+        app=APP_NAME,
+        resources={"testflinger-image": UPSTREAM_SOURCE},
+    )
 
-    # Deploy the mongodb-k8s charm
-    juju.deploy(MONGODB_CHARM, channel="6/stable", trust=True)
-    juju.integrate(
-        f"{APP_NAME}:mongodb_client",
-        f"{MONGODB_CHARM}:database",
+    # Deploy the mongodb-k8s charm and integrate
+    k8s_juju.deploy(MONGODB_CHARM, channel="6/stable", trust=True)
+    k8s_juju.integrate(
+        f"{APP_NAME}:mongodb_client", f"{MONGODB_CHARM}:database"
     )
-    juju.integrate(
-        f"{APP_NAME}:mongodb_keyvault",
-        f"{MONGODB_CHARM}:database",
+    k8s_juju.integrate(
+        f"{APP_NAME}:mongodb_keyvault", f"{MONGODB_CHARM}:database"
     )
-    juju.wait(jubilant.all_active)
+    k8s_juju.wait(jubilant.all_active)
 
     # Deploy ingress-configurator with the Testflinger hostname
-    juju.deploy(
+    k8s_juju.deploy(
         INGRESS_CHARM,
         app=INGRESS_NAME,
         channel="latest/edge",
@@ -98,21 +92,21 @@ def test_deploy(
     )
 
     # Integrate consumed haproxy with ingress-configurator (cross-model)
-    logger.info("Integrating haproxy (CMR) with ingress-configurator")
-    juju.integrate(f"{HAPROXY_CHARM}:haproxy-route", f"{INGRESS_NAME}:ingress")
-    juju.wait(jubilant.all_active)
+    logger.info("Integrating haproxy with ingress-configurator")
+    k8s_juju.integrate(
+        f"{HAPROXY_CHARM}:haproxy-route", f"{INGRESS_NAME}:ingress"
+    )
+    k8s_juju.wait(jubilant.all_active)
 
     # Integrate testflinger with ingress
     logger.info("Integrating testflinger with ingress")
-    juju.integrate(f"{APP_NAME}:ingress", f"{INGRESS_NAME}:ingress")
+    k8s_juju.integrate(f"{APP_NAME}:ingress", f"{INGRESS_NAME}:ingress")
     logger.info("Waiting for integration to complete")
-    juju.wait(jubilant.all_active)
+    k8s_juju.wait(jubilant.all_active)
 
 
 @retry(retry_num=5, retry_sleep_sec=10)
-def test_ingress_is_up_default_hostname(
-    juju: jubilant.Juju, machine_juju: jubilant.Juju
-):
+def test_ingress_is_up_default_hostname(machine_juju: jubilant.Juju):
     """Test that the deployed application is up and responding via ingress.
 
     External hostname is configured in Ingress Configurator charm config.
@@ -132,14 +126,12 @@ def test_ingress_is_up_default_hostname(
 
 
 @pytest.mark.juju_teardown
-def test_destroy(juju: jubilant.Juju, machine_juju: jubilant.Juju):
+def test_destroy(k8s_juju: jubilant.Juju, machine_juju: jubilant.Juju):
     """Tear down the charm under test."""
-    juju.remove_application(APP_NAME)
-    juju.remove_application(MONGODB_CHARM)
-    juju.remove_application(INGRESS_NAME)
-    # Remove the consumed SAAS app from the K8s model
-    juju.cli("remove-saas", HAPROXY_CHARM)
-    # Remove the offer and apps from the machine model
+    k8s_juju.remove_application(APP_NAME)
+    k8s_juju.remove_application(MONGODB_CHARM)
+    k8s_juju.remove_application(INGRESS_NAME)
+    k8s_juju.cli("remove-saas", HAPROXY_CHARM)
     machine_juju.cli(
         "remove-offer",
         f"admin/{machine_juju.model}.{HAPROXY_CHARM}",
