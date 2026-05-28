@@ -28,11 +28,35 @@ from testflinger.api import v1
 
 
 def test_home(mongo_app):
-    """Test that queries to / are redirected to /agents."""
+    """Test that the homepage contains the welcome message."""
     app, _ = mongo_app
     response = app.get("/")
-    assert 302 == response.status_code
-    assert "/agents" == response.headers.get("Location")
+    assert response.status_code == HTTPStatus.OK
+    assert b"Welcome to Testflinger" in response.data
+
+
+def test_home_oidc_enabled(oidc_app):
+    """Test homepage/header rendering when OIDC is enabled."""
+    app, _ = oidc_app
+    client = app.test_client()
+
+    # Only Sign In should be visible when not authenticated
+    response = client.get("/")
+    assert response.status_code == HTTPStatus.OK
+    assert b"Sign In" in response.data
+    assert b"Agents" not in response.data
+    assert b"Jobs" not in response.data
+    assert b"Queues" not in response.data
+
+    with client.session_transaction() as session:
+        session["user"] = "test@example.com"
+    response = client.get("/")
+
+    # All navigation items should be visible when authenticated
+    assert response.status_code == HTTPStatus.OK
+    assert b"Agents" in response.data
+    assert b"Jobs" in response.data
+    assert b"Queues" in response.data
 
 
 def test_add_job_invalid_reserve_data(mongo_app):

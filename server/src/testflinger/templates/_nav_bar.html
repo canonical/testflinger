@@ -1,0 +1,25 @@
+{%- set nav_bar = [
+{
+"name": "Agents",
+"url": url_for("testflinger.agents")
+},
+{
+"name": "Jobs",
+"url": url_for("testflinger.jobs")
+},
+{
+"name": "Queues",
+"url": url_for("testflinger.queues")
+},
+{
+"name": "Documentation",
+"url": "https://documentation.ubuntu.com/testflinger/latest/"
+}
+] -%}
+<ul class="p-navigation__items">
+  {%- for item in nav_bar %}
+    <li class="p-navigation__item {% if item.name|lower==active_page %}is-selected{% endif %}">
+      <a class="p-navigation__link" href="{{ item.url }}">{{ item.name }}</a>
+    </li>
+  {%- endfor %}
+</ul>
