@@ -26,7 +26,6 @@ Install the following dependencies:
 
 .. code-block:: shell
 
-  $ sudo apt-get install git
   $ sudo snap install juju lxd
   $ sudo snap install microk8s --channel <latest_version>-strict
   $ sudo snap install terraform --classic
@@ -102,13 +101,17 @@ For more information on how to use Juju ``offer``, please refer to the
 Testflinger server deployment
 ------------------------------
 
-.. tip::
-
-  The next steps assume you are located in the k8s model, otherwise you can
-  switch by running ``juju switch testflinger``.
+At this point, you are now ready to deploy the Testflinger server charm. 
+You can choose to deploy the charm using the Juju CLI or automate the deployment
+using the provided Terraform module.
 
 Juju CLI
 ^^^^^^^^
+
+.. tip::
+
+  The next steps assume the k8s model is active, otherwise you can
+  switch by running ``juju switch testflinger``.
 
 The following steps outline how to deploy the Testflinger server charm
 using the Juju CLI.
