@@ -58,12 +58,10 @@ def test_deploy(
 
     # Consume the offered haproxy route in the testflinger model (cross-model)
     machine_controller = os.getenv("JUJU_MACHINE_CONTROLLER")
-    offer_url = (
-        f"{machine_controller}:{machine_juju.model}.{HAPROXY_CHARM}"
-        if machine_controller
-        else f"{machine_juju.model}.{HAPROXY_CHARM}"
+    model_name = machine_juju.model.split(":")[-1]
+    k8s_juju.consume(
+        f"{machine_controller}:admin/{model_name}.{HAPROXY_CHARM}"
     )
-    k8s_juju.consume(offer_url, owner="admin")
 
     # Deploy the testflinger charm
     k8s_juju.deploy(
@@ -91,16 +89,14 @@ def test_deploy(
         trust=True,
     )
 
-    # Integrate consumed haproxy with ingress-configurator (cross-model)
     logger.info("Integrating haproxy with ingress-configurator")
     k8s_juju.integrate(
-        f"{HAPROXY_CHARM}:haproxy-route", f"{INGRESS_NAME}:ingress"
+        f"{HAPROXY_CHARM}:haproxy-route", f"{INGRESS_NAME}:haproxy-route"
     )
-    k8s_juju.wait(jubilant.all_active)
 
-    # Integrate testflinger with ingress
     logger.info("Integrating testflinger with ingress")
     k8s_juju.integrate(f"{APP_NAME}:ingress", f"{INGRESS_NAME}:ingress")
+
     logger.info("Waiting for integration to complete")
     k8s_juju.wait(jubilant.all_active)
 
@@ -129,13 +125,9 @@ def test_ingress_is_up_default_hostname(machine_juju: jubilant.Juju):
 def test_destroy(k8s_juju: jubilant.Juju, machine_juju: jubilant.Juju):
     """Tear down the charm under test."""
     k8s_juju.remove_application(APP_NAME)
-    k8s_juju.remove_application(MONGODB_CHARM)
-    k8s_juju.remove_application(INGRESS_NAME)
-    k8s_juju.cli("remove-saas", HAPROXY_CHARM)
-    machine_juju.cli(
-        "remove-offer",
-        f"admin/{machine_juju.model}.{HAPROXY_CHARM}",
-        "--force",
+    k8s_juju.remove_application(
+        MONGODB_CHARM, destroy_storage=True, force=True
     )
-    machine_juju.remove_application(HAPROXY_CHARM)
-    machine_juju.remove_application(SELFSIGNED_CHARM)
+    k8s_juju.remove_application(INGRESS_NAME, force=True)
+    machine_juju.remove_application(HAPROXY_CHARM, force=True)
+    machine_juju.remove_application(SELFSIGNED_CHARM, force=True)

@@ -136,4 +136,4 @@ def get_haproxy_ip(juju: jubilant.Juju) -> str:
     :return: The public IP address of the haproxy unit.
     """
     status = juju.status()
-    return status.apps["haproxy"].units["haproxy/0"].address
+    return status.apps["haproxy"].units["haproxy/0"].public_address
