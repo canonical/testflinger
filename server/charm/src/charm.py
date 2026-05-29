@@ -171,10 +171,13 @@ class TestflingerCharm(ops.CharmBase):
         if self._has_ingress_conflict():
             return
         logger.info("Ingress is ready with URL: %s", event.url)
+        self.unit.status = ops.ActiveStatus()
 
     def _on_ingress_revoked(self, _: IngressPerAppRevokedEvent) -> None:
-        """Handle IngressPerAppReadyEvent revoked event."""
+        """Handle ingress revoked event."""
         logger.info("This app no longer has ingress")
+        if not self._has_ingress_conflict():
+            self.unit.status = ops.ActiveStatus()
 
     def _has_ingress_conflict(self) -> bool:
         """Determine if both nginx-route and ingress relations are active.
@@ -196,7 +199,8 @@ class TestflingerCharm(ops.CharmBase):
         """Handle relation changed event to check for ingress conflicts."""
         if self._has_ingress_conflict():
             return
-        self.unit.status = ops.ActiveStatus()
+        if isinstance(self.unit.status, ops.BlockedStatus):
+            self.unit.status = ops.ActiveStatus()
 
     def _on_testflinger_pebble_ready(
         self, event: ops.PebbleReadyEvent

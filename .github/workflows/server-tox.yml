@@ -111,6 +111,11 @@ jobs:
         run: |
           K8S_CONTROLLER=$(juju controllers --format=json | jq -r '.controllers | to_entries[] | select(.value.cloud == "microk8s") | .key')
           LXD_CONTROLLER=$(juju controllers --format=json | jq -r '.controllers | to_entries[] | select(.value.cloud == "localhost") | .key')
+          if [[ -z "$K8S_CONTROLLER" || -z "$LXD_CONTROLLER" ]]; then
+            echo "Failed to detect Juju controllers (microk8s='$K8S_CONTROLLER', localhost='$LXD_CONTROLLER')"
+            juju controllers
+            exit 1
+          fi
           echo "JUJU_K8S_CONTROLLER=$K8S_CONTROLLER" >> "$GITHUB_ENV"
           echo "JUJU_MACHINE_CONTROLLER=$LXD_CONTROLLER" >> "$GITHUB_ENV"
       - name: Pack charm
