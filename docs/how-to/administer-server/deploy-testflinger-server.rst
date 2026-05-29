@@ -19,6 +19,20 @@ machine-based Juju environments required for the Testflinger server
 deployment. For a detailed guide on how to set up Juju, refer to the
 `official Juju documentation <https://documentation.ubuntu.com/juju/>`_.
 
+System Requirements
+^^^^^^^^^^^^^^^^^^^
+
+Ensure that your system meets the following requirements:
+
+- Ubuntu 22.04 LTS or later
+- At least 4 CPU cores
+- At least 6 GB of RAM
+- At least 30 GB of free disk space
+
+Note that these requirements are the minimum recommended for testing and
+development purposes. For production deployments, we recommend a more robust
+setup based on your expected workload and usage patterns.
+
 Dependencies
 ^^^^^^^^^^^^
 
@@ -26,13 +40,20 @@ Install the following dependencies:
 
 .. code-block:: shell
 
-  $ sudo snap install juju lxd
-  $ sudo snap install microk8s --channel <latest_version>-strict
+  $ sudo snap install juju
+  $ sudo snap install lxd
+  $ sudo snap install microk8s --channel 1.34-strict/stable
   $ sudo snap install terraform --classic
 
 .. note::
 
    Juju 3.x requires the strict version of the ``microk8s`` snap to be installed.
+
+.. note::
+
+  This guide uses the NGINX Ingress Integrator charm to expose the Testflinger
+  server API. This requires MicroK8s <1.35, because in later versions the
+  ``ingress`` addon replaced the NGINX Ingress Controller with Traefik.
 
 LXD
 ^^^
@@ -61,7 +82,9 @@ The Testflinger server deployment depends on the following MicroK8s setup.
   $ sudo usermod -aG snap_microk8s ubuntu
   $ newgrp snap_microk8s  # or reboot
   $ microk8s status --wait-ready
-  $ sudo microk8s enable dns hostpath-storage ingress
+  $ sudo microk8s enable dns
+  $ sudo microk8s enable hostpath-storage
+  $ sudo microk8s enable ingress
 
 Juju
 ^^^^
