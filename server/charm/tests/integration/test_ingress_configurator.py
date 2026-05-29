@@ -129,6 +129,6 @@ def test_destroy(k8s_juju: jubilant.Juju, machine_juju: jubilant.Juju):
         MONGODB_CHARM, destroy_storage=True, force=True
     )
     k8s_juju.remove_application(INGRESS_NAME, force=True)
-    k8s_juju.cli("remove-saas", HAPROXY_CHARM, force=True)
+    k8s_juju.cli("remove-saas", HAPROXY_CHARM, "--force")
     machine_juju.remove_application(HAPROXY_CHARM, force=True)
     machine_juju.remove_application(SELFSIGNED_CHARM, force=True)
