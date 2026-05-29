@@ -158,7 +158,7 @@ class TestflingerClient:
             ):
                 logger.error("Agent not authorized to request jobs.")
             logger.error(exc)
-        except (requests.exceptions.RequestException, OSError) as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
             # Wait a little extra before trying again
             time.sleep(60)
@@ -256,7 +256,7 @@ class TestflingerClient:
             response = self.session.get(url, timeout=30)
             response.raise_for_status()
             return response.json()
-        except (requests.exceptions.RequestException, OSError, ValueError) as exc:
+        except (requests.exceptions.RequestException, ValueError) as exc:
             logger.error("Failed to retrieve agent data: %s", exc)
             return {}
 
@@ -373,7 +373,7 @@ class TestflingerClient:
             self.session.post(
                 queues_uri, json=self.config["advertised_queues"], timeout=30
             )
-        except (requests.exceptions.RequestException, OSError) as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
 
     def post_advertised_images(self):
@@ -385,7 +385,7 @@ class TestflingerClient:
             self.session.post(
                 images_uri, json=self.config["advertised_images"], timeout=30
             )
-        except (requests.exceptions.RequestException, OSError) as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
 
     def post_agent_data(self, data):
@@ -398,7 +398,7 @@ class TestflingerClient:
         agent_data_url = urljoin(agent_data_uri, self.config.get("agent_id"))
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
-        except (requests.exceptions.RequestException, OSError) as exc:
+        except requests.exceptions.RequestException as exc:
             logger.error(exc)
 
     def post_influx(self, phase, result=None):
@@ -517,7 +517,7 @@ class TestflingerClient:
             response = self.session.get(health_url, timeout=timeout)
             # Mark to False if found any server-side issues
             return response.status_code < 500
-        except (requests.exceptions.RequestException, OSError):
+        except requests.exceptions.RequestException:
             logger.error("Server connectivity lost")
             return False
 

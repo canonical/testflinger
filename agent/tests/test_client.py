@@ -804,37 +804,3 @@ class TestClient:
             log_data="output_log_data",
         )
         assert client.post_log(job_id, log_input, log_type) is False
-
-    _CERT_BUNDLE_ERROR = OSError(
-        "Could not find a suitable TLS CA certificate bundle, "
-        "invalid path: /some/venv/certifi/cacert.pem"
-    )
-
-    def test_check_jobs_os_error(self, client, caplog):
-        """Test that check_jobs handles OSError (e.g. missing certifi bundle)
-        by logging the error and returning None."""
-        with patch.object(
-            client.session, "get", side_effect=self._CERT_BUNDLE_ERROR
-        ):
-            with patch("testflinger_agent.client.time.sleep"):
-                result = client.check_jobs()
-        assert result is None
-        assert "Could not find a suitable TLS CA certificate bundle" in caplog.text
-
-    def test_get_agent_data_os_error(self, client, caplog):
-        """Test that get_agent_data handles OSError gracefully and returns {}."""
-        with patch.object(
-            client.session, "get", side_effect=self._CERT_BUNDLE_ERROR
-        ):
-            result = client.get_agent_data("test_agent")
-        assert result == {}
-        assert "Failed to retrieve agent data" in caplog.text
-
-    def test_is_server_reachable_os_error(self, client, caplog):
-        """Test that is_server_reachable handles OSError and returns False."""
-        with patch.object(
-            client.session, "get", side_effect=self._CERT_BUNDLE_ERROR
-        ):
-            result = client.is_server_reachable()
-        assert result is False
-        assert "Server connectivity lost" in caplog.text
