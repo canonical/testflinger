@@ -30,3 +30,4 @@ def main():
         sys.exit(0)
     except Exception as exc:  # pylint: disable=broad-except
         logger.exception(exc)
+        sys.exit(1)
