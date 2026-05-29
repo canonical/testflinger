@@ -122,7 +122,7 @@ def test_ingress_is_up_default_hostname(machine_juju: jubilant.Juju):
 
 
 @pytest.mark.juju_teardown
-def test_destroy(k8s_juju: jubilant.Juju, machine_juju: jubilant.Juju):
+def test_destroy(k8s_juju: jubilant.Juju):
     """Tear down the charm under test."""
     k8s_juju.remove_application(APP_NAME)
     k8s_juju.remove_application(
@@ -130,5 +130,3 @@ def test_destroy(k8s_juju: jubilant.Juju, machine_juju: jubilant.Juju):
     )
     k8s_juju.remove_application(INGRESS_NAME, force=True)
     k8s_juju.cli("remove-saas", HAPROXY_CHARM, "--force")
-    machine_juju.remove_application(HAPROXY_CHARM, force=True)
-    machine_juju.remove_application(SELFSIGNED_CHARM, force=True)
