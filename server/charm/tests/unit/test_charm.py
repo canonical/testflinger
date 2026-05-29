@@ -444,3 +444,90 @@ def test_oidc_config_invalid_on_charm(ctx, make_state):
     # which sets BlockedStatus and raises _Abort before the hook handler runs.
     with pytest.raises(testing.errors.UncaughtCharmError):
         _ = ctx.run(ctx.on.config_changed(), state_in)
+def test_ingress_ready_with_conflict(ctx):
+    """Test ingress_ready blocks when both ingress providers are active."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    mongo_relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    ingress_relation = testing.Relation(
+        endpoint="ingress",
+        remote_app_name="ingress-configurator",
+        remote_app_data={"ingress": '{"url": "http://testflinger.local"}'},
+    )
+    nginx_relation = testing.Relation(
+        endpoint="nginx-route",
+        remote_app_name="nginx-ingress-integrator",
+    )
+    state_in = testing.State(
+        containers=[container],
+        leader=True,
+        relations=[mongo_relation, ingress_relation, nginx_relation],
+    )
+
+    state_out = ctx.run(
+        ctx.on.relation_changed(
+            relation=ingress_relation, remote_unit="leader"
+        ),
+        state_in,
+    )
+    assert state_out.unit_status == testing.BlockedStatus(
+        "Can't use both nginx-route and ingress together."
+    )
+
+
+def test_ingress_revoked(ctx):
+    """Status should return to active when ingress relation is removed."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    mongo_relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    ingress_relation = testing.Relation(
+        endpoint="ingress",
+        remote_app_name="ingress-configurator",
+    )
+    state_in = testing.State(
+        containers=[container],
+        leader=True,
+        relations=[mongo_relation, ingress_relation],
+    )
+
+    state_out = ctx.run(
+        ctx.on.relation_broken(relation=ingress_relation),
+        state_in,
+    )
+    assert state_out.unit_status == testing.ActiveStatus()
+
+
+def test_conflict_cleared_on_route_changed(ctx):
+    """Blocked status should clear when conflict is resolved."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    mongo_relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    ingress_relation = testing.Relation(
+        endpoint="ingress",
+        remote_app_name="ingress-configurator",
+    )
+    state_in = testing.State(
+        containers=[container],
+        leader=True,
+        relations=[mongo_relation, ingress_relation],
+        unit_status=testing.BlockedStatus(
+            "Can't use both nginx-route and ingress together."
+        ),
+    )
+
+    state_out = ctx.run(
+        ctx.on.relation_changed(
+            relation=ingress_relation, remote_unit="leader"
+        ),
+        state_in,
+    )
+    assert state_out.unit_status == testing.ActiveStatus()
