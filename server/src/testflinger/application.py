@@ -106,6 +106,10 @@ def create_flask_app(config=None, secrets_store=None):
         return {"vanilla_framework_version": VANILLA_FRAMEWORK_VERSION}
 
     # Tell Flask it's behind a proxy so it can properly handle redirects
+    # This middleware should only be used if the application is actually
+    # behind such a proxy, and should be configured with the number of
+    # proxies that are chained in front of it. Not all proxies set all
+    # the headers.
     if os.environ.get("BEHIND_PROXY", "false").lower() == "true":
         tf_app.wsgi_app = ProxyFix(
             tf_app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1

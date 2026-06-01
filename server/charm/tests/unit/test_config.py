@@ -114,6 +114,7 @@ def test_invalid_oidc_provider_issuer():
             web_secret_key="web-secret-key",  # noqa: S106
         )
 
+    # Test valid OIDC provider with path
     config = TestflingerServerConfig(
         oidc_client_id="client-id",
         oidc_client_secret="client-secret",  # noqa: S106
@@ -125,6 +126,7 @@ def test_invalid_oidc_provider_issuer():
         == "https://keycloak.example.com/realms/myrealm"
     )
 
+    # Test valid OIDC provider with no path, ending in slash
     config = TestflingerServerConfig(
         oidc_client_id="client-id",
         oidc_client_secret="client-secret",  # noqa: S106
