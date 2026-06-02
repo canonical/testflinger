@@ -35,12 +35,12 @@ def test_setup_mongo_fails_without_config():
 
 
 def test_proxyfix_enabled(monkeypatch):
-    """Ensure ProxyFix is enabled when BEHIND_PROXY is true."""
-    monkeypatch.setenv("BEHIND_PROXY", "true")
+    """Ensure ProxyFix is enabled when ENABLE_PROXYFIX is true."""
+    monkeypatch.setenv("ENABLE_PROXYFIX", "true")
     app = create_flask_app(type("", (), {"TESTING": True})())
     assert isinstance(app.wsgi_app, ProxyFix)
 
 
 def test_proxyfix_disabled(testapp):
-    """Ensure ProxyFix is disabled when BEHIND_PROXY is not set."""
+    """Ensure ProxyFix is disabled when ENABLE_PROXYFIX is not set."""
     assert not isinstance(testapp.wsgi_app, ProxyFix)

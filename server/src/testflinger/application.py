@@ -110,7 +110,7 @@ def create_flask_app(config=None, secrets_store=None):
     # behind such a proxy, and should be configured with the number of
     # proxies that are chained in front of it. Not all proxies set all
     # the headers.
-    if os.environ.get("BEHIND_PROXY", "false").lower() == "true":
+    if os.environ.get("ENABLE_PROXYFIX", "false").lower() == "true":
         tf_app.wsgi_app = ProxyFix(
             tf_app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
         )
