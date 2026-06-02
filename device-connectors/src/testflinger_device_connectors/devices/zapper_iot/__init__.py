@@ -61,6 +61,18 @@ class DeviceConnector(ZapperConnector):
         ubuntu_sso_email = self.job_data["provision_data"].get(
             "ubuntu_sso_email"
         )
+        test_username = self.job_data.get("test_data", {}).get(
+            "test_username", "ubuntu"
+        )
+        test_password = self.job_data.get("test_data", {}).get(
+            "test_password", "ubuntu"
+        )
+        if username != test_username or password != test_password:
+            logger.warning(
+                "Provisioning is using a username different from"
+                " what the test phase expects, which may prevent it"
+                " from accessing the DUT later on."
+            )
 
         # If ubuntu_sso_email is provided, use it instead of the test_username
         provisioning_data = {
