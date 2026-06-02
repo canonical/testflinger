@@ -32,13 +32,17 @@ MACHINE_CONTROLLER = os.getenv("JUJU_MACHINE_CONTROLLER")
 def collect_juju_logs(
     request: pytest.FixtureRequest, juju: jubilant.Juju
 ) -> None:
-    """Print Juju debug logs to stderr when tests fail."""
+    """Print and dump Juju debug logs on test failure."""
     if not request.session.testsfailed:
         return
     logger.info("Collecting Juju logs from model '%s'", juju.model)
     time.sleep(0.5)
     log = juju.debug_log(limit=1000)
     print(log, end="", file=sys.stderr)
+    if dump_dir := os.getenv("JUJU_DUMP_LOGS_DIR"):
+        log_path = Path(dump_dir)
+        log_path.mkdir(parents=True, exist_ok=True)
+        (log_path / f"{juju.model}.log").write_text(log, encoding="utf-8")
 
 
 @pytest.fixture(scope="module")
