@@ -121,7 +121,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 6
+LIBPATCH = 7
 
 log = logging.getLogger(__name__)
 
@@ -360,7 +360,7 @@ class TraefikRouteRequirer(Object):
         if self._raw:
             log.warning(
                 "Raw mode enabled: TLS routes for ALL protocols will not be auto-generated. "
-                "Enable this only if you fully understand and intend to bypass the additional"
+                "Enable this only if you fully understand and intend to bypass the additional "
                 "TLS configuration."
             )
 
