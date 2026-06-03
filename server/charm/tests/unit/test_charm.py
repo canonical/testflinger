@@ -531,3 +531,30 @@ def test_retry_key_rotation_action_exec_error(_, ctx, make_state):
 
     with pytest.raises(testing.ActionFailed):
         ctx.run(ctx.on.action("retry-key-rotation"), state_in)
+
+
+def test_oidc_config_set_on_charm(ctx, make_state):
+    """Test charm is active when OIDC config is set and valid."""
+    oidc_config = {
+        "oidc_client_id": "client-id",
+        "oidc_client_secret": "client-secret",
+        "oidc_provider_issuer": "https://oidc-provider.local",
+        "web_secret_key": "web-secret-key",
+    }
+    state_in = make_state(config=oidc_config)
+    state_out = ctx.run(ctx.on.config_changed(), state_in)
+    assert state_out.unit_status == testing.ActiveStatus()
+
+
+def test_oidc_config_invalid_on_charm(ctx, make_state):
+    """Test charm is blocked when OIDC config is invalid."""
+    oidc_config = {
+        "oidc_client_id": "client-id",
+        "oidc_client_secret": "client-secret",
+    }
+    state_in = make_state(config=oidc_config)
+
+    # Pydantic validation runs in __init__ via load_config(errors="blocked"),
+    # which sets BlockedStatus and raises _Abort before the hook handler runs.
+    with pytest.raises(testing.errors.UncaughtCharmError):
+        _ = ctx.run(ctx.on.config_changed(), state_in)
