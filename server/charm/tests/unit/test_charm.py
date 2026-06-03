@@ -218,9 +218,9 @@ def test_blocked_status_on_multiple_ingress_providers(ctx):
         remote_app_name="mongodb",
         remote_app_data=MONGO_DB_REMOTE_DATA,
     )
-    traefik_relation = testing.Relation(
-        endpoint="traefik-route",
-        remote_app_name="traefik-k8s",
+    ingress_relation = testing.Relation(
+        endpoint="ingress",
+        remote_app_name="ingress-configurator",
     )
     nginx_relation = testing.Relation(
         endpoint="nginx-route",
@@ -229,162 +229,48 @@ def test_blocked_status_on_multiple_ingress_providers(ctx):
     state_in = testing.State(
         containers=[container],
         leader=True,
-        relations=[mongo_relation, traefik_relation, nginx_relation],
+        relations=[mongo_relation, ingress_relation, nginx_relation],
     )
 
     # Validate unit is Blocked when integrating multiple ingress providers
     state_out = ctx.run(
         ctx.on.relation_changed(
-            relation=traefik_relation, remote_unit="leader"
+            relation=ingress_relation, remote_unit="leader"
         ),
         state_in,
     )
     assert state_out.unit_status == testing.BlockedStatus(
-        "Can't use both nginx and traefik route providers."
+        "Can't use both nginx-route and ingress together."
     )
 
 
-def test_traefik_route_ready(ctx):
-    """Validate unit status when traefik route is ready."""
+def test_ingress_ready(ctx):
+    """Validate unit status when ingress is ready."""
     container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
     mongo_relation = testing.Relation(
         endpoint="mongodb_client",
         remote_app_name="mongodb",
         remote_app_data=MONGO_DB_REMOTE_DATA,
     )
-    traefik_relation = testing.Relation(
-        endpoint="traefik-route",
-        remote_app_name="traefik-k8s",
+    ingress_relation = testing.Relation(
+        endpoint="ingress",
+        remote_app_name="ingress-configurator",
+        remote_app_data={"ingress": '{"url": "http://testflinger.local"}'},
     )
 
-    # Define a external_hostname for the traefik route
     state_in = testing.State(
         containers=[container],
         leader=True,
-        relations=[mongo_relation, traefik_relation],
-        config={"external_hostname": "testflinger.test.com"},
+        relations=[mongo_relation, ingress_relation],
     )
 
     state_out = ctx.run(
         ctx.on.relation_changed(
-            relation=traefik_relation, remote_unit="leader"
+            relation=ingress_relation, remote_unit="leader"
         ),
         state_in,
     )
-
-    # Check that the charm wrote traefik config to the relation databag
-    traefik_rel_out = state_out.get_relations("traefik-route")[0]
-
-    # Verify config was written to local app databag
-    assert "config" in traefik_rel_out.local_app_data
-
-    # The config should be YAML, so we can check it contains expected strings
-    config_yaml = traefik_rel_out.local_app_data["config"]
-    assert "testflinger.test.com" in config_yaml
-    assert "http" in config_yaml
-    assert "routers" in config_yaml
-    assert "services" in config_yaml
-
-    # Unit should be active after configuration
     assert state_out.unit_status == testing.ActiveStatus()
-
-
-@patch("charm.TraefikRouteRequirer.submit_to_traefik")
-def test_traefik_no_submit_no_leader(mock_submit_to_traefik, ctx):
-    """Test that non-leader units do not submit traefik config."""
-    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
-    mongo_relation = testing.Relation(
-        endpoint="mongodb_client",
-        remote_app_name="mongodb",
-        remote_app_data=MONGO_DB_REMOTE_DATA,
-    )
-    traefik_relation = testing.Relation(
-        endpoint="traefik-route",
-        remote_app_name="traefik-k8s",
-    )
-
-    # Define a external_hostname for the traefik route
-    # Additionally, set leader=False to simulate non-leader unit
-    state_in = testing.State(
-        containers=[container],
-        leader=False,
-        relations=[mongo_relation, traefik_relation],
-        config={"external_hostname": "testflinger.test.com"},
-    )
-
-    ctx.run(
-        ctx.on.relation_changed(
-            relation=traefik_relation, remote_unit="leader"
-        ),
-        state_in,
-    )
-
-    # Verify submit_to_traefik was not called for non-leader units
-    mock_submit_to_traefik.assert_not_called()
-
-
-@patch("charm.TraefikRouteRequirer.submit_to_traefik")
-def test_traefik_no_submit_broken_relation(mock_submit_to_traefik, ctx):
-    """Test that traefik config is not submitted if relation was broken."""
-    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
-    mongo_relation = testing.Relation(
-        endpoint="mongodb_client",
-        remote_app_name="mongodb",
-        remote_app_data=MONGO_DB_REMOTE_DATA,
-    )
-    traefik_relation = testing.Relation(
-        endpoint="traefik-route",
-        remote_app_name="traefik-k8s",
-    )
-
-    # Define a external_hostname for the traefik route
-    state_in = testing.State(
-        containers=[container],
-        leader=True,
-        relations=[mongo_relation, traefik_relation],
-        config={"external_hostname": "testflinger.test.com"},
-    )
-
-    # First, establish the relation
-    state_out = ctx.run(
-        ctx.on.relation_changed(
-            relation=traefik_relation, remote_unit="leader"
-        ),
-        state_in,
-    )
-
-    # Verify the relation is ready after relation_changed
-    with ctx(ctx.on.update_status(), state_out) as mgr:
-        assert mgr.charm.traefik_route.is_ready() is True
-        assert mgr.charm.traefik_route._relation is not None
-
-    # Verify submit_to_traefik was called once and reset mock afterwards
-    mock_submit_to_traefik.assert_called_once()
-    mock_submit_to_traefik.reset_mock()
-
-    # Break the relation
-    state_out = ctx.run(
-        ctx.on.relation_broken(relation=traefik_relation), state_out
-    )
-
-    # Verify submit_to_traefik was not called during relation_broken hook
-    mock_submit_to_traefik.assert_not_called()
-
-    # Set the state after relation is fully removed
-    state_after_broken = testing.State(
-        containers=[container],
-        leader=True,
-        relations=[mongo_relation],
-        config={"external_hostname": "testflinger.test.com"},
-    )
-
-    # Use context manager to verify the relation state after removal
-    with ctx(ctx.on.update_status(), state_after_broken) as mgr:
-        assert mgr.charm.traefik_route.is_ready() is False
-        assert mgr.charm.traefik_route._relation is None
-
-    # Verify submit_to_traefik is still not called after relation is removed
-    mock_submit_to_traefik.assert_not_called()
 
 
 @patch.object(
@@ -558,3 +444,92 @@ def test_oidc_config_invalid_on_charm(ctx, make_state):
     # which sets BlockedStatus and raises _Abort before the hook handler runs.
     with pytest.raises(testing.errors.UncaughtCharmError):
         _ = ctx.run(ctx.on.config_changed(), state_in)
+
+
+def test_ingress_ready_with_conflict(ctx):
+    """Test ingress_ready blocks when both ingress providers are active."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    mongo_relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    ingress_relation = testing.Relation(
+        endpoint="ingress",
+        remote_app_name="ingress-configurator",
+        remote_app_data={"ingress": '{"url": "http://testflinger.local"}'},
+    )
+    nginx_relation = testing.Relation(
+        endpoint="nginx-route",
+        remote_app_name="nginx-ingress-integrator",
+    )
+    state_in = testing.State(
+        containers=[container],
+        leader=True,
+        relations=[mongo_relation, ingress_relation, nginx_relation],
+    )
+
+    state_out = ctx.run(
+        ctx.on.relation_changed(
+            relation=ingress_relation, remote_unit="leader"
+        ),
+        state_in,
+    )
+    assert state_out.unit_status == testing.BlockedStatus(
+        "Can't use both nginx-route and ingress together."
+    )
+
+
+def test_ingress_revoked(ctx):
+    """Status should return to active when ingress relation is removed."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    mongo_relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    ingress_relation = testing.Relation(
+        endpoint="ingress",
+        remote_app_name="ingress-configurator",
+    )
+    state_in = testing.State(
+        containers=[container],
+        leader=True,
+        relations=[mongo_relation, ingress_relation],
+    )
+
+    state_out = ctx.run(
+        ctx.on.relation_broken(relation=ingress_relation),
+        state_in,
+    )
+    assert state_out.unit_status == testing.ActiveStatus()
+
+
+def test_conflict_cleared_on_route_changed(ctx):
+    """Blocked status should clear when conflict is resolved."""
+    container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
+    mongo_relation = testing.Relation(
+        endpoint="mongodb_client",
+        remote_app_name="mongodb",
+        remote_app_data=MONGO_DB_REMOTE_DATA,
+    )
+    ingress_relation = testing.Relation(
+        endpoint="ingress",
+        remote_app_name="ingress-configurator",
+    )
+    state_in = testing.State(
+        containers=[container],
+        leader=True,
+        relations=[mongo_relation, ingress_relation],
+        unit_status=testing.BlockedStatus(
+            "Can't use both nginx-route and ingress together."
+        ),
+    )
+
+    state_out = ctx.run(
+        ctx.on.relation_changed(
+            relation=ingress_relation, remote_unit="leader"
+        ),
+        state_in,
+    )
+    assert state_out.unit_status == testing.ActiveStatus()
