@@ -179,7 +179,7 @@ sitemap_show_lastmod = True
 #######################
 
 html_static_path = [".sphinx/_static"]
-#templates_path = [".sphinx/_templates"]
+templates_path = [".sphinx/_templates"]
 
 # Extra files to copy to the root of the documentation
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-html_extra_path
@@ -276,13 +276,15 @@ exclude_patterns = [
 
 html_css_files = [
     "swagger-custom.css",
+    "https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css", # Google Analytics cookie banner
 ]
 
 
 # Adds custom JavaScript files, located under 'html_static_path'
 
 html_js_files = [
-    "overwrite_links.js",
+    "overwrite_links.js",   # support ReadTheDocs flyout when hosted at ubuntu.com/docs
+    "https://assets.ubuntu.com/v1/287a5e8f-bundle.js"   # Google Analytics cookie banner
 ]
 
 
