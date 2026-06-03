@@ -444,6 +444,8 @@ def test_oidc_config_invalid_on_charm(ctx, make_state):
     # which sets BlockedStatus and raises _Abort before the hook handler runs.
     with pytest.raises(testing.errors.UncaughtCharmError):
         _ = ctx.run(ctx.on.config_changed(), state_in)
+
+
 def test_ingress_ready_with_conflict(ctx):
     """Test ingress_ready blocks when both ingress providers are active."""
     container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
