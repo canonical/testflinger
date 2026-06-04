@@ -52,6 +52,7 @@ class Maas2:
         self.timeout_min = int(self.config.get("timeout_min", 60))
         self.maas_storage = MaasStorage(self.maas_user, self.node_id)
         self.debug = self.job_data.get("debug", False)
+        self.starting_installation_id = None
 
     def _logger_debug(self, message):
         logger.debug("MAAS: %s", message)
@@ -226,7 +227,7 @@ class Maas2:
         # First see if we can run the command on the current install
         if self._run_tpm_clear_cmd():
             return
-        # If not, then deploy bionic and try again
+        # If not, then deploy the node and try again
         self.deploy_node()
         if not self._run_tpm_clear_cmd():
             raise ProvisioningError("Failed to clear TPM")
@@ -266,7 +267,9 @@ class Maas2:
             return True
         return False
 
-    def run_maas_cmd_with_retry(self, cmd, max_retries=5, backoff_start=60):
+    def run_maas_cmd_with_retry(
+        self, cmd: list[str], max_retries: int = 5, backoff_start: int = 60
+    ) -> subprocess.CompletedProcess:
         """Run maas command with retries on failure.
 
         :param cmd:
@@ -275,6 +278,8 @@ class Maas2:
             Maximum amount of times to retry the command on failure
         :param backoff_start:
             Initial time in seconds to sleep after failure
+
+        :return: Process handle for completed process
         """
         retry_count = 0
         while True:
@@ -366,6 +371,12 @@ class Maas2:
         ]
         # Do not use runcmd for this - we need the output, not the end user
         proc = self.run_maas_cmd_with_retry(cmd)
+
+        # Before starting, collect some important diagnostic information that
+        # might be useful later. Specifically, identify what the
+        # current-installation log id is so that we know when we get a new one
+        self.starting_installation_id = self.get_current_installation_id()
+
         self._logger_info(
             "Starting node {} with distro {}".format(self.agent_name, distro)
         )
@@ -409,6 +420,7 @@ class Maas2:
 
             if status == "Failed deployment":
                 self._logger_error("MAAS reports Failed Deployment")
+                self._logger_info(self.get_deployment_information())
                 exception_msg = (
                     "Provisioning failed because "
                     + "MAAS got unexpected or "
@@ -427,6 +439,7 @@ class Maas2:
             )
         )
         self._logger_error(proc.stdout.decode())
+        self._logger_info(self.get_deployment_information())
         exception_msg = (
             "Provisioning failed because deployment timeout. "
             + "Deploying for more than "
@@ -434,7 +447,16 @@ class Maas2:
         )
         raise ProvisioningError(exception_msg)
 
-    def check_test_image_booted(self):
+    def check_test_image_booted(self) -> bool:
+        """Verify the deployed system is accessible via SSH.
+
+        Attempts an SSH connection to confirm the test image has booted
+        and the system is responsive. If SSH fails, checks installation
+        logs to validate the expected device IP is present.
+
+        :return: True if SSH succeeds, False otherwise
+        :raises ProvisioningError: If SSH fails and device IP not found in logs
+        """
         self._logger_info("Checking if test image booted.")
         cmd = [
             "ssh",
@@ -450,11 +472,31 @@ class Maas2:
                 cmd, stderr=subprocess.STDOUT, timeout=60, check=True
             )
         except subprocess.SubprocessError:
+            # Since ssh wasn't working (yet) let's check the installation log
+            # to make sure that the correct ip address is being used, as this
+            # has been a common problem with the MAAS setup.
+            txt_log = self.get_deployment_information()
+            if self.config["device_ip"] not in txt_log:
+                # The MAAS installation does not show the expected IP, it is
+                # likely that this installation will not work. Bail out now.
+                self._logger_error(
+                    "Expected device ip %s was not found in "
+                    + "installation logs, device is not properly configured.",
+                    self.config["device_ip"],
+                )
+                self._logger_info(txt_log)
+                exception_msg = (
+                    "Provisioning failed because of bad device configuration."
+                    + "Deploying for more than "
+                    + "{} minutes.".format(self.timeout_min)
+                )
+                raise ProvisioningError(exception_msg) from None
+
             return False
         # If we get here, then the above command proved we are booted
         return True
 
-    def node_status(self):
+    def node_status(self) -> str | None:
         """Return status of the node according to maas.
 
         Ready: Node is unused
@@ -468,7 +510,7 @@ class Maas2:
         data = json.loads(proc.stdout.decode())
         return data.get("status_name")
 
-    def node_release(self):
+    def node_release(self) -> None:
         """Release the node to make it available again."""
         cmd = ["maas", self.maas_user, "machine", "release", self.node_id]
         # Use the retry method to validate if cmd execution succeded
@@ -493,7 +535,7 @@ class Maas2:
             self._logger_error(output)
         raise RecoveryError("Device recovery failed!")
 
-    def set_flat_storage_layout(self):
+    def set_flat_storage_layout(self) -> None:
         """Reset to default flat storage layout."""
         cmd = [
             "maas",
@@ -544,3 +586,69 @@ class Maas2:
                 "Proceeding without ephemeral deployment"
             )
             return None
+
+    def get_current_installation_id(self) -> int | None:
+        """Get the ID of the most recent installation script result.
+
+        Queries MAAS for installation-type script results and returns the ID
+        of the most recently started one. Used to snapshot the installation
+        state before deployment so we can later detect if a new installation
+        attempt occurred.
+
+        :return: Installation result ID if available, else None
+        """
+        cmd = [
+            "maas",
+            self.maas_user,
+            "node-script-results",
+            "read",
+            self.node_id,
+            "type=installation",
+        ]
+
+        proc = self.run_maas_cmd_with_retry(cmd)
+        json_out = json.loads(proc.stdout.decode())
+
+        # MAAS team suggested sorting by id and taking the largest
+        json_out = sorted(json_out, key=lambda x: x.get("id", 0))
+
+        try:
+            return int(json_out[-1]["id"])
+        except (AttributeError, IndexError, ValueError):
+            return None
+
+    def get_deployment_information(self) -> str | None:
+        """Fetch installation logs if a new installation occurred.
+
+        Compares the current installation ID against the starting ID captured
+        before deployment. If they differ (indicating a new installation ran),
+        downloads and returns the installation log. Otherwise returns None.
+
+        :return: Installation log text if new installation detected, else None
+        """
+        installation_id = self.get_current_installation_id()
+        if self.starting_installation_id != installation_id and isinstance(
+            installation_id, int
+        ):
+            # we have new data that is relevant to our installation
+            cmd = [
+                "maas",
+                self.maas_user,
+                "node-script-results",
+                "download",
+                self.node_id,
+                installation_id,
+            ]
+        else:
+            return None
+
+        # TODO: we have a decision to make:
+        # 1) only show the installation log when there is a problem with the
+        #   installation (current)
+        # 2) support tracking the installation log as its own log type in
+        #   testflinger
+
+        proc = self.run_maas_cmd_with_retry(cmd)
+        txt_out = proc.stdout.decode()
+
+        self._logger_info(txt_out)

@@ -343,6 +343,7 @@ def test_get_maas_version_returns_none_on_provisioning_error(
 @patch("time.sleep")
 @patch.object(Maas2, "check_test_image_booted", return_value=True)
 @patch.object(Maas2, "node_status", return_value="Deployed")
+@patch.object(Maas2, "get_current_installation_id", return_value=None)
 @patch.object(Maas2, "run_maas_cmd_with_retry")
 @patch.object(Maas2, "set_flat_storage_layout")
 @patch.object(Maas2, "recover")
@@ -352,6 +353,7 @@ def test_get_maas_version_called_on_ephemeral(
     mock_recover,
     mock_flat_storage,
     mock_run_cmd,
+    mock_installation_id,
     mock_node_status,
     mock_check_booted,
     mock_sleep,
@@ -370,6 +372,7 @@ def test_get_maas_version_called_on_ephemeral(
 @patch("time.sleep")
 @patch.object(Maas2, "check_test_image_booted", return_value=True)
 @patch.object(Maas2, "node_status", return_value="Deployed")
+@patch.object(Maas2, "get_current_installation_id", return_value=None)
 @patch.object(Maas2, "run_maas_cmd_with_retry")
 @patch.object(Maas2, "set_flat_storage_layout")
 @patch.object(Maas2, "recover")
@@ -379,6 +382,7 @@ def test_ephemeral_deploy_skipped_on_old_maas_version(
     mock_recover,
     mock_flat_storage,
     mock_run_cmd,
+    mock_installation_id,
     mock_node_status,
     mock_check_booted,
     mock_sleep,
@@ -399,6 +403,7 @@ def test_ephemeral_deploy_skipped_on_old_maas_version(
 @patch("time.sleep")
 @patch.object(Maas2, "check_test_image_booted", return_value=True)
 @patch.object(Maas2, "node_status", return_value="Deployed")
+@patch.object(Maas2, "get_current_installation_id", return_value=None)
 @patch.object(Maas2, "run_maas_cmd_with_retry")
 @patch.object(Maas2, "set_flat_storage_layout")
 @patch.object(Maas2, "recover")
@@ -408,6 +413,7 @@ def test_non_ephemeral_deploy(
     mock_recover,
     mock_flat_storage,
     mock_run_cmd,
+    mock_installation_id,
     mock_node_status,
     mock_check_booted,
     mock_sleep,
