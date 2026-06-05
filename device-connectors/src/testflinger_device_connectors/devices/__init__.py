@@ -151,16 +151,24 @@ class DefaultControlHost:
     Attributes:
         host: The hostname or IP of the control host.
         reboot_script: Ordered list of shell commands to trigger a reboot.
+        poweroff_script: Ordered list of shell commands to power off the DUT.
+        poweron_script: Ordered list of shell commands to power on the DUT.
     """
 
     REST_PORT = 8000
     POWEROFF_ENDPOINT = "/api/v1/system/poweroff"
 
     def __init__(
-        self, host: str, reboot_script: Optional[list[str]] = None
+        self,
+        host: str,
+        reboot_script: Optional[list[str]] = None,
+        poweroff_script: Optional[list[str]] = None,
+        poweron_script: Optional[list[str]] = None,
     ) -> None:
         self.host = host
         self.reboot_script = reboot_script or []
+        self.poweroff_script = poweroff_script or []
+        self.poweron_script = poweron_script or []
 
     def _check_ssh(self) -> None:
         """Check whether the control host has an active SSH server.
@@ -252,10 +260,10 @@ class DefaultControlHost:
         logger.info("Waiting for the REST API on control host %s", self.host)
         self.wait_online(self._check_rest_api, timeout)
 
-    def reboot(self) -> None:
-        """Run the configured reboot script."""
-        logger.info("Running control host reboot script")
-        for cmd in self.reboot_script:
+    def _run_script(self, script: list[str], description: str) -> None:
+        """Run the configured shell commands for an operation."""
+        logger.info("Running %s script", description)
+        for cmd in script:
             try:
                 logger.info("Executing: %s", cmd)
                 subprocess.run(
@@ -280,6 +288,18 @@ class DefaultControlHost:
                 logger.error(
                     "Unexpected error running command %s: %s", cmd, str(e)
                 )
+
+    def reboot(self) -> None:
+        """Run the configured reboot script."""
+        self._run_script(self.reboot_script, "control host reboot")
+
+    def poweroff_dut(self) -> None:
+        """Run the configured DUT power-off script."""
+        self._run_script(self.poweroff_script, "DUT power-off")
+
+    def poweron_dut(self) -> None:
+        """Run the configured DUT power-on script."""
+        self._run_script(self.poweron_script, "DUT power-on")
 
     def ssh_fallback(self) -> None:
         """Reboot if SSH is unreachable, then wait for SSH to come back."""
@@ -315,6 +335,7 @@ class DefaultControlHost:
         API is not available.
         """
         try:
+            self.poweroff_dut()
             logger.info("Attempt to power cycle the control host.")
             url = (
                 f"http://{self.host}:{self.REST_PORT}{self.POWEROFF_ENDPOINT}"
@@ -332,6 +353,8 @@ class DefaultControlHost:
                 self.host,
             )
             self.ssh_fallback()
+        finally:
+            self.poweron_dut()
 
 
 class DefaultDevice:
@@ -631,7 +654,19 @@ class DefaultDevice:
             )
             return
 
-        DefaultControlHost(control_host, reboot_script).power_cycle()
+        poweroff_script: list[str] = [
+            str(cmd) for cmd in self.config.get("poweroff_script", [])
+        ]
+        poweron_script: list[str] = [
+            str(cmd) for cmd in self.config.get("poweron_script", [])
+        ]
+
+        DefaultControlHost(
+            control_host,
+            reboot_script,
+            poweroff_script=poweroff_script,
+            poweron_script=poweron_script,
+        ).power_cycle()
 
     def provision(self, args):
         """Run pre-provision hook."""

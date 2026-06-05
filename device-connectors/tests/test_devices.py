@@ -222,6 +222,32 @@ class TestPreProvisionHook:
 
         mock_power_cycle.assert_called_once()
 
+    def test_passes_dut_power_scripts(self, mocker):
+        """Test hook passes DUT power scripts to DefaultControlHost."""
+        mocker.patch("builtins.open", mocker.mock_open())
+        mock_control_host = mocker.patch(
+            "testflinger_device_connectors.devices.DefaultControlHost"
+        )
+        device = DefaultDevice(
+            {
+                "device_ip": "1.1.1.1",
+                "control_host": "control-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+                "poweroff_script": ["poweroff-cmd"],
+                "poweron_script": ["poweron-cmd"],
+            }
+        )
+
+        device.pre_provision_hook()
+
+        mock_control_host.assert_called_once_with(
+            "control-host",
+            ["reboot-cmd"],
+            poweroff_script=["poweroff-cmd"],
+            poweron_script=["poweron-cmd"],
+        )
+        mock_control_host.return_value.power_cycle.assert_called_once()
+
     def test_skipped_when_env_var_set(self, mocker, monkeypatch):
         """Test hook skips power cycle when env var is set."""
         monkeypatch.setenv("DISABLE_CONTROL_HOST_POWERCYCLE", "1")
@@ -265,6 +291,31 @@ class TestDefaultControlHostPowerCycle:
         mock_wait_offline.assert_called_once_with(host._check_ping, 30)
         mock_reboot.assert_called_once()
         mock_wait_ready.assert_called_once_with(timeout=300)
+
+    def test_power_cycle_runs_dut_power_scripts_around_reboot(self, mocker):
+        """Test DUT stays off while the control host is rebooted."""
+        mocker.patch.object(time, "sleep")
+        mock_post = mocker.patch.object(requests, "post")
+        mock_post.return_value.raise_for_status = Mock()
+        mocker.patch.object(DefaultControlHost, "wait_offline")
+        mocker.patch.object(DefaultControlHost, "wait_ready")
+        mock_run_script = mocker.patch.object(
+            DefaultControlHost, "_run_script"
+        )
+        host = DefaultControlHost(
+            "control-host",
+            ["reboot-cmd"],
+            poweroff_script=["poweroff-cmd"],
+            poweron_script=["poweron-cmd"],
+        )
+
+        host.power_cycle()
+
+        assert mock_run_script.call_args_list == [
+            mocker.call(["poweroff-cmd"], "DUT power-off"),
+            mocker.call(["reboot-cmd"], "control host reboot"),
+            mocker.call(["poweron-cmd"], "DUT power-on"),
+        ]
 
     def test_ssh_fallback_host_already_up(self, mocker):
         """Test ssh_fallback skips reboot when host is reachable."""

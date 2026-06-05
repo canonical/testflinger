@@ -26,8 +26,8 @@ from testflinger_device_connectors.devices.muxpi import DeviceConnector
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
 
 
-def test_pre_provision_hook_is_noop(mocker):
-    """Test that muxpi skips the control host power cycle."""
+def test_pre_provision_hook_uses_default_power_cycle(mocker):
+    """Test that muxpi uses the default control host power cycle."""
     mocker.patch("builtins.open", mocker.mock_open())
     mock_power_cycle = mocker.patch.object(DefaultControlHost, "power_cycle")
     device = DeviceConnector(
@@ -40,7 +40,7 @@ def test_pre_provision_hook_is_noop(mocker):
 
     device.pre_provision_hook()
 
-    mock_power_cycle.assert_not_called()
+    mock_power_cycle.assert_called_once()
 
 
 def test_check_ce_oem_iot_image(mocker):
