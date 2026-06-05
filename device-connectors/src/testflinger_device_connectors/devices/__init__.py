@@ -307,6 +307,16 @@ class DefaultControlHost:
                 timeout,
             )
 
+    def power_cycle_if_unreachable(self) -> None:
+        """Reboot only if the control host REST API is unreachable."""
+        with contextlib.suppress(ConnectionError):
+            self._check_rest_api()
+            logger.debug("The control host is reachable via REST API.")
+            return
+
+        self.reboot()
+        self.wait_ready(timeout=300)
+
     def power_cycle(self) -> None:
         """Power cycle the control host.
 
@@ -348,6 +358,10 @@ class DefaultDevice:
         """
         self.config = config
         self.write_device_info()
+
+    def get_control_host_powercycle_policy(self) -> str:
+        """Return when to power cycle the control host before provisioning."""
+        return str(self.config.get("control_host_powercycle", "always"))
 
     def write_device_info(self) -> None:
         """Write device information to device-info.json using the config
@@ -631,7 +645,20 @@ class DefaultDevice:
             )
             return
 
-        DefaultControlHost(control_host, reboot_script).power_cycle()
+        control_host_client = DefaultControlHost(control_host, reboot_script)
+        powercycle_policy = self.get_control_host_powercycle_policy()
+        if powercycle_policy == "always":
+            control_host_client.power_cycle()
+        elif powercycle_policy == "unreachable":
+            control_host_client.power_cycle_if_unreachable()
+        elif powercycle_policy == "never":
+            logger.info("Skipping control host power cycle by configuration.")
+        else:
+            logger.warning(
+                "Invalid control_host_powercycle value %r, skipping control "
+                "host power cycle.",
+                powercycle_policy,
+            )
 
     def provision(self, args):
         """Run pre-provision hook."""

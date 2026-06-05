@@ -1,12 +1,52 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices import (
+    DefaultControlHost,
+    ProvisioningError,
+)
 from testflinger_device_connectors.devices.zapper_iot import DeviceConnector
 
 
 class ZapperIoTTests(unittest.TestCase):
     """Test Cases for the Zapper IoT class."""
+
+    @patch.object(DefaultControlHost, "power_cycle_if_unreachable")
+    @patch.object(DefaultControlHost, "power_cycle")
+    def test_pre_provision_hook_defaults_to_unreachable_policy(
+        self, mock_power_cycle, mock_power_cycle_if_unreachable
+    ):
+        """Test zapper_iot reboots unreachable control hosts by default."""
+        device = DeviceConnector(
+            {
+                "control_host": "zapper-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+            }
+        )
+
+        device.pre_provision_hook()
+
+        mock_power_cycle.assert_not_called()
+        mock_power_cycle_if_unreachable.assert_called_once()
+
+    @patch.object(DefaultControlHost, "power_cycle_if_unreachable")
+    @patch.object(DefaultControlHost, "power_cycle")
+    def test_pre_provision_hook_can_always_power_cycle(
+        self, mock_power_cycle, mock_power_cycle_if_unreachable
+    ):
+        """Test zapper_iot can be configured to always power cycle."""
+        device = DeviceConnector(
+            {
+                "control_host": "zapper-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+                "control_host_powercycle": "always",
+            }
+        )
+
+        device.pre_provision_hook()
+
+        mock_power_cycle.assert_called_once()
+        mock_power_cycle_if_unreachable.assert_not_called()
 
     def test_validate_configuration(self):
         """Test the function creates a proper provision_data

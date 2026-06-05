@@ -26,10 +26,13 @@ from testflinger_device_connectors.devices.muxpi import DeviceConnector
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
 
 
-def test_pre_provision_hook_is_noop(mocker):
-    """Test that muxpi skips the control host power cycle."""
+def test_pre_provision_hook_defaults_to_unreachable_policy(mocker):
+    """Test that muxpi only reboots unreachable control hosts by default."""
     mocker.patch("builtins.open", mocker.mock_open())
     mock_power_cycle = mocker.patch.object(DefaultControlHost, "power_cycle")
+    mock_power_cycle_if_unreachable = mocker.patch.object(
+        DefaultControlHost, "power_cycle_if_unreachable"
+    )
     device = DeviceConnector(
         {
             "device_ip": "1.1.1.1",
@@ -41,6 +44,29 @@ def test_pre_provision_hook_is_noop(mocker):
     device.pre_provision_hook()
 
     mock_power_cycle.assert_not_called()
+    mock_power_cycle_if_unreachable.assert_called_once()
+
+
+def test_pre_provision_hook_can_always_power_cycle(mocker):
+    """Test that muxpi can be configured to always power cycle."""
+    mocker.patch("builtins.open", mocker.mock_open())
+    mock_power_cycle = mocker.patch.object(DefaultControlHost, "power_cycle")
+    mock_power_cycle_if_unreachable = mocker.patch.object(
+        DefaultControlHost, "power_cycle_if_unreachable"
+    )
+    device = DeviceConnector(
+        {
+            "device_ip": "1.1.1.1",
+            "control_host": "control-host",
+            "control_host_reboot_script": ["reboot-cmd"],
+            "control_host_powercycle": "always",
+        }
+    )
+
+    device.pre_provision_hook()
+
+    mock_power_cycle.assert_called_once()
+    mock_power_cycle_if_unreachable.assert_not_called()
 
 
 def test_check_ce_oem_iot_image(mocker):

@@ -222,6 +222,52 @@ class TestPreProvisionHook:
 
         mock_power_cycle.assert_called_once()
 
+    def test_unreachable_policy_checks_rest_api(self, mocker):
+        """Test hook checks REST API for unreachable-only policy."""
+        mocker.patch("builtins.open", mocker.mock_open())
+        mock_power_cycle = mocker.patch.object(
+            DefaultControlHost, "power_cycle"
+        )
+        mock_power_cycle_if_unreachable = mocker.patch.object(
+            DefaultControlHost, "power_cycle_if_unreachable"
+        )
+        device = DefaultDevice(
+            {
+                "device_ip": "1.1.1.1",
+                "control_host": "control-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+                "control_host_powercycle": "unreachable",
+            }
+        )
+
+        device.pre_provision_hook()
+
+        mock_power_cycle.assert_not_called()
+        mock_power_cycle_if_unreachable.assert_called_once()
+
+    def test_never_policy_skips_powercycle(self, mocker):
+        """Test hook skips the power cycle for never policy."""
+        mocker.patch("builtins.open", mocker.mock_open())
+        mock_power_cycle = mocker.patch.object(
+            DefaultControlHost, "power_cycle"
+        )
+        mock_power_cycle_if_unreachable = mocker.patch.object(
+            DefaultControlHost, "power_cycle_if_unreachable"
+        )
+        device = DefaultDevice(
+            {
+                "device_ip": "1.1.1.1",
+                "control_host": "control-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+                "control_host_powercycle": "never",
+            }
+        )
+
+        device.pre_provision_hook()
+
+        mock_power_cycle.assert_not_called()
+        mock_power_cycle_if_unreachable.assert_not_called()
+
     def test_skipped_when_env_var_set(self, mocker, monkeypatch):
         """Test hook skips power cycle when env var is set."""
         monkeypatch.setenv("DISABLE_CONTROL_HOST_POWERCYCLE", "1")
@@ -307,6 +353,42 @@ class TestDefaultControlHostPowerCycle:
 
         # Should not raise - timeout is handled gracefully
         DefaultControlHost("control-host", ["reboot-cmd"]).ssh_fallback()
+
+    def test_power_cycle_if_unreachable_skips_when_rest_api_up(self, mocker):
+        """Test REST-health policy skips reboot when API is reachable."""
+        mock_check_rest_api = mocker.patch.object(
+            DefaultControlHost, "_check_rest_api"
+        )
+        mock_reboot = mocker.patch.object(DefaultControlHost, "reboot")
+        mock_wait_ready = mocker.patch.object(DefaultControlHost, "wait_ready")
+
+        DefaultControlHost(
+            "control-host", ["reboot-cmd"]
+        ).power_cycle_if_unreachable()
+
+        mock_check_rest_api.assert_called_once()
+        mock_reboot.assert_not_called()
+        mock_wait_ready.assert_not_called()
+
+    def test_power_cycle_if_unreachable_reboots_when_rest_api_down(
+        self, mocker
+    ):
+        """Test REST-health policy reboots when API is unreachable."""
+        mock_check_rest_api = mocker.patch.object(
+            DefaultControlHost,
+            "_check_rest_api",
+            side_effect=ConnectionError,
+        )
+        mock_reboot = mocker.patch.object(DefaultControlHost, "reboot")
+        mock_wait_ready = mocker.patch.object(DefaultControlHost, "wait_ready")
+
+        DefaultControlHost(
+            "control-host", ["reboot-cmd"]
+        ).power_cycle_if_unreachable()
+
+        mock_check_rest_api.assert_called_once()
+        mock_reboot.assert_called_once()
+        mock_wait_ready.assert_called_once_with(timeout=300)
 
     def test_falls_back_to_ssh_when_rest_unavailable(self, mocker):
         """Test power_cycle falls back to ssh_fallback on RequestException."""

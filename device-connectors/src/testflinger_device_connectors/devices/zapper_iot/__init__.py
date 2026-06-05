@@ -35,6 +35,10 @@ class DeviceConnector(ZapperConnector):
 
     PROVISION_METHOD = "ProvisioningIoT"
 
+    def get_control_host_powercycle_policy(self) -> str:
+        """Return when to power cycle the control host before provisioning."""
+        return str(self.config.get("control_host_powercycle", "unreachable"))
+
     def _validate_configuration(
         self,
     ) -> Tuple[Tuple, Dict[str, Any]]:
