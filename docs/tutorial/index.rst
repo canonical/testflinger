@@ -120,7 +120,7 @@ Run the following command in the terminal to retrieve the available job queues t
 .. code-block:: shell
 
   $ testflinger list-agents \
-  --filter-status=online,^provision,^reserve,^testing \
+  --filter-status=online,^provision,^reserve,^test \
   --filter-provision-type=maas \
   --filter-queue "intel" \
   --fields name,status,queues
