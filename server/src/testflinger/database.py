@@ -26,7 +26,7 @@ from testflinger_common.enums import ServerRoles
 
 # Constants for TTL indexes
 REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
-DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
+DEFAULT_EXPIRATION = 60 * 60 * 24 * 14  # 14 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 
 mongo = PyMongo()
@@ -79,7 +79,7 @@ def setup_mongodb(application):
 
 def create_indexes():
     """Initialize collections and indexes in case they don't exist already."""
-    # Automatically expire jobs after 7 days if nothing runs them
+    # Automatically expire jobs after 14 days if nothing runs them
     mongo.db.jobs.create_index(
         "created_at", expireAfterSeconds=DEFAULT_EXPIRATION
     )
@@ -89,12 +89,12 @@ def create_indexes():
         "updated_at", expireAfterSeconds=OUTPUT_EXPIRATION
     )
 
-    # Remove logs after 7 days
+    # Remove logs after 14 days
     mongo.db.logs.create_index(
         "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
     )
 
-    # Remove artifacts after 7 days
+    # Remove artifacts after 14 days
     mongo.db["fs.chunks"].create_index(
         "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
     )
@@ -102,12 +102,12 @@ def create_indexes():
         "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
     )
 
-    # Remove agents that haven't checked in for 7 days
+    # Remove agents that haven't checked in for 14 days
     mongo.db.agents.create_index(
         "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
     )
 
-    # Remove advertised queues that haven't updated in over 7 days
+    # Remove advertised queues that haven't updated in over 14 days
     mongo.db.queues.create_index(
         "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
     )
