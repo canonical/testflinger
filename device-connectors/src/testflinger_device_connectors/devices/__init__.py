@@ -364,6 +364,12 @@ class DefaultDevice:
         config: Configuration with all the information of the device.
     """
 
+    # Whether the DUT should be powered off while the control host is being
+    # rebooted (and powered back on afterwards). Only connectors that opt in
+    # run the configured poweroff_script/poweron_script during the control
+    # host power cycle.
+    MANAGE_DUT_POWER_DURING_REBOOT = False
+
     def __init__(self, config: dict) -> None:
         """Initialize class with device config and writing data to JSON file.
 
@@ -654,12 +660,17 @@ class DefaultDevice:
             )
             return
 
-        poweroff_script: list[str] = [
-            str(cmd) for cmd in self.config.get("poweroff_script", [])
-        ]
-        poweron_script: list[str] = [
-            str(cmd) for cmd in self.config.get("poweron_script", [])
-        ]
+        # Only connectors that opt in keep the DUT powered off while the
+        # control host reboots; for the rest these stay empty (no-op).
+        poweroff_script: list[str] = []
+        poweron_script: list[str] = []
+        if self.MANAGE_DUT_POWER_DURING_REBOOT:
+            poweroff_script = [
+                str(cmd) for cmd in self.config.get("poweroff_script", [])
+            ]
+            poweron_script = [
+                str(cmd) for cmd in self.config.get("poweron_script", [])
+            ]
 
         DefaultControlHost(
             control_host,

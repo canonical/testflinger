@@ -44,6 +44,7 @@ class ZapperConnector(ABC, DefaultDevice):
     device connectors.
     """
 
+    MANAGE_DUT_POWER_DURING_REBOOT = True
     PROVISION_METHOD = ""  # to be defined in the implementation
     ZAPPER_CONNECTION_TIMEOUT = 30
     ZAPPER_READ_TIMEOUT = 60 * 90

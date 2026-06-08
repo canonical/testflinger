@@ -222,13 +222,47 @@ class TestPreProvisionHook:
 
         mock_power_cycle.assert_called_once()
 
-    def test_passes_dut_power_scripts(self, mocker):
-        """Test hook passes DUT power scripts to DefaultControlHost."""
+    def test_ignores_dut_power_scripts_when_not_opted_in(self, mocker):
+        """Test hook does not pass DUT power scripts for connectors that
+        do not set MANAGE_DUT_POWER_DURING_REBOOT, even when configured.
+        """
         mocker.patch("builtins.open", mocker.mock_open())
         mock_control_host = mocker.patch(
             "testflinger_device_connectors.devices.DefaultControlHost"
         )
         device = DefaultDevice(
+            {
+                "device_ip": "1.1.1.1",
+                "control_host": "control-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+                "poweroff_script": ["poweroff-cmd"],
+                "poweron_script": ["poweron-cmd"],
+            }
+        )
+
+        device.pre_provision_hook()
+
+        mock_control_host.assert_called_once_with(
+            "control-host",
+            ["reboot-cmd"],
+            poweroff_script=[],
+            poweron_script=[],
+        )
+        mock_control_host.return_value.power_cycle.assert_called_once()
+
+    def test_passes_dut_power_scripts_when_opted_in(self, mocker):
+        """Test hook passes DUT power scripts to DefaultControlHost for
+        connectors that set MANAGE_DUT_POWER_DURING_REBOOT.
+        """
+        mocker.patch("builtins.open", mocker.mock_open())
+        mock_control_host = mocker.patch(
+            "testflinger_device_connectors.devices.DefaultControlHost"
+        )
+
+        class _PowerManagingDevice(DefaultDevice):
+            MANAGE_DUT_POWER_DURING_REBOOT = True
+
+        device = _PowerManagingDevice(
             {
                 "device_ip": "1.1.1.1",
                 "control_host": "control-host",

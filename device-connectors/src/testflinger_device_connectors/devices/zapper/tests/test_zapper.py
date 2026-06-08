@@ -39,6 +39,13 @@ class MockConnector(ZapperConnector):
         pass
 
 
+def test_manages_dut_power_during_reboot():
+    """Test the base Zapper connector opts in to keeping the DUT off while
+    the control host reboots (inherited by all Zapper variants).
+    """
+    assert ZapperConnector.MANAGE_DUT_POWER_DURING_REBOOT is True
+
+
 class ZapperConnectorTests(unittest.TestCase):
     """Unit tests for ZapperConnector class."""
 

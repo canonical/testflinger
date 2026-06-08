@@ -43,6 +43,13 @@ def test_pre_provision_hook_uses_default_power_cycle(mocker):
     mock_power_cycle.assert_called_once()
 
 
+def test_manages_dut_power_during_reboot():
+    """Test muxpi opts in to keeping the DUT off while the control host
+    reboots.
+    """
+    assert DeviceConnector.MANAGE_DUT_POWER_DURING_REBOOT is True
+
+
 def test_check_ce_oem_iot_image(mocker):
     """Test check_ce_oem_iot_image."""
     series = "2404"
