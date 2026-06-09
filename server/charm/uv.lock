@@ -696,15 +696,15 @@ wheels = [
 
 [[package]]
 name = "pytest-jubilant"
-version = "2.0.1"
+version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jubilant" },
     { name = "pytest" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3d/64/e83181af1004f64a3ce11c7b9770c3152832e02d00e9e7b4f01877325c5f/pytest_jubilant-2.0.1.tar.gz", hash = "sha256:960bb63d216ec746f7644b67c276b059fccdaa258ee7644aaa74058db659edac", size = 16311, upload-time = "2026-04-07T02:08:25.874Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a3/8f/926f05d3dae727896515fe3503122df98d4e6dabba765686af2261480eca/pytest_jubilant-2.1.0.tar.gz", hash = "sha256:1df4240ecadc37300d492351220c7e6be393b74746d8a2f993a004d008deca8b", size = 17936, upload-time = "2026-06-09T00:15:43.47Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e4/3c/5c0bc4f54f6905aa7515cf764c3f5d6c85711cdc1a928221f711d5b7532c/pytest_jubilant-2.0.1-py3-none-any.whl", hash = "sha256:df498ee79d6db5ec32baa35a121ab75852dd50f61504a12550ba81cd63a7f1ef", size = 13525, upload-time = "2026-04-07T02:08:24.531Z" },
+    { url = "https://files.pythonhosted.org/packages/33/e9/504b442c6c44afbc311b8599bf81b85b19bf89659b90ecf3cc1e8b8fe34b/pytest_jubilant-2.1.0-py3-none-any.whl", hash = "sha256:b2abbf51a1820e3d38136770efa7480e0dc82f154c29fdde2133cd686084b8ba", size = 14862, upload-time = "2026-06-09T00:15:42.231Z" },
 ]
 
 [[package]]
