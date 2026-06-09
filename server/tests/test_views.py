@@ -18,9 +18,11 @@
 import re
 import uuid
 from datetime import datetime, timezone
+from http import HTTPStatus
 from unittest.mock import patch
 
 import mongomock
+import pytest
 from testflinger_common.enums import LogType, TestPhase
 
 from testflinger.views import agent_detail, job_detail, queues_data
@@ -307,3 +309,35 @@ def test_job_results_mongo_logs(testapp):
     # Check that phase statuses are present
     assert "Exit Status:</span> 0" in html
     assert "Exit Status:</span> 1" in html
+
+
+@pytest.mark.parametrize("endpoint", ["/agents", "/jobs", "/queues"])
+def test_unauthorized_view_access(oidc_app, endpoint):
+    """Test 401 error when OIDC is enabled but user is not authenticated."""
+    app, _ = oidc_app
+    with app.test_client() as client:
+        response = client.get(endpoint)
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert "Sorry, you need to sign in to access this page." in str(
+        response.data
+    )
+
+
+@pytest.mark.parametrize("endpoint", ["/agents", "/jobs", "/queues"])
+def test_authorized_view_access(oidc_app, endpoint):
+    """Test views are available when OIDC is enabled and user authenticated."""
+    app, _ = oidc_app
+    mongo = mongomock.MongoClient()
+    with app.test_client() as client, patch("testflinger.views.mongo", mongo):
+        with client.session_transaction() as sess:
+            sess["user"] = "testuser"
+        response = client.get(endpoint)
+    assert response.status_code == HTTPStatus.OK
+
+
+def test_home_accessible_without_auth_when_oidc_enabled(oidc_app):
+    """Test home page is accessible even when OIDC is enabled and no user."""
+    app, _ = oidc_app
+    with app.test_client() as client:
+        response = client.get("/")
+    assert response.status_code == HTTPStatus.OK
