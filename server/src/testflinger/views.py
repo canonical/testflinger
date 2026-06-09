@@ -18,8 +18,8 @@
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
+from apiflask import APIBlueprint
 from flask import (
-    Blueprint,
     current_app,
     make_response,
     render_template,
@@ -32,7 +32,7 @@ from testflinger import database
 from testflinger.database import mongo
 from testflinger.logs import MongoLogHandler
 
-views = Blueprint("testflinger", __name__)
+views = APIBlueprint("testflinger", __name__, enable_openapi=False)
 
 
 @views.before_request
