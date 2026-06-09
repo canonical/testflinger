@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% set title = "Unauthorized" %}
+{% block content %}
+  <div class="row">
+    <h1>401 Unauthorized</h1>
+  </div>
+  <div class="row">
+    <div class="col-12">
+      {% block main %}
+        <p class="large">Sorry, you need to sign in to access this page.</p>
+      {% endblock main %}
+    </div>
+  </div>
+{% endblock content %}
