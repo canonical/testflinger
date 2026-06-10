@@ -28,14 +28,10 @@ services:
       OIDC_CLIENT_ID: testflinger-client
       OIDC_CLIENT_SECRET: my-oidc-secret
       OIDC_PROVIDER_ISSUER: http://dex:5556/dex
-      # Reload Jinja templates on every request for local development so
-      # template edits show up without restarting/rebuilding.
       TEMPLATES_AUTO_RELOAD: "true"
     command: --reload
-    # Mount the source over the image copy so edits to views/templates/static
-    # are picked up live (gunicorn --reload restarts on .py changes; static
-    # files and auto-reloaded templates are served straight from disk).
-    # Only src/ is mounted, so the image's .venv is left untouched.
+    # Mount only src/ (leaving the image's .venv intact) so local edits are
+    # live: gunicorn --reload restarts on .py changes, templates/static reload.
     volumes:
       - ./src:/srv/testflinger/src
     ports:

@@ -126,8 +126,6 @@ class AgentDataGenerator:  # pylint: disable=too-few-public-methods
             yield (f"{self.prefix}{agent_num}", agent_data)
 
 
-# Representative provision_data sections so generated jobs exercise the
-# "Copy job YAML" view with a realistic image reference.
 SAMPLE_PROVISION_DATA = (
     {"url": "http://cdimage.example/ubuntu-22.04-arm64.img.xz"},
     {"url": "http://cdimage.example/ubuntu-24.04-amd64.img.xz"},
