@@ -22,6 +22,12 @@ The configuration options listed below are available for all device connectors u
    * - ``reboot_script``
      - all 
      - List of commands that can be executed to hard reboot the device
+   * - ``poweroff_script``
+     - all
+     - (optional) List of commands that can be executed to power off the device
+   * - ``poweron_script``
+     - all
+     - (optional) List of commands that can be executed to power on the device
    * - ``serial_host``
      - all 
      - (optional) ``ser2net`` host for capturing serial output
