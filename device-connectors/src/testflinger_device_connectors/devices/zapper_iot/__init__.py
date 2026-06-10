@@ -41,15 +41,38 @@ class DeviceConnector(ZapperConnector):
         """Validate the job config and data and prepare the arguments
         for the Zapper `provision` API.
         """
+        # We prefer using username/password in provision_plan
+        # while username/password are not defined in test_data
+        provision_plan = self.job_data.get("provision_data", {}).get(
+            "provision_plan", {}
+        )
+
+        config = provision_plan.get("config", {})
+
+        default_uname = config.get("username", "ubuntu")
+        default_password = config.get("password", "ubuntu")
+
         username = self.job_data.get("test_data", {}).get(
-            "test_username", "ubuntu"
+            "test_username", default_uname
         )
         password = self.job_data.get("test_data", {}).get(
-            "test_password", "ubuntu"
+            "test_password", default_password
         )
         ubuntu_sso_email = self.job_data["provision_data"].get(
             "ubuntu_sso_email"
         )
+        test_username = self.job_data.get("test_data", {}).get(
+            "test_username", "ubuntu"
+        )
+        test_password = self.job_data.get("test_data", {}).get(
+            "test_password", "ubuntu"
+        )
+        if username != test_username or password != test_password:
+            logger.warning(
+                "Provisioning is using a username different from"
+                " what the test phase expects, which may prevent it"
+                " from accessing the DUT later on."
+            )
 
         # If ubuntu_sso_email is provided, use it instead of the test_username
         provisioning_data = {
