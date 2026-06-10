@@ -642,7 +642,8 @@ class DefaultDevice:
 
     def _config_script(self, key: str) -> list[str]:
         """Return the list of shell commands configured under ``key``."""
-        return [str(cmd) for cmd in self.config.get(key, [])]
+        value = self.config.get(key) or []
+        return [str(cmd) for cmd in value]
 
     def pre_provision_hook(self):
         """Power cycle the control host before provisioning."""
