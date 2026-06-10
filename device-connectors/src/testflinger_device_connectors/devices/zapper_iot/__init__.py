@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 class DeviceConnector(ZapperConnector):
     """Tool for provisioning baremetal with a given image."""
 
+    MANAGE_DUT_POWER_DURING_REBOOT = True
     PROVISION_METHOD = "ProvisioningIoT"
 
     def _validate_configuration(

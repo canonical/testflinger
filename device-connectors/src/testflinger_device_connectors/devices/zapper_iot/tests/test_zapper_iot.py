@@ -8,6 +8,12 @@ from testflinger_device_connectors.devices.zapper_iot import DeviceConnector
 class ZapperIoTTests(unittest.TestCase):
     """Test Cases for the Zapper IoT class."""
 
+    def test_manages_dut_power_during_reboot(self):
+        """zapper_iot opts in to keeping the DUT off while the control host
+        reboots, unlike the base connector and other Zapper variants.
+        """
+        self.assertTrue(DeviceConnector.MANAGE_DUT_POWER_DURING_REBOOT)
+
     def test_validate_configuration(self):
         """Test the function creates a proper provision_data
         dictionary when valid data are provided.
