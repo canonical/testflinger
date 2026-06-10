@@ -21,9 +21,15 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 import mongomock
+import yaml
 from testflinger_common.enums import LogType, TestPhase
 
-from testflinger.views import agent_detail, job_detail, queues_data
+from testflinger.views import (
+    agent_detail,
+    build_job_yaml,
+    job_detail,
+    queues_data,
+)
 
 
 def test_queues():
@@ -307,3 +313,52 @@ def test_job_results_mongo_logs(testapp):
     # Check that phase statuses are present
     assert "Exit Status:</span> 0" in html
     assert "Exit Status:</span> 1" in html
+
+
+def test_build_job_yaml():
+    """build_job_yaml produces a submittable, ordered job definition."""
+    job_data = {
+        "job_queue": "queue1",
+        "provision_data": {"distro": "jammy"},
+        "test_data": {"test_cmds": "echo hello\nlsb_release -a\n"},
+        # Runtime-only keys must not leak into the definition
+        "job_id": "should-not-appear",
+    }
+
+    job_yaml = build_job_yaml(job_data)
+
+    parsed = yaml.safe_load(job_yaml)
+    assert parsed == {
+        "job_queue": "queue1",
+        "provision_data": {"distro": "jammy"},
+        "test_data": {"test_cmds": "echo hello\nlsb_release -a\n"},
+    }
+    # job_queue is rendered first, multiline test_cmds use a literal block
+    assert job_yaml.startswith("job_queue: queue1")
+    assert "test_cmds: |" in job_yaml
+    assert "should-not-appear" not in job_yaml
+
+
+def test_job_detail_has_copy_button(testapp):
+    """The job detail view exposes a copy-job-YAML button and payload."""
+    mongo = mongomock.MongoClient()
+    job_id = str(uuid.uuid4())
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": job_id,
+            "created_at": datetime.now(timezone.utc),
+            "job_data": {
+                "job_queue": "queue1",
+                "provision_data": {"distro": "jammy"},
+            },
+            "result_data": {"job_state": "complete"},
+        }
+    )
+    with patch("testflinger.views.mongo", mongo):
+        with testapp.test_request_context():
+            response = job_detail(job_id)
+
+    html = str(response)
+    assert 'data-copy-target="#job-yaml-content"' in html
+    assert 'id="job-yaml-content"' in html
+    assert "job_queue: queue1" in html

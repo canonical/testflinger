@@ -18,6 +18,7 @@
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
+import yaml
 from flask import (
     Blueprint,
     make_response,
@@ -31,6 +32,51 @@ from testflinger.database import mongo
 from testflinger.logs import MongoLogHandler
 
 views = Blueprint("testflinger", __name__)
+
+# Top-level fields that make up a submittable job definition, in the order
+# they should appear in the generated YAML (mirrors api.schemas.Job).
+JOB_DEFINITION_FIELDS = (
+    "job_queue",
+    "global_timeout",
+    "output_timeout",
+    "allocation_timeout",
+    "provision_data",
+    "firmware_update_data",
+    "test_data",
+    "allocate_data",
+    "reserve_data",
+)
+
+
+class _JobYamlDumper(yaml.SafeDumper):
+    """YAML dumper that renders multiline strings as literal blocks."""
+
+
+def _str_representer(dumper, data):
+    """Represent multiline strings (e.g. test_cmds) as literal blocks."""
+    if "\n" in data:
+        return dumper.represent_scalar(
+            "tag:yaml.org,2002:str", data, style="|"
+        )
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data)
+
+
+_JobYamlDumper.add_representer(str, _str_representer)
+
+
+def build_job_yaml(job_data):
+    """Build a submittable job-definition YAML from stored job data."""
+    definition = {
+        field: job_data[field]
+        for field in JOB_DEFINITION_FIELDS
+        if field in job_data
+    }
+    return yaml.dump(
+        definition,
+        Dumper=_JobYamlDumper,
+        default_flow_style=False,
+        sort_keys=False,
+    )
 
 
 @views.route("/")
@@ -157,7 +203,8 @@ def job_detail(job_id):
         ):
             log_handler = MongoLogHandler(mongo)
             log_handler.format_logs_as_results(job_id, result_data)
-    return render_template("job_detail.html", job=job_data)
+    job_yaml = build_job_yaml(job_data.get("job_data", {}))
+    return render_template("job_detail.html", job=job_data, job_yaml=job_yaml)
 
 
 @views.route("/queues")
