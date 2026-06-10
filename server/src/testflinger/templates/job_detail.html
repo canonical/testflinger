@@ -25,11 +25,21 @@
       </tr>
     </tbody>
   </table>
-  <h2 class="p-muted-heading" id="job-definition">
-    <a href="#job-definition"
-       class="p-link--anchor-heading"
-       aria-label="Link to Job Definition section">Job Definition</a>
-  </h2>
+  <div class="section-heading-bar">
+    <h2 class="p-muted-heading" id="job-definition">
+      <a href="#job-definition"
+         class="p-link--anchor-heading"
+         aria-label="Link to Job Definition section">Job Definition</a>
+    </h2>
+    <button class="p-button--base has-icon"
+            type="button"
+            data-copy-target="#job-yaml-content"
+            aria-label="Copy job YAML to clipboard">
+      <i class="p-icon--copy"></i>
+      <span>Copy job YAML</span>
+    </button>
+  </div>
+  <div id="job-yaml-content" hidden>{{- job_yaml -}}</div>
   <div class="p-tabs">
     <div class="p-tabs__list" role="tablist" aria-label="Job Definition tabs">
       <div class="p-tabs__item">

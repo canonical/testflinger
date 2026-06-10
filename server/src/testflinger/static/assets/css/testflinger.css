@@ -103,3 +103,10 @@ main {
 .p-navigation__nav {
     overflow: visible !important;
 }
+
+/* Heading row with a trailing action button (e.g. copy job YAML) */
+.section-heading-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
