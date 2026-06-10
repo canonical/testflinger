@@ -636,6 +636,10 @@ class DefaultDevice:
         )
         time.sleep(int(timeout))
 
+    def _config_script(self, key: str) -> list[str]:
+        """Return the list of shell commands configured under ``key``."""
+        return [str(cmd) for cmd in self.config.get(key, [])]
+
     def pre_provision_hook(self):
         """Power cycle the control host before provisioning."""
         if os.environ.get("DISABLE_CONTROL_HOST_POWERCYCLE"):
@@ -650,10 +654,7 @@ class DefaultDevice:
             logger.debug("No control host configured for this agent.")
             return
 
-        reboot_script: list[str] = [
-            str(cmd)
-            for cmd in self.config.get("control_host_reboot_script", [])
-        ]
+        reboot_script = self._config_script("control_host_reboot_script")
         if not reboot_script:
             logger.warning(
                 "No control_host_reboot_script configured, cannot reboot."
@@ -665,12 +666,14 @@ class DefaultDevice:
         poweroff_script: list[str] = []
         poweron_script: list[str] = []
         if self.MANAGE_DUT_POWER_DURING_REBOOT:
-            poweroff_script = [
-                str(cmd) for cmd in self.config.get("poweroff_script", [])
-            ]
-            poweron_script = [
-                str(cmd) for cmd in self.config.get("poweron_script", [])
-            ]
+            poweroff_script = self._config_script("poweroff_script")
+            poweron_script = self._config_script("poweron_script")
+            if not (poweroff_script and poweron_script):
+                logger.warning(
+                    "poweroff_script/poweron_script not configured: "
+                    "the DUT may stay powered while the control host "
+                    "reboots."
+                )
 
         DefaultControlHost(
             control_host,

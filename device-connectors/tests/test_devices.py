@@ -13,6 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 """Tests for the devices module."""
 
+import logging
 import subprocess
 import time
 from importlib import import_module
@@ -280,6 +281,34 @@ class TestPreProvisionHook:
             poweroff_script=["poweroff-cmd"],
             poweron_script=["poweron-cmd"],
         )
+        mock_control_host.return_value.power_cycle.assert_called_once()
+
+    def test_warns_when_opted_in_without_dut_power_scripts(
+        self, mocker, caplog
+    ):
+        """Test hook warns when a connector that manages DUT power has no
+        DUT power scripts configured, and still power cycles.
+        """
+        mocker.patch("builtins.open", mocker.mock_open())
+        mock_control_host = mocker.patch(
+            "testflinger_device_connectors.devices.DefaultControlHost"
+        )
+
+        class _PowerManagingDevice(DefaultDevice):
+            MANAGE_DUT_POWER_DURING_REBOOT = True
+
+        device = _PowerManagingDevice(
+            {
+                "device_ip": "1.1.1.1",
+                "control_host": "control-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+            }
+        )
+
+        with caplog.at_level(logging.WARNING):
+            device.pre_provision_hook()
+
+        assert "DUT may stay powered" in caplog.text
         mock_control_host.return_value.power_cycle.assert_called_once()
 
     def test_skipped_when_env_var_set(self, mocker, monkeypatch):
