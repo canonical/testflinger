@@ -679,7 +679,8 @@ class DefaultDevice:
                     "the DUT may stay powered while the control host "
                     "reboots."
                 )
-
+                poweroff_script = []
+                poweron_script = []
         DefaultControlHost(
             control_host,
             reboot_script,
