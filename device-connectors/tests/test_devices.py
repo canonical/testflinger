@@ -148,6 +148,19 @@ class TestRebootControlHost:
 
         assert mock_subprocess.call_count == 2
 
+    def test_dut_power_noop_without_scripts(self, mocker, caplog):
+        """Without DUT power scripts (connector not opted in), poweroff_dut/
+        poweron_dut neither run commands nor log that they're running.
+        """
+        mock_subprocess = mocker.patch("subprocess.run")
+
+        with caplog.at_level(logging.INFO):
+            DefaultControlHost("host").poweroff_dut()
+            DefaultControlHost("host").poweron_dut()
+
+        mock_subprocess.assert_not_called()
+        assert "Running" not in caplog.text
+
     def test_reboot_control_host_called_process_error(self, mocker):
         """Test reboot handles CalledProcessError gracefully."""
         error = subprocess.CalledProcessError(1, "cmd1")

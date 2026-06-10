@@ -294,11 +294,15 @@ class DefaultControlHost:
         self._run_script(self.reboot_script, "control host reboot")
 
     def poweroff_dut(self) -> None:
-        """Run the configured DUT power-off script."""
+        """Run the configured DUT power-off script, if any."""
+        if not self.poweroff_script:
+            return
         self._run_script(self.poweroff_script, "DUT power-off")
 
     def poweron_dut(self) -> None:
-        """Run the configured DUT power-on script."""
+        """Run the configured DUT power-on script, if any."""
+        if not self.poweron_script:
+            return
         self._run_script(self.poweron_script, "DUT power-on")
 
     def ssh_fallback(self) -> None:
