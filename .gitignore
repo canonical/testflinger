@@ -19,6 +19,7 @@ docs/.sphinx/.doctrees/
 *.bak
 *.charm
 *.swp
+*.lock
 
 _build
 __pycache__

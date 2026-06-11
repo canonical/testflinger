@@ -141,6 +141,44 @@ schema:
     cd 'server'
     uvx --with tox-uv tox run -e schema
 
+# --- Server development recipes ---
+
+[doc('Build and start the local server docker compose stack.')]
+server-up:
+    #!/usr/bin/env -S bash -e
+    cd 'server'
+    docker compose up -d --build
+
+[doc('Rebuild and restart only the local testflinger server container.')]
+server-restart:
+    #!/usr/bin/env -S bash -e
+    cd 'server'
+    docker compose up -d --build --no-deps testflinger
+
+[doc('Stop and remove the local server docker compose stack.')]
+server-down:
+    #!/usr/bin/env -S bash -e
+    cd 'server'
+    docker compose down --remove-orphans
+
+[doc('Follow the local server container logs, reconnecting on restart.')]
+server-logs:
+    #!/usr/bin/env -S bash -e
+    while true; do
+        docker logs -f testflinger-server || true
+        sleep 1
+    done
+
+[doc('Create a large pre-canned sample data set on the local server.')]
+add-sample-data:
+    #!/usr/bin/env -S bash -e
+    server/devel/create_sample_data.py \
+        -s http://localhost:5000 \
+        -a 3000 \
+        -j 500 \
+        -q 4300 \
+        -d 2
+
 # --- Package management recipes ---
 
 [doc("Run `uv add` for component, respecting repo-level version constraints, e.g. `just add agent 'pydantic>=2'`.")]
