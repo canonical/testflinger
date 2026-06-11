@@ -199,6 +199,9 @@ runs:
           echo "::group::Submit job to the Testflinger server (attempt $((ATTEMPT+1)))"
           JOB_ID=$(            testflinger submit --quiet             ${RELATIVE_TO:+--attachments-relative-to "$RELATIVE_TO"}             "$JOB"           )
           echo "::endgroup::"
+          # Write immediately so the job ID is available to downstream steps
+          # even if this step exits early (e.g. due to a timeout)
+          echo "id=$JOB_ID" >> $GITHUB_OUTPUT
           echo "::notice::Testflinger job id: $JOB_ID"
           if [[ "$POLL" != "true" ]]; then
             break
@@ -211,7 +214,6 @@ runs:
           echo "::endgroup::"
           if [[ $SETUP_STATUS -ne 0 ]]; then
             echo "::error::Testflinger setup phase failed"
-            echo "id=$JOB_ID" >> $GITHUB_OUTPUT
             exit $SETUP_STATUS
           fi
           if [[ "$HAS_PROVISION" != "true" ]]; then
@@ -219,12 +221,14 @@ runs:
           fi
           echo "::group::Tracking $JOB_ID provision phase (attempt $((ATTEMPT+1)))"
           PROVISION_START=$(date +%s)
+          POLL_EXIT=0
           if [[ -n "$PROVISION_TIMEOUT" ]]; then
-            PYTHONUNBUFFERED=1 timeout "$PROVISION_TIMEOUT"               testflinger poll $JOB_ID --phase provision 2>/dev/null
-            POLL_EXIT=$?
-          else
-            PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase provision 2>/dev/null
-            POLL_EXIT=$?
+              PYTHONUNBUFFERED=1 timeout "$PROVISION_TIMEOUT" \
+                testflinger poll $JOB_ID --phase provision 2>/dev/null \
+                || POLL_EXIT=$?
+            else
+              PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase provision 2>/dev/null \
+                || POLL_EXIT=$?
           fi
           PROVISION_DURATION=$(( $(date +%s) - PROVISION_START ))
           echo "Provision phase duration: ${PROVISION_DURATION}s"
@@ -243,13 +247,12 @@ runs:
           fi
           echo "::error::Testflinger provision phase failed (attempt $((ATTEMPT+1)))"
           if [[ $ATTEMPT -ge $MAX_RETRIES ]]; then
-            echo "id=$JOB_ID" >> $GITHUB_OUTPUT
             exit $PROVISION_STATUS
           fi
           ((++ATTEMPT))
           echo "::notice::Retrying job submission for provision (attempt $((ATTEMPT+1)) of $((MAX_RETRIES+1)))"
         done
-        echo "id=$JOB_ID" >> $GITHUB_OUTPUT
+
 
     - name: Track test phase
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.test == 'true'
