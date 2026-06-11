@@ -28,6 +28,10 @@ inputs:
   secret-key:
     description: Secret key for jobs requiring authentication
     required: false
+  provision-max-retries:
+    description: Maximum number of times to retry the job when the provision phase fails (0 = no retry)
+    required: false
+    default: "0"
 outputs:
   id:
     description: 'The ID of the submitted job'
@@ -109,7 +113,7 @@ runs:
         done
         echo "::endgroup::"
 
-    - name: Submit job to the Testflinger server
+    - name: Submit job and track until provision (with retry on provision failure)
       id: submit
       if: inputs.dry-run != 'true'
       shell: bash
@@ -119,9 +123,10 @@ runs:
         TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
         TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB: ${{ steps.create-job-file.outputs.job }}
+        POLL: ${{ inputs.poll }}
+        HAS_PROVISION: ${{ steps.check-phases.outputs.provision }}
+        MAX_RETRIES: ${{ inputs.provision-max-retries }}
       run: |
-        echo "::group::Submit job to the Testflinger server"
-        
         # check that the auth solution has the right number of params defined
         AUTH_ARGS_COUNT=0
         [[ -n $TESTFLINGER_CLIENT_ID ]] && ((++AUTH_ARGS_COUNT))
@@ -131,55 +136,97 @@ runs:
             2) echo "Testflinger credentials present." ;;
             1) echo "::error::Both 'client-id' and 'secret-key' must be provided or neither"; exit 1 ;;
         esac
-
-        JOB_ID=$(\
-          testflinger submit --quiet \
-          ${RELATIVE_TO:+--attachments-relative-to "$RELATIVE_TO"} \
-          "$JOB" \
-        )
+        ATTEMPT=0
+        while true; do
+          echo "::group::Submit job to the Testflinger server (attempt $((ATTEMPT+1)))"
+          JOB_ID=$(            testflinger submit --quiet             ${RELATIVE_TO:+--attachments-relative-to "$RELATIVE_TO"}             "$JOB"           )
+          echo "::endgroup::"
+          echo "::notice::Testflinger job id: $JOB_ID"
+          if [[ "$POLL" != "true" ]]; then
+            break
+          fi
+          echo "::group::Tracking $JOB_ID setup phase"
+          PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase setup 2>/dev/null
+          echo "::endgroup::"
+          echo "::group::Retrieve phase results to determine exit status"
+          SETUP_STATUS=$(testflinger results $JOB_ID | jq .setup_status)
+          echo "::endgroup::"
+          if [[ $SETUP_STATUS -ne 0 ]]; then
+            echo "::error::Testflinger setup phase failed"
+            echo "id=$JOB_ID" >> $GITHUB_OUTPUT
+            exit $SETUP_STATUS
+          fi
+          if [[ "$HAS_PROVISION" != "true" ]]; then
+            break
+          fi
+          echo "::group::Tracking $JOB_ID provision phase (attempt $((ATTEMPT+1)))"
+          PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase provision 2>/dev/null
+          echo "::endgroup::"
+          echo "::group::Retrieve phase results to determine exit status"
+          PROVISION_STATUS=$(testflinger results $JOB_ID | jq .provision_status)
+          echo "::endgroup::"
+          if [[ $PROVISION_STATUS -eq 0 ]]; then
+            break
+          fi
+          echo "::error::Testflinger provision phase failed (attempt $((ATTEMPT+1)))"
+          if [[ $ATTEMPT -ge $MAX_RETRIES ]]; then
+            echo "id=$JOB_ID" >> $GITHUB_OUTPUT
+            exit $PROVISION_STATUS
+          fi
+          ((++ATTEMPT))
+          echo "::notice::Retrying job submission for provision (attempt $((ATTEMPT+1)) of $((MAX_RETRIES+1)))"
+        done
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
-        echo "::endgroup::"
-        echo "::notice::Testflinger job id: $JOB_ID"
+        AUTH_ARGS_COUNT=0
+        [[ -n $TESTFLINGER_CLIENT_ID ]] && ((++AUTH_ARGS_COUNT))
+        [[ -n $TESTFLINGER_SECRET_KEY ]] && ((++AUTH_ARGS_COUNT))
+        case $AUTH_ARGS_COUNT in
+            0) TESTFLINGER_CLIENT_ID=() ;;
+            2) echo "Testflinger credentials present." ;;
+            1) echo "::error::Both 'client-id' and 'secret-key' must be provided or neither"; exit 1 ;;
+        esac
 
-    - name: Track setup phase
-      if: inputs.poll == 'true' && inputs.dry-run != 'true'
-      shell: bash
-      env:
-        TESTFLINGER_SERVER: https://${{ inputs.server }}
-        TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
-        TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
-        JOB_ID: ${{ steps.submit.outputs.id }}
-      run: |
-        echo "::group:: Tracking $JOB_ID setup phase"
-        # poll setup phase
-        PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase setup 2>/dev/null
-        echo "::endgroup::"
-
-        echo "::group::Retrieve phase results to determine exit status"
-        EXIT_STATUS=$(testflinger results $JOB_ID | jq .setup_status)
-        [[ $EXIT_STATUS -ne 0 ]] && echo "::error::Testflinger setup phase failed"
-        echo "::endgroup::"
-        exit $EXIT_STATUS
-
-    - name: Track provision phase
-      if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.provision == 'true'
-      shell: bash
-      env: 
-        TESTFLINGER_SERVER: https://${{ inputs.server }}
-        TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
-        TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
-        JOB_ID: ${{ steps.submit.outputs.id }}
-      run: |
-        echo "::group:: Tracking $JOB_ID provision phase"
-        # poll provision phase
-        PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase provision 2>/dev/null
-        echo "::endgroup::"
-
-        echo "::group::Retrieve phase results to determine exit status"
-        EXIT_STATUS=$(testflinger results $JOB_ID | jq .provision_status)
-        [[ $EXIT_STATUS -ne 0 ]] && echo "::error::Testflinger provision phase failed"
-        echo "::endgroup::"
-        exit $EXIT_STATUS
+        ATTEMPT=0
+        while true; do
+          echo "::group::Submit job to the Testflinger server (attempt $((ATTEMPT+1)))"
+          JOB_ID=$(            testflinger submit --quiet             ${RELATIVE_TO:+--attachments-relative-to "$RELATIVE_TO"}             "$JOB"           )
+          echo "::endgroup::"
+          echo "::notice::Testflinger job id: $JOB_ID"
+          if [[ "$POLL" != "true" ]]; then
+            break
+          fi
+          echo "::group::Tracking $JOB_ID setup phase"
+          PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase setup 2>/dev/null
+          echo "::endgroup::"
+          echo "::group::Retrieve phase results to determine exit status"
+          SETUP_STATUS=$(testflinger results $JOB_ID | jq .setup_status)
+          echo "::endgroup::"
+          if [[ $SETUP_STATUS -ne 0 ]]; then
+            echo "::error::Testflinger setup phase failed"
+            echo "id=$JOB_ID" >> $GITHUB_OUTPUT
+            exit $SETUP_STATUS
+          fi
+          if [[ "$HAS_PROVISION" != "true" ]]; then
+            break
+          fi
+          echo "::group::Tracking $JOB_ID provision phase (attempt $((ATTEMPT+1)))"
+          PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase provision 2>/dev/null
+          echo "::endgroup::"
+          echo "::group::Retrieve phase results to determine exit status"
+          PROVISION_STATUS=$(testflinger results $JOB_ID | jq .provision_status)
+          echo "::endgroup::"
+          if [[ $PROVISION_STATUS -eq 0 ]]; then
+            break
+          fi
+          echo "::error::Testflinger provision phase failed (attempt $((ATTEMPT+1)))"
+          if [[ $ATTEMPT -ge $MAX_RETRIES ]]; then
+            echo "id=$JOB_ID" >> $GITHUB_OUTPUT
+            exit $PROVISION_STATUS
+          fi
+          ((++ATTEMPT))
+          echo "::notice::Retrying job submission for provision (attempt $((ATTEMPT+1)) of $((MAX_RETRIES+1)))"
+        done
+        echo "id=$JOB_ID" >> $GITHUB_OUTPUT
 
     - name: Track test phase
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.test == 'true'
