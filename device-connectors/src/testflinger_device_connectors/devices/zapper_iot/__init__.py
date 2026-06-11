@@ -146,6 +146,13 @@ class DeviceConnector(ZapperConnector):
         """Run further actions after Zapper API returns successfully."""
         super()._post_run_actions(args)
 
-        # Copy the ssh id if ubuntu_sso_email is not provided in provision_data
-        if not self.job_data["provision_data"].get("ubuntu_sso_email"):
+        # When agent_ssh_access is false, the DUT won't be accessible
+        # by the agent over SSH (its key is not authorized or no SSH
+        # server is running at all), so don't attempt the key copy.
+        # The key copy is also skipped when ubuntu_sso_email is set,
+        # since the device is accessed with the SSO account keys instead.
+        provision_data = self.job_data["provision_data"]
+        if provision_data.get(
+            "agent_ssh_access", True
+        ) and not provision_data.get("ubuntu_sso_email"):
             self._copy_ssh_id()
