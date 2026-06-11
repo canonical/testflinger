@@ -152,7 +152,9 @@ class DeviceConnector(ZapperConnector):
         # The key copy is also skipped when ubuntu_sso_email is set,
         # since the device is accessed with the SSO account keys instead.
         provision_data = self.job_data["provision_data"]
-        if provision_data.get(
-            "agent_ssh_access", True
-        ) and not provision_data.get("ubuntu_sso_email"):
+
+        agent_ssh_access = provision_data.get("agent_ssh_access", True)
+        using_sso = bool(provision_data.get("ubuntu_sso_email"))
+
+        if agent_ssh_access and not using_sso:
             self._copy_ssh_id()
