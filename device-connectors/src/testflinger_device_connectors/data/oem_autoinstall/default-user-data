@@ -16,6 +16,8 @@ autoinstall:
   late-commands:
     - "bash /cdrom/sideloads/hook.sh late-commands"
     - "mount -o rw,remount /cdrom"
+    # Installer generated config lacks dhcp because network was disabled. Let 01-*.yaml to handle network
+    - "curtin in-target --target=/target -- rm /etc/netplan/00-installer-config.yaml || true"
 
     # Rename factory reset EFI directory so firmware won't show it. Ignore
     # errors on the way.
