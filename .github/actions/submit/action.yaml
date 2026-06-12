@@ -135,6 +135,8 @@ runs:
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
+        TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
+        TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
         echo "::group:: Tracking $JOB_ID setup phase"
@@ -153,6 +155,8 @@ runs:
       shell: bash
       env: 
         SERVER: https://${{ inputs.server }}
+        TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
+        TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
         echo "::group:: Tracking $JOB_ID provision phase"
@@ -171,6 +175,8 @@ runs:
       shell: bash
       env: 
         SERVER: https://${{ inputs.server }}
+        TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
+        TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
         echo "::group:: Tracking $JOB_ID test phase"
@@ -190,6 +196,8 @@ runs:
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
+        TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
+        TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ steps.submit.outputs.id }}
         TERMINATION: "TESTFLINGER SYSTEM RESERVED"
       run: |
@@ -234,6 +242,8 @@ runs:
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
+        TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
+        TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
         echo "::group::Waiting for job $JOB_ID to complete"
@@ -251,6 +261,8 @@ runs:
       shell: bash
       env:
         SERVER: https://${{ inputs.server }}
+        TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
+        TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
         echo "::group::Cancel job"
