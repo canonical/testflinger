@@ -114,7 +114,7 @@ runs:
       if: inputs.dry-run != 'true'
       shell: bash
       env:
-        SERVER: https://${{ inputs.server }}
+        TESTFLINGER_SERVER: https://${{ inputs.server }}
         RELATIVE_TO: ${{ inputs.attachments-relative-to }}
         TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
         TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
@@ -133,7 +133,7 @@ runs:
         esac
 
         JOB_ID=$(\
-          testflinger --server "$SERVER" submit --quiet \
+          testflinger submit --quiet \
           ${RELATIVE_TO:+--attachments-relative-to "$RELATIVE_TO"} \
           "$JOB" \
         )
@@ -145,18 +145,18 @@ runs:
       if: inputs.poll == 'true' && inputs.dry-run != 'true'
       shell: bash
       env:
-        SERVER: https://${{ inputs.server }}
+        TESTFLINGER_SERVER: https://${{ inputs.server }}
         TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
         TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
         echo "::group:: Tracking $JOB_ID setup phase"
         # poll setup phase
-        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID --phase setup 2>/dev/null
+        PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase setup 2>/dev/null
         echo "::endgroup::"
 
         echo "::group::Retrieve phase results to determine exit status"
-        EXIT_STATUS=$(testflinger --server $SERVER results $JOB_ID | jq .setup_status)
+        EXIT_STATUS=$(testflinger results $JOB_ID | jq .setup_status)
         [[ $EXIT_STATUS -ne 0 ]] && echo "::error::Testflinger setup phase failed"
         echo "::endgroup::"
         exit $EXIT_STATUS
@@ -165,18 +165,18 @@ runs:
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.provision == 'true'
       shell: bash
       env: 
-        SERVER: https://${{ inputs.server }}
+        TESTFLINGER_SERVER: https://${{ inputs.server }}
         TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
         TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
         echo "::group:: Tracking $JOB_ID provision phase"
         # poll provision phase
-        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID --phase provision 2>/dev/null
+        PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase provision 2>/dev/null
         echo "::endgroup::"
 
         echo "::group::Retrieve phase results to determine exit status"
-        EXIT_STATUS=$(testflinger --server $SERVER results $JOB_ID | jq .provision_status)
+        EXIT_STATUS=$(testflinger results $JOB_ID | jq .provision_status)
         [[ $EXIT_STATUS -ne 0 ]] && echo "::error::Testflinger provision phase failed"
         echo "::endgroup::"
         exit $EXIT_STATUS
@@ -185,18 +185,18 @@ runs:
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.test == 'true'
       shell: bash
       env: 
-        SERVER: https://${{ inputs.server }}
+        TESTFLINGER_SERVER: https://${{ inputs.server }}
         TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
         TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
         echo "::group:: Tracking $JOB_ID test phase"
         # poll test phase
-        PYTHONUNBUFFERED=1 testflinger --server $SERVER poll $JOB_ID --phase test 2>/dev/null
+        PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase test 2>/dev/null
         echo "::endgroup::"
 
         echo "::group::Retrieve phase results to determine exit status"
-        EXIT_STATUS=$(testflinger --server $SERVER results $JOB_ID | jq .test_status)
+        EXIT_STATUS=$(testflinger results $JOB_ID | jq .test_status)
         [[ $EXIT_STATUS -ne 0 ]] && echo "::error::Testflinger test phase failed"
         echo "::endgroup::"
         exit $EXIT_STATUS
@@ -206,7 +206,7 @@ runs:
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.reserve == 'true'
       shell: bash
       env:
-        SERVER: https://${{ inputs.server }}
+        TESTFLINGER_SERVER: https://${{ inputs.server }}
         TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
         TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ steps.submit.outputs.id }}
@@ -219,7 +219,7 @@ runs:
         # poll with oneshot until the captured output contains the TERMINATION string
         while true; do
           # extract the last fragment number so we can start from the next fragment
-          POLL_OUTPUT=$(PYTHONUNBUFFERED=1 testflinger --server $SERVER poll --oneshot --phase reserve --start_fragment $LAST_FRAGMENT $JOB_ID) || true
+          POLL_OUTPUT=$(PYTHONUNBUFFERED=1 testflinger poll --oneshot --phase reserve --start_fragment $LAST_FRAGMENT $JOB_ID) || true
           FRAG=$(echo "$POLL_OUTPUT" | sed -n 's/^Last Fragment Number: \([0-9]*\)$/\1/p')
           if [ -n "$FRAG" ]; then
             LAST_FRAGMENT=$((FRAG + 1))
@@ -230,7 +230,7 @@ runs:
             EXIT_STATUS=0
             break
           fi
-          JOB_STATUS="$(testflinger --server $SERVER status $JOB_ID)"
+          JOB_STATUS="$(testflinger status $JOB_ID)"
           if [[ "$JOB_STATUS" =~ ^(complete|cancelled)$ ]]; then
             EXIT_STATUS=1
             break
@@ -252,14 +252,14 @@ runs:
       if: always() && !cancelled() && inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.reserve == 'false'
       shell: bash
       env:
-        SERVER: https://${{ inputs.server }}
+        TESTFLINGER_SERVER: https://${{ inputs.server }}
         TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
         TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
         echo "::group::Waiting for job $JOB_ID to complete"
         while true; do
-          JOB_STATUS="$(testflinger --server $SERVER status $JOB_ID)"
+          JOB_STATUS="$(testflinger status $JOB_ID)"
           if [[ "$JOB_STATUS" =~ ^(complete|cancelled)$ ]]; then
             break
           fi
@@ -271,11 +271,11 @@ runs:
       if: ${{ cancelled() }}
       shell: bash
       env:
-        SERVER: https://${{ inputs.server }}
+        TESTFLINGER_SERVER: https://${{ inputs.server }}
         TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
         TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ steps.submit.outputs.id }}
       run: |
         echo "::group::Cancel job"
-        testflinger --server $SERVER cancel $JOB_ID
+        testflinger cancel $JOB_ID
         echo "::endgroup::"

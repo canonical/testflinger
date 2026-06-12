@@ -64,7 +64,7 @@ runs:
       id: queue-status
       shell: bash
       env:
-        SERVER: https://${{ inputs.server }}
+        TESTFLINGER_SERVER: https://${{ inputs.server }}
         TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
         TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         QUEUE: ${{ inputs.queue }}
@@ -81,7 +81,7 @@ runs:
             1) echo "::error::Both 'client-id' and 'secret-key' must be provided or neither"; exit 1 ;;
         esac
 
-        RESULT=$(testflinger --server "$SERVER" queue-status "$QUEUE")
+        RESULT=$(testflinger queue-status "$QUEUE")
         echo "$RESULT"
         
         MAP=(

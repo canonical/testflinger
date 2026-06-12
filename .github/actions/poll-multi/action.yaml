@@ -40,7 +40,7 @@ runs:
       id: data
       shell: bash
       env:
-        SERVER: https://${{ inputs.server }}
+        TESTFLINGER_SERVER: https://${{ inputs.server }}
         TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
         TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB_ID: ${{ inputs.job-id }}
@@ -58,14 +58,14 @@ runs:
         esac
 
         while true; do
-          STATUS=$(testflinger --server $SERVER  status $JOB_ID)
+          STATUS=$(testflinger status $JOB_ID)
           echo "Parent job status: $STATUS"
           [ "$STATUS" == "complete" ] && echo "Parent job $JOB_ID complete -> allocation complete" && break
           sleep 10
         done
         echo "::endgroup::"
         echo "::group::Retrieve IDs of children jobs"
-        RESULTS=$(testflinger --server $SERVER  results $JOB_ID)
+        RESULTS=$(testflinger results $JOB_ID)
         if ! jq -e '.provision_status == 0' <<< "$RESULTS" >/dev/null; then
           echo "::error::The provision phase of the parent job $JOB_ID failed"
           exit 1
@@ -75,7 +75,7 @@ runs:
         echo "::notice::" $JOB_IDS
         echo "::endgroup::"
         echo "::group::Retrieve IPs of reserved devices"
-        IPS=$(for JOB_ID in $JOB_IDS; do testflinger --server $SERVER results $JOB_ID | jq -r '.device_info.device_ip'; done)
+        IPS=$(for JOB_ID in $JOB_IDS; do testflinger results $JOB_ID | jq -r '.device_info.device_ip'; done)
         echo "::notice::" $IPS
         echo "::endgroup::"
         echo "::group::Construct output"
@@ -94,7 +94,7 @@ runs:
         while true; do
           REMAINING_JOB_IDS=
           for JOB_ID in $JOB_IDS; do
-            JOB_STATUS=$(testflinger --server $SERVER status $JOB_ID)
+            JOB_STATUS=$(testflinger status $JOB_ID)
             echo "Job $JOB_ID is in the $JOB_STATUS phase"
             [[ "$JOB_STATUS" != "$SENTINEL_PHASE" ]] && REMAINING_JOB_IDS="$REMAINING_JOB_IDS $JOB_ID"
           done
