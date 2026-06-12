@@ -432,6 +432,23 @@ class ZapperIoTTests(unittest.TestCase):
         mock_copy_ssh_id.assert_not_called()
 
     @patch.object(DeviceConnector, "_copy_ssh_id")
+    def test_post_run_actions_not_copy_ssh_id_no_agent_ssh_access(
+        self, mock_copy_ssh_id
+    ):
+        """Test the function does not copy the ssh id if
+        agent_ssh_access is false.
+        """
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
+        device = DeviceConnector(fake_config)
+        device.job_data = {
+            "provision_data": {
+                "agent_ssh_access": False,
+            }
+        }
+        device._post_run_actions(args=None)
+        mock_copy_ssh_id.assert_not_called()
+
+    @patch.object(DeviceConnector, "_copy_ssh_id")
     def test_post_run_actions_copy_ssh_id_provision_plan(
         self, mock_copy_ssh_id
     ):
