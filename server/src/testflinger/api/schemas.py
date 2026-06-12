@@ -180,6 +180,9 @@ class BaseZapperIoTProvisionData(BaseZapperProvisionData):
         required=False,
         validate=Length(max=1),
     )
+    # Whether the agent will have SSH access to the DUT after provisioning.
+    # When false, the agent skips copying its SSH key to the device.
+    agent_ssh_access = fields.Boolean(required=False)
 
     @validates_schema
     def validate_boot_image_source(self, data, **_):

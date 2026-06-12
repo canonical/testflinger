@@ -8,6 +8,12 @@ inputs:
     description: The Testflinger server to use
     required: false
     default: testflinger.canonical.com
+  client-id:
+    description: Client ID for jobs requiring authentication
+    required: false
+  secret-key:
+    description: Secret key for jobs requiring authentication
+    required: false
 outputs:
   agents_in_queue:
     description: 'Number of agents in the queue'
@@ -58,11 +64,24 @@ runs:
       id: queue-status
       shell: bash
       env:
-        SERVER: https://${{ inputs.server }}
+        TESTFLINGER_SERVER: https://${{ inputs.server }}
+        TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
+        TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         QUEUE: ${{ inputs.queue }}
       run: |
         echo "::group::Get $QUEUE queue-status"
-        RESULT=$(testflinger --server "$SERVER" queue-status "$QUEUE")
+        
+        # check that the auth solution has the right number of params defined
+        AUTH_ARGS_COUNT=0
+        [[ -n $TESTFLINGER_CLIENT_ID ]] && ((++AUTH_ARGS_COUNT))
+        [[ -n $TESTFLINGER_SECRET_KEY ]] && ((++AUTH_ARGS_COUNT))
+        case $AUTH_ARGS_COUNT in
+            0) TESTFLINGER_CLIENT_ID=() ;;
+            2) echo "Testflinger credentials present." ;;
+            1) echo "::error::Both 'client-id' and 'secret-key' must be provided or neither"; exit 1 ;;
+        esac
+
+        RESULT=$(testflinger queue-status "$QUEUE")
         echo "$RESULT"
         
         MAP=(

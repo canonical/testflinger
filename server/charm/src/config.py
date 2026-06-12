@@ -18,8 +18,13 @@ class TestflingerServerConfig(pydantic.BaseModel):
     http_proxy: str = ""
     https_proxy: str = ""
     no_proxy: str = "localhost,127.0.0.1,::1"
+    enable_proxyfix: bool = False
     webhook_url: str = "http://test-observer-api.local/"
     webhook_auth: str = ""
+    web_secret_key: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: str = ""
+    oidc_provider_issuer: str = ""
 
     @pydantic.field_validator("external_hostname")
     @classmethod
@@ -47,3 +52,34 @@ class TestflingerServerConfig(pydantic.BaseModel):
             raise ValueError("webhook_url must include a host")
 
         return value
+
+    @pydantic.field_validator("oidc_provider_issuer")
+    @classmethod
+    def validate_oidc_provider_issuer(cls, value):
+        """Validate oidc_provider_issuer includes a scheme and host."""
+        if not value:
+            return value
+
+        parsed_oidc = urlparse(value)
+        if parsed_oidc.scheme not in {"http", "https"}:
+            raise ValueError(
+                "oidc_provider_issuer must include protocol (http:// or https://)"
+            )
+        if not parsed_oidc.netloc:
+            raise ValueError("oidc_provider_issuer must include a host")
+        return value.rstrip("/")
+
+    @pydantic.model_validator(mode="after")
+    def validate_oidc_config(self):
+        """Validate that all OIDC parameters are set if any are configured."""
+        oidc_params = [
+            self.oidc_client_id,
+            self.oidc_client_secret,
+            self.oidc_provider_issuer,
+            self.web_secret_key,
+        ]
+        if any(oidc_params) and not all(oidc_params):
+            raise ValueError(
+                "All OIDC parameters must be set if any are configured"
+            )
+        return self

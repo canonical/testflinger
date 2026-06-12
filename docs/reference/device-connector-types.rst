@@ -97,12 +97,12 @@ The ``maas2`` device connector supports the following ``provision_data`` keys:
      - Specify a kernel to use during deployment. This is the name of the
        kernel as it appears in the MAAS web UI and must already be imported into MAAS.
        For more information, see
-       `MAAS documentation: Set a specific kernel <https://maas.io/docs/about-machine-customization#p-17465-custom-ubuntu-kernels>`_.
+       `MAAS documentation: Set a specific kernel <https://maas.io/docs/about-machine-customization#kernel-choices>`_.
        on this topic
    * - ``user_data``
      - A string containing base64 encoded cloud-init user data to be used for provisioning.
        For more information, see
-       `MAAS documentation: Pre-seed cloud-init <https://maas.io/docs/about-machine-customization#p-17465-pre-seeding>`_.
+       `MAAS documentation: Pre-seed cloud-init <https://maas.io/docs/about-machine-customization#preseeding>`_.
        on this topic
    * - ``disks``
      - Specify a custom disk configuration for the machine. For more information, see the
@@ -112,7 +112,7 @@ The ``maas2`` device connector supports the following ``provision_data`` keys:
        is supported only with MAAS 3.5.0 and later; on older MAAS versions this
        setting is ignored. For more information, see `MAAS documentation:
        Ephemeral deployment
-       <https://canonical.com/maas/docs/about-deploying-machines#p-17464-ephemeral-os-deployments-maas-35>`_.
+       <https://canonical.com/maas/docs/about-deploying-machines#ephemeral-os-deployments>`_.
 
 
 .. _muxpi:

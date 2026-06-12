@@ -22,41 +22,40 @@ import jubilant
 import pytest
 import requests
 
-from .helpers import (
+from .consts import (
     APP_NAME,
-    METADATA,
+    DEFAULT_EXTERNAL_HOSTNAME,
+    INGRESS_NAME,
     MONGODB_CHARM,
-    DNSResolverHTTPAdapter,
-    app_is_up,
-    retry,
+    NGINX_INGRESS_CHARM,
+    UPSTREAM_SOURCE,
 )
-
-NGINX_INGRESS_CHARM = "nginx-ingress-integrator"
-DEFAULT_EXTERNAL_HOSTNAME = "testflinger.local"
-INGRESS_NAME = "ingress"
+from .helpers import DNSResolverHTTPAdapter, app_is_up, retry
 
 
 @pytest.mark.juju_setup
-def test_deploy(charm_path: Path, juju: jubilant.Juju):
+def test_deploy(charm_path: Path, k8s_juju: jubilant.Juju):
     """Test deploying the charm under test with ingress relation."""
     # Deploy the testflinger charm
     resources = {
-        "testflinger-image": METADATA["resources"]["testflinger-image"][
-            "upstream-source"
-        ],
+        "testflinger-image": UPSTREAM_SOURCE,
     }
-    juju.deploy(charm_path.resolve(), app=APP_NAME, resources=resources)
+    k8s_juju.deploy(charm_path.resolve(), app=APP_NAME, resources=resources)
 
     # Deploy the mongodb-k8s charm
-    juju.deploy(MONGODB_CHARM, channel="6/stable", trust=True)
+    k8s_juju.deploy(MONGODB_CHARM, channel="6/stable", trust=True)
 
     # Establish the mongodb_client and mongodb_keyvault relations
-    juju.integrate(f"{APP_NAME}:mongodb_client", f"{MONGODB_CHARM}:database")
-    juju.integrate(f"{APP_NAME}:mongodb_keyvault", f"{MONGODB_CHARM}:database")
-    juju.wait(jubilant.all_active)
+    k8s_juju.integrate(
+        f"{APP_NAME}:mongodb_client", f"{MONGODB_CHARM}:database"
+    )
+    k8s_juju.integrate(
+        f"{APP_NAME}:mongodb_keyvault", f"{MONGODB_CHARM}:database"
+    )
+    k8s_juju.wait(jubilant.all_active)
 
     # Deploy the nginx-ingress-integrator charm
-    juju.deploy(
+    k8s_juju.deploy(
         NGINX_INGRESS_CHARM,
         app=INGRESS_NAME,
         channel="latest/stable",
@@ -64,15 +63,17 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     )
 
     # Establish the nginx-route relation
-    juju.integrate(f"{APP_NAME}:nginx-route", f"{INGRESS_NAME}:nginx-route")
-    juju.wait(jubilant.all_active)
+    k8s_juju.integrate(
+        f"{APP_NAME}:nginx-route", f"{INGRESS_NAME}:nginx-route"
+    )
+    k8s_juju.wait(jubilant.all_active)
 
 
 @retry(retry_num=5, retry_sleep_sec=5)
-def test_ingress_is_up(juju: jubilant.Juju):
+def test_ingress_is_up(k8s_juju: jubilant.Juju):
     """Test that the deployed application is up and responding via ingress."""
     # For nginx-ingress-integrator, the ingress IP is in the app status message
-    status_message = juju.status().apps[INGRESS_NAME].app_status.message
+    status_message = k8s_juju.status().apps[INGRESS_NAME].app_status.message
     match = re.search(r"Ingress IP\(s\): ([\d.]+)", status_message)
     assert match, f"Could not find ingress IP in status: {status_message}"
 
@@ -91,8 +92,8 @@ def test_ingress_is_up(juju: jubilant.Juju):
 
 
 @pytest.mark.juju_teardown
-def test_destroy(juju: jubilant.Juju):
+def test_destroy(k8s_juju: jubilant.Juju):
     """Tear down the charm under test."""
-    juju.remove_application(APP_NAME)
-    juju.remove_application(MONGODB_CHARM)
-    juju.remove_application(INGRESS_NAME)
+    k8s_juju.remove_application(APP_NAME)
+    k8s_juju.remove_application(MONGODB_CHARM)
+    k8s_juju.remove_application(INGRESS_NAME)

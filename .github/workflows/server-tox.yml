@@ -106,9 +106,18 @@ jobs:
       - name: Install concierge
         run: sudo snap install --classic concierge
       - name: Prepare Juju
-        run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=latest/stable -p microk8s
-      - name: Enable MicroK8s ingress
-        run: sudo microk8s enable ingress
+        run: sudo concierge prepare --verbose
+      - name: Export Juju controller names
+        run: |
+          K8S_CONTROLLER=$(juju controllers --format=json | jq -r '.controllers | to_entries[] | select(.value.cloud == "microk8s") | .key')
+          LXD_CONTROLLER=$(juju controllers --format=json | jq -r '.controllers | to_entries[] | select(.value.cloud == "localhost") | .key')
+          if [[ -z "$K8S_CONTROLLER" || -z "$LXD_CONTROLLER" ]]; then
+            echo "Failed to detect Juju controllers (microk8s='$K8S_CONTROLLER', localhost='$LXD_CONTROLLER')"
+            juju controllers
+            exit 1
+          fi
+          echo "JUJU_K8S_CONTROLLER=$K8S_CONTROLLER" >> "$GITHUB_ENV"
+          echo "JUJU_MACHINE_CONTROLLER=$LXD_CONTROLLER" >> "$GITHUB_ENV"
       - name: Pack charm
         run: charmcraft pack --verbose
       - name: Upload charm as an artifact
@@ -119,8 +128,12 @@ jobs:
           if-no-files-found: error
           retention-days: 2
       - name: Run charm integration tests
-        run: uvx --with tox-uv tox -e integration -- --juju-dump-logs logs
-      - name: Upload logs
+        env:
+          JUJU_K8S_CONTROLLER: ${{ env.JUJU_K8S_CONTROLLER }}
+          JUJU_MACHINE_CONTROLLER: ${{ env.JUJU_MACHINE_CONTROLLER }}
+          JUJU_DUMP_LOGS_DIR: logs
+        run: uvx --with tox-uv tox -e integration
+      - name: Upload Juju logs
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:

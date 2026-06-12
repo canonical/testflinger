@@ -16,6 +16,7 @@
 """Unit tests for Testflinger flask app."""
 
 import pytest
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from testflinger.application import create_flask_app
 
@@ -31,3 +32,15 @@ def test_setup_mongo_fails_without_config():
     with pytest.raises(SystemExit) as exc:
         create_flask_app()
     assert exc.value.code == "No MongoDB URI configured!"
+
+
+def test_proxyfix_enabled(monkeypatch):
+    """Ensure ProxyFix is enabled when ENABLE_PROXYFIX is true."""
+    monkeypatch.setenv("ENABLE_PROXYFIX", "true")
+    app = create_flask_app(type("", (), {"TESTING": True})())
+    assert isinstance(app.wsgi_app, ProxyFix)
+
+
+def test_proxyfix_disabled(testapp):
+    """Ensure ProxyFix is disabled when ENABLE_PROXYFIX is not set."""
+    assert not isinstance(testapp.wsgi_app, ProxyFix)

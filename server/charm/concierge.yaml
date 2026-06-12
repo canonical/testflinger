@@ -1,0 +1,27 @@
+juju:
+  channel: 3/stable
+providers:
+  microk8s:
+    enable: true
+    bootstrap: true
+    addons:
+      - hostpath-storage
+      - dns
+      - metallb:10.64.140.43-10.64.140.49
+      - ingress
+  lxd:
+    enable: true
+    bootstrap: true
+host:
+  packages:
+    - python3-pip
+    - python3-venv
+  snaps:
+    astral-uv:
+      channel: latest/stable
+    charmcraft:
+      channel: latest/stable
+    jhack:
+      channel: latest/edge
+      connections:
+        - jhack:dot-local-share-juju
