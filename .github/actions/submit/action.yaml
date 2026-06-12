@@ -116,23 +116,14 @@ runs:
       env:
         SERVER: https://${{ inputs.server }}
         RELATIVE_TO: ${{ inputs.attachments-relative-to }}
-        CLIENT_ID: ${{ inputs.client-id }}
-        SECRET_KEY: ${{ inputs.secret-key }}
+        TESTFLINGER_CLIENT_ID: ${{ inputs.client-id }}
+        TESTFLINGER_SECRET_KEY: ${{ inputs.secret-key }}
         JOB: ${{ steps.create-job-file.outputs.job }}
       run: |
         echo "::group::Submit job to the Testflinger server"
-        AUTH_ARGS_COUNT=0
-        [[ -n $CLIENT_ID ]] && ((++AUTH_ARGS_COUNT))
-        [[ -n $SECRET_KEY ]] && ((++AUTH_ARGS_COUNT))
-        case $AUTH_ARGS_COUNT in
-            0) AUTH_ARGS=() ;;
-            2) AUTH_ARGS=( --client_id "$CLIENT_ID" --secret_key "$SECRET_KEY" ) ;;
-            1) echo "::error::Both 'client-id' and 'secret-key' must be provided or neither"; exit 1 ;;
-        esac
         JOB_ID=$(\
           testflinger --server "$SERVER" submit --quiet \
           ${RELATIVE_TO:+--attachments-relative-to "$RELATIVE_TO"} \
-          "${AUTH_ARGS[@]}" \
           "$JOB" \
         )
         echo "id=$JOB_ID" >> $GITHUB_OUTPUT
