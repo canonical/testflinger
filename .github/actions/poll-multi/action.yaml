@@ -46,6 +46,17 @@ runs:
         JOB_ID: ${{ inputs.job-id }}
       run: |
         echo "::group::Wait for parent job $JOB_ID to complete"
+        
+        # check that the auth solution has the right number of params defined
+        AUTH_ARGS_COUNT=0
+        [[ -n $TESTFLINGER_CLIENT_ID ]] && ((++AUTH_ARGS_COUNT))
+        [[ -n $TESTFLINGER_SECRET_KEY ]] && ((++AUTH_ARGS_COUNT))
+        case $AUTH_ARGS_COUNT in
+            0) TESTFLINGER_CLIENT_ID=() ;;
+            2) echo "Testflinger credentials present." ;;
+            1) echo "::error::Both 'client-id' and 'secret-key' must be provided or neither"; exit 1 ;;
+        esac
+
         while true; do
           STATUS=$(testflinger --server $SERVER  status $JOB_ID)
           echo "Parent job status: $STATUS"
