@@ -204,6 +204,9 @@ runs:
           echo "id=$JOB_ID" >> $GITHUB_OUTPUT
           echo "::notice::Testflinger job id: $JOB_ID"
           if [[ "$POLL" != "true" ]]; then
+            if [[ "$MAX_RETRIES" -gt 0 ]]; then
+              echo "::warning::provision-max-retries has no effect when poll is false"
+            fi
             break
           fi
           echo "::group::Tracking $JOB_ID setup phase"
@@ -235,7 +238,8 @@ runs:
           echo "::endgroup::"
           if [[ $POLL_EXIT -eq 124 ]]; then
             echo "::error::Provision phase timed out after ${PROVISION_DURATION}s — cancelling job $JOB_ID"
-            testflinger cancel $JOB_ID
+            testflinger cancel $JOB_ID \
+              || echo "::warning::Failed to cancel job $JOB_ID — it may still be running on the server"
             PROVISION_STATUS=1
           else
             echo "::group::Retrieve phase results to determine exit status"
