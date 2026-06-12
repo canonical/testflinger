@@ -210,7 +210,7 @@ runs:
           PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase setup 2>/dev/null
           echo "::endgroup::"
           echo "::group::Retrieve phase results to determine exit status"
-          SETUP_STATUS=$(testflinger results $JOB_ID | jq .setup_status)
+            SETUP_STATUS=$(testflinger results $JOB_ID | jq '.setup_status // 1')
           echo "::endgroup::"
           if [[ $SETUP_STATUS -ne 0 ]]; then
             echo "::error::Testflinger setup phase failed"
@@ -239,7 +239,7 @@ runs:
             PROVISION_STATUS=1
           else
             echo "::group::Retrieve phase results to determine exit status"
-            PROVISION_STATUS=$(testflinger results $JOB_ID | jq .provision_status)
+              PROVISION_STATUS=$(testflinger results $JOB_ID | jq '.provision_status // 1')
             echo "::endgroup::"
           fi
           if [[ $PROVISION_STATUS -eq 0 ]]; then
