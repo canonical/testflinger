@@ -28,6 +28,12 @@ from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
 class ZapperKVMConnectorTests(unittest.TestCase):
     """Unit tests for ZapperConnector KVM class."""
 
+    def test_does_not_manage_dut_power_during_reboot(self) -> None:
+        """zapper_kvm must NOT power cycle the DUT while the control host
+        reboots; only zapper_iot (and muxpi) opt in.
+        """
+        self.assertFalse(DeviceConnector.MANAGE_DUT_POWER_DURING_REBOOT)
+
     def test_get_credentials(self) -> None:
         connector = DeviceConnector({"control_host": "zapper-host"})
         connector.job_data = {}

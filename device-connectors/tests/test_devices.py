@@ -13,6 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 """Tests for the devices module."""
 
+import logging
 import subprocess
 import time
 from importlib import import_module
@@ -147,6 +148,19 @@ class TestRebootControlHost:
 
         assert mock_subprocess.call_count == 2
 
+    def test_dut_power_noop_without_scripts(self, mocker, caplog):
+        """Without DUT power scripts (connector not opted in), poweroff_dut/
+        poweron_dut neither run commands nor log that they're running.
+        """
+        mock_subprocess = mocker.patch("subprocess.run")
+
+        with caplog.at_level(logging.INFO):
+            DefaultControlHost("host").poweroff_dut()
+            DefaultControlHost("host").poweron_dut()
+
+        mock_subprocess.assert_not_called()
+        assert "Running" not in caplog.text
+
     def test_reboot_control_host_called_process_error(self, mocker):
         """Test reboot handles CalledProcessError gracefully."""
         error = subprocess.CalledProcessError(1, "cmd1")
@@ -222,6 +236,94 @@ class TestPreProvisionHook:
 
         mock_power_cycle.assert_called_once()
 
+    def test_ignores_dut_power_scripts_when_not_opted_in(self, mocker):
+        """Test hook does not pass DUT power scripts for connectors that
+        do not set MANAGE_DUT_POWER_DURING_REBOOT, even when configured.
+        """
+        mocker.patch("builtins.open", mocker.mock_open())
+        mock_control_host = mocker.patch(
+            "testflinger_device_connectors.devices.DefaultControlHost"
+        )
+        device = DefaultDevice(
+            {
+                "device_ip": "1.1.1.1",
+                "control_host": "control-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+                "poweroff_script": ["poweroff-cmd"],
+                "poweron_script": ["poweron-cmd"],
+            }
+        )
+
+        device.pre_provision_hook()
+
+        mock_control_host.assert_called_once_with(
+            "control-host",
+            ["reboot-cmd"],
+            poweroff_script=[],
+            poweron_script=[],
+        )
+        mock_control_host.return_value.power_cycle.assert_called_once()
+
+    def test_passes_dut_power_scripts_when_opted_in(self, mocker):
+        """Test hook passes DUT power scripts to DefaultControlHost for
+        connectors that set MANAGE_DUT_POWER_DURING_REBOOT.
+        """
+        mocker.patch("builtins.open", mocker.mock_open())
+        mock_control_host = mocker.patch(
+            "testflinger_device_connectors.devices.DefaultControlHost"
+        )
+
+        class _PowerManagingDevice(DefaultDevice):
+            MANAGE_DUT_POWER_DURING_REBOOT = True
+
+        device = _PowerManagingDevice(
+            {
+                "device_ip": "1.1.1.1",
+                "control_host": "control-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+                "poweroff_script": ["poweroff-cmd"],
+                "poweron_script": ["poweron-cmd"],
+            }
+        )
+
+        device.pre_provision_hook()
+
+        mock_control_host.assert_called_once_with(
+            "control-host",
+            ["reboot-cmd"],
+            poweroff_script=["poweroff-cmd"],
+            poweron_script=["poweron-cmd"],
+        )
+        mock_control_host.return_value.power_cycle.assert_called_once()
+
+    def test_warns_when_opted_in_without_dut_power_scripts(
+        self, mocker, caplog
+    ):
+        """Test hook warns when a connector that manages DUT power has no
+        DUT power scripts configured, and still power cycles.
+        """
+        mocker.patch("builtins.open", mocker.mock_open())
+        mock_control_host = mocker.patch(
+            "testflinger_device_connectors.devices.DefaultControlHost"
+        )
+
+        class _PowerManagingDevice(DefaultDevice):
+            MANAGE_DUT_POWER_DURING_REBOOT = True
+
+        device = _PowerManagingDevice(
+            {
+                "device_ip": "1.1.1.1",
+                "control_host": "control-host",
+                "control_host_reboot_script": ["reboot-cmd"],
+            }
+        )
+
+        with caplog.at_level(logging.WARNING):
+            device.pre_provision_hook()
+
+        assert "DUT may stay powered" in caplog.text
+        mock_control_host.return_value.power_cycle.assert_called_once()
+
     def test_skipped_when_env_var_set(self, mocker, monkeypatch):
         """Test hook skips power cycle when env var is set."""
         monkeypatch.setenv("DISABLE_CONTROL_HOST_POWERCYCLE", "1")
@@ -265,6 +367,31 @@ class TestDefaultControlHostPowerCycle:
         mock_wait_offline.assert_called_once_with(host._check_ping, 30)
         mock_reboot.assert_called_once()
         mock_wait_ready.assert_called_once_with(timeout=300)
+
+    def test_power_cycle_runs_dut_power_scripts_around_reboot(self, mocker):
+        """Test DUT stays off while the control host is rebooted."""
+        mocker.patch.object(time, "sleep")
+        mock_post = mocker.patch.object(requests, "post")
+        mock_post.return_value.raise_for_status = Mock()
+        mocker.patch.object(DefaultControlHost, "wait_offline")
+        mocker.patch.object(DefaultControlHost, "wait_ready")
+        mock_run_script = mocker.patch.object(
+            DefaultControlHost, "_run_script"
+        )
+        host = DefaultControlHost(
+            "control-host",
+            ["reboot-cmd"],
+            poweroff_script=["poweroff-cmd"],
+            poweron_script=["poweron-cmd"],
+        )
+
+        host.power_cycle()
+
+        assert mock_run_script.call_args_list == [
+            mocker.call(["poweroff-cmd"], "DUT power-off"),
+            mocker.call(["reboot-cmd"], "control host reboot"),
+            mocker.call(["poweron-cmd"], "DUT power-on"),
+        ]
 
     def test_ssh_fallback_host_already_up(self, mocker):
         """Test ssh_fallback skips reboot when host is reachable."""
