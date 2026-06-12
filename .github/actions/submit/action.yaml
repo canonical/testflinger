@@ -257,7 +257,6 @@ runs:
           echo "::notice::Retrying job submission for provision (attempt $((ATTEMPT+1)) of $((MAX_RETRIES+1)))"
         done
 
-
     - name: Track test phase
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.test == 'true'
       shell: bash
