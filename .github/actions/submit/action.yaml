@@ -34,9 +34,9 @@ inputs:
     default: "0"
   provision-timeout:
     description: >
-      Maximum time to wait for the provision phase to complete before cancelling
-      the job and treating it as a failure (e.g. "30m", "1h", "3600s").
-      Leave empty for no timeout.
+      Maximum time to wait for the provision phase to complete before cancelling the job and treating it as a failure (e.g. "30m", "1h", "3600s").
+      Leave empty to not impose a timeout in the action. 
+      Note that the Testflinger server may still impose its own timeout for the provision phase, independent of this action.
     required: false
     default: ""
 outputs:
