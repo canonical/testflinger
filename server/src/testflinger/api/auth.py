@@ -31,6 +31,19 @@ from testflinger_common.enums import ServerRoles
 from testflinger import database
 from testflinger.owasp import OWASPLogger
 
+DEFAULT_REFRESH_TOKEN_EXPIRATION = 6 * 24 * 60 * 60  # 6 days in seconds
+
+# Fields from client_permissions to include in the Testflinger JWT
+PERMISSIONS_FIELDS = frozenset(
+    {
+        "role",
+        "max_priority",
+        "allowed_queues",
+        "max_reservation_time",
+        "client_id",
+    }
+)
+
 
 def hash_secret(secret: str):
     """Securely hash a secret before storing in database.
@@ -341,6 +354,59 @@ def generate_refresh_token(client_id: str, expires_in: int | None) -> str:
     }
     database.add_refresh_token(token_data)
     return refresh_token
+
+
+def issue_tokens(
+    client_id: str,
+    allowed_resources: dict,
+    refresh_token_ttl: int | None = DEFAULT_REFRESH_TOKEN_EXPIRATION,
+) -> dict:
+    """Issue Testflinger access and refresh tokens for an authenticated client.
+
+    Handles token generation, refresh token expiration, and OWASP logging.
+    Used by both credential-based and OIDC-based authentication flows.
+
+    :param client_id: Testflinger client ID for which to issue tokens
+    :param allowed_resources: Permissions dict to encode into the JWT
+    :param refresh_token_ttl: Optional expiration time for refresh token
+    :return: Dict with access_token, token_type, expires_in, refresh_token
+    """
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    access_token = generate_access_token(allowed_resources, secret_key)
+
+    role = ServerRoles(allowed_resources.get("role", ServerRoles.CONTRIBUTOR))
+    refresh_expires_in = (
+        None
+        if role in (ServerRoles.ADMIN, ServerRoles.MANAGER)
+        else refresh_token_ttl
+    )
+    refresh_token = generate_refresh_token(
+        client_id, expires_in=refresh_expires_in
+    )
+
+    current_app.owasp_logger.authn_login_success(
+        userid=client_id,
+        description=(
+            f"Client {client_id} successfully authenticated with role {role}"
+        ),
+        **OWASPLogger.get_request_metadata(request),
+    )
+    current_app.owasp_logger.authn_token_created(
+        userid=client_id,
+        entitlements=[role],
+        description=(
+            f"JWT access token and refresh token issued for "
+            f"client {client_id} with role: {role}."
+        ),
+        **OWASPLogger.get_request_metadata(request),
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "Bearer",
+        "expires_in": 30,
+        "refresh_token": refresh_token,
+    }
 
 
 def validate_refresh_token(token: str) -> dict:

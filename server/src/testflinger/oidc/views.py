@@ -28,7 +28,7 @@ from flask import (
     url_for,
 )
 
-from testflinger.database import register_web_client
+from testflinger.database import register_oidc_client
 from testflinger.owasp import OWASPLogger
 
 oidc_views = Blueprint("oidc", __name__)
@@ -39,14 +39,13 @@ def callback():
     """Redirect callback from OIDC Provider."""
     try:
         token = current_app.oauth.oidc.authorize_access_token()
-        session["user"] = token["userinfo"]["name"]
-        register_web_client(token)
+        userinfo = token["userinfo"]
+        session["user"] = userinfo["name"]
+        register_oidc_client(userinfo)
         # Log successful OIDC authentication
         current_app.owasp_logger.authn_login_success(
-            userid=token["userinfo"]["name"],
-            description=(
-                f"User {token['userinfo']['name']} authenticated via OIDC"
-            ),
+            userid=userinfo["name"],
+            description=(f"User {userinfo['name']} authenticated via OIDC"),
             **OWASPLogger.get_request_metadata(request),
         )
     except (MismatchingStateError, OAuthError) as err:

@@ -17,7 +17,7 @@
 
 import os
 import urllib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from flask_pymongo import PyMongo
@@ -28,6 +28,7 @@ from testflinger_common.enums import ServerRoles
 REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
+ACCOUNT_DELETE_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 
 mongo = PyMongo()
 
@@ -115,6 +116,14 @@ def create_indexes():
     # Remove refresh tokens that haven't been accessed over 90 days
     mongo.db.refresh_tokens.create_index(
         "last_accessed", expireAfterSeconds=REFRESH_TOKEN_IDEL_EXPIRATION
+    )
+
+    # Remove OIDC device codes after the defined expiration time
+    mongo.db.device_codes.create_index("expires_at", expireAfterSeconds=0)
+
+    # Remove stale client permissions after defined expiration
+    mongo.db.client_permissions.create_index(
+        "last_login", expireAfterSeconds=ACCOUNT_DELETE_EXPIRATION
     )
 
     # Faster lookups for common queries
@@ -575,42 +584,40 @@ def delete_refresh_token(token: str) -> None:
     mongo.db.refresh_tokens.delete_one({"refresh_token": token})
 
 
-def check_web_client_exists(sub: str):
-    """Validate the existance of a web client.
+def register_oidc_client(userinfo: dict) -> None:
+    """Register or update an OIDC user in client_permissions.
 
-    :param sub: Unique subject identifier returned by OIDC provider
-    :return: True or False based on client existance
+    This uses the OIDC subject identifier (sub) as the primary identity anchor,
+    but uses email as the client_id as human readable identifier for permission
+    lookups.
+
+    :param userinfo: User information dict from the OIDC id_token.
     """
-    return (
-        mongo.db.web_clients.find_one({"openid_sub": sub}, {"_id": False})
-        is not None
+    sub, email, name = (
+        userinfo["sub"],
+        userinfo.get("email", ""),
+        userinfo.get("name", ""),
     )
+    now = datetime.now(timezone.utc)
 
-
-def register_web_client(oidc_token: dict):
-    """Create a new web client upon first authentication.
-
-    If client already exists, will update the last login.
-
-    :param oidc_token: User information returned from OIDC provider.
-    """
-    sub = oidc_token["userinfo"]["sub"]
-    if check_web_client_exists(sub):
-        mongo.db.web_clients.update_one(
-            {"openid_sub": sub},
-            {"$set": {"last_login": datetime.now(timezone.utc)}},
-        )
-    else:
-        mongo.db.web_clients.insert_one(
-            {
-                "openid_sub": sub,
-                "email": oidc_token["userinfo"]["email"],
-                "name": oidc_token["userinfo"]["name"],
-                "created_at": datetime.now(timezone.utc),
-                "last_login": datetime.now(timezone.utc),
+    # Update or insert the OIDC user in client_permissions
+    # This uses the sub as the unique identifier but uses email as client_id
+    mongo.db.client_permissions.update_one(
+        {"sub": sub},
+        {
+            "$set": {
+                "client_id": email,
+                "name": name,
+                "last_login": now,
+            },
+            "$setOnInsert": {
+                "sub": sub,
                 "role": ServerRoles.CONTRIBUTOR,
-            }
-        )
+                "created_at": now,
+            },
+        },
+        upsert=True,
+    )
 
 
 def get_job_results(job_id: str):
@@ -638,3 +645,44 @@ def job_exists(job_id: str) -> bool:
     return (
         mongo.db.jobs.find_one({"job_id": job_id}, {"_id": True}) is not None
     )
+
+
+def add_oidc_device_code(device_code: str, request_id: str, expires_in: int):
+    """Add OIDC device code to the database with an expiration time.
+
+    :param device_code: The OIDC device code to store.
+    :param request_id: The unique request ID associated with the device code.
+    :param expires_in: The number of seconds until the device code expires.
+    """
+    mongo.db.device_codes.insert_one(
+        {
+            "device_code": device_code,
+            "request_id": request_id,
+            "expires_at": (
+                datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+            ),
+        }
+    )
+
+
+def get_oidc_device_code(request_id: str) -> str | None:
+    """Retrieve the OIDC device code associated with a request ID.
+
+    :param request_id: The unique request ID to search for.
+    :return: The OIDC device code if found, or None if not found.
+    """
+    result = mongo.db.device_codes.find_one(
+        {"request_id": request_id}, {"_id": False, "device_code": True}
+    )
+    return result["device_code"] if result else None
+
+
+def delete_oidc_device_code(request_id: str) -> None:
+    """Delete the OIDC device code associated with a request ID.
+
+    while the TTL index will automatically remove expired device codes,
+    we need to ensure device code removal after successful authentication.
+
+    :param request_id: The unique request ID to delete.
+    """
+    mongo.db.device_codes.delete_one({"request_id": request_id})

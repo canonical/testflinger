@@ -995,7 +995,7 @@ def retrieve_token():
             ),
             **OWASPLogger.get_request_metadata(request),
         )
-        return "No authorization header specified", 401
+        return "No authorization header specified", HTTPStatus.UNAUTHORIZED
 
     client_id = auth_header["username"]
     client_key = auth_header["password"]
@@ -1010,7 +1010,7 @@ def retrieve_token():
         )
         return (
             "Client id and key must be specified in authorization header",
-            401,
+            HTTPStatus.UNAUTHORIZED,
         )
 
     allowed_resources = auth.validate_client_key_pair(client_id, client_key)
@@ -1023,46 +1023,12 @@ def retrieve_token():
             ),
             **OWASPLogger.get_request_metadata(request),
         )
-        return "Invalid client id or client key", 401
+        return "Invalid client id or client key", HTTPStatus.UNAUTHORIZED
 
-    secret_key = os.environ.get("JWT_SIGNING_KEY")
-    access_token = auth.generate_access_token(allowed_resources, secret_key)
-
-    role = ServerRoles(allowed_resources.get("role", ServerRoles.CONTRIBUTOR))
-    if role in (ServerRoles.ADMIN, ServerRoles.MANAGER):
-        refresh_expires_in = None
-    else:
-        refresh_expires_in = 30 * 24 * 60 * 60  # 30 days in seconds
-
-    refresh_token = auth.generate_refresh_token(
-        client_id, expires_in=refresh_expires_in
+    return auth.issue_tokens(
+        client_id=client_id,
+        allowed_resources=allowed_resources,
     )
-
-    # Log successful authentication
-    entitlements = [role]
-    current_app.owasp_logger.authn_login_success(
-        userid=client_id,
-        description=(
-            f"Client {client_id} successfully authenticated with role {role}"
-        ),
-        **OWASPLogger.get_request_metadata(request),
-    )
-    current_app.owasp_logger.authn_token_created(
-        userid=client_id,
-        entitlements=entitlements,
-        description=(
-            f"JWT access token and refresh token issued for "
-            f"client {client_id} with role: {role}."
-        ),
-        **OWASPLogger.get_request_metadata(request),
-    )
-
-    return {
-        "access_token": access_token,
-        "token_type": "Bearer",
-        "expires_in": 30,
-        "refresh_token": refresh_token,
-    }
 
 
 @v1.post("/oauth2/refresh")
@@ -1082,8 +1048,13 @@ def refresh_access_token():
     client_id = token_entry["client_id"]
 
     client_permissions = database.get_client_permissions(client_id)
+    allowed_resources = {
+        permission: value
+        for permission, value in client_permissions.items()
+        if permission in auth.PERMISSIONS_FIELDS
+    }
     secret_key = os.environ.get("JWT_SIGNING_KEY")
-    access_token = auth.generate_access_token(client_permissions, secret_key)
+    access_token = auth.generate_access_token(allowed_resources, secret_key)
 
     # Log token refresh
     role = client_permissions.get("role")
