@@ -179,6 +179,21 @@ add-sample-data:
         -q 4300 \
         -d 2
 
+[doc('Add required hostnames to the hosts file to ensure that `dex` and `testflinger-server` are available.')]
+set-up-hosts-file:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # When `dex` not found, add dex and testflinger-server as hostnames
+    LINE="127.0.0.1 dex testflinger-server"
+    if ! grep -Eq '(^|[[:space:]])dex($|[[:space:]])' /etc/hosts; then
+        if ! sudo -n true 2>/dev/null; then
+            echo "sudo credentials required; run: sudo -v"
+            exit 1
+        fi
+        echo "$LINE" | sudo -n tee -a /etc/hosts >/dev/null
+    fi
+
+
 # --- Package management recipes ---
 
 [doc("Run `uv add` for component, respecting repo-level version constraints, e.g. `just add agent 'pydantic>=2'`.")]
