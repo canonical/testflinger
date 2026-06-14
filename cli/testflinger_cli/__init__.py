@@ -1324,7 +1324,8 @@ class TestflingerCli:
                             "You are attempting to use a feature "
                             "that requires client authorisation "
                             "without using client credentials. \n"
-                            "See https://testflinger.readthedocs.io/en/latest"
+                            "See https://canonical-testflinger."
+                            "readthedocs-hosted.com/en/latest"
                             "/how-to/authentication/ for more details"
                         )
                 else:
