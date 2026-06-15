@@ -39,10 +39,12 @@ MAX_BACKOFF_TIME = 60
 class HTTPError(Exception):
     """Exception class for HTTP error codes."""
 
-    def __init__(self, status, msg=""):
+    def __init__(self, status, msg="", headers=None, error_code=None):
         super().__init__(status)
         self.status = status
         self.msg = msg
+        self.headers = headers or {}
+        self.error_code = error_code
 
 
 class Client:
@@ -68,10 +70,14 @@ class Client:
                 raise VPNError from exc
 
             # Raise HTTPError with clear text message if any other ValueError
-            raise HTTPError(status=req.status_code, msg=req.text) from exc
+            raise HTTPError(
+                status=req.status_code, msg=req.text, headers=req.headers
+            ) from exc
 
         # flask `abort` returns a JSON object with error message
         error_message = error_json.get("message", req.text)
+        # Oauth2 error responses may include an "error" field
+        error_code = error_json.get("error")
         # For schema validation errors, try to get detailed error info
         if req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY and (
             validation_errors := error_json.get("detail", {}).get("json", {})
@@ -81,7 +87,12 @@ class Client:
             )
             error_message = f"{error_message} - {error_details}"
 
-        raise HTTPError(status=req.status_code, msg=error_message)
+        raise HTTPError(
+            status=req.status_code,
+            msg=error_message,
+            headers=req.headers,
+            error_code=error_code,
+        )
 
     def get(
         self, uri_frag: str, timeout: int = 15, headers: dict | None = None
@@ -495,3 +506,23 @@ class Client:
         """
         endpoint = f"/v1/client-permissions/{tf_client_id}"
         self.delete(endpoint, headers=auth_header)
+
+    def oidc_auth_initiate(self) -> dict:
+        """Initiate OIDC authentication with the server.
+
+        :return: dict containing required OIDC parameters for client to
+            authenticate with provider
+        """
+        endpoint = "/oidc/auth-init"
+        response = self.post(endpoint, data={})
+        return json.loads(response)
+
+    def oidc_auth_poll(self, request_id: str) -> dict:
+        """Poll for OIDC authentication result based on request ID.
+
+        :param request_id: unique request ID generated during auth initiation
+        :return: dict containing auth result and TF tokens if successful
+        """
+        endpoint = f"/oidc/auth-poll/{request_id}"
+        response = self.post(endpoint, data={})
+        return json.loads(response)

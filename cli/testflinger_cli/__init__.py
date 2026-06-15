@@ -149,6 +149,7 @@ class TestflingerCli:
             or os.environ.get("TESTFLINGER_ERROR_THRESHOLD")
             or consts.TESTFLINGER_ERROR_THRESHOLD
         )
+        auth_method = getattr(self.args, "method", "credentials")
 
         # Allow config subcommand without worrying about server or client
         if hasattr(self.args, "func") and self.args.func == self.configure:
@@ -160,7 +161,7 @@ class TestflingerCli:
             )
         self.client = client.Client(server, error_threshold=error_threshold)
         self.auth = TestflingerCliAuth(
-            self.client_id, self.secret_key, self.client
+            auth_method, self.client_id, self.secret_key, self.client
         )
 
     def run(self):
@@ -290,6 +291,17 @@ class TestflingerCli:
             help="Authenticate with server",
         )
         parser.set_defaults(func=self.login)
+        parser.add_argument(
+            "--method",
+            nargs="?",
+            choices=["credentials", "oidc"],
+            default="credentials",
+            help=(
+                "Authentication method to use. "
+                "'credentials' uses client-id and secret-key (default). "
+                "'oidc' opens a browser for IDP-based login."
+            ),
+        )
         self._add_auth_args(parser)
 
     def _add_poll_args_generic(self, parser):
@@ -1859,9 +1871,9 @@ class TestflingerCli:
         # Clear refresh token if user is attempting reauthentication
         self.auth.clear_refresh_token()
         try:
-            # Since refresh token was cleared, credentials are always needed
+            # Since refresh token was cleared, we need to re-authenticate
             if self.auth.authenticate():
-                print(f"Successfully authenticated as user '{self.client_id}'")
+                print(f"Successfully authenticated as '{self.auth.client_id}'")
             else:
                 # authenticate can return None if no credentials were provided
                 sys.exit("Please provide credentials and reattempt login")
