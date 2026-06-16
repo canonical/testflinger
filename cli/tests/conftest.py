@@ -114,6 +114,7 @@ def oidc_auth_fixture(requests_mock):
     return _fixture
 
 
+@pytest.fixture(autouse=True)
 def reset_status_line():
     """Reset StatusLine state before and after each test."""
     # Reset before test
