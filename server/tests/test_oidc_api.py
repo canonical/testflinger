@@ -66,7 +66,6 @@ def test_oidc_metadata_current_app(oidc_app):
     app, _ = oidc_app
     with app.app_context():
         metadata = helpers.oidc_metadata()
-        print(metadata)
         assert isinstance(metadata, dict)
         assert "issuer" in metadata
         # iam_server fixture configuration may have a trailing slash
@@ -209,7 +208,7 @@ def test_auth_init_successful_request(
     device_auth_metadata,
     device_auth_response,
 ):
-    """Test /auth-init returns device_code and other parameters on success."""
+    """Test /auth-init returns request_id and other parameters on success."""
     app, mongo = oidc_app
     mock_metadata.return_value = device_auth_metadata
     mock_post.return_value = device_auth_response

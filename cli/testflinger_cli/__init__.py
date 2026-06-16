@@ -161,7 +161,7 @@ class TestflingerCli:
             )
         self.client = client.Client(server, error_threshold=error_threshold)
         self.auth = TestflingerCliAuth(
-            auth_method, self.client_id, self.secret_key, self.client
+            self.client, auth_method, self.client_id, self.secret_key
         )
 
     def run(self):

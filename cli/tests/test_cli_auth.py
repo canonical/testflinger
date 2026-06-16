@@ -396,7 +396,7 @@ def test_login_oidc_poll_terminal_errors(
 def test_login_oidc_poll_pending_then_success(
     mock_open, mock_sleep, oidc_auth_fixture, capsys
 ):
-    """Test OIDC polling retries on 202 until authentication completes."""
+    """Test OIDC poll retries on authorization_pending until auth succeeds."""
     oidc_auth_fixture(
         [
             {
@@ -421,7 +421,7 @@ def test_login_oidc_poll_pending_then_success(
 def test_login_oidc_poll_slow_down(
     mock_open, mock_sleep, oidc_auth_fixture, capsys
 ):
-    """Test OIDC polling increases interval on 429 using Retry-After header."""
+    """Test OIDC polling increases interval using Retry-After header."""
     oidc_auth_fixture(
         [
             {

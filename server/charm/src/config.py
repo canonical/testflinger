@@ -79,6 +79,7 @@ class TestflingerServerConfig(pydantic.BaseModel):
         ]
         if any(required_oidc_params) and not all(required_oidc_params):
             raise ValueError(
-                "All OIDC parameters must be set if any are configured"
+                "oidc_client_id, oidc_provider_issuer, and web_secret_key"
+                " must all be set if any OIDC configuration is provided"
             )
         return self

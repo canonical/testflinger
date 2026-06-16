@@ -85,7 +85,7 @@ def test_first_login_registers_new_client(mock_current_app, oidc_app, user):
         assert response.status_code == HTTPStatus.FOUND
         assert response.location == url_for("testflinger.home")
 
-    # Validate new user was added to client_permissions (keyed by email)
+    # Validate new user was added to client_permissions (keyed by sub)
     client_record = mongo.client_permissions.find_one(
         {"sub": mock_token["userinfo"]["sub"]}
     )

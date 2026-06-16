@@ -123,7 +123,9 @@ def create_indexes():
 
     # Remove stale client permissions after defined expiration
     mongo.db.client_permissions.create_index(
-        "last_login", expireAfterSeconds=ACCOUNT_DELETE_EXPIRATION
+        "last_login",
+        expireAfterSeconds=ACCOUNT_DELETE_EXPIRATION,
+        partialFilterExpression={"sub": {"$exists": True}},
     )
 
     # Faster lookups for common queries

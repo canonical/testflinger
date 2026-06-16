@@ -42,10 +42,10 @@ class TestflingerCliAuth:
 
     def __init__(
         self,
+        tf_client: client.Client,
         method: str = "credentials",
         client_id: str | None = None,
         secret_key: str | None = None,
-        tf_client: client.Client = None,
     ):
         self.method = method
         self.client_id: Optional[str] = client_id
