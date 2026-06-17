@@ -318,9 +318,7 @@ def test_unauthorized_view_access(oidc_app, endpoint):
     with app.test_client() as client:
         response = client.get(endpoint)
     assert response.status_code == HTTPStatus.UNAUTHORIZED
-    assert "Sorry, you need to sign in to access this page." in str(
-        response.data
-    )
+    assert "You need to sign in to access this page." in str(response.data)
 
 
 @pytest.mark.parametrize("endpoint", ["/agents", "/jobs", "/queues"])
