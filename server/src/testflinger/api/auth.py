@@ -371,8 +371,8 @@ def issue_tokens(
     :param refresh_token_ttl: Optional expiration time for refresh token
     :return: Dict with access_token, token_type, expires_in, refresh_token
     """
-    secret_key = os.environ.get("JWT_SIGNING_KEY")
-    access_token = generate_access_token(allowed_resources, secret_key)
+    signing_key = os.environ.get("JWT_SIGNING_KEY")
+    access_token = generate_access_token(allowed_resources, signing_key)
 
     role = ServerRoles(allowed_resources.get("role", ServerRoles.CONTRIBUTOR))
     refresh_expires_in = (
@@ -384,13 +384,6 @@ def issue_tokens(
         client_id, expires_in=refresh_expires_in
     )
 
-    current_app.owasp_logger.authn_login_success(
-        userid=client_id,
-        description=(
-            f"Client {client_id} successfully authenticated with role {role}"
-        ),
-        **OWASPLogger.get_request_metadata(request),
-    )
     current_app.owasp_logger.authn_token_created(
         userid=client_id,
         entitlements=[role],

@@ -76,8 +76,6 @@ class Client:
 
         # flask `abort` returns a JSON object with error message
         error_message = error_json.get("message", req.text)
-        # Oauth2 error responses may include an "error" field
-        error_code = error_json.get("error")
         # For schema validation errors, try to get detailed error info
         if req.status_code == HTTPStatus.UNPROCESSABLE_ENTITY and (
             validation_errors := error_json.get("detail", {}).get("json", {})
@@ -87,6 +85,8 @@ class Client:
             )
             error_message = f"{error_message} - {error_details}"
 
+        # Oauth2 error responses may include an "error" field
+        error_code = error_json.get("error")
         raise HTTPError(
             status=req.status_code,
             msg=error_message,

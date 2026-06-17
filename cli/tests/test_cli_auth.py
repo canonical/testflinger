@@ -17,7 +17,6 @@
 
 import configparser
 import json
-import os
 import sys
 import uuid
 from http import HTTPStatus
@@ -29,6 +28,7 @@ import testflinger_cli
 from testflinger_cli.enums import ServerRoles
 from testflinger_cli.errors import NetworkError
 
+from .conftest import TEST_CLIENT_ID
 from .test_cli import URL
 
 
@@ -302,7 +302,6 @@ def test_cli_login_defaults_credentials(auth_fixture, capsys):
     """Test login command with default method authentication."""
     # This loads credentials as environment variables for the test
     auth_fixture(ServerRoles.CONTRIBUTOR)
-    client_id = os.environ.get("TESTFLINGER_CLIENT_ID")
 
     sys.argv = ["", "login"]
     tfcli = testflinger_cli.TestflingerCli()
@@ -312,7 +311,7 @@ def test_cli_login_defaults_credentials(auth_fixture, capsys):
     refresh_token = tfcli.auth.get_stored_refresh_token()
 
     assert refresh_token is not None
-    assert f"Successfully authenticated as '{client_id}'" in std.out
+    assert f"Successfully authenticated as '{TEST_CLIENT_ID}'" in std.out
 
 
 @patch("testflinger_cli.auth.time.sleep")

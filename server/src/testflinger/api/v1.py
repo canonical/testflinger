@@ -1025,10 +1025,19 @@ def retrieve_token():
         )
         return "Invalid client id or client key", HTTPStatus.UNAUTHORIZED
 
-    return auth.issue_tokens(
+    auth_tokens = auth.issue_tokens(
         client_id=client_id,
         allowed_resources=allowed_resources,
     )
+    role = ServerRoles(allowed_resources.get("role", ServerRoles.CONTRIBUTOR))
+    current_app.owasp_logger.authn_login_success(
+        userid=client_id,
+        description=(
+            f"Client {client_id} successfully authenticated with role {role}"
+        ),
+        **OWASPLogger.get_request_metadata(request),
+    )
+    return auth_tokens
 
 
 @v1.post("/oauth2/refresh")

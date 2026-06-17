@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2025 Canonical
+# Copyright (C) 2026 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,11 +21,13 @@ from http import HTTPStatus
 
 import requests
 from apiflask import APIBlueprint, abort
-from flask import jsonify
+from flask import current_app, jsonify, request
+from testflinger_common.enums import ServerRoles
 
 from testflinger import database
 from testflinger.api import auth
 from testflinger.oidc import helpers
+from testflinger.owasp import OWASPLogger
 
 oidc_api = APIBlueprint("oidc_api", __name__)
 
@@ -101,10 +103,20 @@ def _register_and_issue_tokens(userinfo: dict, request_id: str) -> dict:
 
     # Delete device code after all operations have succeeded
     database.delete_oidc_device_code(request_id)
-    return auth.issue_tokens(
+    auth_tokens = auth.issue_tokens(
         client_id=client_id,
         allowed_resources=allowed_resources,
     )
+    role = ServerRoles(allowed_resources.get("role", ServerRoles.CONTRIBUTOR))
+    current_app.owasp_logger.authn_login_success(
+        userid=client_id,
+        description=(
+            f"Client {client_id} successfully authenticated via OIDC"
+            f" with role {role}"
+        ),
+        **OWASPLogger.get_request_metadata(request),
+    )
+    return auth_tokens
 
 
 @oidc_api.post("/auth-init")
