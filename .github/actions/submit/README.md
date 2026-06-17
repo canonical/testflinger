@@ -36,7 +36,7 @@ If you wish to define your job inline, you can use the following step:
 ```
 
 > [!TIP]
-> You can also pin the submit action to an specific version e.g submit@submit/v1.3.1
+> You can also pin the submit action to a specific version e.g submit@submit/v1.3.1
 
 ## API
 
@@ -53,7 +53,6 @@ If you wish to define your job inline, you can use the following step:
 | `client-id`                        | Client ID for jobs requiring authentication.                                                                                | [^auth]  |                             |
 | `secret-key`                       | Secret key for jobs requiring authentication.                                                                               | [^auth]  |                             |
 | `provision-max-retries`            | Number of times to retry if the provision phase fails (0 = no retry). Requires `poll: true`.                                |          | `0`                         |
-| `provision-timeout`                | Maximum time to wait for the provision phase before cancelling the job and submitting it again (e.g. `30m`, `1h`, `3600s`). |          |                             |
 
 ### Outputs
 

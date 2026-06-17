@@ -32,13 +32,6 @@ inputs:
     description: Maximum number of times to retry the job when the provision phase fails (0 = no retry)
     required: false
     default: "0"
-  provision-timeout:
-    description: >
-      Maximum time to wait for the provision phase to complete before cancelling the job and treating it as a failure (e.g. "30m", "1h", "3600s").
-      Leave empty to not impose a timeout in the action. 
-      Note that the Testflinger server may still impose its own timeout for the provision phase, independent of this action.
-    required: false
-    default: ""
 outputs:
   id:
     description: 'The ID of the submitted job'
@@ -133,7 +126,6 @@ runs:
         POLL: ${{ inputs.poll }}
         HAS_PROVISION: ${{ steps.check-phases.outputs.provision }}
         MAX_RETRIES: ${{ inputs.provision-max-retries }}
-        PROVISION_TIMEOUT: ${{ inputs.provision-timeout }}
       run: |
         # check that the auth solution has the right number of params defined
         AUTH_ARGS_COUNT=0
@@ -225,21 +217,13 @@ runs:
           echo "::group::Tracking $JOB_ID provision phase (attempt $((ATTEMPT+1)))"
           PROVISION_START=$(date +%s)
           POLL_EXIT=0
-          if [[ -n "$PROVISION_TIMEOUT" ]]; then
-              PYTHONUNBUFFERED=1 timeout "$PROVISION_TIMEOUT" \
-                testflinger poll $JOB_ID --phase provision 2>/dev/null \
-                || POLL_EXIT=$?
-            else
-              PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase provision 2>/dev/null \
-                || POLL_EXIT=$?
-          fi
+          PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase provision 2>/dev/null \
+            || POLL_EXIT=$?
           PROVISION_DURATION=$(( $(date +%s) - PROVISION_START ))
           echo "Provision phase duration: ${PROVISION_DURATION}s"
           echo "::endgroup::"
-          if [[ $POLL_EXIT -eq 124 ]]; then
-            echo "::error::Provision phase timed out after ${PROVISION_DURATION}s — cancelling job $JOB_ID"
-            testflinger cancel $JOB_ID \
-              || echo "::warning::Failed to cancel job $JOB_ID — it may still be running on the server"
+          if [[ $POLL_EXIT -ne 0 ]]; then
+            echo "::error::Provision phase polling failed after ${PROVISION_DURATION}s"
             PROVISION_STATUS=1
           else
             echo "::group::Retrieve phase results to determine exit status"
