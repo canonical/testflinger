@@ -129,13 +129,36 @@ def oidc_auth_init() -> dict:
             data={"scope": "openid profile email"},
             headers={"content-type": "application/x-www-form-urlencoded"},
         )
-        oidc_response.raise_for_status()
-        oidc_data = oidc_response.json()
     except requests.RequestException:
         logger.exception("Failed to reach OIDC device authorization endpoint")
         abort(
             HTTPStatus.BAD_GATEWAY,
             message="Failed to communicate with OIDC provider",
+        )
+
+    if not oidc_response.ok:
+        logger.error(
+            "OIDC device authorization endpoint returned HTTP %s: %s",
+            oidc_response.status_code,
+            oidc_response.text,
+        )
+        abort(
+            HTTPStatus.BAD_GATEWAY,
+            message="OIDC provider rejected device authorization request",
+        )
+
+    try:
+        oidc_data = oidc_response.json()
+    except (ValueError, requests.exceptions.JSONDecodeError):
+        logger.error(
+            "Non-JSON response from OIDC device authorization endpoint"
+            " (status %s): %s",
+            oidc_response.status_code,
+            oidc_response.text,
+        )
+        abort(
+            HTTPStatus.BAD_GATEWAY,
+            message="OIDC provider returned an unexpected response",
         )
 
     device_code = oidc_data.pop("device_code", None)

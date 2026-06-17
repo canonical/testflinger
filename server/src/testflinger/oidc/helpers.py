@@ -54,9 +54,8 @@ def oidc_post_request(
     client_secret = oidc_client().client_secret
 
     payload = dict(data or {})
+    payload["client_id"] = client_id
     basic_auth = (client_id, client_secret) if client_secret else None
-    if not basic_auth:
-        payload["client_id"] = client_id
 
     return requests.post(
         url,
