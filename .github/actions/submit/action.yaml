@@ -136,26 +136,35 @@ runs:
             2) echo "Testflinger credentials present." ;;
             1) echo "::error::Both 'client-id' and 'secret-key' must be provided or neither"; exit 1 ;;
         esac
+        
         ATTEMPT=0
         while true; do
+        
+          # submit job
+        
           echo "::group::Submit job to the Testflinger server (attempt $((ATTEMPT+1)))"
           JOB_ID=$(\
             testflinger submit --quiet \
             ${RELATIVE_TO:+--attachments-relative-to "$RELATIVE_TO"} \
             "$JOB" \
           )
-          echo "::endgroup::"
           echo "id=$JOB_ID" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
           echo "::notice::Testflinger job id: $JOB_ID"
+        
           if [[ "$POLL" != "true" ]]; then
             if [[ "$MAX_RETRIES" -gt 0 ]]; then
               echo "::warning::provision-max-retries has no effect when poll is false"
             fi
             break
           fi
+        
+          # setup phase
+        
           echo "::group::Tracking $JOB_ID setup phase"
           PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase setup 2>/dev/null
           echo "::endgroup::"
+        
           echo "::group::Retrieve phase results to determine exit status"
           SETUP_STATUS=$(testflinger results $JOB_ID | jq '.setup_status // 1')
           echo "::endgroup::"
@@ -163,18 +172,24 @@ runs:
             echo "::error::Testflinger setup phase failed"
             exit $SETUP_STATUS
           fi
+          
+          # provision phase
+          
           if [[ "$HAS_PROVISION" != "true" ]]; then
             break
           fi
+        
           echo "::group::Tracking $JOB_ID provision phase (attempt $((ATTEMPT+1)))"
           PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase provision 2>/dev/null
           echo "::endgroup::"
+        
           echo "::group::Retrieve phase results to determine exit status"
           PROVISION_STATUS=$(testflinger results $JOB_ID | jq '.provision_status // 1')
           echo "::endgroup::"
           if [[ $PROVISION_STATUS -eq 0 ]]; then
             break
           fi
+        
           echo "::error::Testflinger provision phase failed (attempt $((ATTEMPT+1)))"
           if [[ $ATTEMPT -ge $MAX_RETRIES ]]; then
             exit $PROVISION_STATUS
@@ -182,6 +197,7 @@ runs:
           ((++ATTEMPT))
           echo "::notice::Retrying job submission for provision (attempt $((ATTEMPT+1)) of $((MAX_RETRIES+1)))"
         done
+
     - name: Track test phase
       if: inputs.poll == 'true' && inputs.dry-run != 'true' && steps.check-phases.outputs.test == 'true'
       shell: bash
