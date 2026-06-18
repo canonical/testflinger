@@ -173,7 +173,7 @@ runs:
         
           echo "::group::Retrieve setup phase exit status"
           SETUP_STATUS=$(testflinger results $JOB_ID 2>/dev/null | jq '.setup_status // 1') \
-            || { echo "::error::Failed to retrieve setup phase results for $JOB_ID"; exit 1; }
+            || { echo "::warning::Failed to retrieve setup phase results for $JOB_ID, treating as failure"; SETUP_STATUS=1; }
           echo "::endgroup::"
         
           if [[ $SETUP_STATUS -ne 0 ]]; then
@@ -198,7 +198,7 @@ runs:
         
           echo "::group::Retrieve provision phase exit status"
           PROVISION_STATUS=$(testflinger results $JOB_ID 2>/dev/null | jq '.provision_status // 1') \
-            || { echo "::error::Failed to retrieve provision phase results for $JOB_ID"; exit 1; }
+            || { echo "::warning::Failed to retrieve provision phase results for $JOB_ID, treating as failure"; PROVISION_STATUS=1; }
           echo "::endgroup::"
         
           if [[ $PROVISION_STATUS -ne 0 ]]; then
