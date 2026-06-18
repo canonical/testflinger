@@ -29,7 +29,7 @@ inputs:
     description: Secret key for jobs requiring authentication
     required: false
   retries:
-    description: Number of times to retry submitting the job if it failed before reaching the test phase (0 = no retry)
+    description: Number of times to retry submitting the job if it failed before completing the provision phase (0 = no retry)
     required: false
     default: "0"
 outputs:
@@ -145,73 +145,79 @@ runs:
 
         ATTEMPT=0
         while true; do
-        
+
           # submit job
-        
+
           echo "::group::Submit job to the Testflinger server (attempt $((ATTEMPT+1)))"
           JOB_ID=$(\
             testflinger submit --quiet \
             ${RELATIVE_TO:+--attachments-relative-to "$RELATIVE_TO"} \
             "$JOB" \
           )
-          echo "id=$JOB_ID" >> $GITHUB_OUTPUT
           echo "::endgroup::"
+          if [[ -z "$JOB_ID" ]]; then
+            echo "::error::Failed to submit job to Testflinger server"
+            exit 1
+          fi
+          echo "id=$JOB_ID" >> $GITHUB_OUTPUT
           echo "::notice::Testflinger job id: $JOB_ID"
-        
+
           if [[ "$POLL" != "true" ]]; then
             if [[ "$MAX_RETRIES" -gt 0 ]]; then
               echo "::warning::retries has no effect when poll is false"
             fi
             break
           fi
-        
+
           # setup phase
-        
+
           echo "::group::Tracking $JOB_ID setup phase"
           PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase setup 2>/dev/null
           echo "::endgroup::"
-        
+
           echo "::group::Retrieve setup phase exit status"
           SETUP_STATUS=$(testflinger results $JOB_ID | jq '.setup_status // 1')
           echo "::endgroup::"
-        
+
           if [[ $SETUP_STATUS -ne 0 ]]; then
             echo "::error::Testflinger setup phase failed (attempt $((ATTEMPT+1)))"
             if [[ $ATTEMPT -ge $MAX_RETRIES ]]; then
               exit $SETUP_STATUS
             fi
+            testflinger cancel $JOB_ID || true
             ATTEMPT=$((ATTEMPT + 1))
             echo "::notice::Retrying job submission (attempt $((ATTEMPT+1)) of $((MAX_RETRIES+1)))"
             continue
           fi
-          
+
           # provision phase
-          
+
           if [[ "$HAS_PROVISION" != "true" ]]; then
             break
           fi
-        
+
           echo "::group::Tracking $JOB_ID provision phase (attempt $((ATTEMPT+1)))"
           PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase provision 2>/dev/null
           echo "::endgroup::"
-        
+
           echo "::group::Retrieve provision phase exit status"
           PROVISION_STATUS=$(testflinger results $JOB_ID | jq '.provision_status // 1')
           echo "::endgroup::"
-        
+
           if [[ $PROVISION_STATUS -ne 0 ]]; then
             echo "::error::Testflinger provision phase failed (attempt $((ATTEMPT+1)))"
             if [[ $ATTEMPT -ge $MAX_RETRIES ]]; then
               exit $PROVISION_STATUS
             fi
+            testflinger cancel $JOB_ID || true
             ATTEMPT=$((ATTEMPT + 1))
             echo "::notice::Retrying job submission (attempt $((ATTEMPT+1)) of $((MAX_RETRIES+1)))"
             continue
           fi
-        
+
           # provision phase succeeded, exit retry loop
           break
-        
+
         done
 
     - name: Track test phase
