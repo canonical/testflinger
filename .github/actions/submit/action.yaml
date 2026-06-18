@@ -28,8 +28,8 @@ inputs:
   secret-key:
     description: Secret key for jobs requiring authentication
     required: false
-  provision-max-retries:
-    description: Maximum number of times to retry the job when the provision phase fails (0 = no retry)
+  retries:
+    description: Number of times to retry submitting the job if it failed before reaching the test phase (0 = no retry)
     required: false
     default: "0"
 outputs:
@@ -125,7 +125,7 @@ runs:
         JOB: ${{ steps.create-job-file.outputs.job }}
         POLL: ${{ inputs.poll }}
         HAS_PROVISION: ${{ steps.check-phases.outputs.provision }}
-        MAX_RETRIES: ${{ inputs.provision-max-retries }}
+        MAX_RETRIES: ${{ inputs.retries }}
       run: |
         # check that the auth solution has the right number of params defined
         AUTH_ARGS_COUNT=0
@@ -154,7 +154,7 @@ runs:
         
           if [[ "$POLL" != "true" ]]; then
             if [[ "$MAX_RETRIES" -gt 0 ]]; then
-              echo "::warning::provision-max-retries has no effect when poll is false"
+              echo "::warning::retries has no effect when poll is false"
             fi
             break
           fi
@@ -168,9 +168,15 @@ runs:
           echo "::group::Retrieve phase results to determine exit status"
           SETUP_STATUS=$(testflinger results $JOB_ID | jq '.setup_status // 1')
           echo "::endgroup::"
+        
           if [[ $SETUP_STATUS -ne 0 ]]; then
-            echo "::error::Testflinger setup phase failed"
-            exit $SETUP_STATUS
+            echo "::error::Testflinger setup phase failed (attempt $((ATTEMPT+1)))"
+            if [[ $ATTEMPT -ge $MAX_RETRIES ]]; then
+              exit $SETUP_STATUS
+            fi
+            ((++ATTEMPT))
+            echo "::notice::Retrying job submission (attempt $((ATTEMPT+1)) of $((MAX_RETRIES+1)))"
+            continue
           fi
           
           # provision phase
@@ -186,16 +192,20 @@ runs:
           echo "::group::Retrieve phase results to determine exit status"
           PROVISION_STATUS=$(testflinger results $JOB_ID | jq '.provision_status // 1')
           echo "::endgroup::"
-          if [[ $PROVISION_STATUS -eq 0 ]]; then
-            break
+        
+          if [[ $PROVISION_STATUS -ne 0 ]]; then
+            echo "::error::Testflinger provision phase failed (attempt $((ATTEMPT+1)))"
+            if [[ $ATTEMPT -ge $MAX_RETRIES ]]; then
+              exit $PROVISION_STATUS
+            fi
+            ((++ATTEMPT))
+            echo "::notice::Retrying job submission (attempt $((ATTEMPT+1)) of $((MAX_RETRIES+1)))"
+            continue
           fi
         
-          echo "::error::Testflinger provision phase failed (attempt $((ATTEMPT+1)))"
-          if [[ $ATTEMPT -ge $MAX_RETRIES ]]; then
-            exit $PROVISION_STATUS
-          fi
-          ((++ATTEMPT))
-          echo "::notice::Retrying job submission for provision (attempt $((ATTEMPT+1)) of $((MAX_RETRIES+1)))"
+          # provision phase succeeded, exit retry loop
+          break
+        
         done
 
     - name: Track test phase
