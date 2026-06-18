@@ -29,7 +29,7 @@ inputs:
     description: Secret key for jobs requiring authentication
     required: false
   retries:
-    description: Number of times to retry submitting the job if it failed before completing the provision phase (0 = no retry)
+    description: Number of times to retry submitting the job if it failed before reaching the test phase (0 = no retry)
     required: false
     default: "0"
 outputs:

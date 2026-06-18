@@ -42,17 +42,17 @@ If you wish to define your job inline, you can use the following step:
 
 ### Inputs
 
-| Key                                | Description                                                                                                            | Required | Default                     |
-|------------------------------------|------------------------------------------------------------------------------------------------------------------------|----------|-----------------------------|
-| `job`                              | Inline YAML contents of a job file.                                                                                    | [^job]   |                             |
-| `job-path`                         | Path to a job file.                                                                                                    | [^job]   |                             |
-| `poll`[^reserve_data][^poll-multi] | Track submitted job to completion.                                                                                     |          | `false`                     |
-| `dry-run`                          | Don't submit job.                                                                                                      |          | `false`                     |
-| `server`                           | Testflinger server address.                                                                                            |          | `testflinger.canonical.com` |
-| `attachments-relative-to`          | Reference directory for relative attachment paths.                                                                     |          |                             |
-| `client-id`                        | Client ID for jobs requiring authentication.                                                                           | [^auth]  |                             |
-| `secret-key`                       | Secret key for jobs requiring authentication.                                                                          | [^auth]  |                             |
-| `retries`                          | Number of times to retry submitting the job if it failed before completing the provision phase. Requires `poll: true`. |          | `0`                         |
+| Key                                | Description                                                                                                     | Required | Default                     |
+|------------------------------------|-----------------------------------------------------------------------------------------------------------------|----------|-----------------------------|
+| `job`                              | Inline YAML contents of a job file.                                                                             | [^job]   |                             |
+| `job-path`                         | Path to a job file.                                                                                             | [^job]   |                             |
+| `poll`[^reserve_data][^poll-multi] | Track submitted job to completion.                                                                              |          | `false`                     |
+| `dry-run`                          | Don't submit job.                                                                                               |          | `false`                     |
+| `server`                           | Testflinger server address.                                                                                     |          | `testflinger.canonical.com` |
+| `attachments-relative-to`          | Reference directory for relative attachment paths.                                                              |          |                             |
+| `client-id`                        | Client ID for jobs requiring authentication.                                                                    | [^auth]  |                             |
+| `secret-key`                       | Secret key for jobs requiring authentication.                                                                   | [^auth]  |                             |
+| `retries`                          | Number of times to retry submitting the job if it failed before reaching the test phase. Requires `poll: true`. |          | `0`                         |
 
 ### Outputs
 
