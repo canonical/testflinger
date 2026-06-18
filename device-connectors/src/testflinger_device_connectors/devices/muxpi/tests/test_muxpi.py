@@ -26,8 +26,8 @@ from testflinger_device_connectors.devices.muxpi import DeviceConnector
 from testflinger_device_connectors.devices.muxpi.muxpi import MuxPi
 
 
-def test_pre_provision_hook_is_noop(mocker):
-    """Test that muxpi skips the control host power cycle."""
+def test_pre_provision_hook_uses_default_power_cycle(mocker):
+    """Test that muxpi uses the default control host power cycle."""
     mocker.patch("builtins.open", mocker.mock_open())
     mock_power_cycle = mocker.patch.object(DefaultControlHost, "power_cycle")
     device = DeviceConnector(
@@ -40,11 +40,20 @@ def test_pre_provision_hook_is_noop(mocker):
 
     device.pre_provision_hook()
 
-    mock_power_cycle.assert_not_called()
+    mock_power_cycle.assert_called_once()
+
+
+def test_manages_dut_power_during_reboot():
+    """Test muxpi opts in to keeping the DUT off while the control host
+    reboots.
+    """
+    assert DeviceConnector.MANAGE_DUT_POWER_DURING_REBOOT is True
 
 
 def test_check_ce_oem_iot_image(mocker):
     """Test check_ce_oem_iot_image."""
+    mocker.patch("time.sleep")
+
     series = "2404"
     mocker.patch(
         "subprocess.check_output",
@@ -125,6 +134,40 @@ def test_check_test_image_booted_fails(mocker):
     )
     with pytest.raises(ProvisioningError, match="Failed to boot test image!"):
         muxpi.check_test_image_booted()
+
+
+def test_run_control_retries_until_success(mocker):
+    """Test _run_control retries failures before succeeding."""
+    muxpi = MuxPi()
+    muxpi.config = {"control_host": "control-host", "control_user": "ubuntu"}
+    mock_sleep = mocker.patch("time.sleep")
+    mock_check_output = mocker.patch(
+        "subprocess.check_output",
+        side_effect=[subprocess.CalledProcessError(1, "cmd"), b"ok"],
+    )
+
+    out = muxpi._run_control("true")
+
+    assert out == b"ok"
+    assert mock_check_output.call_count == 2
+    mock_sleep.assert_called_once_with(5)
+
+
+def test_run_control_raises_after_retry_timeout(mocker):
+    """Test _run_control raises when retries are exhausted."""
+    muxpi = MuxPi()
+    muxpi.config = {"control_host": "control-host", "control_user": "ubuntu"}
+    mock_sleep = mocker.patch("time.sleep")
+    mock_check_output = mocker.patch(
+        "subprocess.check_output",
+        side_effect=subprocess.CalledProcessError(1, "cmd", output=b"boom"),
+    )
+
+    with pytest.raises(ProvisioningError, match="boom"):
+        muxpi._run_control("true")
+
+    assert mock_check_output.call_count == 13
+    assert mock_sleep.call_count == 12
 
 
 class TestMuxPiProvisionWithZapper:
