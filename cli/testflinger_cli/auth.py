@@ -18,7 +18,6 @@
 
 import configparser
 import contextlib
-import sys
 import time
 import webbrowser
 from functools import cached_property, wraps
@@ -34,6 +33,7 @@ from testflinger_cli.errors import (
     AuthenticationError,
     AuthorizationError,
     InvalidTokenError,
+    OidcError,
 )
 
 
@@ -43,11 +43,9 @@ class TestflingerCliAuth:
     def __init__(
         self,
         tf_client: client.Client,
-        method: str = "credentials",
         client_id: str | None = None,
         secret_key: str | None = None,
     ):
-        self.method = method
         self.client_id: Optional[str] = client_id
         self.secret_key = secret_key
         self.client = tf_client
@@ -75,20 +73,29 @@ class TestflingerCliAuth:
         :raises InvalidTokenError: Refresh token already expired
         :return: string with access token (jwt token)
         """
-        # If OIDC method is selected, initialize OIDC device auth flow
-        if self.method == "oidc":
-            return self._authenticate_with_oidc()
-
-        # Authenticate with credentials if provided in args or env file
+        # 1. Attempt to authenticate with credentials from args or envvars
+        # Higher priority to honor users intent when credentials present
         if self.client_id and self.secret_key:
             return self._authenticate_with_credentials()
 
-        # Authenticate with refresh token if available
+        # 2. Authenticate with refresh token if available
+        # This covers persistent login for both credentials and OIDC logins
         refresh_token = self.get_stored_refresh_token()
+        token_expired: InvalidTokenError | None = None
         if refresh_token:
-            return self._authenticate_with_refresh_token(refresh_token)
+            try:
+                return self._authenticate_with_refresh_token(refresh_token)
+            except InvalidTokenError as exc:
+                token_expired = exc
 
-        return None
+        # 3. Authenticate with OIDC if no credentials or refresh token
+        # This should fail gracefully if OIDC is not enabled on the server
+        access_token = self._authenticate_with_oidc()
+        if not access_token and token_expired:
+            # If neither authentication method worked and refresh token invalid
+            # raise the InvalidTokenError to force reauthentication
+            raise token_expired
+        return access_token
 
     def _authenticate_with_credentials(self) -> str | None:
         """Authenticate using client_id and secret_key."""
@@ -113,7 +120,9 @@ class TestflingerCliAuth:
         except client.HTTPError as exc:
             if exc.status == HTTPStatus.BAD_REQUEST:
                 self.clear_refresh_token()
-                raise InvalidTokenError(exc.msg) from exc
+                raise InvalidTokenError(
+                    "Invalid or expired refresh token."
+                ) from exc
             self._handle_auth_error(exc)
             return None
 
@@ -227,7 +236,13 @@ class TestflingerCliAuth:
         try:
             init_data = self.client.oidc_auth_initiate()
         except client.HTTPError as exc:
-            sys.exit(f"Failed to initiate OIDC login: {exc.msg}")
+            if exc.status == HTTPStatus.NOT_FOUND:
+                # Server does not have OIDC enabled
+                # Need to return None to fail gracefully
+                return None
+            raise OidcError(
+                f"Failed to initiate OIDC login: {exc.msg}"
+            ) from exc
 
         verification_uri = init_data["verification_uri"]
         user_code = init_data["user_code"]
@@ -264,16 +279,20 @@ class TestflingerCliAuth:
                     case "slow_down":
                         interval += int(exc.headers.get("Retry-After", 5))
                     case "access_denied":
-                        sys.exit("Authentication failed: access denied")
+                        raise OidcError(
+                            "Authentication failed: access denied"
+                        ) from exc
                     case "expired_token":
-                        sys.exit("Authentication timed out. Please try again.")
+                        raise OidcError(
+                            "Authentication timed out. Please try again."
+                        ) from exc
                     case _:
-                        sys.exit(
+                        raise OidcError(
                             "Unexpected error during OIDC "
                             f"authentication: {exc.msg}"
-                        )
+                        ) from exc
 
-        sys.exit("Authentication timed out. Please try again.")
+        raise OidcError("Authentication timed out. Please try again.")
 
 
 def require_role(*roles):

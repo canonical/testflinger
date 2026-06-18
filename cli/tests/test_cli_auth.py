@@ -127,6 +127,9 @@ def test_retrieve_regular_user_role(tmp_path, requests_mock):
     job_file.write_text(json.dumps(job_data))
 
     requests_mock.post(f"{URL}/v1/oauth2/token")
+    requests_mock.post(
+        f"{URL}/oidc/auth-init", status_code=HTTPStatus.NOT_FOUND
+    )
     sys.argv = ["", "submit", str(job_file)]
     tfcli = testflinger_cli.TestflingerCli()
     role = tfcli.auth.get_user_role()
@@ -282,6 +285,10 @@ def test_refresh_token_expired(tmp_path, requests_mock, monkeypatch):
         text="Refresh token expired",
         status_code=HTTPStatus.BAD_REQUEST,
     )
+    # OIDC not enabled on this server
+    requests_mock.post(
+        f"{URL}/oidc/auth-init", status_code=HTTPStatus.NOT_FOUND
+    )
     # Mock agents endpoint for available agents
     requests_mock.get(
         f"{URL}/v1/queues/fake/agents",
@@ -294,7 +301,7 @@ def test_refresh_token_expired(tmp_path, requests_mock, monkeypatch):
     assert "Please reauthenticate with server" in str(exc.value)
 
     history = requests_mock.request_history
-    assert len(history) == 2
+    assert len(history) == 3
     assert history[1].path == "/v1/oauth2/refresh"
 
 
@@ -320,7 +327,7 @@ def test_login_with_oidc(mock_open, mock_sleep, oidc_auth_fixture, capsys):
     """Test login with OIDC method."""
     oidc_auth_fixture(oidc_auth_fixture.success_response)
 
-    sys.argv = ["testflinger-cli", "login", "--method", "oidc"]
+    sys.argv = ["testflinger-cli", "login"]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.login()
     std = capsys.readouterr()
@@ -340,7 +347,7 @@ def test_login_initiate_oidc_failure(requests_mock):
         text="OIDC provider unreachable",
     )
 
-    sys.argv = ["testflinger-cli", "login", "--method", "oidc"]
+    sys.argv = ["testflinger-cli", "login"]
     tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as exc:
         tfcli.login()
@@ -382,7 +389,7 @@ def test_login_oidc_poll_terminal_errors(
     """Test OIDC polling exits on RFC 8628 terminal error codes."""
     oidc_auth_fixture(poll_response)
 
-    sys.argv = ["testflinger-cli", "login", "--method", "oidc"]
+    sys.argv = ["testflinger-cli", "login"]
     tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as exc:
         tfcli.login()
@@ -406,7 +413,7 @@ def test_login_oidc_poll_pending_then_success(
         ]
     )
 
-    sys.argv = ["testflinger-cli", "login", "--method", "oidc"]
+    sys.argv = ["testflinger-cli", "login"]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.login()
 
@@ -432,7 +439,7 @@ def test_login_oidc_poll_slow_down(
         ]
     )
 
-    sys.argv = ["testflinger-cli", "login", "--method", "oidc"]
+    sys.argv = ["testflinger-cli", "login"]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.login()
 

@@ -238,6 +238,10 @@ def test_secret_invalid_token_error(requests_mock, subcommand):
         text="Refresh token expired",
         status_code=HTTPStatus.BAD_REQUEST,
     )
+    # OIDC not enabled on this server
+    requests_mock.post(
+        f"{URL}/oidc/auth-init", status_code=HTTPStatus.NOT_FOUND
+    )
 
     if subcommand == "write":
         sys.argv = ["", "secret", "write", "test/path", "test_value"]
