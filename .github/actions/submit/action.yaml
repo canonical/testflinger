@@ -113,7 +113,7 @@ runs:
         done
         echo "::endgroup::"
 
-    - name: Submit job and track until provision (with retry on provision failure)
+    - name: Submit job and track until provision
       id: submit
       if: inputs.dry-run != 'true'
       shell: bash
