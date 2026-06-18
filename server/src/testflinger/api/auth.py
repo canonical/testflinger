@@ -330,13 +330,12 @@ def require_role(*roles):
     return decorator
 
 
-def generate_refresh_token(client_id: str, expires_in: int | None) -> str:
+def generate_refresh_token(client_id: str, expires_in: int) -> str:
     """
     Generate opaque string as a new refresh token.
 
     :param client_id: Client ID associated with this refresh token.
-    :param expires_in: Expiration time in seconds (default 30 days).
-                       Set to None for non-expiring token.
+    :param expires_in: Expiration time in seconds.
 
     :return: Refresh token string.
     """
@@ -346,9 +345,7 @@ def generate_refresh_token(client_id: str, expires_in: int | None) -> str:
         "client_id": client_id,
         "refresh_token": refresh_token,
         "issued_at": now,
-        "expires_at": None
-        if expires_in is None
-        else now + timedelta(seconds=expires_in),
+        "expires_at": now + timedelta(seconds=expires_in),
         "revoked": False,
         "last_accessed": now,
     }
@@ -359,7 +356,7 @@ def generate_refresh_token(client_id: str, expires_in: int | None) -> str:
 def issue_tokens(
     client_id: str,
     allowed_resources: dict,
-    refresh_token_ttl: int | None = DEFAULT_REFRESH_TOKEN_EXPIRATION,
+    refresh_token_ttl: int = DEFAULT_REFRESH_TOKEN_EXPIRATION,
 ) -> dict:
     """Issue Testflinger access and refresh tokens for an authenticated client.
 
@@ -368,20 +365,15 @@ def issue_tokens(
 
     :param client_id: Testflinger client ID for which to issue tokens
     :param allowed_resources: Permissions dict to encode into the JWT
-    :param refresh_token_ttl: Optional expiration time for refresh token
+    :param refresh_token_ttl: Expiration time in seconds for the refresh token
     :return: Dict with access_token, token_type, expires_in, refresh_token
     """
     signing_key = os.environ.get("JWT_SIGNING_KEY")
     access_token = generate_access_token(allowed_resources, signing_key)
 
     role = ServerRoles(allowed_resources.get("role", ServerRoles.CONTRIBUTOR))
-    refresh_expires_in = (
-        None
-        if role in (ServerRoles.ADMIN, ServerRoles.MANAGER)
-        else refresh_token_ttl
-    )
     refresh_token = generate_refresh_token(
-        client_id, expires_in=refresh_expires_in
+        client_id, expires_in=refresh_token_ttl
     )
 
     current_app.owasp_logger.authn_token_created(
