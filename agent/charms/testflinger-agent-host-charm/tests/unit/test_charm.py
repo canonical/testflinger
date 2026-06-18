@@ -7,7 +7,7 @@
 from unittest.mock import patch
 
 import pytest
-from ops import testing
+from ops import MaintenanceStatus, testing
 
 
 def test_blocked_on_no_config_repo(ctx, state_in):
@@ -301,3 +301,33 @@ def test_update_configs_action_blocked_on_missing_config(ctx, state_in):
     state = state_in(config={"config-repo": ""})
     with pytest.raises(testing.errors.UncaughtCharmError):
         ctx.run(ctx.on.action("update-configs"), state=state)
+
+
+@patch("charm.update_charm_scripts")
+@patch("charm.copy_ssh_keys")
+@patch("charm.supervisord.supervisor_update")
+@patch("charm.TestflingerAgentHostCharm.write_supervisor_service_files")
+@patch("charm.supervisord.restart_agents")
+@patch("charm.charm_utils.update_config_files")
+@patch("charm.ops.MaintenanceStatus", wraps=MaintenanceStatus)
+def test_config_changed_does_not_clear_blocked_status(
+    mock_maintenance,
+    mock_update_config,
+    mock_restart,
+    mock_write_supervisor,
+    mock_supervisor_update,
+    mock_copy_ssh,
+    mock_update_scripts,
+    ctx,
+):
+    """Test MaintenanceStatus is not called if already in BlockedStatus."""
+    state = testing.State(
+        config={"config-repo": "some-repo", "config-dir": "agent-configs"},
+        unit_status=testing.BlockedStatus("Invalid credentials secret"),
+    )
+
+    state_out = ctx.run(ctx.on.config_changed(), state=state)
+
+    messages = [call.args[0] for call in mock_maintenance.call_args_list]
+    assert "Handling config_changed hook" not in messages
+    assert isinstance(state_out.unit_status, testing.BlockedStatus)
