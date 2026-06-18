@@ -129,14 +129,20 @@ runs:
       run: |
         # check that the auth solution has the right number of params defined
         AUTH_ARGS_COUNT=0
-        [[ -n $TESTFLINGER_CLIENT_ID ]] && ((++AUTH_ARGS_COUNT))
-        [[ -n $TESTFLINGER_SECRET_KEY ]] && ((++AUTH_ARGS_COUNT))
+        [[ -n $TESTFLINGER_CLIENT_ID ]] && AUTH_ARGS_COUNT=$((AUTH_ARGS_COUNT + 1))
+        [[ -n $TESTFLINGER_SECRET_KEY ]] && AUTH_ARGS_COUNT=$((AUTH_ARGS_COUNT + 1))
         case $AUTH_ARGS_COUNT in
             0) TESTFLINGER_CLIENT_ID=() ;;
             2) echo "Testflinger credentials present." ;;
             1) echo "::error::Both 'client-id' and 'secret-key' must be provided or neither"; exit 1 ;;
         esac
         
+        # validate retries input
+        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]]; then
+          echo "::error::'retries' must be a non-negative integer, got: $MAX_RETRIES"
+          exit 1
+        fi
+
         ATTEMPT=0
         while true; do
         
@@ -165,8 +171,9 @@ runs:
           PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase setup 2>/dev/null
           echo "::endgroup::"
         
-          echo "::group::Retrieve phase results to determine exit status"
-          SETUP_STATUS=$(testflinger results $JOB_ID | jq '.setup_status // 1')
+          echo "::group::Retrieve setup phase exit status"
+          SETUP_STATUS=$(testflinger results $JOB_ID 2>/dev/null | jq '.setup_status // 1') \
+            || { echo "::error::Failed to retrieve setup phase results for $JOB_ID"; exit 1; }
           echo "::endgroup::"
         
           if [[ $SETUP_STATUS -ne 0 ]]; then
@@ -174,7 +181,7 @@ runs:
             if [[ $ATTEMPT -ge $MAX_RETRIES ]]; then
               exit $SETUP_STATUS
             fi
-            ((++ATTEMPT))
+            ATTEMPT=$((ATTEMPT + 1))
             echo "::notice::Retrying job submission (attempt $((ATTEMPT+1)) of $((MAX_RETRIES+1)))"
             continue
           fi
@@ -189,8 +196,9 @@ runs:
           PYTHONUNBUFFERED=1 testflinger poll $JOB_ID --phase provision 2>/dev/null
           echo "::endgroup::"
         
-          echo "::group::Retrieve phase results to determine exit status"
-          PROVISION_STATUS=$(testflinger results $JOB_ID | jq '.provision_status // 1')
+          echo "::group::Retrieve provision phase exit status"
+          PROVISION_STATUS=$(testflinger results $JOB_ID 2>/dev/null | jq '.provision_status // 1') \
+            || { echo "::error::Failed to retrieve provision phase results for $JOB_ID"; exit 1; }
           echo "::endgroup::"
         
           if [[ $PROVISION_STATUS -ne 0 ]]; then
@@ -198,7 +206,7 @@ runs:
             if [[ $ATTEMPT -ge $MAX_RETRIES ]]; then
               exit $PROVISION_STATUS
             fi
-            ((++ATTEMPT))
+            ATTEMPT=$((ATTEMPT + 1))
             echo "::notice::Retrying job submission (attempt $((ATTEMPT+1)) of $((MAX_RETRIES+1)))"
             continue
           fi
