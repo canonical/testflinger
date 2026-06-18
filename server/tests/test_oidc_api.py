@@ -71,7 +71,7 @@ def test_oidc_metadata_current_app(oidc_app):
         # iam_server fixture configuration may have a trailing slash
         assert metadata["issuer"] == app.config["OIDC_PROVIDER_ISSUER"].rstrip(
             "/"
-        )  # noqa: E501
+        )
 
 
 @patch("testflinger.oidc.helpers.requests.post")
