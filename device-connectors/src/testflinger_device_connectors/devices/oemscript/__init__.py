@@ -21,8 +21,8 @@ import yaml
 from testflinger_device_connectors.devices import (
     DefaultDevice,
 )
+from testflinger_device_connectors.devices.control_host import pre_provision
 from testflinger_device_connectors.devices.oemscript.oemscript import OemScript
-from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class DeviceConnector(DefaultDevice):
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
 
-        ZapperConnector.disconnect_usb_stick(config)
+        pre_provision(config)
 
         device = OemScript(args.config, args.job_data)
         logger.info("BEGIN provision")

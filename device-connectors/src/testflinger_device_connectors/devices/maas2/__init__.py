@@ -23,8 +23,8 @@ from testflinger_device_connectors.devices import (
     ProvisioningError,
     SerialLogger,
 )
+from testflinger_device_connectors.devices.control_host import pre_provision
 from testflinger_device_connectors.devices.maas2.maas2 import Maas2
-from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class DeviceConnector(DefaultDevice):
 
         super().provision(args)
 
-        ZapperConnector.disconnect_usb_stick(config)
+        pre_provision(config)
 
         device = Maas2(args.config, args.job_data)
         logger.info("BEGIN provision")

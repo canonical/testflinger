@@ -25,13 +25,13 @@ import yaml
 from testflinger_device_connectors.devices import (
     DefaultDevice,
 )
+from testflinger_device_connectors.devices.control_host import pre_provision
+from testflinger_device_connectors.devices.oem_autoinstall.control_host_oem import (  # noqa: E501
+    ControlHostOem,
+)
 from testflinger_device_connectors.devices.oem_autoinstall.oem_autoinstall import (  # noqa: E501
     OemAutoinstall,
 )
-from testflinger_device_connectors.devices.oem_autoinstall.zapper_oem import (
-    ZapperOem,
-)
-from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
@@ -48,19 +48,23 @@ class DeviceConnector(DefaultDevice):
         provision_data = self.job_data.get("provision_data", {})
         config = self._load_config(args.config)
 
-        uses_zapper_iso = provision_data.get(
-            "zapper_iso_type"
-        ) and provision_data.get("zapper_iso_url")
+        # Generic control_host_* ISO keys, with legacy zapper_* fallback.
+        iso_type = provision_data.get(
+            "control_host_iso_type"
+        ) or provision_data.get("zapper_iso_type")
+        iso_url = provision_data.get(
+            "control_host_iso_url"
+        ) or provision_data.get("zapper_iso_url")
 
-        if not uses_zapper_iso:
-            ZapperConnector.disconnect_usb_stick(config)
+        uses_control_host_iso = iso_type and iso_url
 
-        if provision_data.get("zapper_iso_type") or provision_data.get(
-            "zapper_iso_url"
-        ):
-            logger.info("Init zapper_oem on agent")
-            device_with_zapper = ZapperOem(config)
-            device_with_zapper.provision(args)
+        if not uses_control_host_iso:
+            pre_provision(config)
+
+        if iso_type or iso_url:
+            logger.info("Init control_host_oem on agent")
+            device_with_control_host = ControlHostOem(config)
+            device_with_control_host.provision(args)
             logger.info("Return to oem_autoinstall")
 
         if provision_data.get("url"):
