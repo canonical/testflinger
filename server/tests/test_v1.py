@@ -314,6 +314,29 @@ def test_add_job_oem_autoinstall_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
+def test_add_job_oem_autoinstall_control_host_iso(mongo_app):
+    """OEM autoinstall jobs accept the generic control_host_iso_* keys and
+    the legacy zapper_iso_* spelling.
+    """
+    app, _ = mongo_app
+    # Generic keys accepted
+    provision_data = {
+        "control_host_iso_type": "bootstrap",
+        "control_host_iso_url": "http://example.com/i.iso",
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+    # Legacy keys still accepted
+    provision_data = {
+        "zapper_iso_type": "bootstrap",
+        "zapper_iso_url": "http://example.com/i.iso",
+    }
+    job_data = {"job_queue": "test", "provision_data": provision_data}
+    output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
 def test_add_job_oem_script_provision_data(mongo_app):
     """Test that a job with oem_script provision_data works."""
     # Invalid URL fails
@@ -517,6 +540,35 @@ def test_add_job_zapper_kvm_autoinstall_provision_data(mongo_app):
     job_data = {"job_queue": "test", "provision_data": provision_data}
     app, _ = mongo_app
     output = app.post("/v1/job", json=job_data)
+    assert HTTPStatus.OK == output.status_code
+
+
+def test_add_job_zapper_kvm_generic_provisioning_timeout(mongo_app):
+    """Zapper/control-host jobs accept the generic provisioning_timeout key
+    alongside the legacy zapper_provisioning_timeout.
+    """
+    app, _ = mongo_app
+    base = {
+        "url": "http://example.com/image.img.xz",
+        "robot_tasks": ["task"],
+        "live_image": False,
+        "wait_until_ssh": False,
+    }
+    output = app.post(
+        "/v1/job",
+        json={
+            "job_queue": "test",
+            "provision_data": {**base, "provisioning_timeout": 3600},
+        },
+    )
+    assert HTTPStatus.OK == output.status_code
+    output = app.post(
+        "/v1/job",
+        json={
+            "job_queue": "test",
+            "provision_data": {**base, "zapper_provisioning_timeout": 3600},
+        },
+    )
     assert HTTPStatus.OK == output.status_code
 
 
