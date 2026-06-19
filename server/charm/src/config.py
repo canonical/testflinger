@@ -2,9 +2,13 @@
 # See LICENSE file for licensing details.
 """Charm configuration."""
 
+import base64
+import binascii
 from urllib.parse import urlparse
 
 import pydantic
+
+MONGO_CSFLE_KEY_LENGTH = 96  # bytes
 
 
 class TestflingerServerConfig(pydantic.BaseModel):
@@ -68,6 +72,25 @@ class TestflingerServerConfig(pydantic.BaseModel):
         if not parsed_oidc.netloc:
             raise ValueError("oidc_provider_issuer must include a host")
         return value.rstrip("/")
+
+    @pydantic.field_validator("testflinger_secrets_master_key")
+    @classmethod
+    def validate_csfle_master_key(cls, value):
+        """Validate that the CSFLE master key is valid base64."""
+        if value:
+            try:
+                key_bytes = base64.b64decode(value, validate=True)
+            except (binascii.Error, ValueError) as error:
+                raise ValueError(
+                    "Invalid 'testflinger_secrets_master_key': "
+                    "value is not valid base64"
+                ) from error
+            if len(key_bytes) != MONGO_CSFLE_KEY_LENGTH:
+                raise ValueError(
+                    "Invalid 'testflinger_secrets_master_key': "
+                    f"decoded key must be {MONGO_CSFLE_KEY_LENGTH} bytes long"
+                )
+        return value
 
     @pydantic.model_validator(mode="after")
     def validate_oidc_config(self):
