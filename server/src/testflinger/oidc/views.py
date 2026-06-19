@@ -15,12 +15,12 @@
 #
 """OIDC related views for authenticated application."""
 
+from apiflask import APIBlueprint
 from authlib.integrations.base_client.errors import (
     MismatchingStateError,
     OAuthError,
 )
 from flask import (
-    Blueprint,
     current_app,
     redirect,
     request,
@@ -31,7 +31,7 @@ from flask import (
 from testflinger.database import register_web_client
 from testflinger.owasp import OWASPLogger
 
-oidc_views = Blueprint("oidc", __name__)
+oidc_views = APIBlueprint("oidc", __name__, enable_openapi=False)
 
 
 @oidc_views.route("/callback")
