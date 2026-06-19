@@ -16,12 +16,10 @@
 
 import logging
 import os
-import sys
-import time
 from pathlib import Path
 
-import jubilant
 import pytest
+import pytest_jubilant
 
 logger = logging.getLogger(__name__)
 
@@ -29,46 +27,26 @@ K8S_CONTROLLER = os.getenv("JUJU_K8S_CONTROLLER")
 MACHINE_CONTROLLER = os.getenv("JUJU_MACHINE_CONTROLLER")
 
 
-def collect_juju_logs(
-    request: pytest.FixtureRequest, juju: jubilant.Juju
-) -> None:
-    """Print and dump Juju debug logs on test failure."""
-    if not request.session.testsfailed:
-        return
-    logger.info("Collecting Juju logs from model '%s'", juju.model)
-    time.sleep(0.5)
-    log = juju.debug_log(limit=1000)
-    print(log, end="", file=sys.stderr)
-    if dump_dir := os.getenv("JUJU_DUMP_LOGS_DIR"):
-        log_path = Path(dump_dir)
-        log_path.mkdir(parents=True, exist_ok=True)
-        (log_path / f"{juju.model}.log").write_text(log, encoding="utf-8")
-
-
 @pytest.fixture(scope="module")
-def k8s_juju(request: pytest.FixtureRequest):
-    """Create temporary K8s model for running tests."""
+def k8s_juju(juju_factory: pytest_jubilant.JujuFactory):
+    """Juju instance for a model on the k8s controller."""
     if not K8S_CONTROLLER:
         pytest.fail(
             "JUJU_K8S_CONTROLLER is not set; cannot create a K8s model"
         )
-    with jubilant.temp_model(controller=K8S_CONTROLLER) as juju:
-        juju.wait_timeout = 600
-        yield juju
-        collect_juju_logs(request, juju)
+    yield juju_factory.get_juju(suffix="k8s", controller=K8S_CONTROLLER)
 
 
 @pytest.fixture(scope="module")
-def machine_juju(request: pytest.FixtureRequest):
-    """Create temporary machine model."""
+def machine_juju(juju_factory: pytest_jubilant.JujuFactory):
+    """Juju instance for a model on the machine controller."""
     if not MACHINE_CONTROLLER:
         pytest.fail(
             "JUJU_MACHINE_CONTROLLER is not set; cannot create a machine model"
         )
-    with jubilant.temp_model(controller=MACHINE_CONTROLLER) as juju:
-        juju.wait_timeout = 600
-        yield juju
-        collect_juju_logs(request, juju)
+    yield juju_factory.get_juju(
+        suffix="machine", controller=MACHINE_CONTROLLER
+    )
 
 
 @pytest.fixture(scope="session")

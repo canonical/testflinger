@@ -8,6 +8,12 @@ from testflinger_device_connectors.devices.zapper_iot import DeviceConnector
 class ZapperIoTTests(unittest.TestCase):
     """Test Cases for the Zapper IoT class."""
 
+    def test_manages_dut_power_during_reboot(self):
+        """zapper_iot opts in to keeping the DUT off while the control host
+        reboots, unlike the base connector and other Zapper variants.
+        """
+        self.assertTrue(DeviceConnector.MANAGE_DUT_POWER_DURING_REBOOT)
+
     def test_validate_configuration(self):
         """Test the function creates a proper provision_data
         dictionary when valid data are provided.
@@ -83,7 +89,7 @@ class ZapperIoTTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
-    def test_validate_configuration_provision_plan(self):
+    def test_validate_configuration_provision_plan_without_test_data(self):
         """Test the function validates a custom test plan
         when provided.
         """
@@ -106,6 +112,63 @@ class ZapperIoTTests(unittest.TestCase):
                     ],
                 },
             }
+        }
+
+        args, kwargs = device._validate_configuration()
+
+        expected = {
+            "username": "admin",
+            "password": "admin",
+            "custom_provision_plan": {
+                "config": {
+                    "project_name": "name",
+                    "username": "admin",  # this gets overridden
+                    "password": "admin",
+                    "serial_console": {
+                        "port": "/dev/ttySanity1",
+                        "baud_rate": 115200,
+                    },
+                    "network": "eth0",
+                },
+                "run_stage": [
+                    {"initial_login": {"method": "system-user"}},
+                ],
+            },
+            "urls": [],
+            "preset": None,
+            "preset_kwargs": None,
+        }
+        self.maxDiff = None
+        self.assertEqual(args, ())
+        self.assertDictEqual(expected, kwargs)
+
+    def test_validate_configuration_provision_plan_with_test_data(self):
+        """Test the function validates a custom test plan
+        when provided.
+        """
+        device = DeviceConnector({})
+        device.job_data = {
+            "provision_data": {
+                "provision_plan": {
+                    "config": {
+                        "project_name": "name",
+                        "username": "admin",
+                        "password": "admin",
+                        "serial_console": {
+                            "port": "/dev/ttySanity1",
+                            "baud_rate": 115200,
+                        },
+                        "network": "eth0",
+                    },
+                    "run_stage": [
+                        {"initial_login": {"method": "system-user"}},
+                    ],
+                }
+            },
+            "test_data": {
+                "test_username": "ubuntu",
+                "test_password": "ubuntu",
+            },
         }
 
         args, kwargs = device._validate_configuration()
@@ -363,6 +426,23 @@ class ZapperIoTTests(unittest.TestCase):
         device.job_data = {
             "provision_data": {
                 "ubuntu_sso_email": "test@example.com",
+            }
+        }
+        device._post_run_actions(args=None)
+        mock_copy_ssh_id.assert_not_called()
+
+    @patch.object(DeviceConnector, "_copy_ssh_id")
+    def test_post_run_actions_not_copy_ssh_id_no_agent_ssh_access(
+        self, mock_copy_ssh_id
+    ):
+        """Test the function does not copy the ssh id if
+        agent_ssh_access is false.
+        """
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
+        device = DeviceConnector(fake_config)
+        device.job_data = {
+            "provision_data": {
+                "agent_ssh_access": False,
             }
         }
         device._post_run_actions(args=None)

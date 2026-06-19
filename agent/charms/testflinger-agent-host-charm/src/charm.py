@@ -275,9 +275,11 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
     def on_config_changed(self, _):
         """Handle on config changed event."""
-        self.unit.status = ops.MaintenanceStatus(
-            "Handling config_changed hook"
-        )
+        # Do not clear the status if we are already in a BlockedStatus
+        if not isinstance(self.unit.status, ops.BlockedStatus):
+            self.unit.status = ops.MaintenanceStatus(
+                "Handling config_changed hook"
+            )
         try:
             charm_utils.update_config_files(self.typed_config)
         except (RuntimeError, OSError) as err:

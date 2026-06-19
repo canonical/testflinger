@@ -39,6 +39,14 @@ class MockConnector(ZapperConnector):
         pass
 
 
+def test_does_not_manage_dut_power_during_reboot_by_default():
+    """The base Zapper connector does NOT keep the DUT off while the control
+    host reboots; individual variants (e.g. zapper_iot) opt in explicitly so
+    that variants like zapper_kvm are unaffected.
+    """
+    assert ZapperConnector.MANAGE_DUT_POWER_DURING_REBOOT is False
+
+
 class ZapperConnectorTests(unittest.TestCase):
     """Unit tests for ZapperConnector class."""
 
