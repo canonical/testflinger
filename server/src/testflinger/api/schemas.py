@@ -148,6 +148,9 @@ class OEMAutoinstallProvisionData(Schema):
     user_data = fields.String(required=False)
     redeploy_cfg = fields.String(required=False)
     authorized_keys = fields.String(required=False)
+    control_host_iso_url = fields.String(required=False)
+    control_host_iso_type = fields.String(required=False)
+    # Legacy spellings, accepted until job definitions migrate.
     zapper_iso_url = fields.String(required=False)
     zapper_iso_type = fields.String(required=False)
     update_user_data = fields.Boolean(required=False)
@@ -162,6 +165,8 @@ class OEMScriptProvisionData(Schema):
 class BaseZapperProvisionData(Schema):
     """Shared schema for the `provision_data` of Zapper jobs."""
 
+    provisioning_timeout = fields.Integer(required=False)
+    # Legacy spelling, accepted until job definitions migrate.
     zapper_provisioning_timeout = fields.Integer(required=False)
 
 
