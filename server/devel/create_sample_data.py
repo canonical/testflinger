@@ -126,6 +126,13 @@ class AgentDataGenerator:  # pylint: disable=too-few-public-methods
             yield (f"{self.prefix}{agent_num}", agent_data)
 
 
+SAMPLE_PROVISION_DATA = (
+    {"url": "http://cdimage.example/ubuntu-22.04-arm64.img.xz"},
+    {"url": "http://cdimage.example/ubuntu-24.04-amd64.img.xz"},
+    {"distro": "jammy"},
+)
+
+
 class JobDataGenerator:  # pylint: disable=too-few-public-methods
     """Job data generator"""
 
@@ -149,6 +156,7 @@ class JobDataGenerator:  # pylint: disable=too-few-public-methods
         for _ in range(self.num_jobs):
             yield {
                 "job_queue": random.choice(self.queue_list),
+                "provision_data": random.choice(SAMPLE_PROVISION_DATA),
                 "test_data": {"test_cmds": "echo test"},
             }
 

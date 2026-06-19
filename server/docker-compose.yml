@@ -28,7 +28,12 @@ services:
       OIDC_CLIENT_ID: testflinger-client
       OIDC_CLIENT_SECRET: my-oidc-secret
       OIDC_PROVIDER_ISSUER: http://dex:5556/dex
+      TEMPLATES_AUTO_RELOAD: "true"
     command: --reload
+    # Mount only src/ (leaving the image's .venv intact) so local edits are
+    # live: gunicorn --reload restarts on .py changes, templates/static reload.
+    volumes:
+      - ./src:/srv/testflinger/src
     ports:
       - 5000:5000
     depends_on:
