@@ -53,6 +53,9 @@ DEVICE_CONNECTORS = (
     "noprovision",
     "oemrecovery",
     "oemscript",
+    "control_host_iot",
+    "control_host_kvm",
+    # Deprecated aliases kept as shim modules until agent configs migrate.
     "zapper_iot",
     "zapper_kvm",
 )
