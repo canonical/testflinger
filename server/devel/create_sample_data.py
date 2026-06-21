@@ -63,15 +63,7 @@ def get_args() -> Namespace:
         "--queues",
         type=int,
         default=10,
-        help="Number of queues to distribute amongst jobs and agents",
-    )
-
-    parser.add_argument(
-        "-d",
-        "--advertised-queues",
-        type=int,
-        default=1,
-        help="Number of advertised queues to create",
+        help="Number of queues to create",
     )
 
     parser.add_argument(
@@ -120,9 +112,7 @@ class AgentDataGenerator:  # pylint: disable=too-few-public-methods
                 "state": random.choice(("waiting", "test", "provision")),
             }
             if self.queue_list:
-                agent_data["queues"] = random.sample(
-                    self.queue_list, random.randint(1, len(self.queue_list))
-                )
+                agent_data["queues"] = [random.choice(self.queue_list)]
             yield (f"{self.prefix}{agent_num}", agent_data)
 
 
@@ -251,10 +241,7 @@ def main():
     testflinger_client = TestflingerClient(server_url=args.server)
 
     queues = QueueDataGenerator(num_queues=args.queues)
-    # configure "advertised" queues:
-    testflinger_client.post_queue_data(
-        random.sample(tuple(queues), random.randint(1, args.advertised_queues))
-    )
+    testflinger_client.post_queue_data(queues=queues)
     logging.info("Created %s queues", args.queues)
 
     valid_queue_names = extract_queue_names(queues=queues)
