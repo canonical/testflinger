@@ -163,7 +163,7 @@ When the refresh token is not accepted:
         Server->>Server: Token expired or rejected
         Server-->>CLI: 401 Unauthorized, delete stored token
         CLI->>CLI: Delete stored token
-        CLI-->>User: Authentication faile
+        CLI-->>User: Authentication failed
     
 When the refresh token is not available:
 ........................................

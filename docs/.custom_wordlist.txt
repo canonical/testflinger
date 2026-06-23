@@ -1,4 +1,5 @@
 autoinstall
+args
 dragonboard
 fragment_number
 Lenovo
@@ -13,6 +14,7 @@ preloaded
 Queryable
 rclone
 SDWire
+sequenceDiagram
 stderr
 supervisorctl
 Tegra
