@@ -74,16 +74,16 @@ class TestOemScript(unittest.TestCase):
         """Test the device is rebooted when it is reachable up front."""
         device = OemScript(self.config_file.name, self.job_file.name)
 
-        with patch.object(
-            device, "copy_ssh_id"
-        ) as mock_copy_ssh_id, patch.object(
-            device, "run_on_control_host"
-        ) as mock_run_on_control_host, patch.object(
-            device, "check_device_booted"
-        ) as mock_check_device_booted, patch.object(
-            device, "hardreset"
-        ) as mock_hardreset, patch.object(
-            device, "run_recovery_script"
+        with (
+            patch.object(device, "copy_ssh_id") as mock_copy_ssh_id,
+            patch.object(
+                device, "run_on_control_host"
+            ) as mock_run_on_control_host,
+            patch.object(
+                device, "check_device_booted"
+            ) as mock_check_device_booted,
+            patch.object(device, "hardreset") as mock_hardreset,
+            patch.object(device, "run_recovery_script"),
         ):
             device.provision()
 
@@ -99,18 +99,18 @@ class TestOemScript(unittest.TestCase):
         """Test the device is hardreset when it is not reachable up front."""
         device = OemScript(self.config_file.name, self.job_file.name)
 
-        with patch.object(
-            device,
-            "copy_ssh_id",
-            side_effect=subprocess.CalledProcessError(1, "ssh-copy-id"),
-        ), patch.object(
-            device, "run_on_control_host"
-        ) as mock_run_on_control_host, patch.object(
-            device, "check_device_booted"
-        ), patch.object(
-            device, "hardreset"
-        ) as mock_hardreset, patch.object(
-            device, "run_recovery_script"
+        with (
+            patch.object(
+                device,
+                "copy_ssh_id",
+                side_effect=subprocess.CalledProcessError(1, "ssh-copy-id"),
+            ),
+            patch.object(
+                device, "run_on_control_host"
+            ) as mock_run_on_control_host,
+            patch.object(device, "check_device_booted"),
+            patch.object(device, "hardreset") as mock_hardreset,
+            patch.object(device, "run_recovery_script"),
         ):
             device.provision()
 
