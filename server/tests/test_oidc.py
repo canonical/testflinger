@@ -85,12 +85,12 @@ def test_first_login_registers_new_client(mock_current_app, oidc_app, user):
         assert response.status_code == HTTPStatus.FOUND
         assert response.location == url_for("testflinger.home")
 
-    # Validate new user was added
-    web_client = mongo.web_clients.find_one(
-        {"openid_sub": mock_token["userinfo"]["sub"]}
+    # Validate new user was added to client_permissions (keyed by sub)
+    client_record = mongo.client_permissions.find_one(
+        {"sub": mock_token["userinfo"]["sub"]}
     )
-    assert web_client["name"] == mock_token["userinfo"]["name"]
-    assert web_client["email"] == mock_token["userinfo"]["email"]
+    assert client_record["name"] == mock_token["userinfo"]["name"]
+    assert client_record["client_id"] == mock_token["userinfo"]["email"]
 
 
 @patch("testflinger.oidc.views.current_app", new_callable=Mock)
@@ -103,8 +103,8 @@ def test_client_refresh_login_if_exists(mock_current_app, oidc_app, user):
     )
 
     client_entry = {
-        "openid_sub": "1234",
-        "email": user.emails[0],
+        "client_id": user.emails[0],
+        "sub": "1234",
         "name": user.user_name,
         "created_at": created_time,
         "last_login": last_login_time,
@@ -122,11 +122,11 @@ def test_client_refresh_login_if_exists(mock_current_app, oidc_app, user):
     }
 
     # Insert record directly into database
-    mongo.web_clients.insert_one(client_entry)
+    mongo.client_permissions.insert_one(client_entry)
 
     # Get the stored record for later comparison
-    client_record = mongo.web_clients.find_one(
-        {"openid_sub": mock_token["userinfo"]["sub"]}
+    client_record = mongo.client_permissions.find_one(
+        {"client_id": user.emails[0]}
     )
 
     # Mock authentication token return value
@@ -142,12 +142,12 @@ def test_client_refresh_login_if_exists(mock_current_app, oidc_app, user):
         assert response.status_code == HTTPStatus.FOUND
         assert response.location == url_for("testflinger.home")
 
-    web_client = mongo.web_clients.find_one(
-        {"openid_sub": mock_token["userinfo"]["sub"]}
+    web_client = mongo.client_permissions.find_one(
+        {"client_id": user.emails[0]}
     )
 
     # Validate client remains the same and only last_login was updated
-    assert mongo.web_clients.count_documents({}) == 1
+    assert mongo.client_permissions.count_documents({}) == 1
     assert web_client["created_at"] == client_record["created_at"]
     # Check that last_login was updated
     assert (

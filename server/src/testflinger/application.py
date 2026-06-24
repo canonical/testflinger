@@ -28,6 +28,7 @@ from testflinger.api.v1 import LogTypeConverter, v1
 from testflinger.database import setup_mongodb
 from testflinger.extensions import metrics
 from testflinger.oidc import app_register_oidc
+from testflinger.oidc.api import oidc_api
 from testflinger.oidc.views import oidc_views
 from testflinger.owasp import OWASPLogger
 from testflinger.providers import ISODatetimeProvider
@@ -119,5 +120,6 @@ def create_flask_app(config=None, secrets_store=None):
     tf_app.register_blueprint(v1, url_prefix="/v1")
     if tf_app.oauth:
         tf_app.register_blueprint(oidc_views, url_prefix="/auth")
+        tf_app.register_blueprint(oidc_api, url_prefix="/oidc")
 
     return tf_app

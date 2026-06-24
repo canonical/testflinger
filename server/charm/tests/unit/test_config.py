@@ -89,14 +89,6 @@ def test_invalid_oidc_configuration():
             web_secret_key="web-secret-key",  # noqa: S106
         )
 
-    # Missing oidc_client_secret
-    with pytest.raises(ValueError):
-        TestflingerServerConfig(
-            oidc_client_id="client-id",
-            oidc_provider_issuer="https://oidc-provider.local",
-            web_secret_key="web-secret-key",  # noqa: S106
-        )
-
     # Missing oidc_client_id
     with pytest.raises(ValueError):
         TestflingerServerConfig(

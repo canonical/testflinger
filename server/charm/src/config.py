@@ -94,15 +94,15 @@ class TestflingerServerConfig(pydantic.BaseModel):
 
     @pydantic.model_validator(mode="after")
     def validate_oidc_config(self):
-        """Validate that all OIDC parameters are set if any are configured."""
-        oidc_params = [
+        """Validate required OIDC parameters are set if any are configured."""
+        required_oidc_params = [
             self.oidc_client_id,
-            self.oidc_client_secret,
             self.oidc_provider_issuer,
             self.web_secret_key,
         ]
-        if any(oidc_params) and not all(oidc_params):
+        if any(required_oidc_params) and not all(required_oidc_params):
             raise ValueError(
-                "All OIDC parameters must be set if any are configured"
+                "oidc_client_id, oidc_provider_issuer, and web_secret_key"
+                " must all be set if any OIDC configuration is provided"
             )
         return self

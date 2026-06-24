@@ -116,6 +116,7 @@ def oidc_app(oidc_client, mongo_app, iam_server, monkeypatch):
     monkeypatch.setenv("OIDC_CLIENT_SECRET", oidc_client.client_secret)
     monkeypatch.setenv("OIDC_PROVIDER_ISSUER", iam_server.url)
     monkeypatch.setenv("WEB_SECRET_KEY", "my_web_secret_key")
+    monkeypatch.setenv("JWT_SIGNING_KEY", "my_secret_key")
 
     # Create Flask app with OIDC provider
     oidc_app = application.create_flask_app(TestingConfig)

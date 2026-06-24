@@ -160,7 +160,7 @@ class TestflingerCli:
             )
         self.client = client.Client(server, error_threshold=error_threshold)
         self.auth = TestflingerCliAuth(
-            self.client_id, self.secret_key, self.client
+            self.client, self.client_id, self.secret_key
         )
 
     def run(self):
@@ -186,6 +186,7 @@ class TestflingerCli:
         parser.add_argument(
             "--server", default=None, help="Testflinger server to use"
         )
+        parser.set_defaults(client_id=None, secret_key=None)
         subparsers = parser.add_subparsers()
         self.admin_cli = TestflingerAdminCLI(subparsers, self)
         self._add_artifacts_args(subparsers)
@@ -212,6 +213,12 @@ class TestflingerCli:
         except SnapPrivateFileError as exc:
             parser.error(exc)
         self.help = parser.format_help()
+
+        # Early validation of credentials
+        if bool(self.args.client_id) != bool(self.args.secret_key):
+            parser.error(
+                "Both --client-id and --secret-key must be provided together"
+            )
 
     def _add_auth_args(self, parser):
         parser.add_argument(
@@ -1859,9 +1866,9 @@ class TestflingerCli:
         # Clear refresh token if user is attempting reauthentication
         self.auth.clear_refresh_token()
         try:
-            # Since refresh token was cleared, credentials are always needed
+            # Since refresh token was cleared, we need to re-authenticate
             if self.auth.authenticate():
-                print(f"Successfully authenticated as user '{self.client_id}'")
+                print(f"Successfully authenticated as '{self.auth.client_id}'")
             else:
                 # authenticate can return None if no credentials were provided
                 sys.exit("Please provide credentials and reattempt login")
