@@ -88,20 +88,20 @@ When the refresh token is not accepted:
         participant CLI as testflinger-cli
         participant Server as testflinger-server
 
-        Note over User,Server: Neither client-id nor secret-key, token rejected, server uses OIDC
+        Note over User,OIDC: Neither client-id nor secret-key, token rejected, server uses OIDC
         User->>CLI: Run command without client-id + secret-key
         CLI->>CLI: Load stored refresh/bearer token
         CLI->>Server: Request with Bearer refresh token
         Server->>Server: Token expired or rejected
-        Server-->>Server: Initiate OIDC auth flow
-        Server-->>Server: Auth code
+        Server-->>OIDC: Initiate OIDC auth flow
+        OIDC-->>Server: Auth code
         Server->>CLI: 401 Unauthorized, try this instead: Auth code
         CLI->>CLI: Delete stored token
         CLI->>User: Display URL and code
-        User->>Server: Complete the handshake
+        User->>OIDC: Complete the handshake
         CLI->>Server: Poll for auth completion
-        Server-->>Server: Is this user cool?
-        Server-->>Server: Yes + user identity (email)
+        Server-->>OIDC: Is this user cool?
+        OIDC-->>Server: Yes + user identity (email)
         Server->>CLI: Issue refresh token
         User-->>CLI: Potential user re-issue of command?
         CLI->>Server: Retry request with new Bearer token
@@ -121,18 +121,18 @@ When the refresh token is not available:
         participant CLI as testflinger-cli
         participant Server as testflinger-server
 
-        Note over User,Server: Neither client-id nor secret-key, no token, server uses OIDC
+        Note over User,OIDC: Neither client-id nor secret-key, no token, server uses OIDC
         User->>CLI: Run command without credentials or token
         CLI->>CLI: No stored bearer/refresh token found
         CLI->>Server: Request without Authorization header
-        Server-->>Server: Initiate OIDC auth flow
-        Server-->>Server: Auth code
+        Server-->>OIDC: Initiate OIDC auth flow
+        OIDC-->>Server: Auth code
         Server->>CLI: 401 Unauthorized, try this instead: Auth code
         CLI->>User: Display URL and code
-        User->>Server: Complete the handshake
+        User->>OIDC: Complete the handshake
         CLI->>Server: Poll for auth completion
-        Server-->>Server: Is this user cool?
-        Server-->>Server: Yes + user identity (email)
+        Server-->>OIDC: Is this user cool?
+        OIDC-->>Server: Yes + user identity (email)
         Server->>CLI: Issue refresh token
         User-->>CLI: Potential user re-issue of command?
         CLI->>Server: Retry request with new Bearer token
@@ -163,7 +163,7 @@ When the refresh token is not accepted:
         Server->>Server: Token expired or rejected
         Server-->>CLI: 401 Unauthorized, delete stored token
         CLI->>CLI: Delete stored token
-        CLI-->>User: Authentication failed
+        CLI-->>User: Authentication faile
     
 When the refresh token is not available:
 ........................................
