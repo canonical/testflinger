@@ -26,8 +26,8 @@ services:
       # TESTFLINGER_VAULT_URL: http://vault:8200
       WEB_SECRET_KEY: my_web_secret_key
       OIDC_CLIENT_ID: testflinger-client
-      OIDC_CLIENT_SECRET: my-oidc-secret
-      OIDC_PROVIDER_ISSUER: http://dex:5556/dex
+      OIDC_CLIENT_SECRET: ""
+      OIDC_PROVIDER_ISSUER: http://dex:5556
     command: --reload
     ports:
       - 5000:5000
