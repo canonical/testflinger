@@ -91,8 +91,8 @@ OIDC is enabled on the server:
 
         Note over User,Server: Neither client-id nor secret-key, refresh token accepted
         User->>CLI: Run command without client-id + secret-key
-        CLI->>CLI: Load stored refresh/bearer token
-        CLI->>Server: Request with Bearer refresh token
+        CLI->>CLI: Load stored refresh token
+        CLI->>Server: Request with refresh token
         Server->>Server: Validate token
         Server-->>CLI: 200 OK / return access and refresh tokens
         CLI-->>Server: use access token to complete the request
@@ -137,8 +137,8 @@ initiates an OIDC authentication flow:
         CLI->>Server: Poll for auth completion
         Server-->>OIDC: Is this user cool?
         OIDC-->>Server: Yes + user identity (email)
-        Server->>CLI: Issue refresh token
-        CLI->>Server: Retry request with new Bearer token
+        Server->>CLI: Issue refresh and access token
+        CLI->>Server: Send request with access token
         Server->>Server: Validate client permissions
         Server-->>CLI: 200 OK / authenticated response
         CLI-->>User: Show result
