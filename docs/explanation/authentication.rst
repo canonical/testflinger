@@ -3,32 +3,27 @@
 Authentication and Authorisation
 ================================
 
-Authentication requires a client_id and a secret_key. These credentials can be
-obtained by contacting the server administrator with the queues you want priority
-access for, the maximum priority level to set for each queue, and any restricted
-queues that you need access to.
+Testflinger can be configured to use OpenID Connect (OIDC) for authentication.
+Depending on whether the server is configured to use OIDC, the authentication flow will differ.
 
-These credentials can be :doc:`set using the Testflinger CLI <../how-to/authentication>`. 
+The following is the simplified priority order of authentication methods:
 
-Additionally, you can also login to the server by running the following command:
+1. Basic Auth using ``client_id`` and ``secret_key``
+2. Bearer token using a refresh token
+3. OIDC flow if enabled on the server
 
-.. code-block:: shell
+Authentication Flows
+--------------------
 
-    testflinger-cli login --client_id "my_client_id" --secret_key "my_secret_key"
+The following sequence diagrams show the authentication flow for each of the
+authentication methods and the interactions between the user, the CLI and the
+server.
 
-Upon successful login, credentials will be cached and stored in a snap only available location. 
-This allow ``testflinger-cli`` to authenticate automatically without the need to provide credentials
-until the cached credentials expire. 
+Basic Auth
+~~~~~~~~~~
 
-.. tip::
-    You can also run ``testflinger-cli login`` without command line arguments if your credentials
-    are located in a ``.env`` file as mentioned in :doc:`Authentication using Testflinger CLI <../how-to/authentication>`
-
-Authorization Flows Based on Configuration and Provided Auth Parameters
-=======================================================================
-
-When the client_id and secret_key are provided:
------------------------------------------------
+Regardless of whether OIDC is enabled or not, Basic Auth will be used if both the
+``client_id`` and ``secret_key`` are provided.
 
 .. mermaid::
     :alt: Sequence diagram showing BASIC Auth is used when client_id and secret_key are provided
@@ -45,14 +40,40 @@ When the client_id and secret_key are provided:
         CLI->>CLI: Validate both parameters are present
         CLI->>Server: Request with Basic Auth<br/>base64(client-id:secret-key)
         Server->>Server: Validate client credentials
-        Server-->>CLI: 200 OK / authorized response
+        Server-->>CLI: 200 OK / return access and refresh tokens
+        CLI-->>Server: use access token to complete the request
+        Server->>Server: Validate client permissions
+        Server-->>CLI: 200 OK / authenticated response
         CLI-->>User: Show result
 
-When the client_id and secret_key are NOT provided:
----------------------------------------------------
+Since ``client_id`` and ``secret_key`` are given explicit priority, if one of
+them is missing, the request will not be sent to the server and the user will
+be prompted to provide both parameters.
 
-When a refresh token is available:
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. mermaid::
+    :alt: The CLI will reject the call as an invalid combination, nothing will be sent to the server
+    :caption: The CLI will reject the call as an invalid combination, nothing will be sent to the server
+    :align: center
+
+    sequenceDiagram
+        actor User
+        participant CLI as testflinger-cli
+
+        Note over User,CLI: One of client-id or secret-key is missing
+        User->>CLI: Run command with wrong number of credential arguments
+        CLI-->>User: Show usage
+
+
+Refresh Token
+~~~~~~~~~~~~~
+
+If client credentials are not provided, the CLI will attempt to use a refresh
+token if one is available. The refresh token is stored in a snap-local cache and is
+used to obtain a new access token for the user. The refresh token is valid for 6 days,
+after which it will expire and the user will need to re-authenticate.
+
+When a valid refresh token is present, this flow applies regardless of whether
+OIDC is enabled on the server:
 
 .. mermaid::
     :alt: Sequence diagram showing a refresh token being used and accepted
@@ -69,14 +90,23 @@ When a refresh token is available:
         CLI->>CLI: Load stored refresh/bearer token
         CLI->>Server: Request with Bearer refresh token
         Server->>Server: Validate token
-        Server-->>CLI: 200 OK / authenticated as token-associated user
+        Server-->>CLI: 200 OK / return access and refresh tokens
+        CLI-->>Server: use access token to complete the request
+        Server->>Server: Validate client permissions
+        Server-->>CLI: 200 OK / authenticated response
         CLI-->>User: Show result
-    
-When OIDC is enabled:
-^^^^^^^^^^^^^^^^^^^^^
 
-When the refresh token is not accepted:
-.......................................
+Token expired or rejected
+.........................
+
+When the refresh token is rejected, the behavior differs depending on whether
+the server has OIDC enabled.
+
+With OIDC Enabled
+'''''''''''''''''''
+
+If the server has OIDC enabled and the refresh token is rejected, the server
+initiates an OIDC authentication flow:
 
 .. mermaid::
     :alt: Sequence diagram showing a refresh token being rejected and the server initiating OIDC process
@@ -87,6 +117,7 @@ When the refresh token is not accepted:
         actor User
         participant CLI as testflinger-cli
         participant Server as testflinger-server
+        participant OIDC as OIDC provider
 
         Note over User,OIDC: Neither client-id nor secret-key, token rejected, server uses OIDC
         User->>CLI: Run command without client-id + secret-key
@@ -103,48 +134,16 @@ When the refresh token is not accepted:
         Server-->>OIDC: Is this user cool?
         OIDC-->>Server: Yes + user identity (email)
         Server->>CLI: Issue refresh token
-        User-->>CLI: Potential user re-issue of command?
         CLI->>Server: Retry request with new Bearer token
         Server-->>CLI: 200 OK / authenticated response
-        CLI-->>User: Show result
-   
-When the refresh token is not available:
-........................................
-
-.. mermaid::
-    :alt: Sequence diagram showing a refresh token being used and accepted
-    :caption: Sequence diagram showing a refresh token being used and accepted
-    :align: center
-
-    sequenceDiagram
-        actor User
-        participant CLI as testflinger-cli
-        participant Server as testflinger-server
-
-        Note over User,OIDC: Neither client-id nor secret-key, no token, server uses OIDC
-        User->>CLI: Run command without credentials or token
-        CLI->>CLI: No stored bearer/refresh token found
-        CLI->>Server: Request without Authorization header
-        Server-->>OIDC: Initiate OIDC auth flow
-        OIDC-->>Server: Auth code
-        Server->>CLI: 401 Unauthorized, try this instead: Auth code
-        CLI->>User: Display URL and code
-        User->>OIDC: Complete the handshake
-        CLI->>Server: Poll for auth completion
-        Server-->>OIDC: Is this user cool?
-        OIDC-->>Server: Yes + user identity (email)
-        Server->>CLI: Issue refresh token
-        User-->>CLI: Potential user re-issue of command?
-        CLI->>Server: Retry request with new Bearer token
-        Server-->>CLI: 200 OK / authenticated response
+        Server->>Server: Validate client permissions
         CLI-->>User: Show result
 
+Without OIDC
+''''''''''''
 
-When OIDC is NOT enabled:
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-When the refresh token is not accepted:
-.......................................
+If the server does not have OIDC enabled and the refresh token is rejected,
+the server returns a 401 and the CLI removes the stored token:
 
 .. mermaid::
     :alt: Sequence diagram showing a refresh token being rejected and the user being denied access
@@ -163,10 +162,47 @@ When the refresh token is not accepted:
         Server->>Server: Token expired or rejected
         Server-->>CLI: 401 Unauthorized, delete stored token
         CLI->>CLI: Delete stored token
-        CLI-->>User: Authentication faile
-    
-When the refresh token is not available:
-........................................
+        CLI-->>User: Authentication failed
+
+No credentials or stored token
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When neither credentials nor a stored token are available, the behavior
+depends on whether the server has OIDC enabled.
+
+If the server has OIDC enabled, it initiates an OIDC authentication flow:
+
+.. mermaid::
+    :alt: Sequence diagram showing no stored token with OIDC enabled, triggering the OIDC flow
+    :caption: Sequence diagram showing no stored token with OIDC enabled, triggering the OIDC flow
+    :align: center
+
+    sequenceDiagram
+        actor User
+        participant CLI as testflinger-cli
+        participant Server as testflinger-server
+        participant OIDC as OIDC provider
+
+        Note over User,OIDC: Neither client-id nor secret-key, no token, server uses OIDC
+        User->>CLI: Run command without credentials or token
+        CLI->>CLI: No stored bearer/refresh token found
+        CLI->>Server: Request without Authorization header
+        Server-->>OIDC: Initiate OIDC auth flow
+        OIDC-->>Server: Auth code
+        Server->>CLI: 401 Unauthorized, try this instead: Auth code
+        CLI->>User: Display URL and code
+        User->>OIDC: Complete the handshake
+        CLI->>Server: Poll for auth completion
+        Server-->>OIDC: Is this user cool?
+        OIDC-->>Server: Yes + user identity (email)
+        Server->>CLI: Issue refresh token
+        CLI->>Server: Retry request with new Bearer token
+        Server-->>CLI: 200 OK / authenticated response
+        Server->>Server: Validate client permissions
+        CLI-->>User: Show result
+
+If the server does not require authentication, the request is allowed through
+as an anonymous user:
 
 .. mermaid::
     :alt: Sequence diagram showing no auth for anonymous login
@@ -185,19 +221,3 @@ When the refresh token is not available:
         Server->>Server: Auth not required
         Server-->>CLI: 200 OK / anonymous user response
         CLI-->>User: Show result
-
-When only one of the client_id or secret_key are provided:
-..........................................................
-
-.. mermaid::
-    :alt: The CLI will reject the call as an invalid combination, nothing will be sent to the server
-    :caption: The CLI will reject the call as an invalid combination, nothing will be sent to the server
-    :align: center
-
-    sequenceDiagram
-        actor User
-        participant CLI as testflinger-cli
-
-        Note over User,CLI: One of client-id or secret-key
-        User->>CLI: Run command with wrong number of credential args
-        CLI-->>User: Show usage
