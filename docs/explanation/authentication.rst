@@ -3,6 +3,9 @@
 Authentication and Authorisation
 ================================
 
+Authentication
+--------------
+
 Testflinger can be configured to use OpenID Connect (OIDC) for authentication.
 Depending on whether the server is configured to use OIDC, the authentication flow will differ.
 
@@ -13,14 +16,15 @@ The following is the simplified priority order of authentication methods:
 3. OIDC flow if enabled on the server
 
 Authentication Flows
---------------------
+~~~~~~~~~~~~~~~~~~~~
 
 The following sequence diagrams show the authentication flow for each of the
 authentication methods and the interactions between the user, the CLI and the
 server.
 
 Basic Auth
-~~~~~~~~~~
+^^^^^^^^^^
+
 
 Regardless of whether OIDC is enabled or not, Basic Auth will be used if both the
 ``client_id`` and ``secret_key`` are provided.
@@ -65,7 +69,7 @@ be prompted to provide both parameters.
 
 
 Refresh Token
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 If client credentials are not provided, the CLI will attempt to use a refresh
 token if one is available. The refresh token is stored in a snap-local cache and is
@@ -103,7 +107,7 @@ When the refresh token is rejected, the behavior differs depending on whether
 the server has OIDC enabled.
 
 With OIDC Enabled
-'''''''''''''''''''
+'''''''''''''''''
 
 If the server has OIDC enabled and the refresh token is rejected, the server
 initiates an OIDC authentication flow:
@@ -126,7 +130,7 @@ initiates an OIDC authentication flow:
         Server->>Server: Token expired or rejected
         Server-->>OIDC: Initiate OIDC auth flow
         OIDC-->>Server: Auth code
-        Server->>CLI: 401 Unauthorized, try this instead: Auth code
+        Server->>CLI: 401 Unauthorized, try this instead: user code + URL for OIDC handshake
         CLI->>CLI: Delete stored token
         CLI->>User: Display URL and code
         User->>OIDC: Complete the handshake
@@ -135,8 +139,8 @@ initiates an OIDC authentication flow:
         OIDC-->>Server: Yes + user identity (email)
         Server->>CLI: Issue refresh token
         CLI->>Server: Retry request with new Bearer token
-        Server-->>CLI: 200 OK / authenticated response
         Server->>Server: Validate client permissions
+        Server-->>CLI: 200 OK / authenticated response
         CLI-->>User: Show result
 
 Without OIDC
@@ -189,7 +193,7 @@ If the server has OIDC enabled, it initiates an OIDC authentication flow:
         CLI->>Server: Request without Authorization header
         Server-->>OIDC: Initiate OIDC auth flow
         OIDC-->>Server: Auth code
-        Server->>CLI: 401 Unauthorized, try this instead: Auth code
+        Server->>CLI: Return user code and URL for OIDC handshake
         CLI->>User: Display URL and code
         User->>OIDC: Complete the handshake
         CLI->>Server: Poll for auth completion
@@ -197,8 +201,8 @@ If the server has OIDC enabled, it initiates an OIDC authentication flow:
         OIDC-->>Server: Yes + user identity (email)
         Server->>CLI: Issue refresh token
         CLI->>Server: Retry request with new Bearer token
-        Server-->>CLI: 200 OK / authenticated response
         Server->>Server: Validate client permissions
+        Server-->>CLI: 200 OK / authenticated response
         CLI-->>User: Show result
 
 If the server does not require authentication, the request is allowed through
@@ -221,3 +225,56 @@ as an anonymous user:
         Server->>Server: Auth not required
         Server-->>CLI: 200 OK / anonymous user response
         CLI-->>User: Show result
+
+Authorisation
+-------------
+
+Once a client is authenticated, the server checks what actions that client is
+allowed to perform. Authorisation is enforced on every request via the
+permissions encoded in the client's access token.
+
+Roles
+~~~~~
+
+Every authenticated client is assigned one of the following roles. Roles are
+hierarchical: higher roles include all capabilities of lower ones.
+
+.. list-table::
+    :header-rows: 1
+    :widths: 15 85
+
+    * - Role
+      - Capabilities
+    * - ``admin``
+      - Full access. Can manage all client permissions, revoke tokens,
+        and administer restricted queues.
+    * - ``manager``
+      - Can read and write client permissions and manage restricted queues,
+        but cannot delete clients or revoke tokens.
+    * - ``contributor``
+      - Can submit jobs with elevated priority, access restricted queues, and
+        have extended reservation timeouts.
+    * - ``agent``
+      - Can fetch jobs from queues to execute. Only assigned to testflinger agents.
+
+Job Submission Permissions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In addition to role-based access, per-client permissions can restrict job
+submission further:
+
+- :doc:`Restricted queues <restricted-queues>` — certain queues require explicit access. A client
+  must be listed as an owner of a restricted queue before it can submit jobs
+  to it.
+
+- :doc:`Priority <job-priority>` — jobs can be submitted with a priority value to influence
+  scheduling order. Each client has a ``max_priority`` limit per queue. 
+
+- :doc:`Extended reservation <extended-reservation>` — authenticated users can reserve a device
+  beyond the default 6-hour limit if permission is granted to specific queues.
+
+.. note::
+
+    Permissions and the role assigned to a client are managed by the server
+    administrator. To request access, contact the administrator with the role
+    you require and, if applicable, the additional permissions you need.
