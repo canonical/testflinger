@@ -22,9 +22,14 @@ The following sequence diagrams show the authentication flow for each of the
 authentication methods and the interactions between the user, the CLI and the
 server.
 
+.. note::
+
+    For simplicity, all of the diagrams are targetting the ``/v1/jobs`` endpoint
+    on Testflinger server side but the same flow applies to any other endpoint
+    that requires authentication.
+
 Basic Auth
 ^^^^^^^^^^
-
 
 Regardless of whether OIDC is enabled or not, Basic Auth will be used if both the
 ``client_id`` and ``secret_key`` are provided.
@@ -43,10 +48,12 @@ Regardless of whether OIDC is enabled or not, Basic Auth will be used if both th
         User->>CLI: Run command with client-id + secret-key
         CLI->>CLI: Validate both parameters are present
         CLI->>Server: Request with Basic Auth<br/>base64(client-id:secret-key)
+        Note over CLI,Server: POST /v1/oauth2/token
         Server->>Server: Validate client credentials
         Server-->>CLI: 200 OK / return access and refresh tokens
         CLI-->>Server: use access token to complete the request
-        Server->>Server: Validate client permissions
+        Note over CLI,Server: POST /v1/jobs
+        Server->>Server: Validate access token signature and client permissions
         Server-->>CLI: 200 OK / authenticated response
         CLI-->>User: Show result
 
@@ -93,17 +100,19 @@ OIDC is enabled on the server:
         User->>CLI: Run command without client-id + secret-key
         CLI->>CLI: Load stored refresh token
         CLI->>Server: Request with refresh token
+        Note over CLI,Server: POST /v1/oauth2/refresh
         Server->>Server: Validate token
         Server-->>CLI: 200 OK / return access and refresh tokens
         CLI-->>Server: use access token to complete the request
-        Server->>Server: Validate client permissions
+        Note over CLI,Server: POST /v1/jobs
+        Server->>Server: Validate access token signature and client permissions
         Server-->>CLI: 200 OK / authenticated response
         CLI-->>User: Show result
 
 Token expired or rejected
 .........................
 
-When the refresh token is rejected, the behavior differs depending on whether
+When the refresh token is rejected, the behaviour differs depending on whether
 the server has OIDC enabled.
 
 With OIDC Enabled
@@ -125,21 +134,27 @@ initiates an OIDC authentication flow:
 
         Note over User,OIDC: Neither client-id nor secret-key, token rejected, server uses OIDC
         User->>CLI: Run command without client-id + secret-key
-        CLI->>CLI: Load stored refresh/bearer token
-        CLI->>Server: Request with Bearer refresh token
+        CLI->>CLI: Load stored refresh token
+        CLI->>Server: Request with refresh token
+        Note over CLI,Server: POST /v1/oauth2/refresh
         Server->>Server: Token expired or rejected
-        Server-->>OIDC: Initiate OIDC auth flow
-        OIDC-->>Server: Auth code
-        Server->>CLI: 401 Unauthorized, try this instead: user code + URL for OIDC handshake
-        CLI->>CLI: Delete stored token
+        Server-->>CLI: 400 Bad Request
+        CLI->>CLI: Delete stored refresh token
+        CLI->>Server: Initiate OIDC auth flow
+        Note over CLI,Server: POST /oidc/auth-init
+        Server-->>OIDC: Proxy request to OIDC provider
+        OIDC-->>Server: device_code + user_code + URL for OIDC handshake
+        Server->>CLI: request_id + user code + URL for OIDC handshake
         CLI->>User: Display URL and code
         User->>OIDC: Complete the handshake
         CLI->>Server: Poll for auth completion
+        Note over CLI,Server: POST /oidc/auth-poll/<request_id>
         Server-->>OIDC: Is this user cool?
         OIDC-->>Server: Yes + user identity (email)
         Server->>CLI: Issue refresh and access token
         CLI->>Server: Send request with access token
-        Server->>Server: Validate client permissions
+        Note over CLI,Server: POST /v1/jobs
+        Server->>Server: Validate access token signature and client permissions
         Server-->>CLI: 200 OK / authenticated response
         CLI-->>User: Show result
 
@@ -161,17 +176,18 @@ the server returns a 401 and the CLI removes the stored token:
 
         Note over User,Server: Neither client-id nor secret-key, token rejected, server does not use OIDC
         User->>CLI: Run command without client-id + secret-key
-        CLI->>CLI: Load stored refresh/bearer token
-        CLI->>Server: Request with Bearer refresh token
+        CLI->>CLI: Load stored refresh token
+        CLI->>Server: Request with refresh token
+        Note over CLI,Server: POST /v1/oauth2/refresh
         Server->>Server: Token expired or rejected
-        Server-->>CLI: 401 Unauthorized, delete stored token
-        CLI->>CLI: Delete stored token
+        Server-->>CLI: 400 Bad Request
+        CLI->>CLI: Delete stored refresh token
         CLI-->>User: Authentication failed
 
 No credentials or stored token
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When neither credentials nor a stored token are available, the behavior
+When neither credentials nor a stored token are available, the behaviour
 depends on whether the server has OIDC enabled.
 
 If the server has OIDC enabled, it initiates an OIDC authentication flow:
@@ -190,18 +206,21 @@ If the server has OIDC enabled, it initiates an OIDC authentication flow:
         Note over User,OIDC: Neither client-id nor secret-key, no token, server uses OIDC
         User->>CLI: Run command without credentials or token
         CLI->>CLI: No stored bearer/refresh token found
-        CLI->>Server: Request without Authorization header
-        Server-->>OIDC: Initiate OIDC auth flow
-        OIDC-->>Server: Auth code
-        Server->>CLI: Return user code and URL for OIDC handshake
+        CLI->>Server: Initiate OIDC auth flow
+        Note over CLI,Server: POST /oidc/auth-init
+        Server-->>OIDC: Proxy request to OIDC provider
+        OIDC-->>Server: device_code + user_code + URL for OIDC handshake
+        Server->>CLI: request_id + user code + URL for OIDC handshake
         CLI->>User: Display URL and code
         User->>OIDC: Complete the handshake
         CLI->>Server: Poll for auth completion
+        Note over CLI,Server: POST /oidc/auth-poll/<request_id>
         Server-->>OIDC: Is this user cool?
         OIDC-->>Server: Yes + user identity (email)
-        Server->>CLI: Issue refresh token
-        CLI->>Server: Retry request with new Bearer token
-        Server->>Server: Validate client permissions
+        Server->>CLI: Issue refresh token and access token
+        CLI->>Server: Send request with access token
+        Note over CLI,Server: POST /v1/jobs
+        Server->>Server: Validate access token signature and client permissions
         Server-->>CLI: 200 OK / authenticated response
         CLI-->>User: Show result
 
@@ -222,6 +241,7 @@ as an anonymous user:
         User->>CLI: Run command without credentials or token
         CLI->>CLI: No stored bearer/refresh token found
         CLI->>Server: Request without Authorization header
+        Note over CLI,Server: POST /v1/jobs
         Server->>Server: Auth not required
         Server-->>CLI: 200 OK / anonymous user response
         CLI-->>User: Show result
