@@ -40,6 +40,17 @@ ATTACHMENTS_PROV_DIR = Path.cwd() / ATTACHMENTS_DIR / "provision"
 class OemAutoinstall:
     """Device Connector for OEM Script."""
 
+    SSH_OPTS = [
+        "-o",
+        "StrictHostKeyChecking=no",
+        "-o",
+        "UserKnownHostsFile=/dev/null",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=10",
+    ]
+
     def __init__(self, config, job_data):
         with open(config, encoding="utf-8") as configfile:
             self.config = yaml.safe_load(configfile)
@@ -55,6 +66,8 @@ class OemAutoinstall:
         except subprocess.CalledProcessError:
             self.hardreset()
             self.check_device_booted()
+
+        self.prepare_storage_when_bootstrap()
 
         provision_data = self.job_data.get("provision_data", {})
         image_url = provision_data.get("url")
@@ -95,6 +108,50 @@ class OemAutoinstall:
             self.copy_to_deploy_path(token_file, token_file_path)
         self.run_deploy_script(image_url)
         self.check_device_booted()
+
+    def prepare_storage_when_bootstrap(self):
+        """Prepare the DUT storage when it is in bootstrap mode and
+        /home/ubuntu wasn't mounted.
+
+        This is a best-effort step to format the storage and re-add the
+        SSH keys.
+        """
+        test_username = self.get_test_data_or_default(
+            "test_username", "ubuntu"
+        )
+        target = f"{test_username}@{self.config['device_ip']}"
+
+        # c3-cid-applier.py only exists in the OEM bootstrap environment.
+        detect_cmd = [
+            "ssh",
+            *self.SSH_OPTS,
+            target,
+            "test -x /usr/bin/c3-cid-applier.py",
+        ]
+        if subprocess.run(detect_cmd, check=False).returncode != 0:
+            # Not in bootstrap stage, nothing to do
+            return
+
+        prepare_cmd = [
+            "ssh",
+            *self.SSH_OPTS,
+            target,
+            "sudo -n /usr/bin/prepare-storage.sh --format-partitions",
+        ]
+        subprocess.run(
+            prepare_cmd,
+            check=False,
+            timeout=60 * 15,  # 15 minutes
+        )
+
+        # re-add the keys after formatting
+        try:
+            self.copy_ssh_id()
+        except subprocess.CalledProcessError as exc:
+            logger.warning(
+                "Failed to restore SSH key after formatting the storage: %s",
+                exc,
+            )
 
     def copy_to_deploy_path(self, source_path, dest_path):
         """Verify if attachment exists, then copy when
@@ -162,14 +219,7 @@ class OemAutoinstall:
 
         cmd = [
             "ssh",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=10",
+            *self.SSH_OPTS,
             f"{test_username}@{self.config['device_ip']}",
             "true",
         ]

@@ -190,10 +190,53 @@ class TestOemAutoinstall(unittest.TestCase):
         with patch.object(device, "run_deploy_script"):
             with patch.object(device, "check_device_booted"):
                 with patch.object(device, "copy_to_deploy_path"):
-                    device.provision()
+                    with patch.object(
+                        device, "prepare_storage_when_bootstrap"
+                    ):
+                        device.provision()
 
         # Verify hardreset was called
         mock_check_call.assert_called()
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_prepare_storage_when_in_bootstrap(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """Test prepare-storage runs and key is restored in bootstrap."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+
+        # Detection succeeds (c3-cid-applier present -> bootstrap stage)
+        mock_run.side_effect = [Mock(returncode=0), Mock(returncode=0)]
+
+        device.prepare_storage_when_bootstrap()
+
+        # detection + prepare-storage
+        self.assertEqual(mock_run.call_count, 2)
+        prepare_args = mock_run.call_args_list[1][0][0]
+        self.assertIn(
+            "sudo -n /usr/bin/prepare-storage.sh --format-partitions",
+            prepare_args,
+        )
+        # Key is restored after remount
+        mock_copy_ssh_id.assert_called_once()
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_prepare_storage_when_not_in_bootstrap(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """Test nothing happens when DUT is not in bootstrap stage."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+
+        # Detection fails (c3-cid-applier absent -> not bootstrap stage)
+        mock_run.return_value = Mock(returncode=1)
+
+        device.prepare_storage_when_bootstrap()
+
+        # Only the detection call, no prepare-storage, no re-key
+        mock_run.assert_called_once()
+        mock_copy_ssh_id.assert_not_called()
 
 
 if __name__ == "__main__":
