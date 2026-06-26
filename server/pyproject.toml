@@ -93,5 +93,11 @@ profile = "jinja"
 ignore = "H023,H021"
 indent = 2
 
+[tool.pytest.ini_options]
+filterwarnings = [
+    # filter canaille warning about deprecated authlib usage (in future v1.8.0)
+    "ignore::authlib.deprecate.AuthlibDeprecationWarning",
+]
+
 [tool.uv.sources]
 testflinger-common = { path = "../common", editable = true }
