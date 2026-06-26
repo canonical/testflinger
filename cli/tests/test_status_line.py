@@ -75,6 +75,20 @@ class TestStatusLineInit:
         assert builtins.print == original_print
         assert builtins.input == original_input
 
+    def test_stop_ignores_keyboard_interrupt_during_join(self, mock_tty):
+        """stop() should handle a second Ctrl-C during cleanup."""
+        original_print = builtins.print
+        original_input = builtins.input
+
+        StatusLine.init()
+        StatusLine._timer_thread = mock.Mock()
+        StatusLine._timer_thread.join.side_effect = KeyboardInterrupt
+
+        StatusLine.stop()
+
+        assert builtins.print == original_print
+        assert builtins.input == original_input
+
 
 class TestStatusLineElapsedTime:
     """Tests for elapsed time display."""
