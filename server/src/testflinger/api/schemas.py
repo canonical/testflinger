@@ -641,7 +641,7 @@ class SecretIn(Schema):
     expire_after = fields.Integer(
         required=False, allow_none=True, validate=validators.Range(min=1)
     )
-    ephemeral = fields.Boolean(required=False, default=False)
+    ephemeral = fields.Boolean(required=False, load_default=False)
 
     @validates_schema
     def validate_expiration_or_ephemeral(self, data, **_):
