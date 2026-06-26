@@ -20,6 +20,7 @@ events in the Testflinger API.
 
 import base64
 import logging
+import secrets
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from unittest.mock import Mock, patch
@@ -260,7 +261,7 @@ class TestAuthenticationEvents:
         """Verify authn_token_revoked is logged when refresh token
         is revoked.
         """
-        monkeypatch.setenv("JWT_SIGNING_KEY", "my_secret_key")
+        monkeypatch.setenv("JWT_SIGNING_KEY", secrets.token_urlsafe(32))
         app, mongo, client_id, client_key, _ = mongo_app_with_permissions
         admin_token = get_access_token(app, client_id, client_key)
 
