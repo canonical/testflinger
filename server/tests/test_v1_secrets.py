@@ -32,7 +32,7 @@ from testflinger.secrets.store import DEFAULT_SECRET_EXPIRATION, SecretsStore
 @pytest.fixture
 def app_with_store(mocker, monkeypatch):
     """Create a pytest fixture for an app with a database and store."""
-    monkeypatch.setenv("JWT_SIGNING_KEY", secrets.token_hex(32))
+    monkeypatch.setenv("JWT_SIGNING_KEY", secrets.token_urlsafe(32))
     mock_mongo = mongomock.MongoClient()
 
     # mock database
