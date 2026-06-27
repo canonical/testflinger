@@ -18,7 +18,6 @@ Unit tests for Testflinger v1 API relating to job priority and
 restricted queues.
 """
 
-import base64
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -28,30 +27,10 @@ import jwt
 from testflinger_common.enums import ServerRoles
 
 from testflinger.api.v1 import TESTFLINGER_ADMIN_ID
-
-
-def create_auth_header(client_id: str, client_key: str) -> dict:
-    """
-    Create authorization header with base64 encoded client_id
-    and client key using the Basic scheme.
-    """
-    id_key_pair = f"{client_id}:{client_key}"
-    base64_encoded_pair = base64.b64encode(id_key_pair.encode("utf-8")).decode(
-        "utf-8"
-    )
-    return {"Authorization": f"Basic {base64_encoded_pair}"}
-
-
-def get_access_token(app, client_id, client_key):
-    """Authenticate and return a valid access token."""
-    response = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-
-    assert response.status_code == 200
-
-    return response.get_json()["access_token"]
+from tests.utilities import (
+    get_access_token,
+    get_basic_auth_header,
+)
 
 
 def test_retrieve_token(mongo_app_with_permissions):
@@ -79,7 +58,7 @@ def test_retrieve_token_invalid_client_id(mongo_app_with_permissions):
 
     output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
+        headers=get_basic_auth_header(client_id, client_key),
     )
 
     assert output.status_code == 401
@@ -95,7 +74,7 @@ def test_retrieve_token_invalid_client_key(mongo_app_with_permissions):
 
     output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
+        headers=get_basic_auth_header(client_id, client_key),
     )
 
     assert output.status_code == 401
@@ -108,7 +87,7 @@ def test_job_with_priority(mongo_app_with_permissions):
 
     job = {"job_queue": "myqueue2", "job_priority": 200}
     job_response = app.post(
-        "/v1/job", json=job, headers={"Authorization": token}
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
 
     assert 200 == job_response.status_code
@@ -124,7 +103,7 @@ def test_star_priority(mongo_app_with_permissions):
 
     job = {"job_queue": "mygenericqueue", "job_priority": 1}
     job_response = app.post(
-        "/v1/job", json=job, headers={"Authorization": token}
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
 
     assert 200 == job_response.status_code
@@ -147,7 +126,7 @@ def test_priority_invalid_queue(mongo_app_with_permissions):
 
     job = {"job_queue": "myinvalidqueue", "job_priority": 200}
     job_response = app.post(
-        "/v1/job", json=job, headers={"Authorization": token}
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
 
     assert 403 == job_response.status_code
@@ -168,7 +147,7 @@ def test_priority_expired_token(mongo_app_with_permissions):
     token = jwt.encode(expired_token_payload, secret_key, algorithm="HS256")
     job = {"job_queue": "myqueue", "job_priority": 100}
     job_response = app.post(
-        "/v1/job", json=job, headers={"Authorization": token}
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
     assert 401 == job_response.status_code
     assert "Token has expired" in job_response.text
@@ -186,7 +165,7 @@ def test_missing_fields_in_token(mongo_app_with_permissions):
     token = jwt.encode(incomplete_token_payload, secret_key, algorithm="HS256")
     job = {"job_queue": "myqueue", "job_priority": 100}
     job_response = app.post(
-        "/v1/job", json=job, headers={"Authorization": token}
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
     assert 403 == job_response.status_code
     assert "Invalid Token" in job_response.text
@@ -213,7 +192,7 @@ def test_missing_role_defaults_to_contributor(mongo_app_with_permissions):
     # A basic job post without priority should succeed with CONTRIBUTOR role
     job = {"job_queue": "myqueue"}
     job_response = app.post(
-        "/v1/job", json=job, headers={"Authorization": token}
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
 
     # Should succeed (200 OK) because CONTRIBUTOR can post basic jobs
@@ -224,6 +203,7 @@ def test_job_get_with_priority(mongo_app_with_permissions, agent_auth_header):
     """Tests job get returns job with highest job priority."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
     token = get_access_token(app, client_id, client_key)
+    token_headers = {"Authorization": f"Bearer {token}"}
 
     jobs = [
         {"job_queue": "myqueue2"},
@@ -233,18 +213,19 @@ def test_job_get_with_priority(mongo_app_with_permissions, agent_auth_header):
 
     job_ids = []
     for job in jobs:
-        job_response = app.post(
-            "/v1/job", json=job, headers={"Authorization": token}
-        )
+        job_response = app.post("/v1/job", json=job, headers=token_headers)
         job_id = job_response.json.get("job_id")
+        assert job_id is not None, "Job insertion failed, test setup is wrong."
         job_ids.append(job_id)
 
     # Note: agents must register before they can be issued work:
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["myqueue2"], "location": "here"},
+        headers=agent_auth_header,
     )
 
+    # Verify that agents retrieve jobs in priority order
     returned_job_ids = []
     for _ in range(len(jobs)):
         job_get_response = app.get(
@@ -277,7 +258,7 @@ def test_job_get_with_priority_multiple_queues(
     job_ids = []
     for job in jobs:
         job_response = app.post(
-            "/v1/job", json=job, headers={"Authorization": token}
+            "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
         )
         job_id = job_response.json.get("job_id")
         job_ids.append(job_id)
@@ -289,7 +270,7 @@ def test_job_get_with_priority_multiple_queues(
             "state": "waiting",
             "queues": ["myqueue", "myqueue2", "myqueue3"],
             "location": "here",
-        },
+        },headers=agent_auth_header
     )
 
     returned_job_ids = []
@@ -320,7 +301,7 @@ def test_job_position_get_with_priority(mongo_app_with_permissions):
     job_ids = []
     for job in jobs:
         job_response = app.post(
-            "/v1/job", json=job, headers={"Authorization": token}
+            "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
         )
         job_id = job_response.json.get("job_id")
         job_ids.append(job_id)
@@ -345,7 +326,7 @@ def test_restricted_queue_allowed(mongo_app_with_permissions):
     # rqueue1 is a restricted queue that is allowed for this client
     job = {"job_queue": "rqueue1"}
     job_response = app.post(
-        "/v1/job", json=job, headers={"Authorization": token}
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
 
     assert 200 == job_response.status_code
@@ -362,7 +343,7 @@ def test_restricted_queue_reject(mongo_app_with_permissions):
     # rqueue3 is a restricted queue that is not allowed for this client
     job = {"job_queue": "rqueue3"}
     job_response = app.post(
-        "/v1/job", json=job, headers={"Authorization": token}
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
 
     assert 403 == job_response.status_code
@@ -391,7 +372,7 @@ def test_extended_reservation_allowed(mongo_app_with_permissions):
 
     job = {"job_queue": "myqueue", "reserve_data": {"timeout": 30000}}
     job_response = app.post(
-        "/v1/job", json=job, headers={"Authorization": token}
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
 
     assert 200 == job_response.status_code
@@ -407,7 +388,7 @@ def test_extended_reservation_rejected(mongo_app_with_permissions):
 
     job = {"job_queue": "myqueue2", "reserve_data": {"timeout": 21601}}
     job_response = app.post(
-        "/v1/job", json=job, headers={"Authorization": token}
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
 
     assert 403 == job_response.status_code
@@ -451,7 +432,7 @@ def test_star_extended_reservation(mongo_app_with_permissions):
 
     job = {"job_queue": "myrandomqueue", "reserve_data": {"timeout": 30000}}
     job_response = app.post(
-        "/v1/job", json=job, headers={"Authorization": token}
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
 
     assert 200 == job_response.status_code
@@ -486,7 +467,9 @@ def test_get_all_restricted_queues(mongo_app_with_permissions):
         ]
     )
 
-    output = app.get("/v1/restricted-queues", headers={"Authorization": token})
+    output = app.get(
+        "/v1/restricted-queues", headers={"Authorization": f"Bearer {token}"}
+    )
     assert output.status_code == HTTPStatus.OK
 
     result = output.json
@@ -501,7 +484,6 @@ def test_get_all_restricted_queues(mongo_app_with_permissions):
 def test_get_restricted_queue(mongo_app_with_permissions):
     """Test retrieving info for a specific restricted queue."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-    mongo.restricted_queues.delete_many({})
     token = get_access_token(app, client_id, client_key)
 
     mongo.agents.insert_one(
@@ -519,7 +501,8 @@ def test_get_restricted_queue(mongo_app_with_permissions):
     )
 
     output = app.get(
-        "/v1/restricted-queues/202506-00001", headers={"Authorization": token}
+        "/v1/restricted-queues/202506-00001",
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert output.status_code == HTTPStatus.OK
 
@@ -531,7 +514,6 @@ def test_get_restricted_queue(mongo_app_with_permissions):
 def test_add_restricted_queue(mongo_app_with_permissions):
     """Test adding a restricted queue for an agent."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-    mongo.restricted_queues.delete_many({})
     token = get_access_token(app, client_id, client_key)
 
     client_entry = {
@@ -555,7 +537,9 @@ def test_add_restricted_queue(mongo_app_with_permissions):
         "client_id": "clientA",
     }
     output = app.post(
-        "/v1/restricted-queues/q2", json=data, headers={"Authorization": token}
+        "/v1/restricted-queues/q2",
+        json=data,
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert output.status_code == HTTPStatus.OK
 
@@ -568,7 +552,6 @@ def test_add_restricted_queue(mongo_app_with_permissions):
 def test_add_restricted_queue_client_not_exists(mongo_app_with_permissions):
     """Test add a restricted queue for an agent fails if client don't exist."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-    mongo.restricted_queues.delete_many({})
     token = get_access_token(app, client_id, client_key)
 
     mongo.agents.insert_one(
@@ -583,7 +566,9 @@ def test_add_restricted_queue_client_not_exists(mongo_app_with_permissions):
         "client_id": "clientA",
     }
     output = app.post(
-        "/v1/restricted-queues/q2", json=data, headers={"Authorization": token}
+        "/v1/restricted-queues/q2",
+        json=data,
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert output.status_code == HTTPStatus.NOT_FOUND
     assert "Specified client_id does not exist" in output.json["message"]
@@ -599,7 +584,6 @@ def test_add_restricted_queue_client_not_exists(mongo_app_with_permissions):
 def test_delete_restricted_queue(mongo_app_with_permissions):
     """Test deleting a restricted queue for an agent."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-    mongo.restricted_queues.delete_many({})
     token = get_access_token(app, client_id, client_key)
 
     mongo.agents.insert_one(
@@ -616,7 +600,9 @@ def test_delete_restricted_queue(mongo_app_with_permissions):
 
     data = {"client_id": "clientA"}
     output = app.delete(
-        "/v1/restricted-queues/q1", json=data, headers={"Authorization": token}
+        "/v1/restricted-queues/q1",
+        json=data,
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert output.status_code == HTTPStatus.OK
 
@@ -643,16 +629,13 @@ def test_get_all_client_permissions(mongo_app_with_permissions):
 
     output = app.get(
         "/v1/client-permissions",
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     assert output.status_code == HTTPStatus.OK
     assert "client_secret_hash" not in output.json
     # There are two clients, the admin and the recently created
     assert len(output.json) == 2
-
-    # Cleanup test client
-    mongo.client_permissions.delete_one({"client_id": "test_client"})
 
 
 def test_get_single_client_permissions(mongo_app_with_permissions):
@@ -672,16 +655,13 @@ def test_get_single_client_permissions(mongo_app_with_permissions):
 
     output = app.get(
         "/v1/client-permissions/my_client_id",
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     assert output.status_code == HTTPStatus.OK
     for key, expected_value in client_entry.items():
         assert client_entry[key] == expected_value
     assert "client_secret_hash" not in output.json
-
-    # Cleanup test client
-    mongo.client_permissions.delete_one({"client_id": "test_client"})
 
 
 def test_add_client_permissions(mongo_app_with_permissions, caplog):
@@ -702,7 +682,7 @@ def test_add_client_permissions(mongo_app_with_permissions, caplog):
         output = app.put(
             f"/v1/client-permissions/{client_id}",
             json=client_permissions,
-            headers={"Authorization": token},
+            headers={"Authorization": f"Bearer {token}"},
         )
 
     # Retrieve data from Database
@@ -724,9 +704,6 @@ def test_add_client_permissions(mongo_app_with_permissions, caplog):
     # Verify OWASP user_created event is logged
     assert f"user_created:{admin_client_id}" in caplog.text
     assert client_id in caplog.text
-
-    # Cleanup test client
-    mongo.client_permissions.delete_one({"client_id": "test_client"})
 
 
 def test_edit_client_permissions(mongo_app_with_permissions, caplog):
@@ -755,7 +732,7 @@ def test_edit_client_permissions(mongo_app_with_permissions, caplog):
         output = app.put(
             "/v1/client-permissions/test_client",
             json=updated_permissions,
-            headers={"Authorization": token},
+            headers={"Authorization": f"Bearer {token}"},
         )
     assert output.status_code == HTTPStatus.OK
 
@@ -775,9 +752,6 @@ def test_edit_client_permissions(mongo_app_with_permissions, caplog):
     # Verify OWASP user_updated event is logged
     assert f"user_updated:{client_id}" in caplog.text
     assert "test_client" in caplog.text
-
-    # Cleanup test client
-    mongo.client_permissions.delete_one({"client_id": "test_client"})
 
 
 def test_delete_client_permissions(mongo_app_with_permissions, caplog):
@@ -799,7 +773,7 @@ def test_delete_client_permissions(mongo_app_with_permissions, caplog):
     with caplog.at_level(logging.INFO):
         output = app.delete(
             "/v1/client-permissions/test_client",
-            headers={"Authorization": token},
+            headers={"Authorization": f"Bearer {token}"},
         )
     assert output.status_code == HTTPStatus.OK
 
@@ -818,7 +792,8 @@ def test_delete_non_existing_client(mongo_app_with_permissions):
     token = get_access_token(app, client_id, client_key)
 
     output = app.delete(
-        "/v1/client-permissions/test_client", headers={"Authorization": token}
+        "/v1/client-permissions/test_client",
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert output.status_code == HTTPStatus.NOT_FOUND
 
@@ -838,7 +813,7 @@ def test_delete_testflinger_admin(mongo_app_with_permissions):
     # No need to mock this client_id creation, request should be rejected
     output = app.delete(
         f"/v1/client-permissions/{TESTFLINGER_ADMIN_ID}",
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
@@ -860,7 +835,7 @@ def test_create_edit_fail_for_testflinger_admin(mongo_app_with_permissions):
     output = app.put(
         f"/v1/client-permissions/{TESTFLINGER_ADMIN_ID}",
         json=permissions,
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
@@ -882,7 +857,7 @@ def test_create_client_permissions_invalid_role(mongo_app_with_permissions):
     output = app.put(
         f"/v1/client-permissions/{client_id}",
         json=client_permissions,
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -905,7 +880,7 @@ def test_create_client_with_missing_secret(mongo_app_with_permissions):
     output = app.put(
         f"/v1/client-permissions/{client_id}",
         json=client_permissions,
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert output.status_code == HTTPStatus.BAD_REQUEST
 
@@ -935,7 +910,7 @@ def test_create_client_permissions_missing_required_fields(
     output = app.put(
         f"/v1/client-permissions/{client_id}",
         json=client_permissions,
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -946,13 +921,10 @@ def test_create_client_permissions_missing_required_fields(
     assert "max_priority" in json_errors
     assert "max_reservation_time" in json_errors
 
-    # Cleanup
-    mongo.client_permissions.delete_one({"client_id": client_id})
-
 
 def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
     """Test that a lower level role can't edit permissions."""
-    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
     token = get_access_token(app, client_id, client_key)
 
     manager_id = "test_manager"
@@ -967,14 +939,14 @@ def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
     output1 = app.put(
         f"/v1/client-permissions/{manager_id}",
         json=manager_permissions,
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert output1.status_code == HTTPStatus.OK
 
     # Get manager token
     manager_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header(manager_id, "my-secret-password"),
+        headers=get_basic_auth_header(manager_id, "my-secret-password"),
     )
     manager_token = manager_auth_output.get_json()["access_token"]
 
@@ -987,7 +959,7 @@ def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
     output2 = app.put(
         f"/v1/client-permissions/{client_id}",
         json=updated_permissions,
-        headers={"Authorization": manager_token},
+        headers={"Authorization": f"Bearer {manager_token}"},
     )
     assert output2.status_code == HTTPStatus.FORBIDDEN
     error_response = output2.json
@@ -995,9 +967,6 @@ def test_role_hierachy_edit_permissions(mongo_app_with_permissions):
         f"{manager_id} has insufficient permissions to modify client"
         in error_response["message"]
     )
-
-    # Cleanup
-    mongo.client_permissions.delete_one({"client_id": manager_id})
 
 
 def test_role_hierachy_create_permissions(mongo_app_with_permissions):
@@ -1017,14 +986,14 @@ def test_role_hierachy_create_permissions(mongo_app_with_permissions):
     output1 = app.put(
         f"/v1/client-permissions/{manager_id}",
         json=manager_permissions,
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert output1.status_code == HTTPStatus.OK
 
     # Get manager token
     manager_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header(manager_id, "my-secret-password"),
+        headers=get_basic_auth_header(manager_id, "my-secret-password"),
     )
     manager_token = manager_auth_output.get_json()["access_token"]
 
@@ -1039,7 +1008,7 @@ def test_role_hierachy_create_permissions(mongo_app_with_permissions):
     output2 = app.put(
         f"/v1/client-permissions/{fake_admin}",
         json=admin_permissions,
-        headers={"Authorization": manager_token},
+        headers={"Authorization": f"Bearer {manager_token}"},
     )
     assert output2.status_code == HTTPStatus.FORBIDDEN
     error_response = output2.json
@@ -1047,9 +1016,6 @@ def test_role_hierachy_create_permissions(mongo_app_with_permissions):
         f"{manager_id} has insufficient permissions to assign role"
         in error_response["message"]
     )
-
-    # Cleanup
-    mongo.client_permissions.delete_one({"client_id": manager_id})
 
 
 def test_update_secret_for_client_id(mongo_app_with_permissions):
@@ -1069,7 +1035,7 @@ def test_update_secret_for_client_id(mongo_app_with_permissions):
     output1 = app.put(
         f"/v1/client-permissions/{client_id}",
         json=client_permissions,
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert output1.status_code == HTTPStatus.OK
 
@@ -1090,7 +1056,7 @@ def test_update_secret_for_client_id(mongo_app_with_permissions):
     output2 = app.put(
         f"/v1/client-permissions/{client_id}",
         json=updated_permissions,
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert output2.status_code == HTTPStatus.OK
     assert f"Updated permissions for client '{client_id}'" in output2.get_data(
@@ -1119,7 +1085,7 @@ def test_create_new_client_without_permissions(mongo_app_with_permissions):
     output = app.put(
         f"/v1/client-permissions/{fake_client}",
         json=client_permissions,
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # Validate correct message is displayed
@@ -1136,7 +1102,7 @@ def test_refresh_access_token(mongo_app_with_permissions):
 
     initial = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
+        headers=get_basic_auth_header(client_id, client_key),
     )
     initial_json = initial.get_json()
     refresh_token = initial_json["refresh_token"]
@@ -1174,7 +1140,7 @@ def test_refresh_with_expired_token(mongo_app_with_permissions):
 
     issued = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
+        headers=get_basic_auth_header(client_id, client_key),
     )
     refresh_token = issued.get_json()["refresh_token"]
 
@@ -1217,22 +1183,19 @@ def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
     authenticate_output = app.put(
         f"/v1/client-permissions/{client_id}",
         json=contributor_permissions,
-        headers={"Authorization": admin_token},
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert authenticate_output.status_code == HTTPStatus.OK
 
     output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret"),
     )
     assert output.status_code == HTTPStatus.OK
     refresh_token = output.get_json()["refresh_token"]
 
     stored = mongo.refresh_tokens.find_one({"refresh_token": refresh_token})
     assert stored.get("expires_at") is not None
-
-    mongo.client_permissions.delete_one({"client_id": client_id})
-    mongo.refresh_tokens.delete_many({"client_id": client_id})
 
 
 def test_revoke_refresh_token(mongo_app_with_permissions):
@@ -1250,13 +1213,13 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
     output = app.put(
         f"/v1/client-permissions/{client_id}",
         json=contributor_permissions,
-        headers={"Authorization": admin_token},
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert output.status_code == HTTPStatus.OK
 
     contributor_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret"),
     )
     assert contributor_auth_output.status_code == HTTPStatus.OK
     refresh_token = contributor_auth_output.get_json()["refresh_token"]
@@ -1264,7 +1227,7 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
     revoked = app.post(
         "/v1/oauth2/revoke",
         json={"refresh_token": refresh_token},
-        headers={"Authorization": admin_token},
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert revoked.status_code == HTTPStatus.OK
     assert revoked.get_json()["status"] == "OK"
@@ -1274,9 +1237,6 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
         json={"refresh_token": refresh_token},
     )
     assert refreshed.status_code == HTTPStatus.BAD_REQUEST
-
-    mongo.client_permissions.delete_one({"client_id": client_id})
-    mongo.refresh_tokens.delete_one({"client_id": client_id})
 
 
 def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
@@ -1294,12 +1254,12 @@ def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
     app.put(
         f"/v1/client-permissions/{client_id}",
         json=user_perm,
-        headers={"Authorization": admin_token},
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
 
     contributor_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret"),
     )
     user_json = contributor_auth_output.get_json()
     user_access_token = user_json["access_token"]
@@ -1312,9 +1272,6 @@ def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
     )
     assert attempt.status_code == HTTPStatus.FORBIDDEN
 
-    mongo.client_permissions.delete_one({"client_id": client_id})
-    mongo.refresh_tokens.delete_many({"client_id": client_id})
-
 
 def test_revoke_with_missing_token_field(mongo_app_with_permissions):
     """Test revoke fails if token field is missing."""
@@ -1322,7 +1279,9 @@ def test_revoke_with_missing_token_field(mongo_app_with_permissions):
     token = get_access_token(app, client_id, client_key)
 
     resp = app.post(
-        "/v1/oauth2/revoke", json={}, headers={"Authorization": token}
+        "/v1/oauth2/revoke",
+        json={},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == HTTPStatus.BAD_REQUEST
 
@@ -1342,26 +1301,26 @@ def test_revoke_already_revoked_token(mongo_app_with_permissions):
     app.put(
         f"/v1/client-permissions/{client_id}",
         json=user_perm,
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     user_auth = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret"),
     )
     refresh_token = user_auth.get_json()["refresh_token"]
 
     resp1 = app.post(
         "/v1/oauth2/revoke",
         json={"refresh_token": refresh_token},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp1.status_code == HTTPStatus.OK
 
     resp2 = app.post(
         "/v1/oauth2/revoke",
         json={"refresh_token": refresh_token},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp2.status_code in (HTTPStatus.OK, HTTPStatus.BAD_REQUEST)
 
@@ -1372,7 +1331,7 @@ def test_refresh_token_last_accessed_update(mongo_app_with_permissions):
 
     authenticate_output = app.post(
         "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
+        headers=get_basic_auth_header(client_id, client_key),
     )
     assert authenticate_output.status_code == HTTPStatus.OK
     refresh_token = authenticate_output.get_json()["refresh_token"]

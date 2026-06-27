@@ -16,15 +16,15 @@
 """Fixtures for testing."""
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from typing import Dict
 
 import bcrypt
-import jwt
 import mongomock
 import pytest
 from mongomock.gridfs import enable_gridfs_integration
 from testflinger_common.enums import ServerRoles
 
+import tests.utilities as utilities
 from testflinger import application, database
 
 
@@ -50,8 +50,10 @@ class MongoClientMock(mongomock.MongoClient):
 
 
 @pytest.fixture(name="mongo_app")
-def mongo_app_fixture():
+def mongo_app_fixture(monkeypatch):
     """Create a pytest fixture for database and app."""
+    secret_key = "my_secret_key_But_I_am_tired_of_all_the_warnings_about_keys"  # noqa: S105
+    monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
     mock_mongo = MongoClientMock()
     database.mongo = mock_mongo
     app = application.create_flask_app(TestingConfig)
@@ -59,19 +61,20 @@ def mongo_app_fixture():
 
 
 @pytest.fixture
-def testapp():
+def testapp(monkeypatch):
     """Pytest fixture for just the app."""
+    secret_key = "my_secret_key_But_I_am_tired_of_all_the_warnings_about_keys"  # noqa: S105
+    monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
     app = application.create_flask_app(TestingConfig)
     yield app
 
 
 @pytest.fixture
-def mongo_app_with_permissions(mongo_app, monkeypatch):
+def mongo_app_with_permissions(mongo_app):
     """
     Pytest fixture that adds permissions
     to the mock db for priority.
     """
-    monkeypatch.setenv("JWT_SIGNING_KEY", "my_secret_key")
     app, mongo = mongo_app
     client_id = "my_client_id"
     client_key = "my_client_key"
@@ -116,7 +119,6 @@ def oidc_app(oidc_client, mongo_app, iam_server, monkeypatch):
     monkeypatch.setenv("OIDC_CLIENT_SECRET", oidc_client.client_secret)
     monkeypatch.setenv("OIDC_PROVIDER_ISSUER", iam_server.url)
     monkeypatch.setenv("WEB_SECRET_KEY", "my_web_secret_key")
-    monkeypatch.setenv("JWT_SIGNING_KEY", "my_secret_key")
 
     # Create Flask app with OIDC provider
     oidc_app = application.create_flask_app(TestingConfig)
@@ -168,19 +170,50 @@ def sorted_roles():
 
 
 @pytest.fixture
-def agent_auth_header(monkeypatch):
+def agent_auth_header():
     """Pytest fixture that provides an Authorization header for an agent."""
-    secret_key = "my_secret_key"  # noqa: S105
-    monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
-    expiration_time = datetime.now(timezone.utc) + timedelta(seconds=30)
-    token_payload = {
-        "exp": expiration_time,
-        "iat": datetime.now(timezone.utc),
-        "sub": "access_token",
-        "permissions": {
-            "client_id": "agent-id",
-            "role": ServerRoles.AGENT,
-        },
-    }
-    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
-    return {"Authorization": f"Bearer {token}"}
+    return utilities.get_access_token_header("agent-id", ServerRoles.AGENT)
+
+
+@pytest.fixture
+def role_clients_factory(mongo_app):
+    """
+    Fixture to create isolated test clients for each of the four roles.
+    Each client returns: {id, key, basic_header}
+    Uses mongomock so no data persists - pure unit testing mode.
+    """
+    _, mongo_db = mongo_app
+
+    def _make_client(role: ServerRoles) -> dict:
+        import uuid
+
+        client_id = f"{role.value}_client_{uuid.uuid4().hex[:8]}"
+        client_key = f"key_{role.value}_{uuid.uuid4()}.key_2"
+
+        mongo_db.client_permissions.delete_many({})
+        mongo_db.client_permissions.insert_one(
+            {
+                "client_id": client_id,
+                "role": role,
+                "max_priority": {},
+                "allowed_queues": [],
+                "max_reservation_time": {},
+            }
+        )
+
+        return {
+            "id": client_id,
+            "key": client_key,
+            "role": role,
+            "basic_header": utilities.get_basic_auth_header(
+                client_id, client_key
+            ),
+            "bearer_header": utilities.get_access_token_header(
+                client_id, role
+            ),
+        }
+
+    roles: Dict[ServerRoles, dict] = {}
+    for role in ServerRoles:
+        roles[role] = _make_client(role)
+    return roles

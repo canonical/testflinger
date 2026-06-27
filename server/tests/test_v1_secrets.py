@@ -15,7 +15,6 @@
 
 """Tests for the `v1/secrets` endpoints."""
 
-import base64
 from datetime import datetime, timezone
 from http import HTTPStatus
 
@@ -26,12 +25,14 @@ import pytest
 from testflinger import application, database
 from testflinger.secrets.exceptions import AccessError, StoreError
 from testflinger.secrets.store import DEFAULT_SECRET_EXPIRATION, SecretsStore
+from tests.utilities import get_access_token
 
 
 @pytest.fixture
 def app_with_store(mocker, monkeypatch):
     """Create a pytest fixture for an app with a database and store."""
-    monkeypatch.setenv("JWT_SIGNING_KEY", "my_secret_key")
+    secret_key = "my_secret_key_But_I_am_tired_of_all_the_warnings_about_keys"  # noqa: S105
+    monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
     mock_mongo = mongomock.MongoClient()
 
     # mock database
@@ -65,28 +66,6 @@ def app_with_store(mocker, monkeypatch):
     yield flask_app.test_client()
 
 
-def create_auth_header(client_id: str, client_key: str) -> dict:
-    """
-    Create authorization header with base64 encoded client_id
-    and client key using the Basic scheme.
-    """
-    id_key_pair = f"{client_id}:{client_key}"
-    base64_encoded_pair = base64.b64encode(id_key_pair.encode("utf-8")).decode(
-        "utf-8"
-    )
-    return {"Authorization": f"Basic {base64_encoded_pair}"}
-
-
-def get_access_token(app, client_id, client_key):
-    """Authenticate and return a valid access token."""
-    response = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    assert response.status_code == 200
-    return response.get_json()["access_token"]
-
-
 @pytest.mark.parametrize(
     "client_id,path,value",
     (
@@ -106,7 +85,7 @@ def test_secrets_put_success(app_with_store, client_id, path, value):
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": value},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is successful
@@ -133,7 +112,7 @@ def test_secrets_put_different_client_id(app_with_store):
     response = app_with_store.put(
         f"/v1/secrets/{unauthorized_client_id}/{path}",
         json={"value": "value"},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is rejected and no secret has been written
@@ -153,7 +132,7 @@ def test_secrets_put_no_value(app_with_store):
     token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is rejected and no secret has been written
@@ -175,7 +154,7 @@ def test_secrets_put_no_authentication(app_with_store):
     )
 
     # THEN: the request is rejected and no secret has been written
-    assert response.status_code == HTTPStatus.FORBIDDEN
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
     mock_secrets_store.write.assert_not_called()
 
 
@@ -192,7 +171,7 @@ def test_secrets_put_access_error(app_with_store):
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": "value"},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is rejected
@@ -218,7 +197,7 @@ def test_secrets_put_store_error(app_with_store):
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": "value"},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is rejected
@@ -245,7 +224,7 @@ def test_secrets_put_non_expiring_secret(app_with_store):
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": value, "expire_after": None},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is successful and non-expiring is forwarded
@@ -273,7 +252,7 @@ def test_secrets_put_with_custom_expiration(app_with_store, expire_after):
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": value, "expire_after": expire_after},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is successful and expire_after is sent to the store
@@ -300,7 +279,7 @@ def test_secrets_put_ephemeral(app_with_store):
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": value, "ephemeral": True},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is successful and the store is called with ephemeral
@@ -325,7 +304,7 @@ def test_secrets_put_invalid_expire_after(app_with_store):
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": "value", "expire_after": "not-a-number"},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the schema rejects the request and the store is never called
@@ -347,7 +326,7 @@ def test_secrets_put_ephemeral_and_expire_after(
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": "value", "ephemeral": True, "expire_after": 3600},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the schema rejects the request and the store is never called
@@ -369,7 +348,7 @@ def test_secrets_put_return_expiration(app_with_store):
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": "secret_value", "expire_after": 3600},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the response contains the expiry datetime in ISO 8601 format
@@ -390,7 +369,7 @@ def test_secrets_put_return_non_expiration(app_with_store):
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": "secret_value", "expire_after": None},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the response contains expires_at as null
@@ -433,7 +412,7 @@ def test_secrets_delete_success(app_with_store, client_id, path):
     token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.delete(
         f"/v1/secrets/{client_id}/{path}",
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is successful
@@ -454,7 +433,7 @@ def test_secrets_delete_different_client_id(app_with_store):
     token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.delete(
         f"/v1/secrets/{unauthorized_client_id}/{path}",
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is rejected and no secret has been deleted
@@ -475,7 +454,7 @@ def test_secrets_delete_no_authentication(app_with_store):
     )
 
     # THEN: the request is rejected and no secret has been deleted
-    assert response.status_code == HTTPStatus.FORBIDDEN
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
     mock_secrets_store.delete.assert_not_called()
 
 
@@ -491,7 +470,7 @@ def test_secrets_delete_access_error(app_with_store):
     token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.delete(
         f"/v1/secrets/{client_id}/{path}",
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is rejected
@@ -511,7 +490,7 @@ def test_secrets_delete_store_error(app_with_store):
     token = get_access_token(app_with_store, client_id, "client_key")
     response = app_with_store.delete(
         f"/v1/secrets/{client_id}/{path}",
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is rejected
@@ -728,6 +707,7 @@ def test_job_get_with_secrets(app_with_store, agent_auth_header):
     app_with_store.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
 
     # WHEN: a job is retrieved from the queue
@@ -783,6 +763,7 @@ def test_job_get_with_inaccessible_secrets(app_with_store, agent_auth_header):
     app_with_store.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
 
     # WHEN: a job is retrieved from the queue
@@ -816,6 +797,7 @@ def test_job_get_without_secrets(app_with_store, agent_auth_header):
     app_with_store.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
 
     # WHEN: a job is retrieved from the queue
@@ -858,6 +840,7 @@ def test_job_get_with_secrets_no_store(testapp, agent_auth_header):
     app_client.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
 
     # WHEN: a job is retrieved from the queue
@@ -895,6 +878,7 @@ def test_job_get_with_missing_client_id(app_with_store, agent_auth_header):
     app_with_store.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
 
     # WHEN: a job is retrieved from the queue
@@ -931,7 +915,7 @@ def test_secrets_invalid_path(app_with_store, client_id, path, value):
     response = app_with_store.put(
         f"/v1/secrets/{client_id}/{path}",
         json={"value": value},
-        headers={"Authorization": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # THEN: the request is unsuccessful due to invalid path

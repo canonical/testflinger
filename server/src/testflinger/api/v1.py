@@ -77,6 +77,7 @@ def get_version():
 
 @v1.post("/job")
 @authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
 def job_post(json_data: dict) -> dict:
@@ -258,6 +259,8 @@ def retrieve_secrets(data: dict) -> dict | None:
 
 
 @v1.get("/job/<job_id>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.Job)
 def job_get_id(job_id):
     """Request the json job definition for a specified job, even if it has
@@ -281,6 +284,8 @@ def job_get_id(job_id):
 
 
 @v1.get("/job/<job_id>/attachments")
+@authenticate
+@require_role(ServerRoles.AGENT)
 def attachment_get(job_id):
     """Return the attachments bundle for a specified job_id.
 
@@ -289,6 +294,8 @@ def attachment_get(job_id):
     :return:
         send_file stream of attachment tarball to download
     """
+    # TODO: if we want attachments to be downloadable by the job owner,
+    #      consider similar TODO treatment as for artifacts: job page
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     try:
@@ -299,6 +306,8 @@ def attachment_get(job_id):
 
 
 @v1.post("/job/<job_id>/attachments")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def attachments_post(job_id):
     """Post attachment bundle for a specified job_id.
 
@@ -329,6 +338,8 @@ def attachments_post(job_id):
 
 
 @v1.get("/job/search")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.input(schemas.JobSearchRequest, location="query")
 @v1.output(schemas.JobSearchResponse)
 def search_jobs(query_data):
@@ -368,6 +379,8 @@ def search_jobs(query_data):
 
 
 @v1.post("/result/<job_id>/artifact")
+@authenticate
+@require_role(ServerRoles.AGENT)
 def artifacts_post(job_id):
     """Post artifact bundle for a specified job_id.
 
@@ -384,6 +397,8 @@ def artifacts_post(job_id):
 
 
 @v1.get("/result/<job_id>/artifact")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def artifacts_get(job_id):
     """Return artifact bundle for a specified job_id.
 
@@ -392,6 +407,8 @@ def artifacts_get(job_id):
     :return:
         send_file stream of artifact tarball to download
     """
+    # TODO: consider restrictions to artifacts to original job owner (or group?)
+    # TODO: consider adding artifact download to the web portal; job page
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     try:
@@ -417,6 +434,8 @@ class LogTypeConverter(BaseConverter):
 
 
 @v1.get("/result/<job_id>/log/<log_type:log_type>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.LogGet)
 def log_get(job_id: str, log_type: LogType):
     """Get logs for a specified job_id.
@@ -460,6 +479,8 @@ def log_get(job_id: str, log_type: LogType):
 
 
 @v1.post("/result/<job_id>/log/<log_type:log_type>")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.input(schemas.LogPost, location="json")
 def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
     """Post logs for a specified job ID.
@@ -485,6 +506,8 @@ def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
 
 
 @v1.post("/result/<job_id>")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.input(schemas.ResultSchema, location="json")
 def result_post(job_id: str, json_data: dict) -> str:
     """Post a result for a specified job_id.
@@ -506,6 +529,13 @@ def result_post(job_id: str, json_data: dict) -> str:
 
 
 @v1.get("/result/<job_id>")
+@authenticate
+@require_role(
+    ServerRoles.ADMIN,
+    ServerRoles.MANAGER,
+    ServerRoles.CONTRIBUTOR,
+    ServerRoles.AGENT,
+)
 @v1.output(schemas.ResultGet)
 def result_get(job_id: str):
     """Return results for a specified job_id.
@@ -521,17 +551,14 @@ def result_get(job_id: str):
     if not response or not (result_data := response.get("result_data")):
         return "", HTTPStatus.NO_CONTENT
 
-    if any(key.endswith(("_output", "_serial")) for key in result_data.keys()):
-        # Legacy result format detected; return as-is
-        # TODO: Remove this path after deprecating legacy endpoints
-        return result_data
-
     # Reconstruct result format with logs and phase statuses
     log_handler = MongoLogHandler(database.mongo)
     return log_handler.format_logs_as_results(job_id, result_data)
 
 
 @v1.post("/job/<job_id>/action")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.input(schemas.ActionIn, location="json")
 def action_post(job_id, json_data):
     """Take action on the job status for a specified job ID.
@@ -539,6 +566,7 @@ def action_post(job_id, json_data):
     :param job_id:
         UUID as a string for the job
     """
+    # TODO: limit to job owner (or greater) if auth enabled (so job owner known)
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     action = json_data["action"]
@@ -550,6 +578,8 @@ def action_post(job_id, json_data):
 
 
 @v1.get("/agents/queues")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.doc(responses=schemas.queues_out)
 def queues_get():
     """Get all advertised queues from this server.
@@ -571,6 +601,8 @@ def queues_get():
 
 
 @v1.post("/agents/queues")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
 def queues_post():
     """Tell testflinger the queue names that are being serviced.
 
@@ -589,6 +621,8 @@ def queues_post():
 
 
 @v1.get("/agents/images/<queue>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.doc(responses=schemas.images_out)
 def images_get(queue):
     """Get a dict of known images for a given queue."""
@@ -602,6 +636,8 @@ def images_get(queue):
 
 
 @v1.post("/agents/images")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
 def images_post():
     """Tell testflinger about known images for a specified queue
     images will be stored in a dict of key/value pairs as part of the queues
@@ -628,6 +664,8 @@ def images_post():
 
 
 @v1.get("/agents/data")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.AgentOut(many=True))
 def agents_get_all():
     """Get all agent data."""
@@ -647,6 +685,13 @@ def agents_get_all():
 
 
 @v1.get("/agents/data/<agent_name>")
+@authenticate
+@require_role(
+    ServerRoles.ADMIN,
+    ServerRoles.MANAGER,
+    ServerRoles.CONTRIBUTOR,
+    ServerRoles.AGENT,
+)
 @v1.output(schemas.AgentOut)
 def agents_get_one(agent_name):
     """Get the information from a specified agent.
@@ -674,6 +719,8 @@ def agents_get_one(agent_name):
 
 
 @v1.post("/agents/data/<agent_name>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
 @v1.input(schemas.AgentIn, location="json")
 def agents_post(agent_name, json_data):
     """Post information about the agent to the server.
@@ -707,6 +754,8 @@ def agents_post(agent_name, json_data):
 
 
 @v1.post("/agents/provision_logs/<agent_name>")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.input(schemas.ProvisionLogsIn, location="json")
 def agents_provision_logs_post(agent_name, json_data):
     """Post provision logs for the agent to the server."""
@@ -748,6 +797,8 @@ def agents_provision_logs_post(agent_name, json_data):
 
 
 @v1.post("/job/<job_id>/events")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.input(schemas.StatusUpdate, location="json")
 def agents_status_post(job_id, json_data):
     """Post status updates from the agent to the server to be forwarded
@@ -860,6 +911,8 @@ def check_valid_uuid(job_id):
 
 
 @v1.get("/job/<job_id>/position")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def job_position_get(job_id):
     """Return the position of the specified jobid in the queue."""
     job_data, status = job_get_id(job_id)
@@ -906,6 +959,8 @@ def cancel_job(job_id):
 
 
 @v1.get("/queues/wait_times")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def queue_wait_time_percentiles_get():
     """Get wait time metrics - optionally take a list of queues."""
     queues = request.args.getlist("queue")
@@ -919,6 +974,8 @@ def queue_wait_time_percentiles_get():
 
 
 @v1.get("/queues/<queue_name>/agents")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.AgentOut(many=True))
 def get_agents_on_queue(queue_name):
     """Get the list of all data for agents listening to a specified queue."""
@@ -935,6 +992,8 @@ def get_agents_on_queue(queue_name):
 
 
 @v1.get("/queues/<queue_name>/jobs")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def get_jobs_by_queue(queue_name):
     """Get the jobs in a specified queue along with its state.
 
@@ -1412,12 +1471,15 @@ def delete_client_permissions(client_id: str) -> str:
 
 @v1.put("/secrets/<client_id>/<path:path>")
 @authenticate
+@require_role(ServerRoles.CONTRIBUTOR, ServerRoles.MANAGER, ServerRoles.ADMIN)
 @v1.input(schemas.SecretIn, location="json")
 @v1.output(schemas.SecretOut)
 def secrets_put(client_id, path, json_data):
     """Store a secret value for the specified client_id and path."""
     if current_app.secrets_store is None:
         abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
+    if not g.client_id:
+        abort(HTTPStatus.UNAUTHORIZED)
     if client_id != g.client_id:
         abort(
             HTTPStatus.FORBIDDEN,
@@ -1449,10 +1511,13 @@ def secrets_put(client_id, path, json_data):
 
 @v1.delete("/secrets/<client_id>/<path:path>")
 @authenticate
+@require_role(ServerRoles.CONTRIBUTOR, ServerRoles.MANAGER, ServerRoles.ADMIN)
 def secrets_delete(client_id, path):
     """Remove a secret value for the specified client_id and path."""
     if current_app.secrets_store is None:
         abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
+    if not g.client_id:
+        abort(HTTPStatus.UNAUTHORIZED)
     if client_id != g.client_id:
         abort(
             HTTPStatus.FORBIDDEN,
@@ -1467,90 +1532,4 @@ def secrets_delete(client_id, path):
     except (StoreError, UnexpectedError) as error:
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
-    return "OK"
-
-
-@v1.get("/result/<job_id>/output")
-def legacy_output_get(job_id: str) -> str:
-    """Legacy endpoint to get job output for a specified job_id.
-
-    TODO: Remove after CLI/agent migration completes.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: BAD_REQUEST when job_id is invalid
-    :return: Plain text output
-    """
-    if not check_valid_uuid(job_id):
-        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
-    response = database.mongo.db.output.find_one_and_delete(
-        {"job_id": job_id}, {"_id": False}
-    )
-    output = response.get("output", []) if response else None
-    if output:
-        return "\n".join(output)
-    return "", HTTPStatus.NO_CONTENT
-
-
-@v1.post("/result/<job_id>/output")
-def legacy_output_post(job_id: str) -> str:
-    """Legacy endpoint to post output for a specified job_id.
-
-    TODO: Remove after CLI/agent migration completes.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: BAD_REQUEST when job_id is invalid
-    :return: "OK" on success
-    """
-    if not check_valid_uuid(job_id):
-        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
-    data = request.get_data().decode("utf-8")
-    timestamp = datetime.now(timezone.utc)
-    database.mongo.db.output.update_one(
-        {"job_id": job_id},
-        {"$set": {"updated_at": timestamp}, "$push": {"output": data}},
-        upsert=True,
-    )
-    return "OK"
-
-
-@v1.get("/result/<job_id>/serial_output")
-def legacy_serial_output_get(job_id: str) -> str:
-    """Legacy endpoint to get latest serial output for a specified job ID.
-
-    TODO: Remove after CLI/agent migration completes.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: BAD_REQUEST when job_id is invalid
-    :return: Plain text serial output
-    """
-    if not check_valid_uuid(job_id):
-        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
-    response = database.mongo.db.serial_output.find_one_and_delete(
-        {"job_id": job_id}, {"_id": False}
-    )
-    output = response.get("serial_output", []) if response else None
-    if output:
-        return "\n".join(output)
-    return "", HTTPStatus.NO_CONTENT
-
-
-@v1.post("/result/<job_id>/serial_output")
-def legacy_serial_output_post(job_id: str) -> str:
-    """Legacy endpoint to post serial output for a specified job ID.
-
-    TODO: Remove after CLI/agent migration completes.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: BAD_REQUEST when job_id is invalid
-    :return: "OK" on success
-    """
-    if not check_valid_uuid(job_id):
-        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
-    data = request.get_data().decode("utf-8")
-    timestamp = datetime.now(timezone.utc)
-    database.mongo.db.serial_output.update_one(
-        {"job_id": job_id},
-        {"$set": {"updated_at": timestamp}, "$push": {"serial_output": data}},
-        upsert=True,
-    )
     return "OK"
