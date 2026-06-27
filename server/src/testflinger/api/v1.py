@@ -407,7 +407,7 @@ def artifacts_get(job_id):
     :return:
         send_file stream of artifact tarball to download
     """
-    # TODO: consider restrictions to artifacts to original job owner (or group?)
+    # TODO: consider restrictions to artifacts to original job owner (or group?
     # TODO: consider adding artifact download to the web portal; job page
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
@@ -566,7 +566,7 @@ def action_post(job_id, json_data):
     :param job_id:
         UUID as a string for the job
     """
-    # TODO: limit to job owner (or greater) if auth enabled (so job owner known)
+    # TODO: limit to job owner (or greater) if auth enabled (so job owner known
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     action = json_data["action"]

@@ -270,7 +270,8 @@ def test_job_get_with_priority_multiple_queues(
             "state": "waiting",
             "queues": ["myqueue", "myqueue2", "myqueue3"],
             "location": "here",
-        },headers=agent_auth_header
+        },
+        headers=agent_auth_header,
     )
 
     returned_job_ids = []
