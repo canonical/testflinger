@@ -29,6 +29,7 @@ from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
 from requests import HTTPError
 from requests.adapters import HTTPAdapter
+from requests.auth import AuthBase
 from testflinger_common.enums import LogType
 from urllib3.util import Retry
 
@@ -47,6 +48,35 @@ class LogEndpointInput:
     log_data: str
 
 
+class ClientAuth(AuthBase):
+    """Custom authentication class for requests library.
+
+    This class is used to add the Authorization header to requests made
+    by the Testflinger client. It retrieves the access token from the
+    TestflingerClient instance and adds it to the request headers.
+    """
+
+    def __init__(self, client: "TestflingerClient") -> None:
+        """Initialize the ClientAuth with a TestflingerClient instance.
+
+        :param client: Instance of the client to retrieve access token from
+        """
+        self.client = client
+
+    def __call__(
+        self, req: requests.PreparedRequest
+    ) -> requests.PreparedRequest:
+        """Dynamically add the Authorization header to the request.
+
+        :param req: The prepared request object to modify
+        :return: The modified request object with Authorization header
+        """
+        access_token = self.client.get_access_token()
+        if access_token:
+            req.headers["Authorization"] = f"Bearer {access_token}"
+        return req
+
+
 class TestflingerClient:
     __test__ = False
     """This prevents pytest from trying to run this class as a test."""
@@ -59,6 +89,7 @@ class TestflingerClient:
         if not self.server.lower().startswith("http"):
             self.server = f"http://{self.server}"
         self.session = self._requests_retry(retries=5)
+        self.session.auth = ClientAuth(self)
         self.influx_agent_db = "agent_jobs"
         self.influx_client = self._configure_influx()
 
@@ -93,7 +124,6 @@ class TestflingerClient:
         influx_client = InfluxDBClient(
             host, port, user, password, self.influx_agent_db
         )
-
         # ensure we can connect to influxdb
         try:
             influx_client.create_database(self.influx_agent_db)
@@ -139,7 +169,6 @@ class TestflingerClient:
         job_uri = urljoin(self.server, "/v1/job")
         logger.debug("Requesting a job")
         try:
-            self._update_session_auth()
             job_request = self.session.get(
                 job_uri, params={"queue": queue_list}, timeout=30
             )
@@ -564,7 +593,7 @@ class TestflingerClient:
 
             refresh_token = token_data.get("refresh_token")
             try:
-                response = self.session.post(
+                response = requests.post(
                     refresh_url,
                     json={"refresh_token": refresh_token},
                     timeout=timeout,
