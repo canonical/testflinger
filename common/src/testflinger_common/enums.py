@@ -130,10 +130,12 @@ class ServerRoles(StrEnum):
 
     def __str__(self):
         return self.value
-    
-    @classmethod  
+
+    @classmethod
     def _missing_(cls, value):
-        if isinstance(value, str) and any(m.value.lower() == value.lower() for m in cls):
+        if isinstance(value, str) and any(
+            m.value.lower() == value.lower() for m in cls
+        ):
             return next(m for m in cls if m.value.lower() == value.lower())
         raise ValueError(f"{value!r} is not a valid ServerRole")
 

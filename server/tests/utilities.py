@@ -18,6 +18,7 @@
 import base64
 import os
 from datetime import datetime, timedelta, timezone
+from http import HTTPStatus
 
 import jwt
 from testflinger_common.enums import ServerRoles
@@ -59,5 +60,22 @@ def get_access_token(app, client_id, client_key):
         "/v1/oauth2/token",
         headers=get_basic_auth_header(client_id, client_key),
     )
-    assert response.status_code == 200
+    assert response.status_code == HTTPStatus.OK, (
+        f"{response.status} {response.data}"
+    )
     return response.get_json()["access_token"]
+
+
+def get_refresh_token(app, client_id, client_key):
+    """
+    Authenticate and return a valid refresh token.
+    Note: app must already be aware of client_id's existence.
+    """
+    response = app.post(
+        "/v1/oauth2/token",
+        headers=get_basic_auth_header(client_id, client_key),
+    )
+    assert response.status_code == HTTPStatus.OK, (
+        f"{response.status} {response.data}"
+    )
+    return response.get_json()["refresh_token"]
