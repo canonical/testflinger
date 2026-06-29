@@ -43,7 +43,7 @@ from testflinger_cli.errors import (
     NoJobDataError,
 )
 
-URL = "https://testflinger.canonical.com"
+from .conftest import URL
 
 
 def test_status(capsys, requests_mock):
@@ -404,8 +404,8 @@ def test_submit_with_attachments(tmp_path, auth_fixture):
         # - the attachment submission endpoint
         history = mocker.request_history
         assert len(history) == 4
-        assert history[0].path == "/v1/queues/fake/agents"
-        assert history[1].path == "/v1/oauth2/token"
+        assert history[0].path == "/v1/oauth2/token"
+        assert history[1].path == "/v1/queues/fake/agents"
         assert history[2].path == "/v1/job"
         assert history[3].path == f"/v1/job/{job_id}/attachments"
 
@@ -491,8 +491,8 @@ def test_submit_attachments_retries(tmp_path, auth_fixture):
         # - there are repeated requests to the attachment submission endpoint
         history = mocker.request_history
         assert len(history) == 7
-        assert history[0].path == "/v1/queues/fake/agents"
-        assert history[1].path == "/v1/oauth2/token"
+        assert history[0].path == "/v1/oauth2/token"
+        assert history[1].path == "/v1/queues/fake/agents"
         assert history[2].path == "/v1/job"
         for entry in history[3:]:
             assert entry.path == f"/v1/job/{job_id}/attachments"
@@ -560,8 +560,8 @@ def test_submit_attachments_no_retries(tmp_path, auth_fixture):
         # - there is a final request to cancel the action
         history = mocker.request_history
         assert len(history) == 5
-        assert history[0].path == "/v1/queues/fake/agents"
-        assert history[1].path == "/v1/oauth2/token"
+        assert history[0].path == "/v1/oauth2/token"
+        assert history[1].path == "/v1/queues/fake/agents"
         assert history[2].path == "/v1/job"
         assert history[3].path == f"/v1/job/{job_id}/attachments"
         assert history[4].path == f"/v1/job/{job_id}/action"
@@ -634,8 +634,8 @@ def test_submit_attachments_timeout(tmp_path, auth_fixture):
         # - the attachment submission endpoint (with retries)
         history = mocker.request_history
         assert len(history) == 6
-        assert history[0].path == "/v1/queues/fake/agents"
-        assert history[1].path == "/v1/oauth2/token"
+        assert history[0].path == "/v1/oauth2/token"
+        assert history[1].path == "/v1/queues/fake/agents"
         assert history[2].path == "/v1/job"
         assert history[3].path == f"/v1/job/{job_id}/attachments"
         assert history[4].path == f"/v1/job/{job_id}/attachments"

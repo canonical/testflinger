@@ -24,19 +24,17 @@ from http import HTTPStatus
 import pytest
 import requests
 
-from testflinger_cli.client import Client, HTTPError
+from testflinger_cli.client import HTTPError
 from testflinger_cli.enums import LogType, TestPhase
 
-from .test_cli import URL
+from .conftest import URL
 
 
-def test_get_error_threshold(caplog, requests_mock):
+def test_get_error_threshold(caplog, requests_mock, client):
     """Test that a warning is logged when error_threshold is reached."""
     caplog.set_level(logging.WARNING)
-    requests_mock.get(
-        "http://testflinger/test", exc=requests.exceptions.ConnectionError
-    )
-    client = Client("http://testflinger", error_threshold=3)
+    requests_mock.get(f"{URL}/test", exc=requests.exceptions.ConnectionError)
+    client.error_threshold = 3
     for _ in range(2):
         with pytest.raises(requests.exceptions.ConnectionError):
             client.get("test")
@@ -57,11 +55,12 @@ def test_get_error_threshold(caplog, requests_mock):
     "exception",
     [requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError],
 )
-def test_client_connection_errors_exit(requests_mock, method, exception):
+def test_client_connection_errors_exit(
+    requests_mock, method, exception, client
+):
     """Test that POST, PUT, DELETE methods exit on connection errors."""
     getattr(requests_mock, method)(f"{URL}/test", exc=exception)
 
-    client = Client(URL)
     client_method = getattr(client, method)
 
     with pytest.raises(SystemExit) as exc_info:
@@ -74,11 +73,10 @@ def test_client_connection_errors_exit(requests_mock, method, exception):
 
 
 @pytest.mark.parametrize("method", ["get", "post", "put", "delete"])
-def test_client_request_methods(requests_mock, method):
+def test_client_request_methods(requests_mock, method, client):
     """Test a successful request sent to server."""
     getattr(requests_mock, method)(f"{URL}/test", text="success")
 
-    client = Client(URL)
     client_method = getattr(client, method)
 
     if method in ["post", "put"]:
@@ -90,7 +88,9 @@ def test_client_request_methods(requests_mock, method):
 
 
 @pytest.mark.parametrize("method", ["get", "post", "put", "delete"])
-def test_client_request_methods_schema_validation(requests_mock, method):
+def test_client_request_methods_schema_validation(
+    requests_mock, method, client
+):
     """Test output from request after a schema validation fails."""
     validation_error_response = {
         "message": "Validation error",
@@ -108,7 +108,6 @@ def test_client_request_methods_schema_validation(requests_mock, method):
         json=validation_error_response,
     )
 
-    client = Client(URL)
     client_method = getattr(client, method)
 
     with pytest.raises(HTTPError) as exc_info:
@@ -129,7 +128,7 @@ def test_client_request_methods_schema_validation(requests_mock, method):
     assert f"Validation error - {error_details}" == exc_info.value.msg
 
 
-def test_get_logs_normal_output(requests_mock):
+def test_get_logs_normal_output(requests_mock, client):
     """Test get_logs method for normal output."""
     job_id = "test-job-123"
     mock_response = {
@@ -142,17 +141,16 @@ def test_get_logs_normal_output(requests_mock):
     }
 
     requests_mock.get(
-        f"http://testflinger/v1/result/{job_id}/log/output?start_fragment=0",
+        f"{URL}/v1/result/{job_id}/log/output?start_fragment=0",
         json=mock_response,
     )
 
-    client = Client("http://testflinger")
     result = client.get_logs(job_id, LogType.STANDARD_OUTPUT, None, 0, None)
 
     assert result == mock_response
 
 
-def test_get_logs_serial_output(requests_mock):
+def test_get_logs_serial_output(requests_mock, client):
     """Test get_logs method for serial output."""
     job_id = "test-job-456"
     mock_response = {
@@ -165,17 +163,16 @@ def test_get_logs_serial_output(requests_mock):
     }
 
     requests_mock.get(
-        f"http://testflinger/v1/result/{job_id}/log/serial?start_fragment=0",
+        f"{URL}/v1/result/{job_id}/log/serial?start_fragment=0",
         json=mock_response,
     )
 
-    client = Client("http://testflinger")
     result = client.get_logs(job_id, LogType.SERIAL_OUTPUT, None, 0, None)
 
     assert result == mock_response
 
 
-def test_get_logs_with_start_fragment(requests_mock):
+def test_get_logs_with_start_fragment(requests_mock, client):
     """Test get_logs method with start_fragment parameter."""
     job_id = "test-job-789"
     start_fragment = 15
@@ -186,11 +183,10 @@ def test_get_logs_with_start_fragment(requests_mock):
     }
 
     requests_mock.get(
-        f"http://testflinger/v1/result/{job_id}/log/output?start_fragment={start_fragment}",
+        f"{URL}/v1/result/{job_id}/log/output?start_fragment={start_fragment}",
         json=mock_response,
     )
 
-    client = Client("http://testflinger")
     result = client.get_logs(
         job_id, LogType.STANDARD_OUTPUT, None, start_fragment, None
     )
@@ -198,7 +194,7 @@ def test_get_logs_with_start_fragment(requests_mock):
     assert result == mock_response
 
 
-def test_get_logs_with_timestamp(requests_mock):
+def test_get_logs_with_timestamp(requests_mock, client):
     """Test get_logs method with start_timestamp parameter."""
     job_id = "test-job-timestamp"
     start_timestamp = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -211,11 +207,10 @@ def test_get_logs_with_timestamp(requests_mock):
     }
 
     requests_mock.get(
-        f"http://testflinger/v1/result/{job_id}/log/output?start_fragment=0&start_timestamp={encoded_timestamp}",
+        f"{URL}/v1/result/{job_id}/log/output?start_fragment=0&start_timestamp={encoded_timestamp}",
         json=mock_response,
     )
 
-    client = Client("http://testflinger")
     result = client.get_logs(
         job_id, LogType.STANDARD_OUTPUT, None, 0, start_timestamp
     )
@@ -223,7 +218,7 @@ def test_get_logs_with_timestamp(requests_mock):
     assert result == mock_response
 
 
-def test_get_logs_with_phase_filter(requests_mock):
+def test_get_logs_with_phase_filter(requests_mock, client):
     """Test get_logs method with phase filter."""
     job_id = "test-job-phase"
     phase = TestPhase.PROVISION
@@ -238,16 +233,15 @@ def test_get_logs_with_phase_filter(requests_mock):
     }
 
     requests_mock.get(
-        f"http://testflinger/v1/result/{job_id}/log/output?start_fragment=0&phase={phase}",
+        f"{URL}/v1/result/{job_id}/log/output?start_fragment=0&phase={phase}",
         json=mock_response,
     )
 
-    client = Client("http://testflinger")
     result = client.get_logs(job_id, LogType.STANDARD_OUTPUT, phase, 0, None)
     assert result == mock_response
 
 
-def test_get_logs_with_all_parameters(requests_mock):
+def test_get_logs_with_all_parameters(requests_mock, client):
     """Test get_logs method with all parameters."""
     job_id = "test-job-all-params"
     phase = TestPhase.TEST
@@ -265,11 +259,10 @@ def test_get_logs_with_all_parameters(requests_mock):
     }
 
     requests_mock.get(
-        f"http://testflinger/v1/result/{job_id}/log/serial?start_fragment={start_fragment}&start_timestamp={encoded_timestamp}",
+        f"{URL}/v1/result/{job_id}/log/serial?start_fragment={start_fragment}&start_timestamp={encoded_timestamp}",
         json=mock_response,
     )
 
-    client = Client("http://testflinger")
     result = client.get_logs(
         job_id, LogType.SERIAL_OUTPUT, phase, start_fragment, start_timestamp
     )
@@ -277,16 +270,14 @@ def test_get_logs_with_all_parameters(requests_mock):
     assert result == mock_response
 
 
-def test_get_logs_error_handling(requests_mock):
+def test_get_logs_error_handling(requests_mock, client):
     """Test get_logs method error handling."""
     job_id = "test-job-error"
 
     requests_mock.get(
-        f"http://testflinger/v1/result/{job_id}/log/output?start_fragment=0",
+        f"{URL}/v1/result/{job_id}/log/output?start_fragment=0",
         status_code=HTTPStatus.NOT_FOUND,
     )
-
-    client = Client("http://testflinger")
 
     with pytest.raises(HTTPError):
         client.get_logs(job_id, LogType.STANDARD_OUTPUT, None, 0, None)
