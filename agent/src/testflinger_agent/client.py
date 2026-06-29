@@ -154,9 +154,7 @@ class TestflingerClient:
                 return response
 
             new_request = response.request.copy()
-            new_request.headers["Authorization"] = (
-                f"Bearer {access_token}"
-            )
+            new_request.headers["Authorization"] = f"Bearer {access_token}"
             new_request._auth_retry = True
             new_response = response.connection.send(new_request, **kwargs)
             new_response.history.append(response)
