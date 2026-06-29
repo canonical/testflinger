@@ -99,8 +99,9 @@ class Client:
             if getattr(response.request, "_auth_retry", False):
                 return response
 
-            # Consume content to release the connection
-            response.content  # noqa: B018
+            # Consume the response body to return the active connection to
+            # the pool for reuse
+            _ = response.content
 
             self.auth_manager.refresh_authentication()
 

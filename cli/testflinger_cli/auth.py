@@ -19,7 +19,7 @@
 import base64
 import configparser
 import time
-import urllib
+import urllib.parse
 import webbrowser
 from functools import cached_property, wraps
 from http import HTTPStatus
@@ -140,7 +140,7 @@ class TestflingerCliAuth:
         try:
             response = requests.post(
                 url,
-                data={"refresh_token": refresh_token},
+                json={"refresh_token": refresh_token},
                 timeout=DEFAULT_AUTH_TIMEOUT,
             )
             response.raise_for_status()
