@@ -25,7 +25,7 @@ from testflinger_common.enums import LogType
 
 from testflinger_agent.client import LogEndpointInput
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
-from testflinger_agent.errors import InvalidTokenError, TFServerError
+from testflinger_agent.errors import TFServerError
 
 
 class TestClient:
@@ -389,13 +389,8 @@ class TestClient:
         assert requests_mock.last_request.method == "GET"
         assert "/v1/job" in requests_mock.last_request.url
 
-    def test_check_jobs_without_agent_registration_reregisters(
-        self, client, requests_mock
-    ):
-        """
-        Test that check_jobs handles 401 (no agent_name cookie) by
-        re-registering the agent and returning None.
-        """
+    def test_check_jobs_unauthorized_returns_none(self, client, requests_mock):
+        """Test that check_jobs returns None on a 401 response."""
         requests_mock.get(
             "http://127.0.0.1:8000/v1/agents/data/test_agent",
             json={"restricted_to": {}},
@@ -405,24 +400,9 @@ class TestClient:
             status_code=HTTPStatus.UNAUTHORIZED,
             json={"message": "Agent not identified"},
         )
-        requests_mock.post(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
-            status_code=HTTPStatus.OK,
-        )
 
-        # check_jobs should handle 401 by re-registering and returning None
         result = client.check_jobs()
         assert result is None
-
-        # Verify that post_agent_data was called for re-registration, i.e.
-        # the POST /agents/data/<agent_name> endpoint was called, once.
-        post_requests = [
-            req
-            for req in requests_mock.request_history
-            if req.method == "POST"
-        ]
-        assert len(post_requests) == 1
-        assert post_requests[0].json() == {"job_id": ""}
 
     def test_check_jobs_request_exception(self, client):
         """
@@ -567,10 +547,10 @@ class TestClient:
         result = client.check_jobs()
         assert result is None
 
-    def test_get_access_token_raises_on_bad_request(
+    def test_access_token_returns_none_on_bad_request(
         self, client, requests_mock, tmp_path
     ):
-        """Test that get_access_token raises InvalidTokenError on 400 error."""
+        """Test that access_token returns None on a 400 error."""
         token_file = tmp_path / "refresh_token"
         token_file.write_text(json.dumps({"refresh_token": "invalid-token"}))
         client.config["token_file"] = str(token_file)
@@ -582,8 +562,7 @@ class TestClient:
             json={"message": "Invalid refresh token."},
         )
 
-        with pytest.raises(InvalidTokenError):
-            client.get_access_token()
+        assert client.access_token is None
 
     def test_get_access_token_returns_none_on_server_error(
         self, client, requests_mock, tmp_path
@@ -598,7 +577,7 @@ class TestClient:
             status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
         )
 
-        result = client.get_access_token()
+        result = client.access_token
         assert result is None
 
     def test_get_access_token_refresh_network_error(
@@ -644,11 +623,8 @@ class TestClient:
         result = client.check_jobs()
         assert result is None
 
-    def test_update_session_auth_headers(
-        self, client, requests_mock, tmp_path
-    ):
-        """Test authentication headers gets updated on new access token."""
-        # Create a valid token file
+    def test_access_token_is_cached(self, client, requests_mock, tmp_path):
+        """Test that access token is cached and reused across requests."""
         token_file = tmp_path / "refresh_token"
         token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
         client.config["token_file"] = str(token_file)
@@ -656,7 +632,6 @@ class TestClient:
         first_access_token = "access-token-1"  # noqa: S105
         second_access_token = "access-token-2"  # noqa: S105
 
-        # Mock refresh endpoint to return different tokens on each call
         requests_mock.post(
             f"{client.server}/v1/oauth2/refresh",
             [
@@ -664,91 +639,22 @@ class TestClient:
                 {"json": {"access_token": second_access_token}},
             ],
         )
-        # Mock post agent data endpoint for retrieving session cookie
-        requests_mock.post(
-            f"{client.server}/v1/agents/data/test_agent",
-            json={"job_id": ""},
-        )
-        # Mock agent data endpoint
-        requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
-            json={"restricted_to": {}},
-        )
-        # Mock job endpoint
-        requests_mock.get(
-            f"{client.server}/v1/job",
-            json={},
-        )
 
-        # First call should set the header with the first access token
-        client.check_jobs()
-        assert (
-            client.session.headers["Authorization"]
-            == f"Bearer {first_access_token}"
-        )
+        # First access fetches and caches the token
+        assert client.access_token == first_access_token
 
-        # Second call should update the header with the new access token
-        client.check_jobs()
-        assert (
-            client.session.headers["Authorization"]
-            == f"Bearer {second_access_token}"
-        )
-
-    def test_update_session_auth_refreshes_cookies(
-        self, client, requests_mock, tmp_path
-    ):
-        """Test session cookies are refreshed when empty."""
-        token_file = tmp_path / "refresh_token"
-        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
-        client.config["token_file"] = str(token_file)
-
-        requests_mock.post(
-            f"{client.server}/v1/oauth2/refresh",
-            json={"access_token": "test-token"},  # noqa: S106
-        )
-        requests_mock.post(
-            f"{client.server}/v1/agents/data/test_agent",
-            json={"job_id": ""},
-        )
-
-        # Cookies are empty, so post_agent_data should be called
-        assert not client.session.cookies
-        client._update_session_auth()
-
-        # Verify the post to agent data was made for cookie refresh
-        agent_data_calls = [
-            request
-            for request in requests_mock.request_history
-            if request.method == "POST"
-            and "/v1/agents/data/test_agent" in request.url
+        # Second access returns the cached token without re-fetching
+        assert client.access_token == first_access_token
+        refresh_calls = [
+            r
+            for r in requests_mock.request_history
+            if "/v1/oauth2/refresh" in r.url
         ]
-        assert len(agent_data_calls) == 1
+        assert len(refresh_calls) == 1
 
-    def test_update_session_auth_skips_cookie_refresh(
-        self, client, requests_mock, tmp_path
-    ):
-        """Test session skips cookie refresh when cookies already exist."""
-        token_file = tmp_path / "refresh_token"
-        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
-        client.config["token_file"] = str(token_file)
-
-        requests_mock.post(
-            f"{client.server}/v1/oauth2/refresh",
-            json={"access_token": "test-token"},  # noqa: S106
-        )
-
-        # Pre-populate session cookies so post_agent_data is skipped
-        client.session.cookies.set("session", "existing-cookie")
-        client._update_session_auth()
-
-        # Verify no post to agent data was made
-        agent_data_calls = [
-            request
-            for request in requests_mock.request_history
-            if request.method == "POST"
-            and "/v1/agents/data/test_agent" in request.url
-        ]
-        assert len(agent_data_calls) == 0
+        # After clearing the cache, next access fetches a fresh token
+        del client.access_token
+        assert client.access_token == second_access_token
 
     @pytest.mark.parametrize(
         "log_type", [LogType.STANDARD_OUTPUT, LogType.SERIAL_OUTPUT]
