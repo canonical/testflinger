@@ -448,6 +448,16 @@ Receive job status updates from an agent and posts them to the specified webhook
 The `job_status_webhook` parameter is required for this endpoint. Other
 parameters included here will be forwarded to the webhook.
 
+### Webhook URL Validation
+
+The webhook URL is validated against one of two possible configurations:
+
+1. **Multiple Mode** (recommended): Set `WEBHOOK_DOMAINS` environment variable
+   with a comma-separated list of allowed webhook domains. Example: `webhook.example.com, webhook2.example.com`
+
+2. **Legacy Mode**: If `WEBHOOK_DOMAINS` is not set, falls back to strict mode
+   where the webhook URL must match the server-configured `WEBHOOK_URL`.
+
 Parameters:
 
 - `job_id` (UUID): test job identifier
@@ -461,14 +471,19 @@ Status Codes:
 
 - `HTTP 200 (OK)`
 - `HTTP 400 (Bad request)`: The arguments could not be processed by the server
+- `HTTP 403 (Forbidden)`: Webhook URL is not in the configured domain list
+- `HTTP 502 (Bad Gateway)`: Webhook unreachable
 - `HTTP 504 (Gateway Timeout)`: The webhook URL timed out
 
-Example:
+Examples:
 
 ```shell
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"agent_id": "agent-00", "job_queue": "myqueue", "job_status_webhook": "http://mywebhook", "events": [{"event_name": "started_provisioning", "timestamp": "2024-05-03T19:11:33.541130+00:00", "detail": "my_detailed_message"}]}' http://localhost:8000/v1/job/00000000-0000-0000-0000-000000000000/events
+  -d '{"agent_id": "agent-00", "job_queue": "myqueue", "job_status_webhook": "http://webhook.example.com/xxxxxxxxxxxxxxxx", "events": [{"event_name": "started_provisioning", "timestamp": "2024-05-03T19:11:33.541130+00:00", "detail": "my_detailed_message"}]}' http://localhost:8000/v1/job/00000000-0000-0000-0000-000000000000/events
+
+# Multiple domains can be configured
+# WEBHOOK_DOMAINS="webhook.example.com, webhook2.example.com"
 ```
 
 ## `[GET] /v1/queues/wait_times`
