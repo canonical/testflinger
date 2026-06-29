@@ -16,7 +16,6 @@
 
 """Testflinger client module."""
 
-import base64
 import json
 import logging
 import sys
@@ -27,6 +26,7 @@ from pathlib import Path
 
 import requests
 
+from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import VPNError
 
@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 # Maximum backoff delay in seconds
 MAX_BACKOFF_TIME = 60
+DEFAULT_TIMEOUT = 15 # seconds
 
 
 class HTTPError(Exception):
@@ -47,13 +48,71 @@ class HTTPError(Exception):
         self.error_code = error_code
 
 
+class ClientAuth(requests.auth.AuthBase):
+    """Custom authentication class for Testflinger client."""
+
+    def __init__(self, auth_manager: "TestflingerCliAuth"):
+        """Initialize the ClientAuth with an instance of TestflingerCliAuth."""
+        self.auth_manager = auth_manager
+
+    def __call__(
+        self, req: requests.PreparedRequest
+    ) -> requests.PreparedRequest:
+        """Attach the access token to the request headers."""
+        headers = self.auth_manager.build_headers()
+        req.headers.update(headers)
+        return req
+
+
 class Client:
     """Testflinger connection client."""
 
-    def __init__(self, server, error_threshold=3):
+    def __init__(
+        self,
+        server: str,
+        auth_manager: "TestflingerCliAuth",
+        error_threshold: int = 3,
+    ):
         self.server = server
         self.error_count = 0
         self.error_threshold = error_threshold
+        self.auth_manager = auth_manager
+
+        self.session = requests.Session()
+
+        self.session.auth = ClientAuth(self.auth_manager)
+        self.session.hooks["response"].append(self._handle_token_refresh)
+
+    def _handle_token_refresh(
+        self, response: requests.Response, **kwargs
+    ) -> requests.Response:
+        """Re-acquire the access token and replay the request on a 401.
+
+        When the server signals token expiry with a 401, this hook
+        invalidates the cached token, fetches a fresh one, and replays
+        the original exactly once.
+
+        :param response: The response object from the request
+        :return: The replayed response on expiry, otherwise the original
+        """
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
+            if getattr(response.request, "_auth_retry", False):
+                return response
+
+            # Consume content to release the connection
+            response.content  # noqa: B018
+
+            self.auth_manager.refresh_authentication()
+
+            # Replay the original request with the new token
+            new_request = response.request.copy()
+            new_request.headers.update(self.auth_manager.build_headers())
+            new_request._auth_retry = True
+            new_response = response.connection.send(new_request, **kwargs)
+            new_response.history.append(response)
+            return new_response
+
+        return response
 
     def _handle_response_error(self, req: requests.Request):
         """Handle non-OK response status codes.
@@ -94,19 +153,16 @@ class Client:
             error_code=error_code,
         )
 
-    def get(
-        self, uri_frag: str, timeout: int = 15, headers: dict | None = None
-    ):
+    def get(self, uri_frag: str, timeout: int = DEFAULT_TIMEOUT):
         """Submit a GET request to the server.
 
         :param uri_frag: endpoint for the GET request
         :param timeout: timeout for the request to complete
-        :param headers: authentication header if needed to perfom request
         :return: string containing the response from the server
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
-            req = requests.get(uri, timeout=timeout, headers=headers)
+            req = self.session.get(uri, timeout=timeout)
             self.error_count = 0
         except (IOError, requests.exceptions.ConnectionError) as exc:
             self.error_count += 1
@@ -130,22 +186,18 @@ class Client:
         self,
         uri_frag: str,
         data: dict,
-        timeout: int = 15,
-        headers: dict | None = None,
+        timeout: int = DEFAULT_TIMEOUT,
     ):
         """Submit a POST request to the server.
 
         :param uri_frag: endpoint for the POST request
         :param data: JSON data to send in the request body
         :param timeout: timeout for the request to complete
-        :param headers: authentication header if needed to perfom request
         :return: string containing the response from the server
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
-            req = requests.post(
-                uri, json=data, timeout=timeout, headers=headers
-            )
+            req = self.session.post(uri, json=data, timeout=timeout)
         except requests.exceptions.ConnectTimeout:
             logger.error(
                 "Timeout while trying to communicate with the server."
@@ -163,22 +215,18 @@ class Client:
         self,
         uri_frag: str,
         data: dict,
-        timeout: int = 15,
-        headers: dict | None = None,
+        timeout: int = DEFAULT_TIMEOUT,
     ):
         """Submit a PUT request to the server.
 
         :param uri_frag: endpoint for the PUT request
         :param data: JSON data to send in the request body
         :param timeout: timeout for the request to complete
-        :param headers: authentication header if needed to perfom request
         :return: string containing the response from the server
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
-            req = requests.put(
-                uri, json=data, timeout=timeout, headers=headers
-            )
+            req = self.session.put(uri, json=data, timeout=timeout)
         except requests.exceptions.ConnectTimeout:
             logger.error(
                 "Timeout while trying to communicate with the server."
@@ -192,18 +240,15 @@ class Client:
             self._handle_response_error(req)
         return req.text
 
-    def delete(
-        self, uri_frag: str, timeout: int = 15, headers: dict | None = None
-    ):
+    def delete(self, uri_frag: str, timeout: int = DEFAULT_TIMEOUT):
         """Submit a DELETE request to the server
         :param uri_frag: endpoint for the DELETE request
         :param timeout: timeout for the request to complete
-        :param headers: authentication header if needed to perfom request.
         :return: string containing the response from the server.
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
-            req = requests.delete(uri, timeout=timeout, headers=headers)
+            req = self.session.delete(uri, timeout=timeout)
         except requests.exceptions.ConnectTimeout:
             logger.error(
                 "Timeout while trying to communicate with the server."
@@ -231,7 +276,7 @@ class Client:
         with open(path, "rb") as file:
             try:
                 files = {"file": (path.name, file, "application/x-gzip")}
-                response = requests.post(uri, files=files, timeout=timeout)
+                response = self.session.post(uri, files=files, timeout=timeout)
             except requests.exceptions.ConnectTimeout:
                 logger.error(
                     "Timeout while trying to connect to the remote server"
@@ -294,7 +339,7 @@ class Client:
         ]
         return agents_status
 
-    def submit_job(self, data: dict, headers: dict = None) -> str:
+    def submit_job(self, data: dict) -> str:
         """Submit a test job to the testflinger server.
 
         :param job_data:
@@ -303,35 +348,8 @@ class Client:
             ID for the test job
         """
         endpoint = "/v1/job"
-        response = self.post(endpoint, data, headers=headers)
+        response = self.post(endpoint, data)
         return json.loads(response).get("job_id")
-
-    def authenticate(self, client_id: str, secret_key: str) -> dict:
-        """Authenticate client id and secret key with the server
-        and returns access and refresh tokens.
-
-        :param client_id: user used for authentication
-        :param secret_key: secret used to authenticate user
-        :return: access_token, token_type, expiration and refresh token
-        """
-        endpoint = "/v1/oauth2/token"
-        id_key_pair = f"{client_id}:{secret_key}"
-        encoded_id_key_pair = base64.b64encode(
-            id_key_pair.encode("utf-8")
-        ).decode("utf-8")
-        headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
-        response = self.post(endpoint, {}, headers=headers)
-        return json.loads(response)
-
-    def refresh_authentication(self, refresh_token: str) -> dict:
-        """Refresh access_token by using stored refresh_token.
-
-        :param refresh_token: Opaque token used for refreshing access_token
-        :return: access_token with token type and expiration
-        """
-        endpoint = "/v1/oauth2/refresh"
-        response = self.post(endpoint, data={"refresh_token": refresh_token})
-        return json.loads(response)
 
     def post_attachment(self, job_id: str, path: Path, timeout: int):
         """Send a test job attachment to the testflinger server.
@@ -379,7 +397,7 @@ class Client:
         """
         endpoint = "/v1/result/{}/artifact".format(job_id)
         uri = urllib.parse.urljoin(self.server, endpoint)
-        req = requests.get(uri, timeout=15, stream=True)
+        req = self.session.get(uri, timeout=DEFAULT_TIMEOUT, stream=True)
         if req.status_code != HTTPStatus.OK:
             raise HTTPError(req.status_code)
         with path.open("wb") as artifact:
@@ -470,59 +488,34 @@ class Client:
         data = {"state": status, "comment": comment}
         self.post(endpoint, data)
 
-    def set_client_permissions(self, auth_header: dict, json_data: dict):
+    def set_client_permissions(self, json_data: dict):
         """Set existing client_id permissions.
 
-        :param auth_header: Auth header required to perform PUT request
         :param json_data: JSON with updated client permissions
         """
         client_id = json_data.pop("client_id")
         endpoint = f"/v1/client-permissions/{client_id}"
-        return self.put(endpoint, data=json_data, headers=auth_header)
+        return self.put(endpoint, data=json_data)
 
     def get_client_permissions(
-        self, auth_header: dict, tf_client_id: str | None = None
+        self, tf_client_id: str | None = None
     ) -> list[dict] | None:
         """Get the permissions from specified client.
 
         If no client specified, will provide all client permissions.
 
-        :param auth_header: Auth header required to perform GET request
         :param tf_client_id: Specified client to retrieve permissions from
         """
         if tf_client_id:
             endpoint = f"/v1/client-permissions/{tf_client_id}"
         else:
             endpoint = "/v1/client-permissions"
-        return json.loads(self.get(endpoint, headers=auth_header))
+        return json.loads(self.get(endpoint))
 
-    def delete_client_permissions(
-        self, auth_header: dict, tf_client_id: str
-    ) -> None:
+    def delete_client_permissions(self, tf_client_id: str) -> None:
         """Delete a client_id along with its permissions.
 
-        :param auth_header: Auth header required to perform DELETE request
         :param tf_client_id: Specified client to delete permissions from
         """
         endpoint = f"/v1/client-permissions/{tf_client_id}"
-        self.delete(endpoint, headers=auth_header)
-
-    def oidc_auth_initiate(self) -> dict:
-        """Initiate OIDC authentication with the server.
-
-        :return: dict containing required OIDC parameters for client to
-            authenticate with provider
-        """
-        endpoint = "/oidc/auth-init"
-        response = self.post(endpoint, data={})
-        return json.loads(response)
-
-    def oidc_auth_poll(self, request_id: str) -> dict:
-        """Poll for OIDC authentication result based on request ID.
-
-        :param request_id: unique request ID generated during auth initiation
-        :return: dict containing auth result and TF tokens if successful
-        """
-        endpoint = f"/oidc/auth-poll/{request_id}"
-        response = self.post(endpoint, data={})
-        return json.loads(response)
+        self.delete(endpoint)

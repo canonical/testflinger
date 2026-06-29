@@ -158,9 +158,11 @@ class TestflingerCli:
                 'Server must start with "http://" or "https://" '
                 f'- currently set to: "{server}"'
             )
-        self.client = client.Client(server, error_threshold=error_threshold)
         self.auth = TestflingerCliAuth(
-            self.client, self.client_id, self.secret_key
+            server, self.client_id, self.secret_key
+        )
+        self.client = client.Client(
+            server, self.auth, error_threshold=error_threshold
         )
 
     def run(self):
@@ -1291,55 +1293,38 @@ class TestflingerCli:
 
     def submit_job_data(self, data: dict):
         """Submit data that was generated or read from a file as a test job."""
-        retry_count = 0
-        while True:
-            try:
-                auth_headers = self.auth.build_headers()
-                job_id = self.client.submit_job(data, headers=auth_headers)
-                break
-            except CredentialsError as auth_exc:
-                sys.exit(auth_exc)
-            except client.HTTPError as exc:
-                if exc.status == HTTPStatus.BAD_REQUEST:
-                    sys.exit(
-                        "The job you submitted contained bad data or "
-                        "bad formatting, or did not specify a "
-                        "job_queue."
-                    )
-                if exc.status == HTTPStatus.FORBIDDEN:
-                    sys.exit(
-                        "Received 403 error from server with reason: "
-                        f"{exc.msg}\n"
-                        "The specified client credentials do not have "
-                        "sufficient permissions for the resource(s) "
-                        "you are trying to access."
-                    )
-                if exc.status == HTTPStatus.UNAUTHORIZED:
-                    if "expired" in exc.msg:
-                        if retry_count < 2:
-                            retry_count += 1
-                            self.auth.refresh_authentication()
-                        else:
-                            sys.exit(
-                                "Received 401 error from server due to "
-                                "expired authorization token."
-                            )
-                    else:
-                        sys.exit(
-                            "Received 401 error from server with reason: "
-                            f"{exc.msg}\n"
-                            "You are attempting to use a feature "
-                            "that requires client authorisation "
-                            "without using client credentials. \n"
-                            "See https://testflinger.readthedocs.io/en/latest"
-                            "/how-to/authentication/ for more details"
-                        )
-                else:
-                    # This shouldn't happen, so let's get more information
-                    sys.exit(
-                        "Unexpected error status from testflinger "
-                        f"server: [{exc.status}] {exc.msg}"
-                    )
+        try:
+            job_id = self.client.submit_job(data)
+        except CredentialsError as auth_exc:
+            sys.exit(auth_exc)
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.BAD_REQUEST:
+                sys.exit(
+                    "The job you submitted contained bad data or "
+                    "bad formatting, or did not specify a "
+                    "job_queue."
+                )
+            if exc.status == HTTPStatus.FORBIDDEN:
+                sys.exit(
+                    "Received 403 error from server with reason: "
+                    f"{exc.msg}\n"
+                    "The specified client credentials do not have "
+                    "sufficient permissions for the resource(s) "
+                    "you are trying to access."
+                )
+            if exc.status == HTTPStatus.UNAUTHORIZED:
+                sys.exit(
+                    "Received 401 error from server with reason: "
+                    f"{exc.msg}\n"
+                    "You are attempting to use a feature "
+                    "that requires client authorisation "
+                    "without using client credentials."
+                )
+            # This shouldn't happen, so let's get more information
+            sys.exit(
+                "Unexpected error status from testflinger "
+                f"server: [{exc.status}] {exc.msg}"
+            )
         return job_id
 
     def submit_job_attachments(self, job_id: str, path: Path):
@@ -1868,7 +1853,10 @@ class TestflingerCli:
         try:
             # Since refresh token was cleared, we need to re-authenticate
             if self.auth.authenticate():
-                print(f"Successfully authenticated as '{self.auth.client_id}'")
+                print(
+                    "Successfully authenticated as "
+                    f"'{self.auth.client_id}'"
+                )
             else:
                 # authenticate can return None if no credentials were provided
                 sys.exit("Please provide credentials and reattempt login")
@@ -1877,12 +1865,13 @@ class TestflingerCli:
 
     def secret_write(self):
         """Write a secret value for the authenticated client."""
+        # Explicit authentication to populate client_id for secret write
         try:
-            auth_headers = self.auth.build_headers()
+            self.auth.authenticate()
         except CredentialsError as exc:
             sys.exit(exc)
 
-        if auth_headers is None or self.auth.client_id is None:
+        if not self.auth.client_id:
             sys.exit("Error writing secret: Authentication is required")
 
         if self.args.single_use:
@@ -1900,11 +1889,11 @@ class TestflingerCli:
                 "value": self.args.value,
                 "expire_after": expire_after,
             }
-        endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
+        endpoint = (
+            f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
+        )
         try:
-            response = self.client.put(
-                endpoint, secret_data, headers=auth_headers
-            )
+            response = self.client.put(endpoint, secret_data)
         except client.HTTPError as exc:
             sys.exit(f"Error writing secret: [{exc.status}] {exc.msg}")
         print(f"Secret '{self.args.path}' written successfully")
@@ -1925,17 +1914,20 @@ class TestflingerCli:
 
     def secret_delete(self):
         """Delete a secret for the authenticated client."""
+        # Explicit authentication to populate client_id for secret delete
         try:
-            auth_headers = self.auth.build_headers()
+            self.auth.authenticate()
         except CredentialsError as exc:
             sys.exit(exc)
 
-        if auth_headers is None or self.auth.client_id is None:
+        if not self.auth.client_id:
             sys.exit("Error deleting secret: Authentication is required")
 
-        endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
+        endpoint = (
+            f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
+        )
         try:
-            self.client.delete(endpoint, headers=auth_headers)
+            self.client.delete(endpoint)
         except client.HTTPError as exc:
             sys.exit(f"Error deleting secret: [{exc.status}] {exc.msg}")
         print(f"Secret '{self.args.path}' deleted successfully")
