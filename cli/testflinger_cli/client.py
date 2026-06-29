@@ -51,7 +51,7 @@ class HTTPError(Exception):
 class ClientAuth(requests.auth.AuthBase):
     """Custom authentication class for Testflinger client."""
 
-    def __init__(self, auth_manager: "TestflingerCliAuth"):
+    def __init__(self, auth_manager: TestflingerCliAuth) -> None:
         """Initialize the ClientAuth with an instance of TestflingerCliAuth."""
         self.auth_manager = auth_manager
 
@@ -70,7 +70,7 @@ class Client:
     def __init__(
         self,
         server: str,
-        auth_manager: "TestflingerCliAuth",
+        auth_manager: TestflingerCliAuth,
         error_threshold: int = 3,
     ):
         self.server = server

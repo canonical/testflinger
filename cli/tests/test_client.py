@@ -20,6 +20,7 @@ import logging
 import urllib.parse
 from datetime import datetime, timezone
 from http import HTTPStatus
+from unittest.mock import MagicMock
 
 import pytest
 import requests
@@ -281,3 +282,16 @@ def test_get_logs_error_handling(requests_mock, client):
 
     with pytest.raises(HTTPError):
         client.get_logs(job_id, LogType.STANDARD_OUTPUT, None, 0, None)
+
+
+def test_token_refresh_hook_does_not_retry_twice(client):
+    """Test access token refresh hook does not retry if already retried."""
+    mock_response = MagicMock()
+    mock_response.status_code = HTTPStatus.UNAUTHORIZED
+    mock_response.request = MagicMock()
+    mock_response.request._auth_retry = True
+
+    result = client._handle_token_refresh(mock_response)
+
+    assert result is mock_response
+    mock_response.connection.send.assert_not_called()
