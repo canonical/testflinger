@@ -146,7 +146,8 @@ class TestflingerClient:
             if getattr(response.request, "_auth_retry", False):
                 return response
 
-            # Drain before releasing the connection
+            # Consume the response body to return the active connection to
+            # the pool for reuse
             _ = response.content
 
             del self.access_token
