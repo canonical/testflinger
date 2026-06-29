@@ -32,6 +32,7 @@ from testflinger import database
 from testflinger.owasp import OWASPLogger
 
 DEFAULT_REFRESH_TOKEN_EXPIRATION = 6 * 24 * 60 * 60  # 6 days in seconds
+DEFAULT_ACCESS_TOKEN_EXPIRATION = 60 * 10  # 10 minutes
 
 # Fields from client_permissions to include in the Testflinger JWT
 PERMISSIONS_FIELDS = frozenset(
@@ -86,7 +87,9 @@ def generate_access_token(allowed_resources: dict, secret_key: str) -> str:
 
     :return: JWT token with all user permissions.
     """
-    expiration_time = datetime.now(timezone.utc) + timedelta(seconds=30)
+    expiration_time = datetime.now(timezone.utc) + timedelta(
+        seconds=DEFAULT_ACCESS_TOKEN_EXPIRATION
+    )
     token_payload = {
         "exp": expiration_time,
         "iat": datetime.now(timezone.utc),  # Issued at time
@@ -389,7 +392,7 @@ def issue_tokens(
     return {
         "access_token": access_token,
         "token_type": "Bearer",
-        "expires_in": 30,
+        "expires_in": DEFAULT_ACCESS_TOKEN_EXPIRATION,
         "refresh_token": refresh_token,
     }
 
