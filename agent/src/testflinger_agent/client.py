@@ -69,8 +69,8 @@ class ClientAuth(AuthBase):
         :param req: The prepared request object to modify
         :return: The modified request object with Authorization header
         """
-        if self.client.access_token:
-            req.headers["Authorization"] = f"Bearer {self.client.access_token}"
+        if access_token := self.client.access_token:
+            req.headers["Authorization"] = f"Bearer {access_token}"
         return req
 
 
@@ -147,15 +147,15 @@ class TestflingerClient:
                 return response
 
             # Drain before releasing the connection
-            response.content  # noqa: B018
+            _ = response.content
 
             del self.access_token
-            if not self.access_token:
+            if not (access_token := self.access_token):
                 return response
 
             new_request = response.request.copy()
             new_request.headers["Authorization"] = (
-                f"Bearer {self.access_token}"
+                f"Bearer {access_token}"
             )
             new_request._auth_retry = True
             new_response = response.connection.send(new_request, **kwargs)

@@ -739,7 +739,7 @@ class TestClient:
             "job_queue": "test_queue",
         }
         # Similarly two calls to the job endpoint
-        # The first call for a expired token, the second call after refreshing
+        # The first call for an expired token, the second call after refreshing
         requests_mock.get(
             f"{client.server}/v1/job",
             [
@@ -763,7 +763,7 @@ class TestClient:
             == f"Bearer {refreshed_token}"
         )
 
-        # Addionally, verify that the retried request matches the original
+        # Additionally, verify that the retried request matches the original
         # Only difference should be the Authorization header
         assert job_requests[0].url == job_requests[1].url
         assert job_requests[0].method == job_requests[1].method
