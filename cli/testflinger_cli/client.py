@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 # Maximum backoff delay in seconds
 MAX_BACKOFF_TIME = 60
-DEFAULT_TIMEOUT = 15 # seconds
+DEFAULT_TIMEOUT = 15  # seconds
 
 
 class HTTPError(Exception):

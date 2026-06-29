@@ -158,9 +158,7 @@ class TestflingerCli:
                 'Server must start with "http://" or "https://" '
                 f'- currently set to: "{server}"'
             )
-        self.auth = TestflingerCliAuth(
-            server, self.client_id, self.secret_key
-        )
+        self.auth = TestflingerCliAuth(server, self.client_id, self.secret_key)
         self.client = client.Client(
             server, self.auth, error_threshold=error_threshold
         )
@@ -1853,10 +1851,7 @@ class TestflingerCli:
         try:
             # Since refresh token was cleared, we need to re-authenticate
             if self.auth.authenticate():
-                print(
-                    "Successfully authenticated as "
-                    f"'{self.auth.client_id}'"
-                )
+                print(f"Successfully authenticated as '{self.auth.client_id}'")
             else:
                 # authenticate can return None if no credentials were provided
                 sys.exit("Please provide credentials and reattempt login")
@@ -1889,9 +1884,7 @@ class TestflingerCli:
                 "value": self.args.value,
                 "expire_after": expire_after,
             }
-        endpoint = (
-            f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
-        )
+        endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
             response = self.client.put(endpoint, secret_data)
         except client.HTTPError as exc:
@@ -1923,9 +1916,7 @@ class TestflingerCli:
         if not self.auth.client_id:
             sys.exit("Error deleting secret: Authentication is required")
 
-        endpoint = (
-            f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
-        )
+        endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
             self.client.delete(endpoint)
         except client.HTTPError as exc:
