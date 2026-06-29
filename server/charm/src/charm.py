@@ -294,6 +294,14 @@ class TestflingerCharm(ops.CharmBase):
         new_key = self.typed_config.testflinger_secrets_master_key
         stored_key = self._stored.previous_master_key
 
+        # If the key was unset, clear the stored key so the next
+        # config-changed with a valid key is treated as a fresh deployment.
+        if not new_key:
+            logger.info("Master key unset, clearing stored key")
+            self._stored.previous_master_key = ""
+            self._update_layer_and_restart()
+            return
+
         # Rotate only if master key was previously defined, has changed,
         # and this is the leader unit.
         if stored_key and new_key != stored_key and self.unit.is_leader():

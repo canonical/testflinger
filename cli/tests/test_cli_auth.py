@@ -20,6 +20,7 @@ import json
 import sys
 import uuid
 from http import HTTPStatus
+from unittest.mock import call, patch
 
 import pytest
 
@@ -27,6 +28,7 @@ import testflinger_cli
 from testflinger_cli.enums import ServerRoles
 from testflinger_cli.errors import NetworkError
 
+from .conftest import TEST_CLIENT_ID
 from .test_cli import URL
 
 
@@ -125,6 +127,9 @@ def test_retrieve_regular_user_role(tmp_path, requests_mock):
     job_file.write_text(json.dumps(job_data))
 
     requests_mock.post(f"{URL}/v1/oauth2/token")
+    requests_mock.post(
+        f"{URL}/oidc/auth-init", status_code=HTTPStatus.NOT_FOUND
+    )
     sys.argv = ["", "submit", str(job_file)]
     tfcli = testflinger_cli.TestflingerCli()
     role = tfcli.auth.get_user_role()
@@ -233,21 +238,6 @@ def test_authentication_error(tmp_path, requests_mock, monkeypatch):
     assert "Authentication with Testflinger server failed" in str(err.value)
 
 
-def test_cli_login(auth_fixture, capsys):
-    """Test authentication succeeds when running login command."""
-    auth_fixture(ServerRoles.CONTRIBUTOR)
-
-    sys.argv = ["", "login"]
-    tfcli = testflinger_cli.TestflingerCli()
-    tfcli.login()
-    std = capsys.readouterr()
-    # Make sure login also stores refresh token
-    refresh_token = tfcli.auth.get_stored_refresh_token()
-
-    assert refresh_token is not None
-    assert "Successfully authenticated as user" in std.out
-
-
 def test_multiple_login_clear_refresh_token(auth_fixture):
     """Test multiple user login clears refresh_token and issue new one."""
     auth_fixture(ServerRoles.CONTRIBUTOR)
@@ -295,6 +285,10 @@ def test_refresh_token_expired(tmp_path, requests_mock, monkeypatch):
         text="Refresh token expired",
         status_code=HTTPStatus.BAD_REQUEST,
     )
+    # OIDC not enabled on this server
+    requests_mock.post(
+        f"{URL}/oidc/auth-init", status_code=HTTPStatus.NOT_FOUND
+    )
     # Mock agents endpoint for available agents
     requests_mock.get(
         f"{URL}/v1/queues/fake/agents",
@@ -307,5 +301,148 @@ def test_refresh_token_expired(tmp_path, requests_mock, monkeypatch):
     assert "Please reauthenticate with server" in str(exc.value)
 
     history = requests_mock.request_history
-    assert len(history) == 2
+    assert len(history) == 3
     assert history[1].path == "/v1/oauth2/refresh"
+
+
+def test_cli_login_defaults_credentials(auth_fixture, capsys):
+    """Test login command with default method authentication."""
+    # This loads credentials as environment variables for the test
+    auth_fixture(ServerRoles.CONTRIBUTOR)
+
+    sys.argv = ["", "login"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.login()
+    std = capsys.readouterr()
+    # Make sure login also stores refresh token
+    refresh_token = tfcli.auth.get_stored_refresh_token()
+
+    assert refresh_token is not None
+    assert f"Successfully authenticated as '{TEST_CLIENT_ID}'" in std.out
+
+
+@patch("testflinger_cli.auth.time.sleep")
+@patch("testflinger_cli.auth.webbrowser.open")
+def test_login_with_oidc(mock_open, mock_sleep, oidc_auth_fixture, capsys):
+    """Test login with OIDC method."""
+    oidc_auth_fixture(oidc_auth_fixture.success_response)
+
+    sys.argv = ["testflinger-cli", "login"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.login()
+    std = capsys.readouterr()
+
+    assert tfcli.auth.get_stored_refresh_token() is not None
+    assert (
+        f"Successfully authenticated as '{oidc_auth_fixture.oidc_user}'"
+        in std.out
+    )
+
+
+def test_login_initiate_oidc_failure(requests_mock):
+    """Test login with OIDC method fails if auth-init endpoint fails."""
+    requests_mock.post(
+        f"{URL}/oidc/auth-init",
+        status_code=HTTPStatus.BAD_GATEWAY,
+        text="OIDC provider unreachable",
+    )
+
+    sys.argv = ["testflinger-cli", "login"]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc:
+        tfcli.login()
+
+    assert "Failed to initiate OIDC login" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "poll_response, expected_message",
+    [
+        (
+            {
+                "status_code": HTTPStatus.BAD_REQUEST,
+                "json": {"error": "access_denied"},
+            },
+            "Authentication failed: access denied",
+        ),
+        (
+            {
+                "status_code": HTTPStatus.BAD_REQUEST,
+                "json": {"error": "expired_token"},
+            },
+            "Authentication timed out",
+        ),
+        (
+            {
+                "status_code": HTTPStatus.BAD_GATEWAY,
+                "json": {"message": "infra error"},
+            },
+            "Unexpected error during OIDC authentication",
+        ),
+    ],
+)
+@patch("testflinger_cli.auth.time.sleep")
+@patch("testflinger_cli.auth.webbrowser.open")
+def test_login_oidc_poll_terminal_errors(
+    mock_open, mock_sleep, oidc_auth_fixture, poll_response, expected_message
+):
+    """Test OIDC polling exits on RFC 8628 terminal error codes."""
+    oidc_auth_fixture(poll_response)
+
+    sys.argv = ["testflinger-cli", "login"]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as exc:
+        tfcli.login()
+
+    assert expected_message in str(exc.value)
+
+
+@patch("testflinger_cli.auth.time.sleep")
+@patch("testflinger_cli.auth.webbrowser.open")
+def test_login_oidc_poll_pending_then_success(
+    mock_open, mock_sleep, oidc_auth_fixture, capsys
+):
+    """Test OIDC poll retries on authorization_pending until auth succeeds."""
+    oidc_auth_fixture(
+        [
+            {
+                "status_code": HTTPStatus.BAD_REQUEST,
+                "json": {"error": "authorization_pending"},
+            },
+            oidc_auth_fixture.success_response,
+        ]
+    )
+
+    sys.argv = ["testflinger-cli", "login"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.login()
+
+    # sleep called once before 400, once before 200
+    assert mock_sleep.call_args_list == [call(5), call(5)]
+    assert tfcli.auth.get_stored_refresh_token() is not None
+
+
+@patch("testflinger_cli.auth.time.sleep")
+@patch("testflinger_cli.auth.webbrowser.open")
+def test_login_oidc_poll_slow_down(
+    mock_open, mock_sleep, oidc_auth_fixture, capsys
+):
+    """Test OIDC polling increases interval using Retry-After header."""
+    oidc_auth_fixture(
+        [
+            {
+                "status_code": HTTPStatus.BAD_REQUEST,
+                "headers": {"Retry-After": "5"},
+                "json": {"error": "slow_down"},
+            },
+            oidc_auth_fixture.success_response,
+        ]
+    )
+
+    sys.argv = ["testflinger-cli", "login"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.login()
+
+    # interval starts at 5, increases by Retry-After (5) after slow_down
+    assert mock_sleep.call_args_list == [call(5), call(10)]
+    assert tfcli.auth.get_stored_refresh_token() is not None

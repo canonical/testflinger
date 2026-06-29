@@ -660,6 +660,65 @@
         "summary": "Prometheus Metrics"
       }
     },
+    "/oidc/auth-init": {
+      "post": {
+        "description": ":return: dict containing required OIDC parameters for client to\nauthenticate with provider",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Initiate client request and proxy request to OIDC provider.",
+        "tags": [
+          "Oidc_Api"
+        ]
+      }
+    },
+    "/oidc/auth-poll/{request_id}": {
+      "post": {
+        "description": ":param request_id: unique request ID generated during auth initiation\n:return: dict containing authentication result and user info if successful",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Poll for OIDC authentication result based on request ID.",
+        "tags": [
+          "Oidc_Api"
+        ]
+      }
+    },
     "/v1/": {
       "get": {
         "parameters": [],
@@ -2427,6 +2486,9 @@
   "tags": [
     {
       "name": "V1"
+    },
+    {
+      "name": "Oidc_Api"
     }
   ]
 }

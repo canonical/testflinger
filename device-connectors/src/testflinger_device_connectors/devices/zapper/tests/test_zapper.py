@@ -75,6 +75,8 @@ class ZapperConnectorTests(unittest.TestCase):
             "agent_name": "my-agent",
             "control_host": "zapper-host",
             "reboot_script": ["cmd1", "cmd2"],
+            "poweron_script": ["poweron1"],
+            "poweroff_script": ["poweroff1"],
             "env": {"CID": "202507-01234"},
         }
         connector = MockConnector(fake_config)
@@ -357,6 +359,8 @@ class TestZapperConnectorRun:
             "agent_name": "my-agent",
             "control_host": "zapper-host",
             "reboot_script": ["cmd1"],
+            "poweron_script": ["poweron1"],
+            "poweroff_script": ["poweroff1"],
             "env": {"CID": "202507-01234"},
         }
         return MockConnector(config)

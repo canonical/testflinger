@@ -202,6 +202,8 @@ class ZapperConnector(ABC, DefaultDevice):
                 "cid": self.config.get("env", {}).get("CID"),
                 "device_ip": self.config["device_ip"],
                 "reboot_script": self.config["reboot_script"],
+                "poweron_script": self.config.get("poweron_script"),
+                "poweroff_script": self.config.get("poweroff_script"),
             }
         )
         payload = {
