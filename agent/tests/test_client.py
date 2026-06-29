@@ -710,3 +710,143 @@ class TestClient:
             log_data="output_log_data",
         )
         assert client.post_log(job_id, log_input, log_type) is False
+
+    def test_session_retries_on_expired_token(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test that the client retries on expired access token."""
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        first_token = "first-access-token"  # noqa: S105
+        refreshed_token = "refreshed-access-token"  # noqa: S105
+
+        # There should be exactly two calls to the refresh endpoint
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            [
+                {"json": {"access_token": first_token}},
+                {"json": {"access_token": refreshed_token}},
+            ],
+        )
+        requests_mock.get(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        fake_job_data = {
+            "job_id": str(uuid.uuid1()),
+            "job_queue": "test_queue",
+        }
+        # Similarly two calls to the job endpoint
+        # The first call for a expired token, the second call after refreshing
+        requests_mock.get(
+            f"{client.server}/v1/job",
+            [
+                {"status_code": HTTPStatus.UNAUTHORIZED},
+                {"json": fake_job_data},
+            ],
+        )
+
+        result = client.check_jobs()
+        assert result == fake_job_data
+
+        job_requests = [
+            req
+            for req in requests_mock.request_history
+            if "/v1/job" in req.url
+        ]
+        assert len(job_requests) == 2
+        # Verify that the second request to /v1/job used the refreshed token
+        assert (
+            job_requests[1].headers.get("Authorization")
+            == f"Bearer {refreshed_token}"
+        )
+
+        # Addionally, verify that the retried request matches the original
+        # Only difference should be the Authorization header
+        assert job_requests[0].url == job_requests[1].url
+        assert job_requests[0].method == job_requests[1].method
+        assert (
+            job_requests[0].headers.get("Authorization")
+            != job_requests[1].headers.get("Authorization")
+        )  # fmt: off
+
+    def test_session_does_not_retry_if_already_retried(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test that the client does not retry if already retried once."""
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            json={"access_token": "fake-access-token"},
+        )
+        requests_mock.get(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        # Always returns 401 — retry should not loop
+        requests_mock.get(
+            f"{client.server}/v1/job",
+            status_code=HTTPStatus.UNAUTHORIZED,
+        )
+
+        result = client.check_jobs()
+        assert result is None
+
+        job_requests = [
+            req
+            for req in requests_mock.request_history
+            if "/v1/job" in req.url
+        ]
+        # Initial request + one retry
+        assert len(job_requests) == 2
+
+    def test_session_skips_retry_if_token_refresh_fails(
+        self, client, requests_mock, tmp_path
+    ):
+        """Test that no retry is made when token refresh fails on 401.
+
+        If the server returns 401 and the token refresh also fails,
+        _handle_token_refresh should return the original 401 without
+        attempting a retry (the `if not self.access_token` guard).
+        """
+        token_file = tmp_path / "refresh_token"
+        token_file.write_text(json.dumps({"refresh_token": "valid-token"}))
+        client.config["token_file"] = str(token_file)
+
+        # The second call attempting to refresh the access token should fail
+        # given the refresh token is invalid
+        requests_mock.post(
+            f"{client.server}/v1/oauth2/refresh",
+            [
+                {"json": {"access_token": "initial-token"}},
+                {
+                    "status_code": HTTPStatus.BAD_REQUEST,
+                    "json": {"message": "Refresh token expired"},
+                },
+            ],
+        )
+        requests_mock.get(
+            f"{client.server}/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        requests_mock.get(
+            f"{client.server}/v1/job",
+            status_code=HTTPStatus.UNAUTHORIZED,
+        )
+
+        result = client.check_jobs()
+        assert result is None
+
+        job_requests = [
+            req
+            for req in requests_mock.request_history
+            if "/v1/job" in req.url
+        ]
+
+        # No retry should have been attempted
+        assert len(job_requests) == 1
