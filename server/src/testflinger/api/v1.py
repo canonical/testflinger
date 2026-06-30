@@ -779,29 +779,26 @@ def agents_status_post(job_id, json_data):
     # Webhook specified in the job definition
     job_webhook = json_data.pop("job_status_webhook")
 
-    # Webhook base URL configured on the server
+    # Validate webhook URL against configured domain list or legacy WEBHOOK_URL
+    domain_list = os.environ.get("WEBHOOK_DOMAINS", "").strip()
     authorized_webhook_url = os.environ.get("WEBHOOK_URL")
-    if not authorized_webhook_url:
-        # Abort if no webhook configured server-side
+
+    if not domain_list and not authorized_webhook_url:
+        # Abort if no webhook configuration found
         abort(
             HTTPStatus.INTERNAL_SERVER_ERROR,
             message="Webhook URL not configured",
         )
 
-    # Parse both URLs; authorized_webhook_url is the only permitted
-    # endpoint to send requests to.
-    parsed_job_url = urlparse(job_webhook)
-    parsed_authorized_url = urlparse(authorized_webhook_url)
-
-    # Validate job_webhook is referring to the server-configured webhook URL
-    if (
-        parsed_job_url.scheme != parsed_authorized_url.scheme
-        or parsed_job_url.netloc != parsed_authorized_url.netloc
-    ):
+    # Validate job_webhook is allowed
+    if not is_webhook_url_allowed(job_webhook):
         abort(
             HTTPStatus.FORBIDDEN,
             message="Invalid job_status_webhook URL specified",
         )
+
+    # Parse job URL for later use (scheme detection for retry adapter)
+    parsed_job_url = urlparse(job_webhook)
 
     # Attempt to get optional authentication header from server configuration
     auth_headers = {}
@@ -816,9 +813,7 @@ def agents_status_post(job_id, json_data):
                     allowed_methods=frozenset(["PUT"]),
                 )
             )
-            webhook_session.mount(
-                f"{parsed_authorized_url.scheme}://", retry_adapter
-            )
+            webhook_session.mount(f"{parsed_job_url.scheme}://", retry_adapter)
             response = webhook_session.put(
                 job_webhook,
                 json=json_data,
@@ -842,6 +837,37 @@ def agents_status_post(job_id, json_data):
         abort(HTTPStatus.GATEWAY_TIMEOUT, message="Webhook Timeout")
     except requests.exceptions.RequestException:
         abort(HTTPStatus.BAD_GATEWAY, message="Webhook unreachable")
+
+
+def is_webhook_url_allowed(webhook_url):
+    """Validate webhook URL against configured domain list.
+
+    Checks if the webhook URL is allowed based on:
+    1. WEBHOOK_DOMAINS env var (comma-separated list of allowed domains)
+    2. Falls back to legacy WEBHOOK_URL check for backward compatibility
+
+    :param webhook_url: The webhook URL to validate
+    :return: True if URL is allowed, False otherwise
+    """
+    parsed_webhook = urlparse(webhook_url)
+    webhook_domain = parsed_webhook.netloc
+
+    # Check domain list
+    domain_list = os.environ.get("WEBHOOK_DOMAINS", "")
+    if domain_list:
+        allowed_domains = [d.strip() for d in domain_list.split(",")]
+        return webhook_domain in allowed_domains
+
+    # Legacy fallback: require exact match with WEBHOOK_URL
+    authorized_webhook_url = os.environ.get("WEBHOOK_URL")
+    if not authorized_webhook_url:
+        return False
+
+    parsed_authorized = urlparse(authorized_webhook_url)
+    return (
+        parsed_webhook.scheme == parsed_authorized.scheme
+        and webhook_domain == parsed_authorized.netloc
+    )
 
 
 def check_valid_uuid(job_id):

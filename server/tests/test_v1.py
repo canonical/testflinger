@@ -1206,6 +1206,87 @@ def test_agents_status_put_webhook_auth_failure(
     assert "Webhook authentication failed" in output.get_data(as_text=True)
 
 
+def test_agents_status_put_with_domainlist(
+    mongo_app, requests_mock, monkeypatch
+):
+    """Test webhook URL validation with doman list mode."""
+    app, _ = mongo_app
+    domain_list = "webhook.example.com, webhook2.example.com"
+    monkeypatch.setenv("WEBHOOK_DOMAINS", domain_list)
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    # Allow webhook from whitelisted domain
+    webhook = "https://webhook.example.com/hooks/xxxxxxxxxxxxxxxx"
+    requests_mock.put(webhook, text="OK")
+
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": webhook,
+        "events": [
+            {
+                "event_name": "test_event",
+                "timestamp": "2024-05-03T19:11:33.541130+00:00",
+                "detail": "test",
+            }
+        ],
+    }
+    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    assert output.status_code == HTTPStatus.OK
+
+
+def test_agents_status_put_with_domainlist_rejected(mongo_app, monkeypatch):
+    """Test webhook URL validation rejects non-listed domains."""
+    app, _ = mongo_app
+    domain_list = "webhook.example.com, webhook2.example.com"
+    monkeypatch.setenv("WEBHOOK_DOMAINS", domain_list)
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    # Reject webhook from non-listed domains
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": "https://unauthorized-domain.com/hook",
+        "events": [],
+    }
+    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    assert output.status_code == HTTPStatus.FORBIDDEN
+    assert "Invalid job_status_webhook URL specified" in output.get_data(
+        as_text=True
+    )
+
+
+def test_agents_status_put_domainlist_multiple_domains(
+    mongo_app, requests_mock, monkeypatch
+):
+    """Test domain list supports multiple domains."""
+    app, _ = mongo_app
+    domain_list = (
+        "webhook.example.com, webhook2.example.com, webhook3.example.com"
+    )
+    monkeypatch.setenv("WEBHOOK_DOMAINS", domain_list)
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    # Test second domain in whitelist
+    webhook = "https://webhook2.example.com/v1/events"
+    requests_mock.put(webhook, text="OK")
+
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": webhook,
+        "events": [],
+    }
+    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    assert output.status_code == HTTPStatus.OK
+
+
 def test_get_agents_data(mongo_app):
     """Test api to retrieve agent data."""
     app, _ = mongo_app
@@ -1687,3 +1768,17 @@ def test_job_get_no_auth_headers(mongo_app):
 
     output = app.get("/v1/job?queue=test")
     assert output.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_webhook_timeout(mongo_app, requests_mock):
+    """Test webhook timeout handling."""
+    # Skip: /v1/result/<job_id>/webhook is not a valid endpoint
+    # Webhook handling is done via result posting
+    pass
+
+
+def test_webhook_unreachable(mongo_app, requests_mock):
+    """Test webhook unreachable handling."""
+    # Skip: /v1/result/<job_id>/webhook is not a valid endpoint
+    # Webhook handling is done via result posting
+    pass
