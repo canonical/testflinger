@@ -283,7 +283,6 @@
         "additionalProperties": false,
         "properties": {
           "job_id": {
-            "example": "<job_id (UUID)>",
             "type": "string"
           }
         },
@@ -524,28 +523,13 @@
       },
       "ResultSchema": {
         "additionalProperties": false,
-        "properties": {
-          "device_info": {
-            "additionalProperties": {},
-            "type": "object"
-          },
-          "job_state": {
-            "type": "string"
-          },
-          "status": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object"
-          }
-        },
+        "properties": {},
         "type": "object"
       },
       "SecretIn": {
         "additionalProperties": false,
         "properties": {
           "ephemeral": {
-            "default": false,
             "type": "boolean"
           },
           "expire_after": {
@@ -756,7 +740,6 @@
     },
     "/v1/agents/data": {
       "get": {
-        "description": "Returns JSON data for all known agents, useful for external systems that\nneed to gather this information.",
         "parameters": [],
         "responses": {
           "200": {
@@ -767,30 +750,18 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Successful response"
           }
         },
-        "summary": "Retrieve all agent data.",
+        "summary": "Get all agent data.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl -X GET http://localhost:8000/v1/agents/data"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       }
     },
     "/v1/agents/data/{agent_name}": {
       "get": {
-        "description": "Returns JSON data for the specified agent, useful for getting information\nfrom a single agent.",
+        "description": ":param agent_name:\nString with the name of the agent to retrieve information from.\n:return:\nJSON data with the specified agent information.",
         "parameters": [
           {
             "in": "path",
@@ -810,7 +781,7 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -820,29 +791,16 @@
                 }
               }
             },
-            "description": "The agent isn't found"
+            "description": "Not found"
           }
         },
-        "summary": "Retrieve data from a specified agent.",
+        "summary": "Get the information from a specified agent.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl -X GET http://localhost:8000/v1/agents/data/foo"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor",
-          "agent"
         ]
       },
       "post": {
-        "description": "The data may include the device state, the queues it is listening on,\nits location, the job_id it is running (if any), and recent log lines.",
+        "description": "The json sent to this endpoint may contain data such as the following:\n{\n\"state\": string, # State the device is in\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string, # Location of the device\n\"job_id\": string, # Job ID the device is running, if any\n\"log\": array[string], # push and keep only the last 100 lines\n}",
         "parameters": [
           {
             "in": "path",
@@ -895,17 +853,12 @@
         "summary": "Post information about the agent to the server.",
         "tags": [
           "V1"
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "agent"
         ]
       }
     },
     "/v1/agents/images": {
       "post": {
-        "description": "Images are stored as image_name:provision_data mappings within the queues\ncollection, keyed by queue name.",
+        "description": "images will be stored in a dict of key/value pairs as part of the queues\ncollection. That dict will contain image_name:provision_data mappings, ex:\n{\n\"some_queue\": {\n\"core22\": \"http://cdimage.ubuntu.com/.../core-22.tar.gz\",\n\"jammy\": \"http://cdimage.ubuntu.com/.../ubuntu-22.04.tar.gz\"\n},\n\"other_queue\": {\n...\n}\n}.",
         "parameters": [],
         "responses": {
           "200": {
@@ -914,30 +867,17 @@
                 "schema": {}
               }
             },
-            "description": "OK"
+            "description": "Successful response"
           }
         },
-        "summary": "Post known images for the specified queue.",
+        "summary": "Tell testflinger about known images for a specified queue",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/agents/images \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{ \"myqueue\": { \"image1\": \"url: http://place/image1\" }}'"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "agent"
         ]
       }
     },
     "/v1/agents/images/{queue}": {
       "get": {
-        "description": "Returns the JSON data, for the specified queue, previously submitted by\nall agents via the POST API.",
         "parameters": [
           {
             "in": "path",
@@ -977,21 +917,9 @@
             "description": "Not found"
           }
         },
-        "summary": "Retrieve all known image names and the provisioning data used for them.",
+        "summary": "Get a dict of known images for a given queue.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/agents/images/myqueue -X GET"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       }
     },
@@ -1023,7 +951,7 @@
                 "schema": {}
               }
             },
-            "description": "OK"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -1046,25 +974,15 @@
             "description": "Validation error"
           }
         },
-        "summary": "Post provision log data for the specified agent.",
+        "summary": "Post provision logs for the agent to the server.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/agents/provision_logs/myagent \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{ \"job_id\": \"00000000-0000-0000-0000-000000000000\", \\\n            \"exit_code\": 1, \"detail\":\"foo\" }'"
-          }
-        ],
-        "x-permission-roles": [
-          "agent"
         ]
       }
     },
     "/v1/agents/queues": {
       "get": {
-        "description": "Returns the JSON data previously submitted by all agents via the POST\nAPI, as a mapping of queue names to descriptions.",
+        "description": "Returns a dict of queue names and descriptions, ex:\n{\n\"some_queue\": \"A queue for testing\",\n\"other_queue\": \"A queue for something else\"\n}",
         "parameters": [],
         "responses": {
           "200": {
@@ -1085,25 +1003,13 @@
             "description": "Mapping of queue names and descriptions"
           }
         },
-        "summary": "Retrieve the list of well-known queues.",
+        "summary": "Get all advertised queues from this server.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/agents/queues -X GET"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       },
       "post": {
-        "description": "Some agents may want to advertise some of the queues they listen on so\nthat the user can check which queues are valid to use.",
+        "description": "Some agents may want to advertise some of the queues they listen on so that\nthe user can check which queues are valid to use.",
         "parameters": [],
         "responses": {
           "200": {
@@ -1112,30 +1018,17 @@
                 "schema": {}
               }
             },
-            "description": "OK"
+            "description": "Successful response"
           }
         },
-        "summary": "Post names/descriptions of queues serviced by this agent.",
+        "summary": "Tell testflinger the queue names that are being serviced.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/agents/queues \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{ \"myqueue\": \"queue 1\", \"myqueue2\": \"queue 2\" }'"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "agent"
         ]
       }
     },
     "/v1/client-permissions": {
       "get": {
-        "description": "Returns JSON data with a list of all client IDs and their permissions,\nexcluding the hashed secret stored in the database.",
         "parameters": [],
         "responses": {
           "200": {
@@ -1146,46 +1039,12 @@
                 }
               }
             },
-            "description": "OK"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Invalid client_id or client-key"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Incorrect permissions for authenticated user"
+            "description": "Successful response"
           }
         },
-        "summary": "Retrieve the list of all client_id and their permissions.",
+        "summary": "Retrieve all client permissions from database.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/client-permissions \\\n  -X GET --header \"Authorization: Bearer <JWT Token>\""
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager"
         ]
       }
     },
@@ -1208,27 +1067,7 @@
                 "schema": {}
               }
             },
-            "description": "OK"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Invalid client_id or client-key"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Incorrect permissions for authenticated user"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -1238,39 +1077,15 @@
                 }
               }
             },
-            "description": "Specified client_id does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "System admin can't be removed using the API"
+            "description": "Not found"
           }
         },
-        "summary": "Delete a client_id along with its permissions.",
+        "summary": "Delete client id along with its permissions.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/client-permissions/foo \\\n  -X DELETE --header \"Authorization: Bearer <JWT Token>\""
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
-        ],
-        "x-permission-roles": [
-          "admin"
         ]
       },
       "get": {
-        "description": "Returns JSON data with the permissions of the specified client, excluding\nthe hashed secret stored in the database.",
         "parameters": [
           {
             "in": "path",
@@ -1290,27 +1105,7 @@
                 }
               }
             },
-            "description": "OK"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Invalid client_id or client-key"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Incorrect permissions for authenticated user"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -1320,26 +1115,12 @@
                 }
               }
             },
-            "description": "Specified client_id does not exist"
+            "description": "Not found"
           }
         },
-        "summary": "Retrieve the permissions associated with a client_id.",
+        "summary": "Retrieve single client-permissions from database.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/client-permissions/foo \\\n  -X GET --header \"Authorization: Bearer <JWT Token>\""
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager"
         ]
       },
       "put": {
@@ -1369,27 +1150,7 @@
                 "schema": {}
               }
             },
-            "description": "OK"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Invalid client_id or client-key"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Incorrect permissions for authenticated user"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -1399,7 +1160,7 @@
                 }
               }
             },
-            "description": "Specified client_id does not exist"
+            "description": "Not found"
           },
           "422": {
             "content": {
@@ -1412,45 +1173,15 @@
             "description": "Validation error"
           }
         },
-        "summary": "Edit the permissions for a specified client_id.",
+        "summary": "Add or create client permissions for a specified user.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/client-permissions/foo \\\n  -X PUT --header \"Authorization: Bearer <JWT Token>\"\n  --header \"Content-Type: application/json\" \\\n  --header \"Accept: application/json\" \\\n  --data '{\"max_priority\": {\"q1\": 10}, \"max_reservation_time\": {}, \"role\": \"contributor\"}'"
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager"
         ]
       }
     },
     "/v1/job": {
       "get": {
-        "description": "When an agent wants to request a job for processing, it can make this\nrequest along with a list of one or more queues that it is configured to\nprocess. The server will only return one job.\n\nReturns JSON job data that was submitted by the requestor, or nothing if\nno jobs in the specified queue(s) are available.",
-        "parameters": [
-          {
-            "description": "Queue name(s) that the agent can process",
-            "explode": true,
-            "in": "query",
-            "name": "queue",
-            "required": false,
-            "schema": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "style": "form"
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "content": {
@@ -1460,52 +1191,26 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Successful response"
           },
           "204": {
-            "description": "No jobs in the specified queue(s)"
-          },
-          "400": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
+                  "properties": {},
+                  "type": "object"
                 }
               }
             },
-            "description": "No queue is specified"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
-                }
-              }
-            },
-            "description": "Validation error"
+            "description": "No job found"
           }
         },
-        "summary": "Get a test job from the specified queue(s).",
+        "summary": "Request a job to run from supported queues.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/job?queue=foo\\&queue=bar"
-          }
-        ],
-        "x-notes": [
-          "Any secrets that are referenced in the job are \"resolved\" when the job is retrieved by an agent through this endpoint. Any secrets that are inaccessible at the time of retrieval will be resolved to the empty string."
-        ],
-        "x-permission-roles": [
-          "agent"
         ]
       },
       "post": {
-        "description": "Most parameters passed in the data section of this API will be specific\nto the type of agent receiving them. The `job_queue` parameter is used to\ndesignate the queue used, but all others will be passed along to the\nagent.",
         "parameters": [],
         "requestBody": {
           "content": {
@@ -1525,7 +1230,7 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "Successful response"
           },
           "422": {
             "content": {
@@ -1535,30 +1240,17 @@
                 }
               }
             },
-            "description": "The submitted job contains references to secrets and these secrets are, for any reason, inaccessible."
+            "description": "Validation error"
           }
         },
-        "summary": "Create a test job request and place it on the specified queue.",
+        "summary": "Add a job to the queue.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/job -X POST \\\n  --header \"Content-Type: application/json\" \\\n  --data '{ \"job_queue\": \"myqueue\", \"option\":\"foo\" }'"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       }
     },
     "/v1/job/search": {
       "get": {
-        "description": "The example below finds jobs tagged with both \"foo\" and \"bar\".",
         "parameters": [
           {
             "description": "List of tags to search for",
@@ -1637,27 +1329,15 @@
             "description": "Validation error"
           }
         },
-        "summary": "Search for jobs by tag(s) and state(s).",
+        "summary": "Search for jobs by tags.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl 'http://localhost:8000/v1/job/search?tags=foo&tags=bar&match=all'"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       }
     },
     "/v1/job/{job_id}": {
       "get": {
-        "description": "Returns the job definition even if it has already run.",
+        "description": "already run.\n\n:param job_id:\nUUID as a string for the job\n:return:\nJSON data for the job or error string and http error",
         "parameters": [
           {
             "in": "path",
@@ -1690,20 +1370,15 @@
             "description": "Not found"
           }
         },
-        "summary": "Get the JSON job definition for a specified job.",
+        "summary": "Request the json job definition for a specified job, even if it has",
         "tags": [
           "V1"
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       }
     },
     "/v1/job/{job_id}/action": {
       "post": {
-        "description": "Supported actions:\n\n- `cancel`: cancel a job that hasn't been completed yet",
+        "description": ":param job_id:\nUUID as a string for the job",
         "parameters": [
           {
             "in": "path",
@@ -1730,17 +1405,7 @@
                 "schema": {}
               }
             },
-            "description": "OK"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "The job is already completed or cancelled"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -1750,7 +1415,7 @@
                 }
               }
             },
-            "description": "The job isn't found"
+            "description": "Not found"
           },
           "422": {
             "content": {
@@ -1760,29 +1425,18 @@
                 }
               }
             },
-            "description": "The action or the argument to it could not be processed"
+            "description": "Validation error"
           }
         },
-        "summary": "Execute action for the specified job_id.",
+        "summary": "Take action on the job status for a specified job ID.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/job/00000000-0000-0000-0000-000000000000/action \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{ \"action\":\"cancel\" }'"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       }
     },
     "/v1/job/{job_id}/attachments": {
       "get": {
+        "description": ":param job_id:\nUUID as a string for the job\n:return:\nsend_file stream of attachment tarball to download",
         "parameters": [
           {
             "in": "path",
@@ -1816,12 +1470,10 @@
         "summary": "Return the attachments bundle for a specified job_id.",
         "tags": [
           "V1"
-        ],
-        "x-permission-roles": [
-          "agent"
         ]
       },
       "post": {
+        "description": ":param job_id:\nUUID as a string for the job",
         "parameters": [
           {
             "in": "path",
@@ -1855,17 +1507,12 @@
         "summary": "Post attachment bundle for a specified job_id.",
         "tags": [
           "V1"
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       }
     },
     "/v1/job/{job_id}/events": {
       "post": {
-        "description": "The `job_status_webhook` parameter is required for this endpoint. Other\nparameters included here will be forwarded to the webhook.\n\nReturns the text response from the webhook if the server was successfully\nable to post.",
+        "description": "to the server-configured webhook url.\n\nThe json sent to this endpoint may contain data such as the following:\n{\n\"agent_id\": \"<string>\",\n\"job_queue\": \"<string>\",\n\"job_status_webhook\": \"<URL as string>\",\n\"events\": [\n{\n\"event_name\": \"<string enum of events>\",\n\"timestamp\": \"<datetime>\",\n\"detail\": \"<string>\"\n},\n...\n]\n}\n\n:param job_id: UUID as a string for the job\n:param json_data: JSON data containing the status updates and webhook URL",
         "parameters": [
           {
             "in": "path",
@@ -1892,17 +1539,7 @@
                 "schema": {}
               }
             },
-            "description": "OK"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "The arguments could not be processed by the server"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -1923,31 +1560,11 @@
               }
             },
             "description": "Validation error"
-          },
-          "504": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "The webhook URL timed out"
           }
         },
-        "summary": "Receive job status updates from an agent and post them to a webhook.",
+        "summary": "Post status updates from the agent to the server to be forwarded",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl -X POST \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"agent_id\": \"agent-00\", \"job_queue\": \"myqueue\", \"job_status_webhook\": \"http://mywebhook\", \"events\": [{\"event_name\": \"started_provisioning\", \"timestamp\": \"2024-05-03T19:11:33.541130+00:00\", \"detail\": \"my_detailed_message\"}]}' http://localhost:8000/v1/job/00000000-0000-0000-0000-000000000000/events"
-          }
-        ],
-        "x-permission-roles": [
-          "agent"
         ]
       }
     },
@@ -1986,157 +1603,69 @@
         "summary": "Return the position of the specified jobid in the queue.",
         "tags": [
           "V1"
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       }
     },
     "/v1/oauth2/refresh": {
       "post": {
-        "description": "Expects a JSON body with a `refresh_token` (string): the opaque refresh\ntoken issued earlier.",
         "parameters": [],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "example": {
-                    "access_token": "<new JWT access token>",
-                    "expires_in": 30,
-                    "token_type": "Bearer"
-                  },
-                  "type": "object"
-                }
+                "schema": {}
               }
             },
-            "description": "OK"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Missing, invalid, revoked or expired refresh token"
+            "description": "Successful response"
           }
         },
-        "summary": "Exchange a valid refresh token for a new access token.",
+        "summary": "Refresh access token using a valid refresh token.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/oauth2/refresh \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{\"refresh_token\": \"opaque-refresh-token\"}'"
-          }
         ]
       }
     },
     "/v1/oauth2/revoke": {
       "post": {
-        "description": "Expects a JSON body with a `token` (string): the opaque refresh token to\nrevoke. Only admins can perform this action.",
         "parameters": [],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "example": {
-                    "message": "Refresh token revoked successfully"
-                  },
-                  "type": "object"
-                }
+                "schema": {}
               }
             },
-            "description": "OK"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Invalid request"
+            "description": "Successful response"
           }
         },
-        "summary": "Revoke a refresh token so it can no longer be used.",
+        "summary": "Revoke a refresh token. Only admins can perform this action.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/oauth2/revoke \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{\"refresh_token\": \"opaque-refresh-token\"}'"
-          }
-        ],
-        "x-permission-roles": [
-          "admin"
         ]
       }
     },
     "/v1/oauth2/token": {
       "post": {
+        "description": "Get JWT with priority and queue permissions.\n\nBefore being encrypted, the JWT can contain fields like:\n{\nexp: <Expiration DateTime of Token>,\niat: <Issuance DateTime of Token>,\nsub: <Subject Field of Token>,\npermissions: {\nmax_priority: <Queue to Priority Level Dict>,\nallowed_queues: <List of Allowed Restricted Queues>,\nmax_reservation_time: <Queue to Max Reservation Time Dict>,\n}\n}",
         "parameters": [],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "example": {
-                    "access_token": "<JWT access token>",
-                    "expires_in": 30,
-                    "refresh_token": "<opaque refresh token>",
-                    "token_type": "Bearer"
-                  },
-                  "type": "object"
-                }
+                "schema": {}
               }
             },
-            "description": "OK"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Invalid client_id or client-key"
+            "description": "Successful response"
           }
         },
-        "summary": "Authenticate a client and return an access token and refresh token.",
+        "summary": "Issue both access token and refresh token for a client.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/oauth2/token \\\n  -X POST --header \"Authorization: Basic ABCDEF12345\""
-          }
-        ],
-        "x-headers": [
-          "Basic Authorization: client_id:client_key (Base64 Encoded)"
-        ],
-        "x-notes": [
-          "`expires_in` is the lifetime (in seconds) of the access token.",
-          "Refresh tokens expire 6 days after issuance. All clients authenticate through this flow; there are no non-expiring or specially-trusted tokens."
         ]
       }
     },
     "/v1/queues/wait_times": {
       "get": {
-        "description": "Accepts an optional `queue` (array) query parameter listing the queues to\nget wait time metrics for. Returns a JSON mapping of queue names to wait\ntime metrics.",
         "parameters": [],
         "responses": {
           "200": {
@@ -2151,24 +1680,11 @@
         "summary": "Get wait time metrics - optionally take a list of queues.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/queues/wait_times?queue=foo\\&queue=bar"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       }
     },
     "/v1/queues/{queue_name}/agents": {
       "get": {
-        "description": "Returns a JSON array of agents listening to the specified queue.",
         "parameters": [
           {
             "in": "path",
@@ -2188,10 +1704,7 @@
                 }
               }
             },
-            "description": "OK"
-          },
-          "204": {
-            "description": "No agents in the specified queue"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -2201,30 +1714,18 @@
                 }
               }
             },
-            "description": "The queue does not exist"
+            "description": "Not found"
           }
         },
-        "summary": "Get the list of agents listening to a specified queue.",
+        "summary": "Get the list of all data for agents listening to a specified queue.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/queues/foo/agents"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       }
     },
     "/v1/queues/{queue_name}/jobs": {
       "get": {
-        "description": "Returns JSON job data with information about the ID, creation time and\nstate for jobs in the specified queue.",
+        "description": ":param queue_name\nString with the queue name where to perform the query.\n:return:\nJSON data with the jobs allocated to the specified queue.",
         "parameters": [
           {
             "in": "path",
@@ -2242,10 +1743,7 @@
                 "schema": {}
               }
             },
-            "description": "OK"
-          },
-          "204": {
-            "description": "No jobs in the specified queue"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -2258,27 +1756,14 @@
             "description": "Not found"
           }
         },
-        "summary": "Search for jobs in a specified queue.",
+        "summary": "Get the jobs in a specified queue along with its state.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl 'http://localhost:8000/v1/queues/foo/jobs'"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       }
     },
     "/v1/restricted-queues": {
       "get": {
-        "description": "Returns JSON data with a list of restricted queues.",
         "parameters": [],
         "responses": {
           "200": {
@@ -2289,47 +1774,12 @@
                 }
               }
             },
-            "description": "OK"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Invalid client_id or client-key"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Incorrect permissions for authenticated user"
+            "description": "Successful response"
           }
         },
-        "summary": "Retrieve the list of all restricted queues and their owners.",
+        "summary": "List all agent's restricted queues and its owners.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/restricted-queues \\\n  -X GET --header \"Authorization: Bearer <JWT Token>\""
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       }
     },
@@ -2361,37 +1811,7 @@
                 "schema": {}
               }
             },
-            "description": "OK"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Missing client_id to set as owner of restricted queue"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Invalid client_id or client-key"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Incorrect permissions for authenticated user"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -2401,7 +1821,7 @@
                 }
               }
             },
-            "description": "Queue is not in the restricted queue list"
+            "description": "Not found"
           },
           "422": {
             "content": {
@@ -2417,24 +1837,9 @@
         "summary": "Delete an owner from the specific restricted queue.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/restricted-queues/foo \\\n  -X DELETE --header \"Authorization: Bearer <JWT Token>\" \\\n  --header \"Content-Type: application/json\" \\\n  --header \"Accept: application/json\" \\\n  --data '{\"client_id\": \"foo\"}'"
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager"
         ]
       },
       "get": {
-        "description": "Returns JSON data with the restricted queue and who owns it.",
         "parameters": [
           {
             "in": "path",
@@ -2454,27 +1859,7 @@
                 }
               }
             },
-            "description": "OK"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Invalid client_id or client-key"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Incorrect permissions for authenticated user"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -2487,28 +1872,12 @@
             "description": "Not found"
           }
         },
-        "summary": "Retrieve the specified restricted queue and its owners.",
+        "summary": "Get restricted queues for a specific agent.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/restricted-queues/foo \\\n  -X GET --header \"Authorization: Bearer <JWT Token>\""
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       },
       "post": {
-        "description": "If the queue does not exist yet, it will be created automatically.",
         "parameters": [
           {
             "in": "path",
@@ -2535,37 +1904,7 @@
                 "schema": {}
               }
             },
-            "description": "OK"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Missing client_id to set as owner of restricted queue"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Invalid client_id or client-key"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Incorrect permissions for authenticated user"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -2575,7 +1914,7 @@
                 }
               }
             },
-            "description": "Queue does not exist or is not associated to an agent"
+            "description": "Not found"
           },
           "422": {
             "content": {
@@ -2591,26 +1930,12 @@
         "summary": "Add an owner to the specific restricted queue.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/restricted-queues/foo \\\n  -X POST --header \"Authorization: Bearer <JWT Token>\" \\\n  --header \"Content-Type: application/json\" \\\n  --header \"Accept: application/json\" \\\n  --data '{\"client_id\": \"foo\"}'"
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager"
         ]
       }
     },
     "/v1/result/{job_id}": {
       "get": {
-        "description": "This endpoint reconstructs results from the new logging system to\nmaintain backward compatibility. It combines phase status information\nwith logs to provide a complete view of job results.\n\nReturns JSON data with a flattened structure including:\n\n- `{phase}_status`: Exit code for each phase\n- `{phase}_output`: Standard output logs for each phase (if available)\n- `{phase}_serial`: Serial console logs for each phase (if available)\n- Additional metadata fields (device_info, job_state, etc.)",
+        "description": ":param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
         "parameters": [
           {
             "in": "path",
@@ -2630,10 +1955,7 @@
                 }
               }
             },
-            "description": "OK"
-          },
-          "204": {
-            "description": "No results for that job_id yet"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -2646,25 +1968,13 @@
             "description": "Not found"
           }
         },
-        "summary": "Return previously submitted job outcome data.",
+        "summary": "Return results for a specified job_id.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000 -X GET"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor",
-          "agent"
         ]
       },
       "post": {
+        "description": ":param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
         "parameters": [
           {
             "in": "path",
@@ -2691,7 +2001,7 @@
                 "schema": {}
               }
             },
-            "description": "OK"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -2714,25 +2024,15 @@
             "description": "Validation error"
           }
         },
-        "summary": "Post job outcome data for the specified job_id.",
+        "summary": "Post a result for a specified job_id.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000 \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{ \"status\": {\"setup\": 0, \"provision\": 0, \"test\": 0}, \"device_info\": {} }'"
-          }
-        ],
-        "x-permission-roles": [
-          "agent"
         ]
       }
     },
     "/v1/result/{job_id}/artifact": {
       "get": {
-        "description": "Returns the JSON data previously submitted to this job_id via the POST\nAPI.",
+        "description": ":param job_id:\nUUID as a string for the job\n:return:\nsend_file stream of artifact tarball to download",
         "parameters": [
           {
             "in": "path",
@@ -2750,10 +2050,7 @@
                 "schema": {}
               }
             },
-            "description": "OK"
-          },
-          "204": {
-            "description": "No results for that job_id yet"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -2766,24 +2063,13 @@
             "description": "Not found"
           }
         },
-        "summary": "Download previously submitted artifact for this job.",
+        "summary": "Return artifact bundle for a specified job_id.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/artifact \\\n  -X GET -O artifact.tar.gz"
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       },
       "post": {
+        "description": ":param job_id:\nUUID as a string for the job",
         "parameters": [
           {
             "in": "path",
@@ -2801,7 +2087,7 @@
                 "schema": {}
               }
             },
-            "description": "OK"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -2814,25 +2100,15 @@
             "description": "Not found"
           }
         },
-        "summary": "Upload a file artifact for the specified job_id.",
+        "summary": "Post artifact bundle for a specified job_id.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl -X POST -F \"file=@README.rst\" localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/artifact"
-          }
-        ],
-        "x-permission-roles": [
-          "agent"
         ]
       }
     },
     "/v1/result/{job_id}/log/{log_type}": {
       "get": {
-        "description": "This endpoint supports querying logs with optional filtering by phase,\nfragment number, or timestamp. Logs are persistent and can be retrieved\nmultiple times.\n\n`log_type` is the type of log - either `output` or `serial`.\n\nThe following optional query parameters are supported:\n\n- `phase` (string): Filter logs to a specific test phase\n- `start_fragment` (integer): Return only fragments from this number on\n- `start_timestamp` (string): Return only logs created after this ISO\n8601 timestamp\n\nReturns a JSON object with logs organized by phase. Each phase includes a\n`last_fragment_number` (the highest fragment number for this phase) and\n`log_data` (combined log text from all matching fragments).",
+        "description": ":param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log requested\n:raises HTTPError: If the job_id is not a valid UUID or if invalid query\n:return: Dictionary with log data",
         "parameters": [
           {
             "in": "path",
@@ -2860,20 +2136,7 @@
                 }
               }
             },
-            "description": "OK"
-          },
-          "204": {
-            "description": "No logs for that job_id yet"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Invalid log_type or query parameters"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -2886,40 +2149,13 @@
             "description": "Not found"
           }
         },
-        "summary": "Retrieve logs for the specified job_id and log type.",
+        "summary": "Get logs for a specified job_id.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "Get all output logs for a job",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output"
-          },
-          {
-            "label": "Get only setup phase output logs",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output?phase=setup"
-          },
-          {
-            "label": "Get logs from fragment 5 onwards",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output?start_fragment=5"
-          },
-          {
-            "label": "Get logs after a specific timestamp",
-            "lang": "shell",
-            "source": "curl \"http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output?start_timestamp=2025-10-15T10:30:00Z\""
-          }
-        ],
-        "x-permission-roles": [
-          "admin",
-          "manager",
-          "contributor"
         ]
       },
       "post": {
-        "description": "This is the new logging endpoint that agents use to stream log data in\nfragments. Each fragment includes metadata for tracking and querying.\n\n`log_type` is the type of log - either `output` or `serial`.",
+        "description": ":param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log being posted\n:raises HTTPError: If the job_id is not a valid UUID\n:param json_data: Dictionary with log data",
         "parameters": [
           {
             "in": "path",
@@ -2954,17 +2190,7 @@
                 "schema": {}
               }
             },
-            "description": "OK"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Invalid log_type or missing required fields"
+            "description": "Successful response"
           },
           "404": {
             "content": {
@@ -2987,19 +2213,161 @@
             "description": "Validation error"
           }
         },
-        "summary": "Post a log fragment for the specified job_id and log type.",
+        "summary": "Post logs for a specified job ID.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
+        ]
+      }
+    },
+    "/v1/result/{job_id}/output": {
+      "get": {
+        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: Plain text output",
+        "parameters": [
           {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{\n    \"fragment_number\": 0,\n    \"timestamp\": \"2025-10-15T10:00:00+00:00\",\n    \"phase\": \"setup\",\n    \"log_data\": \"Starting setup phase...\"\n  }'"
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
-        "x-permission-roles": [
-          "agent"
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Legacy endpoint to get job output for a specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: \"OK\" on success",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Legacy endpoint to post output for a specified job_id.",
+        "tags": [
+          "V1"
+        ]
+      }
+    },
+    "/v1/result/{job_id}/serial_output": {
+      "get": {
+        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: Plain text serial output",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Legacy endpoint to get latest serial output for a specified job ID.",
+        "tags": [
+          "V1"
+        ]
+      },
+      "post": {
+        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: \"OK\" on success",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Legacy endpoint to post serial output for a specified job ID.",
+        "tags": [
+          "V1"
         ]
       }
     },
@@ -3046,11 +2414,6 @@
         "summary": "Remove a secret value for the specified client_id and path.",
         "tags": [
           "V1"
-        ],
-        "x-permission-roles": [
-          "contributor",
-          "manager",
-          "admin"
         ]
       },
       "put": {
@@ -3116,11 +2479,6 @@
         "summary": "Store a secret value for the specified client_id and path.",
         "tags": [
           "V1"
-        ],
-        "x-permission-roles": [
-          "contributor",
-          "manager",
-          "admin"
         ]
       }
     }

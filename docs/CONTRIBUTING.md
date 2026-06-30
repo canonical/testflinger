@@ -165,28 +165,6 @@ To include Mermaid diagrams in your documentation, use the `mermaid` directive i
 
 To use Mermaid diagrams, ensure that the `sphinxcontrib.mermaid` extension is included in your `conf.py` file under `extensions`.
 
-## Keeping API documentation in sync
-
-The file `docs/reference/api-roles.rst` documents every server endpoint and
-the roles permitted to call it.  The authoritative source for this information
-is `server/schemas/openapi.json`, specifically the `x-permission-roles` field
-on each operation and the absence of that field for endpoints that require no
-authentication.
-
-**Whenever you add, remove, or change an API endpoint** (including its
-`x-permission-roles` annotation in `openapi.json`), you must update
-`docs/reference/api-roles.rst` in the same pull request.  The key rules are:
-
-- Endpoints with no `x-permission-roles` that are part of the authentication
-  flow (e.g. `POST /v1/oauth2/token`, `POST /v1/oauth2/refresh`,
-  `POST /oidc/auth-init`, `POST /oidc/auth-poll/{request_id}`) belong in the
-  *"Endpoints that require no authentication"* table at the top of the file.
-- Endpoints that are unconditionally public (e.g. `GET /v1/` and
-  `GET /metrics`) also belong in that top table.
-- All other endpoints belong in the main *"Endpoint permissions by role"*
-  table, with a checkmark in each column corresponding to a role listed in
-  their `x-permission-roles` array.
-
 ## Troubleshooting
 
 ### Virtual environment issues
