@@ -27,9 +27,7 @@ from testflinger_common.enums import ServerRoles
 def get_access_token_header(client_id: str, role: ServerRoles) -> dict:
     """Create a Bearer token header for the specified role."""
     secret_key = os.environ.get("JWT_SIGNING_KEY")
-    expiration_time = datetime.now(timezone.utc) + timedelta(
-        seconds=30000000
-    )  # TODO: extended timeout for debug
+    expiration_time = datetime.now(timezone.utc) + timedelta(seconds=30)
     token_payload = {
         "exp": expiration_time,
         "iat": datetime.now(timezone.utc),
