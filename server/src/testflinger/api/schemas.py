@@ -466,7 +466,7 @@ class ResultGet(Schema):
     job_state = fields.String(required=False)
 
 
-class ResultSchema(Schema):
+class ResultPost(Schema):
     """Result Post schema."""
 
     status = fields.Dict(

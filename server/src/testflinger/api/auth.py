@@ -274,8 +274,8 @@ def authenticate(func):
             return func(*args, **kwargs)
         # else, role will be None until we figure out who they are
 
-        # If there is a token available, attempt to retrieve information
-        if auth_token:
+        # If there is a bearer token available, attempt to retrieve information
+        if auth_token and auth_token.startswith("Bearer "):
             auth_token = auth_token[len("Bearer ") :]
             secret_key = os.environ.get("JWT_SIGNING_KEY")
             decoded_jwt = decode_jwt_token(auth_token, secret_key)

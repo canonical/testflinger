@@ -294,8 +294,6 @@ def attachment_get(job_id):
     :return:
         send_file stream of attachment tarball to download
     """
-    # TODO: if we want attachments to be downloadable by the job owner,
-    #      consider similar TODO treatment as for artifacts: job page
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     try:
@@ -508,7 +506,7 @@ def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
 @v1.post("/result/<job_id>")
 @authenticate
 @require_role(ServerRoles.AGENT)
-@v1.input(schemas.ResultSchema, location="json")
+@v1.input(schemas.ResultPost, location="json")
 def result_post(job_id: str, json_data: dict) -> str:
     """Post a result for a specified job_id.
 
