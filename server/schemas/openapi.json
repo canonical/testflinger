@@ -521,7 +521,7 @@
         },
         "type": "object"
       },
-      "ResultSchema": {
+      "ResultPost": {
         "additionalProperties": false,
         "properties": {
           "device_info": {
@@ -2004,7 +2004,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResultSchema"
+                "$ref": "#/components/schemas/ResultPost"
               }
             }
           }
