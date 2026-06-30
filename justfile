@@ -20,7 +20,7 @@ _short_help:
     @echo '- {{CYAN}}just format <component>{{NORMAL}} (Solves all fixable lint and formatting issues)'
     @echo '- {{CYAN}}just unit <component>{{NORMAL}} (Run unit tests)'
     @echo '- {{CYAN}}just check-schema{{NORMAL}} (Check server schema is up to date)'
-    @echo '- {{CYAN}}just schema{{NORMAL}} (Generate server schema)'
+    @echo '- {{CYAN}}just schema{{NORMAL}} (Generate server OpenAPI schema)'
     @echo ''
     @echo '{{BOLD}}Show help for the docs recipes: {{CYAN}}just docs help{{NORMAL}}'
     @echo '{{BOLD}}Build the docs: {{CYAN}}just docs{{NORMAL}}'
