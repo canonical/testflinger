@@ -18,7 +18,6 @@
 
 import json
 import logging
-import sys
 import time
 import urllib.parse
 from http import HTTPStatus
@@ -28,7 +27,7 @@ import requests
 
 from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.enums import LogType, TestPhase
-from testflinger_cli.errors import VPNError
+from testflinger_cli.errors import NetworkError, VPNError
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +95,7 @@ class Client:
         :return: The replayed response on expiry, otherwise the original
         """
         if response.status_code == HTTPStatus.UNAUTHORIZED:
+            # If the request has already been retried, do not retry again
             if getattr(response.request, "_auth_retry", False):
                 return response
 
@@ -108,6 +108,8 @@ class Client:
             # Replay the original request with the new token
             new_request = response.request.copy()
             new_request.headers.update(self.auth_manager.build_headers())
+            # Add a custom attribute to the request to indicate
+            # that it has already been retried to avoid infinite loops
             new_request._auth_retry = True
             new_response = response.connection.send(new_request, **kwargs)
             new_response.history.append(response)
@@ -178,6 +180,10 @@ class Client:
             backoff_delay = min(2**self.error_count, MAX_BACKOFF_TIME)
             time.sleep(backoff_delay)
             raise
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
+                "Timeout while trying to communicate with the server."
+            ) from exc
         # If request was not successful, raise HTTPError with parsed response
         if req.status_code != HTTPStatus.OK:
             self._handle_response_error(req)
@@ -199,14 +205,14 @@ class Client:
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
             req = self.session.post(uri, json=data, timeout=timeout)
-        except requests.exceptions.ConnectTimeout:
-            logger.error(
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
                 "Timeout while trying to communicate with the server."
-            )
-            sys.exit(1)
-        except requests.exceptions.ConnectionError:
-            logger.error("Unable to communicate with specified server.")
-            sys.exit(1)
+            ) from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise NetworkError(
+                "Unable to communicate with specified server."
+            ) from exc
         # If request was not successful, raise HTTPError with parsed response
         if req.status_code != HTTPStatus.OK:
             self._handle_response_error(req)
@@ -228,14 +234,14 @@ class Client:
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
             req = self.session.put(uri, json=data, timeout=timeout)
-        except requests.exceptions.ConnectTimeout:
-            logger.error(
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
                 "Timeout while trying to communicate with the server."
-            )
-            sys.exit(1)
-        except requests.exceptions.ConnectionError:
-            logger.error("Unable to communicate with specified server.")
-            sys.exit(1)
+            ) from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise NetworkError(
+                "Unable to communicate with specified server."
+            ) from exc
         # If request was not successful, raise HTTPError with parsed response
         if req.status_code != HTTPStatus.OK:
             self._handle_response_error(req)
@@ -250,14 +256,14 @@ class Client:
         uri = urllib.parse.urljoin(self.server, uri_frag)
         try:
             req = self.session.delete(uri, timeout=timeout)
-        except requests.exceptions.ConnectTimeout:
-            logger.error(
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
                 "Timeout while trying to communicate with the server."
-            )
-            sys.exit(1)
-        except requests.exceptions.ConnectionError:
-            logger.error("Unable to communicate with specified server.")
-            sys.exit(1)
+            ) from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise NetworkError(
+                "Unable to communicate with specified server."
+            ) from exc
         # If request was not successful, raise HTTPError with parsed response
         if req.status_code != HTTPStatus.OK:
             self._handle_response_error(req)

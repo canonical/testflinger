@@ -34,6 +34,7 @@ from testflinger_cli.errors import (
     AuthenticationError,
     AuthorizationError,
     InvalidTokenError,
+    NetworkError,
     OidcError,
 )
 
@@ -58,6 +59,14 @@ class TestflingerCliAuth:
         config_home = xdg_config_home()
         config_home.mkdir(parents=True, exist_ok=True)
         self.auth_config = config_home / "testflinger-cli-auth.conf"
+
+    def get_url(self, endpoint: str) -> str:
+        """Construct the full URL for a given endpoint.
+
+        :param endpoint: The endpoint to construct the URL for.
+        :return: The full URL for the given endpoint.
+        """
+        return urllib.parse.urljoin(self.server_url, endpoint)
 
     def is_authenticated(self) -> bool:
         """Validate if user is currently authenticated.
@@ -106,11 +115,11 @@ class TestflingerCliAuth:
 
         :return: string with access token (jwt token)
         """
-        url = urllib.parse.urljoin(self.server_url, "/v1/oauth2/token")
+        url = self.get_url("/v1/oauth2/token")
         id_key_pair = f"{self.client_id}:{self.secret_key}"
         encoded_id_key_pair = base64.b64encode(
             id_key_pair.encode("utf-8")
-        ).decode("utf-8")
+        ).decode("ascii")
         headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
 
         try:
@@ -122,6 +131,10 @@ class TestflingerCliAuth:
         except requests.exceptions.HTTPError as exc:
             self._handle_auth_error(exc)
             return None
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
+                "Connection timed out while authenticating with credentials."
+            ) from exc
 
         # Store refresh token for persistent login
         self.store_refresh_token(response_data["refresh_token"])
@@ -135,7 +148,7 @@ class TestflingerCliAuth:
         :param refresh_token: refresh token to use for authentication
         :return: string with access token (jwt token)
         """
-        url = urllib.parse.urljoin(self.server_url, "/v1/oauth2/refresh")
+        url = self.get_url("/v1/oauth2/refresh")
 
         try:
             response = requests.post(
@@ -155,6 +168,10 @@ class TestflingerCliAuth:
 
             self._handle_auth_error(exc)
             return None
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
+                "Connection timed out while refreshing authentication token."
+            ) from exc
 
     def _handle_auth_error(self, exc: requests.exceptions.HTTPError) -> None:
         """Handle authentication HTTP errors."""
@@ -262,9 +279,7 @@ class TestflingerCliAuth:
 
     def _authenticate_with_oidc(self) -> str | None:
         """Authenticate using OIDC device flow."""
-        auth_init_url = urllib.parse.urljoin(
-            self.server_url, "/oidc/auth-init"
-        )
+        auth_init_url = self.get_url("/oidc/auth-init")
 
         try:
             response = requests.post(
@@ -279,6 +294,10 @@ class TestflingerCliAuth:
                 return None
 
             raise OidcError(f"Failed to initiate OIDC login: {exc}") from exc
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
+                "Connection timed out while initiating OIDC login."
+            ) from exc
 
         verification_uri = init_data["verification_uri"]
         user_code = init_data["user_code"]
@@ -297,9 +316,7 @@ class TestflingerCliAuth:
         code_expiration = time.monotonic() + expires_in
         while time.monotonic() < code_expiration:
             time.sleep(interval)
-            poll_url = urllib.parse.urljoin(
-                self.server_url, f"/oidc/auth-poll/{request_id}"
-            )
+            poll_url = self.get_url(f"/oidc/auth-poll/{request_id}")
             try:
                 response = requests.post(
                     poll_url, data={}, timeout=DEFAULT_AUTH_TIMEOUT
@@ -337,6 +354,10 @@ class TestflingerCliAuth:
                             "Unexpected error during OIDC "
                             f"authentication: {exc}"
                         ) from exc
+            except requests.exceptions.Timeout as exc:
+                raise NetworkError(
+                    "Connection timed out while authenticating with OIDC."
+                ) from exc
 
         raise OidcError("Authentication timed out. Please try again.")
 

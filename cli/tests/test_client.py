@@ -27,6 +27,7 @@ import requests
 
 from testflinger_cli.client import HTTPError
 from testflinger_cli.enums import LogType, TestPhase
+from testflinger_cli.errors import NetworkError
 
 from .conftest import URL
 
@@ -35,7 +36,6 @@ def test_get_error_threshold(caplog, requests_mock, client):
     """Test that a warning is logged when error_threshold is reached."""
     caplog.set_level(logging.WARNING)
     requests_mock.get(f"{URL}/test", exc=requests.exceptions.ConnectionError)
-    client.error_threshold = 3
     for _ in range(2):
         with pytest.raises(requests.exceptions.ConnectionError):
             client.get("test")
@@ -54,23 +54,21 @@ def test_get_error_threshold(caplog, requests_mock, client):
 @pytest.mark.parametrize("method", ["post", "put", "delete"])
 @pytest.mark.parametrize(
     "exception",
-    [requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError],
+    [requests.exceptions.Timeout, requests.exceptions.ConnectionError],
 )
 def test_client_connection_errors_exit(
     requests_mock, method, exception, client
 ):
-    """Test that POST, PUT, DELETE methods exit on connection errors."""
+    """Test that POST, PUT, DELETE methods raise on connection errors."""
     getattr(requests_mock, method)(f"{URL}/test", exc=exception)
 
     client_method = getattr(client, method)
 
-    with pytest.raises(SystemExit) as exc_info:
+    with pytest.raises(NetworkError):
         if method in ["post", "put"]:
             client_method("test", {"key": "value"})
         else:
             client_method("test")
-
-    assert exc_info.value.code == 1
 
 
 @pytest.mark.parametrize("method", ["get", "post", "put", "delete"])

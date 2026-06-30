@@ -23,9 +23,12 @@ from http import HTTPStatus
 from unittest.mock import call, patch
 
 import pytest
+import requests
 
 import testflinger_cli
+from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.enums import ServerRoles
+from testflinger_cli.errors import NetworkError
 
 from .conftest import TEST_CLIENT_ID, URL
 
@@ -438,3 +441,50 @@ def test_login_oidc_poll_slow_down(
     # interval starts at 5, increases by Retry-After (5) after slow_down
     assert mock_sleep.call_args_list == [call(5), call(10)]
     assert tfcli.auth.get_stored_refresh_token() is not None
+
+
+def test_credentials_timeout_raises_network_error(requests_mock, monkeypatch):
+    """Test that a timeout during credential auth raises NetworkError."""
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
+    requests_mock.post(
+        f"{URL}/v1/oauth2/token",
+        exc=requests.exceptions.Timeout,
+    )
+    auth = TestflingerCliAuth(URL, "my_client_id", "my_secret_key")
+    with pytest.raises(NetworkError):
+        auth._authenticate_with_credentials()
+
+
+def test_refresh_token_timeout_raises_network_error(requests_mock):
+    """Test that a timeout during refresh token auth raises NetworkError."""
+    requests_mock.post(
+        f"{URL}/v1/oauth2/refresh",
+        exc=requests.exceptions.Timeout,
+    )
+    auth = TestflingerCliAuth(URL)
+    with pytest.raises(NetworkError):
+        auth._authenticate_with_refresh_token("fake_refresh_token")
+
+
+def test_oidc_init_timeout_raises_network_error(requests_mock):
+    """Test that a timeout during OIDC init raises NetworkError."""
+    requests_mock.post(
+        f"{URL}/oidc/auth-init",
+        exc=requests.exceptions.Timeout,
+    )
+    auth = TestflingerCliAuth(URL)
+    with pytest.raises(NetworkError):
+        auth._authenticate_with_oidc()
+
+
+@patch("testflinger_cli.auth.time.sleep")
+@patch("testflinger_cli.auth.webbrowser.open")
+def test_oidc_poll_timeout_raises_network_error(
+    mock_open, mock_sleep, oidc_auth_fixture
+):
+    """Test that a timeout during OIDC polling raises NetworkError."""
+    oidc_auth_fixture({"exc": requests.exceptions.Timeout})
+    auth = TestflingerCliAuth(URL)
+    with pytest.raises(NetworkError):
+        auth._authenticate_with_oidc()
