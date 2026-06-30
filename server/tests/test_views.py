@@ -226,36 +226,6 @@ def test_job_not_found(testapp):
     assert response.status_code == 404
 
 
-def test_job_results_legacy(testapp):
-    """Test that the job_detail view handles legacy result formats."""
-    mongo = mongomock.MongoClient()
-    job_id = str(uuid.uuid4())
-    mongo.db.jobs.insert_one(
-        {
-            "job_id": job_id,
-            "created_at": datetime.now(timezone.utc),
-            "job_data": {"job_queue": "queue1", "provision_data": "skip"},
-            "result_data": {
-                "provision_output": "legacy provision output",
-                "provision_status": 0,
-                "test_output": "legacy test output",
-                "test_status": 1,
-                "job_state": "complete",
-            },
-        }
-    )
-    with (
-        patch("testflinger.views.mongo", mongo),
-    ):
-        with testapp.test_request_context():
-            response = job_detail(job_id)
-
-    html = str(response)
-    # Check that legacy logs are present as-is
-    assert "legacy provision output" in html
-    assert "legacy test output" in html
-
-
 def test_job_results_mongo_logs(testapp):
     """Test that the job_detail view formats logs from MongoDB correctly."""
     mongo = mongomock.MongoClient()

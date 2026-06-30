@@ -521,15 +521,30 @@
         },
         "type": "object"
       },
-      "ResultSchema": {
+      "ResultPost": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "device_info": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "job_state": {
+            "type": "string"
+          },
+          "status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          }
+        },
         "type": "object"
       },
       "SecretIn": {
         "additionalProperties": false,
         "properties": {
           "ephemeral": {
+            "default": false,
             "type": "boolean"
           },
           "expire_after": {
@@ -1989,7 +2004,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResultSchema"
+                "$ref": "#/components/schemas/ResultPost"
               }
             }
           }
@@ -2214,158 +2229,6 @@
           }
         },
         "summary": "Post logs for a specified job ID.",
-        "tags": [
-          "V1"
-        ]
-      }
-    },
-    "/v1/result/{job_id}/output": {
-      "get": {
-        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: Plain text output",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          }
-        },
-        "summary": "Legacy endpoint to get job output for a specified job_id.",
-        "tags": [
-          "V1"
-        ]
-      },
-      "post": {
-        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: \"OK\" on success",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          }
-        },
-        "summary": "Legacy endpoint to post output for a specified job_id.",
-        "tags": [
-          "V1"
-        ]
-      }
-    },
-    "/v1/result/{job_id}/serial_output": {
-      "get": {
-        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: Plain text serial output",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          }
-        },
-        "summary": "Legacy endpoint to get latest serial output for a specified job ID.",
-        "tags": [
-          "V1"
-        ]
-      },
-      "post": {
-        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: \"OK\" on success",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          }
-        },
-        "summary": "Legacy endpoint to post serial output for a specified job ID.",
         "tags": [
           "V1"
         ]

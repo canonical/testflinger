@@ -66,9 +66,12 @@ def validate_client_key_pair(client_id: str, client_key: str) -> dict | None:
     client_key_bytes = client_key.encode("utf-8")
     client_permissions_entry = database.get_client_permissions(client_id)
 
-    if not client_permissions_entry or not bcrypt.checkpw(
+    # OIDC-registered clients have no client_secret_hash since they
+    # authenticate through the web flow, so reject credential-based logins
+    secret_hash = (client_permissions_entry or {}).get("client_secret_hash")
+    if not secret_hash or not bcrypt.checkpw(
         client_key_bytes,
-        client_permissions_entry["client_secret_hash"].encode("utf8"),
+        secret_hash.encode("utf8"),
     ):
         return None
 
@@ -260,23 +263,31 @@ def authenticate(func):
         g.permissions = {}
         g.is_authenticated = False
 
-        # If no token, continuing as regular user.
-        if not auth_token:
+        # Anonymous login IS allowed when OIDC is not enabled:
+        if current_app.oauth is None and not auth_token:
+            g.client_id = None  # Expressly None; no secrets allowed
+            g.role = ServerRoles.CONTRIBUTOR
+            g.permissions = {}
+            # Role and permissions are known; client_id can be trusted (None),
+            # hence "is_authenticated" is True
+            g.is_authenticated = True
             return func(*args, **kwargs)
+        # else, role will be None until we figure out who they are
 
-        if auth_token.startswith("Bearer "):
+        # If there is a bearer token available, attempt to retrieve information
+        if auth_token and auth_token.startswith("Bearer "):
             auth_token = auth_token[len("Bearer ") :]
+            secret_key = os.environ.get("JWT_SIGNING_KEY")
+            decoded_jwt = decode_jwt_token(auth_token, secret_key)
+            permissions = decoded_jwt.get("permissions", {})
 
-        # If there is a token available, attempt to retrieve information
-        secret_key = os.environ.get("JWT_SIGNING_KEY")
-        decoded_jwt = decode_jwt_token(auth_token, secret_key)
-        permissions = decoded_jwt.get("permissions", {})
-
-        # Store auth state if decoding was successful
-        g.client_id = permissions["client_id"]
-        g.role = ServerRoles(permissions.get("role", ServerRoles.CONTRIBUTOR))
-        g.permissions = permissions
-        g.is_authenticated = True
+            # Store auth state if decoding was successful
+            g.client_id = permissions["client_id"]
+            g.role = ServerRoles(
+                permissions.get("role", ServerRoles.CONTRIBUTOR)
+            )
+            g.permissions = permissions
+            g.is_authenticated = True
 
         return func(*args, **kwargs)
 
@@ -289,7 +300,9 @@ def require_role(*roles):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            if not g.is_authenticated:
+            if current_app.oauth is not None and (
+                not g.is_authenticated or g.client_id is None
+            ):
                 current_app.owasp_logger.authz_fail(
                     userid="unauthenticated",
                     resource=request.path,
