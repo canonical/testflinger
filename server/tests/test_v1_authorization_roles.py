@@ -528,8 +528,8 @@ class TestAllEndPoints:
 
             # Note: /secrets/ endpoints MUST have true authorization, not
             # just a role:
-            if ("secret" in endpoint):
-                 # no client_id known
+            if "secret" in endpoint:
+                # no client_id known
                 assert response.status_code == HTTPStatus.UNAUTHORIZED, (
                     f"Role {role}, Method {method}, URI {endpoint}: was "
                     f"expected to be unauthorized (401) not {response.status} "
