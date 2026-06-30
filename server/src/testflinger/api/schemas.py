@@ -614,8 +614,11 @@ class ClientPermissionsIn(Schema):
         required=False,
     )
     role = fields.String(
-        required=False, validate=OneOf([role.value for role in ServerRoles])
+        required=False,
+        validate=OneOf([role.value for role in ServerRoles]),
+        load_default=ServerRoles.CONTRIBUTOR.value,
     )
+    owner = fields.String(required=False)
 
 
 class ClientPermissionsOut(Schema):
@@ -632,7 +635,10 @@ class ClientPermissionsOut(Schema):
         fields.String(), required=True, allow_none=True
     )
     max_reservation_time = fields.Dict(required=True, allow_none=True)
-    role = fields.String(required=True)
+    role = fields.String(
+        required=True, dump_default=ServerRoles.CONTRIBUTOR.value
+    )
+    owner = fields.String(required=False, allow_none=True)
 
 
 class SecretIn(Schema):
