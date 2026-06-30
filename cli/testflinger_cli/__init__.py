@@ -65,6 +65,35 @@ from testflinger_cli.status_line import StatusLine
 
 logger = logging.getLogger(__name__)
 
+
+class SubcommandAwareParser(ArgumentParser):
+    """ArgumentParser that shows subcommand help on error."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.subparsers_dict = {}
+
+    def error(self, message):
+        """Show subcommand-specific help if applicable."""
+        # Check if a subcommand was specified
+        # Look through sys.argv to find a subcommand (skip flags/options)
+        i = 1
+        while i < len(sys.argv):
+            arg = sys.argv[i]
+            if arg in self.subparsers_dict:
+                # Show subcommand-specific help
+                self.subparsers_dict[arg].print_help()
+                self.exit(2, f"{self.prog}: error: {message}\n")
+            # Skip option values (if current arg is a flag with a value)
+            if arg.startswith("-") and "=" not in arg:
+                # Check if this flag takes a value
+                if i + 1 < len(sys.argv) and not sys.argv[i + 1].startswith("-"):
+                    i += 1  # Skip the next arg (it's the flag's value)
+            i += 1
+        # Fall back to main parser help
+        super().error(message)
+
+
 # Make it easier to run from a checkout
 basedir = os.path.abspath(os.path.join(__file__, ".."))
 if os.path.exists(os.path.join(basedir, "setup.py")):
@@ -170,9 +199,16 @@ class TestflingerCli:
             return
         self.args.func()
 
+    def _register_subparser(self, parser, subcommand_name):
+        """Register a subparser for better error messages."""
+        parser.prog = f"testflinger {subcommand_name}"
+        self.main_parser.subparsers_dict[subcommand_name] = parser
+        return parser
+
     def get_args(self):
         """Handle command line arguments."""
-        parser = ArgumentParser()
+        parser = SubcommandAwareParser()
+        self.main_parser = parser  # Store for use in _register_subparser
         parser.add_argument(
             "-c",
             "--configfile",
@@ -212,6 +248,9 @@ class TestflingerCli:
             self.args = parser.parse_args()
         except SnapPrivateFileError as exc:
             parser.error(exc)
+        except SystemExit:
+            # Re-raise to let argparse handle errors, but with better help
+            raise
         self.help = parser.format_help()
 
         # Early validation of credentials
@@ -240,6 +279,7 @@ class TestflingerCli:
             "artifacts",
             help="Download a tarball of artifacts saved for a specified job",
         )
+        self._register_subparser(parser, "artifacts")
         parser.set_defaults(func=self.artifacts)
         parser.add_argument(
             "--filename", type=helpers.parse_filename, default="artifacts.tgz"
@@ -253,6 +293,7 @@ class TestflingerCli:
         parser = subparsers.add_parser(
             "cancel", help="Tell the server to cancel a specified JOB_ID"
         )
+        self._register_subparser(parser, "cancel")
         parser.set_defaults(func=self.cancel)
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
@@ -263,6 +304,7 @@ class TestflingerCli:
         parser = subparsers.add_parser(
             "config", help="Get or set configuration options"
         )
+        self._register_subparser(parser, "config")
         parser.set_defaults(func=self.configure)
         parser.add_argument("setting", nargs="?", help="setting=value")
 
@@ -271,6 +313,7 @@ class TestflingerCli:
         parser = subparsers.add_parser(
             "jobs", help="List the previously started test jobs"
         )
+        self._register_subparser(parser, "jobs")
         parser.set_defaults(func=self.jobs)
         parser.add_argument(
             "--status",
@@ -285,6 +328,7 @@ class TestflingerCli:
             "list-queues",
             help="List the advertised queues on the Testflinger server",
         )
+        self._register_subparser(parser, "list-queues")
         parser.set_defaults(func=self.list_queues)
         parser.add_argument(
             "--json", action="store_true", help="Print output in JSON format"
@@ -296,6 +340,7 @@ class TestflingerCli:
             "login",
             help="Authenticate with server",
         )
+        self._register_subparser(parser, "login")
         parser.set_defaults(func=self.login)
         self._add_auth_args(parser)
 
@@ -341,6 +386,7 @@ class TestflingerCli:
         parser = subparsers.add_parser(
             "poll", help="Poll for output from a job until it is complete"
         )
+        self._register_subparser(parser, "poll")
         parser.set_defaults(func=self.poll_output)
         self._add_poll_args_generic(parser)
 
@@ -350,6 +396,7 @@ class TestflingerCli:
             "poll-serial",
             help="Poll for serial output from a job until it is complete",
         )
+        self._register_subparser(parser, "poll-serial")
         parser.set_defaults(func=self.poll_serial)
         self._add_poll_args_generic(parser)
 
@@ -358,6 +405,7 @@ class TestflingerCli:
         parser = subparsers.add_parser(
             "reserve", help="Install and reserve a system"
         )
+        self._register_subparser(parser, "reserve")
         parser.set_defaults(func=self.reserve)
         parser.add_argument(
             "--dry-run",
@@ -406,6 +454,7 @@ class TestflingerCli:
         parser = subparsers.add_parser(
             "status", help="Show the status of a specified JOB_ID"
         )
+        self._register_subparser(parser, "status")
         parser.set_defaults(func=self.status)
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
@@ -416,6 +465,7 @@ class TestflingerCli:
         parser = subparsers.add_parser(
             "agent-status", help="Show the status of a specified agent"
         )
+        self._register_subparser(parser, "agent-status")
         parser.set_defaults(func=self.agent_status)
         parser.add_argument("agent_name")
         parser.add_argument(
@@ -520,6 +570,7 @@ class TestflingerCli:
             "queue-status",
             help="Show the status of the agents in a specified queue",
         )
+        self._register_subparser(parser, "queue-status")
         parser.set_defaults(func=self.queue_status)
         parser.add_argument("queue_name")
         parser.add_argument(
@@ -537,6 +588,7 @@ class TestflingerCli:
         parser = subparsers.add_parser(
             "results", help="Get results JSON for a complete JOB_ID"
         )
+        self._register_subparser(parser, "results")
         parser.set_defaults(func=self.results)
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
@@ -547,6 +599,7 @@ class TestflingerCli:
         parser = subparsers.add_parser(
             "show", help="Show the requested job JSON for a specified JOB_ID"
         )
+        self._register_subparser(parser, "show")
         parser.set_defaults(func=self.show)
         parser.add_argument("job_id").completer = partial(
             autocomplete.job_ids_completer, history=self.history
@@ -562,6 +615,7 @@ class TestflingerCli:
         parser = subparsers.add_parser(
             "submit", help="Submit a new test job to the server"
         )
+        self._register_subparser(parser, "submit")
         parser.set_defaults(func=self.submit)
         parser.add_argument("--poll", "-p", action="store_true")
         parser.add_argument("--quiet", "-q", action="store_true")
@@ -586,6 +640,7 @@ class TestflingerCli:
         parser = subparsers.add_parser(
             "secret", help="Manage secrets. Requires authentication"
         )
+        self._register_subparser(parser, "secret")
         secret_subparser = parser.add_subparsers(
             dest="secret_command", required=True
         )
