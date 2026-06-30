@@ -29,9 +29,7 @@ from testflinger_common.enums import ServerRoles
 
 from tests.utilities import get_access_token_header, get_refresh_token
 
-ALL_ROLES = {
-    ServerRoles(r) for r in ("AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN")
-}
+ALL_ROLES = set(ServerRoles)
 
 # Endpoints (method, path) that are deliberately NOT covered by
 # permissions.json and therefore not exercised by TestAllEndPoints.
