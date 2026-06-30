@@ -70,22 +70,43 @@ def endpoint_permissions():
     yield json.loads(perms_path.read_text())
 
 
-def do_call(app, method, endpoint, headers, webhook_fixture, role, client_id):
+def headers_for(role_data, endpoint, auth_type):
+    """
+    Select the auth header to use for a role client on a given endpoint.
+
+    `role_data` is the per-role client dict from `role_clients_factory` (or
+    None for anonymous access). The token endpoint authenticates via HTTP
+    Basic (client credentials) rather than a bearer token, so it uses the
+    basic header; everything else uses the requested `auth_type` header.
+    """
+    if role_data is None:
+        return None
+    if "oauth2/token" in endpoint:
+        return role_data["basic_header"]
+    return role_data[auth_type]
+
+
+def do_call(app, method, endpoint, role_data, webhook_fixture, auth_type):
     """
     Do whatever special thing needs to be done with the given endpoint,
     which may contain angle-bracket notation like /v1/job/<job_id> and
     such that the calls all WILL succeed when the properly privileged
     role is used to make the call.
 
+    `role_data` is the per-role client dict from `role_clients_factory` (or
+    None for anonymous access); the role, client id and auth headers are all
+    derived from it.
+
     Depending on the endpoint, this might require adding dependent data
     elements (e.g. a job before results) as needed. Set up actions will
     use any appropriate role to make the setup successful, where as the
-    main call will use the specified headers.
+    main call will use the role's headers.
     """
+    headers = headers_for(role_data, endpoint, auth_type)
     # Note: endpoint will have angle-bracketed variables replaced and the
     #       updated endpoint returned (e.g. <job_id>)
     endpoint, data = do_setup(
-        app, method, endpoint, headers, webhook_fixture, role, client_id
+        app, method, endpoint, role_data, webhook_fixture, auth_type
     )
 
     if method.lower() == "get":
@@ -118,19 +139,26 @@ def do_call(app, method, endpoint, headers, webhook_fixture, role, client_id):
 
 
 def do_setup(
-    app, method, endpoint, headers, webhook_fixture, role, client_id
-) -> dict:
+    app, method, endpoint, role_data, webhook_fixture, auth_type
+) -> tuple:
     """
     Do whatever special thing needs to be done with the given endpoint,
     which may contain angle-bracket notation like /v1/job/<job_id> and
     such that the calls all WILL succeed when the properly privileged
     role is used to make the call.
 
+    `role_data` is the per-role client dict from `role_clients_factory` (or
+    None for anonymous access); the role, client id and auth headers are all
+    derived from it.
+
     Depending on the endpoint, this might require adding dependent data
     elements (e.g. a job before results) as needed. Set up actions will
     use any appropriate role to make the setup successful, where as the
-    main call will use the specified headers.
+    main call will use the role's headers.
     """
+    headers = headers_for(role_data, endpoint, auth_type)
+    client_id = role_data["id"] if role_data else None
+    role = role_data["role"] if role_data else ServerRoles.CONTRIBUTOR
     test_data = None
     # Each endpoint + method may require special set-up in order to test a
     # command that is EXPECTED TO SUCCEED except for the permissions.
@@ -379,21 +407,14 @@ class TestAllEndPoints:
             # the expected roles are able to access this endpoint.
 
             # Verify that roles which are not permitted recieve 403 Forbidden
-            for role in [ServerRoles(r) for r in forbidden_roles]:
-                data = role_clients_factory[role]
-                client_id = data["id"]
-                if "oauth2/token" in endpoint:
-                    headers = data["basic_header"]
-                else:
-                    headers = data[auth_type]
+            for role in forbidden_roles:
                 response = do_call(
                     app,
                     method,
                     endpoint,
-                    headers,
+                    role_clients_factory[role],
                     webhook_fixture,
-                    role,
-                    client_id,
+                    auth_type,
                 )
                 assert response.status_code == HTTPStatus.FORBIDDEN, (
                     f"Role {role}, Method {method}, URI {endpoint}: was "
@@ -403,19 +424,14 @@ class TestAllEndPoints:
 
             # Verify that roles which ARE permitted to access this endpoint are
             # allowed to use the endpoint normally.
-            for role_name in allowed_roles:
-                role = ServerRoles(role_name)
-                data = role_clients_factory[role]
-                client_id = data["id"]
-                headers = data[auth_type]
+            for role in allowed_roles:
                 response = do_call(
                     app,
                     method,
                     endpoint,
-                    headers,
+                    role_clients_factory[role],
                     webhook_fixture,
-                    role,
-                    client_id,
+                    auth_type,
                 )
                 assert response.status_code == HTTPStatus.OK, (
                     f"Role {role}, Method {method}, URI {endpoint}: was "
@@ -424,9 +440,9 @@ class TestAllEndPoints:
                 )
         else:
             role = ServerRoles.CONTRIBUTOR
-            client_id = None
+
             response = do_call(
-                app, method, endpoint, None, webhook_fixture, role, client_id
+                app, method, endpoint, None, webhook_fixture, None
             )
             assert response.status_code == HTTPStatus.UNAUTHORIZED, (
                 f"Role {role}, Method {method}, URI {endpoint}: was "
@@ -458,7 +474,7 @@ class TestAllEndPoints:
         app = app_with_store
         endpoint = auth_scenario["endpoint"]
         method = auth_scenario["method"]
-        allowed_roles = auth_scenario["required_role"]
+        allowed_roles = set(auth_scenario["required_role"])
         forbidden_roles = ALL_ROLES.difference(allowed_roles)
 
         if auth_type:
@@ -466,21 +482,14 @@ class TestAllEndPoints:
             # the expected roles are able to access this endpoint.
 
             # Verify that roles which are not permitted recieve 403 Forbidden
-            for role in [ServerRoles(r) for r in forbidden_roles]:
-                data = role_clients_factory[role]
-                client_id = data["id"]
-                if "oauth2/token" in endpoint:
-                    headers = data["basic_header"]
-                else:
-                    headers = data[auth_type]
+            for role in forbidden_roles:
                 response = do_call(
                     app,
                     method,
                     endpoint,
-                    headers,
+                    role_clients_factory[role],
                     webhook_fixture,
-                    role,
-                    client_id,
+                    auth_type,
                 )
                 assert response.status_code == HTTPStatus.FORBIDDEN, (
                     f"Role {role}, Method {method}, URI {endpoint}: was "
@@ -490,19 +499,14 @@ class TestAllEndPoints:
 
             # Verify that roles which ARE permitted to access this endpoint are
             # allowed to use the endpoint normally.
-            for role_name in allowed_roles:
-                role = ServerRoles(role_name)
-                data = role_clients_factory[role]
-                client_id = data["id"]
-                headers = data[auth_type]
+            for role in allowed_roles:
                 response = do_call(
                     app,
                     method,
                     endpoint,
-                    headers,
+                    role_clients_factory[role],
                     webhook_fixture,
-                    role,
-                    client_id,
+                    auth_type,
                 )
                 assert response.status_code == HTTPStatus.OK, (
                     f"Role {role}, Method {method}, URI {endpoint}: was "
@@ -511,34 +515,33 @@ class TestAllEndPoints:
                 )
         else:
             # Verify anonymous access is treated as CONTRIBUTOR:
-            headers = None
             role = ServerRoles.CONTRIBUTOR
-            client_id = None
-            if ServerRoles.CONTRIBUTOR in forbidden_roles:
-                response = do_call(
-                    app,
-                    method,
-                    endpoint,
-                    headers,
-                    webhook_fixture,
-                    role,
-                    client_id,
+
+            response = do_call(
+                app,
+                method,
+                endpoint,
+                None,
+                webhook_fixture,
+                None,
+            )
+
+            # Note: /secrets/ endpoints MUST have true authorization, not
+            # just a role:
+            if ("secret" in endpoint):
+                 # no client_id known
+                assert response.status_code == HTTPStatus.UNAUTHORIZED, (
+                    f"Role {role}, Method {method}, URI {endpoint}: was "
+                    f"expected to be unauthorized (401) not {response.status} "
+                    f"{response.data}"
                 )
+            elif ServerRoles.CONTRIBUTOR in forbidden_roles:
                 assert response.status_code == HTTPStatus.FORBIDDEN, (
                     f"Role {role}, Method {method}, URI {endpoint}: was "
                     f"expected to be forbidden (403) not {response.status} "
                     f"{response.data}"
                 )
             else:  # allowed
-                response = do_call(
-                    app,
-                    method,
-                    endpoint,
-                    headers,
-                    webhook_fixture,
-                    role,
-                    client_id,
-                )
                 assert response.status_code == HTTPStatus.OK, (
                     f"Role {role}, Method {method}, URI {endpoint}: was "
                     f"expected to be allowed (200) not {response.status} "
