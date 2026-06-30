@@ -77,10 +77,26 @@ def get_version():
 
 @v1.post("/job")
 @authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
+@v1.doc(
+    responses={
+        200: "OK",
+        422: (
+            "The submitted job contains references to secrets and these "
+            "secrets are, for any reason, inaccessible."
+        ),
+    },
+)
 def job_post(json_data: dict) -> dict:
-    """Add a job to the queue."""
+    """Create a test job request and place it on the specified queue.
+
+    Most parameters passed in the data section of this API will be specific
+    to the type of agent receiving them. The `job_queue` parameter is used to
+    designate the queue used, but all others will be passed along to the
+    agent.
+    """
     job_queue = json_data["job_queue"]
     exclude_agents = json_data["exclude_agents"]
     if exclude_agents:
@@ -202,10 +218,25 @@ def job_builder(data: dict) -> dict:
 @v1.get("/job")
 @authenticate
 @require_role(ServerRoles.AGENT)
+@v1.input(schemas.JobGetQuery, location="query")
 @v1.output(schemas.Job)
-@v1.doc(responses=schemas.job_empty)
-def job_get():
-    """Request a job to run from supported queues."""
+@v1.doc(
+    responses={
+        200: "OK",
+        204: "No jobs in the specified queue(s)",
+        400: "No queue is specified",
+    },
+)
+def job_get(query_data: dict):
+    """Get a test job from the specified queue(s).
+
+    When an agent wants to request a job for processing, it can make this
+    request along with a list of one or more queues that it is configured to
+    process. The server will only return one job.
+
+    Returns JSON job data that was submitted by the requestor, or nothing if
+    no jobs in the specified queue(s) are available.
+    """
     queue_list = request.args.getlist("queue")
     if not queue_list:
         abort(
@@ -258,6 +289,8 @@ def retrieve_secrets(data: dict) -> dict | None:
 
 
 @v1.get("/job/<job_id>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.Job)
 def job_get_id(job_id):
     """Request the json job definition for a specified job, even if it has
@@ -281,6 +314,8 @@ def job_get_id(job_id):
 
 
 @v1.get("/job/<job_id>/attachments")
+@authenticate
+@require_role(ServerRoles.AGENT)
 def attachment_get(job_id):
     """Return the attachments bundle for a specified job_id.
 
@@ -289,6 +324,8 @@ def attachment_get(job_id):
     :return:
         send_file stream of attachment tarball to download
     """
+    # TODO: if we want attachments to be downloadable by the job owner,
+    #      consider similar TODO treatment as for artifacts: job page
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     try:
@@ -299,6 +336,8 @@ def attachment_get(job_id):
 
 
 @v1.post("/job/<job_id>/attachments")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def attachments_post(job_id):
     """Post attachment bundle for a specified job_id.
 
@@ -329,6 +368,8 @@ def attachments_post(job_id):
 
 
 @v1.get("/job/search")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.input(schemas.JobSearchRequest, location="query")
 @v1.output(schemas.JobSearchResponse)
 def search_jobs(query_data):
@@ -368,6 +409,11 @@ def search_jobs(query_data):
 
 
 @v1.post("/result/<job_id>/artifact")
+@authenticate
+@require_role(ServerRoles.AGENT)
+@v1.doc(
+    responses={200: "OK"},
+)
 def artifacts_post(job_id):
     """Post artifact bundle for a specified job_id.
 
@@ -384,6 +430,14 @@ def artifacts_post(job_id):
 
 
 @v1.get("/result/<job_id>/artifact")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@v1.doc(
+    responses={
+        200: "OK",
+        204: "No results for that job_id yet",
+    },
+)
 def artifacts_get(job_id):
     """Return artifact bundle for a specified job_id.
 
@@ -392,6 +446,8 @@ def artifacts_get(job_id):
     :return:
         send_file stream of artifact tarball to download
     """
+    # TODO: consider restrictions to artifacts to original job owner (or group?
+    # TODO: consider adding artifact download to the web portal; job page
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     try:
@@ -417,14 +473,35 @@ class LogTypeConverter(BaseConverter):
 
 
 @v1.get("/result/<job_id>/log/<log_type:log_type>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.LogGet)
+@v1.doc(
+    responses={
+        200: "OK",
+        204: "No logs for that job_id yet",
+        400: "Invalid log_type or query parameters",
+    },
+)
 def log_get(job_id: str, log_type: LogType):
-    """Get logs for a specified job_id.
+    """Retrieve logs for the specified job_id and log type.
 
-    :param job_id: UUID as a string for the job
-    :param log_type: LogType enum value for the type of log requested
-    :raises HTTPError: If the job_id is not a valid UUID or if invalid query
-    :return: Dictionary with log data
+    This endpoint supports querying logs with optional filtering by phase,
+    fragment number, or timestamp. Logs are persistent and can be retrieved
+    multiple times.
+
+    `log_type` is the type of log - either `output` or `serial`.
+
+    The following optional query parameters are supported:
+
+    - `phase` (string): Filter logs to a specific test phase
+    - `start_fragment` (integer): Return only fragments from this number on
+    - `start_timestamp` (string): Return only logs created after this ISO
+      8601 timestamp
+
+    Returns a JSON object with logs organized by phase. Each phase includes a
+    `last_fragment_number` (the highest fragment number for this phase) and
+    `log_data` (combined log text from all matching fragments).
     """
     args = request.args
     if not check_valid_uuid(job_id):
@@ -460,14 +537,22 @@ def log_get(job_id: str, log_type: LogType):
 
 
 @v1.post("/result/<job_id>/log/<log_type:log_type>")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.input(schemas.LogPost, location="json")
+@v1.doc(
+    responses={
+        200: "OK",
+        400: "Invalid log_type or missing required fields",
+    },
+)
 def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
-    """Post logs for a specified job ID.
+    """Post a log fragment for the specified job_id and log type.
 
-    :param job_id: UUID as a string for the job
-    :param log_type: LogType enum value for the type of log being posted
-    :raises HTTPError: If the job_id is not a valid UUID
-    :param json_data: Dictionary with log data
+    This is the new logging endpoint that agents use to stream log data in
+    fragments. Each fragment includes metadata for tracking and querying.
+
+    `log_type` is the type of log - either `output` or `serial`.
     """
     if not check_valid_uuid(job_id):
         abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
@@ -485,13 +570,14 @@ def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
 
 
 @v1.post("/result/<job_id>")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.input(schemas.ResultSchema, location="json")
+@v1.doc(
+    responses={200: "OK"},
+)
 def result_post(job_id: str, json_data: dict) -> str:
-    """Post a result for a specified job_id.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: If the job_id is not a valid UUID
-    """
+    """Post job outcome data for the specified job_id."""
     if not check_valid_uuid(job_id):
         abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
 
@@ -506,12 +592,33 @@ def result_post(job_id: str, json_data: dict) -> str:
 
 
 @v1.get("/result/<job_id>")
+@authenticate
+@require_role(
+    ServerRoles.ADMIN,
+    ServerRoles.MANAGER,
+    ServerRoles.CONTRIBUTOR,
+    ServerRoles.AGENT,
+)
 @v1.output(schemas.ResultGet)
+@v1.doc(
+    responses={
+        200: "OK",
+        204: "No results for that job_id yet",
+    },
+)
 def result_get(job_id: str):
-    """Return results for a specified job_id.
+    """Return previously submitted job outcome data.
 
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: If the job_id is not a valid UUID
+    This endpoint reconstructs results from the new logging system to
+    maintain backward compatibility. It combines phase status information
+    with logs to provide a complete view of job results.
+
+    Returns JSON data with a flattened structure including:
+
+    - `{phase}_status`: Exit code for each phase
+    - `{phase}_output`: Standard output logs for each phase (if available)
+    - `{phase}_serial`: Serial console logs for each phase (if available)
+    - Additional metadata fields (device_info, job_state, etc.)
     """
     if not check_valid_uuid(job_id):
         abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
@@ -521,24 +628,31 @@ def result_get(job_id: str):
     if not response or not (result_data := response.get("result_data")):
         return "", HTTPStatus.NO_CONTENT
 
-    if any(key.endswith(("_output", "_serial")) for key in result_data.keys()):
-        # Legacy result format detected; return as-is
-        # TODO: Remove this path after deprecating legacy endpoints
-        return result_data
-
     # Reconstruct result format with logs and phase statuses
     log_handler = MongoLogHandler(database.mongo)
     return log_handler.format_logs_as_results(job_id, result_data)
 
 
 @v1.post("/job/<job_id>/action")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.input(schemas.ActionIn, location="json")
+@v1.doc(
+    responses={
+        200: "OK",
+        400: "The job is already completed or cancelled",
+        404: "The job isn't found",
+        422: "The action or the argument to it could not be processed",
+    },
+)
 def action_post(job_id, json_data):
-    """Take action on the job status for a specified job ID.
+    """Execute action for the specified job_id.
 
-    :param job_id:
-        UUID as a string for the job
+    Supported actions:
+
+    - `cancel`: cancel a job that hasn't been completed yet
     """
+    # TODO: limit to job owner (or greater) if auth enabled (so job owner known
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     action = json_data["action"]
@@ -550,15 +664,16 @@ def action_post(job_id, json_data):
 
 
 @v1.get("/agents/queues")
-@v1.doc(responses=schemas.queues_out)
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@v1.doc(
+    responses=schemas.queues_out,
+)
 def queues_get():
-    """Get all advertised queues from this server.
+    """Retrieve the list of well-known queues.
 
-    Returns a dict of queue names and descriptions, ex:
-    {
-        "some_queue": "A queue for testing",
-        "other_queue": "A queue for something else"
-    }
+    Returns the JSON data previously submitted by all agents via the POST
+    API, as a mapping of queue names to descriptions.
     """
     all_queues = database.mongo.db.queues.find(
         {}, projection={"_id": False, "name": True, "description": True}
@@ -571,11 +686,16 @@ def queues_get():
 
 
 @v1.post("/agents/queues")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
+@v1.doc(
+    responses={200: "OK"},
+)
 def queues_post():
-    """Tell testflinger the queue names that are being serviced.
+    """Post names/descriptions of queues serviced by this agent.
 
-    Some agents may want to advertise some of the queues they listen on so that
-    the user can check which queues are valid to use.
+    Some agents may want to advertise some of the queues they listen on so
+    that the user can check which queues are valid to use.
     """
     queue_dict = request.get_json()
     timestamp = datetime.now(timezone.utc)
@@ -589,9 +709,17 @@ def queues_post():
 
 
 @v1.get("/agents/images/<queue>")
-@v1.doc(responses=schemas.images_out)
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@v1.doc(
+    responses=schemas.images_out,
+)
 def images_get(queue):
-    """Get a dict of known images for a given queue."""
+    """Retrieve all known image names and the provisioning data used for them.
+
+    Returns the JSON data, for the specified queue, previously submitted by
+    all agents via the POST API.
+    """
     queue_data = database.mongo.db.queues.find_one(
         {"name": queue}, {"_id": False, "images": True}
     )
@@ -602,19 +730,16 @@ def images_get(queue):
 
 
 @v1.post("/agents/images")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
+@v1.doc(
+    responses={200: "OK"},
+)
 def images_post():
-    """Tell testflinger about known images for a specified queue
-    images will be stored in a dict of key/value pairs as part of the queues
-    collection. That dict will contain image_name:provision_data mappings, ex:
-    {
-        "some_queue": {
-            "core22": "http://cdimage.ubuntu.com/.../core-22.tar.gz",
-            "jammy": "http://cdimage.ubuntu.com/.../ubuntu-22.04.tar.gz"
-        },
-        "other_queue": {
-            ...
-        }
-    }.
+    """Post known images for the specified queue.
+
+    Images are stored as image_name:provision_data mappings within the queues
+    collection, keyed by queue name.
     """
     image_dict = request.get_json()
     # We need to delete and recreate the images in case some were removed
@@ -628,9 +753,18 @@ def images_post():
 
 
 @v1.get("/agents/data")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.AgentOut(many=True))
+@v1.doc(
+    responses={200: "OK"},
+)
 def agents_get_all():
-    """Get all agent data."""
+    """Retrieve all agent data.
+
+    Returns JSON data for all known agents, useful for external systems that
+    need to gather this information.
+    """
     agents = database.get_agents()
     restricted_queues = database.get_restricted_queues()
     restricted_queues_owners = database.get_restricted_queues_owners()
@@ -647,14 +781,25 @@ def agents_get_all():
 
 
 @v1.get("/agents/data/<agent_name>")
+@authenticate
+@require_role(
+    ServerRoles.ADMIN,
+    ServerRoles.MANAGER,
+    ServerRoles.CONTRIBUTOR,
+    ServerRoles.AGENT,
+)
 @v1.output(schemas.AgentOut)
+@v1.doc(
+    responses={
+        200: "OK",
+        404: "The agent isn't found",
+    },
+)
 def agents_get_one(agent_name):
-    """Get the information from a specified agent.
+    """Retrieve data from a specified agent.
 
-    :param agent_name:
-        String with the name of the agent to retrieve information from.
-    :return:
-        JSON data with the specified agent information.
+    Returns JSON data for the specified agent, useful for getting information
+    from a single agent.
     """
     agent_data = database.get_agent_info(agent_name)
 
@@ -674,18 +819,14 @@ def agents_get_one(agent_name):
 
 
 @v1.post("/agents/data/<agent_name>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
 @v1.input(schemas.AgentIn, location="json")
 def agents_post(agent_name, json_data):
     """Post information about the agent to the server.
 
-    The json sent to this endpoint may contain data such as the following:
-    {
-        "state": string, # State the device is in
-        "queues": array[string], # Queues the device is listening on
-        "location": string, # Location of the device
-        "job_id": string, # Job ID the device is running, if any
-        "log": array[string], # push and keep only the last 100 lines
-    }
+    The data may include the device state, the queues it is listening on,
+    its location, the job_id it is running (if any), and recent log lines.
     """
     json_data["name"] = agent_name
     json_data["updated_at"] = datetime.now(timezone.utc)
@@ -707,9 +848,14 @@ def agents_post(agent_name, json_data):
 
 
 @v1.post("/agents/provision_logs/<agent_name>")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.input(schemas.ProvisionLogsIn, location="json")
+@v1.doc(
+    responses={200: "OK"},
+)
 def agents_provision_logs_post(agent_name, json_data):
-    """Post provision logs for the agent to the server."""
+    """Post provision log data for the specified agent."""
     agent_record = {}
 
     # timestamp this agent record and provision log entry
@@ -748,28 +894,24 @@ def agents_provision_logs_post(agent_name, json_data):
 
 
 @v1.post("/job/<job_id>/events")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.input(schemas.StatusUpdate, location="json")
+@v1.doc(
+    responses={
+        200: "OK",
+        400: "The arguments could not be processed by the server",
+        504: "The webhook URL timed out",
+    },
+)
 def agents_status_post(job_id, json_data):
-    """Post status updates from the agent to the server to be forwarded
-    to the server-configured webhook url.
+    """Receive job status updates from an agent and post them to a webhook.
 
-    The json sent to this endpoint may contain data such as the following:
-    {
-        "agent_id": "<string>",
-        "job_queue": "<string>",
-        "job_status_webhook": "<URL as string>",
-        "events": [
-        {
-            "event_name": "<string enum of events>",
-            "timestamp": "<datetime>",
-            "detail": "<string>"
-        },
-        ...
-        ]
-    }
+    The `job_status_webhook` parameter is required for this endpoint. Other
+    parameters included here will be forwarded to the webhook.
 
-    :param job_id: UUID as a string for the job
-    :param json_data: JSON data containing the status updates and webhook URL
+    Returns the text response from the webhook if the server was successfully
+    able to post.
     """
     if not check_valid_uuid(job_id):
         abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
@@ -860,6 +1002,8 @@ def check_valid_uuid(job_id):
 
 
 @v1.get("/job/<job_id>/position")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def job_position_get(job_id):
     """Return the position of the specified jobid in the queue."""
     job_data, status = job_get_id(job_id)
@@ -906,8 +1050,15 @@ def cancel_job(job_id):
 
 
 @v1.get("/queues/wait_times")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def queue_wait_time_percentiles_get():
-    """Get wait time metrics - optionally take a list of queues."""
+    """Get wait time metrics - optionally take a list of queues.
+
+    Accepts an optional `queue` (array) query parameter listing the queues to
+    get wait time metrics for. Returns a JSON mapping of queue names to wait
+    time metrics.
+    """
     queues = request.args.getlist("queue")
     wait_times = database.get_queue_wait_times(queues)
     queue_percentile_data = {}
@@ -919,9 +1070,21 @@ def queue_wait_time_percentiles_get():
 
 
 @v1.get("/queues/<queue_name>/agents")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.AgentOut(many=True))
+@v1.doc(
+    responses={
+        200: "OK",
+        204: "No agents in the specified queue",
+        404: "The queue does not exist",
+    },
+)
 def get_agents_on_queue(queue_name):
-    """Get the list of all data for agents listening to a specified queue."""
+    """Get the list of agents listening to a specified queue.
+
+    Returns a JSON array of agents listening to the specified queue.
+    """
     if not database.queue_exists(queue_name):
         abort(
             HTTPStatus.NOT_FOUND,
@@ -935,13 +1098,19 @@ def get_agents_on_queue(queue_name):
 
 
 @v1.get("/queues/<queue_name>/jobs")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@v1.doc(
+    responses={
+        200: "OK",
+        204: "No jobs in the specified queue",
+    },
+)
 def get_jobs_by_queue(queue_name):
-    """Get the jobs in a specified queue along with its state.
+    """Search for jobs in a specified queue.
 
-    :param queue_name
-        String with the queue name where to perform the query.
-    :return:
-        JSON data with the jobs allocated to the specified queue.
+    Returns JSON job data with information about the ID, creation time and
+    state for jobs in the specified queue.
     """
     jobs = database.get_jobs_on_queue(queue_name)
 
@@ -1042,7 +1211,11 @@ def retrieve_token():
 
 @v1.post("/oauth2/refresh")
 def refresh_access_token():
-    """Refresh access token using a valid refresh token."""
+    """Exchange a valid refresh token for a new access token.
+
+    Expects a JSON body with a `refresh_token` (string): the opaque refresh
+    token issued earlier.
+    """
     data = request.get_json() or {}
     refresh_token = data.get("refresh_token")
     if not refresh_token:
@@ -1089,7 +1262,11 @@ def refresh_access_token():
 @authenticate
 @require_role(ServerRoles.ADMIN)
 def revoke_refresh_token():
-    """Revoke a refresh token. Only admins can perform this action."""
+    """Revoke a refresh token so it can no longer be used.
+
+    Expects a JSON body with a `token` (string): the opaque refresh token to
+    revoke. Only admins can perform this action.
+    """
     data = request.get_json() or {}
     token = data.get("refresh_token")
     if not token:
@@ -1123,8 +1300,18 @@ def revoke_refresh_token():
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.RestrictedQueueOut(many=True))
+@v1.doc(
+    responses={
+        200: "OK",
+        401: "Invalid client_id or client-key",
+        403: "Incorrect permissions for authenticated user",
+    },
+)
 def get_all_restricted_queues() -> list[dict]:
-    """List all agent's restricted queues and its owners."""
+    """Retrieve the list of all restricted queues and their owners.
+
+    Returns JSON data with a list of restricted queues.
+    """
     restricted_queues = database.get_restricted_queues()
     restricted_queues_owners = database.get_restricted_queues_owners()
 
@@ -1145,8 +1332,18 @@ def get_all_restricted_queues() -> list[dict]:
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.RestrictedQueueOut)
+@v1.doc(
+    responses={
+        200: "OK",
+        401: "Invalid client_id or client-key",
+        403: "Incorrect permissions for authenticated user",
+    },
+)
 def get_restricted_queue(queue_name: str) -> dict:
-    """Get restricted queues for a specific agent."""
+    """Retrieve the specified restricted queue and its owners.
+
+    Returns JSON data with the restricted queue and who owns it.
+    """
     if not database.check_queue_restricted(queue_name):
         abort(HTTPStatus.NOT_FOUND, "Error: Restricted queue not found.")
 
@@ -1165,8 +1362,20 @@ def get_restricted_queue(queue_name: str) -> dict:
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
 @v1.input(schemas.RestrictedQueueIn, location="json")
+@v1.doc(
+    responses={
+        200: "OK",
+        400: "Missing client_id to set as owner of restricted queue",
+        401: "Invalid client_id or client-key",
+        403: "Incorrect permissions for authenticated user",
+        404: "Queue does not exist or is not associated to an agent",
+    },
+)
 def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
-    """Add an owner to the specific restricted queue."""
+    """Add an owner to the specific restricted queue.
+
+    If the queue does not exist yet, it will be created automatically.
+    """
     client_id = json_data.get("client_id", "")
 
     # Validate client ID is available in request data
@@ -1195,6 +1404,15 @@ def add_restricted_queue(queue_name: str, json_data: dict) -> dict:
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
 @v1.input(schemas.RestrictedQueueIn, location="json")
+@v1.doc(
+    responses={
+        200: "OK",
+        400: "Missing client_id to set as owner of restricted queue",
+        401: "Invalid client_id or client-key",
+        403: "Incorrect permissions for authenticated user",
+        404: "Queue is not in the restricted queue list",
+    },
+)
 def delete_restricted_queue(queue_name: str, json_data: dict) -> dict:
     """Delete an owner from the specific restricted queue."""
     if not database.check_queue_restricted(queue_name):
@@ -1213,8 +1431,19 @@ def delete_restricted_queue(queue_name: str, json_data: dict) -> dict:
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
 @v1.output(schemas.ClientPermissionsOut(many=True))
+@v1.doc(
+    responses={
+        200: "OK",
+        401: "Invalid client_id or client-key",
+        403: "Incorrect permissions for authenticated user",
+    },
+)
 def get_all_client_permissions() -> list[dict]:
-    """Retrieve all client permissions from database."""
+    """Retrieve the list of all client_id and their permissions.
+
+    Returns JSON data with a list of all client IDs and their permissions,
+    excluding the hashed secret stored in the database.
+    """
     return database.get_all_client_permissions()
 
 
@@ -1222,8 +1451,20 @@ def get_all_client_permissions() -> list[dict]:
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
 @v1.output(schemas.ClientPermissionsOut)
+@v1.doc(
+    responses={
+        200: "OK",
+        401: "Invalid client_id or client-key",
+        403: "Incorrect permissions for authenticated user",
+        404: "Specified client_id does not exist",
+    },
+)
 def get_client_permissions(client_id) -> list[dict]:
-    """Retrieve single client-permissions from database."""
+    """Retrieve the permissions associated with a client_id.
+
+    Returns JSON data with the permissions of the specified client, excluding
+    the hashed secret stored in the database.
+    """
     if not database.check_client_exists(client_id):
         abort(
             HTTPStatus.NOT_FOUND,
@@ -1237,8 +1478,16 @@ def get_client_permissions(client_id) -> list[dict]:
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
 @v1.input(schemas.ClientPermissionsIn)
+@v1.doc(
+    responses={
+        200: "OK",
+        401: "Invalid client_id or client-key",
+        403: "Incorrect permissions for authenticated user",
+        404: "Specified client_id does not exist",
+    },
+)
 def set_client_permissions(client_id: str, json_data: dict) -> str:
-    """Add or create client permissions for a specified user."""
+    """Edit the permissions for a specified client_id."""
     # Testflinger Admin credential can't be modified from API!'
     if client_id == TESTFLINGER_ADMIN_ID:
         current_app.owasp_logger.authz_admin(
@@ -1361,8 +1610,17 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
 @v1.delete("/client-permissions/<client_id>")
 @authenticate
 @require_role(ServerRoles.ADMIN)
+@v1.doc(
+    responses={
+        200: "OK",
+        401: "Invalid client_id or client-key",
+        403: "Incorrect permissions for authenticated user",
+        404: "Specified client_id does not exist",
+        422: "System admin can't be removed using the API",
+    },
+)
 def delete_client_permissions(client_id: str) -> str:
-    """Delete client id along with its permissions."""
+    """Delete a client_id along with its permissions."""
     # Testflinger Admin credential can't be removed from API!'
     if client_id == TESTFLINGER_ADMIN_ID:
         current_app.owasp_logger.user_deleted(
@@ -1412,12 +1670,15 @@ def delete_client_permissions(client_id: str) -> str:
 
 @v1.put("/secrets/<client_id>/<path:path>")
 @authenticate
+@require_role(ServerRoles.CONTRIBUTOR, ServerRoles.MANAGER, ServerRoles.ADMIN)
 @v1.input(schemas.SecretIn, location="json")
 @v1.output(schemas.SecretOut)
 def secrets_put(client_id, path, json_data):
     """Store a secret value for the specified client_id and path."""
     if current_app.secrets_store is None:
         abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
+    if not g.client_id:
+        abort(HTTPStatus.UNAUTHORIZED)
     if client_id != g.client_id:
         abort(
             HTTPStatus.FORBIDDEN,
@@ -1449,10 +1710,13 @@ def secrets_put(client_id, path, json_data):
 
 @v1.delete("/secrets/<client_id>/<path:path>")
 @authenticate
+@require_role(ServerRoles.CONTRIBUTOR, ServerRoles.MANAGER, ServerRoles.ADMIN)
 def secrets_delete(client_id, path):
     """Remove a secret value for the specified client_id and path."""
     if current_app.secrets_store is None:
         abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
+    if not g.client_id:
+        abort(HTTPStatus.UNAUTHORIZED)
     if client_id != g.client_id:
         abort(
             HTTPStatus.FORBIDDEN,
@@ -1467,90 +1731,4 @@ def secrets_delete(client_id, path):
     except (StoreError, UnexpectedError) as error:
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
-    return "OK"
-
-
-@v1.get("/result/<job_id>/output")
-def legacy_output_get(job_id: str) -> str:
-    """Legacy endpoint to get job output for a specified job_id.
-
-    TODO: Remove after CLI/agent migration completes.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: BAD_REQUEST when job_id is invalid
-    :return: Plain text output
-    """
-    if not check_valid_uuid(job_id):
-        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
-    response = database.mongo.db.output.find_one_and_delete(
-        {"job_id": job_id}, {"_id": False}
-    )
-    output = response.get("output", []) if response else None
-    if output:
-        return "\n".join(output)
-    return "", HTTPStatus.NO_CONTENT
-
-
-@v1.post("/result/<job_id>/output")
-def legacy_output_post(job_id: str) -> str:
-    """Legacy endpoint to post output for a specified job_id.
-
-    TODO: Remove after CLI/agent migration completes.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: BAD_REQUEST when job_id is invalid
-    :return: "OK" on success
-    """
-    if not check_valid_uuid(job_id):
-        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
-    data = request.get_data().decode("utf-8")
-    timestamp = datetime.now(timezone.utc)
-    database.mongo.db.output.update_one(
-        {"job_id": job_id},
-        {"$set": {"updated_at": timestamp}, "$push": {"output": data}},
-        upsert=True,
-    )
-    return "OK"
-
-
-@v1.get("/result/<job_id>/serial_output")
-def legacy_serial_output_get(job_id: str) -> str:
-    """Legacy endpoint to get latest serial output for a specified job ID.
-
-    TODO: Remove after CLI/agent migration completes.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: BAD_REQUEST when job_id is invalid
-    :return: Plain text serial output
-    """
-    if not check_valid_uuid(job_id):
-        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
-    response = database.mongo.db.serial_output.find_one_and_delete(
-        {"job_id": job_id}, {"_id": False}
-    )
-    output = response.get("serial_output", []) if response else None
-    if output:
-        return "\n".join(output)
-    return "", HTTPStatus.NO_CONTENT
-
-
-@v1.post("/result/<job_id>/serial_output")
-def legacy_serial_output_post(job_id: str) -> str:
-    """Legacy endpoint to post serial output for a specified job ID.
-
-    TODO: Remove after CLI/agent migration completes.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: BAD_REQUEST when job_id is invalid
-    :return: "OK" on success
-    """
-    if not check_valid_uuid(job_id):
-        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
-    data = request.get_data().decode("utf-8")
-    timestamp = datetime.now(timezone.utc)
-    database.mongo.db.serial_output.update_one(
-        {"job_id": job_id},
-        {"$set": {"updated_at": timestamp}, "$push": {"serial_output": data}},
-        upsert=True,
-    )
     return "OK"

@@ -18,7 +18,6 @@ Unit tests for OWASP logging across authentication and authorization
 events in the Testflinger API.
 """
 
-import base64
 import logging
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
@@ -32,23 +31,7 @@ from flask import url_for
 from testflinger_common.enums import ServerRoles
 
 from testflinger import database
-
-
-def create_auth_header(client_id: str, client_key: str) -> dict:
-    """Create authorization header with base64 encoded credentials."""
-    id_key_pair = f"{client_id}:{client_key}"
-    base64_encoded = base64.b64encode(id_key_pair.encode("utf-8")).decode()
-    return {"Authorization": f"Basic {base64_encoded}"}
-
-
-def get_access_token(app, client_id: str, client_key: str) -> str:
-    """Authenticate and return a valid JWT access token."""
-    response = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    return response.get_json()["access_token"]
-
+from tests.utilities import get_access_token, get_basic_auth_header
 
 # All available roles from enum, sorted by enum order
 ALL_ROLES = sorted(ServerRoles)
@@ -118,29 +101,27 @@ def _build_endpoint_params():
 class TestAuthzPrivilegeEscalation:
     """Test authorization failures and privilege escalation attempts."""
 
-    def test_authz_fail_unauthenticated(self, mongo_app, caplog):
+    def test_authz_fail_unauthenticated(self, oidc_app, caplog):
         """
         Verify authz_fail is logged when unauthenticated user
         attempts to access protected endpoint.
         """
-        app, _ = mongo_app
+        app_server, _ = oidc_app
+        app = app_server.test_client()
 
-        # Test one endpoint as representative case
-        endpoint = ADMIN_ONLY_ENDPOINTS[0][0]
-        method = ADMIN_ONLY_ENDPOINTS[0][1]
+        for endpoint, method in ADMIN_ONLY_ENDPOINTS:
+            with caplog.at_level(logging.INFO):
+                if method == "GET":
+                    response = app.get(endpoint)
+                elif method == "POST":
+                    response = app.post(endpoint, json={})
+                elif method == "PUT":
+                    response = app.put(endpoint, json={})
+                elif method == "DELETE":
+                    response = app.delete(endpoint)
 
-        with caplog.at_level(logging.INFO):
-            if method == "GET":
-                response = app.get(endpoint)
-            elif method == "POST":
-                response = app.post(endpoint, json={})
-            elif method == "PUT":
-                response = app.put(endpoint, json={})
-            elif method == "DELETE":
-                response = app.delete(endpoint)
-
-        assert response.status_code == HTTPStatus.UNAUTHORIZED
-        assert "authz_fail:unauthenticated" in caplog.text
+                assert response.status_code == HTTPStatus.UNAUTHORIZED
+                assert "authz_fail:unauthenticated" in caplog.text
 
     @pytest.mark.parametrize(
         "endpoint,method,test_role", _build_endpoint_params()
@@ -183,18 +164,24 @@ class TestAuthzPrivilegeEscalation:
 
         with caplog.at_level(logging.INFO):
             if method == "GET":
-                response = app.get(endpoint, headers={"Authorization": token})
+                response = app.get(
+                    endpoint, headers={"Authorization": f"Bearer {token}"}
+                )
             elif method == "POST":
                 response = app.post(
-                    endpoint, json={}, headers={"Authorization": token}
+                    endpoint,
+                    json={},
+                    headers={"Authorization": f"Bearer {token}"},
                 )
             elif method == "PUT":
                 response = app.put(
-                    endpoint, json={}, headers={"Authorization": token}
+                    endpoint,
+                    json={},
+                    headers={"Authorization": f"Bearer {token}"},
                 )
             elif method == "DELETE":
                 response = app.delete(
-                    endpoint, headers={"Authorization": token}
+                    endpoint, headers={"Authorization": f"Bearer {token}"}
                 )
 
         assert response.status_code == HTTPStatus.FORBIDDEN, (
@@ -219,7 +206,7 @@ class TestAuthenticationEvents:
         with caplog.at_level(logging.INFO):
             response = app.post(
                 "/v1/oauth2/token",
-                headers=create_auth_header(client_id, client_key),
+                headers=get_basic_auth_header(client_id, client_key),
             )
 
         assert response.status_code == HTTPStatus.OK
@@ -234,7 +221,7 @@ class TestAuthenticationEvents:
         with caplog.at_level(logging.WARNING):
             response = app.post(
                 "/v1/oauth2/token",
-                headers=create_auth_header("wrong_id", "wrong_key"),
+                headers=get_basic_auth_header("wrong_id", "wrong_key"),
             )
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
@@ -247,7 +234,7 @@ class TestAuthenticationEvents:
         with caplog.at_level(logging.INFO):
             response = app.post(
                 "/v1/oauth2/token",
-                headers=create_auth_header(client_id, client_key),
+                headers=get_basic_auth_header(client_id, client_key),
             )
 
         assert response.status_code == HTTPStatus.OK
@@ -260,7 +247,6 @@ class TestAuthenticationEvents:
         """Verify authn_token_revoked is logged when refresh token
         is revoked.
         """
-        monkeypatch.setenv("JWT_SIGNING_KEY", "my_secret_key")
         app, mongo, client_id, client_key, _ = mongo_app_with_permissions
         admin_token = get_access_token(app, client_id, client_key)
 
@@ -286,7 +272,7 @@ class TestAuthenticationEvents:
         # Get token for secondary client
         token_response = app.post(
             "/v1/oauth2/token",
-            headers=create_auth_header(test_client_id, test_client_key),
+            headers=get_basic_auth_header(test_client_id, test_client_key),
         )
         refresh_token = token_response.get_json()["refresh_token"]
 
@@ -295,7 +281,7 @@ class TestAuthenticationEvents:
             response = app.post(
                 "/v1/oauth2/revoke",
                 json={"refresh_token": refresh_token},
-                headers={"Authorization": admin_token},
+                headers={"Authorization": f"Bearer {admin_token}"},
             )
 
         assert response.status_code == HTTPStatus.OK
@@ -314,7 +300,7 @@ class TestLoggingCompleteness:
         """Verify authn_login_success is logged for successful OIDC
         callback.
         """
-        app, mongo = oidc_app
+        app, _ = oidc_app
 
         # Mock OIDC token response
         mock_token = {
@@ -372,7 +358,7 @@ class TestLoggingCompleteness:
         # Get initial token
         token_response = app.post(
             "/v1/oauth2/token",
-            headers=create_auth_header(client_id, client_key),
+            headers=get_basic_auth_header(client_id, client_key),
         )
         refresh_token = token_response.get_json()["refresh_token"]
 
@@ -395,7 +381,7 @@ class TestLoggingCompleteness:
         # Get initial token
         token_response = app.post(
             "/v1/oauth2/token",
-            headers=create_auth_header(client_id, client_key),
+            headers=get_basic_auth_header(client_id, client_key),
         )
         refresh_token = token_response.get_json()["refresh_token"]
 
@@ -421,7 +407,7 @@ class TestLoggingCompleteness:
         # Get initial token
         token_response = app.post(
             "/v1/oauth2/token",
-            headers=create_auth_header(client_id, client_key),
+            headers=get_basic_auth_header(client_id, client_key),
         )
         refresh_token = token_response.get_json()["refresh_token"]
 
@@ -453,7 +439,7 @@ class TestLoggingCompleteness:
                     "client_secret": "new_secret",
                     "role": ServerRoles.CONTRIBUTOR,
                 },
-                headers={"Authorization": admin_token},
+                headers={"Authorization": f"Bearer {admin_token}"},
             )
 
         assert response.status_code == HTTPStatus.OK
@@ -482,7 +468,7 @@ class TestLoggingCompleteness:
                 "client_secret": "new_secret",
                 "role": ServerRoles.CONTRIBUTOR,
             },
-            headers={"Authorization": admin_token},
+            headers={"Authorization": f"Bearer {admin_token}"},
         )
 
         # Update to MANAGER role and capture logging
@@ -490,7 +476,7 @@ class TestLoggingCompleteness:
             response = app.put(
                 f"/v1/client-permissions/{target_client_id}",
                 json={"role": ServerRoles.MANAGER},
-                headers={"Authorization": admin_token},
+                headers={"Authorization": f"Bearer {admin_token}"},
             )
 
         assert response.status_code == HTTPStatus.OK
@@ -521,14 +507,14 @@ class TestLoggingCompleteness:
                 "client_secret": "new_secret",
                 "role": ServerRoles.CONTRIBUTOR,
             },
-            headers={"Authorization": admin_token},
+            headers={"Authorization": f"Bearer {admin_token}"},
         )
 
         # Now delete the client
         with caplog.at_level(logging.INFO):
             response = app.delete(
                 f"/v1/client-permissions/{delete_test_client}",
-                headers={"Authorization": admin_token},
+                headers={"Authorization": f"Bearer {admin_token}"},
             )
 
         assert response.status_code == HTTPStatus.OK
@@ -605,7 +591,7 @@ class TestLoggingCompleteness:
                     "client_secret": "new-secret",
                     "role": ServerRoles.CONTRIBUTOR,
                 },
-                headers={"Authorization": token},
+                headers={"Authorization": f"Bearer {token}"},
             )
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -625,7 +611,7 @@ class TestLoggingCompleteness:
             response = app.put(
                 "/v1/client-permissions/brand_new_client",
                 json={"role": ServerRoles.CONTRIBUTOR},
-                headers={"Authorization": token},
+                headers={"Authorization": f"Bearer {token}"},
             )
 
         assert response.status_code == HTTPStatus.BAD_REQUEST
@@ -664,7 +650,7 @@ class TestLoggingCompleteness:
             response = app.put(
                 f"/v1/client-permissions/{admin_id}",
                 json={"role": ServerRoles.CONTRIBUTOR},
-                headers={"Authorization": manager_token},
+                headers={"Authorization": f"Bearer {manager_token}"},
             )
 
         assert response.status_code == HTTPStatus.FORBIDDEN
@@ -708,7 +694,7 @@ class TestLoggingCompleteness:
                     "client_secret": "secret",
                     "role": ServerRoles.ADMIN,
                 },
-                headers={"Authorization": manager_token},
+                headers={"Authorization": f"Bearer {manager_token}"},
             )
 
         assert response.status_code == HTTPStatus.FORBIDDEN
@@ -732,7 +718,7 @@ class TestLoggingCompleteness:
         with caplog.at_level(logging.INFO):
             response = app.delete(
                 f"/v1/client-permissions/{TESTFLINGER_ADMIN_ID}",
-                headers={"Authorization": token},
+                headers={"Authorization": f"Bearer {token}"},
             )
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -751,7 +737,7 @@ class TestLoggingCompleteness:
         with caplog.at_level(logging.INFO):
             response = app.delete(
                 "/v1/client-permissions/nonexistent_client_xyz",
-                headers={"Authorization": token},
+                headers={"Authorization": f"Bearer {token}"},
             )
 
         assert response.status_code == HTTPStatus.NOT_FOUND

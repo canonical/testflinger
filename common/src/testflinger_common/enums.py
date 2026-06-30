@@ -108,6 +108,10 @@ class ServerRoles(StrEnum):
     """
     Define roles for restricted endpoints and hierarchy among them.
 
+    Note: The hierarchy in and of itself cannot be used to verify access,
+          but can and IS used to determine if one role is able to modify the
+          account for another role, along with other supporting logic.
+
     Implementing a custom "less-than" operator imposes an order between
     the roles (a hierarchy) and allows for comparisons between them.
 
@@ -126,6 +130,14 @@ class ServerRoles(StrEnum):
 
     def __str__(self):
         return self.value
+
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str) and any(
+            m.value.lower() == value.lower() for m in cls
+        ):
+            return next(m for m in cls if m.value.lower() == value.lower())
+        raise ValueError(f"{value!r} is not a valid ServerRole")
 
     def __lt__(self, other: "ServerRoles") -> bool:
         """Implement of "less-than" between ServerRoles."""
