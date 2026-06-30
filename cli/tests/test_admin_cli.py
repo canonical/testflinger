@@ -26,7 +26,7 @@ import testflinger_cli
 from testflinger_cli.enums import ServerRoles
 from testflinger_cli.errors import AuthorizationError
 
-from .test_cli import URL
+from .conftest import URL
 
 
 @pytest.mark.parametrize("state", ["offline", "maintenance"])
