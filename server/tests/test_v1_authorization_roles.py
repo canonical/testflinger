@@ -19,6 +19,7 @@ Testflinger API.
 """
 
 import json
+import re
 from http import HTTPStatus
 from io import BytesIO
 from pathlib import Path
@@ -30,6 +31,34 @@ from tests.utilities import get_access_token_header, get_refresh_token
 
 ALL_ROLES = {
     ServerRoles(r) for r in ("AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN")
+}
+
+# Endpoints (method, path) that are deliberately NOT covered by
+# permissions.json and therefore not exercised by TestAllEndPoints.
+#
+# The parametrized role suite models authorization as "allowed roles get
+# 200, forbidden roles get 403, anonymous gets 401/CONTRIBUTOR". That model
+# only fits endpoints guarded by @require_role. The endpoints below have no
+# role gate *by design* and so cannot be described by permissions.json:
+#
+# Bootstrap endpoints (must stay reachable even when OIDC/auth is enabled,
+# because they are how a client authenticates in the first place, or are
+# intentionally public):
+#   - GET  /v1/               server identity/version, fully public.
+#   - POST /v1/oauth2/token   issues tokens; authenticates via HTTP Basic
+#                             client credentials, not a bearer token.
+#   - POST /v1/oauth2/refresh exchanges a refresh token for an access token;
+#                             authenticated by the refresh token itself.
+#
+# Note: the other token-related endpoint, POST /v1/oauth2/revoke, IS role
+# gated (ADMIN) and IS covered by permissions.json; it only needs special
+# setup (a real refresh token) in do_setup(), so it is not listed here.
+#
+# Any addition to this set MUST come with a justification comment above.
+DOCUMENTED_PERMISSION_EXCEPTIONS = {
+    ("GET", "/v1/"),
+    ("POST", "/v1/oauth2/token"),
+    ("POST", "/v1/oauth2/refresh"),
 }
 
 
@@ -547,3 +576,68 @@ class TestAllEndPoints:
                     f"expected to be allowed (200) not {response.status} "
                     f"{response.data}"
                 )
+
+
+def _normalize_rule(path: str) -> str:
+    """Normalize a URL path for structural comparison.
+
+    Flask routing matches on path *structure*, not on the names of path
+    variables, so ``/v1/agents/images/<queue>`` (the live rule) and
+    ``/v1/agents/images/<queue_name>`` (permissions.json) describe the same
+    endpoint. Collapse every ``<...>`` segment (including converters such as
+    ``<path:path>`` or ``<log_type:log_type>``) to a single placeholder and
+    drop any trailing slash so equivalent paths compare equal.
+    """
+    path = re.sub(r"<[^>]+>", "<*>", path)
+    return path.rstrip("/") or "/"
+
+
+def test_all_v1_endpoints_have_permissions_coverage(testapp):
+    """Guard against silent gaps in the role-authorization test suite.
+
+    Every ``/v1`` route+method registered on the app must either appear in
+    permissions.json (and thus be exercised by ``TestAllEndPoints``) or be
+    listed in ``DOCUMENTED_PERMISSION_EXCEPTIONS`` with a justification.
+
+    This fails when a new ``/v1`` endpoint is added without a corresponding
+    permissions.json entry, forcing the author to either add coverage or
+    explicitly document why the endpoint is exempt.
+
+    Stale permissions.json entries (no matching live route) are intentionally
+    not checked here.
+    """
+    ignored_methods = {"HEAD", "OPTIONS"}
+
+    # Live (method, normalized-path) pairs for /v1 routes only.
+    live_pairs = set()
+    for rule in testapp.url_map.iter_rules():
+        path = _normalize_rule(str(rule.rule))
+        if not path.startswith("/v1"):
+            continue
+        for method in (rule.methods or set()) - ignored_methods:
+            live_pairs.add((method, path))
+
+    # Pairs that permissions.json declares (and the suite therefore tests).
+    perms_path = Path(__file__).parent / "permissions.json"
+    perms = json.loads(perms_path.read_text())
+    covered_pairs = {
+        (method, _normalize_rule(endpoint))
+        for endpoint, methods in perms.items()
+        for method in methods
+    }
+
+    documented = {
+        (method, _normalize_rule(path))
+        for method, path in DOCUMENTED_PERMISSION_EXCEPTIONS
+    }
+
+    uncovered = live_pairs - covered_pairs - documented
+
+    assert not uncovered, (
+        "The following /v1 endpoint(s) are not tested by "
+        "TestAllEndPoints because they are missing from permissions.json:\n"
+        + "\n".join(f"  {method} {path}" for method, path in sorted(uncovered))
+        + "\n\nAdd them to tests/permissions.json to grant role coverage, or "
+        "add them to DOCUMENTED_PERMISSION_EXCEPTIONS (with a justification) "
+        "if they are intentionally not role-gated."
+    )
