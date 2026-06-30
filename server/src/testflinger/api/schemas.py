@@ -618,7 +618,7 @@ class ClientPermissionsIn(Schema):
         validate=OneOf([role.value for role in ServerRoles]),
         load_default=ServerRoles.CONTRIBUTOR.value,
     )
-    owner = fields.String(required=False)
+    email = fields.Email(required=False)
 
 
 class ClientPermissionsOut(Schema):
@@ -638,7 +638,7 @@ class ClientPermissionsOut(Schema):
     role = fields.String(
         required=True, dump_default=ServerRoles.CONTRIBUTOR.value
     )
-    owner = fields.String(required=False, allow_none=True)
+    email = fields.Email(required=False, allow_none=True)
 
 
 class SecretIn(Schema):

@@ -42,7 +42,7 @@ PERMISSIONS_FIELDS = frozenset(
         "allowed_queues",
         "max_reservation_time",
         "client_id",
-        "owner",
+        "email",
     }
 )
 

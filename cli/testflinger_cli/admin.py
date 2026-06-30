@@ -129,9 +129,9 @@ class TestflingerAdminCLI:
             choices=[role.value for role in ServerRoles],
         )
         parser.add_argument(
-            "--owner",
+            "--email",
             help=(
-                "The owner of the client_id. "
+                "The email associated with the client_id. "
                 "Only applicable for non-OIDC clients."
             ),
         )
@@ -260,7 +260,7 @@ class TestflingerAdminCLI:
                 "max_priority": "max_priority",
                 "max_reservation_time": "max_reservation",
                 "role": "role",
-                "owner": "owner",
+                "email": "email",
             }
 
             json_data = {
@@ -301,7 +301,7 @@ class TestflingerAdminCLI:
                 # Failure reason is clearly stated in msg from server
                 # Unprocessable entity: Schema Validation
                 # Bad Request: Missing client secret for new client
-                # Bad Request: Cannot add owner to OIDC client id
+                # Bad Request: Cannot add email to OIDC client id
                 # Forbidden: User is not entitled to modify account
                 logger.error(exc.msg)
             else:
