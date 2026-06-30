@@ -564,7 +564,7 @@ def action_post(job_id, json_data):
     :param job_id:
         UUID as a string for the job
     """
-    # TODO: limit to job owner (or greater) if auth enabled (so job owner known
+    # TODO: limit to job owner (or greater) if auth enabled so job owner known
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     action = json_data["action"]
@@ -1477,7 +1477,7 @@ def secrets_put(client_id, path, json_data):
     if current_app.secrets_store is None:
         abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
     if not g.client_id:
-        abort(HTTPStatus.UNAUTHORIZED)
+        abort(HTTPStatus.UNAUTHORIZED, message="A login (known client_id) is required to securely store information.")
     if client_id != g.client_id:
         abort(
             HTTPStatus.FORBIDDEN,
@@ -1515,7 +1515,7 @@ def secrets_delete(client_id, path):
     if current_app.secrets_store is None:
         abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
     if not g.client_id:
-        abort(HTTPStatus.UNAUTHORIZED)
+        abort(HTTPStatus.UNAUTHORIZED, message="A login (known client_id) is required to securely store information.")
     if client_id != g.client_id:
         abort(
             HTTPStatus.FORBIDDEN,
