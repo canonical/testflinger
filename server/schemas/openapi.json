@@ -774,13 +774,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl -X GET http://localhost:8000/v1/agents/data"
-          }
-        ],
         "x-permission-roles": [
           "admin",
           "manager",
@@ -826,13 +819,6 @@
         "summary": "Retrieve data from a specified agent.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl -X GET http://localhost:8000/v1/agents/data/foo"
-          }
         ],
         "x-permission-roles": [
           "admin",
@@ -921,13 +907,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/agents/images \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{ \"myqueue\": { \"image1\": \"url: http://place/image1\" }}'"
-          }
-        ],
         "x-permission-roles": [
           "admin",
           "manager",
@@ -980,13 +959,6 @@
         "summary": "Retrieve all known image names and the provisioning data used for them.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/agents/images/myqueue -X GET"
-          }
         ],
         "x-permission-roles": [
           "admin",
@@ -1050,13 +1022,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/agents/provision_logs/myagent \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{ \"job_id\": \"00000000-0000-0000-0000-000000000000\", \\\n            \"exit_code\": 1, \"detail\":\"foo\" }'"
-          }
-        ],
         "x-permission-roles": [
           "agent"
         ]
@@ -1089,13 +1054,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/agents/queues -X GET"
-          }
-        ],
         "x-permission-roles": [
           "admin",
           "manager",
@@ -1118,13 +1076,6 @@
         "summary": "Post names/descriptions of queues serviced by this agent.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/agents/queues \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{ \"myqueue\": \"queue 1\", \"myqueue2\": \"queue 2\" }'"
-          }
         ],
         "x-permission-roles": [
           "admin",
@@ -1172,16 +1123,6 @@
         "summary": "Retrieve the list of all client_id and their permissions.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/client-permissions \\\n  -X GET --header \"Authorization: Bearer <JWT Token>\""
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
         ],
         "x-permission-roles": [
           "admin",
@@ -1255,16 +1196,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/client-permissions/foo \\\n  -X DELETE --header \"Authorization: Bearer <JWT Token>\""
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
-        ],
         "x-permission-roles": [
           "admin"
         ]
@@ -1326,16 +1257,6 @@
         "summary": "Retrieve the permissions associated with a client_id.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/client-permissions/foo \\\n  -X GET --header \"Authorization: Bearer <JWT Token>\""
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
         ],
         "x-permission-roles": [
           "admin",
@@ -1416,16 +1337,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/client-permissions/foo \\\n  -X PUT --header \"Authorization: Bearer <JWT Token>\"\n  --header \"Content-Type: application/json\" \\\n  --header \"Accept: application/json\" \\\n  --data '{\"max_priority\": {\"q1\": 10}, \"max_reservation_time\": {}, \"role\": \"contributor\"}'"
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
-        ],
         "x-permission-roles": [
           "admin",
           "manager"
@@ -1490,16 +1401,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/job?queue=foo\\&queue=bar"
-          }
-        ],
-        "x-notes": [
-          "Any secrets that are referenced in the job are \"resolved\" when the job is retrieved by an agent through this endpoint. Any secrets that are inaccessible at the time of retrieval will be resolved to the empty string."
-        ],
         "x-permission-roles": [
           "agent"
         ]
@@ -1541,13 +1442,6 @@
         "summary": "Create a test job request and place it on the specified queue.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/job -X POST \\\n  --header \"Content-Type: application/json\" \\\n  --data '{ \"job_queue\": \"myqueue\", \"option\":\"foo\" }'"
-          }
         ],
         "x-permission-roles": [
           "admin",
@@ -1640,13 +1534,6 @@
         "summary": "Search for jobs by tag(s) and state(s).",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl 'http://localhost:8000/v1/job/search?tags=foo&tags=bar&match=all'"
-          }
         ],
         "x-permission-roles": [
           "admin",
@@ -1766,13 +1653,6 @@
         "summary": "Execute action for the specified job_id.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/job/00000000-0000-0000-0000-000000000000/action \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{ \"action\":\"cancel\" }'"
-          }
         ],
         "x-permission-roles": [
           "admin",
@@ -1939,13 +1819,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl -X POST \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"agent_id\": \"agent-00\", \"job_queue\": \"myqueue\", \"job_status_webhook\": \"http://mywebhook\", \"events\": [{\"event_name\": \"started_provisioning\", \"timestamp\": \"2024-05-03T19:11:33.541130+00:00\", \"detail\": \"my_detailed_message\"}]}' http://localhost:8000/v1/job/00000000-0000-0000-0000-000000000000/events"
-          }
-        ],
         "x-permission-roles": [
           "agent"
         ]
@@ -2028,13 +1901,6 @@
         "summary": "Exchange a valid refresh token for a new access token.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/oauth2/refresh \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{\"refresh_token\": \"opaque-refresh-token\"}'"
-          }
         ]
       }
     },
@@ -2070,13 +1936,6 @@
         "summary": "Revoke a refresh token so it can no longer be used.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/oauth2/revoke \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{\"refresh_token\": \"opaque-refresh-token\"}'"
-          }
         ],
         "x-permission-roles": [
           "admin"
@@ -2117,20 +1976,6 @@
         "summary": "Authenticate a client and return an access token and refresh token.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/oauth2/token \\\n  -X POST --header \"Authorization: Basic ABCDEF12345\""
-          }
-        ],
-        "x-headers": [
-          "Basic Authorization: client_id:client_key (Base64 Encoded)"
-        ],
-        "x-notes": [
-          "`expires_in` is the lifetime (in seconds) of the access token.",
-          "Refresh tokens default to 30 days; admin may issue non-expiring tokens for trusted integrations."
         ]
       }
     },
@@ -2151,13 +1996,6 @@
         "summary": "Get wait time metrics - optionally take a list of queues.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/queues/wait_times?queue=foo\\&queue=bar"
-          }
         ],
         "x-permission-roles": [
           "admin",
@@ -2208,13 +2046,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/queues/foo/agents"
-          }
-        ],
         "x-permission-roles": [
           "admin",
           "manager",
@@ -2262,13 +2093,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl 'http://localhost:8000/v1/queues/foo/jobs'"
-          }
-        ],
         "x-permission-roles": [
           "admin",
           "manager",
@@ -2315,16 +2139,6 @@
         "summary": "Retrieve the list of all restricted queues and their owners.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/restricted-queues \\\n  -X GET --header \"Authorization: Bearer <JWT Token>\""
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
         ],
         "x-permission-roles": [
           "admin",
@@ -2418,16 +2232,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/restricted-queues/foo \\\n  -X DELETE --header \"Authorization: Bearer <JWT Token>\" \\\n  --header \"Content-Type: application/json\" \\\n  --header \"Accept: application/json\" \\\n  --data '{\"client_id\": \"foo\"}'"
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
-        ],
         "x-permission-roles": [
           "admin",
           "manager"
@@ -2490,16 +2294,6 @@
         "summary": "Retrieve the specified restricted queue and its owners.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/restricted-queues/foo \\\n  -X GET --header \"Authorization: Bearer <JWT Token>\""
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
         ],
         "x-permission-roles": [
           "admin",
@@ -2592,16 +2386,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/restricted-queues/foo \\\n  -X POST --header \"Authorization: Bearer <JWT Token>\" \\\n  --header \"Content-Type: application/json\" \\\n  --header \"Accept: application/json\" \\\n  --data '{\"client_id\": \"foo\"}'"
-          }
-        ],
-        "x-headers": [
-          "Bearer Token: JWT Token with permissions (Base64 Encoded)"
-        ],
         "x-permission-roles": [
           "admin",
           "manager"
@@ -2649,13 +2433,6 @@
         "summary": "Return previously submitted job outcome data.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000 -X GET"
-          }
         ],
         "x-permission-roles": [
           "admin",
@@ -2718,13 +2495,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000 \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{ \"status\": {\"setup\": 0, \"provision\": 0, \"test\": 0}, \"device_info\": {} }'"
-          }
-        ],
         "x-permission-roles": [
           "agent"
         ]
@@ -2770,13 +2540,6 @@
         "tags": [
           "V1"
         ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/artifact \\\n  -X GET -O artifact.tar.gz"
-          }
-        ],
         "x-permission-roles": [
           "admin",
           "manager",
@@ -2817,13 +2580,6 @@
         "summary": "Upload a file artifact for the specified job_id.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl -X POST -F \"file=@README.rst\" localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/artifact"
-          }
         ],
         "x-permission-roles": [
           "agent"
@@ -2889,28 +2645,6 @@
         "summary": "Retrieve logs for the specified job_id and log type.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "Get all output logs for a job",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output"
-          },
-          {
-            "label": "Get only setup phase output logs",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output?phase=setup"
-          },
-          {
-            "label": "Get logs from fragment 5 onwards",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output?start_fragment=5"
-          },
-          {
-            "label": "Get logs after a specific timestamp",
-            "lang": "shell",
-            "source": "curl \"http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output?start_timestamp=2025-10-15T10:30:00Z\""
-          }
         ],
         "x-permission-roles": [
           "admin",
@@ -2990,13 +2724,6 @@
         "summary": "Post a log fragment for the specified job_id and log type.",
         "tags": [
           "V1"
-        ],
-        "x-codeSamples": [
-          {
-            "label": "curl",
-            "lang": "shell",
-            "source": "curl http://localhost:8000/v1/result/00000000-0000-0000-0000-000000000000/log/output \\\n  -X POST --header \"Content-Type: application/json\" \\\n  --data '{\n    \"fragment_number\": 0,\n    \"timestamp\": \"2025-10-15T10:00:00+00:00\",\n    \"phase\": \"setup\",\n    \"log_data\": \"Starting setup phase...\"\n  }'"
-          }
         ],
         "x-permission-roles": [
           "agent"

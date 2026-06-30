@@ -19,12 +19,8 @@ _short_help:
     @echo '- {{CYAN}}just lint <component>{{NORMAL}} (Check linting issues)'
     @echo '- {{CYAN}}just format <component>{{NORMAL}} (Solves all fixable lint and formatting issues)'
     @echo '- {{CYAN}}just unit <component>{{NORMAL}} (Run unit tests)'
-    @echo ''
-    @echo '{{BOLD}}Server OpenAPI schema and API docs:{{NORMAL}}'
-    @echo '- {{CYAN}}just schema{{NORMAL}} (Generate server OpenAPI schema)'
     @echo '- {{CYAN}}just check-schema{{NORMAL}} (Check server schema is up to date)'
-    @echo '- {{CYAN}}just apidocs{{NORMAL}} (Generate server API.md from the schema)'
-    @echo '- {{CYAN}}just check-apidocs{{NORMAL}} (Check server API.md is up to date)'
+    @echo '- {{CYAN}}just schema{{NORMAL}} (Generate server OpenAPI schema)'
     @echo ''
     @echo '{{BOLD}}Show help for the docs recipes: {{CYAN}}just docs help{{NORMAL}}'
     @echo '{{BOLD}}Build the docs: {{CYAN}}just docs{{NORMAL}}'
@@ -144,20 +140,6 @@ schema:
     #!/usr/bin/env -S bash -e
     cd 'server'
     uvx --with tox-uv tox run -e schema
-
-# --- Server API docs recipes ---
-
-[doc('Validate server API.md is up to date.')]
-check-apidocs:
-    #!/usr/bin/env -S bash -e
-    cd 'server'
-    uvx --with tox-uv tox run -e check-apidocs
-
-[doc('Generate server API.md from the OpenAPI schema.')]
-apidocs:
-    #!/usr/bin/env -S bash -e
-    cd 'server'
-    uvx --with tox-uv tox run -e apidocs
 
 # --- Package management recipes ---
 

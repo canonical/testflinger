@@ -15,6 +15,7 @@
 #
 """Fixtures for testing."""
 
+import secrets
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Dict
@@ -27,6 +28,7 @@ from testflinger_common.enums import ServerRoles
 
 import tests.utilities as utilities
 from testflinger import application, database
+from testflinger.secrets.store import SecretsStore
 
 
 @dataclass
@@ -53,7 +55,7 @@ class MongoClientMock(mongomock.MongoClient):
 @pytest.fixture(name="mongo_app")
 def mongo_app_fixture(monkeypatch):
     """Create a pytest fixture for database and app."""
-    secret_key = "my_secret_key_But_I_am_tired_of_all_the_warnings_about_keys"  # noqa: S105
+    secret_key = secrets.token_urlsafe(32)
     monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
     mock_mongo = MongoClientMock()
     database.mongo = mock_mongo
@@ -64,7 +66,7 @@ def mongo_app_fixture(monkeypatch):
 @pytest.fixture
 def testapp(monkeypatch):
     """Pytest fixture for just the app."""
-    secret_key = "my_secret_key_But_I_am_tired_of_all_the_warnings_about_keys"  # noqa: S105
+    secret_key = secrets.token_urlsafe(32)
     monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
     app = application.create_flask_app(TestingConfig)
     yield app
@@ -111,7 +113,46 @@ def mongo_app_with_permissions(mongo_app):
 
 
 @pytest.fixture
-def oidc_app(oidc_client, mongo_app, iam_server, monkeypatch):
+def app_with_store(mocker, monkeypatch):
+    """Create a pytest fixture for an app with a database and store."""
+    secret_key = secrets.token_urlsafe(32)
+    monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
+    mock_mongo = mongomock.MongoClient()
+
+    # mock database
+    database.mongo = mock_mongo
+    mongo = mock_mongo.db
+
+    # populate database with client data
+    for client_id, client_key in (
+        ("client_1", "client_key"),
+        ("client_2", "client_key"),
+    ):
+        client_salt = bcrypt.gensalt()
+        client_key_hash = bcrypt.hashpw(
+            client_key.encode("utf-8"), client_salt
+        ).decode("utf-8")
+        mongo.client_permissions.insert_one(
+            {
+                "client_id": client_id,
+                "client_secret_hash": client_key_hash,
+            }
+        )
+
+    # mock store
+    mock_secrets_store = mocker.Mock(spec=SecretsStore)
+    mock_secrets_store.write.return_value = None
+
+    # create app
+    flask_app = application.create_flask_app(
+        type("", (), {"TESTING": True})(),
+        secrets_store=mock_secrets_store,
+    )
+    yield flask_app.test_client()
+
+
+@pytest.fixture
+def oidc_app(oidc_client, mongo_app, iam_server, monkeypatch, mocker):
     """Pytest fixture with OIDC app for web authentication tests."""
     _, mongo = mongo_app
 
@@ -119,10 +160,17 @@ def oidc_app(oidc_client, mongo_app, iam_server, monkeypatch):
     monkeypatch.setenv("OIDC_CLIENT_ID", oidc_client.client_id)
     monkeypatch.setenv("OIDC_CLIENT_SECRET", oidc_client.client_secret)
     monkeypatch.setenv("OIDC_PROVIDER_ISSUER", iam_server.url)
-    monkeypatch.setenv("WEB_SECRET_KEY", "my_web_secret_key")
+    monkeypatch.setenv("WEB_SECRET_KEY", "my_web_ecret_key")
 
-    # Create Flask app with OIDC provider
-    oidc_app = application.create_flask_app(TestingConfig)
+    # mock store
+    mock_secrets_store = mocker.Mock(spec=SecretsStore)
+    mock_secrets_store.write.return_value = None
+    oidc_app = application.create_flask_app(
+        TestingConfig,
+        secrets_store=mock_secrets_store,
+    )
+    # Create Flask app with OIDC provider AND secret store
+    # oidc_app = application.create_flask_app(TestingConfig)
 
     yield oidc_app, mongo
 

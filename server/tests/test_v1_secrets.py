@@ -18,52 +18,12 @@
 from datetime import datetime, timezone
 from http import HTTPStatus
 
-import bcrypt
-import mongomock
 import pytest
 
-from testflinger import application, database
+from testflinger import database
 from testflinger.secrets.exceptions import AccessError, StoreError
-from testflinger.secrets.store import DEFAULT_SECRET_EXPIRATION, SecretsStore
+from testflinger.secrets.store import DEFAULT_SECRET_EXPIRATION
 from tests.utilities import get_access_token
-
-
-@pytest.fixture
-def app_with_store(mocker, monkeypatch):
-    """Create a pytest fixture for an app with a database and store."""
-    secret_key = "my_secret_key_But_I_am_tired_of_all_the_warnings_about_keys"  # noqa: S105
-    monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
-    mock_mongo = mongomock.MongoClient()
-
-    # mock database
-    database.mongo = mock_mongo
-    mongo = mock_mongo.db
-
-    # populate database with client data
-    for client_id, client_key in (
-        ("client_1", "client_key"),
-        ("client_2", "client_key"),
-    ):
-        client_salt = bcrypt.gensalt()
-        client_key_hash = bcrypt.hashpw(
-            client_key.encode("utf-8"), client_salt
-        ).decode("utf-8")
-        mongo.client_permissions.insert_one(
-            {
-                "client_id": client_id,
-                "client_secret_hash": client_key_hash,
-            }
-        )
-
-    # mock store
-    mock_secrets_store = mocker.Mock(spec=SecretsStore)
-
-    # create app
-    flask_app = application.create_flask_app(
-        type("", (), {"TESTING": True})(),
-        secrets_store=mock_secrets_store,
-    )
-    yield flask_app.test_client()
 
 
 @pytest.mark.parametrize(

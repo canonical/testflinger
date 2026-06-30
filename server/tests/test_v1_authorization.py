@@ -80,6 +80,32 @@ def test_retrieve_token_invalid_client_key(mongo_app_with_permissions):
     assert output.status_code == 401
 
 
+def test_retrieve_token_oidc_client_without_secret_hash(
+    mongo_app_with_permissions,
+):
+    """
+    Tests that authentication endpoint returns 401 (not a 500) when an
+    OIDC-registered client (which has no client_secret_hash) attempts to
+    authenticate via the credential-based token endpoint.
+    """
+    app, mongo, _, _, _ = mongo_app_with_permissions
+    oidc_client_id = "oidc.user@canonical.com"
+    mongo.client_permissions.insert_one(
+        {
+            "client_id": oidc_client_id,
+            "sub": "oidc-subject-identifier",
+            "role": ServerRoles.CONTRIBUTOR,
+        }
+    )
+
+    output = app.post(
+        "/v1/oauth2/token",
+        headers=get_basic_auth_header(oidc_client_id, "any_key"),
+    )
+
+    assert output.status_code == 401
+
+
 def test_job_with_priority(mongo_app_with_permissions):
     """Tests submission of priority job with valid token."""
     app, _, client_id, client_key, _ = mongo_app_with_permissions
