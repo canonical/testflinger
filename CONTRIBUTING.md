@@ -170,8 +170,10 @@ uvx --with tox-uv tox run -e format
 ## Server API Changes
 
 If you modified the server API (endpoints, schemas, or parameters), you must
-update and commit the OpenAPI specification file (`server/schemas/openapi.json`) in the
-same pull request. The CI check will fail if the spec is out of sync.
+update and commit both the OpenAPI specification file
+(`server/schemas/openapi.json`) and the generated API reference
+(`server/API.md`) in the same pull request. The CI checks will fail if either
+file is out of sync.
 
 To check if the specification is up-to-date, run:
 
@@ -199,7 +201,19 @@ cd server/
 uvx --with tox-uv tox run -e schema
 ```
 
-Commit the updated spec file with your API changes.
+Similarly, to check that `server/API.md` is up-to-date, run:
+
+```shell
+just check-apidocs
+```
+
+If the check fails, regenerate the API docs:
+
+```shell
+just apidocs
+```
+
+Commit the updated spec and API docs files with your API changes.
 
 ## Signed Commits
 

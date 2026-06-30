@@ -44,6 +44,8 @@ jobs:
         run: uvx --with tox-uv tox -e lint
       - name: Check schemas
         run: uvx --with tox-uv tox -e check-schema
+      - name: Check API docs
+        run: uvx --with tox-uv tox -e check-apidocs
       - name: Run unit tests
         run: uvx --with tox-uv tox -e unit
       - name: Upload coverage

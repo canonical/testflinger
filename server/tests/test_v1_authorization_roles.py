@@ -1,19 +1,36 @@
-# Copyright (C) 2024 Canonical
+# Copyright (C) 2026 Canonical
 #
-# Test authorization and role-based access control for v1 API endpoints.
-
-from http import HTTPStatus
-from pathlib import Path
-from typing import Dict
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+"""
+Unit tests for permissions on every endpoint and method in the
+Testflinger API.
+"""
 
 import json
-import os
-import pytest
+from http import HTTPStatus
+from io import BytesIO
+from pathlib import Path
 
+import pytest
 from testflinger_common.enums import ServerRoles
 
+from tests.utilities import get_access_token_header
 
-ALL_ROLES = set("AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN")
+ALL_ROLES = {
+    ServerRoles(r) for r in ("AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN")
+}
 
 
 def build_param_from_perms():
@@ -26,8 +43,19 @@ def build_param_from_perms():
     params = []
     for endpoint, methods in perms.items():
         for method, roles in methods.items():
-            case_id = f"{method}:{endpoint.replace('/', '_')}:{'AND_'.join(roles)}" # noqa E501
-            params.append(pytest.param({}, id=case_id))
+            case_id = (
+                f"{method}:{endpoint.replace('/', '_')}:{'+'.join(roles)}"  # noqa E501
+            )
+            params.append(
+                pytest.param(
+                    {
+                        "endpoint": endpoint,
+                        "method": method,
+                        "required_role": [ServerRoles(r) for r in roles],
+                    },
+                    id=case_id,
+                )
+            )
 
     return pytest.mark.parametrize("auth_scenario", params)
 
@@ -50,21 +78,237 @@ def endpoint_permissions():
 #     "POST": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
 #   },
 
+# TODO: secrets will need different app
 
-def do_call(app, method, endpoint, headers):
+
+def do_call(app, method, endpoint, headers, webhook_fixture, role):
+    """
+    Do whatever special thing needs to be done with the given endpoint,
+    which may contain angle-bracket notation like /v1/job/<job_id> and
+    such that the calls all WILL succeed when the properly privileged
+    role is used to make the call.
+
+    Depending on the endpoint, this might require adding dependent data
+    elements (e.g. a job before results) as needed. Set up actions will
+    use any appropriate role to make the setup successful, where as the
+    main call will use the specified headers.
+    """
+    # Note: endpoint will have angle-bracketed variables replaced and the
+    #       updated endpoint returned (e.g. <job_id>)
+    endpoint, data = do_setup(
+        app, method, endpoint, headers, webhook_fixture, role
+    )
+
     if method.lower() == "get":
         response = app.get(endpoint, headers=headers)
     elif method.lower() == "post":
-        response = app.post(endpoint, headers=headers, json={})
+        response = app.post(endpoint, headers=headers, json=data)
     elif method.lower() == "put":
-        response = app.put(endpoint, headers=headers, json={})
+        response = app.put(endpoint, headers=headers, json=data)
     elif method.lower() == "delete":
-        response = app.delete(endpoint, headers=headers, json={})
+        if "restricted-queue" in endpoint:
+            response = app.delete(endpoint, headers=headers, json=data)
+        else:
+            response = app.delete(endpoint, headers=headers)
     else:
         raise ValueError(
             "do_call expected one of GET, PUT, POST, DELETE, not {}", method
-            )
+        )
     return response
+
+
+def do_setup(app, method, endpoint, headers, webhook_fixture, role) -> dict:
+    """
+    Do whatever special thing needs to be done with the given endpoint,
+    which may contain angle-bracket notation like /v1/job/<job_id> and
+    such that the calls all WILL succeed when the properly privileged
+    role is used to make the call.
+
+    Depending on the endpoint, this might require adding dependent data
+    elements (e.g. a job before results) as needed. Set up actions will
+    use any appropriate role to make the setup successful, where as the
+    main call will use the specified headers.
+    """
+    test_data = None
+    # Each endpoint + method may require special set-up in order to test a
+    # command that is EXPECTED TO SUCCEED except for the permissions.
+    # We will make every attempt to find the shortest, smallest logic that
+    # can implement the appropriate setup for the upcoming test command.
+    # Note: we rely on the app and database being implemented as fixtures
+    # and make no attempt to clean up as a result.
+
+    setup_client = "setup"
+    setup_role = ServerRoles.ADMIN
+    setup_headers = get_access_token_header(setup_client, setup_role)
+
+    # agent_name = None
+    # job_id = None
+    # queue_name = None
+    # log_type = None
+    # client_id = None
+    # path = None
+    agent_data = {"state": "waiting", "queues": ["qqqq"], "location": "here"}
+    job_data = {"job_queue": "qqqq"}
+    if "/attachments" in endpoint:
+        job_data.update({"test_data": {"attachments": [{"agent": "filenam"}]}})
+    need_agent = False
+    need_job = False
+    need_client = False
+    is_agent = ServerRoles(role) == ServerRoles.AGENT
+
+    if "/restricted-queue" in endpoint:
+        need_client = True
+        need_agent = True
+
+    if endpoint == "/v1/job":
+        if method in ("GET", "DELETE"):
+            need_agent = True
+            endpoint += "?queue=qqqq"
+        else:
+            test_data = job_data
+
+    # Note: This also includes "/jobs" at any place in the uri.
+    if "/job" in endpoint and method in ("GET", "DELETE"):
+        need_job = True
+
+    if "<queue_name>" in endpoint or need_agent:
+        need_agent = True
+        queue_name = "qqqq"
+        endpoint = endpoint.replace("<queue_name>", queue_name)
+
+    if "<agent_name>" in endpoint or need_agent:
+        agent_name = "agent-one"
+        # the agent that we will test needs to be registered first
+        response = app.post(
+            f"/v1/agents/data/{agent_name}",
+            json=agent_data,
+            headers=headers if is_agent else setup_headers,
+        )
+        assert response.status_code == HTTPStatus.OK, (
+            f"{response.status} {response.data}"
+        )
+        endpoint = endpoint.replace("<agent_name>", agent_name)
+
+    if "<job_id>" in endpoint or need_job:
+        response = app.post("/v1/job", json=job_data, headers=setup_headers)
+        job_id = response.json.get("job_id")
+        assert response.status_code == HTTPStatus.OK, (
+            f"{response.status} {response.data}"
+        )
+        endpoint = endpoint.replace("<job_id>", job_id)
+
+    if "<log_type>" in endpoint:
+        log_type = "output"
+        endpoint = endpoint.replace("<log_type>", log_type)
+
+    if "<client_id>" in endpoint or need_client:
+        client_id = "client_id"
+        app.put(
+            f"/v1/client-permissions/{client_id}",
+            json={
+                "client_secret": "new_secret",
+                "role": ServerRoles.CONTRIBUTOR,
+            },
+            headers=setup_headers,
+        )
+        endpoint = endpoint.replace("<client_id>", client_id)
+
+    if "/restricted-queue" in endpoint:
+        assert client_id is not None
+        test_data = {"client_id": client_id}
+        if method in ("GET", "DELETE"):
+            response = app.post(
+                f"/v1/restricted-queues/{queue_name}",
+                json=test_data,
+                headers=setup_headers,
+            )
+            assert response.status_code == HTTPStatus.OK, (
+                f"{response.status} {response.data}"
+            )
+
+    if "<path>" in endpoint:
+        path = "path"
+        endpoint = endpoint.replace("<path>", path)
+
+    if "images" in endpoint:
+        test_data = {
+            "qqqq": {
+                "image1": "url: http://path/to/image1",
+                "image2": "url: http://path/to/image2",
+            }
+        }
+        if method in ("GET", "DELETE"):
+            response = app.post(
+                "/v1/agents/images", json=test_data, headers=setup_headers
+            )
+            assert response.status_code == HTTPStatus.OK, (
+                f"{response.status} {response.data}"
+            )
+
+    if "provision_logs" in endpoint:
+        test_data = {
+            "job_id": "00000000-0000-0000-0000-00000000000",
+            "exit_code": 1,
+            "detail": "provision_failed",
+        }
+
+    if "/action" in endpoint:
+        test_data = {"action": "cancel"}
+
+    if "/events" in endpoint:
+        test_data = {
+            "agent_id": "agent1",
+            "job_queue": "myjobqueue",
+            "job_status_webhook": webhook_fixture,
+            "events": [
+                {
+                    "event_name": "my_event",
+                    "timestamp": "2014-12-22T03:12:58.019077+00:00",
+                    "detail": "mymsg",
+                }
+            ],
+        }
+
+    if "/v1/agents/queues" in endpoint:
+        test_data = {"qfoo": "this is a test queue"}
+        if method in ("GET", "DELETE"):
+            app.post(
+                "/v1/agents/queues",
+                json=test_data,
+                headers=headers if is_agent else setup_headers,
+            )
+
+    if "/attachments" in endpoint:
+        # the "attachment" that we are using is this `__file__` which exists
+        # submit the attachments archive for the job
+        filename = __file__
+        with open(filename, "rb") as attachments:
+            response = app.post(
+                f"/v1/job/{job_id}/attachments",
+                data={"file": (attachments, filename)},
+                content_type="multipart/form-data",
+                headers=setup_headers,
+            )
+            assert response.status_code == HTTPStatus.OK, (
+                f"{response.status} {response.data}"
+            )
+
+    if "artifact" in endpoint:
+        data = b"test file content"
+        test_data = {"file": (BytesIO(data), "artifact.tgz")}
+        if method in ("GET", "DELETE"):
+            response = app.post(
+                endpoint,
+                data=test_data,
+                content_type="multipart/form-data",
+                headers=headers if is_agent else setup_headers,
+            )
+            assert response.status_code == HTTPStatus.OK, (
+                f"{response.status} {response.data}"
+            )
+
+    # TODO : figure this out
+    return endpoint, test_data
 
 
 @build_param_from_perms()
@@ -73,7 +317,12 @@ class TestAllEndPoints:
 
     @pytest.mark.parametrize("auth_type", ["bearer_header", None])
     def test_permissions_with_oidc_enabled(
-        self, auth_scenario, oidc_app, auth_type, role_clients_factory
+        self,
+        auth_scenario,
+        oidc_app,
+        auth_type,
+        role_clients_factory,
+        webhook_fixture,
     ):
         """
         For each url, show that the proper roles work and the wrong roles are
@@ -87,7 +336,7 @@ class TestAllEndPoints:
 
         Anonymous (no auth) is strictly disallowed (401 Unauthorized).
         """
-        app, _ = oidc_app
+        app = oidc_app[0].test_client()
         endpoint = auth_scenario["endpoint"]
         method = auth_scenario["method"]
         allowed_roles = auth_scenario["required_role"]
@@ -101,24 +350,47 @@ class TestAllEndPoints:
             for role in [ServerRoles(r) for r in forbidden_roles]:
                 data = role_clients_factory[role]
                 headers = data[auth_type]
-                response = do_call(app, method, endpoint, headers)
-                assert response.status_code == HTTPStatus.FORBIDDEN
+                response = do_call(
+                    app, method, endpoint, headers, webhook_fixture, role
+                )
+                assert response.status_code == HTTPStatus.FORBIDDEN, (
+                    f"Role {role}, Method {method}, URI {endpoint}: was "
+                    f"expected to be forbidden (403) not {response.status} "
+                    f"{response.data}"
+                )
 
             # Verify that roles which ARE permitted to access this endpoint are
             # allowed to use the endpoint normally.
-            for role in [ServerRoles(r) for r in forbidden_roles]:
+            for role in [ServerRoles(r) for r in allowed_roles]:
                 data = role_clients_factory[role]
                 headers = data[auth_type]
-                response = do_call(app, method, endpoint, headers)
-                assert response.status_code in (HTTPStatus.OK)
+                response = do_call(
+                    app, method, endpoint, headers, webhook_fixture, role
+                )
+                assert response.status_code == HTTPStatus.OK, (
+                    f"Role {role}, Method {method}, URI {endpoint}: was "
+                    f"expected to be allowed (200) not {response.status} "
+                    f"{response.data}"
+                )
         else:
-            response = do_call(app, method, endpoint, headers=None)
-            assert response.status_code in (HTTPStatus.UNAUTHORIZED)
-
+            role = ServerRoles.CONTRIBUTOR
+            response = do_call(
+                app, method, endpoint, None, webhook_fixture, role
+            )
+            assert response.status_code == HTTPStatus.UNAUTHORIZED, (
+                f"Role {role}, Method {method}, URI {endpoint}: was "
+                f"expected to be unauthorized (401) not "
+                f"{response.status} {response.data}"
+            )
 
     @pytest.mark.parametrize("auth_type", ["bearer_header", None])
     def test_permissions_without_oidc_enabled(
-        self, auth_scenario, oidc_app, auth_type, role_clients_factory
+        self,
+        auth_scenario,
+        mongo_app,
+        auth_type,
+        role_clients_factory,
+        webhook_fixture,
     ):
         """
         For each url, show that the proper roles work and the wrong roles are
@@ -132,7 +404,7 @@ class TestAllEndPoints:
 
         Anonymous (no auth) is treated as CONTRIBUTOR.
         """
-        app, _ = oidc_app
+        app = mongo_app[0]
         endpoint = auth_scenario["endpoint"]
         method = auth_scenario["method"]
         allowed_roles = auth_scenario["required_role"]
@@ -146,22 +418,47 @@ class TestAllEndPoints:
             for role in [ServerRoles(r) for r in forbidden_roles]:
                 data = role_clients_factory[role]
                 headers = data[auth_type]
-                response = do_call(app, method, endpoint, headers)
-                assert response.status_code == HTTPStatus.FORBIDDEN
+                response = do_call(
+                    app, method, endpoint, headers, webhook_fixture, role
+                )
+                assert response.status_code == HTTPStatus.FORBIDDEN, (
+                    f"Role {role}, Method {method}, URI {endpoint}: was "
+                    f"expected to be forbidden (403) not {response.status} "
+                    f"{response.data}"
+                )
 
             # Verify that roles which ARE permitted to access this endpoint are
             # allowed to use the endpoint normally.
-            for role in [ServerRoles(r) for r in forbidden_roles]:
+            for role in [ServerRoles(r) for r in allowed_roles]:
                 data = role_clients_factory[role]
                 headers = data[auth_type]
-                response = do_call(app, method, endpoint, headers)
-                assert response.status_code in (HTTPStatus.OK)
+                response = do_call(
+                    app, method, endpoint, headers, webhook_fixture, role
+                )
+                assert response.status_code == HTTPStatus.OK, (
+                    f"Role {role}, Method {method}, URI {endpoint}: was "
+                    f"expected to be allowed (200) not {response.status} "
+                    f"{response.data}"
+                )
         else:
             # Verify anonymous access is treated as CONTRIBUTOR:
             headers = None
+            role = ServerRoles.CONTRIBUTOR
             if ServerRoles.CONTRIBUTOR in forbidden_roles:
-                response = do_call(app, method, endpoint, headers)
-                assert response.status_code in (HTTPStatus.FORBIDDEN)
-            else: # allowed
-                response = do_call(app, method, endpoint, headers)
-                assert response.status_code in (HTTPStatus.OK)
+                response = do_call(
+                    app, method, endpoint, headers, webhook_fixture, role
+                )
+                assert response.status_code == HTTPStatus.FORBIDDEN, (
+                    f"Role {role}, Method {method}, URI {endpoint}: was "
+                    f"expected to be forbidden (403) not {response.status} "
+                    f"{response.data}"
+                )
+            else:  # allowed
+                response = do_call(
+                    app, method, endpoint, headers, webhook_fixture, role
+                )
+                assert response.status_code == HTTPStatus.OK, (
+                    f"Role {role}, Method {method}, URI {endpoint}: was "
+                    f"expected to be allowed (200) not {response.status} "
+                    f"{response.data}"
+                )

@@ -409,7 +409,21 @@ class Job(Schema):
 class JobId(Schema):
     """Job ID schema."""
 
-    job_id = fields.String(required=True)
+    job_id = fields.String(
+        required=True, metadata={"example": "<job_id (UUID)>"}
+    )
+
+
+class JobGetQuery(Schema):
+    """Query parameters for requesting a job from queues."""
+
+    queue = fields.List(
+        fields.String(),
+        required=False,
+        metadata={
+            "description": "Queue name(s) that the agent can process",
+        },
+    )
 
 
 class JobSearchRequest(Schema):

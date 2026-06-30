@@ -16,6 +16,7 @@
 """Fixtures for testing."""
 
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import Dict
 
 import bcrypt
@@ -217,3 +218,12 @@ def role_clients_factory(mongo_app):
     for role in ServerRoles:
         roles[role] = _make_client(role)
     return roles
+
+
+@pytest.fixture
+def webhook_fixture(requests_mock, monkeypatch):
+    """Set up a working webhook for when we need it."""
+    webhook = "http://mywebhook.com/v1/test-executions/1234/status_update"
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
+    requests_mock.put(webhook, status_code=HTTPStatus.OK)
+    return webhook

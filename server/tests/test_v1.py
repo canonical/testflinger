@@ -1031,22 +1031,17 @@ def test_agents_provision_logs_post(mongo_app, agent_auth_header):
     assert agent_data["provision_streak_count"] == 1
 
 
-def test_agents_status_put(
-    mongo_app, requests_mock, monkeypatch, agent_auth_header
-):
+def test_agents_status_put(mongo_app, agent_auth_header, webhook_fixture):
     """Test api to receive agent status requests."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
     job_output = app.post("/v1/job", json=job_data)
     job_id = job_output.json.get("job_id")
 
-    webhook = "http://mywebhook.com/v1/test-executions/1234/status_update"
-    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
-    requests_mock.put(webhook, status_code=HTTPStatus.OK)
     status_update_data = {
         "agent_id": "agent1",
         "job_queue": "myjobqueue",
-        "job_status_webhook": webhook,
+        "job_status_webhook": webhook_fixture,
         "events": [
             {
                 "event_name": "my_event",

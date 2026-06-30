@@ -66,9 +66,12 @@ def validate_client_key_pair(client_id: str, client_key: str) -> dict | None:
     client_key_bytes = client_key.encode("utf-8")
     client_permissions_entry = database.get_client_permissions(client_id)
 
-    if not client_permissions_entry or not bcrypt.checkpw(
+    # OIDC-registered clients have no client_secret_hash since they
+    # authenticate through the web flow, so reject credential-based logins
+    secret_hash = (client_permissions_entry or {}).get("client_secret_hash")
+    if not secret_hash or not bcrypt.checkpw(
         client_key_bytes,
-        client_permissions_entry["client_secret_hash"].encode("utf8"),
+        secret_hash.encode("utf8"),
     ):
         return None
 
@@ -335,6 +338,7 @@ def require_role(*roles):
 
             return func(*args, **kwargs)
 
+        wrapper._role_requirements = roles
         return wrapper
 
     return decorator
