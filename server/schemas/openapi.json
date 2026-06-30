@@ -448,12 +448,75 @@
       "ResultGet": {
         "additionalProperties": false,
         "properties": {
+          "allocate_output": {
+            "type": "string"
+          },
+          "allocate_serial": {
+            "type": "string"
+          },
+          "allocate_status": {
+            "type": "integer"
+          },
+          "cleanup_output": {
+            "type": "string"
+          },
+          "cleanup_serial": {
+            "type": "string"
+          },
+          "cleanup_status": {
+            "type": "integer"
+          },
           "device_info": {
             "additionalProperties": {},
             "type": "object"
           },
+          "firmware_update_output": {
+            "type": "string"
+          },
+          "firmware_update_serial": {
+            "type": "string"
+          },
+          "firmware_update_status": {
+            "type": "integer"
+          },
           "job_state": {
             "type": "string"
+          },
+          "provision_output": {
+            "type": "string"
+          },
+          "provision_serial": {
+            "type": "string"
+          },
+          "provision_status": {
+            "type": "integer"
+          },
+          "reserve_output": {
+            "type": "string"
+          },
+          "reserve_serial": {
+            "type": "string"
+          },
+          "reserve_status": {
+            "type": "integer"
+          },
+          "setup_output": {
+            "type": "string"
+          },
+          "setup_serial": {
+            "type": "string"
+          },
+          "setup_status": {
+            "type": "integer"
+          },
+          "test_output": {
+            "type": "string"
+          },
+          "test_serial": {
+            "type": "string"
+          },
+          "test_status": {
+            "type": "integer"
           }
         },
         "type": "object"
