@@ -1,0 +1,52 @@
+{
+  "folders": [
+    {
+      "name": "Agent",
+      "path": "agent"
+    },
+    {
+      "name": "Agent Host (Charm)",
+      "path": "agent/charms/testflinger-agent-host-charm"
+    },
+    {
+      "name": "CLI",
+      "path": "cli"
+    },
+    {
+      "name": "Common",
+      "path": "common"
+    },
+    {
+      "name": "Device Connectors",
+      "path": "device-connectors"
+    },
+    {
+      "name": "Server",
+      "path": "server"
+    },
+    {
+      "name": "Server (Charm)",
+      "path": "server/charm"
+    },
+    {
+      "name": "Docs",
+      "path": "docs"
+    },
+    {
+      "name": "Root",
+      "path": "."
+    }
+  ],
+  "extensions": {
+    "recommendations": [
+      "charliermarsh.ruff",
+      "hashicorp.terraform",
+      "lextudio.restructuredtext",
+      "monosans.djlint",
+      "ms-azuretools.vscode-containers",
+      "ms-python.python",
+      "zizmor.zizmor-vscode"
+    ]
+  },
+  "settings": {}
+}

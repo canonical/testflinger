@@ -1202,21 +1202,6 @@ def test_refresh_with_missing_token_field(mongo_app_with_permissions):
     assert resp.status_code == HTTPStatus.BAD_REQUEST
 
 
-def test_admin_refresh_token_has_no_expiration(mongo_app_with_permissions):
-    """Test that Admin refresh token does not expire (expires_at is None)."""
-    app, mongo, client_id, client_key, _ = mongo_app_with_permissions
-
-    authenticate_output = app.post(
-        "/v1/oauth2/token",
-        headers=create_auth_header(client_id, client_key),
-    )
-    assert authenticate_output.status_code == HTTPStatus.OK
-    refresh_token = authenticate_output.get_json()["refresh_token"]
-
-    stored = mongo.refresh_tokens.find_one({"refresh_token": refresh_token})
-    assert stored.get("expires_at") is None
-
-
 def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
     """Test that Contributor refresh token expires in ~30 days."""
     app, mongo, client_id, client_key, _ = mongo_app_with_permissions

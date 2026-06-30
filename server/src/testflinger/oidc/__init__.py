@@ -48,7 +48,8 @@ def app_register_oidc(tf_app: APIFlask) -> OAuth | None:
     secret_key = tf_app.config["SECRET_KEY"]
 
     # If provider is not set, app will run without web authentication
-    if not all([client_id, client_secret, issuer, secret_key]):
+    # client_secret is optional: public clients may have none configured
+    if not all([client_id, issuer, secret_key]):
         logger.info("OIDC disabled due to missing configuration parameters")
         return None
 
