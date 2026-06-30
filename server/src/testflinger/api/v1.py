@@ -1477,7 +1477,11 @@ def secrets_put(client_id, path, json_data):
     if current_app.secrets_store is None:
         abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
     if not g.client_id:
-        abort(HTTPStatus.UNAUTHORIZED, message="A login (known client_id) is required to securely store information.")
+        abort(
+            HTTPStatus.UNAUTHORIZED,
+            message="A login (known client_id) is required to securely store"
+            "information.",
+        )
     if client_id != g.client_id:
         abort(
             HTTPStatus.FORBIDDEN,
@@ -1515,7 +1519,11 @@ def secrets_delete(client_id, path):
     if current_app.secrets_store is None:
         abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
     if not g.client_id:
-        abort(HTTPStatus.UNAUTHORIZED, message="A login (known client_id) is required to securely store information.")
+        abort(
+            HTTPStatus.UNAUTHORIZED,
+            message="A login (known client_id) is required to securely store"
+            " information.",
+        )
     if client_id != g.client_id:
         abort(
             HTTPStatus.FORBIDDEN,
