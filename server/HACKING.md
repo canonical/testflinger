@@ -8,6 +8,9 @@ contribution and development recommendations, refer to the
 
 ### Docker
 
+> [!TIP]
+> You can quickly deploy Testflinger with `just`: `just serve`
+
 Testflinger server can be deployed using Docker, and it makes a nice setup
 for local development. There's a Dockerfile for building the container and
 a `docker-compose.yml` which can be used as a basis for development purposes.
@@ -22,12 +25,18 @@ docker compose up -d --build
 If you want to manage client credentials in your local database, you can use
 a purpose-built tool:
 
+> [!TIP]
+> You can run the admin tool with `just`: `just admin`
+
 ```shell
 docker exec -it testflinger-server client_credentials_admin
 ```
 
 Also, if you want to add some sample data to your local development environment,
 there's another helper script:
+
+> [!TIP]
+> You can run the populate tool with `just`: `just populate [args...]`
 
 ```console
 $ devel/create_sample_data.py -h
@@ -52,17 +61,17 @@ The defaults are intended to be used with a server running on
 the docker-compose setup above. So if this is what you want, you can just
 call it with no options.
 
-For testing routes that require SSO, the above docker-compose file also includes a development setup by using a generic IdP provider. 
+For testing routes that require SSO, the above docker-compose file also includes a development setup by using a generic IdP provider.
 The following entry must be added to `/etc/hosts` to allow localhost to perform the callback redirection to `dex` container:
 
-```
+```text
 127.0.0.1 localhost dex
 ```
 
-Users and OIDC values can be easily configured through `devel/dex-config.yaml`. 
+Users and OIDC values can be easily configured through `devel/dex-config.yaml`.
 For testing a sample user is already added with the following credentials:
 
-```
+```text
 email: testlinger@example.com
 username: "testflinger-admin"
 password: testflinger
