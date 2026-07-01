@@ -1,0 +1,63 @@
+[doc('Describe usage and list the available recipes.')]
+help:
+    @echo '{{ BOLD }}Testflinger Documentation{{ NORMAL }}'
+    @echo
+    @echo 'For usage details for a specific recipe, run {{ CYAN }}just --usage RECIPE{{ NORMAL }}'
+    @echo
+    @just --list --unsorted
+
+[doc('Watch, build, and serve the documentation.')]
+run:
+    make run
+
+[doc('Build demo tapes with vhs.')]
+vhs:
+    make vhs
+
+[doc('Build documentation.')]
+html:
+    make html
+
+[doc('Serve built documentation.')]
+serve:
+    make serve
+
+[doc('CLean built documentation.')]
+clean-doc:
+    make clean-doc
+
+[doc('Clean full environment.')]
+clean:
+    make clean
+
+[doc('Check out Git LFS files.')]
+check-lfs:
+    make check-lfs
+
+[doc('Check links.')]
+linkcheck:
+    make linkcheck
+
+[doc('Lint markdown files.')]
+lint-md:
+    make lint-md
+
+[doc('Check spelling.')]
+spelling:
+    make spelling
+
+[doc('Check inclusive language.')]
+woke:
+    make woke
+
+[doc('Check accessibility.')]
+pa11y:
+    make pa11y
+
+[doc('Check style guide compliance.')]
+vale:
+    make vale
+
+[doc('Build PDF documentation.')]
+pdf:
+    make pdf
