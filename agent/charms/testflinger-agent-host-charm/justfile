@@ -13,6 +13,11 @@ setup:
     sudo snap install --classic concierge
     sudo concierge prepare --verbose
 
+[doc('Fetch charm libraries.')]
+[group('project')]
+fetch-libs:
+    @charmcraft fetch-libs
+
 [doc('Add a dependency (uv add ...).')]
 [group('venv')]
 [positional-arguments]
