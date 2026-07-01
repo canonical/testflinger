@@ -6,11 +6,14 @@ providers:
     bootstrap: true
 host:
   packages:
+    - gnome-keyring
     - python3-pip
     - python3-venv
   snaps:
     astral-uv:
     charmcraft:
+    jq:
+    yq:
     jhack:
       channel: latest/edge
       connections:
