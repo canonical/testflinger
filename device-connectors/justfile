@@ -1,0 +1,56 @@
+
+[doc('Describe usage and list the available recipes.')]
+help:
+    @echo '{{ BOLD }}Testflinger Device Connectors{{ NORMAL }}'
+    @echo
+    @echo 'For usage details for a specific recipe, run {{ CYAN }}just --usage RECIPE{{ NORMAL }}'
+    @echo
+    @just --list --unsorted
+
+[doc('Add a dependency (uv add ...).')]
+[group('venv')]
+[positional-arguments]
+add +args:
+    @uv add "$@"
+
+[doc('Remove a dependency (uv remove ...).')]
+[group('venv')]
+[positional-arguments]
+remove +args:
+    @uv remove "$@"
+
+[doc("Generate lockfile.")]
+[group('venv')]
+lock:
+    @uv lock
+
+[doc("Check lockfile.")]
+[group('venv')]
+check-lock:
+    @uvx tox run -e lock
+
+[doc("Update the project's environment.")]
+[group('venv')]
+venv:
+    @uv sync
+    @echo 'Activate the Python environment: {{ CYAN }}source .venv/bin/activate{{ NORMAL }}'
+
+[doc('Format all files.')]
+[group('lint')]
+format:
+    @uvx tox run -e format
+
+[doc('Lint all files.')]
+[group('lint')]
+lint:
+    @uvx tox run -e lint
+
+[doc('Run unit tests.')]
+[group('test')]
+test:
+    @uvx tox run -e unit
+
+[doc('Run all checks.')]
+[group('test')]
+check: lint format test
+    @echo 'Device connectors checks done!'

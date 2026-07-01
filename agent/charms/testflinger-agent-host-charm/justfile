@@ -1,0 +1,78 @@
+[doc('Describe usage and list the available recipes.')]
+help:
+    @echo '{{ BOLD }}Testflinger Agent Host Charm{{ NORMAL }}'
+    @echo
+    @echo 'For usage details for a specific recipe, run {{ CYAN }}just --usage RECIPE{{ NORMAL }}'
+    @echo
+    @just --list --unsorted
+
+[confirm('Install Juju and prepare environment (destructive)?')]
+[doc('Set up integration test environment (destructive).')]
+[group('project')]
+setup:
+    sudo snap install --classic concierge
+    sudo concierge prepare --verbose
+
+[doc('Fetch charm libraries.')]
+[group('project')]
+fetch-libs:
+    @charmcraft fetch-libs
+
+[doc('Add a dependency (uv add ...).')]
+[group('venv')]
+[positional-arguments]
+add +args:
+    @uv add "$@"
+
+[doc('Remove a dependency (uv remove ...).')]
+[group('venv')]
+[positional-arguments]
+remove +args:
+    @uv remove "$@"
+
+[doc("Generate lockfile.")]
+[group('venv')]
+lock:
+    @uv lock
+
+[doc("Check lockfile.")]
+[group('venv')]
+check-lock:
+    @uvx tox run -e lock
+
+[doc("Update the project's environment.")]
+[group('venv')]
+venv:
+    @uv sync --all-groups
+    @echo 'Activate the Python environment: {{ CYAN }}source .venv/bin/activate{{ NORMAL }}'
+
+[doc('Format all files.')]
+[group('lint')]
+format:
+    @uvx tox run -e format
+
+[doc('Lint all files.')]
+[group('lint')]
+lint:
+    @uvx tox run -e lint
+
+[doc('Run unit tests.')]
+[group('test')]
+test:
+    @uvx tox run -e unit
+
+[doc('Run all checks.')]
+[group('test')]
+check: lint format test
+    @echo 'Agent charm checks done!'
+
+[doc('Run integration tests.')]
+[group('test')]
+[positional-arguments]
+integration *args: charm
+    @uvx tox run -e integration -- "$@"
+
+[doc('Build the charm package')]
+[group('package')]
+charm:
+    @charmcraft pack
