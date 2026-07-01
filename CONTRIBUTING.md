@@ -36,6 +36,14 @@ Then run `just` from anywhere in the repository for usage.
 > top-level recipes, but you can always run `just <component>::<recipe>` to run
 > sub-project recipes. Refer the the [just documentation] for more information.
 
+Lastly, it is recommended that you set up the provided pre-commit hooks. Since
+the Testflinger project follows a monorepo layout, `prek` is recommended. To
+set up `prek`, use the following `just` recipe:
+
+```shell
+just pre-commit
+```
+
 ### Development Environment
 
 [just] provides an alternative way to run formatting, linting and unit tests without needing to be located in each subproject.
