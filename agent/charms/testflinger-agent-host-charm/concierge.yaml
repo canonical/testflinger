@@ -1,0 +1,17 @@
+juju:
+  channel: 3/stable
+providers:
+  lxd:
+    enable: true
+    bootstrap: true
+host:
+  packages:
+    - python3-pip
+    - python3-venv
+  snaps:
+    astral-uv:
+    charmcraft:
+    jhack:
+      channel: latest/edge
+      connections:
+        - jhack:dot-local-share-juju
