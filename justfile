@@ -19,6 +19,11 @@ help:
     @echo
     @just --list --unsorted
 
+[doc('Install pre-commit hooks.')]
+[group('project')]
+pre-commit:
+    @uvx prek install --refresh
+
 [doc('Perform static analysis on GitHub workflows.')]
 [group('lint')]
 zizmor:
