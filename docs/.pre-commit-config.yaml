@@ -6,7 +6,6 @@ repos:
         entry: just spelling
         pass_filenames: false
         language: rust
-        files: ^(uv\.lock|pyproject\.toml)$
         types: [markdown, rst, yaml, plain-text]
         additional_dependencies:
           - just

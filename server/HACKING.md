@@ -72,7 +72,7 @@ Users and OIDC values can be easily configured through `devel/dex-config.yaml`.
 For testing a sample user is already added with the following credentials:
 
 ```text
-email: testlinger@example.com
+email: testflinger@example.com
 username: "testflinger-admin"
 password: testflinger
 ```

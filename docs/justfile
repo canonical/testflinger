@@ -22,7 +22,7 @@ html:
 serve:
     make serve
 
-[doc('CLean built documentation.')]
+[doc('Clean built documentation.')]
 clean-doc:
     make clean-doc
 
