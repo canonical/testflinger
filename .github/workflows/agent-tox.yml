@@ -34,20 +34,18 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Install uv and set up Python
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
-      - name: Check lock file
-        run: uvx --with tox-uv tox -e lock
-      - name: Check linting
+      - run: sudo snap install --classic just
+      - run: just check-lock
+      - run: just lint
         env:
           RUFF_OUTPUT_FORMAT: sarif
           RUFF_OUTPUT_FILE: results.sarif
-        run: uvx --with tox-uv tox -e lint
-      - name: Run unit tests
-        run: uvx --with tox-uv tox -e unit
+      - run: just test
       - name: Upload coverage
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
@@ -74,13 +72,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Install uv and set up Python
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
-      - name: Run charm unit tests
-        run: uvx --with tox-uv tox -e unit
+      - run: sudo snap install --classic just
+      - run: just check-lock
+      - run: just lint
+      - run: just test
 
   test_charm_integration:
     name: Run charm integration tests
@@ -90,26 +90,22 @@ jobs:
     runs-on: [self-hosted, linux, jammy, X64]
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Install uv and set up Python
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
-      - name: Install concierge
-        run: sudo snap install --classic concierge
-      - name: Prepare Juju
-        run: sudo concierge prepare --verbose --juju-channel=3/stable --charmcraft-channel=latest/stable -p machine
-      - name: Pack charm
-        run: charmcraft pack --verbose
+      - run: sudo snap install --classic just
+      - run: just --yes setup
+      - run: just integration --juju-dump-logs logs
       - name: Upload charm as an artifact
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: agent-charm
           path: agent/charms/testflinger-agent-host-charm/*.charm
           if-no-files-found: error
           retention-days: 2
-      - name: Run charm integration tests
-        run: uvx --with tox-uv tox -e integration -- --juju-dump-logs logs
       - name: Upload logs
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
