@@ -26,15 +26,15 @@ concurrency:
 jobs:
   agent-build-and-push-charm:
     name: Build and Push Charm
-    runs-on: [self-hosted, linux, jammy, X64]
+    runs-on: ubuntu-latest
     permissions:
-      actions: read  # necessary to get the runner information
-      contents: write  # necessary to create tag(s)
-      packages: write  # necessary to upload image
+      actions: read # necessary to get the runner information
+      contents: write # necessary to create tag(s)
+      packages: write # necessary to upload image
 
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Upload charm to charmhub
@@ -68,16 +68,16 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          scan-type: 'fs'
-          scan-ref: 'unpacked-charm'
+          scan-type: "fs"
+          scan-ref: "unpacked-charm"
           exit-code: 1
-          format: 'sarif'
+          format: "sarif"
           vuln-type: library
-          output: 'testflinger-agent-host-trivy-results.sarif'
+          output: "testflinger-agent-host-trivy-results.sarif"
           # By default, SARIF format enforces output of all vulnerabilities regardless of configured severities.
-          severity: 'UNKNOWN,LOW,MEDIUM,CRITICAL,HIGH'
+          severity: "UNKNOWN,LOW,MEDIUM,CRITICAL,HIGH"
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
         with:
-          sarif_file: 'testflinger-agent-host-trivy-results.sarif'
+          sarif_file: "testflinger-agent-host-trivy-results.sarif"
           wait-for-processing: "true"
