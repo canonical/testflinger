@@ -41,7 +41,6 @@ jobs:
         env:
           RUFF_OUTPUT_FORMAT: sarif
           RUFF_OUTPUT_FILE: results.sarif
-      - run: just test
       - run: just check-schema
       - run: just test
       - name: Upload coverage

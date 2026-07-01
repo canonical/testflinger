@@ -34,7 +34,7 @@ Then run `just` from anywhere in the repository for usage.
 > different directories will show you the relevant recipes for the sub-project.
 > Running `just` from the root of the project will show you a collection of
 > top-level recipes, but you can always run `just <component>::<recipe>` to run
-> sub-project recipes. Refer the the [just documentation] for more information.
+> sub-project recipes. Refer to the [just documentation] for more information.
 
 Lastly, it is recommended that you set up the provided pre-commit hooks. Since
 the Testflinger project follows a monorepo layout, `prek` is recommended. To
