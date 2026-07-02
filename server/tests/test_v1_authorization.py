@@ -1422,6 +1422,7 @@ def test_add_client_permissions_with_email(mongo_app_with_permissions):
     assert get_output.status_code == HTTPStatus.OK
     assert get_output.json["email"] == "owner@example.com"
 
+
 def test_set_invalid_email_format_rejected(mongo_app_with_permissions):
     """Test that setting an invalid email on a regular client is rejected."""
     app, mongo, admin_client_id, client_key, _ = mongo_app_with_permissions
@@ -1445,6 +1446,7 @@ def test_set_invalid_email_format_rejected(mongo_app_with_permissions):
     # Schema validation should reject and return 422 Unprocessable Entity
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert "Validation error" in output.json["message"]
+
 
 def test_set_email_on_oidc_client_rejected(mongo_app_with_permissions):
     """Test that adding an email to an OIDC client is rejected."""
