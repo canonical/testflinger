@@ -275,6 +275,7 @@ exclude_patterns = [
 
 html_css_files = [
     "swagger-custom.css",
+    "table-roles.css",
 ]
 
 
@@ -323,6 +324,8 @@ rst_prolog = """
     :class: woke-ignore
 .. role:: vale-ignore
     :class: vale-ignore
+.. role:: x
+    :class: cell-x
 """
 
 # Workaround for https://github.com/canonical/canonical-sphinx/issues/34
