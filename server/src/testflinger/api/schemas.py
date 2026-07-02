@@ -614,9 +614,7 @@ class ClientPermissionsIn(Schema):
         required=False,
     )
     role = fields.String(
-        required=False,
-        validate=OneOf([role.value for role in ServerRoles]),
-        load_default=ServerRoles.CONTRIBUTOR.value,
+        required=False, validate=OneOf([role.value for role in ServerRoles])
     )
     email = fields.Email(required=False)
 
