@@ -5,6 +5,7 @@
 import logging
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 from jinja2 import Template
@@ -57,10 +58,23 @@ def write_file(location: Path, contents: str, chmod: int = 0o644) -> None:
     :param contents: Contents to write to the file.
     :param chmod: File permission to set on the file.
     """
-    with open(location, "w", encoding="utf-8", errors="ignore") as out:
-        out.write(contents)
-    os.chown(location, 1000, 1000)
-    os.chmod(location, chmod)
+    with tempfile.NamedTemporaryFile(
+        "w",
+        dir=location.parent,
+        delete=False,
+        encoding="utf-8",
+        errors="ignore",
+    ) as tmp:
+        tmp.write(contents)
+        tmp_path = Path(tmp.name)
+    try:
+        os.chown(tmp_path, 1000, 1000)
+        os.chmod(tmp_path, chmod)
+        os.replace(tmp_path, location)
+    except OSError:
+        # Clean up the temporary file if an error occurs
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def update_charm_scripts(config: TestflingerAgentConfig) -> None:

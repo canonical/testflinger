@@ -381,7 +381,12 @@ def test_config_changed_force_reauthentication(
 @patch("testflinger_client.authenticate")
 @patch("testflinger_client.token_update_needed", return_value=False)
 def test_events_does_not_trigger_authentication_when_token_valid(
-    mock_token_update_needed, mock_authenticate, event_name, ctx, state_in, secret
+    mock_token_update_needed,
+    mock_authenticate,
+    event_name,
+    ctx,
+    state_in,
+    secret,
 ):
     """Test that events do not trigger authentication if token is valid."""
     state = state_in(
