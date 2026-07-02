@@ -330,6 +330,11 @@ rst_prolog = """
 if "discourse_prefix" not in html_context and "discourse" in html_context:
     html_context["discourse_prefix"] = html_context["discourse"] + "/t/"
 
+# Let rendered Mermaid diagrams size to their natural aspect ratio instead of
+# the extension's fixed 500px height, which letterboxes wide diagrams with
+# vertical whitespace. Fullscreen view overrides this with !important.
+mermaid_height = "auto"
+
 # Workaround for substitutions.yaml
 
 if os.path.exists('./reuse/substitutions.yaml'):
