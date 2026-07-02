@@ -93,5 +93,4 @@ def update_charm_scripts(config: TestflingerAgentConfig) -> None:
             virtual_env_path=VIRTUAL_ENV_PATH,
         )
         agent_file = usr_local_bin / tf_cmd_file.name
-        agent_file.write_text(rendered)
-        agent_file.chmod(0o775)
+        write_file(agent_file, rendered, chmod=0o775)

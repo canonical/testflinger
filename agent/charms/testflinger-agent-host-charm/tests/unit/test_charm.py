@@ -338,7 +338,7 @@ def test_config_changed_does_not_clear_blocked_status(
 def test_secret_change_force_reauthentication(
     mock_token_update_needed, mock_authenticate, ctx, state_in, secret
 ):
-    """Test secret change reauthenticated even if token is not expired."""
+    """Test secret change reauthenticates even if token is not expired."""
     state = state_in(
         config={"credentials-secret": secret.id},
         secrets=[secret],

@@ -41,12 +41,11 @@ def test_copy_ssh_keys(mock_write_file, mock_chmod, mock_chown):
     assert mock_write_file.call_count == 3
 
 
-@patch("common.Path.chmod")
-@patch("common.Path.write_text")
+@patch("common.write_file")
 @patch("common.Path.iterdir")
 @patch("common.Path.read_text")
 def test_update_charm_scripts(
-    mock_read_text, mock_iterdir, mock_write_text, mock_chmod
+    mock_read_text, mock_iterdir, mock_write_file
 ):
     """Test update_charm_scripts renders and writes templates."""
     mock_script = MagicMock(spec=Path)
@@ -59,8 +58,9 @@ def test_update_charm_scripts(
     common.update_charm_scripts(config)
 
     mock_script.read_text.assert_called_once()
-    mock_write_text.assert_called_once()
-    mock_chmod.assert_called_once_with(0o775)
+    mock_write_file.assert_called_once()
+    _, _, kwargs = mock_write_file.mock_calls[0]
+    assert kwargs.get("chmod") == 0o775
 
 
 @patch("os.chown")
