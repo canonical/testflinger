@@ -488,7 +488,7 @@ class DefaultDevice:
         logger.info("END testrun")
         return exitcode
 
-    def allocate(self):
+    def allocate(self, _):
         """Allocate devices for multi-agent jobs (default method)."""
         pass
 
