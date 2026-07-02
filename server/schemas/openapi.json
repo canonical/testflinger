@@ -110,6 +110,10 @@
           "client_secret": {
             "type": "string"
           },
+          "email": {
+            "format": "email",
+            "type": "string"
+          },
           "max_priority": {
             "additionalProperties": {
               "type": "integer"
@@ -145,6 +149,11 @@
             "type": "array"
           },
           "client_id": {
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "nullable": true,
             "type": "string"
           },
           "max_priority": {
