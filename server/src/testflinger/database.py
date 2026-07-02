@@ -26,7 +26,7 @@ from testflinger_common.enums import ServerRoles
 
 # Constants for TTL indexes
 REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
-DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
+DEFAULT_EXPIRATION = 60 * 60 * 24 * 14  # 14 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 ACCOUNT_DELETE_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 
@@ -78,44 +78,57 @@ def setup_mongodb(application):
     create_indexes()
 
 
+def _ensure_ttl_index(collection, field: str, expire_after_seconds: int):
+    """Ensure a TTL index on ``field`` has the correct expiration.
+
+    - Creates the index if it does not exist.
+    - Does nothing if the index already exists with the same expiration.
+    - Uses ``collMod`` to update the expiration when the index exists with a
+      different value, avoiding ``IndexOptionsConflict`` errors on startup.
+    """
+    key_pattern = [(field, 1)]
+    for index_info in collection.index_information().values():
+        if index_info.get("key") == key_pattern:
+            if index_info.get("expireAfterSeconds") == expire_after_seconds:
+                return
+            collection.database.command(
+                "collMod",
+                collection.name,
+                index={
+                    "keyPattern": {field: 1},
+                    "expireAfterSeconds": expire_after_seconds,
+                },
+            )
+            return
+    collection.create_index(field, expireAfterSeconds=expire_after_seconds)
+
+
 def create_indexes():
     """Initialize collections and indexes in case they don't exist already."""
-    # Automatically expire jobs after 7 days if nothing runs them
-    mongo.db.jobs.create_index(
-        "created_at", expireAfterSeconds=DEFAULT_EXPIRATION
-    )
+    # Automatically expire jobs after 14 days if nothing runs them
+    _ensure_ttl_index(mongo.db.jobs, "created_at", DEFAULT_EXPIRATION)
 
     # Remove output 4 hours after the last entry if nothing polls for it
-    mongo.db.output.create_index(
-        "updated_at", expireAfterSeconds=OUTPUT_EXPIRATION
-    )
+    _ensure_ttl_index(mongo.db.output, "updated_at", OUTPUT_EXPIRATION)
 
-    # Remove logs after 7 days
-    mongo.db.logs.create_index(
-        "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
-    )
+    # Remove logs after 14 days
+    _ensure_ttl_index(mongo.db.logs, "updated_at", DEFAULT_EXPIRATION)
 
-    # Remove artifacts after 7 days
-    mongo.db["fs.chunks"].create_index(
-        "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
-    )
-    mongo.db["fs.files"].create_index(
-        "uploadDate", expireAfterSeconds=DEFAULT_EXPIRATION
-    )
+    # Remove artifacts after 14 days
+    _ensure_ttl_index(mongo.db["fs.chunks"], "uploadDate", DEFAULT_EXPIRATION)
+    _ensure_ttl_index(mongo.db["fs.files"], "uploadDate", DEFAULT_EXPIRATION)
 
-    # Remove agents that haven't checked in for 7 days
-    mongo.db.agents.create_index(
-        "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
-    )
+    # Remove agents that haven't checked in for 14 days
+    _ensure_ttl_index(mongo.db.agents, "updated_at", DEFAULT_EXPIRATION)
 
-    # Remove advertised queues that haven't updated in over 7 days
-    mongo.db.queues.create_index(
-        "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
-    )
+    # Remove advertised queues that haven't updated in over 14 days
+    _ensure_ttl_index(mongo.db.queues, "updated_at", DEFAULT_EXPIRATION)
 
     # Remove refresh tokens that haven't been accessed over 90 days
-    mongo.db.refresh_tokens.create_index(
-        "last_accessed", expireAfterSeconds=REFRESH_TOKEN_IDEL_EXPIRATION
+    _ensure_ttl_index(
+        mongo.db.refresh_tokens,
+        "last_accessed",
+        REFRESH_TOKEN_IDEL_EXPIRATION,
     )
 
     # Remove OIDC device codes after the defined expiration time
