@@ -244,7 +244,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
         return content
 
-    def _update_refresh_token(self, event: ops.EventBase) -> bool:
+    def _update_refresh_token(self, event: ops.HookEvent) -> bool:
         """Update the refresh token if needed.
 
         This checks both if the refresh token is expired or if
