@@ -44,9 +44,7 @@ def test_copy_ssh_keys(mock_write_file, mock_chmod, mock_chown):
 @patch("common.write_file")
 @patch("common.Path.iterdir")
 @patch("common.Path.read_text")
-def test_update_charm_scripts(
-    mock_read_text, mock_iterdir, mock_write_file
-):
+def test_update_charm_scripts(mock_read_text, mock_iterdir, mock_write_file):
     """Test update_charm_scripts renders and writes templates."""
     mock_script = MagicMock(spec=Path)
     mock_script.name = "test-script"
