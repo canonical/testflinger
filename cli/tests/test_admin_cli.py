@@ -527,3 +527,39 @@ def test_client_id_missing_from_permissions(auth_fixture):
     with pytest.raises(SystemExit) as exc:
         testflinger_cli.TestflingerCli().run()
     assert "Error: client_id cannot be empty" in str(exc.value)
+
+
+def test_create_client_permissions_with_email_argument(
+    auth_fixture, capsys, requests_mock
+):
+    """Validate that email is sent in the PUT request body."""
+    auth_fixture(ServerRoles.ADMIN)
+    fake_client_id = "test-client"
+
+    sys.argv = [
+        "",
+        "admin",
+        "set",
+        "client-permissions",
+        "--testflinger-client-id",
+        fake_client_id,
+        "--testflinger-client-secret",
+        "client-secret",
+        "--email",
+        "owner@example.com",
+    ]
+
+    requests_mock.get(
+        f"{URL}/v1/client-permissions/{fake_client_id}",
+        status_code=HTTPStatus.NOT_FOUND,
+    )
+    put_mock = requests_mock.put(
+        f"{URL}/v1/client-permissions/{fake_client_id}",
+        status_code=HTTPStatus.OK,
+        text=f"Created permissions for client '{fake_client_id}'",
+    )
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.run()
+    std = capsys.readouterr()
+    assert f"Created permissions for client '{fake_client_id}'" in std.out
+    assert put_mock.last_request.json()["email"] == "owner@example.com"
