@@ -254,7 +254,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         :returns: True if update succeeded or not needed, False otherwise.
         """
         if testflinger_client.token_update_needed() or isinstance(
-            event, ops.SecretChangedEvent
+            event, (ops.SecretChangedEvent, ops.ConfigChangedEvent)
         ):
             logger.info("Token update needed, attempting to refresh token")
             return self._authenticate_with_server()
