@@ -65,7 +65,7 @@ copyright = "%s GPL-3.0, %s" % (datetime.date.today().year, author)
 
 ## Open Graph configuration - defines what is displayed in the website preview
 # The URL of the documentation output
-ogp_site_url = 'https://canonical-testflinger.readthedocs-hosted.com/'
+ogp_site_url = 'https://ubuntu.com/docs/testflinger'
 # The documentation website name (usually the same as the product name)
 ogp_site_name = project
 # An image or logo that is used in the preview
@@ -150,7 +150,7 @@ html_context = {
 # TODO: If your documentation is hosted on https://docs.ubuntu.com/,
 #       uncomment and update as needed.
 
-# slug = ''
+slug = 'docs/testflinger'       # docs/ prefix required when hosted at ubuntu.com/docs
 
 #######################
 # Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
@@ -158,7 +158,8 @@ html_context = {
 
 # Base URL of RTD hosted project
 
-html_baseurl = 'https://canonical-starter-pack.readthedocs-hosted.com/'
+html_baseurl = 'https://ubuntu.com/docs/testflinger/'
+sitemap_filename = "doc-sitemap.xml"     # Required to avoid sitemap conflicts when hosted at ubuntu.com/docs
 
 # URL scheme. Add language and version scheme elements.
 # When configured with RTD variables, check for RTD environment so manual runs succeed:
@@ -178,7 +179,7 @@ sitemap_show_lastmod = True
 #######################
 
 html_static_path = [".sphinx/_static"]
-#templates_path = [".sphinx/_templates"]
+templates_path = [".sphinx/_templates"]
 
 # Extra files to copy to the root of the documentation
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-html_extra_path
@@ -275,12 +276,16 @@ exclude_patterns = [
 
 html_css_files = [
     "swagger-custom.css",
+    "https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css", # Google Analytics cookie banner
 ]
 
 
 # Adds custom JavaScript files, located under 'html_static_path'
 
-# html_js_files = []
+html_js_files = [
+    "overwrite_links.js",   # support ReadTheDocs flyout when hosted at ubuntu.com/docs
+    "https://assets.ubuntu.com/v1/287a5e8f-bundle.js"   # Google Analytics cookie banner
+]
 
 
 # Specifies a reST snippet to be appended to each .rst file
