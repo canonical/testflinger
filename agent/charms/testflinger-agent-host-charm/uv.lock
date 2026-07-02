@@ -22,14 +22,14 @@ wheels = [
 
 [[package]]
 name = "charmlibs-apt"
-version = "1.0.0.post0"
+version = "1.0.0.post1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/58/33e87779fdbcf62a3b34e3444d7175c1168b4b2726cc29c98849c09ac086/charmlibs_apt-1.0.0.post0.tar.gz", hash = "sha256:9c2e0b3c1f553ebcaae99c9aad72e15383aec56677a8dd3f6479dc6f084189a6", size = 31942, upload-time = "2025-10-15T02:40:29.521Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/77/79/2dfe3a6931c06081492de8ff97043a337339896401e910f46d4613d0a7d0/charmlibs_apt-1.0.0.post1.tar.gz", hash = "sha256:d332959b633f9aa1a3b7c5ec274ff2ef7a5d4482de4ce4d96c36e1dd1b97625d", size = 32034, upload-time = "2026-06-16T05:39:50.799Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/92/4db19cd8bc94db51a115f7a2e3c46d96b991ca7ebe27207beac9a6570bc6/charmlibs_apt-1.0.0.post0-py3-none-any.whl", hash = "sha256:958e84719eb1feff539f058dc6c7af648c53c88b9ebe7c6157ec8d2bdf5fbfc6", size = 19287, upload-time = "2025-10-15T02:40:27.756Z" },
+    { url = "https://files.pythonhosted.org/packages/12/e9/da1c8b57de65484ae47b0808ce5c0b2fcf947ebbcdf7abccd2f898411e97/charmlibs_apt-1.0.0.post1-py3-none-any.whl", hash = "sha256:5682758b9de1273d59e7a94f8e861d57ccd4360c510d598610a69b758e5076d1", size = 19282, upload-time = "2026-06-16T05:39:49.474Z" },
 ]
 
 [[package]]
@@ -294,7 +294,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -855,7 +855,7 @@ unit = [
 
 [package.metadata]
 requires-dist = [
-    { name = "charmlibs-apt", specifier = "==1.0.0.post0" },
+    { name = "charmlibs-apt", specifier = "==1.0.0.post1" },
     { name = "charmlibs-passwd", specifier = "==1.0.1" },
     { name = "cosl", specifier = ">=0.0.53" },
     { name = "gitpython", specifier = "==3.1.50" },
