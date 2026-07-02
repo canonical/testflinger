@@ -1,0 +1,68 @@
+name: dev
+base: ubuntu@24.04
+sdks:
+  - name: just
+  - name: uv
+  - name: vscode-remote
+  - name: docker-ce
+    slots:
+      testflinger-server:
+        interface: tunnel
+        endpoint: localhost:5000  # in the workshop
+      dex-server:
+        interface: tunnel
+        endpoint: localhost:5556  # in the workshop
+  - name: system 
+    plugs:
+      testflinger-server:
+        interface: tunnel
+        endpoint: localhost:5000  # on the host
+      dex-server:
+        interface: tunnel
+        endpoint: localhost:5556  # on the host
+
+actions:
+  help: |
+    cat <<'EOF'
+    Testflinger dev workshop actions:
+
+      workshop run dev help
+          Show this help.
+
+      workshop run dev server-up
+          Build and start the server docker compose stack.
+
+      workshop run dev server-restart
+          Rebuild and restart only the testflinger server container.
+
+      workshop run dev server-down
+          Stop and remove the server docker compose stack.
+
+      workshop run dev server-logs
+          Follow testflinger-server logs, reconnecting on restart. Ctrl-C to exit.
+
+      workshop run dev docker-prune
+          Aggressively remove unused Docker data in the workshop.
+
+      workshop run dev add-sample-data
+          Create the pre-canned large sample data set on localhost:5000.
+
+      workshop run dev sample-data-custom -s http://localhost:5000 -a 10 -j 10 -q 10 -d 1
+          Run create_sample_data.py with custom arguments.
+
+      workshop run dev just --list --unsorted
+          List all just recipes.
+
+      Note: Ensure that `dex` and `testflinger-server` point to localhost in your
+            /etc/hosts file, e.g. use `just run set-up-hosts-file` on the host.
+
+    EOF
+  opencode: opencode "$@"
+  claude: claude "$@"
+  just: just "$@"
+  server-up: just server-up
+  server-restart: just server-restart
+  server-down: just server-down
+  server-logs: just server-logs
+  docker-prune: docker system prune -a --yes
+  add-sample-data: just add-sample-data

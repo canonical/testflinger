@@ -141,6 +141,59 @@ schema:
     cd 'server'
     uvx --with tox-uv tox run -e schema
 
+# --- Server development recipes ---
+
+[doc('Build and start the local server docker compose stack.')]
+server-up:
+    #!/usr/bin/env -S bash -e
+    cd 'server'
+    docker compose up -d --build
+
+[doc('Rebuild and restart only the local testflinger server container.')]
+server-restart:
+    #!/usr/bin/env -S bash -e
+    cd 'server'
+    docker compose up -d --build --no-deps testflinger
+
+[doc('Stop and remove the local server docker compose stack.')]
+server-down:
+    #!/usr/bin/env -S bash -e
+    cd 'server'
+    docker compose down --remove-orphans
+
+[doc('Follow the local server container logs, reconnecting on restart.')]
+server-logs:
+    #!/usr/bin/env -S bash -e
+    while true; do
+        docker logs -f testflinger-server || true
+        sleep 1
+    done
+
+[doc('Create a large pre-canned sample data set on the local server.')]
+add-sample-data:
+    #!/usr/bin/env -S bash -e
+    server/devel/create_sample_data.py \
+        -s http://localhost:5000 \
+        -a 3000 \
+        -j 500 \
+        -q 4300 \
+        -d 2
+
+[doc('Add required hostnames to the hosts file to ensure that `dex` and `testflinger-server` are available.')]
+set-up-hosts-file:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # When `dex` not found, add dex and testflinger-server as hostnames
+    LINE="127.0.0.1 dex testflinger-server"
+    if ! grep -Eq '(^|[[:space:]])dex($|[[:space:]])' /etc/hosts; then
+        if ! sudo -n true 2>/dev/null; then
+            echo "sudo credentials required; run: sudo -v"
+            exit 1
+        fi
+        echo "$LINE" | sudo -n tee -a /etc/hosts >/dev/null
+    fi
+
+
 # --- Package management recipes ---
 
 [doc("Run `uv add` for component, respecting repo-level version constraints, e.g. `just add agent 'pydantic>=2'`.")]
