@@ -1193,7 +1193,8 @@ def test_refresh_with_missing_token_field(mongo_app_with_permissions):
     app, _, _, _, _ = mongo_app_with_permissions
 
     resp = app.post("/v1/oauth2/refresh", json={})
-    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
@@ -1311,7 +1312,9 @@ def test_revoke_with_missing_token_field(mongo_app_with_permissions):
         json={},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 def test_revoke_already_revoked_token(mongo_app_with_permissions):
