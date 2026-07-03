@@ -23,6 +23,7 @@ from mongomock.gridfs import enable_gridfs_integration
 
 from testflinger.database import (
     DEFAULT_EXPIRATION,
+    _ensure_ttl_index,
     create_indexes,
     retrieve_file,
     save_file,
@@ -107,3 +108,56 @@ def test_create_indexes_gridfs_collections(mock_mongo):
     assert chunks_ttl.get("expireAfterSeconds") == DEFAULT_EXPIRATION
     assert files_ttl is not None
     assert files_ttl.get("expireAfterSeconds") == DEFAULT_EXPIRATION
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_ensure_ttl_index_creates_index(mock_mongo):
+    """Test _ensure_ttl_index creates a TTL index when none exists."""
+    collection = mock_mongo.db.test_col
+    _ensure_ttl_index(collection, "created_at", DEFAULT_EXPIRATION)
+
+    indexes = collection.index_information()
+    ttl_index = next(
+        (
+            info
+            for info in indexes.values()
+            if info.get("key") == [("created_at", 1)]
+        ),
+        None,
+    )
+    assert ttl_index is not None
+    assert ttl_index.get("expireAfterSeconds") == DEFAULT_EXPIRATION
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_ensure_ttl_index_no_op_when_unchanged(mock_mongo):
+    """Test _ensure_ttl_index does nothing when the TTL already matches."""
+    collection = mock_mongo.db.test_col
+    collection.create_index(
+        "created_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
+    with patch.object(collection, "create_index") as mock_create:
+        with patch.object(collection.database, "command") as mock_command:
+            _ensure_ttl_index(collection, "created_at", DEFAULT_EXPIRATION)
+
+    mock_create.assert_not_called()
+    mock_command.assert_not_called()
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_ensure_ttl_index_uses_collmod_when_ttl_changed(mock_mongo):
+    """Test _ensure_ttl_index updates via collMod when the TTL differs."""
+    collection = mock_mongo.db.test_col
+    old_ttl = DEFAULT_EXPIRATION // 2
+    collection.create_index("created_at", expireAfterSeconds=old_ttl)
+
+    new_ttl = DEFAULT_EXPIRATION
+    with patch.object(collection.database, "command") as mock_command:
+        _ensure_ttl_index(collection, "created_at", new_ttl)
+
+    mock_command.assert_called_once_with(
+        "collMod",
+        collection.name,
+        index={"keyPattern": {"created_at": 1}, "expireAfterSeconds": new_ttl},
+    )
