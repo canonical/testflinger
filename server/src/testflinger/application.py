@@ -16,16 +16,19 @@
 """Setup the Testflinger web application."""
 
 import logging
+import os
 
 from apiflask import APIFlask
 from flask import request
 from pymongo.errors import ConnectionFailure
 from werkzeug.exceptions import NotFound
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from testflinger.api.v1 import LogTypeConverter, v1
 from testflinger.database import setup_mongodb
 from testflinger.extensions import metrics
 from testflinger.oidc import app_register_oidc
+from testflinger.oidc.api import oidc_api
 from testflinger.oidc.views import oidc_views
 from testflinger.owasp import OWASPLogger
 from testflinger.providers import ISODatetimeProvider
@@ -103,9 +106,20 @@ def create_flask_app(config=None, secrets_store=None):
     def inject_vanilla_framework_version():
         return {"vanilla_framework_version": VANILLA_FRAMEWORK_VERSION}
 
+    # Tell Flask it's behind a proxy so it can properly handle redirects
+    # This middleware should only be used if the application is actually
+    # behind such a proxy, and should be configured with the number of
+    # proxies that are chained in front of it. Not all proxies set all
+    # the headers.
+    if os.environ.get("ENABLE_PROXYFIX", "false").lower() == "true":
+        tf_app.wsgi_app = ProxyFix(
+            tf_app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+        )
+
     tf_app.register_blueprint(views)
     tf_app.register_blueprint(v1, url_prefix="/v1")
     if tf_app.oauth:
         tf_app.register_blueprint(oidc_views, url_prefix="/auth")
+        tf_app.register_blueprint(oidc_api, url_prefix="/oidc")
 
     return tf_app

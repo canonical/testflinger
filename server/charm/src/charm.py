@@ -28,14 +28,17 @@ from charms.data_platform_libs.v0.data_interfaces import (
 from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
 from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
 from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
-from charms.traefik_k8s.v0.traefik_route import (
-    TraefikRouteRequirer,
-    TraefikRouteRequirerReadyEvent,
+from charms.traefik_k8s.v2.ingress import (
+    IngressPerAppReadyEvent,
+    IngressPerAppRequirer,
+    IngressPerAppRevokedEvent,
 )
 from ops.main import main
 from ops.pebble import Layer
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
+
+from config import TestflingerServerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +57,9 @@ class TestflingerCharm(ops.CharmBase):
     def __init__(self, *args):
         """Initialize the charm."""
         super().__init__(*args)
+        self.typed_config = self.load_config(
+            TestflingerServerConfig, errors="blocked"
+        )
         self.pebble_service_name = "testflinger"
         self.pebble_check_name = "v1_up"
         self.container = self.unit.get_container("testflinger")
@@ -62,9 +68,9 @@ class TestflingerCharm(ops.CharmBase):
             previous_master_key="",
         )
 
-        # TODO: Remove nginx route when migration to traefik route is completed
-        self._require_nginx_route()
-        self._setup_traefik_route()
+        # TODO: Remove nginx route when migration to ingress is completed
+        self._setup_nginx_route()
+        self._setup_ingress()
 
         self.mongodb = DatabaseRequires(
             self,
@@ -123,7 +129,21 @@ class TestflingerCharm(ops.CharmBase):
             self.on.retry_key_rotation_action,
             self._on_retry_key_rotation_action,
         )
-        # TODO: Remove nginx route when migration to traefik route is completed
+
+    @property
+    def version(self) -> str:
+        """Report the current version of the app."""
+        return "Version ?"
+
+    def _setup_nginx_route(self) -> None:
+        """Set up nginx route for the service."""
+        # TODO: Remove nginx route when migration to ingress is completed
+        require_nginx_route(
+            charm=self,
+            service_hostname=self.typed_config.external_hostname,
+            service_name=self.app.name,
+            service_port=DEFAULT_PORT,
+        )
         self.framework.observe(
             self.on.nginx_route_relation_changed,
             self._on_route_relation_changed,
@@ -133,128 +153,54 @@ class TestflingerCharm(ops.CharmBase):
             self._on_route_relation_changed,
         )
 
-    @property
-    def version(self) -> str:
-        """Report the current version of the app."""
-        return "Version ?"
-
-    def _require_nginx_route(self):
-        """Set up nginx route for the service."""
-        # TODO: Remove nginx route when migration to traefik route is completed
-        require_nginx_route(
-            charm=self,
-            service_hostname=self.config["external_hostname"],
-            service_name=self.app.name,
-            service_port=DEFAULT_PORT,
-        )
-
-    def _setup_traefik_route(self):
+    def _setup_ingress(self) -> None:
         """Set up ingress for the service."""
-        self.traefik_route = TraefikRouteRequirer(
-            self,
-            relation=self.model.get_relation("traefik-route"),
-            relation_name="traefik-route",
+        self.ingress = IngressPerAppRequirer(
+            self, relation_name="ingress", port=DEFAULT_PORT
+        )
+        self.framework.observe(self.ingress.on.ready, self._on_ingress_ready)
+        self.framework.observe(
+            self.ingress.on.revoked, self._on_ingress_revoked
         )
         self.framework.observe(
-            self.traefik_route.on.ready, self._on_traefik_ready
+            self.on.ingress_relation_changed, self._on_route_relation_changed
         )
 
-    def _on_traefik_ready(self, event: TraefikRouteRequirerReadyEvent) -> None:
-        """Handle TraefikRouteRequirer ready event."""
-        if not self._check_route_conflict():
+    def _on_ingress_ready(self, event: IngressPerAppReadyEvent) -> None:
+        """Handle IngressPerAppReadyEvent ready event."""
+        if self._has_ingress_conflict():
             return
-        if self.unit.is_leader():
-            self._configure_traefik_route()
+        logger.info("Ingress is ready with URL: %s", event.url)
+        self.unit.status = ops.ActiveStatus()
 
-    def _check_route_conflict(self) -> bool:
-        """Check if attempting to use two different route providers."""
+    def _on_ingress_revoked(self, _: IngressPerAppRevokedEvent) -> None:
+        """Handle ingress revoked event."""
+        logger.info("This app no longer has ingress")
+        if not self._has_ingress_conflict():
+            self.unit.status = ops.ActiveStatus()
+
+    def _has_ingress_conflict(self) -> bool:
+        """Determine if both nginx-route and ingress relations are active.
+
+        :return: True if there is a conflict, False otherwise.
+        """
         nginx = self.model.relations.get("nginx-route")
-        traefik = self.model.relations.get("traefik-route")
-        if nginx and traefik:
+        ingress = self.model.relations.get("ingress")
+        if nginx and ingress:
             self.unit.status = ops.BlockedStatus(
-                "Can't use both nginx and traefik route providers."
+                "Can't use both nginx-route and ingress together."
             )
-            return False
-        return True
+            return True
+        return False
 
     def _on_route_relation_changed(
         self, event: ops.RelationChangedEvent
     ) -> None:
-        """Handle relation changed event to check for route conflicts."""
-        if not self._check_route_conflict():
+        """Handle relation changed event to check for ingress conflicts."""
+        if self._has_ingress_conflict():
             return
-
-    def _configure_traefik_route(self):
-        """Set configuration required for traefik route."""
-        # Only submit configuration if the relation is ready
-        if not self.traefik_route.is_ready():
-            logger.info("Traefik route relation is not ready yet")
-            return
-
-        testflinger_base_url = (
-            self.traefik_route.external_host
-            or self.config.get("external_hostname", "")
-        )
-        if not testflinger_base_url:
-            self.unit.status = ops.BlockedStatus(
-                "external_hostname must be set for traefik-route"
-            )
-            return
-        external_hostname = (
-            testflinger_base_url.replace("https://", "")
-            .replace("http://", "")
-            .rstrip("/")
-        )
-
-        # Open the required port in the unit
-        self.unit.open_port("tcp", DEFAULT_PORT)
-
-        service_url = f"http://{self.app.name}.{self.model.name}.svc.cluster.local:{DEFAULT_PORT}"
-        identifier = f"{self.model.name}-{self.app.name}"
-
-        config = {
-            "http": {
-                "middlewares": {
-                    "https-redirect": {
-                        "redirectScheme": {
-                            "scheme": "https",
-                            "permanent": True,
-                        }
-                    }
-                },
-                "routers": {
-                    f"juju-{identifier}-router": {
-                        "rule": f"Host(`{external_hostname}`)",
-                        "service": f"juju-{identifier}-service",
-                        "entryPoints": ["web"],
-                        "middlewares": ["https-redirect"],
-                    },
-                    f"juju-{identifier}-router-tls": {
-                        "rule": f"Host(`{external_hostname}`)",
-                        "service": f"juju-{identifier}-service",
-                        "entryPoints": ["websecure"],
-                        "tls": {},
-                    },
-                },
-                "services": {
-                    f"juju-{identifier}-service": {
-                        "loadBalancer": {
-                            "servers": [{"url": service_url}],
-                            "passHostHeader": True,
-                        }
-                    }
-                },
-            }
-        }
-
-        logger.info(
-            "Submitting Traefik configuration for %s at root path "
-            "with HTTP→HTTPS redirect and load balancing across all %s units",
-            external_hostname,
-            self.app,
-        )
-        self.traefik_route.submit_to_traefik(config=config)
-        self.unit.status = ops.ActiveStatus()
+        if isinstance(self.unit.status, ops.BlockedStatus):
+            self.unit.status = ops.ActiveStatus()
 
     def _on_testflinger_pebble_ready(
         self, event: ops.PebbleReadyEvent
@@ -345,8 +291,16 @@ class TestflingerCharm(ops.CharmBase):
 
     def _on_config_changed(self, _: ops.framework.EventBase) -> None:
         """Handle config changed event."""
-        new_key = self.config["testflinger_secrets_master_key"]
+        new_key = self.typed_config.testflinger_secrets_master_key
         stored_key = self._stored.previous_master_key
+
+        # If the key was unset, clear the stored key so the next
+        # config-changed with a valid key is treated as a fresh deployment.
+        if not new_key:
+            logger.info("Master key unset, clearing stored key")
+            self._stored.previous_master_key = ""
+            self._update_layer_and_restart()
+            return
 
         # Rotate only if master key was previously defined, has changed,
         # and this is the leader unit.
@@ -389,7 +343,7 @@ class TestflingerCharm(ops.CharmBase):
         unit in BlockedStatus. The old key is read from StoredState and the
         new key from the current config.
         """
-        current_key = self.config["testflinger_secrets_master_key"]
+        current_key = self.typed_config.testflinger_secrets_master_key
         stored_key = self._stored.previous_master_key
 
         if not current_key:
@@ -423,7 +377,7 @@ class TestflingerCharm(ops.CharmBase):
     @property
     def _pebble_layer(self):
         """Return a dictionary representing a Pebble layer."""
-        keepalive = str(self.config["keepalive"])
+        keepalive = str(self.typed_config.keepalive)
         command = " ".join(
             [
                 "gunicorn",
@@ -482,15 +436,20 @@ class TestflingerCharm(ops.CharmBase):
             "MONGODB_USERNAME": db_data.get("db_username"),
             "MONGODB_PASSWORD": db_data.get("db_password"),
             "MONGODB_DATABASE": db_data.get("db_database"),
-            "MONGODB_MAX_POOL_SIZE": str(self.config["max_pool_size"]),
-            "JWT_SIGNING_KEY": self.config["jwt_signing_key"],
-            "TESTFLINGER_SECRETS_MASTER_KEY": self.config[
-                "testflinger_secrets_master_key"
-            ],
+            "MONGODB_MAX_POOL_SIZE": str(self.typed_config.max_pool_size),
+            "JWT_SIGNING_KEY": self.typed_config.jwt_signing_key,
+            "TESTFLINGER_SECRETS_MASTER_KEY": self.typed_config.testflinger_secrets_master_key,  # noqa: E501
             "TESTFLINGER_KEY_VAULT_URI": self._fetch_keyvault_uri() or "",
-            "HTTP_PROXY": self.config["http_proxy"],
-            "HTTPS_PROXY": self.config["https_proxy"],
-            "NO_PROXY": self.config["no_proxy"],
+            "HTTP_PROXY": self.typed_config.http_proxy,
+            "HTTPS_PROXY": self.typed_config.https_proxy,
+            "NO_PROXY": self.typed_config.no_proxy,
+            "ENABLE_PROXYFIX": str(self.typed_config.enable_proxyfix),
+            "WEBHOOK_URL": self.typed_config.webhook_url,
+            "WEBHOOK_AUTH": self.typed_config.webhook_auth,
+            "WEB_SECRET_KEY": self.typed_config.web_secret_key,
+            "OIDC_CLIENT_ID": self.typed_config.oidc_client_id,
+            "OIDC_CLIENT_SECRET": self.typed_config.oidc_client_secret,
+            "OIDC_PROVIDER_ISSUER": self.typed_config.oidc_provider_issuer,
         }
         return env
 

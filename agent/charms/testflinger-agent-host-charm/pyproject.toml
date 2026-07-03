@@ -9,8 +9,8 @@ dependencies = [
     "cosl>=0.0.53",
     "gitpython==3.1.50",
     "jinja2==3.1.6",
-    "charmlibs-passwd==1.0.1",
-    "charmlibs-apt==1.0.0.post0",
+    "charmlibs-passwd==1.0.1.post0",
+    "charmlibs-apt==1.0.0.post1",
     "requests>=2.33.1",
     "pydantic>=2.12,<3",
 ]
@@ -18,7 +18,7 @@ dependencies = [
 [dependency-groups]
 lint = ["ruff"]
 unit = ["coverage[toml]", "ops[testing]", "pytest"]
-integration = ["jubilant>=1.6.2", "ops[testing]", "pytest", "requests"]
+integration = ["jubilant>=1.6.2", "pytest", "pytest-jubilant", "requests"]
 
 [tool.coverage.run]
 branch = true
@@ -33,10 +33,7 @@ log_cli_level = "INFO"
 [tool.ruff]
 line-length = 79
 extend-exclude = ["lib"]
-include = [
-  "src/**/*.py",
-  "tests/**/*.py",
-]
+include = ["src/**/*.py", "tests/**/*.py"]
 
 [tool.ruff.lint]
 select = [

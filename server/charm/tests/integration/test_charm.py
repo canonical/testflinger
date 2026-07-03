@@ -17,13 +17,14 @@
 from pathlib import Path
 
 import jubilant
+import pytest
 
-from .helpers import APP_NAME, METADATA, MONGODB_CHARM, app_is_up, retry
+from .consts import APP_NAME, DEFAULT_HTTP_PORT, MONGODB_CHARM, UPSTREAM_SOURCE
+from .helpers import app_is_up, retry
 
-DEFAULT_HTTP_PORT = 5000
 
-
-def test_deploy(charm_path: Path, juju: jubilant.Juju):
+@pytest.mark.juju_setup
+def test_deploy(charm_path: Path, k8s_juju: jubilant.Juju):
     """Deploy the charm under test.
 
     Testflinger charm requires a mongodb_client relation to be established,
@@ -31,24 +32,33 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     """
     # Deploy the testflinger charm
     resources = {
-        "testflinger-image": METADATA["resources"]["testflinger-image"][
-            "upstream-source"
-        ],
+        "testflinger-image": UPSTREAM_SOURCE,
     }
-    juju.deploy(charm_path.resolve(), app=APP_NAME, resources=resources)
+    k8s_juju.deploy(charm_path.resolve(), app=APP_NAME, resources=resources)
 
     # Deploy the mongodb-k8s charm
-    juju.deploy(MONGODB_CHARM, channel="6/stable", trust=True)
+    k8s_juju.deploy(MONGODB_CHARM, channel="6/stable", trust=True)
 
     # Establish the mongodb_client and mongodb_keyvault relations
-    juju.integrate(f"{APP_NAME}:mongodb_client", f"{MONGODB_CHARM}:database")
-    juju.integrate(f"{APP_NAME}:mongodb_keyvault", f"{MONGODB_CHARM}:database")
-    juju.wait(jubilant.all_active)
+    k8s_juju.integrate(
+        f"{APP_NAME}:mongodb_client", f"{MONGODB_CHARM}:database"
+    )
+    k8s_juju.integrate(
+        f"{APP_NAME}:mongodb_keyvault", f"{MONGODB_CHARM}:database"
+    )
+    k8s_juju.wait(jubilant.all_active)
 
 
 @retry(retry_num=10, retry_sleep_sec=3)
-def test_application_is_up(juju: jubilant.Juju):
+def test_application_is_up(k8s_juju: jubilant.Juju):
     """Test that the deployed application is up and responding."""
-    ip = juju.status().apps[APP_NAME].units[f"{APP_NAME}/0"].address
+    ip = k8s_juju.status().apps[APP_NAME].units[f"{APP_NAME}/0"].address
     base_url = f"http://{ip}:{DEFAULT_HTTP_PORT}"
     assert app_is_up(base_url)
+
+
+@pytest.mark.juju_teardown
+def test_destroy(k8s_juju: jubilant.Juju):
+    """Tear down the charm under test."""
+    k8s_juju.remove_application(APP_NAME)
+    k8s_juju.remove_application(MONGODB_CHARM)

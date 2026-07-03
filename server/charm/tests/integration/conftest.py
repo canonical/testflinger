@@ -16,28 +16,37 @@
 
 import logging
 import os
-import sys
-import time
 from pathlib import Path
 
-import jubilant
 import pytest
+import pytest_jubilant
 
 logger = logging.getLogger(__name__)
 
+K8S_CONTROLLER = os.getenv("JUJU_K8S_CONTROLLER")
+MACHINE_CONTROLLER = os.getenv("JUJU_MACHINE_CONTROLLER")
+
 
 @pytest.fixture(scope="module")
-def juju(request: pytest.FixtureRequest):
-    """Create temporary Juju model for running tests."""
-    with jubilant.temp_model() as juju:
-        juju.wait_timeout = 600
-        yield juju
+def k8s_juju(juju_factory: pytest_jubilant.JujuFactory):
+    """Juju instance for a model on the k8s controller."""
+    if not K8S_CONTROLLER:
+        pytest.fail(
+            "JUJU_K8S_CONTROLLER is not set; cannot create a K8s model"
+        )
+    yield juju_factory.get_juju(suffix="k8s", controller=K8S_CONTROLLER)
 
-        if request.session.testsfailed:
-            logger.info("Collecting Juju logs...")
-            time.sleep(0.5)  # Wait for Juju to process logs.
-            log = juju.debug_log(limit=1000)
-            print(log, end="", file=sys.stderr)
+
+@pytest.fixture(scope="module")
+def machine_juju(juju_factory: pytest_jubilant.JujuFactory):
+    """Juju instance for a model on the machine controller."""
+    if not MACHINE_CONTROLLER:
+        pytest.fail(
+            "JUJU_MACHINE_CONTROLLER is not set; cannot create a machine model"
+        )
+    yield juju_factory.get_juju(
+        suffix="machine", controller=MACHINE_CONTROLLER
+    )
 
 
 @pytest.fixture(scope="session")

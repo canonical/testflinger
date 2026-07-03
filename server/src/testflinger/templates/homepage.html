@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% set active_page = "homepage" %}
+{% set title = "Homepage" %}
+{% block content %}
+  <div class="p-strip is-shallow">
+    <div class="row">
+      <h1 class="p-heading--3">Welcome to Testflinger</h1>
+      <p>A system for orchestrating the time-sharing of access to a pool of target machines.</p>
+    </div>
+  </div>
+  <section class="p-strip is-shallow">
+    <div class="row">
+      <hr>
+      <div class="col-6">
+        <h2 class="p-heading--4">Contact Us</h2>
+      </div>
+      <div class="col-6">
+        <ul class="p-list--divided">
+          <li class="p-list__item">
+            <h3 class="p-heading--5">Community and Support</h3>
+            <p>
+              You can report any issues, bugs, or feature requests on the project's <a href="https://github.com/canonical/testflinger/issues">GitHub issues page</a>.
+            </p>
+          </li>
+          <li class="p-list__item">
+            <h3 class="p-heading--5">Contribute to Testflinger</h3>
+            <p>
+              Testflinger is open source. Contributions are welcome. If you're interested, start with the <a href="https://github.com/canonical/testflinger/blob/main/CONTRIBUTING.md">contribution guide</a>.
+            </p>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+{% endblock content %}

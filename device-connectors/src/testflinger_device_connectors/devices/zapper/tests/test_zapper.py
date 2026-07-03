@@ -39,6 +39,14 @@ class MockConnector(ZapperConnector):
         pass
 
 
+def test_does_not_manage_dut_power_during_reboot_by_default():
+    """The base Zapper connector does NOT keep the DUT off while the control
+    host reboots; individual variants (e.g. zapper_iot) opt in explicitly so
+    that variants like zapper_kvm are unaffected.
+    """
+    assert ZapperConnector.MANAGE_DUT_POWER_DURING_REBOOT is False
+
+
 class ZapperConnectorTests(unittest.TestCase):
     """Unit tests for ZapperConnector class."""
 
@@ -67,6 +75,8 @@ class ZapperConnectorTests(unittest.TestCase):
             "agent_name": "my-agent",
             "control_host": "zapper-host",
             "reboot_script": ["cmd1", "cmd2"],
+            "poweron_script": ["poweron1"],
+            "poweroff_script": ["poweroff1"],
             "env": {"CID": "202507-01234"},
         }
         connector = MockConnector(fake_config)
@@ -349,6 +359,8 @@ class TestZapperConnectorRun:
             "agent_name": "my-agent",
             "control_host": "zapper-host",
             "reboot_script": ["cmd1"],
+            "poweron_script": ["poweron1"],
+            "poweroff_script": ["poweroff1"],
             "env": {"CID": "202507-01234"},
         }
         return MockConnector(config)

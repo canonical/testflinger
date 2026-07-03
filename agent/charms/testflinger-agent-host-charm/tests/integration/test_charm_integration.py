@@ -5,6 +5,7 @@
 from pathlib import Path
 
 import jubilant
+import pytest
 import yaml
 from conftest import create_mock_token
 
@@ -27,13 +28,14 @@ METADATA = yaml.safe_load(Path("charmcraft.yaml").read_text(encoding="utf-8"))
 APP_NAME = METADATA["name"]
 
 
+@pytest.mark.juju_setup
 def test_deploy(charm_path: Path, juju: jubilant.Juju):
     """Deploy the charm under test."""
     juju.deploy(charm_path.resolve(), app=APP_NAME)
     juju.config(APP_NAME, TEST_CONFIG_01)
     # Wait for install to complete, charm should be in BlockedStatus due to
     # missing credentials.
-    juju.wait(jubilant.all_blocked)
+    juju.wait(jubilant.all_blocked, timeout=60 * 5)
 
     # Create mock token to skip authentication
     create_mock_token(juju, APP_NAME)
@@ -154,3 +156,9 @@ def test_supervisord_agent_running(juju: jubilant.Juju):
         if "RUNNING" in line
     ]
     assert len(running_agents) == 2
+
+
+@pytest.mark.juju_teardown
+def test_destroy(juju: jubilant.Juju):
+    """Tear down the charm under test."""
+    juju.remove_application(APP_NAME)

@@ -17,20 +17,48 @@
 
 import json
 import os
+import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
 
 import pytest
+import requests
+from testflinger_common.enums import ServerRoles
 
 from testflinger.api import v1
+from tests.utilities import get_access_token_header
 
 
 def test_home(mongo_app):
-    """Test that queries to / are redirected to /agents."""
+    """Test that the homepage contains the welcome message."""
     app, _ = mongo_app
     response = app.get("/")
-    assert 302 == response.status_code
-    assert "/agents" == response.headers.get("Location")
+    assert response.status_code == HTTPStatus.OK
+    assert b"Welcome to Testflinger" in response.data
+
+
+def test_home_oidc_enabled(oidc_app):
+    """Test homepage/header rendering when OIDC is enabled."""
+    app, _ = oidc_app
+    client = app.test_client()
+
+    # Only Sign In should be visible when not authenticated
+    response = client.get("/")
+    assert response.status_code == HTTPStatus.OK
+    assert b"Sign In" in response.data
+    assert b"Agents" not in response.data
+    assert b"Jobs" not in response.data
+    assert b"Queues" not in response.data
+
+    with client.session_transaction() as session:
+        session["user"] = "test@example.com"
+    response = client.get("/")
+
+    # All navigation items should be visible when authenticated
+    assert response.status_code == HTTPStatus.OK
+    assert b"Agents" in response.data
+    assert b"Jobs" in response.data
+    assert b"Queues" in response.data
 
 
 def test_add_job_invalid_reserve_data(mongo_app):
@@ -124,6 +152,7 @@ def test_add_job_noprovision_provision_data(mongo_app, agent_auth_header):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
     recovered_data = app.get(
         "/v1/job?queue=test", headers=agent_auth_header
@@ -552,6 +581,7 @@ def test_add_job_good(mongo_app, agent_auth_header):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
     # Now get the job and confirm it matches
     output = app.get("/v1/job?queue=test", headers=agent_auth_header)
@@ -577,6 +607,7 @@ def test_add_job_good_with_attachments(mongo_app, tmp_path, agent_auth_header):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
 
     # confirm that the job cannot be processed yet (attachments pending)
@@ -602,7 +633,7 @@ def test_add_job_good_with_attachments(mongo_app, tmp_path, agent_auth_header):
     assert 200 == output.status_code
     # check that the submitted attachments can be retrieved and
     # that they match the original data
-    output = app.get(attachments_endpoint)
+    output = app.get(attachments_endpoint, headers=agent_auth_header)
     with open(filename, "rb") as attachments:
         assert output.data == attachments.read()
 
@@ -636,18 +667,20 @@ def test_submit_attachment_without_job(mongo_app, tmp_path):
     assert 422 == output.status_code
 
 
-def test_retrieve_attachments_nonexistent_job(mongo_app):
+def test_retrieve_attachments_nonexistent_job(mongo_app, agent_auth_header):
     """Test for error when requesting non-existent attachments."""
     app, _ = mongo_app
     nonexistent_id = "77777777-7777-7777-7777-777777777777"
 
     # request the attachments archive for the job
     attachments_endpoint = f"/v1/job/{nonexistent_id}/attachments"
-    output = app.get(attachments_endpoint)
+    output = app.get(attachments_endpoint, headers=agent_auth_header)
     assert 204 == output.status_code
 
 
-def test_retrieve_attachments_nonexistent_attachment(mongo_app):
+def test_retrieve_attachments_nonexistent_attachment(
+    mongo_app, agent_auth_header
+):
     """Test for error when requesting non-existent attachments."""
     job_data = {"job_queue": "test", "tags": ["foo", "bar"]}
     # place a job on the queue
@@ -658,7 +691,7 @@ def test_retrieve_attachments_nonexistent_attachment(mongo_app):
 
     # request the attachments archive for the job
     attachments_endpoint = f"/v1/job/{job_id}/attachments"
-    output = app.get(attachments_endpoint)
+    output = app.get(attachments_endpoint, headers=agent_auth_header)
     assert 204 == output.status_code
 
 
@@ -707,6 +740,7 @@ def test_get_nonexistant_job(mongo_app, agent_auth_header):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
     output = app.get("/v1/job?queue=BAD_QUEUE_NAME", headers=agent_auth_header)
     assert 204 == output.status_code
@@ -790,6 +824,7 @@ def test_job_position(mongo_app, agent_auth_header):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
 
     # Request a job from the queue to remove one
@@ -813,16 +848,16 @@ def test_action_post(mongo_app):
     assert 422 == output.status_code
 
 
-def test_queues_post(mongo_app):
+def test_queues_post(mongo_app, agent_auth_header):
     """Test posting advertised queues."""
     app, _ = mongo_app
     queue_data = {"qfoo": "this is a test queue"}
-    app.post("/v1/agents/queues", json=queue_data)
+    app.post("/v1/agents/queues", json=queue_data, headers=agent_auth_header)
     output = app.get("/v1/agents/queues")
     assert output.json == queue_data
 
 
-def test_images_post(mongo_app):
+def test_images_post(mongo_app, agent_auth_header):
     """Test posting advertised images for a queue."""
     app, _ = mongo_app
     image_data = {
@@ -831,7 +866,7 @@ def test_images_post(mongo_app):
             "image2": "url: http://path/to/image2",
         }
     }
-    app.post("/v1/agents/images", json=image_data)
+    app.post("/v1/agents/images", json=image_data, headers=agent_auth_header)
     output = app.get("/v1/agents/images/myqueue")
     assert json.loads(output.data.decode()) == image_data.get("myqueue")
 
@@ -843,7 +878,7 @@ def test_get_invalid(mongo_app):
     assert 404 == output.status_code
 
 
-def test_cancel_job_completed(mongo_app):
+def test_cancel_job_completed(mongo_app, agent_auth_header):
     """Test that a job can't be cancelled if completed or cancelled already."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
@@ -855,7 +890,7 @@ def test_cancel_job_completed(mongo_app):
     # trying to cancel it in that state
     for state in ["cancelled", "complete", "completed"]:
         data = {"job_state": state}
-        output = app.post(result_url, json=data)
+        output = app.post(result_url, json=data, headers=agent_auth_header)
         output = app.post(
             f"/v1/job/{job_id}/action", json={"action": "cancel"}
         )
@@ -882,7 +917,7 @@ def test_cancel_job_good(mongo_app):
     assert job["result_data"]["job_state"] == "cancelled"
 
 
-def test_agents_post(mongo_app):
+def test_agents_post(mongo_app, agent_auth_header):
     """Test posting agent data and updating it."""
     app, mongo = mongo_app
     agent_name = "agent1"
@@ -893,7 +928,11 @@ def test_agents_post(mongo_app):
         "location": "here",
         "log": logdata,
     }
-    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
 
     assert 200 == output.status_code
     assert "OK" == output.json.get("status")
@@ -910,25 +949,33 @@ def test_agents_post(mongo_app):
     assert agent_data.items() <= agent_record.items()
 
     # Update the agent data again
-    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
 
     # Test that the log data was appended and truncated
     agent_record = mongo.agents.find_one({"name": agent_name})
     assert agent_record["log"] == (logdata + logdata)[-100:]
 
 
-def test_agents_post_bad(mongo_app):
+def test_agents_post_bad(mongo_app, agent_auth_header):
     """Test posting agent data with bad data."""
     app, _ = mongo_app
     agent_name = "agent1"
     agent_data = "BAD_DATA_SHOULD_BE_JSON"
-    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
 
     assert 422 == output.status_code
     assert "Validation error" in output.text
 
 
-def test_agents_provision_logs_post(mongo_app):
+def test_agents_provision_logs_post(mongo_app, agent_auth_header):
     """Test posting provision logs for an agent."""
     app, mongo = mongo_app
     agent_name = "agent1"
@@ -940,12 +987,18 @@ def test_agents_provision_logs_post(mongo_app):
 
     # Ensure that agent data for this agent exists
     agent_data = {"state": "waiting"}
-    result = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    result = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
     assert 200 == result.status_code
 
     # Test that the post is successful
     result = app.post(
-        f"/v1/agents/provision_logs/{agent_name}", json=provision_log
+        f"/v1/agents/provision_logs/{agent_name}",
+        json=provision_log,
+        headers=agent_auth_header,
     )
     assert 200 == result.status_code
     assert "OK" == result.text
@@ -964,7 +1017,11 @@ def test_agents_provision_logs_post(mongo_app):
 
     # Now we should have two provision log entries
     provision_log["exit_code"] = 0
-    app.post(f"/v1/agents/provision_logs/{agent_name}", json=provision_log)
+    app.post(
+        f"/v1/agents/provision_logs/{agent_name}",
+        json=provision_log,
+        headers=agent_auth_header,
+    )
     provision_log_records = mongo.provision_logs.find_one({"name": agent_name})
     assert len(provision_log_records["provision_log"]) == 2
 
@@ -974,21 +1031,17 @@ def test_agents_provision_logs_post(mongo_app):
     assert agent_data["provision_streak_count"] == 1
 
 
-def test_agents_status_put(mongo_app, requests_mock):
+def test_agents_status_put(mongo_app, agent_auth_header, webhook_fixture):
     """Test api to receive agent status requests."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
     job_output = app.post("/v1/job", json=job_data)
     job_id = job_output.json.get("job_id")
 
-    webhook = "http://mywebhook.com"
-    requests_mock.put(
-        webhook, status_code=HTTPStatus.OK, text="webhook requested"
-    )
     status_update_data = {
         "agent_id": "agent1",
         "job_queue": "myjobqueue",
-        "job_status_webhook": webhook,
+        "job_status_webhook": webhook_fixture,
         "events": [
             {
                 "event_name": "my_event",
@@ -997,12 +1050,227 @@ def test_agents_status_put(mongo_app, requests_mock):
             }
         ],
     }
+    output = app.post(
+        f"/v1/job/{job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.OK
+
+
+def test_agents_status_put_no_webhook_configured(
+    mongo_app, monkeypatch, agent_auth_header
+):
+    """Test events endpoint return server error if webhook not configured."""
+    app, _ = mongo_app
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    monkeypatch.delenv("WEBHOOK_URL", raising=False)
+
+    # job specifies correct endpoint
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": "http://mywebhook.com/v1/test-executions/1234/status_update",
+        "events": [],
+    }
+    output = app.post(
+        f"/v1/job/{job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
+
+    # Request should fail as webhook is not configured server-side
+    assert output.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+def test_agents_status_put_unauthorized_webhook(mongo_app, monkeypatch):
+    """Test that a webhook on an unknown host is rejected."""
+    app, _ = mongo_app
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    # Reject any path manipulated webhook url
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": "http://mywebhook.com.fake/v1/test-executions/1234/status_update",
+        "events": [],
+    }
     output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
-    assert 200 == output.status_code
-    assert "webhook requested" == output.text
+    assert output.status_code == HTTPStatus.FORBIDDEN
 
 
-def test_get_agents_data(mongo_app):
+def test_agents_status_put_with_auth_header(
+    mongo_app, requests_mock, monkeypatch, agent_auth_header
+):
+    """Test that WEBHOOK_AUTH is forwarded as a Bearer token."""
+    app, _ = mongo_app
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
+    monkeypatch.setenv("WEBHOOK_AUTH", "fake_token")
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    webhook = "http://mywebhook.com/v1/test-executions/5678/status_update"
+    requests_mock.put(webhook, status_code=HTTPStatus.OK)
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": webhook,
+        "events": [],
+    }
+    output = app.post(
+        f"/v1/job/{job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.OK
+    assert requests_mock.last_request.headers["Authorization"] == (
+        "Bearer fake_token"
+    )
+
+
+def test_agents_status_put_invalid_job_id(
+    mongo_app, monkeypatch, agent_auth_header
+):
+    """Test events endpoint rejects invalid job_id format."""
+    app, _ = mongo_app
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
+
+    # Test with invalid (non-UUID) job_id
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": "http://mywebhook.com/v1/test-executions/1234/status_update",
+        "events": [],
+    }
+    output = app.post(
+        "/v1/job/invalid/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_agents_status_put_nonexistent_job(
+    mongo_app, monkeypatch, agent_auth_header
+):
+    """Test events endpoint rejects requests for nonexistent jobs."""
+    app, _ = mongo_app
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
+
+    # Test with valid UUID format but job does not exist
+    nonexistent_job_id = str(uuid.uuid4())
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": "http://mywebhook.com/v1/test-executions/1234/status_update",
+        "events": [],
+    }
+    output = app.post(
+        f"/v1/job/{nonexistent_job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_agents_status_put_webhook_timeout(
+    mongo_app, requests_mock, monkeypatch, agent_auth_header
+):
+    """Test that webhook timeout is handled with GATEWAY_TIMEOUT."""
+    app, _ = mongo_app
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    webhook = "http://mywebhook.com/v1/test-executions/1234/status_update"
+    requests_mock.put(webhook, exc=requests.exceptions.Timeout)
+
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": webhook,
+        "events": [],
+    }
+    output = app.post(
+        f"/v1/job/{job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.GATEWAY_TIMEOUT
+
+
+def test_agents_status_put_webhook_unreachable(
+    mongo_app, requests_mock, monkeypatch, agent_auth_header
+):
+    """Test that webhook connection error is handled with BAD_GATEWAY."""
+    app, _ = mongo_app
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    webhook = "http://mywebhook.com/v1/test-executions/1234/status_update"
+    requests_mock.put(webhook, exc=requests.exceptions.ConnectionError)
+
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": webhook,
+        "events": [],
+    }
+    output = app.post(
+        f"/v1/job/{job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.BAD_GATEWAY
+
+
+@pytest.mark.parametrize(
+    "webhook_status", [HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN]
+)
+def test_agents_status_put_webhook_auth_failure(
+    mongo_app, requests_mock, monkeypatch, webhook_status, agent_auth_header
+):
+    """Test that auth errors from the webhook server results in 500 error."""
+    app, _ = mongo_app
+    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
+    monkeypatch.setenv("WEBHOOK_AUTH", "fake_token")
+    job_data = {"job_queue": "test"}
+    job_output = app.post("/v1/job", json=job_data)
+    job_id = job_output.json.get("job_id")
+
+    webhook = "http://mywebhook.com/v1/test-executions/1234/status_update"
+    requests_mock.put(webhook, status_code=webhook_status)
+
+    status_update_data = {
+        "agent_id": "agent1",
+        "job_queue": "myjobqueue",
+        "job_status_webhook": webhook,
+        "events": [],
+    }
+    output = app.post(
+        f"/v1/job/{job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
+
+    # Testflinger server should return 500 error if the webhook server
+    # responds with an auth error, as this indicates a misconfiguration
+    # that needs to be fixed at charm level by an admin.
+    assert output.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+    assert "Webhook authentication failed" in output.get_data(as_text=True)
+
+
+def test_get_agents_data(mongo_app, agent_auth_header):
     """Test api to retrieve agent data."""
     app, _ = mongo_app
     agent_name = "agent1"
@@ -1011,7 +1279,11 @@ def test_get_agents_data(mongo_app):
         "queues": ["q1", "q2"],
         "location": "here",
     }
-    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
     assert 200 == output.status_code
 
     # Get the agent data
@@ -1039,11 +1311,19 @@ def test_get_agents_data_single(mongo_app):
     }
 
     # Set the data for agent1
-    output = app.post(f"/v1/agents/data/{agent_name1}", json=agent_data1)
+    output = app.post(
+        f"/v1/agents/data/{agent_name1}",
+        json=agent_data1,
+        headers=get_access_token_header(agent_name1, ServerRoles.AGENT),
+    )
     assert output.status_code == HTTPStatus.OK
 
     # Set the data for agent2
-    output = app.post(f"/v1/agents/data/{agent_name2}", json=agent_data2)
+    output = app.post(
+        f"/v1/agents/data/{agent_name2}",
+        json=agent_data2,
+        headers=get_access_token_header(agent_name2, ServerRoles.AGENT),
+    )
     assert output.status_code == HTTPStatus.OK
 
     # Get the data from agent2
@@ -1095,7 +1375,7 @@ def test_search_jobs_invalid_match(mongo_app):
     assert "Must be one of" in output.text
 
 
-def test_search_jobs_by_state(mongo_app):
+def test_search_jobs_by_state(mongo_app, agent_auth_header):
     """Test search jobs by state."""
     app, _ = mongo_app
 
@@ -1112,14 +1392,14 @@ def test_search_jobs_by_state(mongo_app):
     job_id = job_response.json.get("job_id")
     result_url = f"/v1/result/{job_id}"
     data = {"job_state": "cancelled"}
-    app.post(result_url, json=data)
+    app.post(result_url, json=data, headers=agent_auth_header)
 
     # One job that will be completed
     job_response = app.post("/v1/job", json=job)
     job_id = job_response.json.get("job_id")
     result_url = f"/v1/result/{job_id}"
     data = {"job_state": "completed"}
-    app.post(result_url, json=data)
+    app.post(result_url, json=data, headers=agent_auth_header)
 
     # By default, all jobs are included if we don't specify the state
     output = app.get("/v1/job/search?tags=foo")
@@ -1191,12 +1471,16 @@ def test_get_queue_wait_times(mongo_app):
     assert output.json["queue2"]["50"] == 30.0
 
 
-def test_get_agents_on_queue(mongo_app):
+def test_get_agents_on_queue(mongo_app, agent_auth_header):
     """Test api to get agents on a queue."""
     app, _ = mongo_app
     agent_name = "agent1"
     agent_data = {"state": "provision", "queues": ["q1", "q2"]}
-    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
     assert output.status_code == HTTPStatus.OK
 
     # Get the agents on the queue
@@ -1211,7 +1495,7 @@ def test_get_agents_on_queue(mongo_app):
     assert "Queue 'q3' does not exist." in output.json["message"]
 
 
-def test_agents_data_restricted_to(mongo_app):
+def test_agents_data_restricted_to(mongo_app, agent_auth_header):
     """Test restricted_to field in agents data."""
     app, mongo = mongo_app
     mongo.restricted_queues.insert_one({"queue_name": "q1"})
@@ -1230,7 +1514,11 @@ def test_agents_data_restricted_to(mongo_app):
         "location": "here",
     }
 
-    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
     assert output.status_code == HTTPStatus.OK
 
     output = app.get("/v1/agents/data")
@@ -1280,6 +1568,7 @@ def test_reserve_data_with_human_readable_timeout(
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
     submitted_job = app.get(
         "/v1/job?queue=test", headers=agent_auth_header
@@ -1423,6 +1712,7 @@ def test_pop_job_respects_exclude_agents(mongo_app, agent_auth_header):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
     output = app.get("/v1/job?queue=test", headers=agent_auth_header)
     assert output.status_code == HTTPStatus.NO_CONTENT
@@ -1431,6 +1721,7 @@ def test_pop_job_respects_exclude_agents(mongo_app, agent_auth_header):
     app.post(
         "/v1/agents/data/agent2",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
     output = app.get("/v1/job?queue=test", headers=agent_auth_header)
     assert output.status_code == HTTPStatus.OK
@@ -1454,7 +1745,7 @@ def test_get_job_without_agent_id_fails(mongo_app, agent_auth_header):
         assert output.status_code == HTTPStatus.UNAUTHORIZED
 
 
-def test_job_get_without_agent_cookie_fails(mongo_app):
+def test_job_get_without_agent_cookie_fails(mongo_app, agent_auth_header):
     """Test that getting a job without agent authentication is rejected."""
     app, _ = mongo_app
 
@@ -1466,11 +1757,12 @@ def test_job_get_without_agent_cookie_fails(mongo_app):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
 
     # Try to get job without JWT auth - should be rejected
     output = app.get("/v1/job?queue=test")
-    assert output.status_code == HTTPStatus.UNAUTHORIZED
+    assert output.status_code == HTTPStatus.FORBIDDEN  # AGENT role expected
 
 
 def test_job_get_no_auth_headers(mongo_app):
@@ -1482,4 +1774,4 @@ def test_job_get_no_auth_headers(mongo_app):
     app.post("/v1/job", json=job_data)
 
     output = app.get("/v1/job?queue=test")
-    assert output.status_code == HTTPStatus.UNAUTHORIZED
+    assert output.status_code == HTTPStatus.FORBIDDEN  # AGENT role expected
