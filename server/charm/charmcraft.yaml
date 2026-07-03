@@ -15,6 +15,9 @@ links:
 containers:
   testflinger:
     resource: testflinger-image
+    ports:
+      - container-port: 9090
+        protocol: TCP
 
 resources:
   testflinger-image:

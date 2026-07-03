@@ -26,7 +26,6 @@ from flask import (
     request,
     session,
 )
-from prometheus_client import generate_latest
 
 from testflinger import database
 from testflinger.database import mongo
@@ -52,12 +51,6 @@ def require_login():
 def home():
     """Home view."""
     return render_template("homepage.html")
-
-
-@views.route("/metrics")
-def metrics():
-    """Return Prometheus metrics."""
-    return generate_latest()
 
 
 @views.route("/agents")

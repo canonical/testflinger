@@ -15,6 +15,10 @@
 #
 """Unit tests for Testflinger flask app."""
 
+import secrets
+from http import HTTPStatus
+from unittest.mock import patch
+
 import pytest
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -44,3 +48,54 @@ def test_proxyfix_enabled(monkeypatch):
 def test_proxyfix_disabled(testapp):
     """Ensure ProxyFix is disabled when ENABLE_PROXYFIX is not set."""
     assert not isinstance(testapp.wsgi_app, ProxyFix)
+
+
+def test_metrics_served_on_main_app(monkeypatch):
+    """Ensure /metrics is still served on the main app by the exporter."""
+    secret_key = secrets.token_urlsafe(32)
+    monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
+    app = create_flask_app(type("", (), {"TESTING": True})())
+    with app.test_client() as client:
+        response = client.get("/metrics")
+    assert response.status_code == HTTPStatus.OK
+
+
+def test_metrics_server_starts_on_default_port(monkeypatch):
+    """Ensure the metrics HTTP server is started on the default port (9090)."""
+    secret_key = secrets.token_urlsafe(32)
+    monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
+    monkeypatch.delenv("METRICS_PORT", raising=False)
+    with (
+        patch("testflinger.application.setup_mongodb"),
+        patch(
+            "testflinger.application.metrics.start_http_server"
+        ) as mock_start,
+    ):
+        create_flask_app(type("", (), {"TESTING": False})())
+    mock_start.assert_called_once_with(9090)
+
+
+def test_metrics_server_starts_on_configured_port(monkeypatch):
+    """Ensure the metrics HTTP server respects the METRICS_PORT env var."""
+    secret_key = secrets.token_urlsafe(32)
+    monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
+    monkeypatch.setenv("METRICS_PORT", "9191")
+    with (
+        patch("testflinger.application.setup_mongodb"),
+        patch(
+            "testflinger.application.metrics.start_http_server"
+        ) as mock_start,
+    ):
+        create_flask_app(type("", (), {"TESTING": False})())
+    mock_start.assert_called_once_with(9191)
+
+
+def test_metrics_server_not_started_in_testing_mode(monkeypatch):
+    """Ensure the metrics HTTP server is not started when TESTING=True."""
+    secret_key = secrets.token_urlsafe(32)
+    monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
+    with patch(
+        "testflinger.application.metrics.start_http_server"
+    ) as mock_start:
+        create_flask_app(type("", (), {"TESTING": True})())
+    mock_start.assert_not_called()
