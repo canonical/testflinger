@@ -669,3 +669,9 @@ class SecretOut(Schema):
             "description": "UTC datetime for secret expiration if TTL is set."
         },
     )
+
+
+class RefreshTokenIn(Schema):
+    """Refresh token input schema."""
+
+    refresh_token = fields.String(required=True, validate=Length(min=1))

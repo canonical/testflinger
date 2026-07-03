@@ -1088,17 +1088,10 @@ def retrieve_token():
 
 
 @v1.post("/oauth2/refresh")
-def refresh_access_token():
+@v1.input(schemas.RefreshTokenIn, location="json")
+def refresh_access_token(json_data: dict):
     """Refresh access token using a valid refresh token."""
-    data = request.get_json() or {}
-    refresh_token = data.get("refresh_token")
-    if not refresh_token:
-        current_app.owasp_logger.authn_login_fail(
-            userid="unknown",
-            description=("Access token requested without refresh token."),
-            **OWASPLogger.get_request_metadata(request),
-        )
-        abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
+    refresh_token = json_data["refresh_token"]
 
     token_entry = auth.validate_refresh_token(refresh_token)
     client_id = token_entry["client_id"]
@@ -1135,12 +1128,10 @@ def refresh_access_token():
 @v1.post("/oauth2/revoke")
 @authenticate
 @require_role(ServerRoles.ADMIN)
-def revoke_refresh_token():
+@v1.input(schemas.RefreshTokenIn, location="json")
+def revoke_refresh_token(json_data: dict):
     """Revoke a refresh token. Only admins can perform this action."""
-    data = request.get_json() or {}
-    token = data.get("refresh_token")
-    if not token:
-        abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
+    token = json_data["refresh_token"]
 
     token_entry = database.get_refresh_token_by_token(token)
     if not token_entry:

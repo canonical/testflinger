@@ -407,6 +407,19 @@
         ],
         "type": "object"
       },
+      "RefreshTokenIn": {
+        "additionalProperties": false,
+        "properties": {
+          "refresh_token": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "type": "object"
+      },
       "ReserveData": {
         "additionalProperties": false,
         "properties": {
@@ -1633,6 +1646,15 @@
     "/v1/oauth2/refresh": {
       "post": {
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -1641,6 +1663,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Refresh access token using a valid refresh token.",
@@ -1652,6 +1684,15 @@
     "/v1/oauth2/revoke": {
       "post": {
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -1660,6 +1701,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Revoke a refresh token. Only admins can perform this action.",
