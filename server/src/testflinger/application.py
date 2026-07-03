@@ -40,7 +40,7 @@ try:
 except ImportError:
     pass
 
-VANILLA_FRAMEWORK_VERSION = "4.51.0"  # renovate: vanilla-framework-latest
+VANILLA_FRAMEWORK_VERSION = "4.52.0"  # renovate: vanilla-framework-latest
 
 
 def create_flask_app(config=None, secrets_store=None):
