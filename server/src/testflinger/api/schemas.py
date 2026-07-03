@@ -678,7 +678,7 @@ class RefreshTokenIn(Schema):
 
 
 class QueuesIn(Schema):
-    """Queues input schema - maps queue names to descriptions."""
+    """Queues input schema."""
 
     class Meta:
         """Allow unknown fields to support arbitrary queue names."""
@@ -687,7 +687,10 @@ class QueuesIn(Schema):
 
     @validates_schema
     def validate_string_values(self, data, **kwargs):
-        """Validate all keys and values are non-empty strings."""
+        """Validate all keys and values are non-empty strings.
+
+        This accepts arbitrary queue names as keys, and descriptions as values.
+        """
         for key, value in data.items():
             if not isinstance(key, str) or not key:
                 raise ValidationError("Queue names must be non-empty strings")
@@ -695,3 +698,38 @@ class QueuesIn(Schema):
                 raise ValidationError(
                     f"Description for queue '{key}' must be a string"
                 )
+
+
+class ImagesIn(Schema):
+    """Images input schema - maps queue names to image name/provision data."""
+
+    class Meta:
+        """Allow unknown fields to support arbitrary queue names."""
+
+        unknown = INCLUDE
+
+    @validates_schema
+    def validate_structure(self, data, **kwargs):
+        """Validate all values are dicts mapping non-empty strings.
+
+        This accepts arbitrary queue names as keys, and dicts of image name to
+        provision data as values. Each image name must be a non-empty string,
+        and each provision data must be a string.
+        """
+        for queue, image_data in data.items():
+            if not isinstance(queue, str) or not queue:
+                raise ValidationError("Queue names must be non-empty strings")
+            if not isinstance(image_data, dict):
+                raise ValidationError(
+                    f"Images for queue '{queue}' must be a dict"
+                )
+            for image_name, provision_data in image_data.items():
+                if not isinstance(image_name, str) or not image_name:
+                    raise ValidationError(
+                        f"Names for queue '{queue}' must be non-empty strings"
+                    )
+                if not isinstance(provision_data, str):
+                    raise ValidationError(
+                        f"Provision data for image '{image_name}' in queue"
+                        f" '{queue}' must be a string"
+                    )

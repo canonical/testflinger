@@ -631,7 +631,8 @@ def images_get(queue):
 @v1.post("/agents/images")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
-def images_post():
+@v1.input(schemas.ImagesIn, location="json")
+def images_post(json_data: dict):
     """Tell testflinger about known images for a specified queue
     images will be stored in a dict of key/value pairs as part of the queues
     collection. That dict will contain image_name:provision_data mappings, ex:
@@ -645,9 +646,8 @@ def images_post():
         }
     }.
     """
-    image_dict = request.get_json()
     # We need to delete and recreate the images in case some were removed
-    for queue, image_data in image_dict.items():
+    for queue, image_data in json_data.items():
         database.mongo.db.queues.update_one(
             {"name": queue},
             {"$set": {"images": image_data}},

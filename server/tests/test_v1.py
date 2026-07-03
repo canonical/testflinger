@@ -891,6 +891,27 @@ def test_images_post(mongo_app, agent_auth_header):
     assert json.loads(output.data.decode()) == image_data.get("myqueue")
 
 
+@pytest.mark.parametrize(
+    "image_data",
+    [
+        "INVALID_DATA_SHOULD_BE_JSON",
+        {"myqueue": "not-a-dict"},
+        {"myqueue": 123},
+        {"myqueue": {"image1": None}},
+        {"myqueue": {"image1": {"$ne": None}}},
+    ],
+)
+def test_images_post_invalid_data(mongo_app, agent_auth_header, image_data):
+    """Test posting advertised images with invalid data."""
+    app, _ = mongo_app
+    output = app.post(
+        "/v1/agents/images", json=image_data, headers=agent_auth_header
+    )
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
 def test_get_invalid(mongo_app):
     """Get a nonexistent URL and confirm we get 404."""
     app, _ = mongo_app
