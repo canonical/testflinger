@@ -596,15 +596,15 @@ def queues_get():
 @v1.post("/agents/queues")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
-def queues_post():
+@v1.input(schemas.QueuesIn, location="json")
+def queues_post(json_data: dict):
     """Tell testflinger the queue names that are being serviced.
 
     Some agents may want to advertise some of the queues they listen on so that
     the user can check which queues are valid to use.
     """
-    queue_dict = request.get_json()
     timestamp = datetime.now(timezone.utc)
-    for queue, description in queue_dict.items():
+    for queue, description in json_data.items():
         database.mongo.db.queues.update_one(
             {"name": queue},
             {"$set": {"description": description, "updated_at": timestamp}},

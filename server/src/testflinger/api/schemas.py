@@ -17,7 +17,7 @@
 
 from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
-from marshmallow import ValidationError, validates_schema
+from marshmallow import INCLUDE, ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
 from testflinger_common.duration import DurationParseError, parse_duration
 from testflinger_common.enums import ServerRoles, TestPhase
@@ -675,3 +675,23 @@ class RefreshTokenIn(Schema):
     """Refresh token input schema."""
 
     refresh_token = fields.String(required=True, validate=Length(min=1))
+
+
+class QueuesIn(Schema):
+    """Queues input schema - maps queue names to descriptions."""
+
+    class Meta:
+        """Allow unknown fields to support arbitrary queue names."""
+
+        unknown = INCLUDE
+
+    @validates_schema
+    def validate_string_values(self, data, **kwargs):
+        """Validate all keys and values are non-empty strings."""
+        for key, value in data.items():
+            if not isinstance(key, str) or not key:
+                raise ValidationError("Queue names must be non-empty strings")
+            if not isinstance(value, str):
+                raise ValidationError(
+                    f"Description for queue '{key}' must be a string"
+                )
