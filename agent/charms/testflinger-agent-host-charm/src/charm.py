@@ -94,8 +94,6 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
     def update_testflinger_repo(self, branch: str | None = None):
         """Update the testflinger repo."""
-        self.unit.status = ops.MaintenanceStatus("Creating virtualenv")
-        testflinger_source.create_virtualenv()
         self.unit.status = ops.MaintenanceStatus("Cloning testflinger repo")
         if branch is not None:
             testflinger_source.clone_repo(
@@ -103,6 +101,8 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             )
         else:
             testflinger_source.clone_repo(LOCAL_TESTFLINGER_PATH)
+        self.unit.status = ops.MaintenanceStatus("Creating virtualenv")
+        testflinger_source.create_virtualenv(LOCAL_TESTFLINGER_PATH)
 
     def write_supervisor_service_files(self):
         """
