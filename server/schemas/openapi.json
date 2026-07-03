@@ -192,6 +192,11 @@
         },
         "type": "object"
       },
+      "ImagesIn": {
+        "additionalProperties": true,
+        "properties": {},
+        "type": "object"
+      },
       "Job": {
         "additionalProperties": false,
         "properties": {
@@ -405,6 +410,11 @@
           "exit_code",
           "job_id"
         ],
+        "type": "object"
+      },
+      "QueuesIn": {
+        "additionalProperties": true,
+        "properties": {},
         "type": "object"
       },
       "RefreshTokenIn": {
@@ -897,6 +907,15 @@
       "post": {
         "description": "images will be stored in a dict of key/value pairs as part of the queues\ncollection. That dict will contain image_name:provision_data mappings, ex:\n{\n\"some_queue\": {\n\"core22\": \"http://cdimage.ubuntu.com/.../core-22.tar.gz\",\n\"jammy\": \"http://cdimage.ubuntu.com/.../ubuntu-22.04.tar.gz\"\n},\n\"other_queue\": {\n...\n}\n}.",
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImagesIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -905,6 +924,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Tell testflinger about known images for a specified queue",
@@ -1048,6 +1077,15 @@
       "post": {
         "description": "Some agents may want to advertise some of the queues they listen on so that\nthe user can check which queues are valid to use.",
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueuesIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -1056,6 +1094,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Tell testflinger the queue names that are being serviced.",
