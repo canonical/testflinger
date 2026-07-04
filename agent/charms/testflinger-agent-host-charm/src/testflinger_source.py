@@ -61,11 +61,14 @@ def create_virtualenv(local_path: str):
     """
     venv_path = Path(VIRTUAL_ENV_PATH)
 
-    # Create a temporary directory where to install the packages
-    tmp_dir = tempfile.mkdtemp(dir=venv_path.parent, prefix="tmp_venv_")
+    # Create a temporary directory in the same parent folder
+    # This ensures that the rename operation is atomic
+    tmp_dir = Path(tempfile.mkdtemp(dir=venv_path.parent, prefix="tmp_venv_"))
+    old_venv_backup = venv_path.with_name(f"{venv_path.name}.old")
+
     try:
         # Initialize the temporary virtualenv
-        run_with_logged_errors([UV_BIN_PATH, "venv", tmp_dir])
+        run_with_logged_errors([UV_BIN_PATH, "venv", str(tmp_dir)])
 
         # Install the testflinger packages into the temporary virtualenv
         for tf_package in TESTFLINGER_PACKAGES:
@@ -82,35 +85,36 @@ def create_virtualenv(local_path: str):
                 ]
             )
 
-        # Given we can't directly replace a non-empty directory,
-        # we need to do a swap instead. This will move the old virtualenv
-        # to a backup location, and then move the new one into place.
-        old_venv_backup = f"{VIRTUAL_ENV_PATH}.old"
+        # Remove any leftover backup from the previous upgrade.
+        shutil.rmtree(old_venv_backup, ignore_errors=True)
+
+        # Track states for safe cleanup
         moved_old = False
+        swap_successful = False
         try:
             if venv_path.exists():
                 venv_path.rename(old_venv_backup)
                 moved_old = True
-            Path(tmp_dir).rename(venv_path)
+
+            tmp_dir.rename(venv_path)
+            swap_successful = True
+
         except OSError as exc:
             logger.error("Failed to replace virtualenv: %s", exc)
-            # Restore the old virtualenv if it was moved
             if moved_old:
                 try:
-                    Path(old_venv_backup).rename(venv_path)
+                    old_venv_backup.rename(venv_path)
                 except OSError as restore_exc:
                     logger.error(
                         "Failed to restore old virtualenv: %s", restore_exc
                     )
                     logger.error(
-                        "Virtualenv is now missing. Old virtualenv may be "
-                        "recovered from: %s",
+                        "Old virtualenv may be recovered from: %s",
                         old_venv_backup,
                     )
-        else:
-            # Only remove the backup if the new virtualenv
-            # was successfully moved into place
-            shutil.rmtree(old_venv_backup, ignore_errors=True)
+
     finally:
-        # Clean up the temporary directory if it still exists
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+        # Only clean up tmp_dir if the swap failed.
+        # If swap was successful, tmp_dir no longer exists at its old path.
+        if not swap_successful:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
