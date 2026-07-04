@@ -48,7 +48,7 @@ def test_create_new_virtualenv(
     mock_rename,
     mock_rmtree,
 ):
-    """Test that create_virtualenv builds a temp venv and puts it into place."""
+    """Test building a new virtualenv and installing Testflinger packages."""
     testflinger_source.create_virtualenv(LOCAL_TESTFLINGER_PATH)
 
     # Packages must be installed into the temporary virtualenv
@@ -80,16 +80,18 @@ def test_create_virtualenv_replaces_existing(
     mock_rename,
     mock_rmtree,
 ):
-    """Test create_virtualenv moves the old venv aside before swapping in the new one."""
+    """Test create_virtualenv moves the old venv before swapping to new one."""
     testflinger_source.create_virtualenv(LOCAL_TESTFLINGER_PATH)
 
-    old_venv_backup = f"{VIRTUAL_ENV_PATH}.old"
+    old_venv_backup = Path(VIRTUAL_ENV_PATH).with_name(
+        f"{Path(VIRTUAL_ENV_PATH).name}.old"
+    )
     # Must first rename the live venv to a backup, then rename temp into place
     assert mock_rename.call_args_list == [
         call(old_venv_backup),
         call(Path(VIRTUAL_ENV_PATH)),
     ]
-    # Backup must be cleaned up after a successful swap
+    # Backup from the previous run is cleaned up here
     mock_rmtree.assert_any_call(old_venv_backup, ignore_errors=True)
 
 
@@ -106,10 +108,12 @@ def test_create_virtualenv_restores_backup_on_failure(
     mock_rmtree,
 ):
     """Test that the old venv is restored when the swap rename fails."""
-    old_venv_backup = f"{VIRTUAL_ENV_PATH}.old"
-    # 1: backup rename succeeded
-    # 2: swap rename failed
-    # 3: restore rename succeeded
+    old_venv_backup = Path(VIRTUAL_ENV_PATH).with_name(
+        f"{Path(VIRTUAL_ENV_PATH).name}.old"
+    )
+    # rename 1: backup rename succeeded
+    # rename 2: swap rename failed
+    # rename 3: restore rename succeeded
     mock_rename.side_effect = [None, OSError("rename failed"), None]
 
     testflinger_source.create_virtualenv(LOCAL_TESTFLINGER_PATH)
@@ -119,9 +123,12 @@ def test_create_virtualenv_restores_backup_on_failure(
         call(Path(VIRTUAL_ENV_PATH)),
         call(Path(VIRTUAL_ENV_PATH)),
     ]
-    # No backup cleanup needed
-    # The restore renamed it back to the production path
-    mock_rmtree.assert_called_once_with(_FAKE_TMP_DIR, ignore_errors=True)
+
+    # rmtree 1: cleanup of any leftover backup
+    # rmtree 2: cleanup of the temporary venv directory
+    assert mock_rmtree.call_count == 2
+    mock_rmtree.assert_any_call(old_venv_backup, ignore_errors=True)
+    mock_rmtree.assert_any_call(Path(_FAKE_TMP_DIR), ignore_errors=True)
 
 
 @patch("testflinger_source.shutil.rmtree")
@@ -137,8 +144,10 @@ def test_create_virtualenv_on_rename_failures(
     mock_rmtree,
     caplog,
 ):
-    """Test that the backup path is logged when both the swap and restore fail."""
-    old_venv_backup = f"{VIRTUAL_ENV_PATH}.old"
+    """Test that the backup path is logged when both swap and restore fail."""
+    old_venv_backup = Path(VIRTUAL_ENV_PATH).with_name(
+        f"{Path(VIRTUAL_ENV_PATH).name}.old"
+    )
     # 1: backup rename succeeded
     # 2: swap rename failed
     # 3: restore rename failed
@@ -151,4 +160,4 @@ def test_create_virtualenv_on_rename_failures(
     testflinger_source.create_virtualenv(LOCAL_TESTFLINGER_PATH)
 
     # The path to the old venv backup must be logged when both renames fail
-    assert old_venv_backup in caplog.text
+    assert str(old_venv_backup) in caplog.text
