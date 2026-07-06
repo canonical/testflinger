@@ -69,10 +69,10 @@ check: lint format test
 [doc('Run integration tests.')]
 [group('test')]
 [positional-arguments]
-integration *args: charm
+integration *args: pack
     @uvx tox run -e integration -- "$@"
 
 [doc('Build the charm package')]
 [group('package')]
-charm:
+pack:
     @charmcraft pack
