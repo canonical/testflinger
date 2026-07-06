@@ -401,7 +401,7 @@ class Job(Schema):
     job_status_webhook = fields.String(required=False)
     job_priority = fields.Integer(required=False)
     exclude_agents = fields.List(
-        fields.String(), required=False, load_default=list
+        fields.String(), required=False, load_default=list, dump_default=list
     )
     debug = fields.Boolean(required=False)
 
@@ -461,6 +461,7 @@ class ResultGet(Schema):
     cleanup_status = fields.Integer(required=False)
     cleanup_output = fields.String(required=False)
     cleanup_serial = fields.String(required=False)
+
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
 
@@ -615,6 +616,7 @@ class ClientPermissionsIn(Schema):
     role = fields.String(
         required=False, validate=OneOf([role.value for role in ServerRoles])
     )
+    email = fields.Email(required=False)
 
 
 class ClientPermissionsOut(Schema):
@@ -631,7 +633,10 @@ class ClientPermissionsOut(Schema):
         fields.String(), required=True, allow_none=True
     )
     max_reservation_time = fields.Dict(required=True, allow_none=True)
-    role = fields.String(required=True)
+    role = fields.String(
+        required=True, dump_default=ServerRoles.CONTRIBUTOR.value
+    )
+    email = fields.Email(required=False, allow_none=True)
 
 
 class SecretIn(Schema):
@@ -641,7 +646,9 @@ class SecretIn(Schema):
     expire_after = fields.Integer(
         required=False, allow_none=True, validate=validators.Range(min=1)
     )
-    ephemeral = fields.Boolean(required=False, default=False)
+    ephemeral = fields.Boolean(
+        required=False, load_default=False, dump_default=False
+    )
 
     @validates_schema
     def validate_expiration_or_ephemeral(self, data, **_):
@@ -662,71 +669,3 @@ class SecretOut(Schema):
             "description": "UTC datetime for secret expiration if TTL is set."
         },
     )
-
-
-class ResultLegacy(Schema):
-    """Legacy Result Post schema for backwards compatibility."""
-
-    # TODO: Remove this schema after deprecating legacy endpoints
-    setup_status = fields.Integer(required=False)
-    setup_output = fields.String(required=False)
-    setup_serial = fields.String(required=False)
-    provision_status = fields.Integer(required=False)
-    provision_output = fields.String(required=False)
-    provision_serial = fields.String(required=False)
-    firmware_update_status = fields.Integer(required=False)
-    firmware_update_output = fields.String(required=False)
-    firmware_update_serial = fields.String(required=False)
-    test_status = fields.Integer(required=False)
-    test_output = fields.String(required=False)
-    test_serial = fields.String(required=False)
-    allocate_status = fields.Integer(required=False)
-    allocate_output = fields.String(required=False)
-    allocate_serial = fields.String(required=False)
-    reserve_status = fields.Integer(required=False)
-    reserve_output = fields.String(required=False)
-    reserve_serial = fields.String(required=False)
-    cleanup_status = fields.Integer(required=False)
-    cleanup_output = fields.String(required=False)
-    cleanup_serial = fields.String(required=False)
-    device_info = fields.Dict(required=False)
-    job_state = fields.String(required=False)
-
-
-class ResultSchema(OneOfSchema):
-    """Polymorphic schema for posting results in new and legacy formats."""
-
-    type_schemas = {
-        "new": ResultPost,
-        "legacy": ResultLegacy,
-    }
-
-    def get_obj_type(self, obj):
-        """Get object type depending on which schema is correctly parsed."""
-        return self.get_data_type(obj)
-
-    def get_data_type(self, data):
-        """Get schema type depending on which schema is correctly parsed."""
-        # Try legacy first
-        try:
-            ResultLegacy().load(data)
-            return "legacy"
-        except ValidationError:
-            # If legacy fails, try new format
-            try:
-                ResultPost().load(data)
-                return "new"
-            except ValidationError as err:
-                # Re-raise the last validation error with more context
-                raise ValidationError(
-                    "Invalid result data schema. "
-                    f"Data does not match either legacy or new format: {err}"
-                ) from err
-
-    def _dump(self, obj, **kwargs):
-        result = super()._dump(obj, **kwargs)
-        # Parent dump injects the type field:
-        #   result[self.type_field] = self.get_obj_type(obj)
-        # So we need to remove it
-        result.pop(self.type_field)
-        return result

@@ -332,7 +332,7 @@ Example:
 ```shell
 curl http://localhost:8000/v1/agents/images \
   -X POST --header "Content-Type: application/json" \
-  --data '{ "myqueue": { "image1": "url: http://place/imgae1" }}'
+  --data '{ "myqueue": { "image1": "url: http://place/image1" }}'
 ```
 
 ## `[GET] /v1/agents/images/<queue>`
@@ -785,32 +785,6 @@ Example:
 ```shell
 curl http://localhost:8000/v1/client-permissions/foo \
   -X GET --header "Authorization: Bearer <JWT Token>"
-```
-
-## `[POST] /v1/client-permissions`
-
-Create new client_id with specified permissions.
-
-Headers:
-
-- Bearer Token: JWT Token with permissions (Base64 Encoded)
-
-Status Codes:
-
-- `HTTP 200 (OK)`
-- `HTTP 400 (Bad Request)`: Missing client_id and/or client_secret in JSON data
-- `HTTP 401 (Unauthorized)`: Invalid client_id or client-key
-- `HTTP 403 (Forbidden)`: Incorrect permissions for authenticated user
-- `HTTP 409 (Conflict)`: Specified client_id already exists
-
-Example:
-
-```shell
-curl http://localhost:8000/v1/client-permissions \
-  -X POST --header "Authorization: Bearer <JWT Token>"
-  --header "Content-Type: application/json" \
-  --header "Accept: application/json" \
-  --data '{"client_id": "foo", "client_secret": "my-secret-password", "max_priority": {}, "max_reservation_time": {"*": 40000}, "role": "contributor"}'
 ```
 
 ## `[PUT] /v1/client-permissions/<client_id>`
