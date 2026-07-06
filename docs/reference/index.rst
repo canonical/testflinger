@@ -58,6 +58,3 @@ REST API documentation for the Testflinger server, including authentication, job
 
     openapi
     api-roles
-
-`API endpoint roles <api-roles>`_
-    A table of every server endpoint and the roles (AGENT, CONTRIBUTOR, MANAGER, ADMIN) permitted to call it.

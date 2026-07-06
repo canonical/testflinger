@@ -27,7 +27,7 @@ that are permitted to call it.  The four roles are:
     management, restricted-queue ownership management, and agent management
     (reading and writing agent data, images, and queues).  It does **not**
     include the runtime agent operations reserved for the ``AGENT`` role
-    (job dequeuing, posting provision logs, posting status events, fetching
+    (job consuming, posting provision logs, posting status events, fetching
     job attachments, and posting results, artifacts, and log fragments).
 
 ``ADMIN``
