@@ -66,7 +66,7 @@ class TestClient:
                 "logging_basedir": self.tmpdir,
                 "results_basedir": os.path.join(self.tmpdir, "results"),
                 "control_host": {"type": "bmc", "address": "127.0.0.1"},
-                "links": {"product": "fake.url_product.link"}
+                "links": {"product": "fake.url_product.link"},
             }
         )
         testflinger_agent.configure_logging(self.config)
@@ -518,7 +518,7 @@ class TestClient:
                     "location": self.config["location"],
                     "provision_type": self.config["provision_type"],
                     "links": self.config["links"],
-                    "control_host": self.config["control_host"]
+                    "control_host": self.config["control_host"],
                 }
             )
 
