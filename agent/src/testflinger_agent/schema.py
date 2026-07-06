@@ -45,6 +45,8 @@ SCHEMA_V1 = {
     voluptuous.Optional("output_timeout"): int,
     voluptuous.Optional("advertised_queues"): dict,
     voluptuous.Optional("advertised_images"): dict,
+    voluptuous.Optional("links"): dict,
+    voluptuous.Optional("control_host"): dict,
     # only the last `output_bytes` of the log will be included
     # in the results submitted to the server (default: 10MB)
     voluptuous.Optional("output_bytes", default=10 * 1024 * 1024): int,

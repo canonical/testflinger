@@ -54,6 +54,10 @@ The following configuration options are supported by the Testflinger Agent:
       - Command to run for the cleanup phase
     * - ``provision_type``
       - (Optional) type of device connector used. This is sometimes useful when templating the call to the external device-agent command, but is not required. For the list of supported provision types, see :doc:`device-connector-types`.
+    * - ``links``
+      - (Optional) Links to more information about the hardware in `label: info` format. Example: (`product: <Link to manufacturer hardware page>`)
+    * - ``control_host``
+      - (Optional) Management information for the hardware in `type: value` format. Example: (`bcm: <BCM address>`)
 
 Example configuration
 ^^^^^^^^^^^^^^^^^^^^^^
