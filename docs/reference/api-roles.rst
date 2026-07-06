@@ -47,7 +47,7 @@ that are permitted to call it.  The four roles are:
    * - ``GET``
      - ``/metrics``
      - Prometheus metrics endpoint.  Always accessible without
-       authentication.
+       authentication on metrics port, default 9090.
    * - ``POST``
      - ``/oidc/auth-init``
      - Initiates the OIDC device-flow authentication with the provider.
@@ -68,6 +68,8 @@ that are permitted to call it.  The four roles are:
        Bearer token is required; the refresh token itself is the
        credential.
 
+.. rst-class:: api-roles-table
+
 .. list-table:: Endpoint permissions by role
    :header-rows: 1
    :widths: 8 36 10 13 10 8
@@ -80,223 +82,223 @@ that are permitted to call it.  The four roles are:
      - ADMIN
    * - ``POST``
      - ``/v1/agents/provision_logs/{agent_name}``
-     - :x:`x`
-     -
-     -
-     -
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
    * - ``GET``
      - ``/v1/job``
-     - :x:`x`
-     -
-     -
-     -
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
    * - ``GET``
      - ``/v1/job/{job_id}/attachments``
-     - :x:`x`
-     -
-     -
-     -
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
    * - ``POST``
      - ``/v1/job/{job_id}/events``
-     - :x:`x`
-     -
-     -
-     -
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
    * - ``POST``
      - ``/v1/result/{job_id}``
-     - :x:`x`
-     -
-     -
-     -
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
    * - ``POST``
      - ``/v1/result/{job_id}/artifact``
-     - :x:`x`
-     -
-     -
-     -
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
    * - ``POST``
      - ``/v1/result/{job_id}/log/{log_type}``
-     - :x:`x`
-     -
-     -
-     -
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
    * - ``POST``
      - ``/v1/agents/data/{agent_name}``
-     - :x:`x`
-     -
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``POST``
      - ``/v1/agents/images``
-     - :x:`x`
-     -
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``POST``
      - ``/v1/agents/queues``
-     - :x:`x`
-     -
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/agents/data/{agent_name}``
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/result/{job_id}``
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/agents/data``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/agents/images/{queue}``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/agents/queues``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/queues/{queue_name}/agents``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/queues/{queue_name}/jobs``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/queues/wait_times``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``POST``
      - ``/v1/job``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/job/{job_id}``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``POST``
      - ``/v1/job/{job_id}/action``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``POST``
      - ``/v1/job/{job_id}/attachments``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/job/{job_id}/position``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/job/search``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/result/{job_id}/artifact``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/result/{job_id}/log/{log_type}``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``DELETE``
      - ``/v1/secrets/{client_id}/{path}``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``PUT``
      - ``/v1/secrets/{client_id}/{path}``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/restricted-queues``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/restricted-queues/{queue_name}``
-     -
-     - :x:`x`
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/client-permissions/{client_id}``
-     -
-     -
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/client-permissions``
-     -
-     -
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``PUT``
      - ``/v1/client-permissions/{client_id}``
-     -
-     -
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``DELETE``
      - ``/v1/restricted-queues/{queue_name}``
-     -
-     -
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``POST``
      - ``/v1/restricted-queues/{queue_name}``
-     -
-     -
-     - :x:`x`
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``DELETE``
      - ``/v1/client-permissions/{client_id}``
-     -
-     -
-     -
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``POST``
      - ``/v1/oauth2/revoke``
-     -
-     -
-     -
-     - :x:`x`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
