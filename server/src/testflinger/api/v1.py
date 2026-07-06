@@ -60,6 +60,24 @@ reservations_metric = Counter(
 v1 = APIBlueprint("v1", __name__)
 
 
+@v1.after_request
+def log_refresh_validation_error(response):
+    """Log OWASP authn failures for schema validation errors on auth routes."""
+    if (
+        response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        and request.path.endswith("/oauth2/refresh")
+    ):
+        current_app.owasp_logger.authn_login_fail(
+            userid="unknown",
+            description=(
+                "Refresh token request rejected by schema validation: "
+                f"{response.get_json()}"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
+    return response
+
+
 @v1.get("/")
 def home():
     """Identify ourselves."""

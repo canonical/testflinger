@@ -558,6 +558,21 @@ class TestLoggingCompleteness:
         assert "authn_login_fail" in caplog.text
         assert "incomplete credentials" in caplog.text
 
+    def test_authn_login_fail_missing_refresh_token(
+        self, mongo_app_with_permissions, caplog
+    ):
+        """Verify authn_login_fail is logged when refresh token is absent
+        from the /oauth2/refresh request body.
+        """
+        app, _, _, _, _ = mongo_app_with_permissions
+
+        with caplog.at_level(logging.WARNING):
+            response = app.post("/v1/oauth2/refresh", json={})
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "authn_login_fail:unknown" in caplog.text
+        assert "Refresh token request rejected" in caplog.text
+
     def test_authz_admin_modify_system_admin(
         self, mongo_app_with_permissions, caplog
     ):
