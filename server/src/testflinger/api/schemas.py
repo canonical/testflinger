@@ -687,7 +687,7 @@ class QueuesIn(Schema):
 
     @validates_schema
     def validate_string_values(self, data, **kwargs):
-        """Validate all keys and values are non-empty strings.
+        """Validate keys are non-empty strings and values are strings.
 
         This accepts arbitrary queue names as keys, and descriptions as values.
         """
@@ -724,9 +724,16 @@ class ImagesIn(Schema):
                     f"Images for queue '{queue}' must be a dict"
                 )
             for image_name, provision_data in image_data.items():
-                if not isinstance(image_name, str) or not image_name:
+                if (
+                    not isinstance(image_name, str)
+                    or not image_name
+                    or image_name.startswith("$")
+                    or "." in image_name
+                    or "\x00" in image_name
+                ):
                     raise ValidationError(
-                        f"Names for queue '{queue}' must be non-empty strings"
+                        f"Names for queue '{queue}' must be non-empty strings,"
+                        " must not start with '$', contain '.' or null bytes"
                     )
                 if not isinstance(provision_data, str):
                     raise ValidationError(

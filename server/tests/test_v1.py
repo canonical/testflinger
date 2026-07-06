@@ -860,7 +860,7 @@ def test_queues_post(mongo_app, agent_auth_header):
 @pytest.mark.parametrize(
     "queue_data",
     [
-        "INVALID_DATA_SHOULD_BE_JSON",
+        "INVALID_TYPE_SHOULD_BE_OBJECT",
         {"qfoo": 123},
         {"qfoo": None},
         {"myqueue": {"$ne": None}},
@@ -894,7 +894,7 @@ def test_images_post(mongo_app, agent_auth_header):
 @pytest.mark.parametrize(
     "image_data",
     [
-        "INVALID_DATA_SHOULD_BE_JSON",
+        "INVALID_TYPE_SHOULD_BE_OBJECT",
         {"myqueue": "not-a-dict"},
         {"myqueue": 123},
         {"myqueue": {"image1": None}},
