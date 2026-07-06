@@ -68,11 +68,10 @@ test:
 check: lint format test check-schema
     @echo 'Server checks done!'
 
-[arg('detach', long='detach', short='d', value='true', help='Run Testflinger in the background')]
 [doc('Run the server.')]
 [group('deploy')]
-serve detach='false':
-    @docker compose up --build {{ if detach == 'true' { '--detach' } else { '' } }} testflinger
+serve:
+    @docker compose up --build --detach testflinger
 
 [doc('Tear down local deployment.')]
 [group('deploy')]
