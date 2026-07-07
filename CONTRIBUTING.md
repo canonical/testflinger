@@ -67,6 +67,29 @@ source .venv/bin/activate
 
 To learn more about `uv`, refer to the [`uv` documentation][uv].
 
+### Workshop Environment
+
+Along with the other tools, you can use Canoncial `workshop` to develop and
+validate testflinger services in a container environment. Consider the following
+
+#### Testflinger dev workshop actions:
+```
+      workshop run dev serve
+      workshop run dev restart
+      workshop run dev teardown
+      workshop run dev logs
+          Follow testflinger-server logs, reconnecting on restart. Ctrl-C to exit.
+
+      workshop run dev populate -s http://localhost:5000 -a 10 -j 10 -q 10 -d 1
+      workshop run dev populate-quick
+
+      workshop run dev docker-prune
+          Aggressively remove unused Docker data in the workshop.
+          
+      Note: Ensure that `dex` and `testflinger-server` point to localhost in your
+            /etc/hosts file, e.g. use `just server::set-up-hosts-file` on the host.
+```
+
 ### Managing Dependencies
 
 #### Add a Dependency

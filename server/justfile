@@ -73,10 +73,19 @@ check: lint format test check-schema
 serve:
     @docker compose up --build --detach testflinger
 
+[doc('Tear down and restart the local deployment.')]
+[group('deploy')]
+restart: teardown serve
+
 [doc('Tear down local deployment.')]
 [group('deploy')]
 teardown:
     @docker compose down
+
+[doc('Follow the testflinger server logs.')]
+[group('deploy')]
+logs:
+    @docker compose logs --follow testflinger
 
 [doc('Run the client credentials tool.')]
 [group('deploy')]
@@ -91,7 +100,7 @@ populate *args:
 
 [doc('Create a large pre-canned sample data set on the local server.')]
 [group('deploy')]
-populate-quick
+populate-quick:
     @uv run devel/create_sample_data.py \
         -s http://localhost:5000 \
         -a 3000 \
