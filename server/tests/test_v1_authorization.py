@@ -23,6 +23,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
+import bcrypt
 import jwt
 from testflinger_common.enums import ServerRoles
 
@@ -1386,3 +1387,119 @@ def test_refresh_token_last_accessed_update(mongo_app_with_permissions):
     last_accessed_after = token_entry_after["last_accessed"]
 
     assert last_accessed_after > last_accessed_before
+
+
+def test_add_client_permissions_with_email(mongo_app_with_permissions):
+    """Test that an email can be added to a regular (non-OIDC) client."""
+    app, mongo, admin_client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, admin_client_id, client_key)
+
+    client_id = "test-client"
+    client_permissions = {
+        "client_secret": "my-secret-password",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.CONTRIBUTOR,
+        "email": "owner@example.com",
+    }
+
+    output = app.put(
+        f"/v1/client-permissions/{client_id}",
+        json=client_permissions,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Verify email could be retrieved from the database
+    client_entry = mongo.client_permissions.find_one({"client_id": client_id})
+    assert client_entry["email"] == "owner@example.com"
+
+    # Verify email is returned by the GET endpoint
+    get_output = app.get(
+        f"/v1/client-permissions/{client_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert get_output.status_code == HTTPStatus.OK
+    assert get_output.json["email"] == "owner@example.com"
+
+
+def test_set_invalid_email_format_rejected(mongo_app_with_permissions):
+    """Test that setting an invalid email on a regular client is rejected."""
+    app, mongo, admin_client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, admin_client_id, client_key)
+
+    client_id = "test-client"
+    client_permissions = {
+        "client_secret": "my-secret-password",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.CONTRIBUTOR,
+        "email": "not-an-email",
+    }
+
+    output = app.put(
+        f"/v1/client-permissions/{client_id}",
+        json=client_permissions,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    # Schema validation should reject and return 422 Unprocessable Entity
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "Validation error" in output.json["message"]
+
+
+def test_set_email_on_oidc_client_rejected(mongo_app_with_permissions):
+    """Test that adding an email to an OIDC client is rejected."""
+    app, mongo, admin_client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, admin_client_id, client_key)
+
+    oidc_client_id = "test@example.com"
+    mongo.client_permissions.insert_one(
+        {
+            "client_id": oidc_client_id,
+            "sub": "oidc-subject-identifier",
+            "role": ServerRoles.CONTRIBUTOR,
+            "max_priority": {},
+            "allowed_queues": [],
+            "max_reservation_time": {},
+        }
+    )
+
+    output = app.put(
+        f"/v1/client-permissions/{oidc_client_id}",
+        json={"email": "new@example.com"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert output.status_code == HTTPStatus.BAD_REQUEST
+    assert "Cannot add email to OIDC client id" in output.json["message"]
+
+
+def test_email_included_in_jwt_permissions(mongo_app_with_permissions):
+    """Test that a client's email is encoded into the issued JWT."""
+    app, mongo, _, _, _ = mongo_app_with_permissions
+
+    client_id = "test_client_email_jwt"
+    client_key = "test_key"
+    client_key_hash = bcrypt.hashpw(
+        client_key.encode("utf-8"), bcrypt.gensalt()
+    ).decode("utf-8")
+    mongo.client_permissions.insert_one(
+        {
+            "client_id": client_id,
+            "client_secret_hash": client_key_hash,
+            "role": ServerRoles.CONTRIBUTOR,
+            "max_priority": {},
+            "allowed_queues": [],
+            "max_reservation_time": {},
+            "email": "test@example.com",
+        }
+    )
+
+    token = get_access_token(app, client_id, client_key)
+    decoded = jwt.decode(
+        token,
+        os.environ.get("JWT_SIGNING_KEY"),
+        algorithms="HS256",
+        options={"require": ["exp", "iat", "sub", "permissions"]},
+    )
+    assert decoded["permissions"]["email"] == "test@example.com"
