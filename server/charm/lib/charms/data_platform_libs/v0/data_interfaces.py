@@ -433,6 +433,11 @@ from typing import (
     overload,
 )
 
+try:
+    from cryptography.fernet import Fernet, InvalidToken
+except ImportError:
+    Fernet = None
+    InvalidToken = None
 from ops import JujuVersion, Model, Secret, SecretInfo, SecretNotFoundError
 from ops.charm import (
     CharmBase,
@@ -453,7 +458,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 58
+LIBPATCH = 59
 
 PYDEPS = ["ops>=2.0.0"]
 
@@ -488,6 +493,10 @@ MODEL_ERRORS = {
     "no_label_and_uri": "ERROR either URI or label should be used for getting an owned secret but not both",
     "owner_no_refresh": "ERROR secret owner cannot use --refresh",
 }
+
+CROSS_MODEL_RELATION_CONSUMER_SECRETS = [
+    "mtls-cert",
+]
 
 
 ##############################################################################
@@ -1227,6 +1236,15 @@ class Data(ABC):
         """Load secrets from the databag."""
         raise NotImplementedError
 
+    def _get_encryption_key(self, relation: Relation) -> Optional[str]:
+        """Fetch the encryption key from the encryption secret if available."""
+        if not (encryption_secret := relation.data[relation.app].get("encryption-secret")):
+            return None
+
+        # get the encryption secret created on provider side
+        secret = self._model.get_secret(id=encryption_secret)
+        return secret.get_content().get("encryption-key")
+
     def _fetch_specific_relation_data(
         self, relation: Relation, fields: Optional[List[str]]
     ) -> Dict[str, str]:
@@ -1586,11 +1604,48 @@ class Data(ABC):
             return {}
 
         if fields:
-            return {
+            relation_data = {
                 k: relation.data[component][k] for k in fields if k in relation.data[component]
             }
         else:
-            return dict(relation.data[component])
+            relation_data = dict(relation.data[component])
+
+        try:
+            remote_model_uuid = relation.remote_model.uuid
+        except (FileNotFoundError, ModelError, RuntimeError) as e:
+            # access to remote model added in Juju 3.6.2, fails with 2.9
+            logger.warning("Access to remote model failed: %s", e)
+            remote_model_uuid = ""
+
+        # if not a cross-model relation we can return data as-is
+        if remote_model_uuid == "" or self._model.uuid == remote_model_uuid:
+            return relation_data
+
+        if not (encryption_key := self._get_encryption_key(relation)):
+            return relation_data
+
+        if not Fernet:
+            logger.warning(
+                "Cryptography module not installed. Could not decrypt sensitive field in cross-model relation"
+            )
+            return relation_data
+
+        # still here means sensitive data needs to be decrypted
+        for key, value in relation_data.items():
+            if key in CROSS_MODEL_RELATION_CONSUMER_SECRETS:
+                try:
+                    f = Fernet(encryption_key)
+                    decrypted_value = f.decrypt(value.encode()).decode()
+                    relation_data[key] = decrypted_value
+                except (
+                    AttributeError,
+                    InvalidToken,
+                    TypeError,
+                    ValueError,
+                ):  # pyright: ignore [reportGeneralTypeIssues]
+                    logger.warning("Could not decrypt sensitive field in cross-model relation")
+
+        return relation_data
 
     def _fetch_relation_data_with_secrets(
         self,
@@ -1637,8 +1692,40 @@ class Data(ABC):
         if component not in relation.data or relation.data[component] is None:
             return
 
-        if relation:
-            relation.data[component].update(data)
+        if not relation:
+            return
+
+        # ensure no sensitive information is stored in relation data
+        encryption_key = self._get_encryption_key(relation)
+
+        try:
+            remote_model_uuid = relation.remote_model.uuid
+        except (FileNotFoundError, ModelError, RuntimeError):
+            # access to remote model added in Juju 3.6.2, fails with 2.9
+            remote_model_uuid = ""
+
+        if encryption_key and remote_model_uuid != "" and self._model.uuid != remote_model_uuid:
+            for key, value in data.items():
+                try:
+                    f = Fernet(encryption_key)  # pyright: ignore [reportOptionalCall]
+                    if key in CROSS_MODEL_RELATION_CONSUMER_SECRETS:
+                        encrypted_value = f.encrypt(value.encode()).decode()
+                        data[key] = encrypted_value
+                except (
+                    AttributeError,
+                    InvalidToken,
+                    ValueError,
+                ):  # pyright: ignore [reportGeneralTypeIssues]
+                    logger.warning("Could not encrypt sensitive field in cross-model relation")
+                    data[key] = ""
+                except TypeError:
+                    # "TypeError: 'NoneType' object is not callable" raised when Fernet is `None`
+                    logger.warning(
+                        "Cryptography module not installed. Could not decrypt sensitive field in cross-model relation"
+                    )
+                    data[key] = ""
+
+        relation.data[component].update(data)
 
     def _delete_relation_data_without_secrets(
         self, component: Union[Application, Unit], relation: Relation, fields: List[str]
@@ -1899,7 +1986,7 @@ class ProviderData(Data):
         """Set values for fields not caring whether it's a secret or not."""
         keys = set(data.keys())
         if self.fetch_relation_field(relation.id, self.RESOURCE_FIELD) is None and (
-            keys - {"endpoints", "read-only-endpoints", "replset"}
+            keys - {"endpoints", "read-only-endpoints", "replset", "encryption-secret"}
         ):
             raise PrematureDataAccessError(
                 "Premature access to relation data, update is forbidden before the connection is initialized."
@@ -2112,12 +2199,31 @@ class RequirerData(Data):
             field
             for field in self.SECRET_LABEL_MAP.keys()
             if field not in self._remote_secret_fields
+            and not (
+                field in CROSS_MODEL_RELATION_CONSUMER_SECRETS and self.is_cross_model_relation
+            )
         ]
         if additional_secret_fields:
             self._remote_secret_fields += additional_secret_fields
         self.data_component = self.local_unit
 
     # Internal functions
+    @property
+    def is_cross_model_relation(self) -> bool:
+        """Determines whether the relation is a cross-model relation or not."""
+        if len(self.relations) == 0:
+            return False
+
+        try:
+            remote_model_uuid = self.relations[0].remote_model.uuid
+        except (FileNotFoundError, ModelError, RuntimeError):
+            # access to remote model added in Juju 3.6.2, fails with 2.9
+            return False
+
+        if self._model.uuid != remote_model_uuid:
+            return True
+
+        return False
 
     def _is_resource_created_for_relation(self, relation: Relation) -> bool:
         if not relation.app:
@@ -2389,6 +2495,44 @@ class ProviderEventHandlers(EventHandlers):
                 raise ValueError(f"Cannot change {key} after relation has already been created")
 
     # Event handlers
+    def _on_relation_created_event(self, event: RelationCreatedEvent) -> None:
+        """Event emitted when a relation is created."""
+        if not self.relation_data.local_unit.is_leader():
+            return
+
+        try:
+            remote_model_uuid = event.relation.remote_model.uuid
+        except (FileNotFoundError, ModelError, RuntimeError):
+            # access to remote model added in Juju 3.6.2, fails with 2.9
+            return
+
+        if self.model.uuid == remote_model_uuid:
+            return
+
+        if not Fernet:
+            logger.warning(
+                "Cryptography module not installed. Could not decrypt sensitive field in cross-model relation"
+            )
+            return
+
+        # in cross-model relations, generate an encryption key and share it with the requirer as a secret
+        event_data = {}
+        secret_label = f"{self.model.uuid}-{event.relation.id}-encryption-secret"
+
+        try:
+            # check if secret was already created to avoid duplicates
+            secret = self.charm.model.get_secret(label=secret_label)
+        except SecretNotFoundError:
+            encryption_key = Fernet.generate_key()  # pyright: ignore [reportOptionalMemberAccess]
+            content = {"encryption-key": encryption_key.decode()}
+            secret = self.charm.app.add_secret(content, label=secret_label)
+
+        secret.grant(event.relation)
+        if not secret.id:
+            raise SecretError("Encryption secret is missing secred id")
+        event_data["encryption-secret"] = secret.id
+
+        self.relation_data.update_relation_data(event.relation.id, event_data)
 
     def _on_relation_changed_event(self, event: RelationChangedEvent) -> None:
         """Event emitted when the relation data has changed."""
@@ -4412,6 +4556,33 @@ class KafkaRequirerEventHandlers(RequirerEventHandlers):
         # Check which data has changed to emit customs events.
         diff = self._diff(event)
 
+        # send request again if encryption secret was added from provider side
+        if "encryption-secret" in diff.added and self.relation_data.local_unit.is_leader():
+            relation_data = {
+                "topic": self.relation_data.topic,
+                "encryption-secret": event.relation.data[event.relation.app].get(
+                    "encryption-secret"
+                ),
+            }
+
+            if self.relation_data.mtls_cert:
+                relation_data["mtls-cert"] = self.relation_data.mtls_cert
+
+            if self.relation_data.consumer_group_prefix:
+                relation_data["consumer-group-prefix"] = self.relation_data.consumer_group_prefix
+
+            if self.relation_data.extra_user_roles:
+                relation_data["extra-user-roles"] = self.relation_data.extra_user_roles
+            if self.relation_data.extra_group_roles:
+                relation_data["extra-group-roles"] = self.relation_data.extra_group_roles
+            if self.relation_data.entity_type:
+                relation_data["entity-type"] = self.relation_data.entity_type
+            if self.relation_data.entity_permissions:
+                relation_data["entity-permissions"] = self.relation_data.entity_permissions
+
+            self.relation_data.update_relation_data(event.relation.id, relation_data)
+            return
+
         # Check if the topic is created
         # (the Kafka charm shared the credentials).
 
@@ -5689,6 +5860,24 @@ class EtcdRequirerEventHandlers(RequirerEventHandlers):
 
         # Check which data has changed to emit customs events.
         diff = self._diff(event)
+
+        # send request again if encryption secret was added from provider side
+        if "encryption-secret" in diff.added and self.relation_data.local_unit.is_leader():
+            payload = {
+                "prefix": self.relation_data.prefix,
+                "encryption-secret": event.relation.data[event.relation.app].get(
+                    "encryption-secret"
+                ),
+            }
+            if self.relation_data.mtls_cert:
+                payload["mtls-cert"] = self.relation_data.mtls_cert
+
+            self.relation_data.update_relation_data(
+                event.relation.id,
+                payload,
+            )
+            return
+
         # Register all new secrets with their labels
         if any(newval for newval in diff.added if self.relation_data._is_secret_field(newval)):
             self.relation_data._register_secrets_to_relation(event.relation, diff.added)

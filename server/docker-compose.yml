@@ -33,6 +33,7 @@ services:
       - 5000:5000
     depends_on:
       - mongo
+      - dex
     restart: always
   vault:
     container_name: vault
@@ -53,4 +54,3 @@ services:
     volumes:
       - ./devel/dex-config.yaml:/etc/dex/config.yaml
     command: ["dex", "serve", "/etc/dex/config.yaml"]
-  
