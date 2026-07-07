@@ -55,7 +55,7 @@ The following configuration options are supported by the Testflinger Agent:
     * - ``provision_type``
       - (Optional) type of device connector used. This is sometimes useful when templating the call to the external device-agent command, but is not required. For the list of supported provision types, see :doc:`device-connector-types`.
     * - ``links``
-      - (- (Optional) Mapping of link labels to URLs for more information about the hardware. Example: ``product: https://manufacturer.example/product-page``
+      - (Optional) Mapping of link labels to URLs for more information about the hardware. Example: ``product: https://manufacturer.example/product-page``
 
 Example configuration
 ^^^^^^^^^^^^^^^^^^^^^^
