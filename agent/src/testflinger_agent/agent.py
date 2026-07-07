@@ -132,10 +132,8 @@ class TestflingerAgent:
         }
         if identifier:
             agent_data["identifier"] = identifier
-        if links := self.client.config.get("links", None):
+        if links := self.client.config.get("links"):
             agent_data["links"] = links
-        if control_host := self.client.config.get("control_host", None):
-            agent_data["control_host"] = control_host
 
         self.client.post_agent_data(agent_data)
 

@@ -55,6 +55,23 @@
       {% endfor %}
     </tbody>
   </table>
+<h2 class="p-muted-heading">Links</h2>
+  <table aria-label="Links table" class="p-table--mobile-card">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>URL</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for label, url in agent.links.items() %}
+        <tr class="searchable-row">
+          <td data-heading="Name">{{ label }}</td>
+          <td data-heading="URL"><a href="{{ url }}">{{ url }}</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
   <h2 class="p-muted-heading">Provision History</h2>
   <form action="" method="get" class="p-form--inline">
     <div class="p-form__group">
