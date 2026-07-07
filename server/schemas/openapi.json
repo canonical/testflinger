@@ -28,6 +28,10 @@
           "job_id": {
             "type": "string"
           },
+          "links": {
+            "additionalProperties": {},
+            "type": "object"
+          },
           "location": {
             "type": "string"
           },
@@ -60,6 +64,10 @@
           },
           "job_id": {
             "type": "string"
+          },
+          "links": {
+            "additionalProperties": {},
+            "type": "object"
           },
           "location": {
             "type": "string"
