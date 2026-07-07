@@ -96,6 +96,7 @@ admin:
 [group('deploy')]
 [positional-arguments]
 populate *args:
+    @docker compose exec testflinger python3 devel/create_dev_admin.py
     @uv run devel/create_sample_data.py "$@"
 
 [doc('Create a large pre-canned sample data set on the local server.')]
