@@ -58,6 +58,7 @@ class AgentIn(Schema):
     queues = fields.List(fields.String(), required=False)
     state = fields.String(required=False)
     comment = fields.String(required=False)
+    links = fields.Dict(required=False)
 
 
 class AgentOut(Schema):
@@ -71,6 +72,7 @@ class AgentOut(Schema):
     job_id = fields.String(required=False)
     comment = fields.String(required=False)
     restricted_to = fields.Dict(required=False)
+    links = fields.Dict(required=False)
 
 
 class ActionIn(Schema):

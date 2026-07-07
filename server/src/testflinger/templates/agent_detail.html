@@ -64,7 +64,7 @@
       </tr>
     </thead>
     <tbody>
-      {% for label, url in agent.links.items() %}
+      {% for label, url in agent.get('links', {}).items() %}
         <tr class="searchable-row">
           <td data-heading="Name">{{ label }}</td>
           <td data-heading="URL">
