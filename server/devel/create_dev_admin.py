@@ -23,7 +23,7 @@ container.
 
 The inserted credential matches the defaults used by create_sample_data.py:
     TESTFLINGER_CLIENT_ID : dev-admin
-    TESTFLINGER_SECRET_KEY: dev-secret
+    TESTFLINGER_SECRET_KEY: dev-secret-for-testing
 """
 
 import os
