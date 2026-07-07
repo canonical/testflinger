@@ -55,7 +55,7 @@
       {% endfor %}
     </tbody>
   </table>
-<h2 class="p-muted-heading">Links</h2>
+  <h2 class="p-muted-heading">Links</h2>
   <table aria-label="Links table" class="p-table--mobile-card">
     <thead>
       <tr>
@@ -67,7 +67,9 @@
       {% for label, url in agent.links.items() %}
         <tr class="searchable-row">
           <td data-heading="Name">{{ label }}</td>
-          <td data-heading="URL"><a href="{{ url }}">{{ url }}</a></td>
+          <td data-heading="URL">
+            <a href="{{ url }}">{{ url }}</a>
+          </td>
         </tr>
       {% endfor %}
     </tbody>
