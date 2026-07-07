@@ -1305,10 +1305,11 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
 
     client_secret = json_data.pop("client_secret", None)
     permissions = database.get_client_permissions(client_id) or {}
-    if "email" in json_data and permissions.get("sub"):
-        # Do not allow adding an email to an OIDC client id
+    if ("email" in json_data or client_secret) and permissions.get("sub"):
+        # Do not allow adding an email or client secret to an OIDC client id
         abort(
-            HTTPStatus.BAD_REQUEST, "Error: Cannot add email to OIDC client id"
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            "Error: Cannot add email or client secret to OIDC client id",
         )
     client_exist = bool(permissions)
     # Default role for backward compatibility
