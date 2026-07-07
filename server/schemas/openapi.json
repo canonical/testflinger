@@ -108,6 +108,7 @@
         "additionalProperties": false,
         "properties": {
           "client_secret": {
+            "minLength": 15,
             "type": "string"
           },
           "email": {
