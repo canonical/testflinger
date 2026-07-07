@@ -23,9 +23,26 @@ Additionally, this project uses [just] as a task runner, you can install it with
 
 ```shell
 uv tool install rust-just
+# Alternatively, available as a snap:
+# sudo snap install --classic just
 ```
 
 Then run `just` from anywhere in the repository for usage.
+
+> [!NOTE]
+> The project provides `justfile`s in a modular layout, so running `just` from
+> different directories will show you the relevant recipes for the sub-project.
+> Running `just` from the root of the project will show you a collection of
+> top-level recipes, but you can always run `just <component>::<recipe>` to run
+> sub-project recipes. Refer to the [just documentation] for more information.
+
+Lastly, it is recommended that you set up the provided pre-commit hooks. Since
+the Testflinger project follows a monorepo layout, `prek` is recommended. To
+set up `prek`, use the following `just` recipe:
+
+```shell
+just pre-commit
+```
 
 ### Development Environment
 
@@ -59,13 +76,13 @@ it will automatically add it to both the `pyproject.toml` and `uv.lock` files
 for the specified component.
 
 ```shell
-just add <component> <flags> <package>
+just <component>::add <flags> <package>
 ```
 
 e.g.
 
 ```shell
-just add server 'requests>=2.32.3'
+just server::add 'requests>=2.32.3'
 ```
 
 Alternatively, you can also use `uv` within each component subproject:
@@ -88,10 +105,11 @@ it will automatically remove it from both the `pyproject.toml` and `uv.lock`
 files:
 
 ```shell
-just remove <component> <package>
+just <component>::remove <package>
 ```
 
 Alternatively, you can also use `uv` within each component subproject:
+
 ```shell
 cd <component>
 uv remove <package>
@@ -109,7 +127,7 @@ If there is a discrepancy between a subproject's `pyproject.toml` and lock file,
 you can generate the lock file (`uv.lock`) with:
 
 ```shell
-just lock <component>
+just <component>::lock
 ```
 
 Or alternatively, within each subproject directory:
@@ -128,25 +146,25 @@ All of the linters, format checkers, and unit tests can be run automatically.
 Before pushing anything, it's a good idea to run tests for the specified component:
 
 ```shell
-just check <component>
+just <component>::check
 ```
 
 This will run all available checks for the specified component. You can also run them individually:
 
-- `just lint <component>` (Check code against coding style standards)
-- `just format <component>` (Apply coding style standards to code)
-- `just unit <component>` (Run unit tests)
+- `just <component>::lint` (Check code against coding style standards)
+- `just <component>::format` (Apply coding style standards to code)
+- `just <component>::test` (Run unit tests)
 
 Or run checks for all components at the same time:
 
 ```shell
-just check-all
+just check
 ```
 
 Or run linting for all components at the same time:
 
 ```shell
-just lint-all
+just lint
 ```
 
 If using `uv`, you can run `tox` from the root of the subproject where you made changes.
@@ -176,7 +194,7 @@ same pull request. The CI check will fail if the spec is out of sync.
 To check if the specification is up-to-date, run:
 
 ```shell
-just check-schema
+just server::check-schema
 ```
 
 Alternatively, within the `server/` directory:
@@ -189,7 +207,7 @@ uvx --with tox-uv tox run -e check-schema
 If the check fails, regenerate the spec:
 
 ```shell
-just schema
+just server::schema
 ```
 
 Or alternatively, within the `server/` directory:
@@ -245,6 +263,7 @@ To submit changes to the documentation, please read the [documentation contribut
 
 [uv]: https://docs.astral.sh/uv
 [just]: https://github.com/casey/just
+[just documentation]: https://just.systems/man/en/
 [uv-add]: https://docs.astral.sh/uv/reference/cli/#uv-add
 [uv-remove]: https://docs.astral.sh/uv/reference/cli/#uv-remove
 [uv-lock]: https://docs.astral.sh/uv/reference/cli/#uv-lock
