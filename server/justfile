@@ -1,0 +1,115 @@
+# Server charm sub-recipes.
+mod charm
+
+[doc('Describe usage and list the available recipes.')]
+help:
+    @echo '{{ BOLD }}Testflinger Server{{ NORMAL }}'
+    @echo
+    @echo 'For usage details for a specific recipe, run {{ CYAN }}just --usage RECIPE{{ NORMAL }}'
+    @echo
+    @just --list --unsorted
+
+[doc('Generate OpenAPI schema.')]
+[group('project')]
+schema:
+    @uvx tox run -e schema
+
+[doc('Check OpenAPI schema.')]
+[group('project')]
+[group('test')]
+check-schema:
+    @uvx tox run -e check-schema
+
+[doc('Add a dependency (uv add ...).')]
+[group('venv')]
+[positional-arguments]
+add +args:
+    @uv add "$@"
+
+[doc('Remove a dependency (uv remove ...).')]
+[group('venv')]
+[positional-arguments]
+remove +args:
+    @uv remove "$@"
+
+[doc('Generate lockfile.')]
+[group('venv')]
+lock:
+    @uv lock
+
+[doc('Check lockfile.')]
+[group('venv')]
+check-lock:
+    @uvx tox run -e lock
+
+[doc("Update the project's environment.")]
+[group('venv')]
+venv:
+    @uv sync
+    @echo 'Activate the Python environment: {{ CYAN }}source .venv/bin/activate{{ NORMAL }}'
+
+[doc('Format all files.')]
+[group('lint')]
+format:
+    @uvx tox run -e format
+
+[doc('Lint all files.')]
+[group('lint')]
+lint:
+    @uvx tox run -e lint
+
+[doc('Run unit tests.')]
+[group('test')]
+test:
+    @uvx tox run -e unit
+
+[doc('Run all checks.')]
+[group('test')]
+check: lint format test check-schema
+    @echo 'Server checks done!'
+
+[doc('Run the server.')]
+[group('deploy')]
+serve:
+    @docker compose up --build --detach testflinger
+
+[doc('Tear down local deployment.')]
+[group('deploy')]
+teardown:
+    @docker compose down
+
+[doc('Run the client credentials tool.')]
+[group('deploy')]
+admin:
+    @docker compose exec testflinger client_credentials_admin
+
+[doc('Populate the server with sample data.')]
+[group('deploy')]
+[positional-arguments]
+populate *args:
+    @uv run devel/create_sample_data.py "$@"
+
+[doc('Create a large pre-canned sample data set on the local server.')]
+[group('deploy')]
+populate-quick
+    @uv run devel/create_sample_data.py \
+        -s http://localhost:5000 \
+        -a 3000 \
+        -j 500 \
+        -q 4300 \
+        -d 2
+
+[doc('Add required hostnames to the hosts file to ensure that `dex` and `testflinger-server` are available.')]
+[group('deploy')]
+set-up-hosts-file:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # When `dex` not found, add dex and testflinger-server as hostnames
+    LINE="127.0.0.1 dex testflinger-server"
+    if ! grep -Eq '(^|[[:space:]])dex($|[[:space:]])' /etc/hosts; then
+        if ! sudo -n true 2>/dev/null; then
+            echo "sudo credentials required; run: sudo -v"
+            exit 1
+        fi
+        echo "$LINE" | sudo -n tee -a /etc/hosts >/dev/null
+    fi

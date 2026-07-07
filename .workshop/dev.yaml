@@ -4,6 +4,7 @@ sdks:
   - name: just
   - name: uv
   - name: vscode-remote
+  - name: opencode
   - name: docker-ce
     slots:
       testflinger-server:
@@ -57,8 +58,6 @@ actions:
             /etc/hosts file, e.g. use `just run set-up-hosts-file` on the host.
 
     EOF
-  opencode: opencode "$@"
-  claude: claude "$@"
   just: just "$@"
   server-up: just server-up
   server-restart: just server-restart

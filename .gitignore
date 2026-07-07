@@ -14,12 +14,18 @@ docs/.sphinx/.doctrees/
 .vscode
 .idea
 
+# Track the per-charm VS Code interpreter config (charms use tox, not .venv).
+# These are committed on purpose; everything else under .vscode stays ignored.
+!agent/charms/testflinger-agent-host-charm/.vscode/
+!agent/charms/testflinger-agent-host-charm/.vscode/settings.json
+!server/charm/.vscode/
+!server/charm/.vscode/settings.json
+
 *.py[cod]
 *.egg*
 *.bak
 *.charm
 *.swp
-*.lock
 
 _build
 __pycache__
