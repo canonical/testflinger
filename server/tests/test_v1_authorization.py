@@ -854,7 +854,7 @@ def test_create_edit_fail_for_testflinger_admin(mongo_app_with_permissions):
     # Define permission to set for PUT request
     permissions = {
         "client_id": "testflinger-admin",
-        "client_secret": "test-secret",
+        "client_secret": "test-secret-long",
         "max_priority": {"*": 10},
         "max_reservation_time": {"*": 40000},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1203,7 +1203,7 @@ def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
 
     client_id = "test_user"
     contributor_permissions = {
-        "client_secret": "user-secret",
+        "client_secret": "user-secret-long",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1217,7 +1217,7 @@ def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
 
     output = app.post(
         "/v1/oauth2/token",
-        headers=get_basic_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret-long"),
     )
     assert output.status_code == HTTPStatus.OK
     refresh_token = output.get_json()["refresh_token"]
@@ -1233,7 +1233,7 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
 
     client_id = "test_user"
     contributor_permissions = {
-        "client_secret": "user-secret",
+        "client_secret": "user-secret-long",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1247,7 +1247,7 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
 
     contributor_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=get_basic_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret-long"),
     )
     assert contributor_auth_output.status_code == HTTPStatus.OK
     refresh_token = contributor_auth_output.get_json()["refresh_token"]
@@ -1274,7 +1274,7 @@ def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
 
     client_id = "test_user"
     user_perm = {
-        "client_secret": "user-secret",
+        "client_secret": "user-secret-long",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1287,7 +1287,7 @@ def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
 
     contributor_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=get_basic_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret-long"),
     )
     user_json = contributor_auth_output.get_json()
     user_access_token = user_json["access_token"]
@@ -1321,7 +1321,7 @@ def test_revoke_already_revoked_token(mongo_app_with_permissions):
 
     client_id = "test_user"
     user_perm = {
-        "client_secret": "user-secret",
+        "client_secret": "user-secret-long",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1334,7 +1334,7 @@ def test_revoke_already_revoked_token(mongo_app_with_permissions):
 
     user_auth = app.post(
         "/v1/oauth2/token",
-        headers=get_basic_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret-long"),
     )
     refresh_token = user_auth.get_json()["refresh_token"]
 

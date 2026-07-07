@@ -436,7 +436,7 @@ class TestLoggingCompleteness:
             response = app.put(
                 f"/v1/client-permissions/{new_client_id}",
                 json={
-                    "client_secret": "new_secret",
+                    "client_secret": "new_secret_long",
                     "role": ServerRoles.CONTRIBUTOR,
                 },
                 headers={"Authorization": f"Bearer {admin_token}"},
@@ -465,7 +465,7 @@ class TestLoggingCompleteness:
         app.put(
             f"/v1/client-permissions/{target_client_id}",
             json={
-                "client_secret": "new_secret",
+                "client_secret": "new_secret_long",
                 "role": ServerRoles.CONTRIBUTOR,
             },
             headers={"Authorization": f"Bearer {admin_token}"},
@@ -504,7 +504,7 @@ class TestLoggingCompleteness:
         app.put(
             f"/v1/client-permissions/{delete_test_client}",
             json={
-                "client_secret": "new_secret",
+                "client_secret": "new_secret_long",
                 "role": ServerRoles.CONTRIBUTOR,
             },
             headers={"Authorization": f"Bearer {admin_token}"},
@@ -588,7 +588,7 @@ class TestLoggingCompleteness:
             response = app.put(
                 f"/v1/client-permissions/{TESTFLINGER_ADMIN_ID}",
                 json={
-                    "client_secret": "new-secret",
+                    "client_secret": "new-secret-long",
                     "role": ServerRoles.CONTRIBUTOR,
                 },
                 headers={"Authorization": f"Bearer {token}"},
@@ -691,7 +691,7 @@ class TestLoggingCompleteness:
             response = app.put(
                 "/v1/client-permissions/new_fake_admin",
                 json={
-                    "client_secret": "secret",
+                    "client_secret": "secret_long_val",
                     "role": ServerRoles.ADMIN,
                 },
                 headers={"Authorization": f"Bearer {manager_token}"},
