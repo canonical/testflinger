@@ -48,3 +48,8 @@
 
 # Command to run for the testing phase
 # test_command: echo test phase && run-test.sh
+
+# List of links for more info on the device
+# links:
+#   - product: https://example.com/mydevice
+#   - cloud_entry: https://example.com/mydevice-host
