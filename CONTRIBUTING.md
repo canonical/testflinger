@@ -69,8 +69,8 @@ To learn more about `uv`, refer to the [`uv` documentation][uv].
 
 ### Workshop Environment
 
-Along with the other tools, you can use Canoncial `workshop` to develop and
-validate testflinger services in a container environment. Consider the following
+Along with the other tools, you can use Canonical `workshop` to develop and
+validate testflinger services in a container environment. Consider the following:
 
 #### Testflinger dev workshop actions:
 ```
@@ -78,7 +78,7 @@ validate testflinger services in a container environment. Consider the following
       workshop run dev restart
       workshop run dev teardown
       workshop run dev logs
-          Follow testflinger-server logs, reconnecting on restart. Ctrl-C to exit.
+          Follow testflinger-server logs. Ctrl-C to exit.
 
       workshop run dev populate -s http://localhost:5000 -a 10 -j 10 -q 10 -d 1
       workshop run dev populate-quick

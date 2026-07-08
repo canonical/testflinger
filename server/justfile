@@ -106,16 +106,23 @@ populate-quick:
         -a 3000 \
         -j 500 \
         -q 4300 \
-        -d 2
+[doc('Populate the server with a large sample data set.')]
+[group('deploy')]
+populate-large:
+    @just populate
+        --agents 3000 \
+        --jobs 500 \
+        --queues 4300 \
+        --advertised-queues 2
 
 [doc('Add required hostnames to the hosts file to ensure that `dex` and `testflinger-server` are available.')]
 [group('deploy')]
 set-up-hosts-file:
     #!/usr/bin/env bash
     set -euo pipefail
-    # When `dex` not found, add dex and testflinger-server as hostnames
+    # When either hostname is missing, add dex and testflinger-server as hostnames
     LINE="127.0.0.1 dex testflinger-server"
-    if ! grep -Eq '(^|[[:space:]])dex($|[[:space:]])' /etc/hosts; then
+    if ! grep -Eq '(^|[[:space:]])dex($|[[:space:]])' /etc/hosts || ! grep -Eq '(^|[[:space:]])testflinger-server($|[[:space:]])' /etc/hosts; then
         if ! sudo -n true 2>/dev/null; then
             echo "sudo credentials required; run: sudo -v"
             exit 1
