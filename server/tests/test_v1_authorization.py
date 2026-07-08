@@ -25,6 +25,7 @@ from http import HTTPStatus
 
 import bcrypt
 import jwt
+import pytest
 from testflinger_common.enums import ServerRoles
 
 from testflinger.api.v1 import TESTFLINGER_ADMIN_ID
@@ -1193,7 +1194,8 @@ def test_refresh_with_missing_token_field(mongo_app_with_permissions):
     app, _, _, _, _ = mongo_app_with_permissions
 
     resp = app.post("/v1/oauth2/refresh", json={})
-    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
@@ -1311,7 +1313,9 @@ def test_revoke_with_missing_token_field(mongo_app_with_permissions):
         json={},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 def test_revoke_already_revoked_token(mongo_app_with_permissions):
@@ -1503,3 +1507,54 @@ def test_email_included_in_jwt_permissions(mongo_app_with_permissions):
         options={"require": ["exp", "iat", "sub", "permissions"]},
     )
     assert decoded["permissions"]["email"] == "test@example.com"
+
+
+@pytest.mark.parametrize(
+    "injection_payload",
+    [
+        {"refresh_token": {"$ne": None}},
+        {"refresh_token": {"$gt": ""}},
+        {"refresh_token": {"$regex": ".*"}},
+        {"refresh_token": {"$exists": True}},
+        {"refresh_token": {"$in": ["token1", "token2"]}},
+    ],
+)
+def test_refresh_rejects_operator_injection(mongo_app, injection_payload):
+    """Test that refresh rejects operator injection attempts."""
+    app, *_ = mongo_app
+
+    # Use the parameterized injection payload to attempt to refresh the token
+    response = app.post(
+        "/v1/oauth2/refresh",
+        json=injection_payload,
+    )
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.parametrize(
+    "injection_payload",
+    [
+        {"refresh_token": {"$ne": None}},
+        {"refresh_token": {"$gt": ""}},
+        {"refresh_token": {"$regex": ".*"}},
+        {"refresh_token": {"$exists": True}},
+        {"refresh_token": {"$in": ["token1", "token2"]}},
+    ],
+)
+def test_revoke_rejects_operator_injection(
+    mongo_app_with_permissions, injection_payload
+):
+    """Test that revoke rejects operator injection attempts."""
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, client_id, client_key)
+
+    response = app.post(
+        "/v1/oauth2/revoke",
+        json=injection_payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
