@@ -857,6 +857,26 @@ def test_queues_post(mongo_app, agent_auth_header):
     assert output.json == queue_data
 
 
+@pytest.mark.parametrize(
+    "queue_data",
+    [
+        "INVALID_TYPE_SHOULD_BE_OBJECT",
+        {"qfoo": 123},
+        {"qfoo": None},
+        {"myqueue": {"$ne": None}},
+    ],
+)
+def test_queues_post_invalid_data(mongo_app, agent_auth_header, queue_data):
+    """Test posting advertised queues with invalid data."""
+    app, _ = mongo_app
+    output = app.post(
+        "/v1/agents/queues", json=queue_data, headers=agent_auth_header
+    )
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
 def test_images_post(mongo_app, agent_auth_header):
     """Test posting advertised images for a queue."""
     app, _ = mongo_app
@@ -869,6 +889,27 @@ def test_images_post(mongo_app, agent_auth_header):
     app.post("/v1/agents/images", json=image_data, headers=agent_auth_header)
     output = app.get("/v1/agents/images/myqueue")
     assert json.loads(output.data.decode()) == image_data.get("myqueue")
+
+
+@pytest.mark.parametrize(
+    "image_data",
+    [
+        "INVALID_TYPE_SHOULD_BE_OBJECT",
+        {"myqueue": "not-a-dict"},
+        {"myqueue": 123},
+        {"myqueue": {"image1": None}},
+        {"myqueue": {"image1": {"$ne": None}}},
+    ],
+)
+def test_images_post_invalid_data(mongo_app, agent_auth_header, image_data):
+    """Test posting advertised images with invalid data."""
+    app, _ = mongo_app
+    output = app.post(
+        "/v1/agents/images", json=image_data, headers=agent_auth_header
+    )
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 def test_get_invalid(mongo_app):

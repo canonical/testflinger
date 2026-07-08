@@ -569,9 +569,9 @@ class TestLoggingCompleteness:
         with caplog.at_level(logging.WARNING):
             response = app.post("/v1/oauth2/refresh", json={})
 
-        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         assert "authn_login_fail:unknown" in caplog.text
-        assert "without refresh token" in caplog.text
+        assert "Refresh token request rejected" in caplog.text
 
     def test_authz_admin_modify_system_admin(
         self, mongo_app_with_permissions, caplog
