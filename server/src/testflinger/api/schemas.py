@@ -602,7 +602,7 @@ images_out = {
 class ClientPermissionsIn(Schema):
     """Client Permissions output schema."""
 
-    client_secret = fields.String(required=False)  # Optional for schema reuse
+    client_secret = fields.String(required=False, validate=Length(min=15))
     max_priority = fields.Dict(
         keys=fields.String(),
         values=fields.Integer(),

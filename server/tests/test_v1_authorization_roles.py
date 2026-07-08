@@ -286,7 +286,7 @@ def do_setup(
         response = app.put(
             f"/v1/client-permissions/{client_id}",
             json={
-                "client_secret": "always_needed",
+                "client_secret": "always_needed_key",
                 "role": ServerRoles.CONTRIBUTOR,
             },
             headers=setup_headers,
@@ -299,7 +299,9 @@ def do_setup(
     # client_id must already exist
     if "oauth2/revoke" in endpoint:
         test_data = {
-            "refresh_token": get_refresh_token(app, client_id, "always_needed")
+            "refresh_token": get_refresh_token(
+                app, client_id, "always_needed_key"
+            )
         }
 
     if "/restricted-queue" in endpoint:

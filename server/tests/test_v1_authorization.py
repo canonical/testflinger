@@ -855,7 +855,7 @@ def test_create_edit_fail_for_testflinger_admin(mongo_app_with_permissions):
     # Define permission to set for PUT request
     permissions = {
         "client_id": "testflinger-admin",
-        "client_secret": "test-secret",
+        "client_secret": "test-secret-long",
         "max_priority": {"*": 10},
         "max_reservation_time": {"*": 40000},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1205,7 +1205,7 @@ def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
 
     client_id = "test_user"
     contributor_permissions = {
-        "client_secret": "user-secret",
+        "client_secret": "user-secret-long",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1219,7 +1219,7 @@ def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
 
     output = app.post(
         "/v1/oauth2/token",
-        headers=get_basic_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret-long"),
     )
     assert output.status_code == HTTPStatus.OK
     refresh_token = output.get_json()["refresh_token"]
@@ -1235,7 +1235,7 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
 
     client_id = "test_user"
     contributor_permissions = {
-        "client_secret": "user-secret",
+        "client_secret": "user-secret-long",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1249,7 +1249,7 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
 
     contributor_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=get_basic_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret-long"),
     )
     assert contributor_auth_output.status_code == HTTPStatus.OK
     refresh_token = contributor_auth_output.get_json()["refresh_token"]
@@ -1276,7 +1276,7 @@ def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
 
     client_id = "test_user"
     user_perm = {
-        "client_secret": "user-secret",
+        "client_secret": "user-secret-long",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1289,7 +1289,7 @@ def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
 
     contributor_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=get_basic_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret-long"),
     )
     user_json = contributor_auth_output.get_json()
     user_access_token = user_json["access_token"]
@@ -1325,7 +1325,7 @@ def test_revoke_already_revoked_token(mongo_app_with_permissions):
 
     client_id = "test_user"
     user_perm = {
-        "client_secret": "user-secret",
+        "client_secret": "user-secret-long",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1338,7 +1338,7 @@ def test_revoke_already_revoked_token(mongo_app_with_permissions):
 
     user_auth = app.post(
         "/v1/oauth2/token",
-        headers=get_basic_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret-long"),
     )
     refresh_token = user_auth.get_json()["refresh_token"]
 
@@ -1474,8 +1474,11 @@ def test_set_email_on_oidc_client_rejected(mongo_app_with_permissions):
         json={"email": "new@example.com"},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert output.status_code == HTTPStatus.BAD_REQUEST
-    assert "Cannot add email to OIDC client id" in output.json["message"]
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert (
+        "Cannot add email or client secret to OIDC client id"
+        in output.json["message"]
+    )
 
 
 def test_email_included_in_jwt_permissions(mongo_app_with_permissions):
@@ -1507,6 +1510,35 @@ def test_email_included_in_jwt_permissions(mongo_app_with_permissions):
         options={"require": ["exp", "iat", "sub", "permissions"]},
     )
     assert decoded["permissions"]["email"] == "test@example.com"
+
+
+def test_set_client_secret_on_oidc_client_rejected(mongo_app_with_permissions):
+    """Test that adding a client secret to an OIDC client is rejected."""
+    app, mongo, admin_client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, admin_client_id, client_key)
+
+    oidc_client_id = "test@example.com"
+    mongo.client_permissions.insert_one(
+        {
+            "client_id": oidc_client_id,
+            "sub": "oidc-subject-identifier",
+            "role": ServerRoles.CONTRIBUTOR,
+            "max_priority": {},
+            "allowed_queues": [],
+            "max_reservation_time": {},
+        }
+    )
+
+    output = app.put(
+        f"/v1/client-permissions/{oidc_client_id}",
+        json={"client_secret": "new-secret-password"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert (
+        "Cannot add email or client secret to OIDC client id"
+        in output.json["message"]
+    )
 
 
 @pytest.mark.parametrize(
