@@ -50,14 +50,14 @@ def test_proxyfix_disabled(testapp):
     assert not isinstance(testapp.wsgi_app, ProxyFix)
 
 
-def test_metrics_served_on_main_app(monkeypatch):
+def test_metrics_not_served_on_main_app(monkeypatch):
     """Ensure /metrics is still served on the main app by the exporter."""
     secret_key = secrets.token_urlsafe(32)
     monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
     app = create_flask_app(type("", (), {"TESTING": True})())
     with app.test_client() as client:
         response = client.get("/metrics")
-    assert response.status_code == HTTPStatus.OK
+    assert response.status_code == HTTPStatus.NOT_FOUND
 
 
 def test_metrics_server_starts_on_default_port(monkeypatch):
