@@ -691,22 +691,6 @@
   },
   "openapi": "3.0.3",
   "paths": {
-    "/metrics": {
-      "get": {
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
-          }
-        },
-        "summary": "Prometheus Metrics"
-      }
-    },
     "/oidc/auth-init": {
       "post": {
         "description": ":return: dict containing required OIDC parameters for client to\nauthenticate with provider",
