@@ -1,5 +1,20 @@
 /* Swagger UI theme overrides to match Furo documentation theme */
 
+/*** API roles table: shrink Method and URI columns only, leave icon columns at full size ***/
+
+table.api-roles-table th {
+    font-size: 12px;
+}
+
+table.api-roles-table td:nth-child(2) {
+    font-size: 12px;
+}
+
+table.api-roles-table td:nth-child(2) code,
+table.api-roles-table td:nth-child(2) code span {
+    font-size: 12px !important;
+}
+
 /*** Font family ***/
 
 /* Base font for all elements */

@@ -36,7 +36,10 @@ Also, if you want to add some sample data to your local development environment,
 there's another helper script:
 
 > [!TIP]
-> You can run the populate tool with `just`: `just populate [args...]`
+> You can run the populate tool with `just`: `just populate [args...]`.
+> This will automatically create admin client credentials that are required
+> to generate sample data. Additionally, this tool will create 10 queues,
+> 10 agents, and 10 jobs by default if no additional arguments are provided.
 
 ```console
 $ devel/create_sample_data.py -h
