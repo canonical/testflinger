@@ -1539,6 +1539,8 @@ def test_set_client_secret_on_oidc_client_rejected(mongo_app_with_permissions):
         "Cannot add email or client secret to OIDC client id"
         in output.json["message"]
     )
+
+
 @pytest.mark.parametrize(
     "injection_payload",
     [
@@ -1549,8 +1551,6 @@ def test_set_client_secret_on_oidc_client_rejected(mongo_app_with_permissions):
         {"refresh_token": {"$in": ["token1", "token2"]}},
     ],
 )
-
-
 def test_refresh_rejects_operator_injection(mongo_app, injection_payload):
     """Test that refresh rejects operator injection attempts."""
     app, *_ = mongo_app
