@@ -65,7 +65,7 @@ copyright = "%s GPL-3.0, %s" % (datetime.date.today().year, author)
 
 ## Open Graph configuration - defines what is displayed in the website preview
 # The URL of the documentation output
-ogp_site_url = 'https://ubuntu.com/docs/testflinger'
+ogp_site_url = f"https://ubuntu.com/docs/testflinger/{os.environ.get('READTHEDOCS_VERSION', 'local/')}"
 # The documentation website name (usually the same as the product name)
 ogp_site_name = project
 # An image or logo that is used in the preview
@@ -147,28 +147,21 @@ html_context = {
 
 # Project slug; see https://meta.discourse.org/t/what-is-category-slug/87897
 #
-# TODO: If your documentation is hosted on https://docs.ubuntu.com/,
+# If your documentation is hosted on https://docs.ubuntu.com/,
 #       uncomment and update as needed.
 
-slug = 'docs/testflinger'       # docs/ prefix required when hosted at ubuntu.com/docs
+slug = 'docs/testflinger'       # docs/ prefix required when hosted at ubuntu.com
 
 #######################
 # Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
 #######################
 
 # Base URL of RTD hosted project
+html_baseurl = f"https://ubuntu.com/docs/testflinger/{os.environ.get('READTHEDOCS_VERSION', 'local/')}"
+sitemap_filename = "doc-sitemap.xml"     # This value is added to ubuntu.com repo `templates/sitemap_index.xml`
 
-html_baseurl = 'https://ubuntu.com/docs/testflinger/'
-sitemap_filename = "doc-sitemap.xml"     # Required to avoid sitemap conflicts when hosted at ubuntu.com/docs
-
-# URL scheme. Add language and version scheme elements.
-# When configured with RTD variables, check for RTD environment so manual runs succeed:
-
-if 'READTHEDOCS_VERSION' in os.environ:
-    version = os.environ["READTHEDOCS_VERSION"]
-    sitemap_url_scheme = '{version}{link}'
-else:
-    sitemap_url_scheme = 'MANUAL/{link}'
+# sphinx-sitemap uses html_baseurl to generate the full URL for each page:
+sitemap_url_scheme = "{link}"
 
 # Include `lastmod` dates in the sitemap:
 
