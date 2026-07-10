@@ -214,14 +214,21 @@ class ControlHostConnector(ABC, DefaultDevice):
             return None
 
     def _build_provision_data(self) -> dict:
-        """Build the ``data`` envelope for a ``provision`` phase request."""
+        """Build the ``data`` envelope for a ``provision`` phase request.
+
+        The agent device config is sent whole under ``config``; the control
+        host reads whatever routing/power fields it needs (``agent_name``,
+        ``device_ip``, ``reboot_script``, ``poweron_script``,
+        ``poweroff_script``, ``env.CID``, …) from it, so a new config key
+        never requires a change here. Only the fields that do not originate
+        from the config are added explicitly: ``provision_method`` (a class
+        attribute), ``job_data``, and the agent's SSH public key (read from a
+        file, included only when available).
+        """
         data = {
             "provision_method": self.PROVISION_METHOD,
             "job_data": self.job_data,
-            "agent_name": self.config["agent_name"],
-            "device_ip": self.config["device_ip"],
-            "reboot_script": self.config["reboot_script"],
-            "cid": self.config.get("env", {}).get("CID"),
+            "config": self.config,
         }
         public_key = self._read_agent_ssh_public_key()
         if public_key is not None:

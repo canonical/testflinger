@@ -68,6 +68,8 @@ class ControlHostConnectorEnvelopeTests(unittest.TestCase):
             "agent_name": "my-agent",
             "control_host": "control-host",
             "reboot_script": ["cmd1", "cmd2"],
+            "poweron_script": ["poweron1"],
+            "poweroff_script": ["poweroff1"],
             "env": {"CID": "202507-01234"},
         }
         connector = MockConnector(fake_config)
@@ -97,11 +99,21 @@ class ControlHostConnectorEnvelopeTests(unittest.TestCase):
         data = payload["data"]
         self.assertEqual(data["provision_method"], "test")
         self.assertEqual(data["job_data"], connector.job_data)
-        self.assertEqual(data["agent_name"], "my-agent")
-        self.assertEqual(data["device_ip"], "1.1.1.1")
-        self.assertEqual(data["reboot_script"], ["cmd1", "cmd2"])
-        self.assertEqual(data["cid"], "202507-01234")
+        # The whole device config is sent verbatim under `config`; the
+        # control host reads routing/power fields (agent_name, device_ip,
+        # reboot_script, poweron/off_script, env.CID, ...) out of it.
+        self.assertEqual(data["config"], fake_config)
         self.assertEqual(data["agent_ssh_public_key"], "ssh-rsa KEY")
+        # Config fields are no longer field-picked to the top level.
+        for key in (
+            "agent_name",
+            "device_ip",
+            "reboot_script",
+            "poweron_script",
+            "poweroff_script",
+            "cid",
+        ):
+            self.assertNotIn(key, data)
 
     @patch("requests.get")
     @patch("requests.post")
