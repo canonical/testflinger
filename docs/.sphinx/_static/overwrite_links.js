@@ -1,37 +1,52 @@
- // Replace oldDomain with newDomain
- const oldDomain = 'canonical-testflinger-documentation.readthedocs-hosted.com';
- const newDomain = 'ubuntu.com/docs/testflinger';
+ // Replaces rtd-address with new-address in links
+ 
+ const rtd_address = 'canonical-testflinger-documentation.readthedocs-hosted.com';
+ const new_address = 'ubuntu.com/docs/testflinger';
 
- // Set up a mutation observer to monitor changes in the DOM
- // RTD flyout is created dynamically, so we need to wait for it to appear
- const targetNode = document.body;
- const config = { childList: true, subtree: true };
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
- // Callback function to execute when mutation is observed
- function waitForElement(element, callback){
-     var foo = setInterval(function(){
-         // console.log(`Waiting for element: ${element}...`)
-         if(document.querySelector(element)){
-             clearInterval(foo);
-             // console.log(`Element found: ${element}.`)
-             callback();
-         }
-     }, 100);
- }
+function overwriteMatchingAnchorUrls(container) {
+  if (!container) return;
 
- // Start observing the target node (rtd-flyout)
- // execute the overwrite when the element is loaded
- waitForElement("readthedocs-flyout", function(){
-     // console.log(`Triggering URL rewrite`)
-     const rtdFlyout = document.querySelector('readthedocs-flyout');
-     rtdFlyout.addEventListener('click', function(e) {
-         // Access the shadow DOM of the 'readthedocs-flyout' element
-         const shadowRoot = rtdFlyout.shadowRoot;
-         const anchors = shadowRoot.querySelectorAll('a');
-         anchors.forEach(anchor => {
-             // console.log(`Checking URL for replacement: ${anchor.href}`);
-             anchor.href = anchor.href.replace(new RegExp(oldDomain, 'g'), newDomain);
-             // console.log(`URL now: ${anchor.href}`);
-         });
-     });
- });
+  const rtd_addressRegex = new RegExp(escapeRegExp(rtd_address), 'g');
+  container.querySelectorAll('a[href], link[href]').forEach((anchor) => {
+    anchor.href = anchor.href.replace(rtd_addressRegex, new_address);
+  });
+}
+
+function patchFlyout() {
+  const rtdFlyout = document.querySelector('readthedocs-flyout');
+  if (!rtdFlyout) return false;
+
+  overwriteMatchingAnchorUrls(rtdFlyout);
+  overwriteMatchingAnchorUrls(rtdFlyout.shadowRoot);
+
+  rtdFlyout.addEventListener('click', () => {
+    overwriteMatchingAnchorUrls(rtdFlyout);
+    overwriteMatchingAnchorUrls(rtdFlyout.shadowRoot);
+  });
+
+  return true;
+}
+
+function init() {
+  overwriteMatchingAnchorUrls(document.querySelector('header'));
+
+  if (patchFlyout()) return;
+
+  const observer = new MutationObserver(() => {
+    if (patchFlyout()) {
+      observer.disconnect();
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+if (document.body) {
+  init();
+} else {
+  document.addEventListener('DOMContentLoaded', init);
+}
