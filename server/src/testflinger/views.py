@@ -18,31 +18,39 @@
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
+from apiflask import APIBlueprint
 from flask import (
-    Blueprint,
+    current_app,
     make_response,
     render_template,
     request,
+    session,
 )
-from prometheus_client import generate_latest
 
 from testflinger import database
 from testflinger.database import mongo
 from testflinger.logs import MongoLogHandler
 
-views = Blueprint("testflinger", __name__)
+views = APIBlueprint("testflinger", __name__, enable_openapi=False)
+
+
+@views.before_request
+def require_login():
+    """Block UI views when OIDC is enabled and no user is logged in."""
+    if current_app.oauth is None or request.endpoint == "testflinger.home":
+        return None
+    if "user" not in session:
+        return make_response(
+            render_template("401_unauthorized.html"),
+            HTTPStatus.UNAUTHORIZED,
+        )
+    return None
 
 
 @views.route("/")
 def home():
     """Home view."""
     return render_template("homepage.html")
-
-
-@views.route("/metrics")
-def metrics():
-    """Return Prometheus metrics."""
-    return generate_latest()
 
 
 @views.route("/agents")

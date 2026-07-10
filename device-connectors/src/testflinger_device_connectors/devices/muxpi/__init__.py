@@ -30,9 +30,7 @@ logger = logging.getLogger(__name__)
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""
 
-    def pre_provision_hook(self):
-        """Skip control host power cycle for muxpi devices."""
-        pass
+    MANAGE_DUT_POWER_DURING_REBOOT = True
 
     def provision(self, args):
         """Provision device when the command is invoked."""

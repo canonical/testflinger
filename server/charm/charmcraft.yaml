@@ -15,6 +15,9 @@ links:
 containers:
   testflinger:
     resource: testflinger-image
+    ports:
+      - container-port: 9090
+        protocol: TCP
 
 resources:
   testflinger-image:
@@ -32,8 +35,8 @@ requires:
   nginx-route:
     interface: nginx-route
     limit: 1
-  traefik-route:
-    interface: traefik_route
+  ingress:
+    interface: ingress
     limit: 1
 
 provides:
@@ -57,8 +60,8 @@ charm-libs:
     version: "0"
   - lib: grafana_k8s.grafana_dashboard
     version: "0"
-  - lib: traefik_k8s.traefik_route
-    version: "0"
+  - lib: traefik_k8s.ingress
+    version: "2"
 
 base: ubuntu@22.04
 platforms:
@@ -112,6 +115,13 @@ config:
       type: string
       default: "localhost,127.0.0.1,::1"
       description: Resources that we should be able to access bypassing proxy
+    enable_proxyfix:
+      type: boolean
+      default: false
+      description: |
+        Enable Flask's ProxyFix middleware.
+        Required when the application is behind a reverse proxy and OIDC is enabled,
+        so that redirects from the OIDC provider can be properly handled.
     webhook_url:
       type: string
       default: "http://test-observer-api.local/"
@@ -120,6 +130,22 @@ config:
       type: string
       default: ""
       description: Optional bearer token for authenticating with the webhook endpoint
+    web_secret_key:
+      type: string
+      default: ""
+      description: The secret key used for signing web sessions and cookies
+    oidc_client_id:
+      type: string
+      default: ""
+      description: The OIDC client ID used for authenticating with the OIDC provider
+    oidc_client_secret:
+      type: string
+      default: ""
+      description: The OIDC client secret used for authenticating with the OIDC provider
+    oidc_provider_issuer:
+      type: string
+      default: ""
+      description: The OIDC provider issuer URL for authenticating users
 
 
 parts:
@@ -133,6 +159,6 @@ parts:
       # for 22.04
       # Install rustc and cargo using rustup instead of the Ubuntu archive
       rustup set profile minimal
-      rustup default 1.95.0  # renovate: charmcraft-rust-latest
+      rustup default 1.96.0  # renovate: charmcraft-rust-latest
 
       craftctl default

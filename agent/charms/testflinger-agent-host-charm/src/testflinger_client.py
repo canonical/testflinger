@@ -16,8 +16,8 @@ from defaults import DEFAULT_TOKEN_PATH
 
 logger = logging.getLogger(__name__)
 
-# Update refresh token weekly to ensure it stays valid
-REFRESH_INTERVAL_DAYS = 7
+# Update refresh token every 3 days to ensure it stays valid
+REFRESH_INTERVAL_DAYS = 3
 DEFAULT_TIMEOUT_SECONDS = 15
 
 
@@ -82,7 +82,7 @@ def get_token_data() -> dict | None:
 def token_update_needed() -> bool:
     """Check if the refresh token should be updated.
 
-    Tokens are refreshed weekly to ensure they stay valid.
+    Tokens are refreshed every 3 days to ensure they stay valid.
 
     :returns: True if token is missing, invalid, or needs refresh.
     """

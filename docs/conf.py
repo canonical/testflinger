@@ -311,6 +311,9 @@ rst_epilog = """
 # Specifies a reST snippet to be prepended to each .rst file
 # This defines a :center: role that centers table cell content.
 # This defines a :h2: role that styles content for use with PDF generation.
+# This defines a :vh: role that hides text visually while keeping it readable
+# by screen readers (relies on .visually-hidden shipped by the Furo base theme
+# used by canonical_sphinx).
 
 rst_prolog = """
 .. role:: center
@@ -321,6 +324,8 @@ rst_prolog = """
     :class: woke-ignore
 .. role:: vale-ignore
     :class: vale-ignore
+.. role:: vh
+    :class: visually-hidden
 """
 
 # Workaround for https://github.com/canonical/canonical-sphinx/issues/34

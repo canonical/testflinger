@@ -19,8 +19,34 @@ import os
 from pathlib import Path
 
 import pytest
+import pytest_jubilant
 
 logger = logging.getLogger(__name__)
+
+K8S_CONTROLLER = os.getenv("JUJU_K8S_CONTROLLER")
+MACHINE_CONTROLLER = os.getenv("JUJU_MACHINE_CONTROLLER")
+
+
+@pytest.fixture(scope="module")
+def k8s_juju(juju_factory: pytest_jubilant.JujuFactory):
+    """Juju instance for a model on the k8s controller."""
+    if not K8S_CONTROLLER:
+        pytest.fail(
+            "JUJU_K8S_CONTROLLER is not set; cannot create a K8s model"
+        )
+    yield juju_factory.get_juju(suffix="k8s", controller=K8S_CONTROLLER)
+
+
+@pytest.fixture(scope="module")
+def machine_juju(juju_factory: pytest_jubilant.JujuFactory):
+    """Juju instance for a model on the machine controller."""
+    if not MACHINE_CONTROLLER:
+        pytest.fail(
+            "JUJU_MACHINE_CONTROLLER is not set; cannot create a machine model"
+        )
+    yield juju_factory.get_juju(
+        suffix="machine", controller=MACHINE_CONTROLLER
+    )
 
 
 @pytest.fixture(scope="session")
