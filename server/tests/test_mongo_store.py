@@ -820,3 +820,4 @@ class TestSetupMongoStore:
             MongoStore._normalize_namespace("test@example.com")
             == "test_at_example_dot_com"
         )
+        assert MongoStore._normalize_namespace("$admin") == "_dollar_admin"

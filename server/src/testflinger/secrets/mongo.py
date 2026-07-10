@@ -54,10 +54,14 @@ class MongoStore(SecretsStore):
     def _normalize_namespace(namespace: str) -> str:
         """Modify characters that could be problematic in MongoDB collection.
 
-        Replaces '.' with '_dot_' and '@' with '_at_' to produce a safe
-        collection name component.
+        Replaces '.' with '_dot_', '@' with '_at_', and '$' with '_dollar_'
+        to produce a safe collection name component.
         """
-        return namespace.replace("@", "_at_").replace(".", "_dot_")
+        return (
+            namespace.replace("@", "_at_")
+            .replace(".", "_dot_")
+            .replace("$", "_dollar_")
+        )
 
     def _ensure_ttl_index(self, namespace: str):
         """Create the TTL index for a namespace collection, if needed."""
