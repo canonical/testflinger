@@ -50,13 +50,23 @@ class MongoStore(SecretsStore):
         self.algorithm = algorithm
         self._ttl_index_initialized_namespaces = set()
 
+    @staticmethod
+    def _normalize_namespace(namespace: str) -> str:
+        """Modify characters that could be problematic in MongoDB collection.
+
+        Replaces '.' with '_dot_' and '@' with '_at_' to produce a safe
+        collection name component.
+        """
+        return namespace.replace("@", "_at_").replace(".", "_dot_")
+
     def _ensure_ttl_index(self, namespace: str):
         """Create the TTL index for a namespace collection, if needed."""
-        if namespace in self._ttl_index_initialized_namespaces:
+        normalized_collection = self._normalize_namespace(namespace)
+        if normalized_collection in self._ttl_index_initialized_namespaces:
             return
 
         try:
-            self.database.secrets[namespace].create_index(
+            self.database.secrets[normalized_collection].create_index(
                 "expire_at", expireAfterSeconds=0
             )
         except OperationFailure as error:
@@ -68,12 +78,14 @@ class MongoStore(SecretsStore):
                 f"Unable to access store for '{namespace}' namespace"
             ) from error
 
-        self._ttl_index_initialized_namespaces.add(namespace)
+        self._ttl_index_initialized_namespaces.add(normalized_collection)
 
     def read(self, namespace: str, key: str) -> str:
         """Return the stored value for `key` under `namespace`."""
         try:
-            result = self.database.secrets[namespace].find_one({"key": key})
+            result = self.database.secrets[
+                self._normalize_namespace(namespace)
+            ].find_one({"key": key})
         except OperationFailure as error:
             raise AccessError(
                 f"Unable to access '{key}' under '{namespace}'"
@@ -167,7 +179,9 @@ class MongoStore(SecretsStore):
             secret_document["expire_at"] = expire_at
 
         try:
-            self.database.secrets[namespace].replace_one(
+            self.database.secrets[
+                self._normalize_namespace(namespace)
+            ].replace_one(
                 {"key": key},
                 secret_document,
                 upsert=True,
@@ -186,7 +200,9 @@ class MongoStore(SecretsStore):
     def delete(self, namespace: str, key: str):
         """Delete the value for `key` under `namespace`, if any."""
         try:
-            self.database.secrets[namespace].delete_one({"key": key})
+            self.database.secrets[
+                self._normalize_namespace(namespace)
+            ].delete_one({"key": key})
         except OperationFailure as error:
             raise AccessError(
                 f"Unable to access '{key}' under '{namespace}'"
@@ -205,7 +221,9 @@ class MongoStore(SecretsStore):
         """
         try:
             return (
-                self.database.secrets[namespace].find_one(
+                self.database.secrets[
+                    self._normalize_namespace(namespace)
+                ].find_one(
                     {
                         "key": key,
                         "$or": [
