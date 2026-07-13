@@ -29,41 +29,91 @@ also exploratory testing by human operators is desired.
 In this documentation
 ---------------------
 
-.. grid:: 1 1 2 2
+The documentation is grouped into two domains of concern that mirror how
+Testflinger is used: the **client side** (submitting and monitoring test jobs)
+and the **server side** (deploying and operating a Testflinger lab).
 
-   .. grid-item-card:: Tutorial
-      :link: /tutorial/index
-      :link-type: doc
+Client side
+~~~~~~~~~~~
 
-      **Get started** - a hands-on introduction to Testflinger for new users
+For users who submit and monitor test jobs through the Testflinger CLI.
 
-   .. grid-item-card:: How-to guides
-      :link: /how-to/index
-      :link-type: doc
+**Get started**
+   :doc:`Install the CLI </how-to/install-cli>` •
+   :doc:`Change the server </how-to/change-server>` •
+   :doc:`Get started with the CLI </tutorial/index>`
 
-      **Step-by-step guides** - covering key operations and common tasks
+**Work with jobs**
+   :doc:`Submit a job </how-to/submit-job>` •
+   :doc:`Retrieve logs </how-to/retrieve-logs>` •
+   :doc:`Check job status </how-to/search-job>` •
+   :doc:`Cancel a job </how-to/cancel-job>` •
+   :doc:`Reserve a machine </how-to/reserve-job>` •
+   :doc:`Set job priority </how-to/job-priority>`
 
-.. grid:: 1 1 2 2
+**Define jobs**
+   :doc:`Job schema </reference/job-schema>` •
+   :ref:`Test phases <provision>` •
+   :doc:`Device connector types </reference/device-connector-types>` •
+   :doc:`CLI configuration </reference/cli-config>`
 
-   .. grid-item-card:: Reference
-      :link: /reference/index
-      :link-type: doc
+**Authenticate and protect secrets**
+   :doc:`Authenticate with the server </how-to/authentication>` •
+   :doc:`Use secrets </how-to/use-secrets>` •
+   :doc:`Manage client permissions </how-to/manage-client-permissions>` •
+   :ref:`Authentication and authorisation <authentication>`
 
-      **Technical information** - specifications, APIs, architecture
+Server side
+~~~~~~~~~~~
 
-   .. grid-item-card:: Explanation
-      :link: /explanation/index
-      :link-type: doc
+For operators who deploy and maintain a Testflinger server, agent hosts, and
+device connectors.
 
-      **Discussion and clarification** of key concepts
+**Understand the system**
+   :ref:`Architecture <architecture>` •
+   :ref:`Agents <explain_agents>` •
+   :ref:`Queues <queues>` •
+   :ref:`Restricted queues <restricted-queues>` •
+   :ref:`Extended reservation <extended-reservation>`
 
-.. grid:: 1 1 2 2
+**Deploy and maintain the server**
+   :ref:`Deploy the server <howto-deploy-server>` •
+   :ref:`Maintain the server <howto-maintain-server>` •
+   :doc:`Create an admin user </how-to/create-admin-user>`
 
-   .. grid-item-card:: Testflinger Agent Hosts Administration
-      :link: /how-to/administer-agent-hosts/index
-      :link-type: doc
+**Deploy and maintain agent hosts**
+   :doc:`Deploy an agent host </how-to/administer-agent-hosts/deploy-testflinger-agent-host>` •
+   :ref:`Maintain an agent host <howto-manage-agent-host>` •
+   :ref:`Manage agents <howto-manage-agent>` •
+   :doc:`List agents </how-to/list-agents>`
 
-      **Administration** tasks and best practices for operators of Testflinger Agent Hosts
+**Configure components**
+   :doc:`Server configuration </reference/testflinger-server-conf>` •
+   :doc:`Agent configuration </reference/testflinger-agent-conf>` •
+   :doc:`Device connector configuration </reference/device-connector-conf>` •
+   :doc:`MAAS storage </reference/maas_storage>`
+
+**Control access and secure the deployment**
+   :doc:`API roles </reference/api-roles>` •
+   :doc:`OpenAPI reference </reference/openapi>` •
+   :ref:`Security overview <security_overview>` •
+   :ref:`Secrets <secrets>`
+
+---------
+
+How this documentation is organised
+-----------------------------------
+
+This documentation follows the `Diátaxis <https://diataxis.fr/>`_ framework,
+which divides content by the reader's needs. The
+:doc:`Tutorial </tutorial/index>` takes you step-by-step through your first
+test job. The :doc:`How-to guides </how-to/index>` assume basic familiarity and
+cover key operations and common tasks. The
+:doc:`Reference </reference/index>` provides technical details on schemas,
+configuration, and APIs. The :doc:`Explanation </explanation/index>` offers
+background and discussion of key concepts. The *In this documentation* map
+above cuts across these tiers by domain of concern, so you can follow either
+your task (Diátaxis) or your component (client or server).
 
 ---------
 
