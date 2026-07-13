@@ -363,12 +363,15 @@ class DefaultControlHost:
         finally:
             self.poweron_dut()
 
-    def setup(self, phase: str) -> None:
-        """Ask the control host to prepare its hardware for a phase."""
+    def setup(self, phase: str, data: Optional[dict] = None) -> None:
+        """Ask the control host to prepare its hardware for a phase.
+
+        :param data: Optional JSON body sent with the request.
+        """
         endpoint = self.SETUP_ENDPOINT.format(phase=phase)
         url = f"http://{self.host}:{self.REST_PORT}{endpoint}"
         logger.info("Setting up %s on control host %s", phase, self.host)
-        requests.post(url, timeout=10).raise_for_status()
+        requests.post(url, json=data, timeout=10).raise_for_status()
 
 
 class DefaultDevice:
@@ -383,6 +386,10 @@ class DefaultDevice:
     # run the configured poweroff_script/poweron_script during the control
     # host power cycle.
     MANAGE_DUT_POWER_DURING_REBOOT = False
+
+    # Optional JSON body sent to the control host setup/provisioning endpoint.
+    # Connectors override this to request specific hardware preparation.
+    SETUP_PROVISIONING_DATA: Optional[dict] = None
 
     def __init__(self, config: dict) -> None:
         """Initialize class with device config and writing data to JSON file.
@@ -670,7 +677,9 @@ class DefaultDevice:
             return
 
         self._power_cycle_control_host(control_host)
-        self._setup_control_host(control_host, "provisioning")
+        self._setup_control_host(
+            control_host, "provisioning", self.SETUP_PROVISIONING_DATA
+        )
 
     def _power_cycle_control_host(self, control_host: str) -> None:
         """Power cycle the control host, unless disabled or unconfigured."""
@@ -719,14 +728,18 @@ class DefaultDevice:
 
         self._setup_control_host(control_host, "test")
 
-    def _setup_control_host(self, control_host: str, phase: str) -> None:
+    def _setup_control_host(
+        self, control_host: str, phase: str, data: Optional[dict] = None
+    ) -> None:
         """Best-effort request to prepare the control host for a phase.
 
         Failures are logged and swallowed so an unreachable control host never
         fails the run.
+
+        :param data: Optional JSON body sent with the request.
         """
         try:
-            DefaultControlHost(control_host).setup(phase)
+            DefaultControlHost(control_host).setup(phase, data)
         except Exception as e:  # noqa: BLE001 - best-effort, never fatal
             logger.debug(
                 "Could not set up %s on %s: %s", phase, control_host, e

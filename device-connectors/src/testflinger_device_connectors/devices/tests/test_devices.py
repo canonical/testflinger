@@ -152,9 +152,21 @@ class DefaultControlHostSetupTests(unittest.TestCase):
 
         mock_post.assert_called_once_with(
             "http://host:8000/api/v1/system/setup/test",
+            json=None,
             timeout=10,
         )
         mock_post.return_value.raise_for_status.assert_called_once_with()
+
+    @patch("testflinger_device_connectors.devices.requests.post")
+    def test_setup_posts_data_body(self, mock_post):
+        """Setup sends the provided data as the JSON request body."""
+        DefaultControlHost("host").setup("provisioning", {"usb": "DUT"})
+
+        mock_post.assert_called_once_with(
+            "http://host:8000/api/v1/system/setup/provisioning",
+            json={"usb": "DUT"},
+            timeout=10,
+        )
 
     @patch("testflinger_device_connectors.devices.requests.post")
     def test_setup_raises_on_http_error(self, mock_post):
@@ -178,7 +190,22 @@ class SetupControlHostTests(unittest.TestCase):
         connector._setup_control_host("control-host", "test")
 
         mock_control_host.assert_called_once_with("control-host")
-        mock_control_host.return_value.setup.assert_called_once_with("test")
+        mock_control_host.return_value.setup.assert_called_once_with(
+            "test", None
+        )
+
+    @patch("testflinger_device_connectors.devices.DefaultControlHost")
+    def test_forwards_data(self, mock_control_host):
+        """The helper forwards the data body to the control host."""
+        connector = DefaultDevice({"control_host": "control-host"})
+
+        connector._setup_control_host(
+            "control-host", "provisioning", {"usb": "DUT"}
+        )
+
+        mock_control_host.return_value.setup.assert_called_once_with(
+            "provisioning", {"usb": "DUT"}
+        )
 
     @patch("testflinger_device_connectors.devices.DefaultControlHost")
     def test_is_best_effort(self, mock_control_host):
@@ -217,7 +244,27 @@ class PreProvisionHookTests(unittest.TestCase):
             connector.pre_provision_hook()
 
         mock_power.assert_called_once_with("control-host")
-        mock_setup.assert_called_once_with("control-host", "provisioning")
+        mock_setup.assert_called_once_with(
+            "control-host", "provisioning", None
+        )
+
+    def test_forwards_setup_provisioning_data(self):
+        """SETUP_PROVISIONING_DATA is forwarded to the setup call."""
+
+        class _RecoveryDevice(DefaultDevice):
+            SETUP_PROVISIONING_DATA = {"usb": "DUT"}
+
+        connector = _RecoveryDevice({"control_host": "control-host"})
+
+        with (
+            patch.object(connector, "_power_cycle_control_host"),
+            patch.object(connector, "_setup_control_host") as mock_setup,
+        ):
+            connector.pre_provision_hook()
+
+        mock_setup.assert_called_once_with(
+            "control-host", "provisioning", {"usb": "DUT"}
+        )
 
 
 class PreTestHookTests(unittest.TestCase):
