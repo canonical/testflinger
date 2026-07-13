@@ -65,7 +65,7 @@ copyright = "%s GPL-3.0, %s" % (datetime.date.today().year, author)
 
 ## Open Graph configuration - defines what is displayed in the website preview
 # The URL of the documentation output
-ogp_site_url = f"https://ubuntu.com/docs/testflinger/{os.environ.get('READTHEDOCS_VERSION', 'local/')}"
+ogp_site_url = f"https://ubuntu.com/docs/testflinger/{os.environ.get('READTHEDOCS_VERSION', 'local')}/"
 # The documentation website name (usually the same as the product name)
 ogp_site_name = project
 # An image or logo that is used in the preview
@@ -157,7 +157,7 @@ slug = 'docs/testflinger'       # docs/ prefix required when hosted at ubuntu.co
 #######################
 
 # Base URL of RTD hosted project
-html_baseurl = f"https://ubuntu.com/docs/testflinger/{os.environ.get('READTHEDOCS_VERSION', 'local/')}"
+html_baseurl = f"https://ubuntu.com/docs/testflinger/{os.environ.get('READTHEDOCS_VERSION', 'local')}/"
 sitemap_filename = "doc-sitemap.xml"     # This value is added to ubuntu.com repo `templates/sitemap_index.xml`
 
 # sphinx-sitemap uses html_baseurl to generate the full URL for each page:
