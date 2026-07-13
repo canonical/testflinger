@@ -11,7 +11,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Unit tests for Zapper base device connector."""
+"""Unit tests for the control host base device connector."""
 
 import logging
 import os
@@ -26,10 +26,12 @@ from testflinger_device_connectors.devices import (
     DefaultControlHost,
     ProvisioningError,
 )
-from testflinger_device_connectors.devices.zapper import ZapperConnector
+from testflinger_device_connectors.devices.control_host import (
+    ControlHostConnector,
+)
 
 
-class MockConnector(ZapperConnector):
+class MockConnector(ControlHostConnector):
     PROVISION_METHOD = "Test"
 
     def _validate_configuration(self):
@@ -40,15 +42,15 @@ class MockConnector(ZapperConnector):
 
 
 def test_does_not_manage_dut_power_during_reboot_by_default():
-    """The base Zapper connector does NOT keep the DUT off while the control
-    host reboots; individual variants (e.g. zapper_iot) opt in explicitly so
-    that variants like zapper_kvm are unaffected.
+    """The base control host connector does NOT keep the DUT off while the
+    control host reboots; individual variants (e.g. control_host_iot) opt in
+    explicitly so that variants like control_host_kvm are unaffected.
     """
-    assert ZapperConnector.MANAGE_DUT_POWER_DURING_REBOOT is False
+    assert ControlHostConnector.MANAGE_DUT_POWER_DURING_REBOOT is False
 
 
-class ZapperConnectorTests(unittest.TestCase):
-    """Unit tests for ZapperConnector class."""
+class ControlHostConnectorTests(unittest.TestCase):
+    """Unit tests for ControlHostConnector class."""
 
     def setUp(self):
         # Run in an empty cwd so attachment auto-detection in _run
@@ -73,7 +75,7 @@ class ZapperConnectorTests(unittest.TestCase):
         fake_config = {
             "device_ip": "1.1.1.1",
             "agent_name": "my-agent",
-            "control_host": "zapper-host",
+            "control_host": "control-host",
             "reboot_script": ["cmd1", "cmd2"],
             "poweron_script": ["poweron1"],
             "poweroff_script": ["poweroff1"],
@@ -114,7 +116,7 @@ class ZapperConnectorTests(unittest.TestCase):
         job and config and attempts to copy the agent SSH
         key to the DUT.
         """
-        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "control-host"}
         connector = MockConnector(fake_config)
         connector.job_data = {
             "test_data": {
@@ -135,7 +137,7 @@ class ZapperConnectorTests(unittest.TestCase):
         """Test the function raises a ProvisioningError exception
         in case of failure.
         """
-        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "control-host"}
         connector = MockConnector(fake_config)
         connector.job_data = {
             "test_data": {
@@ -151,7 +153,7 @@ class ZapperConnectorTests(unittest.TestCase):
             connector._copy_ssh_id()
 
 
-class TestZapperConnectorRestApiCheck:
+class TestControlHostConnectorRestApiCheck:
     """Tests for DefaultControlHost REST API health check."""
 
     def test_check_rest_api_success(self, mocker):
@@ -193,7 +195,7 @@ class TestZapperConnectorRestApiCheck:
             DefaultControlHost, "wait_online"
         )
 
-        DefaultControlHost("zapper-host").wait_ready(timeout=30)
+        DefaultControlHost("control-host").wait_ready(timeout=30)
 
         mock_wait_online.assert_called_once()
 
@@ -204,22 +206,22 @@ class TestZapperConnectorRestApiCheck:
         )
 
         with pytest.raises(TimeoutError):
-            DefaultControlHost("zapper-host").wait_ready()
+            DefaultControlHost("control-host").wait_ready()
 
 
-class TestZapperConnectorRestApi:
-    """Tests for ZapperConnector REST API client."""
+class TestControlHostConnectorRestApi:
+    """Tests for ControlHostConnector REST API client."""
 
     def test_api_post(self, mocker):
         """Test _api_post sends a POST request to the correct URL."""
         mock_post = mocker.patch("requests.post")
         mock_post.return_value.raise_for_status = Mock()
 
-        connector = MockConnector({"control_host": "zapper-host"})
+        connector = MockConnector({"control_host": "control-host"})
         connector._api_post("/api/v1/system/poweroff", timeout=10)
 
         mock_post.assert_called_once_with(
-            "http://zapper-host:8000/api/v1/system/poweroff",
+            "http://control-host:8000/api/v1/system/poweroff",
             timeout=10,
         )
         mock_post.return_value.raise_for_status.assert_called_once()
@@ -231,13 +233,13 @@ class TestZapperConnectorRestApi:
             requests.HTTPError
         )
 
-        connector = MockConnector({"control_host": "zapper-host"})
+        connector = MockConnector({"control_host": "control-host"})
         with pytest.raises(requests.HTTPError):
             connector._api_post("/api/v1/system/poweroff")
 
 
-class TestZapperConnectorRun:
-    """Tests for ZapperConnector._run SSE streaming and job lifecycle."""
+class TestControlHostConnectorRun:
+    """Tests for ControlHostConnector._run SSE streaming and job lifecycle."""
 
     @pytest.fixture(autouse=True)
     def _isolate_cwd(self, tmp_path, monkeypatch):
@@ -251,7 +253,7 @@ class TestZapperConnectorRun:
         config = {
             "device_ip": "1.1.1.1",
             "agent_name": "my-agent",
-            "control_host": "zapper-host",
+            "control_host": "control-host",
             "reboot_script": ["cmd1"],
             "poweron_script": ["poweron1"],
             "poweroff_script": ["poweroff1"],
@@ -290,8 +292,8 @@ class TestZapperConnectorRun:
         # First call is the SSE stream
         sse_call = mock_get.call_args_list[0]
         assert sse_call[1]["timeout"] == (
-            connector.ZAPPER_CONNECTION_TIMEOUT,
-            connector.ZAPPER_READ_TIMEOUT,
+            connector.CONNECTION_TIMEOUT,
+            connector.READ_TIMEOUT,
         )
 
     def test_run_preserves_job_reboot_script(
@@ -315,7 +317,7 @@ class TestZapperConnectorRun:
     def test_run_streams_sse_log_lines(
         self, mocker, connector, mock_post, caplog
     ):
-        """Test that valid SSE data lines are logged with [zapper] prefix
+        """Test that valid SSE data lines are logged with [control-host] prefix
         at the correct level.
         """
         mock_get = mocker.patch("requests.get")
@@ -333,8 +335,8 @@ class TestZapperConnectorRun:
         with caplog.at_level(logging.DEBUG):
             connector._run()
 
-        assert "[zapper] Starting provisioning" in caplog.text
-        assert "[zapper] Disk space low" in caplog.text
+        assert "[control-host] Starting provisioning" in caplog.text
+        assert "[control-host] Disk space low" in caplog.text
         # Verify log levels are correct
         info_record = next(
             r for r in caplog.records if "Starting provisioning" in r.message
@@ -426,7 +428,7 @@ class TestZapperConnectorRun:
         with caplog.at_level(logging.DEBUG):
             connector._run()
 
-        assert "[zapper] no level here" in caplog.text
+        assert "[control-host] no level here" in caplog.text
         record = next(
             r for r in caplog.records if "no level here" in r.message
         )
@@ -449,7 +451,7 @@ class TestZapperConnectorRun:
         with caplog.at_level(logging.INFO):
             connector._run()
 
-        assert f"[zapper] {raw_line}" in caplog.text
+        assert f"[control-host] {raw_line}" in caplog.text
 
     def test_run_handles_invalid_log_level(
         self, mocker, connector, mock_post, caplog
@@ -487,7 +489,7 @@ class TestZapperConnectorRun:
         with caplog.at_level(logging.WARNING):
             connector._run()
 
-        assert "[zapper] low case" in caplog.text
+        assert "[control-host] low case" in caplog.text
         record = next(r for r in caplog.records if "low case" in r.message)
         assert record.levelno == logging.WARNING
 

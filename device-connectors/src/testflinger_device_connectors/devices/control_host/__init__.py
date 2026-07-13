@@ -12,12 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Package containing modules for implementing Zapper-driven device connectors.
+"""Package for implementing control-host-driven device connectors.
 
-Modules inheriting from the provided abstract class will run Zapper-driven
-provisioning procedures via Zapper API. The provisioning logic is implemented
-in the Zapper codebase and the connector serves as a pre-processing step,
-validating the configuration and preparing the API arguments.
+Modules inheriting from the provided abstract class run their provisioning
+procedures on a control host via its REST API. The provisioning logic lives on
+the control host, and the connector serves as a pre-processing step, validating
+the configuration and preparing the API arguments.
 """
 
 import json
@@ -39,18 +39,18 @@ logger = logging.getLogger(__name__)
 ATTACHMENTS_DIR = "attachments"
 
 
-class ZapperConnector(ABC, DefaultDevice):
-    """Abstract base class defining a common interface for Zapper-driven
-    device connectors.
+class ControlHostConnector(ABC, DefaultDevice):
+    """Abstract base class defining a common interface for
+    control-host-driven device connectors.
     """
 
     PROVISION_METHOD = ""  # to be defined in the implementation
-    ZAPPER_CONNECTION_TIMEOUT = 30
-    ZAPPER_READ_TIMEOUT = 60 * 90
-    ZAPPER_REST_PORT = 8000
+    CONNECTION_TIMEOUT = 30
+    READ_TIMEOUT = 60 * 90
+    REST_PORT = 8000
 
     def _api_post(self, endpoint: str, **kwargs) -> requests.Response:
-        """Send a POST request to the Zapper REST API.
+        """Send a POST request to the control host REST API.
 
         :param endpoint: API endpoint path (e.g. "/api/v1/system/poweroff").
         :param kwargs: Additional keyword arguments passed to requests.post.
@@ -58,8 +58,7 @@ class ZapperConnector(ABC, DefaultDevice):
         :raises requests.RequestException: On any request failure.
         """
         url = (
-            f"http://{self.config['control_host']}"
-            f":{self.ZAPPER_REST_PORT}{endpoint}"
+            f"http://{self.config['control_host']}:{self.REST_PORT}{endpoint}"
         )
         logger.info("POST %s", url)
         timeout = kwargs.pop("timeout", 30)
@@ -68,7 +67,7 @@ class ZapperConnector(ABC, DefaultDevice):
         return response
 
     def _api_get(self, endpoint: str, **kwargs) -> requests.Response:
-        """Send a GET request to the Zapper REST API.
+        """Send a GET request to the control host REST API.
 
         :param endpoint: API endpoint path.
         :param kwargs: Additional keyword arguments passed to requests.get.
@@ -76,8 +75,7 @@ class ZapperConnector(ABC, DefaultDevice):
         :raises requests.RequestException: On any request failure.
         """
         url = (
-            f"http://{self.config['control_host']}"
-            f":{self.ZAPPER_REST_PORT}{endpoint}"
+            f"http://{self.config['control_host']}:{self.REST_PORT}{endpoint}"
         )
         logger.info("GET %s", url)
         timeout = kwargs.pop("timeout", 30)
@@ -86,7 +84,7 @@ class ZapperConnector(ABC, DefaultDevice):
         return response
 
     def _api_put(self, endpoint: str, **kwargs) -> requests.Response:
-        """Send a PUT request to the Zapper REST API.
+        """Send a PUT request to the control host REST API.
 
         :param endpoint: API endpoint path.
         :param kwargs: Additional keyword arguments passed to requests.put.
@@ -94,8 +92,7 @@ class ZapperConnector(ABC, DefaultDevice):
         :raises requests.RequestException: On any request failure.
         """
         url = (
-            f"http://{self.config['control_host']}"
-            f":{self.ZAPPER_REST_PORT}{endpoint}"
+            f"http://{self.config['control_host']}:{self.REST_PORT}{endpoint}"
         )
         logger.info("PUT %s", url)
         timeout = kwargs.pop("timeout", 30)
@@ -112,9 +109,11 @@ class ZapperConnector(ABC, DefaultDevice):
 
         logger.info("BEGIN provision")
         logger.info("Provisioning device")
-        self.ZAPPER_READ_TIMEOUT = self.job_data["provision_data"].get(
-            "zapper_provisioning_timeout",
-            self.ZAPPER_READ_TIMEOUT,
+        provision_data = self.job_data["provision_data"]
+        self.READ_TIMEOUT = (
+            provision_data.get("provisioning_timeout")
+            or provision_data.get("zapper_provisioning_timeout")
+            or self.READ_TIMEOUT
         )
 
         (api_args, api_kwargs) = self._validate_configuration()
@@ -129,7 +128,7 @@ class ZapperConnector(ABC, DefaultDevice):
         self,
     ) -> Tuple[Tuple, Dict[str, Any]]:
         """Validate the job config and data and prepare the arguments
-        for the Zapper `provision` API.
+        for the control host `provision` API.
         """
         raise NotImplementedError
 
@@ -143,7 +142,7 @@ class ZapperConnector(ABC, DefaultDevice):
             return None
 
     def _run(self, *args, **kwargs):
-        """Run the Zapper provisioning via the REST API.
+        """Run the provisioning on the control host via the REST API.
 
         Submits a provisioning job, streams SSE logs in real time,
         and checks the final job status. When a provision attachment
@@ -180,8 +179,8 @@ class ZapperConnector(ABC, DefaultDevice):
                     data={"request": json.dumps(payload)},
                     files={"boot_binary": boot_binary_file},
                     timeout=(
-                        self.ZAPPER_CONNECTION_TIMEOUT,
-                        self.ZAPPER_READ_TIMEOUT,
+                        self.CONNECTION_TIMEOUT,
+                        self.READ_TIMEOUT,
                     ),
                 )
         else:
@@ -190,7 +189,7 @@ class ZapperConnector(ABC, DefaultDevice):
         job = resp.json()
         job_id = job["job_id"]
 
-        timeout = (self.ZAPPER_CONNECTION_TIMEOUT, self.ZAPPER_READ_TIMEOUT)
+        timeout = (self.CONNECTION_TIMEOUT, self.READ_TIMEOUT)
         while True:
             sse = self._api_get(
                 f"/api/v1/provision/{job_id}/logs",
@@ -248,7 +247,9 @@ class ZapperConnector(ABC, DefaultDevice):
                     entry.get("level", ""),
                 )
                 log_level = logging.INFO
-            logger.log(log_level, "[zapper] %s", entry.get("message", line))
+            logger.log(
+                log_level, "[control-host] %s", entry.get("message", line)
+            )
 
     def _copy_ssh_id(self):
         """Copy the ssh id to the device."""
@@ -278,4 +279,4 @@ class ZapperConnector(ABC, DefaultDevice):
 
     @abstractmethod
     def _post_run_actions(self, args):
-        """Run further actions after Zapper API returns successfully."""
+        """Run further actions after the control host API returns."""

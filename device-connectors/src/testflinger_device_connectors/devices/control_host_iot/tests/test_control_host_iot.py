@@ -7,12 +7,12 @@ from testflinger_device_connectors.devices.control_host_iot import (
 )
 
 
-class ZapperIoTTests(unittest.TestCase):
-    """Test Cases for the Zapper IoT class."""
+class ControlHostIoTTests(unittest.TestCase):
+    """Test Cases for the control host IoT class."""
 
     def test_manages_dut_power_during_reboot(self):
-        """zapper_iot opts in to keeping the DUT off while the control host
-        reboots, unlike the base connector and other Zapper variants.
+        """control_host_iot opts in to keeping the DUT off while the control
+        host reboots, unlike the base connector and other variants.
         """
         self.assertTrue(DeviceConnector.MANAGE_DUT_POWER_DURING_REBOOT)
 
@@ -20,7 +20,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function creates a proper provision_data
         dictionary when valid data are provided.
         """
-        device = DeviceConnector({"control_host": "zapper-host"})
+        device = DeviceConnector({"control_host": "control-host"})
         device.job_data = {
             "provision_data": {
                 "preset": "TestPreset",
@@ -46,7 +46,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function accepts a single `url` string
         and converts it to `urls` list.
         """
-        device = DeviceConnector({"control_host": "zapper-host"})
+        device = DeviceConnector({"control_host": "control-host"})
         device.job_data = {
             "provision_data": {
                 "preset": "TestPreset",
@@ -69,7 +69,7 @@ class ZapperIoTTests(unittest.TestCase):
 
     def test_validate_configuration_ubuntu_sso_email(self):
         """Test the function username will be ubuntu_sso_email if provided."""
-        device = DeviceConnector({"control_host": "zapper-host"})
+        device = DeviceConnector({"control_host": "control-host"})
         device.job_data = {
             "provision_data": {
                 "ubuntu_sso_email": "test@example.com",
@@ -95,7 +95,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function validates a custom test plan
         when provided.
         """
-        device = DeviceConnector({"control_host": "zapper-host"})
+        device = DeviceConnector({"control_host": "control-host"})
         device.job_data = {
             "provision_data": {
                 "provision_plan": {
@@ -206,7 +206,7 @@ class ZapperIoTTests(unittest.TestCase):
         when provided and an ubuntu_sso_email is provided.
         The username should be overridden with the ubuntu_sso_email.
         """
-        device = DeviceConnector({"control_host": "zapper-host"})
+        device = DeviceConnector({"control_host": "control-host"})
         device.job_data = {
             "provision_data": {
                 "ubuntu_sso_email": "test@example.com",
@@ -262,7 +262,7 @@ class ZapperIoTTests(unittest.TestCase):
         """
         fake_config = {
             "device_ip": "1.1.1.1",
-            "control_host": "zapper-host",
+            "control_host": "control-host",
             "reboot_script": ["cmd1", "cmd2"],
         }
         device = DeviceConnector(fake_config)
@@ -293,7 +293,7 @@ class ZapperIoTTests(unittest.TestCase):
         """
         fake_config = {
             "device_ip": "1.1.1.1",
-            "control_host": "zapper-host",
+            "control_host": "control-host",
             "reboot_script": ["cmd1", "cmd2"],
         }
         device = DeviceConnector(fake_config)
@@ -312,7 +312,7 @@ class ZapperIoTTests(unittest.TestCase):
         """
         fake_config = {
             "device_ip": "1.1.1.1",
-            "control_host": "zapper-host",
+            "control_host": "control-host",
             "reboot_script": ["cmd1", "cmd2"],
         }
         device = DeviceConnector(fake_config)
@@ -329,7 +329,7 @@ class ZapperIoTTests(unittest.TestCase):
         """
         fake_config = {
             "device_ip": "1.1.1.1",
-            "control_host": "zapper-host",
+            "control_host": "control-host",
             "reboot_script": ["cmd1", "cmd2"],
         }
         device = DeviceConnector(fake_config)
@@ -352,7 +352,7 @@ class ZapperIoTTests(unittest.TestCase):
         "testflinger_device_connectors.devices.control_host_iot.SerialLogger"
     )
     @patch(
-        "testflinger_device_connectors.devices.zapper.ZapperConnector.provision"
+        "testflinger_device_connectors.devices.control_host.ControlHostConnector.provision"
     )
     def test_provision_wraps_super_with_serial_logger(
         self, mock_super_provision, mock_serial_logger_factory
@@ -364,7 +364,7 @@ class ZapperIoTTests(unittest.TestCase):
         mock_serial_logger_factory.return_value = mock_serial_proc
 
         fake_config = {
-            "control_host": "zapper-host",
+            "control_host": "control-host",
             "serial_host": "serial-host",
             "serial_port": 3000,
         }
@@ -383,7 +383,7 @@ class ZapperIoTTests(unittest.TestCase):
         "testflinger_device_connectors.devices.control_host_iot.SerialLogger"
     )
     @patch(
-        "testflinger_device_connectors.devices.zapper.ZapperConnector.provision"
+        "testflinger_device_connectors.devices.control_host.ControlHostConnector.provision"
     )
     def test_provision_stops_serial_logger_on_failure(
         self, mock_super_provision, mock_serial_logger_factory
@@ -394,7 +394,7 @@ class ZapperIoTTests(unittest.TestCase):
         mock_super_provision.side_effect = ProvisioningError("fail")
 
         fake_config = {
-            "control_host": "zapper-host",
+            "control_host": "control-host",
             "serial_host": "serial-host",
             "serial_port": 3000,
         }
@@ -414,7 +414,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function copy the ssh id if there is no provision plan
         and without ubuntu_sso_email.
         """
-        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "control-host"}
         device = DeviceConnector(fake_config)
         device.job_data = {"provision_data": {}}
         device._post_run_actions(args=None)
@@ -427,7 +427,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function does not copy the ssh id if there is
         buntu_sso_email.
         """
-        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "control-host"}
         device = DeviceConnector(fake_config)
         device.job_data = {
             "provision_data": {
@@ -444,7 +444,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function does not copy the ssh id if
         agent_ssh_access is false.
         """
-        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "control-host"}
         device = DeviceConnector(fake_config)
         device.job_data = {
             "provision_data": {
@@ -461,7 +461,7 @@ class ZapperIoTTests(unittest.TestCase):
         """Test the function copies the ssh id if the
         initial login method is Not console-conf.
         """
-        fake_config = {"device_ip": "1.1.1.1", "control_host": "zapper-host"}
+        fake_config = {"device_ip": "1.1.1.1", "control_host": "control-host"}
         device = DeviceConnector(fake_config)
         device.job_data = {
             "provision_data": {

@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Zapper Connector for IOT provisioning."""
+"""Control host connector for IoT provisioning."""
 
 import contextlib
 import logging
@@ -22,15 +22,17 @@ from testflinger_device_connectors.devices import (
     ProvisioningError,
     SerialLogger,
 )
+from testflinger_device_connectors.devices.control_host import (
+    ControlHostConnector,
+)
 from testflinger_device_connectors.devices.control_host_iot.parser import (
     validate_urls,
 )
-from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
 
-class DeviceConnector(ZapperConnector):
+class DeviceConnector(ControlHostConnector):
     """Tool for provisioning baremetal with a given image."""
 
     MANAGE_DUT_POWER_DURING_REBOOT = True
@@ -40,7 +42,7 @@ class DeviceConnector(ZapperConnector):
         self,
     ) -> Tuple[Tuple, Dict[str, Any]]:
         """Validate the job config and data and prepare the arguments
-        for the Zapper `provision` API.
+        for the control host `provision` API.
         """
         # We prefer using username/password in provision_plan
         # while username/password are not defined in test_data
@@ -144,7 +146,7 @@ class DeviceConnector(ZapperConnector):
             serial_proc.stop()
 
     def _post_run_actions(self, args):
-        """Run further actions after Zapper API returns successfully."""
+        """Run further actions after the control host API returns."""
         super()._post_run_actions(args)
 
         # When agent_ssh_access is false, the DUT won't be accessible

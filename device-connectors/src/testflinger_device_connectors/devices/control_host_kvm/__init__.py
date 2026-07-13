@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Zapper Connector for KVM provisioning."""
+"""Control host connector for KVM provisioning."""
 
 import base64
 import binascii
@@ -25,20 +25,22 @@ from typing import Any, Dict, Optional, Tuple
 import yaml
 
 from testflinger_device_connectors.devices import ProvisioningError
+from testflinger_device_connectors.devices.control_host import (
+    ControlHostConnector,
+)
 from testflinger_device_connectors.devices.dell_oemscript import DellOemScript
 from testflinger_device_connectors.devices.hp_oemscript import HPOemScript
 from testflinger_device_connectors.devices.lenovo_oemscript import (
     LenovoOemScript,
 )
 from testflinger_device_connectors.devices.oemscript import OemScript
-from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
 JAMMY_OEM_PRESET = "desktop-jammy-oem"
 
 
-class DeviceConnector(ZapperConnector):
+class DeviceConnector(ControlHostConnector):
     """Tool for provisioning baremetal with a given image."""
 
     PROVISION_METHOD = "ProvisioningKVM"
@@ -75,7 +77,8 @@ class DeviceConnector(ZapperConnector):
             )
 
             user_data_oem = (
-                Path(__file__).parent / "../../data/zapper_kvm/user-data-oem"
+                Path(__file__).parent
+                / "../../data/control_host_kvm/user-data-oem"
             )
             user_data = user_data_oem.read_text(encoding="utf-8")
             encoded_user_data = base64.b64encode(user_data.encode()).decode()
@@ -135,7 +138,7 @@ class DeviceConnector(ZapperConnector):
         self,
     ) -> Tuple[Tuple, Dict[str, Any]]:
         """Validate the job config and data and prepare the arguments
-        for the Zapper `provision` API.
+        for the control host `provision` API.
         """
         job_provision = self.job_data["provision_data"]
 
@@ -147,7 +150,7 @@ class DeviceConnector(ZapperConnector):
             provision_data = self._build_default_payload()
 
         provision_data["authorized_keys"] = [self._read_ssh_key()]
-        # Let Zapper handle defaults — only forward explicitly-set keys.
+        # Let the control host handle defaults — only forward set keys.
         provision_data.update(
             {
                 opt: job_provision[opt]
@@ -236,7 +239,7 @@ class DeviceConnector(ZapperConnector):
         self._run_oem_script(args)
 
     def _run_oem_script(self, args):
-        """If "alloem_url" was in scope, the Zapper only restored
+        """If "alloem_url" was in scope, the control host only restored
         the OEM reset partition. The usual oemscript will take care
         of the rest.
         """

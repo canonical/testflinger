@@ -173,21 +173,21 @@ class SetupControlHostTests(unittest.TestCase):
     @patch("testflinger_device_connectors.devices.DefaultControlHost")
     def test_calls_control_host_for_phase(self, mock_control_host):
         """The helper asks the control host to set up the given phase."""
-        connector = DefaultDevice({"control_host": "zapper-host"})
+        connector = DefaultDevice({"control_host": "control-host"})
 
-        connector._setup_control_host("zapper-host", "test")
+        connector._setup_control_host("control-host", "test")
 
-        mock_control_host.assert_called_once_with("zapper-host")
+        mock_control_host.assert_called_once_with("control-host")
         mock_control_host.return_value.setup.assert_called_once_with("test")
 
     @patch("testflinger_device_connectors.devices.DefaultControlHost")
     def test_is_best_effort(self, mock_control_host):
         """A failing control host never fails the run."""
         mock_control_host.return_value.setup.side_effect = RuntimeError
-        connector = DefaultDevice({"control_host": "zapper-host"})
+        connector = DefaultDevice({"control_host": "control-host"})
 
         # Should not raise.
-        connector._setup_control_host("zapper-host", "provisioning")
+        connector._setup_control_host("control-host", "provisioning")
 
 
 class PreProvisionHookTests(unittest.TestCase):
@@ -208,7 +208,7 @@ class PreProvisionHookTests(unittest.TestCase):
 
     def test_power_cycles_then_sets_up_provisioning(self):
         """Both steps run, in order, when a control host is configured."""
-        connector = DefaultDevice({"control_host": "zapper-host"})
+        connector = DefaultDevice({"control_host": "control-host"})
 
         with (
             patch.object(connector, "_power_cycle_control_host") as mock_power,
@@ -216,8 +216,8 @@ class PreProvisionHookTests(unittest.TestCase):
         ):
             connector.pre_provision_hook()
 
-        mock_power.assert_called_once_with("zapper-host")
-        mock_setup.assert_called_once_with("zapper-host", "provisioning")
+        mock_power.assert_called_once_with("control-host")
+        mock_setup.assert_called_once_with("control-host", "provisioning")
 
 
 class PreTestHookTests(unittest.TestCase):
@@ -234,9 +234,9 @@ class PreTestHookTests(unittest.TestCase):
 
     def test_sets_up_test_phase(self):
         """The test phase is set up when a control host is configured."""
-        connector = DefaultDevice({"control_host": "zapper-host"})
+        connector = DefaultDevice({"control_host": "control-host"})
 
         with patch.object(connector, "_setup_control_host") as mock_setup:
             connector.pre_test_hook()
 
-        mock_setup.assert_called_once_with("zapper-host", "test")
+        mock_setup.assert_called_once_with("control-host", "test")
