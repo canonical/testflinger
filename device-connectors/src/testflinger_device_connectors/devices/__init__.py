@@ -159,7 +159,7 @@ class DefaultControlHost:
 
     REST_PORT = 8000
     POWEROFF_ENDPOINT = "/api/v1/system/poweroff"
-    SETUP_PROVISIONING_ENDPOINT = "/api/v1/system/setup/provisioning"
+    SETUP_ENDPOINT = "/api/v1/system/setup/{phase}"
 
     def __init__(
         self,
@@ -363,13 +363,11 @@ class DefaultControlHost:
         finally:
             self.poweron_dut()
 
-    def setup_provisioning(self) -> None:
-        """Ask the control host to prepare its hardware for provisioning."""
-        url = (
-            f"http://{self.host}:{self.REST_PORT}"
-            f"{self.SETUP_PROVISIONING_ENDPOINT}"
-        )
-        logger.info("Setting up provisioning on control host %s", self.host)
+    def setup(self, phase: str) -> None:
+        """Ask the control host to prepare its hardware for a phase."""
+        endpoint = self.SETUP_ENDPOINT.format(phase=phase)
+        url = f"http://{self.host}:{self.REST_PORT}{endpoint}"
+        logger.info("Setting up %s on control host %s", phase, self.host)
         requests.post(url, timeout=10).raise_for_status()
 
 
@@ -464,6 +462,8 @@ class DefaultDevice:
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         logger.info("BEGIN testrun")
+
+        self.pre_test_hook()
 
         test_opportunity = testflinger_device_connectors.get_test_opportunity(
             args.job_data
@@ -670,7 +670,7 @@ class DefaultDevice:
             return
 
         self._power_cycle_control_host(control_host)
-        self._setup_control_host_provisioning(control_host)
+        self._setup_control_host(control_host, "provisioning")
 
     def _power_cycle_control_host(self, control_host: str) -> None:
         """Power cycle the control host, unless disabled or unconfigured."""
@@ -710,17 +710,26 @@ class DefaultDevice:
             poweron_script=poweron_script,
         ).power_cycle()
 
-    def _setup_control_host_provisioning(self, control_host: str) -> None:
-        """Best-effort request to prepare the control host for provisioning.
+    def pre_test_hook(self):
+        """Prepare the control host before running the test phase."""
+        control_host: str = str(self.config.get("control_host", ""))
+        if not control_host:
+            logger.debug("No control host configured for this agent.")
+            return
+
+        self._setup_control_host(control_host, "test")
+
+    def _setup_control_host(self, control_host: str, phase: str) -> None:
+        """Best-effort request to prepare the control host for a phase.
 
         Failures are logged and swallowed so an unreachable control host never
-        fails provisioning.
+        fails the run.
         """
         try:
-            DefaultControlHost(control_host).setup_provisioning()
+            DefaultControlHost(control_host).setup(phase)
         except Exception as e:  # noqa: BLE001 - best-effort, never fatal
             logger.debug(
-                "Could not set up provisioning on %s: %s", control_host, e
+                "Could not set up %s on %s: %s", phase, control_host, e
             )
 
     def provision(self, args):

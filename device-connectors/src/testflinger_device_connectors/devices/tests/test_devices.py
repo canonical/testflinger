@@ -143,28 +143,51 @@ class DefaultDeviceTests(unittest.TestCase):
 
 
 class DefaultControlHostSetupTests(unittest.TestCase):
-    """Unit tests for DefaultControlHost.setup_provisioning."""
+    """Unit tests for DefaultControlHost.setup."""
 
     @patch("testflinger_device_connectors.devices.requests.post")
-    def test_setup_provisioning_posts_to_endpoint(self, mock_post):
-        """setup_provisioning POSTs to the setup/provisioning endpoint."""
-        DefaultControlHost("host").setup_provisioning()
+    def test_setup_posts_to_phase_endpoint(self, mock_post):
+        """Setup POSTs to the setup endpoint for the given phase."""
+        DefaultControlHost("host").setup("test")
 
         mock_post.assert_called_once_with(
-            "http://host:8000/api/v1/system/setup/provisioning",
+            "http://host:8000/api/v1/system/setup/test",
             timeout=10,
         )
         mock_post.return_value.raise_for_status.assert_called_once_with()
 
     @patch("testflinger_device_connectors.devices.requests.post")
-    def test_setup_provisioning_raises_on_http_error(self, mock_post):
-        """setup_provisioning propagates HTTP errors."""
+    def test_setup_raises_on_http_error(self, mock_post):
+        """Setup propagates HTTP errors."""
         mock_post.return_value.raise_for_status.side_effect = (
             requests.HTTPError
         )
 
         with self.assertRaises(requests.HTTPError):
-            DefaultControlHost("host").setup_provisioning()
+            DefaultControlHost("host").setup("provisioning")
+
+
+class SetupControlHostTests(unittest.TestCase):
+    """Unit tests for DefaultDevice._setup_control_host best-effort helper."""
+
+    @patch("testflinger_device_connectors.devices.DefaultControlHost")
+    def test_calls_control_host_for_phase(self, mock_control_host):
+        """The helper asks the control host to set up the given phase."""
+        connector = DefaultDevice({"control_host": "zapper-host"})
+
+        connector._setup_control_host("zapper-host", "test")
+
+        mock_control_host.assert_called_once_with("zapper-host")
+        mock_control_host.return_value.setup.assert_called_once_with("test")
+
+    @patch("testflinger_device_connectors.devices.DefaultControlHost")
+    def test_is_best_effort(self, mock_control_host):
+        """A failing control host never fails the run."""
+        mock_control_host.return_value.setup.side_effect = RuntimeError
+        connector = DefaultDevice({"control_host": "zapper-host"})
+
+        # Should not raise.
+        connector._setup_control_host("zapper-host", "provisioning")
 
 
 class PreProvisionHookTests(unittest.TestCase):
@@ -176,9 +199,7 @@ class PreProvisionHookTests(unittest.TestCase):
 
         with (
             patch.object(connector, "_power_cycle_control_host") as mock_power,
-            patch.object(
-                connector, "_setup_control_host_provisioning"
-            ) as mock_setup,
+            patch.object(connector, "_setup_control_host") as mock_setup,
         ):
             connector.pre_provision_hook()
 
@@ -191,32 +212,31 @@ class PreProvisionHookTests(unittest.TestCase):
 
         with (
             patch.object(connector, "_power_cycle_control_host") as mock_power,
-            patch.object(
-                connector, "_setup_control_host_provisioning"
-            ) as mock_setup,
+            patch.object(connector, "_setup_control_host") as mock_setup,
         ):
             connector.pre_provision_hook()
 
         mock_power.assert_called_once_with("zapper-host")
-        mock_setup.assert_called_once_with("zapper-host")
+        mock_setup.assert_called_once_with("zapper-host", "provisioning")
 
-    @patch("testflinger_device_connectors.devices.DefaultControlHost")
-    def test_setup_calls_control_host(self, mock_control_host):
-        """The setup step asks the control host to set up provisioning."""
+
+class PreTestHookTests(unittest.TestCase):
+    """Unit tests for DefaultDevice.pre_test_hook orchestration."""
+
+    def test_skips_when_no_control_host(self):
+        """Nothing runs when no control host is configured."""
+        connector = DefaultDevice({"device_ip": "1.2.3.4"})
+
+        with patch.object(connector, "_setup_control_host") as mock_setup:
+            connector.pre_test_hook()
+
+        mock_setup.assert_not_called()
+
+    def test_sets_up_test_phase(self):
+        """The test phase is set up when a control host is configured."""
         connector = DefaultDevice({"control_host": "zapper-host"})
 
-        connector._setup_control_host_provisioning("zapper-host")
+        with patch.object(connector, "_setup_control_host") as mock_setup:
+            connector.pre_test_hook()
 
-        mock_control_host.assert_called_once_with("zapper-host")
-        mock_control_host.return_value.setup_provisioning.assert_called_once_with()
-
-    @patch("testflinger_device_connectors.devices.DefaultControlHost")
-    def test_setup_is_best_effort(self, mock_control_host):
-        """A failing control host never fails provisioning."""
-        mock_control_host.return_value.setup_provisioning.side_effect = (
-            RuntimeError
-        )
-        connector = DefaultDevice({"control_host": "zapper-host"})
-
-        # Should not raise.
-        connector._setup_control_host_provisioning("zapper-host")
+        mock_setup.assert_called_once_with("zapper-host", "test")
