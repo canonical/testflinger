@@ -2,7 +2,9 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from testflinger_device_connectors.devices import ProvisioningError
-from testflinger_device_connectors.devices.zapper_iot import DeviceConnector
+from testflinger_device_connectors.devices.control_host_iot import (
+    DeviceConnector,
+)
 
 
 class ZapperIoTTests(unittest.TestCase):
@@ -346,7 +348,9 @@ class ZapperIoTTests(unittest.TestCase):
         with self.assertRaises(ProvisioningError):
             device._validate_configuration()
 
-    @patch("testflinger_device_connectors.devices.zapper_iot.SerialLogger")
+    @patch(
+        "testflinger_device_connectors.devices.control_host_iot.SerialLogger"
+    )
     @patch(
         "testflinger_device_connectors.devices.zapper.ZapperConnector.provision"
     )
@@ -375,7 +379,9 @@ class ZapperIoTTests(unittest.TestCase):
         mock_super_provision.assert_called_once_with(args)
         mock_serial_proc.stop.assert_called_once()
 
-    @patch("testflinger_device_connectors.devices.zapper_iot.SerialLogger")
+    @patch(
+        "testflinger_device_connectors.devices.control_host_iot.SerialLogger"
+    )
     @patch(
         "testflinger_device_connectors.devices.zapper.ZapperConnector.provision"
     )

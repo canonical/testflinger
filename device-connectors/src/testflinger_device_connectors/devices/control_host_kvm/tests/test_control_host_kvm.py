@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Canonical
+# Copyright (C) 2026 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,9 @@ from unittest.mock import Mock, patch
 import yaml
 
 from testflinger_device_connectors.devices import ProvisioningError
-from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
+from testflinger_device_connectors.devices.control_host_kvm import (
+    DeviceConnector,
+)
 
 
 class ZapperKVMConnectorTests(unittest.TestCase):
@@ -513,7 +515,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         connector.job_data = {"provision_data": {}}
 
         with patch(
-            "testflinger_device_connectors.devices.zapper_kvm.OemScript"
+            "testflinger_device_connectors.devices.control_host_kvm.OemScript"
         ) as script:
             connector._run_oem_script("args")
 
@@ -530,7 +532,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         args = Mock()
 
         with patch(
-            "testflinger_device_connectors.devices.zapper_kvm.OemScript"
+            "testflinger_device_connectors.devices.control_host_kvm.OemScript"
         ) as script:
             connector._run_oem_script(args)
 
@@ -550,7 +552,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         args = Mock()
 
         with patch(
-            "testflinger_device_connectors.devices.zapper_kvm.HPOemScript"
+            "testflinger_device_connectors.devices.control_host_kvm.HPOemScript"
         ) as script:
             connector._run_oem_script(args)
 
@@ -570,7 +572,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         args = Mock()
 
         with patch(
-            "testflinger_device_connectors.devices.zapper_kvm.DellOemScript"
+            "testflinger_device_connectors.devices.control_host_kvm.DellOemScript"
         ) as script:
             connector._run_oem_script(args)
 
@@ -590,7 +592,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         args = Mock()
 
         with patch(
-            "testflinger_device_connectors.devices.zapper_kvm.LenovoOemScript"
+            "testflinger_device_connectors.devices.control_host_kvm.LenovoOemScript"
         ) as script:
             connector._run_oem_script(args)
 
@@ -719,7 +721,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         with self.assertRaises(ProvisioningError):
             connector._post_run_actions("args")
 
-    @patch("testflinger_device_connectors.devices.zapper_kvm.Path")
+    @patch("testflinger_device_connectors.devices.control_host_kvm.Path")
     def test_read_ssh_key(self, mock_path):
         ssh_path = mock_path.return_value.expanduser.return_value
         ssh_path.read_text.return_value = "mykey"
