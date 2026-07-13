@@ -159,6 +159,7 @@ class DefaultControlHost:
 
     REST_PORT = 8000
     POWEROFF_ENDPOINT = "/api/v1/system/poweroff"
+    SETUP_PROVISIONING_ENDPOINT = "/api/v1/system/setup/provisioning"
 
     def __init__(
         self,
@@ -361,6 +362,15 @@ class DefaultControlHost:
             self.ssh_fallback()
         finally:
             self.poweron_dut()
+
+    def setup_provisioning(self) -> None:
+        """Ask the control host to prepare its hardware for provisioning."""
+        url = (
+            f"http://{self.host}:{self.REST_PORT}"
+            f"{self.SETUP_PROVISIONING_ENDPOINT}"
+        )
+        logger.info("Setting up provisioning on control host %s", self.host)
+        requests.post(url, timeout=10).raise_for_status()
 
 
 class DefaultDevice:
@@ -648,17 +658,27 @@ class DefaultDevice:
         return [str(cmd) for cmd in value]
 
     def pre_provision_hook(self):
-        """Power cycle the control host before provisioning."""
+        """Prepare the control host before provisioning.
+
+        Power cycles the control host and then asks it to set up its hardware
+        for provisioning. Runs for every connector that provisions through a
+        control host.
+        """
+        control_host: str = str(self.config.get("control_host", ""))
+        if not control_host:
+            logger.debug("No control host configured for this agent.")
+            return
+
+        self._power_cycle_control_host(control_host)
+        self._setup_control_host_provisioning(control_host)
+
+    def _power_cycle_control_host(self, control_host: str) -> None:
+        """Power cycle the control host, unless disabled or unconfigured."""
         if os.environ.get("DISABLE_CONTROL_HOST_POWERCYCLE"):
             logger.info(
                 "Skipping control host power cycle "
                 "(DISABLE_CONTROL_HOST_POWERCYCLE is set)."
             )
-            return
-
-        control_host: str = str(self.config.get("control_host", ""))
-        if not control_host:
-            logger.debug("No control host configured for this agent.")
             return
 
         reboot_script = self._config_script("control_host_reboot_script")
@@ -689,6 +709,19 @@ class DefaultDevice:
             poweroff_script=poweroff_script,
             poweron_script=poweron_script,
         ).power_cycle()
+
+    def _setup_control_host_provisioning(self, control_host: str) -> None:
+        """Best-effort request to prepare the control host for provisioning.
+
+        Failures are logged and swallowed so an unreachable control host never
+        fails provisioning.
+        """
+        try:
+            DefaultControlHost(control_host).setup_provisioning()
+        except Exception as e:  # noqa: BLE001 - best-effort, never fatal
+            logger.debug(
+                "Could not set up provisioning on %s: %s", control_host, e
+            )
 
     def provision(self, args):
         """Run pre-provision hook."""
