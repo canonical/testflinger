@@ -56,6 +56,9 @@ class AgentIn(Schema):
     log = fields.List(fields.String(), required=False)
     provision_type = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
+    links = fields.Dict(
+        keys=fields.String(), values=fields.URL(), required=False
+    )
     state = fields.String(required=False)
     comment = fields.String(required=False)
 
@@ -66,6 +69,9 @@ class AgentOut(Schema):
     name = fields.String(required=True)
     state = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
+    links = fields.Dict(
+        keys=fields.String(), values=fields.URL(), required=False
+    )
     location = fields.String(required=False)
     provision_type = fields.String(required=False)
     job_id = fields.String(required=False)

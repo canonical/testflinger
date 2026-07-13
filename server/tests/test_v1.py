@@ -1319,6 +1319,7 @@ def test_get_agents_data(mongo_app, agent_auth_header):
         "state": "provision",
         "queues": ["q1", "q2"],
         "location": "here",
+        "links": {"product": "https://example.com/product"},
     }
     output = app.post(
         f"/v1/agents/data/{agent_name}",

@@ -54,6 +54,8 @@ The following configuration options are supported by the Testflinger Agent:
       - Command to run for the cleanup phase
     * - ``provision_type``
       - (Optional) type of device connector used. This is sometimes useful when templating the call to the external device-agent command, but is not required. For the list of supported provision types, see :doc:`device-connector-types`.
+    * - ``links``
+      - (Optional) mapping of labels to URLs shown on the agent detail page, for example ``c3`` or ``product`` links.
 
 Example configuration
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -81,3 +83,6 @@ Example configuration
   reserve_command: testflinger-device-connector muxpi reserve -c /path/to/default.yaml testflinger.json
   cleanup_command: echo Consider removing containers or other necessary cleanup steps here
   provision_type: muxpi
+  links:
+      c3: https://example.com/certification-inventory/rpi-example
+      product: https://example.com/products/rpi-example

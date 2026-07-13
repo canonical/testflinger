@@ -25,6 +25,20 @@
         <th scope="row">Comment</th>
         <td>{{ agent.comment }}</td>
       </tr>
+      {% if agent.links %}
+        <tr>
+          <th scope="row">Links</th>
+          <td>
+            <ul>
+              {% for label, url in agent.links.items() %}
+                <li>
+                  <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ label }}</a>
+                </li>
+              {% endfor %}
+            </ul>
+          </td>
+        </tr>
+      {% endif %}
       <tr>
         <th scope="row">Last updated</th>
         <td>{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>

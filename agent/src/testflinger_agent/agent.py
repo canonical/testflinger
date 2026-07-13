@@ -123,6 +123,7 @@ class TestflingerAgent:
         identifier = self.client.config.get("identifier")
         location = self.client.config.get("location", "")
         provision_type = self.client.config.get("provision_type", "")
+        links = self.client.config.get("links", {})
         queues = self.client.config.get("job_queues", [])
 
         agent_data = {
@@ -132,6 +133,8 @@ class TestflingerAgent:
         }
         if identifier:
             agent_data["identifier"] = identifier
+        if links:
+            agent_data["links"] = links
 
         self.client.post_agent_data(agent_data)
 

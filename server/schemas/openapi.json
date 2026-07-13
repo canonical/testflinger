@@ -31,6 +31,13 @@
           "location": {
             "type": "string"
           },
+          "links": {
+            "additionalProperties": {
+              "format": "uri",
+              "type": "string"
+            },
+            "type": "object"
+          },
           "log": {
             "items": {
               "type": "string"
@@ -63,6 +70,13 @@
           },
           "location": {
             "type": "string"
+          },
+          "links": {
+            "additionalProperties": {
+              "format": "uri",
+              "type": "string"
+            },
+            "type": "object"
           },
           "name": {
             "type": "string"

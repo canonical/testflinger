@@ -154,6 +154,7 @@ def test_agent_detail_with_restricted_to(testapp):
     mongo.db.agents.insert_one(
         {
             "name": "agent1",
+            "links": {"product": "https://example.com/product"},
             "queues": ["queue1", "queue2"],
             "updated_at": datetime.now(tz=timezone.utc),
         }
@@ -167,6 +168,8 @@ def test_agent_detail_with_restricted_to(testapp):
 
     html = str(response)
     assert "(restricted to: test-client-id)" in html
+    assert 'href="https://example.com/product"' in html
+    assert ">product</a>" in html
 
 
 def test_agent_detail_with_non_advertised_queue(testapp):

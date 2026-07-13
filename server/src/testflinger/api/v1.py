@@ -736,6 +736,7 @@ def agents_post(agent_name, json_data):
         "state": string, # State the device is in
         "queues": array[string], # Queues the device is listening on
         "location": string, # Location of the device
+        "links": object, # Labeled URLs with more device information
         "job_id": string, # Job ID the device is running, if any
         "log": array[string], # push and keep only the last 100 lines
     }

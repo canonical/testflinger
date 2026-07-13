@@ -26,6 +26,8 @@ identifier: 12345-123456
 polling_interval: 10
 server_address: 127.0.0.1:8000
 location: earth
+links:
+    product: https://example.com/product
 job_queues:
     - test
 """
@@ -48,6 +50,9 @@ class ConfigTest(TestCase):
             config.write(GOOD_CONFIG)
         config = testflinger_agent.load_config(self.configfile)
         self.assertEqual("test01", config.get("agent_id"))
+        self.assertEqual(
+            {"product": "https://example.com/product"}, config.get("links")
+        )
 
     def test_config_bad(self):
         with open(self.configfile, "w") as config:

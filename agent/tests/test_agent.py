@@ -505,6 +505,10 @@ class TestClient:
 
     def test_post_agent_data(self, agent):
         # Make sure we post the initial agent data
+        self.config["links"] = {
+            "c3": "https://example.com/c3",
+            "product": "https://example.com/product",
+        }
         with patch.object(
             testflinger_agent.client.TestflingerClient, "post_agent_data"
         ) as mock_post_agent_data:
@@ -515,6 +519,7 @@ class TestClient:
                     "queues": self.config["job_queues"],
                     "location": self.config["location"],
                     "provision_type": self.config["provision_type"],
+                    "links": self.config["links"],
                 }
             )
 
