@@ -129,6 +129,8 @@ class DeviceConnector(ZapperConnector):
         "live_image",
         "ubuntu_sso_email",
         "robot_retries",
+        "reboot_script",
+        "poweron_script",
     )
 
     def _validate_configuration(
