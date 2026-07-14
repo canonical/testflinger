@@ -55,8 +55,6 @@ DEVICE_CONNECTORS = (
     "oemscript",
     "control_host_iot",
     "control_host_kvm",
-    "zapper_iot",
-    "zapper_kvm",
 )
 
 
