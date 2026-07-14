@@ -196,15 +196,17 @@ class ZapperConnector(ABC, DefaultDevice):
         is present, the image is uploaded via the ``/multipart``
         endpoint; otherwise the request is sent as plain JSON.
         """
-        kwargs.update(
-            {
-                "agent_name": self.config["agent_name"],
-                "cid": self.config.get("env", {}).get("CID"),
-                "device_ip": self.config["device_ip"],
-                "reboot_script": self.config["reboot_script"],
-                "poweron_script": self.config.get("poweron_script"),
-                "poweroff_script": self.config.get("poweroff_script"),
-            }
+        # Always enforce identity fields from connector config.
+        kwargs["agent_name"] = self.config["agent_name"]
+        kwargs["cid"] = self.config.get("env", {}).get("CID")
+        kwargs["device_ip"] = self.config["device_ip"]
+        # Keep caller-provided script values and only fall back to config.
+        # When the connector is run directly without the Testflinger server,
+        # job JSON can provide script overrides in the provisioning payload.
+        kwargs.setdefault("reboot_script", self.config["reboot_script"])
+        kwargs.setdefault("poweron_script", self.config.get("poweron_script"))
+        kwargs.setdefault(
+            "poweroff_script", self.config.get("poweroff_script")
         )
         payload = {
             "method": self.PROVISION_METHOD,
