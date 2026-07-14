@@ -262,6 +262,9 @@ class ZapperKVMConnectorTests(unittest.TestCase):
                 "reboot_script": [
                     "zapper hid press_and_release Escape",
                 ],
+                "poweron_script": [
+                    "zapper poweron DUT",
+                ],
             },
         }
 
@@ -278,6 +281,9 @@ class ZapperKVMConnectorTests(unittest.TestCase):
             "authorized_keys": ["mykey"],
             "reboot_script": [
                 "zapper hid press_and_release Escape",
+            ],
+            "poweron_script": [
+                "zapper poweron DUT",
             ],
         }
         self.assertEqual(args, ())

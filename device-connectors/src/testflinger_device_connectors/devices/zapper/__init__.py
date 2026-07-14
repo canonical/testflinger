@@ -196,11 +196,11 @@ class ZapperConnector(ABC, DefaultDevice):
         is present, the image is uploaded via the ``/multipart``
         endpoint; otherwise the request is sent as plain JSON.
         """
-        # Keep caller-provided values (e.g. from job_data) and only
-        # fall back to connector config when a key is missing.
-        kwargs.setdefault("agent_name", self.config["agent_name"])
-        kwargs.setdefault("cid", self.config.get("env", {}).get("CID"))
-        kwargs.setdefault("device_ip", self.config["device_ip"])
+        # Always enforce identity fields from connector config.
+        kwargs["agent_name"] = self.config["agent_name"]
+        kwargs["cid"] = self.config.get("env", {}).get("CID")
+        kwargs["device_ip"] = self.config["device_ip"]
+        # Keep caller-provided script values and only fall back to config.
         kwargs.setdefault("reboot_script", self.config["reboot_script"])
         kwargs.setdefault("poweron_script", self.config.get("poweron_script"))
         kwargs.setdefault(
