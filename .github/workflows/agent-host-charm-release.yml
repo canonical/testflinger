@@ -26,7 +26,7 @@ concurrency:
 jobs:
   agent-build-and-push-charm:
     name: Build and Push Charm
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       actions: read # necessary to get the runner information
       contents: write # necessary to create tag(s)
