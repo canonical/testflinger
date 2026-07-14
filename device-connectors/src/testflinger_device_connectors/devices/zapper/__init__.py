@@ -201,6 +201,8 @@ class ZapperConnector(ABC, DefaultDevice):
         kwargs["cid"] = self.config.get("env", {}).get("CID")
         kwargs["device_ip"] = self.config["device_ip"]
         # Keep caller-provided script values and only fall back to config.
+        # When the connector is run directly without the Testflinger server,
+        # job JSON can provide script overrides in the provisioning payload.
         kwargs.setdefault("reboot_script", self.config["reboot_script"])
         kwargs.setdefault("poweron_script", self.config.get("poweron_script"))
         kwargs.setdefault(
