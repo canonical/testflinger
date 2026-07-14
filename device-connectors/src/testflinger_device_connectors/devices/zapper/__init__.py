@@ -202,9 +202,7 @@ class ZapperConnector(ABC, DefaultDevice):
         kwargs.setdefault("cid", self.config.get("env", {}).get("CID"))
         kwargs.setdefault("device_ip", self.config["device_ip"])
         kwargs.setdefault("reboot_script", self.config["reboot_script"])
-        kwargs.setdefault(
-            "poweron_script", self.config.get("poweron_script")
-        )
+        kwargs.setdefault("poweron_script", self.config.get("poweron_script"))
         kwargs.setdefault(
             "poweroff_script", self.config.get("poweroff_script")
         )
