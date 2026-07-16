@@ -150,9 +150,6 @@ class OEMAutoinstallProvisionData(Schema):
     authorized_keys = fields.String(required=False)
     control_host_iso_url = fields.String(required=False)
     control_host_iso_type = fields.String(required=False)
-    # Deprecated aliases, kept for backwards compatibility.
-    zapper_iso_url = fields.String(required=False)
-    zapper_iso_type = fields.String(required=False)
     update_user_data = fields.Boolean(required=False)
 
 
@@ -166,8 +163,6 @@ class BaseControlHostProvisionData(Schema):
     """Shared schema for the `provision_data` of control host jobs."""
 
     provisioning_timeout = fields.Integer(required=False)
-    # Deprecated alias, kept for backwards compatibility.
-    zapper_provisioning_timeout = fields.Integer(required=False)
 
 
 class BaseControlHostIoTProvisionData(BaseControlHostProvisionData):
