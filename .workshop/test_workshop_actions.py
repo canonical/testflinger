@@ -40,10 +40,17 @@ def run(action: str, *extra_args: str, timeout: int = 120, dry_run: bool = False
     """Run `workshop run dev <action> [extra_args]`, fail fast on error."""
     cmd = action.split() + list(extra_args)
     print(f"\n$ {' '.join(cmd)}")
+    print("=================================================================")
     if dry_run:
         return
-    result = subprocess.run(cmd, timeout=timeout)
+    result = subprocess.run(cmd, timeout=timeout, capture_output=True,
+                            errors='ignore')
+    print(str(result.stdout))
+    print(str(result.stderr))
     if result.returncode != 0:
+        if "address already in use" in str(result.stderr):
+            print("\nYou will need to disconnect another workshop from the "\
+                  "local host in order to run the tests here.\n")
         sys.exit(f"FAILED: action '{action}' exited with code {result.returncode}")
 
 
@@ -55,7 +62,7 @@ def run_logs(duration: int = 10, dry_run: bool = False) -> None:
     its own; we interrupt it after a short window just to confirm it streams
     without immediately crashing.
     """
-    cmd = "just workshop logs".split()
+    cmd = "workshop exec -- server::logs".split()
     print(f"\n$ {' '.join(cmd)}  (will interrupt after {duration}s)")
     if dry_run:
         return
@@ -91,16 +98,13 @@ def main() -> None:
     if not args.dry_run:
         check_prerequisites()
 
-    print("Workshop dev action smoke tests")
-    print("================================")
+    print("Workshop smoke tests")
+    print("====================")
 
     try:
+        run("just workshop disconnect", dry_run=dry_run)
         run("just workshop serve", dry_run=dry_run)
         run_logs(duration=15, dry_run=dry_run)
-        # populate works on `http://localhost:5000` by default and requires
-        # that workshop export port :5000 to the host system.
-        # Note that you may need to `just workshop disconnect` elsewhere.
-        run("just workshop connect", dry_run=dry_run)
         run("workshop exec -- just server::populate",
             timeout=90, dry_run=dry_run)
         run("just workshop disconnect", dry_run=dry_run)
@@ -110,8 +114,8 @@ def main() -> None:
     except subprocess.TimeoutExpired as exc:
         sys.exit(f"TIMEOUT: {exc}")
 
-    print("\n================================")
-    print("All workshop actions passed." if not args.dry_run else "Dry run complete.")
+    print("\n========================")
+    print("All workshop tests passed." if not args.dry_run else "Dry run complete.")
 
 
 if __name__ == "__main__":

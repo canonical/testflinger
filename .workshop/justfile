@@ -1,6 +1,7 @@
+# 
 [doc('Describe usage and list the available recipes.')]
 help:
-    @echo '{{ BOLD }}Testflinger Workshop{{ NORMAL }}'5000
+    @echo '{{ BOLD }}Testflinger Workshop{{ NORMAL }}'
     @echo
     @echo 'For usage details for a specific recipe, run {{ CYAN }}just --usage RECIPE{{ NORMAL }}'
     @echo
@@ -36,11 +37,6 @@ serve: start && connect
 [group('server')]
 teardown: disconnect
     workshop exec dev -- just server::teardown
-
-[doc('Watch the testflinger server logs')]
-[group('server')]
-logs:
-    workshop exec dev -- just server::logs
 
 [doc('Connect the server in the workshop to the host.')]
 [group('server')]

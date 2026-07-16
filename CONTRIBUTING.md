@@ -67,26 +67,96 @@ source .venv/bin/activate
 
 To learn more about `uv`, refer to the [`uv` documentation][uv].
 
-### Workshop Environment
+### Workshop Development Environment
 
-Along with the other tools, you can use Canonical `workshop` to develop and
-validate testflinger services in a container environment. Consider the following:
+Along with the other tools, you can use Canonical's `workshop` to develop and
+test Testflinger services in a container environment. Consider the following:
 
-#### Testflinger dev workshop actions:
-      workshop run dev serve
-      workshop run dev restart
-      workshop run dev teardown
-      workshop run dev logs
-          Follow testflinger-server logs. Ctrl-C to exit.
+#### Workshop Basics
 
-      workshop run dev populate -s http://localhost:5000 -a 10 -j 10 -q 10 -d 1
-      workshop run dev populate-quick
+See the [`workshop` documentation](https://ubuntu.com/workshop/docs/) for more details.
 
-      workshop run dev docker-prune
-          Aggressively remove unused Docker data in the workshop.
-          
-      Note: Ensure that `dex` and `testflinger-server` point to localhost in your
-            /etc/hosts file, e.g. use `just server::set-up-hosts-file` on the host.
+```shell
+# See the available workshops for a given project, add `--global` for all known workshops.
+workshop list
+
+# Bring up a workshop, e.g. `dev` workshop:
+workshop launch dev
+
+# Execute commands in a workshop
+workshop exec dev -- echo "hello world"
+
+# Start a terminal session in a workshop
+workshop shell dev
+```
+
+#### Testflinger dev workshop examples
+
+The following examples demonstrate specific uses of `workshop` and `just` for
+typical server development.
+
+Note: the justfile recipes attempt to abstract some of the `workshop` functions
+away from the developer for ease of use, but it is still important to understand
+certain aspects about the testflinger services, the way that they are run in the
+`workshop` container, and how those services can be exposed to the host system.
+
+
+```shell
+# At it's simplest: Start the workshop (if necessary), start the testflinger
+# server and attempt to connect the service to the host's ports
+just workshop serve
+```
+
+To allow for multiple `git` worktrees to be used for parallel development of
+testflinger features, the workshops must be able to be `connected` and,
+importantly, `disconnected` from the host so that the developer may readily
+control which workshop is exposed at a given time.
+
+```shell
+# Disconnect the workshop container from the local host system.
+just workshop disconnect
+
+# Connect the workshop container's internal services to the local host syetem.
+just workshop connect
+
+# Disconnect and then teardown the internal testflinger services.
+just workshop teardown
+
+# To see what other commands are available try:
+just workshop help
+
+# To execute any just command in the workshop, simply use `workshop exec -- just <command>`:
+# To follow testflinger server logs:
+workshop exec dev -- just server::logs
+
+# To populate the instance with some data:
+workshop exec dev -- just server::populate
+
+# For a large data set you could try:
+workshop exec dev -- just server::populate \
+        --agents 3000 \
+        --jobs 500 \
+        --queues 4500 \
+        --advertised-queues 2
+
+# This command will clean-up the workshop's docker environment. It is not
+# implemented in the `server` justfile to avoid it ever being run by mistake
+# on the host system.
+just workshop docker-prune
+
+```
+
+To allow for testing in an environment where your web browser is able
+to connect to a local development IdP (in the development case: dex) we
+reommend setting the localhost to match `dex`, `testflinger-server` and also
+`testflinger-metrics` via a /etc/hosts entry pointing to localhost.
+
+```shell
+# For convenience you can run the following on your hosts file using sudo:
+sudo just server::set-up-hosts-file
+
+# Or you can just do it directly:
+echo "127.0.0.1 dex testflinger-server testflinger-metrics" | sudo tee -a /etc/hosts
 ```
 
 ### Managing Dependencies
