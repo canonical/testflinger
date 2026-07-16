@@ -13,7 +13,7 @@ sdks:
       dex-server:
         interface: tunnel
         endpoint: localhost:5556  # in the workshop
-  - name: system 
+  - name: system
     plugs:
       testflinger-server:
         interface: tunnel
