@@ -73,7 +73,6 @@ Along with the other tools, you can use Canonical `workshop` to develop and
 validate testflinger services in a container environment. Consider the following:
 
 #### Testflinger dev workshop actions:
-```
       workshop run dev serve
       workshop run dev restart
       workshop run dev teardown
