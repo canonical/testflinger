@@ -306,13 +306,6 @@ class ProvisionData(OneOfSchema):
         "control_host_kvm_generic": ControlHostKVMGenericProvisionData,
         "control_host_kvm_oem_2204": ControlHostKVMOEM2204ProvisionData,
         "control_host_kvm_preset": ControlHostKVMPresetProvisionData,
-        # Deprecated aliases, kept for backwards compatibility.
-        "zapper_iot_custom": ControlHostIoTCustomProvisionData,
-        "zapper_iot_preset": ControlHostIoTPresetProvisionData,
-        "zapper_kvm_autoinstall": ControlHostKVMAutoinstallProvisionData,
-        "zapper_kvm_generic": ControlHostKVMGenericProvisionData,
-        "zapper_kvm_oem_2204": ControlHostKVMOEM2204ProvisionData,
-        "zapper_kvm_preset": ControlHostKVMPresetProvisionData,
     }
 
     def get_obj_type(self, obj):
