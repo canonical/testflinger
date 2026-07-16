@@ -10,24 +10,20 @@ sdks:
       testflinger-server:
         interface: tunnel
         endpoint: localhost:5000  # in the workshop
+      testflinger-metrics:
+        interface: tunnel
+        endpoint: localhost:9090  # in the workshop
       dex-server:
         interface: tunnel
         endpoint: localhost:5556  # in the workshop
   - name: system
     plugs:
-      testflinger-server:
+      tcp5000:
         interface: tunnel
         endpoint: localhost:5000  # on the host
-      dex-server:
+      tcp9090:
+        interface: tunnel
+        endpoint: localhost:9090  # on the host
+      tcp5556:
         interface: tunnel
         endpoint: localhost:5556  # on the host
-
-actions:
-  just: just "$@"
-  serve: just server::serve
-  restart: just server::restart
-  teardown: just server::teardown
-  logs: just server::logs
-  docker-prune: docker system prune -a --yes
-  populate-quick: just server::populate-quick
-  populate: just server::populate "$@"

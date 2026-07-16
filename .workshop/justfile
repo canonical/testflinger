@@ -1,0 +1,63 @@
+[doc('Describe usage and list the available recipes.')]
+help:
+    @echo '{{ BOLD }}Testflinger Workshop{{ NORMAL }}'5000
+    @echo
+    @echo 'For usage details for a specific recipe, run {{ CYAN }}just --usage RECIPE{{ NORMAL }}'
+    @echo
+    @just --list --unsorted
+
+[doc('Start the workshop, launch it if required.')]
+[group('workshop')]
+start:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    if (( $(workshop list --no-headers | wc -l) == 0 )); then \
+        workshop launch dev; \
+    elif (( $( workshop list | grep "dev.*Stopped" | wc -l) == 1 )); then \
+        workshop start dev; \
+    elif (( $( workshop list | grep "dev.*Ready" | wc -l) == 1 )); then \
+        echo "Workshop already started."; \
+    else \
+        echo "Unhandled case: workshop list:"; \
+        workshop list
+    fi
+
+[doc('Clean up docker files in the workshop.')]
+[group('workshop')]
+docker-prune:
+    workshop exec dev -- docker system prune -a -f
+
+[doc('Start the server in the workshop and connect it to the host.')]
+[group('server')]
+serve: start && connect
+    workshop exec dev -- just server::serve
+
+[doc('Disconnect the server from the host and tear it down within the workshop.')]
+[group('server')]
+teardown: disconnect
+    workshop exec dev -- just server::teardown
+
+[doc('Watch the testflinger server logs')]
+[group('server')]
+logs:
+    workshop exec dev -- just server::logs
+
+[doc('Connect the server in the workshop to the host.')]
+[group('server')]
+disconnect:
+    -workshop disconnect dev/docker-ce:testflinger-server
+    -workshop disconnect dev/docker-ce:testflinger-metrics
+    -workshop disconnect dev/docker-ce:dex-server
+
+[doc('Disconnect the server in the workshop from the host.')]
+[group('server')]
+connect:
+    workshop connect dev/system:tcp5000 dev/docker-ce:testflinger-server
+    workshop connect dev/system:tcp9090 dev/docker-ce:testflinger-metrics
+    workshop connect dev/system:tcp5556 dev/docker-ce:dex-server
+
+[doc('Test the workshop operations.')]
+[confirm("Note that you may need to `just workshop disconnect` elsewhere. To continue enter 'y'.")]
+[group('test')]
+test:
+    python3 test_workshop_actions.py

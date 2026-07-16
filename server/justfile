@@ -99,24 +99,16 @@ populate *args:
     @docker compose exec testflinger python3 devel/create_dev_admin.py
     @uv run devel/create_sample_data.py "$@"
 
-[doc('Create a large pre-canned sample data set on the local server.')]
-[group('deploy')]
-populate-quick:
-    @uv run devel/create_sample_data.py \
-        -s http://localhost:5000 \
-        -a 3000 \
-        -j 500 \
-        -q 4300 \
 [doc('Populate the server with a large sample data set.')]
 [group('deploy')]
 populate-large:
-    @just populate
+    @just populate \
         --agents 3000 \
         --jobs 500 \
-        --queues 4300 \
+        --queues 4500 \
         --advertised-queues 2
 
-[doc('Add required hostnames to the hosts file to ensure that `dex` and `testflinger-server` are available.')]
+[doc('Add required hostnames to the hosts file to ensure that `dex` and `testflinger-server` are available for local testing.')]
 [group('deploy')]
 set-up-hosts-file:
     #!/usr/bin/env bash
