@@ -733,6 +733,37 @@ def test_resubmit_job_state(mongo_app):
     assert "waiting" == updated_data.get("job_state")
 
 
+def test_job_post_stores_client_id(mongo_app):
+    """Test that submitting a job stores client_id at top level.
+
+    When OIDC is not enabled, the client_id is None (anonymous), but
+    the key should still be present on the job document.
+    """
+    app, mongo = mongo_app
+    job_data = {"job_queue": "test"}
+    output = app.post("/v1/job", json=job_data)
+    job_id = output.json.get("job_id")
+    job = mongo.jobs.find_one({"job_id": job_id})
+    assert "client_id" in job
+    assert job["client_id"] is None
+
+
+def test_job_builder_stores_client_id(testapp):
+    """Test that job_builder stores g.client_id on the job document."""
+    from unittest.mock import patch
+
+    data = {"job_queue": "test"}
+    with (
+        testapp.test_request_context(),
+        patch("testflinger.api.v1.g") as mock_g,
+        patch("testflinger.api.v1.auth.check_permissions"),
+    ):
+        mock_g.client_id = "test-client-123"
+        mock_g.permissions = {}
+        job = v1.job_builder(data)
+    assert job["client_id"] == "test-client-123"
+
+
 def test_get_nonexistant_job(mongo_app, agent_auth_header):
     """Test for 204 when getting from a nonexistent queue."""
     app, _ = mongo_app

@@ -18,10 +18,11 @@
         </span>
       </th>
       <th aria-sort="none" id="agentsNameHeader">Name</th>
-      <th aria-sort="none" id="agentsNameHeader">Location</th>
+      <th aria-sort="none" id="agentsLocationHeader">Location</th>
       <th aria-sort="none" id="agentsStateHeader">State</th>
       <th aria-sort="none" id="agentsUpdatedAtHeader">Updated At</th>
-      <th>Job ID</th>
+      <th aria-sort="none" id="agentsJobIdHeader">Job ID</th>
+      <th aria-sort="none" id="agentsClientIdHeader">Client ID</th>
     </tr>
   </thead>
   <tbody>
@@ -66,6 +67,7 @@
           <td class="u-align--right u-truncate" data-heading="Job ID">
             <a href="{{ url_for('testflinger.job_detail', job_id=agent.job_id) }}">{{ agent.job_id }}</a>
           </td>
+          <td data-heading="Client ID">{{ agent.client_id or "" }}</td>
         </tr>
       {% endfor %}
     {% else %}

@@ -26,6 +26,7 @@ import pytest
 from testflinger_common.enums import LogType, TestPhase
 
 from testflinger.views import agent_detail, job_detail, queues_data
+from testflinger.views import enrich_agents_with_client_id
 
 
 def test_queues():
@@ -309,3 +310,103 @@ def test_home_accessible_without_auth_when_oidc_enabled(oidc_app):
     with app.test_client() as client:
         response = client.get("/")
     assert response.status_code == HTTPStatus.OK
+
+
+def test_enrich_agents_with_client_id():
+    """Test that agents are enriched with client_id from their jobs."""
+    mongo = mongomock.MongoClient()
+    mongo.db.agents.insert_many(
+        [
+            {"name": "agent1", "job_id": "job-1"},
+            {"name": "agent2", "job_id": "job-2"},
+            {"name": "agent3"},  # no job_id
+        ]
+    )
+    mongo.db.jobs.insert_many(
+        [
+            {"job_id": "job-1", "client_id": "client-A"},
+            {"job_id": "job-2", "client_id": "client-B"},
+        ]
+    )
+
+    agents = list(mongo.db.agents.find())
+    with patch("testflinger.views.mongo", mongo):
+        enriched = enrich_agents_with_client_id(agents)
+
+    by_name = {a["name"]: a for a in enriched}
+    assert by_name["agent1"]["client_id"] == "client-A"
+    assert by_name["agent2"]["client_id"] == "client-B"
+    assert by_name["agent3"]["client_id"] is None
+
+
+def test_enrich_agents_no_jobs():
+    """Test enrichment when no agents have a job_id."""
+    mongo = mongomock.MongoClient()
+    mongo.db.agents.insert_many(
+        [{"name": "agent1"}, {"name": "agent2"}]
+    )
+
+    agents = list(mongo.db.agents.find())
+    with patch("testflinger.views.mongo", mongo):
+        enriched = enrich_agents_with_client_id(agents)
+
+    for agent in enriched:
+        assert agent["client_id"] is None
+
+
+def test_enrich_agents_job_not_found():
+    """Test enrichment when the job has been deleted."""
+    mongo = mongomock.MongoClient()
+    mongo.db.agents.insert_one(
+        {"name": "agent1", "job_id": "deleted-job"}
+    )
+
+    agents = list(mongo.db.agents.find())
+    with patch("testflinger.views.mongo", mongo):
+        enriched = enrich_agents_with_client_id(agents)
+
+    assert enriched[0]["client_id"] is None
+
+
+def test_agent_detail_provision_log_with_client_id(testapp):
+    """Test that provision log entries are enriched with client_id."""
+    mongo = mongomock.MongoClient()
+    job_id_1 = str(uuid.uuid4())
+    job_id_2 = str(uuid.uuid4())
+    mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "updated_at": datetime.now(tz=timezone.utc),
+        }
+    )
+    mongo.db.jobs.insert_many(
+        [
+            {"job_id": job_id_1, "client_id": "client-A"},
+            {"job_id": job_id_2, "client_id": "client-B"},
+        ]
+    )
+    provision_log = [
+        {
+            "job_id": job_id_1,
+            "exit_code": 0,
+            "timestamp": datetime.now(tz=timezone.utc),
+        },
+        {
+            "job_id": job_id_2,
+            "exit_code": 1,
+            "timestamp": datetime.now(tz=timezone.utc),
+        },
+    ]
+
+    with (
+        patch("testflinger.views.mongo", mongo),
+        patch("testflinger.database.mongo", mongo),
+        patch("testflinger.views.database.get_provision_log", return_value=provision_log),
+    ):
+        with testapp.test_request_context():
+            response = agent_detail("agent1")
+
+    html = str(response)
+    assert "client-A" in html
+    assert "client-B" in html
+

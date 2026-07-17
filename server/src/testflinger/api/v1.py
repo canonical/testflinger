@@ -191,6 +191,11 @@ def job_builder(data: dict) -> dict:
             "job_state": "waiting",
         },
     }
+
+    # Always store the client_id of the submitting user at the top level of
+    # the job document so it can be displayed in the web views.
+    job["client_id"] = g.client_id
+
     # If the job_id is provided, keep it as long as the uuid is good.
     # This is for job resubmission
     job_id = data.pop("job_id", None)
@@ -770,6 +775,14 @@ def agents_provision_logs_post(agent_name, json_data):
     # timestamp this agent record and provision log entry
     timestamp = datetime.now(timezone.utc)
     agent_record["updated_at"] = json_data["timestamp"] = timestamp
+
+    # Look up the client_id from the job so it can be displayed in the
+    # provision history table.
+    job = database.mongo.db.jobs.find_one(
+        {"job_id": json_data["job_id"]},
+        {"client_id": 1, "_id": 0},
+    )
+    json_data["client_id"] = job.get("client_id") if job else None
 
     update_operation = {
         "$set": json_data,
