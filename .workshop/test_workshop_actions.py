@@ -1,7 +1,7 @@
 """
 Smoke-test for the workshop workflow and related `just` actions:
 
-Tests the typical flow and make sure that all function work as expected.
+Tests the typical flow and make sure that all functions work as expected.
 
 Usage:
     python test_workshop_actions.py            # full sequence
@@ -43,10 +43,15 @@ def run(action: str, *extra_args: str, timeout: int = 120, dry_run: bool = False
     print("=================================================================")
     if dry_run:
         return
-    result = subprocess.run(cmd, timeout=timeout, capture_output=True,
-                            errors='ignore')
-    print(str(result.stdout))
-    print(str(result.stderr))
+    result = subprocess.run(
+        cmd,
+        timeout=timeout,
+        capture_output=True,
+        text=True,
+        errors="replace",
+    )
+    print(result.stdout)
+    print(result.stderr)
     if result.returncode != 0:
         if "address already in use" in str(result.stderr):
             print("\nYou will need to disconnect another workshop from the "\
@@ -62,7 +67,7 @@ def run_logs(duration: int = 10, dry_run: bool = False) -> None:
     its own; we interrupt it after a short window just to confirm it streams
     without immediately crashing.
     """
-    cmd = "workshop exec -- server::logs".split()
+    cmd = "workshop exec dev -- just server::logs".split()
     print(f"\n$ {' '.join(cmd)}  (will interrupt after {duration}s)")
     if dry_run:
         return

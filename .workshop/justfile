@@ -38,14 +38,14 @@ serve: start && connect
 teardown: disconnect
     workshop exec dev -- just server::teardown
 
-[doc('Connect the server in the workshop to the host.')]
+[doc('Disconnect the server in the workshop from the host.')]
 [group('server')]
 disconnect:
     -workshop disconnect dev/docker-ce:testflinger-server
     -workshop disconnect dev/docker-ce:testflinger-metrics
     -workshop disconnect dev/docker-ce:dex-server
 
-[doc('Disconnect the server in the workshop from the host.')]
+[doc('Connect the server in the workshop to the host.')]
 [group('server')]
 connect:
     workshop connect dev/system:tcp5000 dev/docker-ce:testflinger-server
