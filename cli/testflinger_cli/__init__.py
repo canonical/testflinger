@@ -201,7 +201,7 @@ class TestflingerCli:
 
     def _register_subparser(self, parser, subcommand_name):
         """Register a subparser for better error messages."""
-        parser.prog = f"testflinger {subcommand_name}"
+        parser.prog = f"{self.main_parser.prog} {subcommand_name}"
         self.main_parser.subparsers_dict[subcommand_name] = parser
         return parser
 
