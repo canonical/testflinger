@@ -139,7 +139,7 @@ function defaultSortOrder(cellA, cellB, direction) {
   // Trim the cell contents.
   var contentA = cellA.textContent.trim();
   var contentB = cellB.textContent.trim();
-  return contentA < contentB ? direction : -direction;
+  return contentA === contentB ? 0 : contentA < contentB ? direction : -direction;
 }
 
 /**
@@ -157,7 +157,7 @@ function numericSortOrder(cellA, cellB, direction) {
   if (!isNaN(numA) && !isNaN(numB)) {
     return direction * (numB - numA);
   }
-  return contentA < contentB ? direction : -direction;
+  return contentA === contentB ? 0 : contentA < contentB ? direction : -direction;
 }
 
 /**
