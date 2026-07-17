@@ -83,6 +83,10 @@ def create_flask_app(config=None, secrets_store=None):
     metrics.group_by = "endpoint"
     metrics.init_app(tf_app)
 
+    metrics_port = int(os.environ.get("METRICS_PORT", "9090"))
+    if not tf_app.config.get("TESTING"):
+        metrics.start_http_server(metrics_port)
+
     @tf_app.errorhandler(NotFound)
     def handle_404(exc):
         tf_app.owasp_logger.error("[404] Not found: %s", request.url)

@@ -17,7 +17,7 @@
 
 from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
-from marshmallow import ValidationError, validates_schema
+from marshmallow import INCLUDE, ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
 from testflinger_common.duration import DurationParseError, parse_duration
 from testflinger_common.enums import ServerRoles, TestPhase
@@ -602,7 +602,7 @@ images_out = {
 class ClientPermissionsIn(Schema):
     """Client Permissions output schema."""
 
-    client_secret = fields.String(required=False)  # Optional for schema reuse
+    client_secret = fields.String(required=False, validate=Length(min=15))
     max_priority = fields.Dict(
         keys=fields.String(),
         values=fields.Integer(),
@@ -669,3 +669,74 @@ class SecretOut(Schema):
             "description": "UTC datetime for secret expiration if TTL is set."
         },
     )
+
+
+class RefreshTokenIn(Schema):
+    """Refresh token input schema."""
+
+    refresh_token = fields.String(required=True, validate=Length(min=1))
+
+
+class QueuesIn(Schema):
+    """Queues input schema."""
+
+    class Meta:
+        """Allow unknown fields to support arbitrary queue names."""
+
+        unknown = INCLUDE
+
+    @validates_schema
+    def validate_string_values(self, data, **kwargs):
+        """Validate keys are non-empty strings and values are strings.
+
+        This accepts arbitrary queue names as keys, and descriptions as values.
+        """
+        for key, value in data.items():
+            if not isinstance(key, str) or not key:
+                raise ValidationError("Queue names must be non-empty strings")
+            if not isinstance(value, str):
+                raise ValidationError(
+                    f"Description for queue '{key}' must be a string"
+                )
+
+
+class ImagesIn(Schema):
+    """Images input schema - maps queue names to image name/provision data."""
+
+    class Meta:
+        """Allow unknown fields to support arbitrary queue names."""
+
+        unknown = INCLUDE
+
+    @validates_schema
+    def validate_structure(self, data, **kwargs):
+        """Validate all values are dicts mapping non-empty strings.
+
+        This accepts arbitrary queue names as keys, and dicts of image name to
+        provision data as values. Each image name must be a non-empty string,
+        and each provision data must be a string.
+        """
+        for queue, image_data in data.items():
+            if not isinstance(queue, str) or not queue:
+                raise ValidationError("Queue names must be non-empty strings")
+            if not isinstance(image_data, dict):
+                raise ValidationError(
+                    f"Images for queue '{queue}' must be a dict"
+                )
+            for image_name, provision_data in image_data.items():
+                if (
+                    not isinstance(image_name, str)
+                    or not image_name
+                    or image_name.startswith("$")
+                    or "." in image_name
+                    or "\x00" in image_name
+                ):
+                    raise ValidationError(
+                        f"Names for queue '{queue}' must be non-empty strings,"
+                        " must not start with '$', contain '.' or null bytes"
+                    )
+                if not isinstance(provision_data, str):
+                    raise ValidationError(
+                        f"Provision data for image '{image_name}' in queue"
+                        f" '{queue}' must be a string"
+                    )
