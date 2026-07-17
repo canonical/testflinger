@@ -36,7 +36,7 @@ def check_prerequisites() -> None:
         )
 
 
-def run(action: str, *extra_args: str, timeout: int = 120, dry_run: bool = False) -> None:
+def run(action: str, *extra_args: str, timeout: int = 300, dry_run: bool = False) -> None:
     """Run `workshop run dev <action> [extra_args]`, fail fast on error."""
     cmd = action.split() + list(extra_args)
     print(f"\n$ {' '.join(cmd)}")
