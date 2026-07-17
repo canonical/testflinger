@@ -19,7 +19,7 @@ the server allows anonymous access.
    :ref:`howto-enable-oidc`
       Steps to configure a provider and enable OIDC on a Testflinger server.
 
-   :doc:`../../reference/oidc-config`
+   :doc:`../reference/oidc-config`
       Complete list of OIDC options configurable by the Testflinger Juju charm.
 
 
@@ -44,17 +44,17 @@ must support:
 Authorization Code Flow
 -----------------------
 
-This flow is used for web interface authentication. 
+This flow is used for web interface authentication.
 
-On initial access to the web interface, users will need to click the Sign In 
+On initial access to the web interface, users will need to click the Sign In
 button and will be redirected to the OIDC provider's login page. After successful
-authentication, the OIDC provider will redirect the user back to the Testflinger 
+authentication, the OIDC provider will redirect the user back to the Testflinger
 page and all resources will be accessible to the user.
 
 Device Authorization Flow
 -------------------------
 
-This flow is used for CLI authentication. 
+This flow is used for CLI authentication.
 
 When users attempt to use the CLI, they will be prompted to visit a URL in their
 browser and enter a user code. Testflinger acts as a proxy between the user and

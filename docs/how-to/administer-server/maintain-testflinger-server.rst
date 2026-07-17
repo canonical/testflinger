@@ -70,7 +70,7 @@ configure the Testflinger server with the required parameters for your OIDC prov
       oidc_client_secret="<client-secret>" \
       oidc_provider_issuer="<issuer-url>"
 
-Additionally, you will need to setup Flask's ``SECRET_KEY`` to handle Web session
+Additionally, you will need to set up Flask's ``SECRET_KEY`` to handle web session
 management by signing session cookies. To configure it, run the following command:
 
 .. code-block:: shell
@@ -78,8 +78,6 @@ management by signing session cookies. To configure it, run the following comman
   $ juju config testflinger-k8s \
       web_secret_key="<secret-key>"
 
-For additional information on these configuration options, please see 
-:doc:`../../reference/oidc-config`.
+For additional information on these configuration options, please see :doc:`../../reference/oidc-config`.
 
-For more information on OIDC requirements, please refer
-to :doc:`../../explanation/oidc-auth`.
+For more information on OIDC requirements, please refer to :doc:`../../explanation/oidc-auth`.

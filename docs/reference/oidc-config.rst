@@ -31,7 +31,7 @@ server deployed via Juju charm.
      - Yes
      - A secret key used by Flask to sign web session cookies. Must be a long
        random string. Generate one with:
-       ``python -c 'import secrets; print(secrets.token_hex())'`` or with 
+       ``python -c 'import secrets; print(secrets.token_hex())'`` or with
        any other secure random string generator.
    * - ``oidc_client_secret``
      - No
