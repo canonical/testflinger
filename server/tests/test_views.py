@@ -25,8 +25,12 @@ import mongomock
 import pytest
 from testflinger_common.enums import LogType, TestPhase
 
-from testflinger.views import agent_detail, job_detail, queues_data
-from testflinger.views import enrich_agents_with_client_id
+from testflinger.views import (
+    agent_detail,
+    enrich_agents_with_client_id,
+    job_detail,
+    queues_data,
+)
 
 
 def test_queues():
@@ -342,9 +346,7 @@ def test_enrich_agents_with_client_id():
 def test_enrich_agents_no_jobs():
     """Test enrichment when no agents have a job_id."""
     mongo = mongomock.MongoClient()
-    mongo.db.agents.insert_many(
-        [{"name": "agent1"}, {"name": "agent2"}]
-    )
+    mongo.db.agents.insert_many([{"name": "agent1"}, {"name": "agent2"}])
 
     agents = list(mongo.db.agents.find())
     with patch("testflinger.views.mongo", mongo):
@@ -357,9 +359,7 @@ def test_enrich_agents_no_jobs():
 def test_enrich_agents_job_not_found():
     """Test enrichment when the job has been deleted."""
     mongo = mongomock.MongoClient()
-    mongo.db.agents.insert_one(
-        {"name": "agent1", "job_id": "deleted-job"}
-    )
+    mongo.db.agents.insert_one({"name": "agent1", "job_id": "deleted-job"})
 
     agents = list(mongo.db.agents.find())
     with patch("testflinger.views.mongo", mongo):
@@ -401,7 +401,10 @@ def test_agent_detail_provision_log_with_client_id(testapp):
     with (
         patch("testflinger.views.mongo", mongo),
         patch("testflinger.database.mongo", mongo),
-        patch("testflinger.views.database.get_provision_log", return_value=provision_log),
+        patch(
+            "testflinger.views.database.get_provision_log",
+            return_value=provision_log,
+        ),
     ):
         with testapp.test_request_context():
             response = agent_detail("agent1")
@@ -409,4 +412,3 @@ def test_agent_detail_provision_log_with_client_id(testapp):
     html = str(response)
     assert "client-A" in html
     assert "client-B" in html
-

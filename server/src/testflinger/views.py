@@ -297,9 +297,7 @@ def enrich_agents_with_client_id(agents):
     :returns: a list of agent dictionaries enriched with client_id.
     """
     agents = list(agents)
-    job_ids = [
-        agent["job_id"] for agent in agents if agent.get("job_id")
-    ]
+    job_ids = [agent["job_id"] for agent in agents if agent.get("job_id")]
     if not job_ids:
         for agent in agents:
             agent.setdefault("client_id", None)
@@ -312,7 +310,5 @@ def enrich_agents_with_client_id(agents):
         )
     }
     for agent in agents:
-        agent.setdefault(
-            "client_id", client_id_map.get(agent.get("job_id"))
-        )
+        agent.setdefault("client_id", client_id_map.get(agent.get("job_id")))
     return agents
