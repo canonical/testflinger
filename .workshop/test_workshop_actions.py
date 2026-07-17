@@ -105,7 +105,7 @@ def main() -> None:
         run("just workshop disconnect", dry_run=dry_run)
         run("just workshop serve", dry_run=dry_run)
         run_logs(duration=15, dry_run=dry_run)
-        run("workshop exec -- just server::populate",
+        run("workshop exec dev -- just server::populate",
             timeout=90, dry_run=dry_run)
         run("just workshop disconnect", dry_run=dry_run)
         run("just workshop connect", dry_run=dry_run)

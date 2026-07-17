@@ -102,7 +102,7 @@ certain aspects about the testflinger services, the way that they are run in the
 
 
 ```shell
-# At it's simplest: Start the workshop (if necessary), start the testflinger
+# At its simplest: Start the workshop (if necessary), start the testflinger
 # server and attempt to connect the service to the host's ports
 just workshop serve
 ```
@@ -116,7 +116,7 @@ control which workshop is exposed at a given time.
 # Disconnect the workshop container from the local host system.
 just workshop disconnect
 
-# Connect the workshop container's internal services to the local host syetem.
+# Connect the workshop container's internal services to the local host system.
 just workshop connect
 
 # Disconnect and then teardown the internal testflinger services.
@@ -125,7 +125,7 @@ just workshop teardown
 # To see what other commands are available try:
 just workshop help
 
-# To execute any just command in the workshop, simply use `workshop exec -- just <command>`:
+# To execute any just command in the workshop, simply use `workshop exec dev -- just <command>`:
 # To follow testflinger server logs:
 workshop exec dev -- just server::logs
 
@@ -148,7 +148,7 @@ just workshop docker-prune
 
 To allow for testing in an environment where your web browser is able
 to connect to a local development IdP (in the development case: dex) we
-reommend setting the localhost to match `dex`, `testflinger-server` and also
+recommend setting the localhost to match `dex`, `testflinger-server` and also
 `testflinger-metrics` via a /etc/hosts entry pointing to localhost.
 
 ```shell
