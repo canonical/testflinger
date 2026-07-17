@@ -54,3 +54,32 @@ secrets so that they can be accessed by agents at job runtime.
   The ``testflinger_secrets_master_key`` is used to encrypt the CSFLE data keys
   stored in MongoDB. Generate a secure random base64-encoded string by running
   the following command: ``openssl rand -base64 96 | tr -d '\n'``
+
+.. _howto-enable-oidc:
+
+Enable OIDC
+-----------
+
+To enable OpenID Connect (OIDC) authentication for Testflinger, you will need to
+configure the Testflinger server with the required parameters for your OIDC provider.
+
+.. code-block:: shell
+
+  $ juju config testflinger-k8s \
+      oidc_client_id="<client-id>" \
+      oidc_client_secret="<client-secret>" \
+      oidc_provider_issuer="<issuer-url>"
+
+Additionally, you will need to setup Flask's ``SECRET_KEY`` to handle Web session
+management by signing session cookies. To configure it, run the following command:
+
+.. code-block:: shell
+
+  $ juju config testflinger-k8s \
+      web_secret_key="<secret-key>"
+
+For additional information on these configuration options, please see 
+:doc:`../../reference/oidc-config`.
+
+For more information on OIDC requirements, please refer
+to :doc:`../../explanation/oidc-auth`.
