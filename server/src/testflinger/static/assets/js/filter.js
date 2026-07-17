@@ -75,7 +75,7 @@ function sortTable(header, table, newOrder) {
       return a.getAttribute('data-index') - b.getAttribute('data-index');
     });
   } else {
-    sortOrderFunc = defaultSortOrder;
+    let sortOrderFunc = defaultSortOrder;
     if (header.hasAttribute("use-outcome-sort")) {
       sortOrderFunc = outcomeSortOrder;
     }
