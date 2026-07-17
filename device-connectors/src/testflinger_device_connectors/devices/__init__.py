@@ -726,7 +726,7 @@ class DefaultDevice:
             logger.debug("No control host configured for this agent.")
             return
 
-        self._setup_control_host(control_host, "test")
+        self._setup_control_host(control_host, "testing")
 
     def _setup_control_host(
         self, control_host: str, phase: str, data: Optional[dict] = None
