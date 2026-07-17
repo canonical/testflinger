@@ -84,10 +84,12 @@ class SubcommandAwareParser(ArgumentParser):
                 # Show subcommand-specific help
                 self.subparsers_dict[arg].print_help()
                 self.exit(2, f"{self.prog}: error: {message}\n")
-            # Skip option values only for flags that consume an argument
+            # Skip option values only for flags that consume an argument.
+            # store_true/store_false/store_const/count have nargs=0 and take no
+            # following value; all other actions have nargs=None or an integer,
+            # which are != 0 in Python and therefore correctly trigger a skip.
             if arg.startswith("-") and "=" not in arg:
                 action = self._option_string_actions.get(arg)
-                # nargs==0 means the flag takes no value (e.g. store_true)
                 if action is not None and action.nargs != 0:
                     i += 1  # Skip the next arg (it's the flag's value)
             i += 1

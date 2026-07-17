@@ -2757,8 +2757,7 @@ class TestSubcommandAwareParser:
         assert "testflinger" in captured.err
 
     def test_error_with_store_true_flag_before_subcommand(self, capsys):
-        """A store_true flag (-d/--debug) before a subcommand must not prevent
-        the subcommand from being detected in error()."""
+        """A store_true flag before a subcommand must not prevent subcommand detection in error()."""
         parser = self._make_parser()
         # '-d' is store_true; it must not consume 'submit' as its value
         with patch("sys.argv", ["testflinger", "-d", "submit", "--bad-arg"]):
