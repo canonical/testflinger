@@ -31,6 +31,7 @@ services:
     command: --reload
     ports:
       - 5000:5000
+      - 9090:9090
     depends_on:
       - mongo
       - dex

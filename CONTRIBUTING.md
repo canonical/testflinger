@@ -74,7 +74,7 @@ test Testflinger services in a container environment. Consider the following:
 
 #### Workshop Basics
 
-See the [`workshop` documentation](https://ubuntu.com/workshop/docs/) for more details.
+See the [`workshop` documentation][workshop documentation] for more details.
 
 ```shell
 # See the available workshops for a given project, add `--global` for all known workshops.
@@ -353,6 +353,7 @@ another 7 days of inactivity.
 Testflinger documentation is maintained under the [`docs/`](./docs/) subdirectory.
 To submit changes to the documentation, please read the [documentation contributing guide](./docs/CONTRIBUTING.md).
 
+[workshop documentation]: https://ubuntu.com/workshop/docs/
 [uv]: https://docs.astral.sh/uv
 [just]: https://github.com/casey/just
 [just documentation]: https://just.systems/man/en/

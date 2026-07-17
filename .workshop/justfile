@@ -12,7 +12,7 @@ help:
 start:
     #!/usr/bin/env bash
     set -euxo pipefail
-    if (( $(workshop list --no-headers | wc -l) == 0 )); then \
+    if (( $(workshop list --no-headers | grep "dev" | wc -l) == 0 )); then \
         workshop launch dev; \
     elif (( $( workshop list | grep "dev.*Stopped" | wc -l) == 1 )); then \
         workshop start dev; \
