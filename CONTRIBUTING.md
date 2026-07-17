@@ -74,6 +74,20 @@ test Testflinger services in a container environment. Consider the following:
 
 #### Workshop Basics
 
+Install workshop:
+
+```shell
+# Prerequisite: install/update to the latest stable LXD from the version 6 track:
+# If you don't have LXD yet, install version 6:
+sudo snap install --channel=6/stable lxd
+
+# If you do have LXD, update to version 6:
+sudo snap refresh --channel=6/stable lxd
+
+# Install workshop:
+sudo snap install --classic workshop
+```
+
 See the [`workshop` documentation][workshop documentation] for more details.
 
 ```shell
@@ -99,7 +113,6 @@ Note: the justfile recipes attempt to abstract some of the `workshop` functions
 away from the developer for ease of use, but it is still important to understand
 certain aspects about the testflinger services, the way that they are run in the
 `workshop` container, and how those services can be exposed to the host system.
-
 
 ```shell
 # At its simplest: Start the workshop (if necessary), start the testflinger
