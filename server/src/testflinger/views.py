@@ -165,8 +165,24 @@ def agent_detail(agent_id):
 @views.route("/jobs")
 def jobs():
     """Jobs view."""
-    jobs_data = mongo.db.jobs.find(sort=[("created_at", -1)])
-    return render_template("jobs.html", jobs=jobs_data)
+    client_id_filter = request.args.get("client_id", "").strip()
+    resolved_client_id = None
+
+    if client_id_filter == "@me":
+        resolved_client_id = session.get("client_id")
+    elif client_id_filter:
+        resolved_client_id = client_id_filter
+
+    query = {}
+    if resolved_client_id:
+        query = {"job_data.client_id": resolved_client_id}
+
+    jobs_data = mongo.db.jobs.find(query, sort=[("created_at", -1)])
+    return render_template(
+        "jobs.html",
+        jobs=jobs_data,
+        client_id_filter=client_id_filter,
+    )
 
 
 @views.route("/jobs/<job_id>")
