@@ -2719,3 +2719,97 @@ def test_jobs_no_trailing_blank_line(capsys):
     )
     # The last meaningful line should contain the most recently submitted job.
     assert job_ids[1] in lines[-2]
+
+
+class TestSubcommandAwareParser:
+    """Tests for SubcommandAwareParser error-handling behavior."""
+
+    def _make_parser(self):
+        """Return a minimal SubcommandAwareParser with a 'submit' subcommand."""
+        parser = testflinger_cli.SubcommandAwareParser(prog="testflinger")
+        parser.add_argument("-d", "--debug", action="store_true")
+        parser.add_argument("--server")
+        sub = parser.add_subparsers()
+        sub_parser = sub.add_parser("submit", help="Submit a test job")
+        parser.subparsers_dict["submit"] = sub_parser
+        return parser
+
+    def test_error_shows_subcommand_help_when_subcommand_present(self, capsys):
+        """error() displays subcommand help and exits 2 when subcommand is in argv."""
+        parser = self._make_parser()
+        with patch("sys.argv", ["testflinger", "submit", "--bad-arg"]):
+            with pytest.raises(SystemExit) as exc:
+                parser.error("unrecognized arguments: --bad-arg")
+        assert exc.value.code == 2
+        captured = capsys.readouterr()
+        # Subcommand help should mention the subcommand name
+        assert "submit" in captured.out
+
+    def test_error_fallback_to_main_help_when_no_subcommand(self, capsys):
+        """error() falls back to main parser behaviour when no subcommand is found."""
+        parser = self._make_parser()
+        with patch("sys.argv", ["testflinger", "--unknown-flag"]):
+            with pytest.raises(SystemExit) as exc:
+                parser.error("unrecognized arguments: --unknown-flag")
+        assert exc.value.code == 2
+        # Main parser error is written to stderr by argparse
+        captured = capsys.readouterr()
+        assert "testflinger" in captured.err
+
+    def test_error_with_store_true_flag_before_subcommand(self, capsys):
+        """A store_true flag (-d/--debug) before a subcommand must not prevent
+        the subcommand from being detected in error()."""
+        parser = self._make_parser()
+        # '-d' is store_true; it must not consume 'submit' as its value
+        with patch("sys.argv", ["testflinger", "-d", "submit", "--bad-arg"]):
+            with pytest.raises(SystemExit) as exc:
+                parser.error("unrecognized arguments: --bad-arg")
+        assert exc.value.code == 2
+        captured = capsys.readouterr()
+        assert "submit" in captured.out
+
+    def test_error_with_value_taking_flag_before_subcommand(self, capsys):
+        """A flag that takes a value (--server URL) before a subcommand must
+        have its value skipped so the subcommand is still detected."""
+        parser = self._make_parser()
+        with patch(
+            "sys.argv",
+            ["testflinger", "--server", "http://example.com", "submit", "--bad-arg"],
+        ):
+            with pytest.raises(SystemExit) as exc:
+                parser.error("unrecognized arguments: --bad-arg")
+        assert exc.value.code == 2
+        captured = capsys.readouterr()
+        assert "submit" in captured.out
+
+
+def test_all_subcommands_registered_in_subparsers_dict():
+    """All top-level subcommands, including list-agents, must be registered
+    in subparsers_dict so they can show targeted help on argument errors."""
+    sys.argv = ["", "status", "dummy-job-id"]
+    tfcli = testflinger_cli.TestflingerCli()
+    registered = set(tfcli.main_parser.subparsers_dict.keys())
+    expected_subcommands = {
+        "artifacts",
+        "cancel",
+        "config",
+        "jobs",
+        "list-agents",
+        "list-queues",
+        "login",
+        "poll",
+        "poll-serial",
+        "reserve",
+        "status",
+        "agent-status",
+        "queue-status",
+        "results",
+        "show",
+        "submit",
+        "secret",
+    }
+    missing = expected_subcommands - registered
+    assert not missing, (
+        f"Subcommands not registered in subparsers_dict: {missing}. "
+        "These subcommands cannot show targeted help on argument errors."
+    )

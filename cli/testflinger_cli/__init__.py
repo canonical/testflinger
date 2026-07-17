@@ -84,10 +84,11 @@ class SubcommandAwareParser(ArgumentParser):
                 # Show subcommand-specific help
                 self.subparsers_dict[arg].print_help()
                 self.exit(2, f"{self.prog}: error: {message}\n")
-            # Skip option values (if current arg is a flag with a value)
+            # Skip option values only for flags that consume an argument
             if arg.startswith("-") and "=" not in arg:
-                # Check if this flag takes a value
-                if i + 1 < len(sys.argv) and not sys.argv[i + 1].startswith("-"):
+                action = self._option_string_actions.get(arg)
+                # nargs==0 means the flag takes no value (e.g. store_true)
+                if action is not None and action.nargs != 0:
                     i += 1  # Skip the next arg (it's the flag's value)
             i += 1
         # Fall back to main parser help
@@ -482,6 +483,7 @@ class TestflingerCli:
             help="List agents with optional filtering",
             formatter_class=RawTextHelpFormatter,
         )
+        self._register_subparser(parser, "list-agents")
         parser.set_defaults(func=self.list_agents)
         subgroup = parser.add_mutually_exclusive_group()
         subgroup.add_argument(
