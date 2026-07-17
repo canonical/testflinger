@@ -1,3 +1,4 @@
+mod workshop '.workshop'
 # Agent sub-recipes.
 mod agent
 # Command-line interface sub-recipes.
