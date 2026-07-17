@@ -400,6 +400,24 @@ class TestZapperConnectorRun:
             connector.ZAPPER_READ_TIMEOUT,
         )
 
+    def test_run_preserves_job_reboot_script(
+        self, mocker, connector, mock_post
+    ):
+        """Test that a job-provided reboot_script is not overridden
+        by connector config defaults.
+        """
+        mock_get = mocker.patch("requests.get")
+        mock_sse = self._make_sse([])
+        mock_status = Mock()
+        mock_status.raise_for_status = Mock()
+        mock_status.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [mock_sse, mock_status]
+
+        connector._run(reboot_script=["job-cmd"])
+
+        payload = mock_post.call_args.kwargs["json"]
+        assert payload["kwargs"]["reboot_script"] == ["job-cmd"]
+
     def test_run_streams_sse_log_lines(
         self, mocker, connector, mock_post, caplog
     ):

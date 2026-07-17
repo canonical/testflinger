@@ -245,6 +245,50 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
+    def test_validate_configuration_w_reboot_script_override(self):
+        """Test reboot_script can be passed from job provision_data.
+
+        This allows job-level reboot sequence to override connector config
+        defaults at payload build time.
+        """
+        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://example.com/image.iso",
+                "robot_tasks": [
+                    "job.robot",
+                ],
+                "reboot_script": [
+                    "zapper hid press_and_release Escape",
+                ],
+                "poweron_script": [
+                    "zapper poweron DUT",
+                ],
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
+        args, kwargs = connector._validate_configuration()
+
+        expected = {
+            "url": "http://example.com/image.iso",
+            "username": "ubuntu",
+            "password": "ubuntu",
+            "autoinstall_conf": connector._get_autoinstall_conf.return_value,
+            "robot_tasks": ["job.robot"],
+            "authorized_keys": ["mykey"],
+            "reboot_script": [
+                "zapper hid press_and_release Escape",
+            ],
+            "poweron_script": [
+                "zapper poweron DUT",
+            ],
+        }
+        self.assertEqual(args, ())
+        self.assertDictEqual(kwargs, expected)
+
     def test_validate_configuration_alloem(self):
         """Test whether the validate_configuration function returns
         the expected data merging the relevant bits from conf and job
