@@ -32,7 +32,7 @@ def check_prerequisites() -> None:
     if shutil.which(WORKSHOP) is None:
         sys.exit(
             f"ERROR: '{WORKSHOP}' CLI not found on PATH. "
-            "This script must run inside a workshop container."
+            "This script must run on the host where the workshop CLI is available."
         )
 
 
