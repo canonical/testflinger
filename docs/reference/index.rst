@@ -37,7 +37,7 @@ Configuration reference for Testflinger server instances and agent deployments, 
 
     testflinger-server-conf
     testflinger-agent-conf
-    oidc-config
+    juju-oidc-config
 
 Command line interface
 ----------------------

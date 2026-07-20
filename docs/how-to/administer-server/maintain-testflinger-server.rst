@@ -101,6 +101,6 @@ until all required parameters are properly set.
 
   $ juju status testflinger-k8s
 
-For additional information on these configuration options, please see :doc:`../../reference/oidc-config`.
+For additional information on these configuration options, please see :doc:`../../reference/juju-oidc-config`.
 
 For more information on OIDC requirements, please refer to :doc:`../../explanation/oidc-auth`.

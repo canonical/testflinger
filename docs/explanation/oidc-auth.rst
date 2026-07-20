@@ -22,7 +22,7 @@ restriction to different roles, please refer to :ref:`api-roles`.
    How to :ref:`howto-enable-oidc`
       Steps to configure a provider and enable OIDC on a Testflinger server.
 
-   Reference :doc:`../reference/oidc-config`
+   Reference :doc:`../reference/juju-oidc-config`
       Complete list of OIDC options configurable by the Testflinger Juju charm.
 
 
