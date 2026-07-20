@@ -642,13 +642,6 @@ class Maas2:
         else:
             return None
 
-        # TODO: we have a decision to make:
-        # 1) only show the installation log when there is a problem with the
-        #   installation (current)
-        # 2) support tracking the installation log as its own log type in
-        #   testflinger
-
         proc = self.run_maas_cmd_with_retry(cmd)
         txt_out = proc.stdout.decode()
-
-        self._logger_info(txt_out)
+        return txt_out
