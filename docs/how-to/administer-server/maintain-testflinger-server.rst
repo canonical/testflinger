@@ -93,9 +93,9 @@ set, you can run the following command:
   $ juju config testflinger-k8s oidc_client_id
 
 Additionally, once all required parameters are defined, you can check the overall
-status of the Testflinger application. In case there is any misconfiguration, the
-application status will remain ``blocked`` with an error message until all required
-parameters are properly set.
+status of the Testflinger application. If any required parameter is missing or
+invalid, the application status will remain ``blocked`` with an error message
+until all required parameters are properly set.
 
 .. code-block:: shell
 
