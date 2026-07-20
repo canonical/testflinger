@@ -170,15 +170,47 @@ def test_run_control_raises_after_retry_timeout(mocker):
     assert mock_sleep.call_count == 12
 
 
-class TestMuxPiProvisionWithZapper:
-    """Tests for MuxPi provision method with zapper configuration."""
+def test_storage_plug_to_self_uses_control_switch_cli_cmd(mocker):
+    """Test media switching reuses the configured mux CLI command."""
+    muxpi = MuxPi()
+    muxpi.config = {"control_switch_local_cmd": "sudo muxctl sdwire set TS"}
+    muxpi.job_data = {"provision_data": {"media": "sd"}}
+    mock_run_control = mocker.patch.object(
+        muxpi,
+        "_run_control",
+        side_effect=[b"/dev/sdX", b"/dev/usbX", b""],
+    )
 
-    def test_provision_with_zapper(self, mocker):
-        """Test provision proceeds normally when using zapper."""
+    with muxpi._storage_plug_to_self() as block_device:
+        assert block_device == "/dev/sdX"
+
+    assert [call.args[0] for call in mock_run_control.call_args_list] == [
+        "muxctl sdwire plug_to_self",
+        "muxctl typecmux plug_to_self",
+        "muxctl sdwire set DUT",
+    ]
+
+
+def test_storage_plug_to_self_requires_mux_cli_for_media():
+    """Test media switching requires a mux-device-aware CLI command."""
+    muxpi = MuxPi()
+    muxpi.config = {"control_switch_local_cmd": "stm -ts"}
+    muxpi.job_data = {"provision_data": {"media": "sd"}}
+
+    with pytest.raises(ProvisioningError, match="control_switch_local_cmd"):
+        with muxpi._storage_plug_to_self():
+            pass
+
+
+class TestMuxPiProvisionWithMuxCli:
+    """Tests for MuxPi provision method with mux CLI configuration."""
+
+    def test_provision_with_mux_cli(self, mocker):
+        """Test provision proceeds normally when using a mux CLI."""
         muxpi = MuxPi()
         muxpi.config = {
-            "control_switch_local_cmd": "zapper sdwire set TS",
-            "control_host": "zapper-host",
+            "control_switch_local_cmd": "sudo muxctl sdwire set TS",
+            "control_host": "mux-control-host",
             "control_user": "ubuntu",
             "device_ip": "1.2.3.4",
             "test_device": "/dev/sda",
@@ -191,6 +223,7 @@ class TestMuxPiProvisionWithZapper:
         }
 
         mocker.patch("time.sleep")
+        mock_reboot_sdwire = mocker.patch.object(muxpi, "reboot_sdwire")
         # Mock the rest of provision to avoid running actual provisioning
         mocker.patch.object(muxpi, "flash_test_image")
         mocker.patch.object(muxpi, "hardreset")
@@ -200,8 +233,10 @@ class TestMuxPiProvisionWithZapper:
 
         muxpi.provision()
 
-    def test_provision_without_zapper_reboots_sdwire(self, mocker):
-        """Test provision reboots sdwire when not using zapper."""
+        mock_reboot_sdwire.assert_not_called()
+
+    def test_provision_without_mux_cli_reboots_sdwire(self, mocker):
+        """Test provision reboots sdwire when not using a mux CLI."""
         muxpi = MuxPi()
         muxpi.config = {
             "control_switch_local_cmd": "stm -ts",
