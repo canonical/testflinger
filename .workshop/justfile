@@ -12,14 +12,14 @@ help:
 start:
     #!/usr/bin/env bash
     set -euxo pipefail
-    if (( $(workshop list --no-headers | grep "dev" | wc -l) == 0 )); then \
-        workshop launch dev; \
-    elif (( $( workshop list | grep "dev.*Stopped" | wc -l) == 1 )); then \
-        workshop start dev; \
-    elif (( $( workshop list | grep "dev.*Ready" | wc -l) == 1 )); then \
-        echo "Workshop already started."; \
-    else \
-        echo "Unhandled case: workshop list:"; \
+    if ! workshop list --no-headers | grep -qE '^dev[[:space:]]'; then
+        workshop launch dev
+    elif workshop list --no-headers | grep -qE '^dev[[:space:]].*Stopped'; then
+        workshop start dev
+    elif workshop list --no-headers | grep -qE '^dev[[:space:]].*Ready'; then
+        echo "Workshop already started."
+    else
+        echo "Unhandled case: workshop list:"
         workshop list
     fi
 
