@@ -10,10 +10,21 @@
   <table aria-label="Jobs table" class="p-table--mobile-card">
     <thead>
       <tr>
-        <th>Job ID</th>
-        <th>Queue</th>
-        <th style="width: 100pt">State</th>
-        <th style="width: 150pt">Created At</th>
+        <th aria-sort="none">
+          <button class="p-table__sort-button">Job ID</button>
+        </th>
+        <th aria-sort="none">
+          <button class="p-table__sort-button">Client ID</button>
+        </th>
+        <th aria-sort="none">
+          <button class="p-table__sort-button">Queue</button>
+        </th>
+        <th aria-sort="none" style="width: 100pt">
+          <button class="p-table__sort-button">State</button>
+        </th>
+        <th aria-sort="none" style="width: 150pt">
+          <button class="p-table__sort-button">Created At</button>
+        </th>
       </tr>
     </thead>
     <tbody>
@@ -22,6 +33,7 @@
           <td data-heading="Job ID">
             <a href="{{ url_for('testflinger.job_detail', job_id=job.job_id) }}">{{ job.job_id }}</a>
           </td>
+          <td data-heading="Client ID">{{ job.client_id or "" }}</td>
           <td data-heading="Queue">
             <a href="{{ url_for('testflinger.queue_detail', queue_name=job.job_data.job_queue) }}">{{ job.job_data.job_queue }}</a>
           </td>

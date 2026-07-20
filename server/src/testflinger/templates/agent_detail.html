@@ -35,9 +35,15 @@
   <table aria-label="Queues table" class="p-table--mobile-card">
     <thead>
       <tr>
-        <th>Name</th>
-        <th>Number of jobs</th>
-        <th>Description</th>
+        <th aria-sort="none">
+          <button class="p-table__sort-button">Name</button>
+        </th>
+        <th aria-sort="none" use-numeric-sort>
+          <button class="p-table__sort-button">Number of jobs</button>
+        </th>
+        <th aria-sort="none">
+          <button class="p-table__sort-button">Description</button>
+        </th>
       </tr>
     </thead>
     <tbody>
@@ -82,10 +88,24 @@
     <table>
       <thead>
         <tr>
-          <th style="width: 150pt">Finished At</th>
-          <th style="width: 300pt">Job ID</th>
-          <th class="p-table__cell--icon-placeholder" style="width: 75pt">Status</th>
-          <th>Detail</th>
+          <th aria-sort="none" style="width: 150pt">
+            <button class="p-table__sort-button">Finished At</button>
+          </th>
+          <th aria-sort="none" style="width: 300pt">
+            <button class="p-table__sort-button">Job ID</button>
+          </th>
+          <th aria-sort="none">
+            <button class="p-table__sort-button">Client ID</button>
+          </th>
+          <th aria-sort="none"
+              class="p-table__cell--icon-placeholder"
+              style="width: 75pt"
+              use-numeric-sort>
+            <button class="p-table__sort-button">Status</button>
+          </th>
+          <th aria-sort="none">
+            <button class="p-table__sort-button">Detail</button>
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -95,6 +115,7 @@
             <td>
               <a href="{{ url_for('testflinger.job_detail', job_id=log.job_id) }}">{{ log.job_id }}</a>
             </td>
+            <td>{{ log.client_id or "" }}</td>
             <td class="u-align--right p-table__cell--icon-placeholder">
               <i class="{{ 'p-icon--success' if log.exit_code==0 else 'p-icon--error' }}"></i>{{ log.exit_code }}
             </td>
