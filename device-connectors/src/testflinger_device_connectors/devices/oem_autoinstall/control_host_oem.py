@@ -19,12 +19,14 @@ from pathlib import Path
 from typing import Any, Dict, Tuple
 
 from testflinger_device_connectors.devices import ProvisioningError
-from testflinger_device_connectors.devices.zapper import ZapperConnector
+from testflinger_device_connectors.devices.control_host import (
+    ControlHostConnector,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class ZapperOem(ZapperConnector):
+class ControlHostOem(ControlHostConnector):
     PROVISION_METHOD = "ProvisioningOEM"
 
     def _validate_configuration(
@@ -32,13 +34,18 @@ class ZapperOem(ZapperConnector):
     ) -> Tuple[Tuple, Dict[str, Any]]:
         """
         Validate the job config and data and prepare the arguments
-        for the Zapper `provision` API.
+        for the control host `provision` API.
         """
         logger.info("Validating configuration")
         supported_iso_types = {"bootstrap", "stock", "bios", "dummyefi"}
         provision_data = self.job_data["provision_data"]
 
-        iso_type = provision_data.get("zapper_iso_type")
+        iso_url = provision_data.get("control_host_iso_url") or (
+            provision_data.get("zapper_iso_url")
+        )
+        iso_type = provision_data.get("control_host_iso_type") or (
+            provision_data.get("zapper_iso_type")
+        )
         meta_data_b64 = None
         user_data_b64 = None
         grub_cfg_b64 = None
@@ -49,16 +56,16 @@ class ZapperOem(ZapperConnector):
 
         dut_ip = self.config["device_ip"]
 
-        if not provision_data.get("zapper_iso_url"):
+        if not iso_url:
             raise ProvisioningError(
-                "zapper_iso_url is required in provision_data. "
-                "Set ISO image to be flashed on typecmux USB."
+                "An ISO URL (e.g. control_host_iso_url) is required in "
+                "provision_data. Set the ISO image to be flashed to the DUT."
             )
 
-        if not provision_data.get("zapper_iso_type"):
+        if not iso_type:
             raise ProvisioningError(
-                "zapper_iso_type is required in provision_data. "
-                "Based on ISO type of zapper_iso_url argument."
+                "An ISO type (e.g. control_host_iso_type) is required in "
+                "provision_data. Based on the ISO type of the ISO URL."
             )
 
         if iso_type not in supported_iso_types:
@@ -89,8 +96,8 @@ class ZapperOem(ZapperConnector):
         reboot_script = self.config.get("reboot_script")
 
         provisioning_data = {
-            "zapper_iso_url": provision_data["zapper_iso_url"],
-            "zapper_iso_type": iso_type,
+            "control_host_iso_url": iso_url,
+            "control_host_iso_type": iso_type,
             "update_user_data": provision_data.get("update_user_data", False),
             "device_ip": dut_ip,
             "username": username,
