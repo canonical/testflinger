@@ -6,17 +6,17 @@ Authentication and Authorisation
 Authentication
 --------------
 
-Testflinger can be configured to use OpenID Connect (OIDC) for authentication.
-Depending on whether the server is configured to use OIDC, the authentication flow will differ.
+Testflinger can be configured to use OpenID Connect (OIDC) for authentication. The way that
+authorization working in the Testflinger server depends on whether OIDC is enabled or not. When
+OIDC is *not* enabled, Testflinger supports anonymous logins. However, when OIDC is enabled
+each request must be authenticated. Both operating modes support use of self-signed tokens
+for authentication, and these are what are used in typical CI/CD flows.
 
-The following is the simplified priority order of authentication methods:
-
-1. Basic Auth using ``client_id`` and ``secret_key``
-2. Bearer token using a refresh token
-3. OIDC flow if enabled on the server
+Since Basic Auth can be used in both configurations, it is prioritized first, when
+Basic Auth is used it will be handled within the server before other authentication methods.
 
 Authentication Flows
-~~~~~~~~~~~~~~~~~~~~
+--------------------
 
 The following sequence diagrams show the authentication flow for each of the
 authentication methods and the interactions between the user, the CLI and the
@@ -28,8 +28,24 @@ server.
     on Testflinger server side but the same flow applies to any other endpoint
     that requires authentication.
 
+The Testflinger server can be configured one of two ways:
+ - Without OIDC Authentication Configured (OIDC Disabled)
+ - With OIDC Authentication Configured (OIDC Enabled)
+
+
+OIDC Disabled
+~~~~~~~~~~~~~
+
+When Testflinger is configured to *not* use OIDC for authentication, the order is:
+
+1. Basic Auth using ``client_id`` and ``secret_key``
+2. Bearer token using a refresh token
+3. Any non-authenticated requests are treated as an anonymous CONTRIBUTOR role.
+
+.. _basic-auth-is-oidc-agnostic:
+
 Basic Auth
-^^^^^^^^^^
+''''''''''
 
 Regardless of whether OIDC is enabled or not, Basic Auth will be used if both the
 ``client_id`` and ``secret_key`` are provided.
@@ -74,9 +90,10 @@ be prompted to provide both parameters.
         User->>CLI: Run command with wrong number of credential arguments
         CLI-->>User: Show usage
 
+.. _refresh-auth-is-oidc-agnostic:
 
 Refresh Token
-^^^^^^^^^^^^^
+'''''''''''''
 
 If client credentials are not provided, the CLI will attempt to use a refresh
 token if one is available. The refresh token is stored in a snap-local cache and is
@@ -112,11 +129,78 @@ OIDC is enabled on the server:
 Token expired or rejected
 .........................
 
-When the refresh token is rejected, the behaviour differs depending on whether
-the server has OIDC enabled.
+If the server does not have OIDC enabled and the refresh token is rejected,
+the server returns a 401 and the CLI removes the stored token. If the CLI does not
+automatically retry the operation anonymously it will signal to the user that the
+request was denied so the user may try again.
 
-With OIDC Enabled
-'''''''''''''''''
+.. mermaid::
+    :alt: Sequence diagram showing a refresh token being rejected and the user being denied access
+    :caption: Sequence diagram showing a refresh token being rejected and the user being denied access
+    :align: center
+
+    sequenceDiagram
+        actor User
+        participant CLI as testflinger-cli
+        participant Server as testflinger-server
+
+        Note over User,Server: Neither client-id nor secret-key, token rejected, server does not use OIDC
+        User->>CLI: Run command without client-id + secret-key
+        CLI->>CLI: Load stored refresh token
+        CLI->>Server: Request with refresh token
+        Note over CLI,Server: POST /v1/oauth2/refresh
+        Server->>Server: Token expired or rejected
+        Server-->>CLI: 400 Bad Request
+        CLI->>CLI: Delete stored refresh token
+        CLI-->>User: Authentication failed
+
+No credentials or stored token
+''''''''''''''''''''''''''''''
+
+If the server does not require authentication, the request is allowed through
+as an anonymous user:
+
+.. mermaid::
+    :alt: Sequence diagram showing no auth for anonymous login
+    :caption: Sequence diagram showing no auth for anonymous login
+    :align: center
+
+    sequenceDiagram
+        actor User
+        participant CLI as testflinger-cli
+        participant Server as testflinger-server
+
+        Note over User,Server: Neither client-id nor secret-key, no token, server does not require auth
+        User->>CLI: Run command without credentials or token
+        CLI->>CLI: No stored bearer/refresh token found
+        CLI->>Server: Request without Authorization header
+        Note over CLI,Server: POST /v1/jobs
+        Server->>Server: Auth not required
+        Server-->>CLI: 200 OK / anonymous user response
+        CLI-->>User: Show result
+
+OIDC Enabled
+~~~~~~~~~~~~
+
+When Testflinger is configured to use OpenID Connect (OIDC) for authentication, the order is:
+When Testflinger is configured to use OpenID Connect (OIDC) for authentication, the order is:
+
+1. Basic Auth using ``client_id`` and ``secret_key``
+2. Bearer token using a refresh token
+3. OIDC authentication flow
+
+Basic Auth
+''''''''''
+
+Exactly the same as without OIDC, see :ref:`basic-auth-is-oidc-agnostic`.
+
+Refresh Token
+'''''''''''''
+
+Exactly the same as without OIDC, see :ref:`refresh-auth-is-oidc-agnostic`.
+
+Token expired or rejected
+.........................
 
 If the server has OIDC enabled and the refresh token is rejected, the server
 initiates an OIDC authentication flow:
@@ -158,39 +242,8 @@ initiates an OIDC authentication flow:
         Server-->>CLI: 200 OK / authenticated response
         CLI-->>User: Show result
 
-Without OIDC
-''''''''''''
-
-If the server does not have OIDC enabled and the refresh token is rejected,
-the server returns a 401 and the CLI removes the stored token:
-
-.. mermaid::
-    :alt: Sequence diagram showing a refresh token being rejected and the user being denied access
-    :caption: Sequence diagram showing a refresh token being rejected and the user being denied access
-    :align: center
-
-    sequenceDiagram
-        actor User
-        participant CLI as testflinger-cli
-        participant Server as testflinger-server
-
-        Note over User,Server: Neither client-id nor secret-key, token rejected, server does not use OIDC
-        User->>CLI: Run command without client-id + secret-key
-        CLI->>CLI: Load stored refresh token
-        CLI->>Server: Request with refresh token
-        Note over CLI,Server: POST /v1/oauth2/refresh
-        Server->>Server: Token expired or rejected
-        Server-->>CLI: 400 Bad Request
-        CLI->>CLI: Delete stored refresh token
-        CLI-->>User: Authentication failed
-
 No credentials or stored token
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-When neither credentials nor a stored token are available, the behaviour
-depends on whether the server has OIDC enabled.
-
-If the server has OIDC enabled, it initiates an OIDC authentication flow:
+''''''''''''''''''''''''''''''
 
 .. mermaid::
     :alt: Sequence diagram showing no stored token with OIDC enabled, triggering the OIDC flow
@@ -222,28 +275,6 @@ If the server has OIDC enabled, it initiates an OIDC authentication flow:
         Note over CLI,Server: POST /v1/jobs
         Server->>Server: Validate access token signature and client permissions
         Server-->>CLI: 200 OK / authenticated response
-        CLI-->>User: Show result
-
-If the server does not require authentication, the request is allowed through
-as an anonymous user:
-
-.. mermaid::
-    :alt: Sequence diagram showing no auth for anonymous login
-    :caption: Sequence diagram showing no auth for anonymous login
-    :align: center
-
-    sequenceDiagram
-        actor User
-        participant CLI as testflinger-cli
-        participant Server as testflinger-server
-
-        Note over User,Server: Neither client-id nor secret-key, no token, server does not require auth
-        User->>CLI: Run command without credentials or token
-        CLI->>CLI: No stored bearer/refresh token found
-        CLI->>Server: Request without Authorization header
-        Note over CLI,Server: POST /v1/jobs
-        Server->>Server: Auth not required
-        Server-->>CLI: 200 OK / anonymous user response
         CLI-->>User: Show result
 
 Authorisation
