@@ -74,6 +74,7 @@ test Testflinger services in a container environment. Consider the following:
 
 #### Workshop Basics
 
+Install workshop:
 
 ```shell
 # Prerequisite: install/update to the latest stable LXD from the version 6 track:
@@ -112,7 +113,6 @@ Note: the justfile recipes attempt to abstract some of the `workshop` functions
 away from the developer for ease of use, but it is still important to understand
 certain aspects about the testflinger services, the way that they are run in the
 `workshop` container, and how those services can be exposed to the host system.
-
 
 ```shell
 # At its simplest: Start the workshop (if necessary), start the testflinger
@@ -156,6 +156,7 @@ workshop exec dev -- just server::populate \
 # implemented in the `server` justfile to avoid it ever being run by mistake
 # on the host system.
 just workshop docker-prune
+
 ```
 
 To allow for testing in an environment where your web browser is able
