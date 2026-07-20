@@ -35,7 +35,7 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
     juju.config(APP_NAME, TEST_CONFIG_01)
     # Wait for install to complete, charm should be in BlockedStatus due to
     # missing credentials.
-    juju.wait(jubilant.all_blocked)
+    juju.wait(jubilant.all_blocked, timeout=60 * 5)
 
     # Create mock token to skip authentication
     create_mock_token(juju, APP_NAME)

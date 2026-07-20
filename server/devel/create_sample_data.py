@@ -19,6 +19,7 @@ allow you to use the production server.
 """
 
 import logging
+import os
 import random
 import sys
 from argparse import ArgumentParser, Namespace
@@ -190,11 +191,31 @@ class QueueDataGenerator:  # pylint: disable=too-few-public-methods
 class TestflingerClient:
     """Client to connect to Testflinger and post data"""
 
-    def __init__(self, server_url: str):
+    def __init__(
+        self,
+        server_url: str,
+        client_id: Optional[str] = None,
+        client_key: Optional[str] = None,
+    ):
         self.server_url = server_url
         self.session = requests.Session()
         self.session.headers.update({"Content-Type": "application/json"})
         self.session.timeout = 3
+        if client_id and client_key:
+            self._authenticate(client_id, client_key)
+
+    def _authenticate(self, client_id: str, client_key: str) -> None:
+        """Fetch a Bearer token and attach it to the session.
+        :param client_id: Client ID for authentication
+        :param client_key: Client key/secret for authentication
+        """
+        response = self.session.post(
+            f"{self.server_url}/v1/oauth2/token",
+            auth=(client_id, client_key),
+        )
+        response.raise_for_status()
+        token = response.json()["access_token"]
+        self.session.headers.update({"Authorization": f"Bearer {token}"})
 
     def post_queue_data(self, queues: Iterator):
         """Post queue data to Testflinger server
@@ -256,7 +277,11 @@ def main():
     """Main function"""
     args = get_args()
 
-    testflinger_client = TestflingerClient(server_url=args.server)
+    testflinger_client = TestflingerClient(
+        server_url=args.server,
+        client_id=os.environ.get("TESTFLINGER_CLIENT_ID", "dev-admin"),
+        client_key=os.environ.get("TESTFLINGER_SECRET_KEY", "dev-secret-for-testing"),
+    )
 
     queues = QueueDataGenerator(num_queues=args.queues)
     # configure "advertised" queues:

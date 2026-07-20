@@ -1,4 +1,4 @@
-issuer: http://dex:5556/dex
+issuer: http://dex:5556
 storage:
   type: memory
 web:
@@ -9,11 +9,18 @@ staticClients:
       - 'http://testflinger-server:5000/auth/callback'
       - 'http://localhost:5000/auth/callback'
       - 'http://127.0.0.1:5000/auth/callback'
+      - '/device/callback'
     name: 'Testflinger Dev'
-    secret: my-oidc-secret
+    public: true
+    grantTypes:
 enablePasswordDB: true
 staticPasswords:
   - email: "testflinger@example.com"
     hash: "$2a$10$FWI.y.8Zpa9PhTTcV6GDIuxPzrwYJoiVCimgCA427HoyR5FR50mBu"
     username: "testflinger-admin"
     userID: "1234"
+oauth2:
+  grantTypes:
+    - "authorization_code"
+    - "refresh_token"
+    - "urn:ietf:params:oauth:grant-type:device_code"

@@ -16,36 +16,57 @@
 
 """Testflinger CLI Auth module."""
 
+import base64
 import configparser
-import contextlib
+import time
+import urllib.parse
+import webbrowser
 from functools import cached_property, wraps
 from http import HTTPStatus
 from typing import Optional
 
 import jwt
+import requests
 from xdg_base_dirs import xdg_config_home
 
-from testflinger_cli import client
 from testflinger_cli.enums import ServerRoles
 from testflinger_cli.errors import (
     AuthenticationError,
     AuthorizationError,
     InvalidTokenError,
+    NetworkError,
+    OidcError,
 )
+
+DEFAULT_AUTH_TIMEOUT = 15  # seconds
 
 
 class TestflingerCliAuth:
     """Class to handle authentication and authorisation for Testflinger CLI."""
 
-    def __init__(self, client_id: str | None, secret_key: str, tf_client):
-        self.client_id: Optional[str] = client_id
+    def __init__(
+        self,
+        server_url: str,
+        client_id: str | None = None,
+        secret_key: str | None = None,
+    ):
+        """Initialize the Testflinger CLI Auth class."""
+        self.server_url = server_url
+        self.client_id = client_id
         self.secret_key = secret_key
-        self.client = tf_client
 
         # Refresh token relevant configuration
         config_home = xdg_config_home()
         config_home.mkdir(parents=True, exist_ok=True)
         self.auth_config = config_home / "testflinger-cli-auth.conf"
+
+    def get_url(self, endpoint: str) -> str:
+        """Construct the full URL for a given endpoint.
+
+        :param endpoint: The endpoint to construct the URL for.
+        :return: The full URL for the given endpoint.
+        """
+        return urllib.parse.urljoin(self.server_url, endpoint)
 
     def is_authenticated(self) -> bool:
         """Validate if user is currently authenticated.
@@ -65,49 +86,98 @@ class TestflingerCliAuth:
         :raises InvalidTokenError: Refresh token already expired
         :return: string with access token (jwt token)
         """
-        # Authenticate with credentials if provided in args or env file
+        # 1. Attempt to authenticate with credentials from args or envvars
+        # Higher priority to honor users intent when credentials present
         if self.client_id and self.secret_key:
             return self._authenticate_with_credentials()
 
-        # Authenticate with refresh token if available
+        # 2. Authenticate with refresh token if available
+        # This covers persistent login for both credentials and OIDC logins
         refresh_token = self.get_stored_refresh_token()
+        token_expired: InvalidTokenError | None = None
         if refresh_token:
-            return self._authenticate_with_refresh_token(refresh_token)
+            try:
+                return self._authenticate_with_refresh_token(refresh_token)
+            except InvalidTokenError as exc:
+                token_expired = exc
 
-        return None
+        # 3. Authenticate with OIDC if no credentials or refresh token
+        # This should fail gracefully if OIDC is not enabled on the server
+        access_token = self._authenticate_with_oidc()
+        if not access_token and token_expired:
+            # If neither authentication method worked and refresh token invalid
+            # raise the InvalidTokenError to force reauthentication
+            raise token_expired
+        return access_token
 
     def _authenticate_with_credentials(self) -> str | None:
-        """Authenticate using client_id and secret_key."""
+        """Authenticate using client_id and secret_key.
+
+        :return: string with access token (jwt token)
+        """
+        url = self.get_url("/v1/oauth2/token")
+        id_key_pair = f"{self.client_id}:{self.secret_key}"
+        encoded_id_key_pair = base64.b64encode(
+            id_key_pair.encode("utf-8")
+        ).decode("ascii")
+        headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
+
         try:
-            response = self.client.authenticate(
-                self.client_id, self.secret_key
+            response = requests.post(
+                url, {}, headers=headers, timeout=DEFAULT_AUTH_TIMEOUT
             )
-            # Store refresh token for persistent login
-            self.store_refresh_token(response["refresh_token"])
-            return response["access_token"]
-        except client.HTTPError as exc:
+            response.raise_for_status()
+            response_data = response.json()
+        except requests.exceptions.HTTPError as exc:
             self._handle_auth_error(exc)
             return None
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
+                "Connection timed out while authenticating with credentials."
+            ) from exc
+
+        # Store refresh token for persistent login
+        self.store_refresh_token(response_data["refresh_token"])
+        return response_data["access_token"]
 
     def _authenticate_with_refresh_token(
         self, refresh_token: str
     ) -> str | None:
-        """Authenticate using stored refresh token."""
+        """Authenticate using stored refresh token.
+
+        :param refresh_token: refresh token to use for authentication
+        :return: string with access token (jwt token)
+        """
+        url = self.get_url("/v1/oauth2/refresh")
+
         try:
-            response = self.client.refresh_authentication(refresh_token)
-            return response["access_token"]
-        except client.HTTPError as exc:
-            if exc.status == HTTPStatus.BAD_REQUEST:
+            response = requests.post(
+                url,
+                json={"refresh_token": refresh_token},
+                timeout=DEFAULT_AUTH_TIMEOUT,
+            )
+            response.raise_for_status()
+            response_data = response.json()
+            return response_data["access_token"]
+        except requests.exceptions.HTTPError as exc:
+            if exc.response.status_code == HTTPStatus.BAD_REQUEST:
                 self.clear_refresh_token()
-                raise InvalidTokenError(exc.msg) from exc
+                raise InvalidTokenError(
+                    "Invalid or expired refresh token."
+                ) from exc
+
             self._handle_auth_error(exc)
             return None
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
+                "Connection timed out while refreshing authentication token."
+            ) from exc
 
-    def _handle_auth_error(self, exc: client.HTTPError) -> None:
+    def _handle_auth_error(self, exc: requests.exceptions.HTTPError) -> None:
         """Handle authentication HTTP errors."""
-        if exc.status == HTTPStatus.UNAUTHORIZED:
+        if exc.response.status_code == HTTPStatus.UNAUTHORIZED:
             raise AuthenticationError from exc
-        if exc.status == HTTPStatus.FORBIDDEN:
+        if exc.response.status_code == HTTPStatus.FORBIDDEN:
             raise AuthorizationError from exc
 
     @cached_property
@@ -157,7 +227,7 @@ class TestflingerCliAuth:
                 with self.auth_config.open("w"):
                     pass
 
-    def build_headers(self) -> Optional[dict]:
+    def build_headers(self) -> dict:
         """Create an authorization header based on stored JWT.
 
         :return: Dict with JWT as the Authorization header if exist.
@@ -165,33 +235,33 @@ class TestflingerCliAuth:
         return (
             {"Authorization": f"Bearer {self.jwt_token}"}
             if self.jwt_token
-            else None
+            else {}
         )
 
-    def decode_jwt_token(self) -> Optional[dict]:
+    def decode_jwt_token(self, token: str | None = None) -> Optional[dict]:
         """Decode JWT token without verifying signature.
 
         This is not for security but for quick screening,
         server will still enforce the JWT token validation.
 
+        :param token: optional token to decode, defaults to self.jwt_token
         :return: Dict with the decoded JWT
         """
-        if not self.is_authenticated() or not self.jwt_token:
+        token_to_decode = token or self.jwt_token
+        if not token_to_decode:
             return None
 
         try:
-            decoded_jwt = jwt.decode(
-                self.jwt_token, options={"verify_signature": False}
+            return jwt.decode(
+                token_to_decode, options={"verify_signature": False}
             )
-            return decoded_jwt
         except jwt.exceptions.DecodeError:
             return None
 
     def refresh_authentication(self) -> None:
-        """Attempt to refresh token in case its already expired."""
+        """Re-acquire the access token, raising on failure."""
         del self.jwt_token
-        with contextlib.suppress(AuthenticationError, AuthorizationError):
-            _ = self.jwt_token
+        _ = self.jwt_token
 
     def get_user_role(self) -> str | None:
         """Retrieve the role for the user from the decoded jwt.
@@ -206,6 +276,90 @@ class TestflingerCliAuth:
         # If there is a decoded token, the user was authenticated
         # Default role for legacy client_ids is contributor
         return permissions.get("role", ServerRoles.CONTRIBUTOR)
+
+    def _authenticate_with_oidc(self) -> str | None:
+        """Authenticate using OIDC device flow."""
+        auth_init_url = self.get_url("/oidc/auth-init")
+
+        try:
+            response = requests.post(
+                auth_init_url, data={}, timeout=DEFAULT_AUTH_TIMEOUT
+            )
+            response.raise_for_status()
+            init_data = response.json()
+        except requests.exceptions.HTTPError as exc:
+            if exc.response.status_code == HTTPStatus.NOT_FOUND:
+                # Server does not have OIDC enabled
+                # Need to return None to fail gracefully
+                return None
+
+            raise OidcError(f"Failed to initiate OIDC login: {exc}") from exc
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
+                "Connection timed out while initiating OIDC login."
+            ) from exc
+
+        verification_uri = init_data["verification_uri"]
+        user_code = init_data["user_code"]
+        interval = init_data.get("interval", 5)
+        expires_in = init_data.get("expires_in", 300)
+        request_id = init_data["request_id"]
+
+        print(
+            f"Please visit {verification_uri} and enter code "
+            f"{user_code} to login."
+        )
+
+        # Attempt to launch the browser for the user to login
+        webbrowser.open(verification_uri)
+
+        code_expiration = time.monotonic() + expires_in
+        while time.monotonic() < code_expiration:
+            time.sleep(interval)
+            poll_url = self.get_url(f"/oidc/auth-poll/{request_id}")
+            try:
+                response = requests.post(
+                    poll_url, data={}, timeout=DEFAULT_AUTH_TIMEOUT
+                )
+                response.raise_for_status()
+                auth_data = response.json()
+                decoded = self.decode_jwt_token(auth_data["access_token"])
+                self.client_id = (
+                    decoded.get("permissions", {}).get("client_id")
+                    if decoded
+                    else None
+                )
+                if self.client_id:
+                    self.store_refresh_token(auth_data["refresh_token"])
+                return auth_data["access_token"]
+            except requests.exceptions.HTTPError as exc:
+                error_data = exc.response.json()
+                match error_data.get("error"):
+                    case "authorization_pending":
+                        pass
+                    case "slow_down":
+                        interval += int(
+                            exc.response.headers.get("Retry-After", 5)
+                        )
+                    case "access_denied":
+                        raise OidcError(
+                            "Authentication failed: access denied"
+                        ) from exc
+                    case "expired_token":
+                        raise OidcError(
+                            "Authentication timed out. Please try again."
+                        ) from exc
+                    case _:
+                        raise OidcError(
+                            "Unexpected error during OIDC "
+                            f"authentication: {exc}"
+                        ) from exc
+            except requests.exceptions.Timeout as exc:
+                raise NetworkError(
+                    "Connection timed out while authenticating with OIDC."
+                ) from exc
+
+        raise OidcError("Authentication timed out. Please try again.")
 
 
 def require_role(*roles):

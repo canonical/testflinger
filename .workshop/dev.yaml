@@ -1,0 +1,29 @@
+name: dev
+base: ubuntu@24.04
+sdks:
+  - name: just
+  - name: uv
+  - name: vscode-remote
+  - name: opencode
+  - name: docker-ce
+    slots:
+      testflinger-server:
+        interface: tunnel
+        endpoint: localhost:5000  # in the workshop
+      testflinger-metrics:
+        interface: tunnel
+        endpoint: localhost:9090  # in the workshop
+      dex-server:
+        interface: tunnel
+        endpoint: localhost:5556  # in the workshop
+  - name: system
+    plugs:
+      tcp5000:
+        interface: tunnel
+        endpoint: localhost:5000  # on the host
+      tcp9090:
+        interface: tunnel
+        endpoint: localhost:9090  # on the host
+      tcp5556:
+        interface: tunnel
+        endpoint: localhost:5556  # on the host

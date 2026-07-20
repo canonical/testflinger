@@ -54,8 +54,9 @@ def test_invalid_stage():
     assert err.value.code == 2
 
 
-def test_exception_logging(tmp_path):
+def test_exception_logging(tmp_path, monkeypatch):
     """Tests exception logging decorator that adds file logging."""
+    monkeypatch.chdir(tmp_path)
     open("device-connector-error.json", "w").close()
 
     exception_info = {
@@ -76,8 +77,9 @@ def test_exception_logging(tmp_path):
         assert json.loads(error_file.read()) == exception_info
 
 
-def test_exception_logging_no_cause(tmp_path):
+def test_exception_logging_no_cause(tmp_path, monkeypatch):
     """Tests exception logging for causeless exceptions."""
+    monkeypatch.chdir(tmp_path)
     open("device-connector-error.json", "w").close()
 
     exception_info = {

@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Canonical
+# Copyright (C) 2026 Canonical
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -11,7 +11,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Unit tests for Zapper KVM device connector."""
+"""Unit tests for the control host KVM device connector."""
 
 import base64
 import subprocess
@@ -22,14 +22,22 @@ from unittest.mock import Mock, patch
 import yaml
 
 from testflinger_device_connectors.devices import ProvisioningError
-from testflinger_device_connectors.devices.zapper_kvm import DeviceConnector
+from testflinger_device_connectors.devices.control_host_kvm import (
+    DeviceConnector,
+)
 
 
-class ZapperKVMConnectorTests(unittest.TestCase):
-    """Unit tests for ZapperConnector KVM class."""
+class ControlHostKVMConnectorTests(unittest.TestCase):
+    """Unit tests for the control host KVM class."""
+
+    def test_does_not_manage_dut_power_during_reboot(self) -> None:
+        """control_host_kvm must NOT power cycle the DUT while the control
+        host reboots; only control_host_iot (and muxpi) opt in.
+        """
+        self.assertFalse(DeviceConnector.MANAGE_DUT_POWER_DURING_REBOOT)
 
     def test_get_credentials(self) -> None:
-        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector = DeviceConnector({"control_host": "control-host"})
         connector.job_data = {}
         assert connector._get_credentials("desktop-jammy-oem") == (
             "ubuntu",
@@ -43,7 +51,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         the expected data merging the relevant bits from conf and job
         data when passing only the required arguments.
         """
-        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector = DeviceConnector({"control_host": "control-host"})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -75,7 +83,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         the expected data merging the relevant bits from conf and job
         data when passing only the required arguments.
         """
-        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector = DeviceConnector({"control_host": "control-host"})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -101,7 +109,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         the expected data merging the relevant bits from conf and job
         data when passing only the required arguments.
         """
-        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector = DeviceConnector({"control_host": "control-host"})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -130,7 +138,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test that `desktop-jammy-oem` preset strips `url` from the
         provision data since the control host only does recovery.
         """
-        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector = DeviceConnector({"control_host": "control-host"})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -153,7 +161,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         the original `url` is replaced by `alloem_url`, `alloem_url` is
         removed from the payload, and jammy-oem credentials are used.
         """
-        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector = DeviceConnector({"control_host": "control-host"})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -176,7 +184,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test `desktop-jammy-oem` preset does not raise when `url`
         is already absent from provision data.
         """
-        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector = DeviceConnector({"control_host": "control-host"})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -195,7 +203,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         the expected data merging the relevant bits from conf and job
         data when passing all the optional arguments.
         """
-        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector = DeviceConnector({"control_host": "control-host"})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -239,14 +247,58 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         self.assertEqual(args, ())
         self.assertDictEqual(kwargs, expected)
 
+    def test_validate_configuration_w_reboot_script_override(self):
+        """Test reboot_script can be passed from job provision_data.
+
+        This allows job-level reboot sequence to override connector config
+        defaults at payload build time.
+        """
+        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector.job_data = {
+            "job_queue": "queue",
+            "provision_data": {
+                "url": "http://example.com/image.iso",
+                "robot_tasks": [
+                    "job.robot",
+                ],
+                "reboot_script": [
+                    "zapper hid press_and_release Escape",
+                ],
+                "poweron_script": [
+                    "zapper poweron DUT",
+                ],
+            },
+        }
+
+        connector._get_autoinstall_conf = Mock()
+        connector._read_ssh_key = Mock(return_value="mykey")
+        args, kwargs = connector._validate_configuration()
+
+        expected = {
+            "url": "http://example.com/image.iso",
+            "username": "ubuntu",
+            "password": "ubuntu",
+            "autoinstall_conf": connector._get_autoinstall_conf.return_value,
+            "robot_tasks": ["job.robot"],
+            "authorized_keys": ["mykey"],
+            "reboot_script": [
+                "zapper hid press_and_release Escape",
+            ],
+            "poweron_script": [
+                "zapper poweron DUT",
+            ],
+        }
+        self.assertEqual(args, ())
+        self.assertDictEqual(kwargs, expected)
+
     def test_validate_configuration_alloem(self):
         """Test whether the validate_configuration function returns
         the expected data merging the relevant bits from conf and job
         data when `alloem_url` is passed. In that case, username and
-        password are hardcoded and the Zapper shall try the procedures
+        password are hardcoded and the control host shall try the procedures
         at least twice because it can fail on purpose.
         """
-        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector = DeviceConnector({"control_host": "control-host"})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -381,7 +433,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the autoinstall configuration includes oem_autoinstall
         user-data file + 'direct' storage layout when 'oem:true'.
         """
-        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
+        fake_config = {
+            "device_ip": "localhost",
+            "control_host": "control-host",
+        }
         connector = DeviceConnector(fake_config)
         connector.job_data = {
             "job_queue": "queue",
@@ -402,7 +457,8 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         conf = connector._get_autoinstall_conf()
 
         user_data_oem = (
-            Path(__file__).parent / "../../../data/zapper_kvm/user-data-oem"
+            Path(__file__).parent
+            / "../../../data/control_host_kvm/user-data-oem"
         )
         encoded_user_data = base64.b64encode(user_data_oem.read_bytes())
 
@@ -463,7 +519,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         connector.job_data = {"provision_data": {}}
 
         with patch(
-            "testflinger_device_connectors.devices.zapper_kvm.OemScript"
+            "testflinger_device_connectors.devices.control_host_kvm.OemScript"
         ) as script:
             connector._run_oem_script("args")
 
@@ -480,7 +536,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         args = Mock()
 
         with patch(
-            "testflinger_device_connectors.devices.zapper_kvm.OemScript"
+            "testflinger_device_connectors.devices.control_host_kvm.OemScript"
         ) as script:
             connector._run_oem_script(args)
 
@@ -500,7 +556,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         args = Mock()
 
         with patch(
-            "testflinger_device_connectors.devices.zapper_kvm.HPOemScript"
+            "testflinger_device_connectors.devices.control_host_kvm.HPOemScript"
         ) as script:
             connector._run_oem_script(args)
 
@@ -520,7 +576,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         args = Mock()
 
         with patch(
-            "testflinger_device_connectors.devices.zapper_kvm.DellOemScript"
+            "testflinger_device_connectors.devices.control_host_kvm.DellOemScript"
         ) as script:
             connector._run_oem_script(args)
 
@@ -540,7 +596,7 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         args = Mock()
 
         with patch(
-            "testflinger_device_connectors.devices.zapper_kvm.LenovoOemScript"
+            "testflinger_device_connectors.devices.control_host_kvm.LenovoOemScript"
         ) as script:
             connector._run_oem_script(args)
 
@@ -552,7 +608,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function runs a command over SSH to change the
         original password to the one specified in test_data.
         """
-        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
+        fake_config = {
+            "device_ip": "localhost",
+            "control_host": "control-host",
+        }
         connector = DeviceConnector(fake_config)
         connector.job_data = {"test_data": {"test_password": "new_password"}}
 
@@ -578,7 +637,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function updates the password and run the OEM script
         when `alloem_url` is in scope.
         """
-        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
+        fake_config = {
+            "device_ip": "localhost",
+            "control_host": "control-host",
+        }
         connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"alloem_url": "file://image.iso"}
@@ -597,7 +659,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function updates the password and runs the OEM script
         when the `desktop-jammy-oem` preset is in scope.
         """
-        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
+        fake_config = {
+            "device_ip": "localhost",
+            "control_host": "control-host",
+        }
         connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"preset": "desktop-jammy-oem"}
@@ -616,7 +681,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function raises the ProvisioningError
         exception in case one of the SSH commands fail.
         """
-        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
+        fake_config = {
+            "device_ip": "localhost",
+            "control_host": "control-host",
+        }
         connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"alloem_url": "file://image.iso"}
@@ -646,7 +714,10 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         """Test the function raises the ProvisioningError
         exception in case one of the SSH commands times out.
         """
-        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
+        fake_config = {
+            "device_ip": "localhost",
+            "control_host": "control-host",
+        }
         connector = DeviceConnector(fake_config)
         connector.job_data = {
             "provision_data": {"alloem_url": "file://image.iso"}
@@ -669,12 +740,15 @@ class ZapperKVMConnectorTests(unittest.TestCase):
         with self.assertRaises(ProvisioningError):
             connector._post_run_actions("args")
 
-    @patch("testflinger_device_connectors.devices.zapper_kvm.Path")
+    @patch("testflinger_device_connectors.devices.control_host_kvm.Path")
     def test_read_ssh_key(self, mock_path):
         ssh_path = mock_path.return_value.expanduser.return_value
         ssh_path.read_text.return_value = "mykey"
 
-        fake_config = {"device_ip": "localhost", "control_host": "zapper-host"}
+        fake_config = {
+            "device_ip": "localhost",
+            "control_host": "control-host",
+        }
         connector = DeviceConnector(fake_config)
         key = connector._read_ssh_key()
         self.assertEqual(key, "mykey")

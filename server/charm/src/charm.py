@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 TESTFLINGER_ADMIN_ID = "testflinger-admin"
 DEFAULT_PORT = 5000
+METRICS_PORT = 9090
 
 
 class TestflingerCharm(ops.CharmBase):
@@ -90,7 +91,7 @@ class TestflingerCharm(ops.CharmBase):
         self._prometheus_scraping = MetricsEndpointProvider(
             self,
             relation_name="metrics-endpoint",
-            jobs=[{"static_configs": [{"targets": ["*:5000"]}]}],
+            jobs=[{"static_configs": [{"targets": [f"*:{METRICS_PORT}"]}]}],
             refresh_event=self.on.config_changed,
         )
 
@@ -294,6 +295,14 @@ class TestflingerCharm(ops.CharmBase):
         new_key = self.typed_config.testflinger_secrets_master_key
         stored_key = self._stored.previous_master_key
 
+        # If the key was unset, clear the stored key so the next
+        # config-changed with a valid key is treated as a fresh deployment.
+        if not new_key:
+            logger.info("Master key unset, clearing stored key")
+            self._stored.previous_master_key = ""
+            self._update_layer_and_restart()
+            return
+
         # Rotate only if master key was previously defined, has changed,
         # and this is the leader unit.
         if stored_key and new_key != stored_key and self.unit.is_leader():
@@ -406,7 +415,10 @@ class TestflingerCharm(ops.CharmBase):
                     "summary": "testflinger",
                     "command": command,
                     "startup": "enabled",
-                    "environment": self.app_environment,
+                    "environment": {
+                        **self.app_environment,
+                        "METRICS_PORT": str(METRICS_PORT),
+                    },
                     "on-check-failure": {
                         self.pebble_check_name: "restart",
                     },

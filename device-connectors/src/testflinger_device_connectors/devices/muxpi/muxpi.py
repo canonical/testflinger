@@ -45,6 +45,9 @@ ATTACHMENTS_DIR = "attachments"
 class MuxPi:
     """Device Connector for MuxPi."""
 
+    CONTROL_CMD_RETRY_TIMEOUT = 60
+    CONTROL_CMD_RETRY_INTERVAL = 5
+
     IMAGE_PATH_IDS = {
         "writable/usr/bin/firefox": "pi-desktop",
         "writable/etc": "ubuntu",
@@ -97,13 +100,26 @@ class MuxPi:
             f"{control_user}@{control_host}",
             cmd,
         ]
-        try:
-            output = subprocess.check_output(
-                ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout
-            )
-        except subprocess.SubprocessError as e:
-            raise ProvisioningError(e.output) from e
-        return output
+        retry_interval = self.CONTROL_CMD_RETRY_INTERVAL
+        max_attempts = (self.CONTROL_CMD_RETRY_TIMEOUT // retry_interval) + 1
+
+        for attempt in range(max_attempts):
+            try:
+                output = subprocess.check_output(
+                    ssh_cmd, stderr=subprocess.STDOUT, timeout=timeout
+                )
+                return output
+            except subprocess.SubprocessError as e:
+                if attempt >= max_attempts - 1:
+                    raise ProvisioningError(e.output) from e
+                logger.info(
+                    "Control command failed, retrying in %ss (%s/%s): %s",
+                    retry_interval,
+                    attempt + 1,
+                    max_attempts,
+                    cmd,
+                )
+                time.sleep(retry_interval)
 
     def _copy_to_control(self, local_file, remote_file):
         """Copy a file to the control host over ssh.

@@ -22,6 +22,12 @@ The configuration options listed below are available for all device connectors u
    * - ``reboot_script``
      - all 
      - List of commands that can be executed to hard reboot the device
+   * - ``poweroff_script``
+     - all
+     - (optional) List of commands to power off the DUT; only used together with ``poweron_script`` by connectors that manage DUT power during control-host reboot
+   * - ``poweron_script``
+     - all
+     - (optional) List of commands to power on the DUT; only used together with ``poweroff_script`` by connectors that manage DUT power during control-host reboot
    * - ``serial_host``
      - all 
      - (optional) ``ser2net`` host for capturing serial output
