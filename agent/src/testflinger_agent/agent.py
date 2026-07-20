@@ -323,8 +323,6 @@ class TestflingerAgent:
                 )
                 os.makedirs(rundir)
 
-                self.client.post_agent_data({"job_id": job.job_id})
-
                 # Dump the job data to testflinger.json in our execution dir
                 with open(os.path.join(rundir, "testflinger.json"), "w") as f:
                     json.dump(job_data, f)

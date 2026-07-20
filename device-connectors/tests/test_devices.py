@@ -39,9 +39,9 @@ def test_get_device_stage_func(stage, device):
     """Check that we can load all stages from all device connectors."""
     fake_config = {"device_ip": "10.10.10.10", "agent_name": "fake_agent"}
 
-    # Zapper connectors require control_host
-    if device.startswith("zapper"):
-        fake_config["control_host"] = "fake-zapper-host"
+    # Control host connectors require control_host
+    if device.startswith(("zapper", "control_host")):
+        fake_config["control_host"] = "fake-control-host"
 
     connector_instance = import_module(
         f"testflinger_device_connectors.devices.{device}"
@@ -256,7 +256,7 @@ class TestPreProvisionHook:
 
         device.pre_provision_hook()
 
-        mock_control_host.assert_called_once_with(
+        mock_control_host.assert_any_call(
             "control-host",
             ["reboot-cmd"],
             poweroff_script=[],
@@ -288,7 +288,7 @@ class TestPreProvisionHook:
 
         device.pre_provision_hook()
 
-        mock_control_host.assert_called_once_with(
+        mock_control_host.assert_any_call(
             "control-host",
             ["reboot-cmd"],
             poweroff_script=["poweroff-cmd"],

@@ -243,6 +243,7 @@ def job_get():
         return jsonify({}), HTTPStatus.NO_CONTENT
     if (secrets := retrieve_secrets(job)) is not None:
         job["test_data"]["secrets"] = secrets
+    database.set_agent_job(agent_name, job["job_id"])
     job["started_at"] = datetime.now(timezone.utc)
     return jsonify(job)
 

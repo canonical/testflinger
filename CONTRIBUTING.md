@@ -74,6 +74,19 @@ test Testflinger services in a container environment. Consider the following:
 
 #### Workshop Basics
 
+
+```shell
+# Prerequisite: install/update to the latest stable LXD from the version 6 track:
+# If you don't have LXD yet, install version 6:
+sudo snap install --channel=6/stable lxd
+
+# If you do have LXD, update to version 6:
+sudo snap refresh --channel=6/stable lxd
+
+# Install workshop:
+sudo snap install --classic workshop
+```
+
 See the [`workshop` documentation][workshop documentation] for more details.
 
 ```shell
@@ -143,7 +156,6 @@ workshop exec dev -- just server::populate \
 # implemented in the `server` justfile to avoid it ever being run by mistake
 # on the host system.
 just workshop docker-prune
-
 ```
 
 To allow for testing in an environment where your web browser is able
