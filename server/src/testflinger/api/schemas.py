@@ -148,8 +148,8 @@ class OEMAutoinstallProvisionData(Schema):
     user_data = fields.String(required=False)
     redeploy_cfg = fields.String(required=False)
     authorized_keys = fields.String(required=False)
-    zapper_iso_url = fields.String(required=False)
-    zapper_iso_type = fields.String(required=False)
+    control_host_iso_url = fields.String(required=False)
+    control_host_iso_type = fields.String(required=False)
     update_user_data = fields.Boolean(required=False)
 
 
@@ -159,14 +159,14 @@ class OEMScriptProvisionData(Schema):
     url = fields.URL(required=True)
 
 
-class BaseZapperProvisionData(Schema):
-    """Shared schema for the `provision_data` of Zapper jobs."""
+class BaseControlHostProvisionData(Schema):
+    """Shared schema for the `provision_data` of control host jobs."""
 
-    zapper_provisioning_timeout = fields.Integer(required=False)
+    provisioning_timeout = fields.Integer(required=False)
 
 
-class BaseZapperIoTProvisionData(BaseZapperProvisionData):
-    """Shared schema for Zapper IoT jobs.
+class BaseControlHostIoTProvisionData(BaseControlHostProvisionData):
+    """Shared schema for control host IoT jobs.
 
     The boot image can come from ``url``, ``urls``, or a single
     provision attachment uploaded alongside the job. Exactly one of
@@ -201,8 +201,8 @@ class BaseZapperIoTProvisionData(BaseZapperProvisionData):
             )
 
 
-class ZapperIoTPresetProvisionData(BaseZapperIoTProvisionData):
-    """Schema for the `provision_data` section of a Zapper IoT job.
+class ControlHostIoTPresetProvisionData(BaseControlHostIoTProvisionData):
+    """Schema for the `provision_data` section of a control host IoT job.
 
     This schema is used when using a preset for provisioning.
     """
@@ -211,8 +211,8 @@ class ZapperIoTPresetProvisionData(BaseZapperIoTProvisionData):
     preset_kwargs = fields.Dict(required=False)
 
 
-class ZapperIoTCustomProvisionData(BaseZapperIoTProvisionData):
-    """Schema for the `provision_data` section of a Zapper IoT job.
+class ControlHostIoTCustomProvisionData(BaseControlHostIoTProvisionData):
+    """Schema for the `provision_data` section of a control host IoT job.
 
     This schema is used when using a custom plan for provisioning.
     """
@@ -222,8 +222,8 @@ class ZapperIoTCustomProvisionData(BaseZapperIoTProvisionData):
     provision_plan = fields.Dict(required=True)
 
 
-class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
-    """Schema for the `provision_data` section of a Zapper KVM job.
+class ControlHostKVMAutoinstallProvisionData(BaseControlHostProvisionData):
+    """Schema for the `provision_data` section of a control host KVM job.
 
     This schema is used to target autoinstall-driven provisioning.
     """
@@ -238,8 +238,8 @@ class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
     cmdline_append = fields.String(required=False)
 
 
-class ZapperKVMOEM2204ProvisionData(BaseZapperProvisionData):
-    """Schema for the `provision_data` section of a Zapper KVM job.
+class ControlHostKVMOEM2204ProvisionData(BaseControlHostProvisionData):
+    """Schema for the `provision_data` section of a control host KVM job.
 
     This schema is used to target Ubuntu OEM 22.04.
     """
@@ -251,8 +251,8 @@ class ZapperKVMOEM2204ProvisionData(BaseZapperProvisionData):
     oem = fields.String(required=False)
 
 
-class ZapperKVMGenericProvisionData(BaseZapperProvisionData):
-    """Schema for the `provision_data` section of a Zapper KVM job.
+class ControlHostKVMGenericProvisionData(BaseControlHostProvisionData):
+    """Schema for the `provision_data` section of a control host KVM job.
 
     This schema is used to target any generic live ISOs.
     """
@@ -264,8 +264,8 @@ class ZapperKVMGenericProvisionData(BaseZapperProvisionData):
     wait_until_ssh = fields.Boolean(required=True)
 
 
-class ZapperKVMPresetProvisionData(BaseZapperProvisionData):
-    """Schema for the `provision_data` section of a Zapper KVM job.
+class ControlHostKVMPresetProvisionData(BaseControlHostProvisionData):
+    """Schema for the `provision_data` section of a control host KVM job.
 
     This schema is used when using a preset for provisioning.
     """
@@ -295,12 +295,12 @@ class ProvisionData(OneOfSchema):
         "noprovision": NoProvisionData,
         "oem_autoinstall": OEMAutoinstallProvisionData,
         "oem_script": OEMScriptProvisionData,
-        "zapper_iot_custom": ZapperIoTCustomProvisionData,
-        "zapper_iot_preset": ZapperIoTPresetProvisionData,
-        "zapper_kvm_autoinstall": ZapperKVMAutoinstallProvisionData,
-        "zapper_kvm_generic": ZapperKVMGenericProvisionData,
-        "zapper_kvm_oem_2204": ZapperKVMOEM2204ProvisionData,
-        "zapper_kvm_preset": ZapperKVMPresetProvisionData,
+        "control_host_iot_custom": ControlHostIoTCustomProvisionData,
+        "control_host_iot_preset": ControlHostIoTPresetProvisionData,
+        "control_host_kvm_autoinstall": ControlHostKVMAutoinstallProvisionData,
+        "control_host_kvm_generic": ControlHostKVMGenericProvisionData,
+        "control_host_kvm_oem_2204": ControlHostKVMOEM2204ProvisionData,
+        "control_host_kvm_preset": ControlHostKVMPresetProvisionData,
     }
 
     def get_obj_type(self, obj):
