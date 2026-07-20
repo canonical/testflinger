@@ -108,6 +108,11 @@
         "additionalProperties": false,
         "properties": {
           "client_secret": {
+            "minLength": 15,
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
             "type": "string"
           },
           "max_priority": {
@@ -147,6 +152,11 @@
           "client_id": {
             "type": "string"
           },
+          "email": {
+            "format": "email",
+            "nullable": true,
+            "type": "string"
+          },
           "max_priority": {
             "additionalProperties": {
               "type": "integer"
@@ -181,6 +191,11 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "ImagesIn": {
+        "additionalProperties": true,
+        "properties": {},
         "type": "object"
       },
       "Job": {
@@ -398,6 +413,24 @@
         ],
         "type": "object"
       },
+      "QueuesIn": {
+        "additionalProperties": true,
+        "properties": {},
+        "type": "object"
+      },
+      "RefreshTokenIn": {
+        "additionalProperties": false,
+        "properties": {
+          "refresh_token": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "type": "object"
+      },
       "ReserveData": {
         "additionalProperties": false,
         "properties": {
@@ -521,15 +554,30 @@
         },
         "type": "object"
       },
-      "ResultSchema": {
+      "ResultPost": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "device_info": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "job_state": {
+            "type": "string"
+          },
+          "status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          }
+        },
         "type": "object"
       },
       "SecretIn": {
         "additionalProperties": false,
         "properties": {
           "ephemeral": {
+            "default": false,
             "type": "boolean"
           },
           "expire_after": {
@@ -644,8 +692,9 @@
   },
   "openapi": "3.0.3",
   "paths": {
-    "/metrics": {
-      "get": {
+    "/oidc/auth-init": {
+      "post": {
+        "description": ":return: dict containing required OIDC parameters for client to\nauthenticate with provider",
         "parameters": [],
         "responses": {
           "200": {
@@ -657,7 +706,49 @@
             "description": "Successful response"
           }
         },
-        "summary": "Prometheus Metrics"
+        "summary": "Initiate client request and proxy request to OIDC provider.",
+        "tags": [
+          "Oidc_Api"
+        ]
+      }
+    },
+    "/oidc/auth-poll/{request_id}": {
+      "post": {
+        "description": ":param request_id: unique request ID generated during auth initiation\n:return: dict containing authentication result and user info if successful",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Poll for OIDC authentication result based on request ID.",
+        "tags": [
+          "Oidc_Api"
+        ]
       }
     },
     "/v1/": {
@@ -801,6 +892,15 @@
       "post": {
         "description": "images will be stored in a dict of key/value pairs as part of the queues\ncollection. That dict will contain image_name:provision_data mappings, ex:\n{\n\"some_queue\": {\n\"core22\": \"http://cdimage.ubuntu.com/.../core-22.tar.gz\",\n\"jammy\": \"http://cdimage.ubuntu.com/.../ubuntu-22.04.tar.gz\"\n},\n\"other_queue\": {\n...\n}\n}.",
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImagesIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -809,6 +909,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Tell testflinger about known images for a specified queue",
@@ -952,6 +1062,15 @@
       "post": {
         "description": "Some agents may want to advertise some of the queues they listen on so that\nthe user can check which queues are valid to use.",
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueuesIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -960,6 +1079,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Tell testflinger the queue names that are being serviced.",
@@ -1550,6 +1679,15 @@
     "/v1/oauth2/refresh": {
       "post": {
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -1558,6 +1696,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Refresh access token using a valid refresh token.",
@@ -1569,6 +1717,15 @@
     "/v1/oauth2/revoke": {
       "post": {
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -1577,6 +1734,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "summary": "Revoke a refresh token. Only admins can perform this action.",
@@ -1930,7 +2097,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResultSchema"
+                "$ref": "#/components/schemas/ResultPost"
               }
             }
           }
@@ -2160,158 +2327,6 @@
         ]
       }
     },
-    "/v1/result/{job_id}/output": {
-      "get": {
-        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: Plain text output",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          }
-        },
-        "summary": "Legacy endpoint to get job output for a specified job_id.",
-        "tags": [
-          "V1"
-        ]
-      },
-      "post": {
-        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: \"OK\" on success",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          }
-        },
-        "summary": "Legacy endpoint to post output for a specified job_id.",
-        "tags": [
-          "V1"
-        ]
-      }
-    },
-    "/v1/result/{job_id}/serial_output": {
-      "get": {
-        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: Plain text serial output",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          }
-        },
-        "summary": "Legacy endpoint to get latest serial output for a specified job ID.",
-        "tags": [
-          "V1"
-        ]
-      },
-      "post": {
-        "description": "TODO: Remove after CLI/agent migration completes.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: BAD_REQUEST when job_id is invalid\n:return: \"OK\" on success",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "job_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          }
-        },
-        "summary": "Legacy endpoint to post serial output for a specified job ID.",
-        "tags": [
-          "V1"
-        ]
-      }
-    },
     "/v1/secrets/{client_id}/{path}": {
       "delete": {
         "parameters": [
@@ -2427,6 +2442,9 @@
   "tags": [
     {
       "name": "V1"
+    },
+    {
+      "name": "Oidc_Api"
     }
   ]
 }

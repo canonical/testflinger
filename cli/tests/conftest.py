@@ -15,18 +15,29 @@
 """Shared pytest fixtures and configuration."""
 
 import uuid
+from http import HTTPStatus
 
 import jwt
 import pytest
 
+from testflinger_cli.auth import TestflingerCliAuth
+from testflinger_cli.client import Client
+from testflinger_cli.enums import ServerRoles
 from testflinger_cli.status_line import StatusLine
 
-from .test_cli import URL
+URL = "https://testflinger.example.com"
 
 # Mock required authentication
 TEST_CLIENT_ID = "my_client_id"
 TEST_SECRET_KEY = "my_secret_key"
 JWT_SIGNING_KEY = "my-secret"
+OIDC_USER = "user@example.com"
+
+
+@pytest.fixture(autouse=True)
+def set_default_server(monkeypatch):
+    """Set the default server URL for all tests to match mock registrations."""
+    monkeypatch.setenv("TESTFLINGER_SERVER", URL)
 
 
 @pytest.fixture(autouse=True)
@@ -40,6 +51,12 @@ def mock_xdg_config(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "testflinger_cli.auth.xdg_config_home", lambda: tmp_path
     )
+
+
+@pytest.fixture
+def client():
+    """Provide a Client instance with a real auth manager for unit tests."""
+    return Client(URL, TestflingerCliAuth(URL))
 
 
 @pytest.fixture
@@ -64,6 +81,51 @@ def auth_fixture(monkeypatch, requests_mock):
         }
         requests_mock.post(f"{URL}/v1/oauth2/token", json=fake_return)
 
+    return _fixture
+
+
+@pytest.fixture
+def oidc_auth_fixture(requests_mock):
+    """Configure fixture for tests that require OIDC authentication."""
+    fake_access_token = jwt.encode(
+        {
+            "permissions": {
+                "client_id": OIDC_USER,
+                "role": ServerRoles.CONTRIBUTOR,
+            }
+        },
+        JWT_SIGNING_KEY,
+        algorithm="HS256",
+    )
+    request_id = "test-oidc-request-id"
+
+    def _fixture(poll_responses):
+        requests_mock.post(
+            f"{URL}/oidc/auth-init",
+            json={
+                "verification_uri": "http://example.com/device",
+                "user_code": "ABCD-1234",
+                "expires_in": 300,
+                "interval": 5,
+                "request_id": request_id,
+            },
+        )
+        responses = (
+            poll_responses
+            if isinstance(poll_responses, list)
+            else [poll_responses]
+        )
+        requests_mock.post(f"{URL}/oidc/auth-poll/{request_id}", responses)
+
+    _fixture.oidc_user = OIDC_USER
+    _fixture.success_response = {
+        "json": {
+            "access_token": fake_access_token,
+            "token_type": "Bearer",
+            "expires_in": 30,
+            "refresh_token": str(uuid.uuid4()),
+        }
+    }
     return _fixture
 
 
@@ -105,3 +167,13 @@ def mock_tty(monkeypatch):
     )
     monkeypatch.setattr("sys.stdout.isatty", lambda: True)
     yield
+
+
+@pytest.fixture(autouse=True)
+def default_oidc_disabled(requests_mock):
+    """Fixture for disabling OIDC authentication by default."""
+    requests_mock.post(
+        f"{URL}/oidc/auth-init",
+        status_code=HTTPStatus.NOT_FOUND,
+        json={"message": "OIDC not enabled"},
+    )

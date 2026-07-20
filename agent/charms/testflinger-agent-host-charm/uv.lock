@@ -22,23 +22,23 @@ wheels = [
 
 [[package]]
 name = "charmlibs-apt"
-version = "1.0.0.post0"
+version = "1.0.0.post1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/58/33e87779fdbcf62a3b34e3444d7175c1168b4b2726cc29c98849c09ac086/charmlibs_apt-1.0.0.post0.tar.gz", hash = "sha256:9c2e0b3c1f553ebcaae99c9aad72e15383aec56677a8dd3f6479dc6f084189a6", size = 31942, upload-time = "2025-10-15T02:40:29.521Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/77/79/2dfe3a6931c06081492de8ff97043a337339896401e910f46d4613d0a7d0/charmlibs_apt-1.0.0.post1.tar.gz", hash = "sha256:d332959b633f9aa1a3b7c5ec274ff2ef7a5d4482de4ce4d96c36e1dd1b97625d", size = 32034, upload-time = "2026-06-16T05:39:50.799Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/92/4db19cd8bc94db51a115f7a2e3c46d96b991ca7ebe27207beac9a6570bc6/charmlibs_apt-1.0.0.post0-py3-none-any.whl", hash = "sha256:958e84719eb1feff539f058dc6c7af648c53c88b9ebe7c6157ec8d2bdf5fbfc6", size = 19287, upload-time = "2025-10-15T02:40:27.756Z" },
+    { url = "https://files.pythonhosted.org/packages/12/e9/da1c8b57de65484ae47b0808ce5c0b2fcf947ebbcdf7abccd2f898411e97/charmlibs_apt-1.0.0.post1-py3-none-any.whl", hash = "sha256:5682758b9de1273d59e7a94f8e861d57ccd4360c510d598610a69b758e5076d1", size = 19282, upload-time = "2026-06-16T05:39:49.474Z" },
 ]
 
 [[package]]
 name = "charmlibs-passwd"
-version = "1.0.1"
+version = "1.0.1.post0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/bd/b3/220b6aa7bed9b189723db0231dec128e5a4e9bc69266f225b36a790eee0b/charmlibs_passwd-1.0.1.tar.gz", hash = "sha256:e108456b040b2af29a0db6e273a0609fb1719043ae3c4c7926c37f0ce2990ce7", size = 16233, upload-time = "2026-03-16T22:43:49.686Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/67/21/c6e07a6d44ffd5385a8dd4f47af0db059aa532cc9d0f327bcb83cefb2767/charmlibs_passwd-1.0.1.post0.tar.gz", hash = "sha256:02303d8cddcc6b072f97f1fa23f72abc38641937e94f632a6125558b3e133b59", size = 16351, upload-time = "2026-06-16T05:39:52.374Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/55/12/d994526c5e42185305411d5a880f441db0fc6b3dd576346186c93c5ad2f7/charmlibs_passwd-1.0.1-py3-none-any.whl", hash = "sha256:77d68d99791531ca24250cf8bfa3129dc21847d006bd987dcdfc95055679289f", size = 5020, upload-time = "2026-03-16T22:43:48.306Z" },
+    { url = "https://files.pythonhosted.org/packages/5e/14/67abd1ec7f8b6a82d3b408d663d7e5aa4a5f459a2da1d0995c627f310d78/charmlibs_passwd-1.0.1.post0-py3-none-any.whl", hash = "sha256:318de09e517547f331d4b830f56e5473d5454eecb427155f4015e40bb8d6da70", size = 5107, upload-time = "2026-06-16T05:39:51.277Z" },
 ]
 
 [[package]]
@@ -294,7 +294,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -327,11 +327,11 @@ wheels = [
 
 [[package]]
 name = "idna"
-version = "3.13"
+version = "3.18"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ce/cc/762dfb036166873f0059f3b7de4565e1b5bc3d6f28a414c13da27e442f99/idna-3.13.tar.gz", hash = "sha256:585ea8fe5d69b9181ec1afba340451fba6ba764af97026f92a91d4eef164a242", size = 194210, upload-time = "2026-04-22T16:42:42.314Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cd/63/9496c57188a2ee585e0f1db071d75089a11e98aa86eb99d9d7618fc1edce/idna-3.18.tar.gz", hash = "sha256:ffb385a7e039654cef1ab9ef32c6fafe283c0c0467bba1d9029738ce4a14a848", size = 196711, upload-time = "2026-06-02T14:34:07.794Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5d/13/ad7d7ca3808a898b4612b6fe93cde56b53f3034dcde235acb1f0e1df24c6/idna-3.13-py3-none-any.whl", hash = "sha256:892ea0cde124a99ce773decba204c5552b69c3c67ffd5f232eb7696135bc8bb3", size = 68629, upload-time = "2026-04-22T16:42:40.909Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/5e/d4e9f1a599fb8e573b7b87160658329fbf28d19eac2718f51fc3def3aa5a/idna-3.18-py3-none-any.whl", hash = "sha256:7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2", size = 65455, upload-time = "2026-06-02T14:34:06.319Z" },
 ]
 
 [[package]]
@@ -855,8 +855,8 @@ unit = [
 
 [package.metadata]
 requires-dist = [
-    { name = "charmlibs-apt", specifier = "==1.0.0.post0" },
-    { name = "charmlibs-passwd", specifier = "==1.0.1" },
+    { name = "charmlibs-apt", specifier = "==1.0.0.post1" },
+    { name = "charmlibs-passwd", specifier = "==1.0.1.post0" },
     { name = "cosl", specifier = ">=0.0.53" },
     { name = "gitpython", specifier = "==3.1.50" },
     { name = "jinja2", specifier = "==3.1.6" },

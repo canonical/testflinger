@@ -38,37 +38,41 @@ def test_result_get_bad(mongo_app):
     assert 400 == output.status_code
 
 
-def test_result_post_good(mongo_app):
+def test_result_post_good(mongo_app, agent_auth_header):
     """Test that posting results correctly works."""
     app, _ = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
     result_url = f"/v1/result/{job_id}"
     data = {"status": {"test": 404}}
-    response = app.post(result_url, json=data)
+    response = app.post(result_url, json=data, headers=agent_auth_header)
+    assert HTTPStatus.OK == response.status_code
     assert "OK" == response.text
     response = app.get(result_url)
+    assert HTTPStatus.OK == response.status_code
     assert response.json.get("test_status") == 404
 
 
-def test_result_post_bad(mongo_app):
+def test_result_post_bad(mongo_app, agent_auth_header):
     """Test for error when posting to a bad job ID."""
     app, _ = mongo_app
-    response = app.post("/v1/result/BAD_JOB_ID")
+    response = app.post("/v1/result/BAD_JOB_ID", headers=agent_auth_header)
     assert "Invalid job_id specified" in response.text
     assert 400 == response.status_code
 
 
-def test_result_post_baddata(mongo_app):
+def test_result_post_baddata(mongo_app, agent_auth_header):
     """Test that we get an error for posting results with no data."""
     app, _ = mongo_app
     result_url = "/v1/result/00000000-0000-0000-0000-000000000000"
-    response = app.post(result_url, json={"foo": "bar"})
+    response = app.post(
+        result_url, json={"foo": "bar"}, headers=agent_auth_header
+    )
     assert "Validation error" in response.text
     assert 422 == response.status_code
 
 
-def test_result_get_with_logs(mongo_app):
+def test_result_get_with_logs(mongo_app, agent_auth_header):
     """Tests that results are retrieved with complete output logs."""
     app, mongo = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
@@ -86,18 +90,20 @@ def test_result_get_with_logs(mongo_app):
             "phase": phase,
             "log_data": log_data,
         }
-        app.post(output_url, json=log_json)
+        app.post(output_url, json=log_json, headers=agent_auth_header)
     combined_log_expected = "".join([f"line{i}\n" for i in range(10)])
     result_url = f"/v1/result/{job_id}"
     data = {"status": {phase: 404}}
-    response = app.post(result_url, json=data)
+    response = app.post(result_url, json=data, headers=agent_auth_header)
+    assert HTTPStatus.OK == response.status_code
     assert "OK" in response.text
-    response = app.get(result_url).json
-    assert response[f"{phase}_output"] == combined_log_expected
-    assert response[f"{phase}_status"] == HTTPStatus.NOT_FOUND
+    response = app.get(result_url)
+    assert HTTPStatus.OK == response.status_code
+    assert response.json[f"{phase}_output"] == combined_log_expected
+    assert response.json[f"{phase}_status"] == 404
 
 
-def test_artifact_post_good(mongo_app):
+def test_artifact_post_good(mongo_app, agent_auth_header):
     """Test both get and put of a result artifact."""
     app, _ = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
@@ -106,7 +112,10 @@ def test_artifact_post_good(mongo_app):
     data = b"test file content"
     filedata = {"file": (BytesIO(data), "artifact.tgz")}
     output = app.post(
-        artifact_url, data=filedata, content_type="multipart/form-data"
+        artifact_url,
+        data=filedata,
+        content_type="multipart/form-data",
+        headers=agent_auth_header,
     )
     assert "OK" == output.text
     output = app.get(artifact_url)
@@ -139,78 +148,19 @@ def test_job_get_result_no_data(mongo_app):
     assert "" == output.text
 
 
-def test_result_post_legacy_format(mongo_app):
-    """Test posting results in legacy format succeeds."""
-    app, _ = mongo_app
-    newjob = app.post("/v1/job", json={"job_queue": "test"})
-    job_id = newjob.json.get("job_id")
-
-    # Lagacy format uses individual fields for each test phase
-    legacy_data = {
-        "setup_status": 0,
-        "setup_output": "Setup completed successfully.",
-        "test_status": 0,
-        "test_output": "All tests passed.",
-        "device_info": {"agent_name": "test", "device_ip": "1.1.1.1"},
-    }
-    response = app.post(f"/v1/result/{job_id}", json=legacy_data)
-    assert "OK" == response.text
-
-
-def test_result_post_invalid_format(mongo_app):
-    """Test posting results with invalid format fails due to ResultSchema."""
-    app, _ = mongo_app
-    newjob = app.post("/v1/job", json={"job_queue": "test"})
-    job_id = newjob.json.get("job_id")
-
-    # Using an invalid field to fail validation
-    invalid_data = {
-        "invalid_field": 123,
-    }
-    response = app.post(f"/v1/result/{job_id}", json=invalid_data)
-    assert "Validation error" in response.text
-    assert HTTPStatus.UNPROCESSABLE_ENTITY == response.status_code
-
-
-def test_result_get_legacy_format(mongo_app):
-    """Test getting results posted in legacy format."""
-    app, _ = mongo_app
-    newjob = app.post("/v1/job", json={"job_queue": "test"})
-    job_id = newjob.json.get("job_id")
-
-    legacy_data = {
-        "setup_status": 0,
-        "setup_output": "Setup completed successfully.",
-        "test_status": 0,
-        "test_output": "All tests passed.",
-        "device_info": {"agent_name": "test", "device_ip": "1.1.1.1"},
-    }
-
-    # Post Legacy data to job results first
-    app.post(f"/v1/result/{job_id}", json=legacy_data)
-
-    # Retrieve results and verify it matches what was posted
-    response = app.get(f"/v1/result/{job_id}")
-    result_data = response.json
-    for key, value in legacy_data.items():
-        assert result_data[key] == value
-
-
-def test_result_post_payload_too_large(mongo_app, monkeypatch):
+def test_result_post_payload_too_large(mongo_app, agent_auth_header):
     """Test posting large payloads to results endpoint fails."""
     app, _ = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
 
     large_data = {
-        "setup_status": 0,
-        "setup_output": "x" * (17 * 1024 * 1024),
+        "job_state": "x" * (17 * 1024 * 1024),
         "device_info": {"test": "device"},
     }
 
     response = app.post(
-        f"/v1/result/{job_id}",
-        json=large_data,
+        f"/v1/result/{job_id}", json=large_data, headers=agent_auth_header
     )
     assert "Payload too large" in response.text
     assert HTTPStatus.REQUEST_ENTITY_TOO_LARGE == response.status_code
@@ -220,8 +170,7 @@ def test_result_post_payload_too_large(mongo_app, monkeypatch):
     "endpoint",
     [
         "/v1/result/INVALID_UUID/log/output",
-        "/v1/result/INVALID_UUID/output",
-        "/v1/result/INVALID_UUID/serial_output",
+        "/v1/result/INVALID_UUID/log/serial",
     ],
 )
 def test_invalid_uuid_get_endpoints(mongo_app, endpoint):
@@ -244,19 +193,19 @@ def test_invalid_uuid_get_endpoints(mongo_app, endpoint):
                 "phase": "test",
                 "log_data": "test",
             },
-        ),
-        ("/v1/result/INVALID_UUID/output", None),
-        ("/v1/result/INVALID_UUID/serial_output", None),
+        )
     ],
 )
-def test_invalid_uuid_post_endpoints(mongo_app, endpoint, data):
+def test_invalid_uuid_post_endpoints(
+    mongo_app, endpoint, data, agent_auth_header
+):
     """Test that POST endpoints reject invalid UUIDs."""
     app, _ = mongo_app
 
     if data:
-        response = app.post(endpoint, json=data)
+        response = app.post(endpoint, json=data, headers=agent_auth_header)
     else:
-        response = app.post(endpoint, data="test")
+        response = app.post(endpoint, data="test", headers=agent_auth_header)
 
     assert response.status_code == HTTPStatus.BAD_REQUEST
     assert "Invalid job" in response.text

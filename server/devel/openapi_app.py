@@ -28,6 +28,7 @@ Usage:
 
 from dataclasses import dataclass
 from testflinger.application import create_flask_app
+from testflinger.oidc.api import oidc_api
 
 
 @dataclass
@@ -39,3 +40,7 @@ class OpenAPIConfig:
 
 # Create and expose the app in TESTING mode for Flask CLI to use
 app = create_flask_app(OpenAPIConfig)
+
+# Register OIDC blueprint unconditionally so /oidc endpoints appear in the
+# schema regardless of whether OIDC is configured
+app.register_blueprint(oidc_api, url_prefix="/oidc")

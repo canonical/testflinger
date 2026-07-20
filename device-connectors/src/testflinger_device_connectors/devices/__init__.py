@@ -53,6 +53,8 @@ DEVICE_CONNECTORS = (
     "noprovision",
     "oemrecovery",
     "oemscript",
+    "control_host_iot",
+    "control_host_kvm",
     "zapper_iot",
     "zapper_kvm",
 )
@@ -151,16 +153,25 @@ class DefaultControlHost:
     Attributes:
         host: The hostname or IP of the control host.
         reboot_script: Ordered list of shell commands to trigger a reboot.
+        poweroff_script: Ordered list of shell commands to power off the DUT.
+        poweron_script: Ordered list of shell commands to power on the DUT.
     """
 
     REST_PORT = 8000
     POWEROFF_ENDPOINT = "/api/v1/system/poweroff"
+    SETUP_ENDPOINT = "/api/v1/system/setup/{phase}"
 
     def __init__(
-        self, host: str, reboot_script: Optional[list[str]] = None
+        self,
+        host: str,
+        reboot_script: Optional[list[str]] = None,
+        poweroff_script: Optional[list[str]] = None,
+        poweron_script: Optional[list[str]] = None,
     ) -> None:
         self.host = host
         self.reboot_script = reboot_script or []
+        self.poweroff_script = poweroff_script or []
+        self.poweron_script = poweron_script or []
 
     def _check_ssh(self) -> None:
         """Check whether the control host has an active SSH server.
@@ -252,10 +263,10 @@ class DefaultControlHost:
         logger.info("Waiting for the REST API on control host %s", self.host)
         self.wait_online(self._check_rest_api, timeout)
 
-    def reboot(self) -> None:
-        """Run the configured reboot script."""
-        logger.info("Running control host reboot script")
-        for cmd in self.reboot_script:
+    def _run_script(self, script: list[str], description: str) -> None:
+        """Run the configured shell commands for an operation."""
+        logger.info("Running %s script", description)
+        for cmd in script:
             try:
                 logger.info("Executing: %s", cmd)
                 subprocess.run(
@@ -280,6 +291,22 @@ class DefaultControlHost:
                 logger.error(
                     "Unexpected error running command %s: %s", cmd, str(e)
                 )
+
+    def reboot(self) -> None:
+        """Run the configured reboot script."""
+        self._run_script(self.reboot_script, "control host reboot")
+
+    def poweroff_dut(self) -> None:
+        """Run the configured DUT power-off script, if any."""
+        if not self.poweroff_script:
+            return
+        self._run_script(self.poweroff_script, "DUT power-off")
+
+    def poweron_dut(self) -> None:
+        """Run the configured DUT power-on script, if any."""
+        if not self.poweron_script:
+            return
+        self._run_script(self.poweron_script, "DUT power-on")
 
     def ssh_fallback(self) -> None:
         """Reboot if SSH is unreachable, then wait for SSH to come back."""
@@ -315,6 +342,7 @@ class DefaultControlHost:
         API is not available.
         """
         try:
+            self.poweroff_dut()
             logger.info("Attempt to power cycle the control host.")
             url = (
                 f"http://{self.host}:{self.REST_PORT}{self.POWEROFF_ENDPOINT}"
@@ -332,6 +360,18 @@ class DefaultControlHost:
                 self.host,
             )
             self.ssh_fallback()
+        finally:
+            self.poweron_dut()
+
+    def setup(self, phase: str, data: Optional[dict] = None) -> None:
+        """Ask the control host to prepare its hardware for a phase.
+
+        :param data: Optional JSON body sent with the request.
+        """
+        endpoint = self.SETUP_ENDPOINT.format(phase=phase)
+        url = f"http://{self.host}:{self.REST_PORT}{endpoint}"
+        logger.info("Setting up %s on control host %s", phase, self.host)
+        requests.post(url, json=data, timeout=10).raise_for_status()
 
 
 class DefaultDevice:
@@ -340,6 +380,16 @@ class DefaultDevice:
     Attributes:
         config: Configuration with all the information of the device.
     """
+
+    # Whether the DUT should be powered off while the control host is being
+    # rebooted (and powered back on afterwards). Only connectors that opt in
+    # run the configured poweroff_script/poweron_script during the control
+    # host power cycle.
+    MANAGE_DUT_POWER_DURING_REBOOT = False
+
+    # Optional JSON body sent to the control host setup/provisioning endpoint.
+    # Connectors override this to request specific hardware preparation.
+    SETUP_PROVISIONING_DATA: Optional[dict] = None
 
     def __init__(self, config: dict) -> None:
         """Initialize class with device config and writing data to JSON file.
@@ -419,6 +469,8 @@ class DefaultDevice:
         with open(args.config) as configfile:
             config = yaml.safe_load(configfile)
         logger.info("BEGIN testrun")
+
+        self.pre_test_hook()
 
         test_opportunity = testflinger_device_connectors.get_test_opportunity(
             args.job_data
@@ -607,8 +659,30 @@ class DefaultDevice:
         )
         time.sleep(int(timeout))
 
+    def _config_script(self, key: str) -> list[str]:
+        """Return the list of shell commands configured under ``key``."""
+        value = self.config.get(key) or []
+        return [str(cmd) for cmd in value]
+
     def pre_provision_hook(self):
-        """Power cycle the control host before provisioning."""
+        """Prepare the control host before provisioning.
+
+        Power cycles the control host and then asks it to set up its hardware
+        for provisioning. Runs for every connector that provisions through a
+        control host.
+        """
+        control_host: str = str(self.config.get("control_host", ""))
+        if not control_host:
+            logger.debug("No control host configured for this agent.")
+            return
+
+        self._power_cycle_control_host(control_host)
+        self._setup_control_host(
+            control_host, "provisioning", self.SETUP_PROVISIONING_DATA
+        )
+
+    def _power_cycle_control_host(self, control_host: str) -> None:
+        """Power cycle the control host, unless disabled or unconfigured."""
         if os.environ.get("DISABLE_CONTROL_HOST_POWERCYCLE"):
             logger.info(
                 "Skipping control host power cycle "
@@ -616,22 +690,60 @@ class DefaultDevice:
             )
             return
 
-        control_host: str = str(self.config.get("control_host", ""))
-        if not control_host:
-            logger.debug("No control host configured for this agent.")
-            return
-
-        reboot_script: list[str] = [
-            str(cmd)
-            for cmd in self.config.get("control_host_reboot_script", [])
-        ]
+        reboot_script = self._config_script("control_host_reboot_script")
         if not reboot_script:
             logger.warning(
                 "No control_host_reboot_script configured, cannot reboot."
             )
             return
 
-        DefaultControlHost(control_host, reboot_script).power_cycle()
+        # Only connectors that opt in keep the DUT powered off while the
+        # control host reboots; for the rest these stay empty (no-op).
+        poweroff_script: list[str] = []
+        poweron_script: list[str] = []
+        if self.MANAGE_DUT_POWER_DURING_REBOOT:
+            poweroff_script = self._config_script("poweroff_script")
+            poweron_script = self._config_script("poweron_script")
+            if not (poweroff_script and poweron_script):
+                logger.warning(
+                    "poweroff_script/poweron_script not configured: "
+                    "the DUT may stay powered while the control host "
+                    "reboots."
+                )
+                poweroff_script = []
+                poweron_script = []
+        DefaultControlHost(
+            control_host,
+            reboot_script,
+            poweroff_script=poweroff_script,
+            poweron_script=poweron_script,
+        ).power_cycle()
+
+    def pre_test_hook(self):
+        """Prepare the control host before running the test phase."""
+        control_host: str = str(self.config.get("control_host", ""))
+        if not control_host:
+            logger.debug("No control host configured for this agent.")
+            return
+
+        self._setup_control_host(control_host, "testing")
+
+    def _setup_control_host(
+        self, control_host: str, phase: str, data: Optional[dict] = None
+    ) -> None:
+        """Best-effort request to prepare the control host for a phase.
+
+        Failures are logged and swallowed so an unreachable control host never
+        fails the run.
+
+        :param data: Optional JSON body sent with the request.
+        """
+        try:
+            DefaultControlHost(control_host).setup(phase, data)
+        except Exception as e:  # noqa: BLE001 - best-effort, never fatal
+            logger.debug(
+                "Could not set up %s on %s: %s", phase, control_host, e
+            )
 
     def provision(self, args):
         """Run pre-provision hook."""

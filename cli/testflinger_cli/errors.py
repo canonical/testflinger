@@ -106,3 +106,14 @@ class VPNError(NetworkError):
             "403 Forbidden Error: Server access requires a VPN connection.\n"
             "Please make sure you are connected to the VPN and try again."
         )
+
+
+class OidcError(CredentialsError):
+    """Exception thrown when OIDC authentication fails."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(
+            "OIDC authentication with Testflinger server failed with "
+            f"following reason: {reason} "
+            "Please reauthenticate with server."
+        )

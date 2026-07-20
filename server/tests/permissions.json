@@ -1,0 +1,89 @@
+{
+  "/v1/agents/data": {
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/agents/data/<agent_name>": {
+    "POST": ["AGENT", "MANAGER", "ADMIN"],
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/agents/images": {
+    "POST": ["AGENT", "MANAGER", "ADMIN"]
+  },
+  "/v1/agents/images/<queue_name>": {
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/agents/provision_logs/<agent_name>": {
+    "POST": ["AGENT"]
+  },
+  "/v1/agents/queues": {
+    "POST": ["AGENT", "MANAGER", "ADMIN"],
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/client-permissions/<client_id>": {
+    "DELETE": ["ADMIN"],
+    "GET": ["MANAGER", "ADMIN"],
+    "PUT": ["MANAGER", "ADMIN"]
+  },
+  "/v1/client-permissions": {
+    "GET": ["MANAGER", "ADMIN"]
+  },
+  "/v1/job": {
+    "GET": ["AGENT"],
+    "POST": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/job/<job_id>": {
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/job/<job_id>/action": {
+    "POST": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/job/<job_id>/attachments": {
+    "GET": ["AGENT"],
+    "POST": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/job/<job_id>/events": {
+    "POST": ["AGENT"]
+  },
+  "/v1/job/<job_id>/position": {
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/job/search": {
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/oauth2/revoke": {
+    "POST": ["ADMIN"]
+  },
+  "/v1/queues/<queue_name>/agents": {
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/queues/<queue_name>/jobs": {
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/queues/wait_times": {
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/restricted-queues": {
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/restricted-queues/<queue_name>": {
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"],
+    "DELETE": ["MANAGER", "ADMIN"],
+    "POST": ["MANAGER", "ADMIN"]
+  },
+  "/v1/result/<job_id>": {
+    "POST": ["AGENT"],
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/result/<job_id>/artifact": {
+    "POST": ["AGENT"],
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/result/<job_id>/log/<log_type>": {
+    "POST": ["AGENT"],
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/secrets/<client_id>/<path>": {
+    "DELETE": ["CONTRIBUTOR", "MANAGER", "ADMIN"],
+    "PUT": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  }
+}

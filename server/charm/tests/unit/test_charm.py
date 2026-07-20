@@ -533,3 +533,24 @@ def test_conflict_cleared_on_route_changed(ctx):
         state_in,
     )
     assert state_out.unit_status == testing.ActiveStatus()
+
+
+def test_config_changed_clears_stored_key_on_unset(ctx, make_state, caplog):
+    """Test that stored key is cleared when config key is unset."""
+    old_key = helpers.generate_b64_key()
+    state_in = make_state(
+        config={"testflinger_secrets_master_key": ""},
+        stored_key=old_key,
+    )
+    state_out = ctx.run(ctx.on.config_changed(), state_in)
+
+    # Verify log message
+    assert "Master key unset, clearing stored key" in caplog.text
+
+    # Verify stored key is cleared
+    stored = next(
+        state
+        for state in state_out.stored_states
+        if state.owner_path == "TestflingerCharm" and state.name == "_stored"
+    )
+    assert stored.content["previous_master_key"] == ""

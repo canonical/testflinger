@@ -2,7 +2,7 @@ name: server
 services:
   mongo:
     container_name: mongo
-    image: mongo:5
+    image: mongo:6
     environment:
       MONGO_INITDB_ROOT_PASSWORD: testflinger
       MONGO_INITDB_ROOT_USERNAME: testflinger
@@ -26,8 +26,8 @@ services:
       # TESTFLINGER_VAULT_URL: http://vault:8200
       WEB_SECRET_KEY: my_web_secret_key
       OIDC_CLIENT_ID: testflinger-client
-      OIDC_CLIENT_SECRET: my-oidc-secret
-      OIDC_PROVIDER_ISSUER: http://dex:5556/dex
+      OIDC_CLIENT_SECRET: ""
+      OIDC_PROVIDER_ISSUER: http://dex:5556
       TEMPLATES_AUTO_RELOAD: "true"
     command: --reload
     # Mount only src/ (leaving the image's .venv intact) so local edits are
@@ -36,8 +36,10 @@ services:
       - ./src:/srv/testflinger/src
     ports:
       - 5000:5000
+      - 9090:9090
     depends_on:
       - mongo
+      - dex
     restart: always
   vault:
     container_name: vault
@@ -58,4 +60,3 @@ services:
     volumes:
       - ./devel/dex-config.yaml:/etc/dex/config.yaml
     command: ["dex", "serve", "/etc/dex/config.yaml"]
-  

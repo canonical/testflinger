@@ -85,6 +85,12 @@ class OemScript:
         except subprocess.CalledProcessError:
             self.hardreset()
             self.check_device_booted()
+        else:
+            # If we were able to reach the device, reboot it and wait for
+            # it to come back online before running the following steps.
+            logger.info("Rebooting the device before provisioning")
+            self.run_on_control_host("sudo reboot")
+            self.check_device_booted()
 
         provision_data = self.job_data.get("provision_data", {})
         image_url = provision_data.get("url")

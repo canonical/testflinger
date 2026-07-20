@@ -2,9 +2,13 @@
 # See LICENSE file for licensing details.
 """Charm configuration."""
 
+import base64
+import binascii
 from urllib.parse import urlparse
 
 import pydantic
+
+MONGO_CSFLE_KEY_LENGTH = 96  # bytes
 
 
 class TestflingerServerConfig(pydantic.BaseModel):
@@ -69,17 +73,36 @@ class TestflingerServerConfig(pydantic.BaseModel):
             raise ValueError("oidc_provider_issuer must include a host")
         return value.rstrip("/")
 
+    @pydantic.field_validator("testflinger_secrets_master_key")
+    @classmethod
+    def validate_csfle_master_key(cls, value):
+        """Validate that the CSFLE master key is valid base64."""
+        if value:
+            try:
+                key_bytes = base64.b64decode(value, validate=True)
+            except (binascii.Error, ValueError) as error:
+                raise ValueError(
+                    "Invalid 'testflinger_secrets_master_key': "
+                    "value is not valid base64"
+                ) from error
+            if len(key_bytes) != MONGO_CSFLE_KEY_LENGTH:
+                raise ValueError(
+                    "Invalid 'testflinger_secrets_master_key': "
+                    f"decoded key must be {MONGO_CSFLE_KEY_LENGTH} bytes long"
+                )
+        return value
+
     @pydantic.model_validator(mode="after")
     def validate_oidc_config(self):
-        """Validate that all OIDC parameters are set if any are configured."""
-        oidc_params = [
+        """Validate required OIDC parameters are set if any are configured."""
+        required_oidc_params = [
             self.oidc_client_id,
-            self.oidc_client_secret,
             self.oidc_provider_issuer,
             self.web_secret_key,
         ]
-        if any(oidc_params) and not all(oidc_params):
+        if any(required_oidc_params) and not all(required_oidc_params):
             raise ValueError(
-                "All OIDC parameters must be set if any are configured"
+                "oidc_client_id, oidc_provider_issuer, and web_secret_key"
+                " must all be set if any OIDC configuration is provided"
             )
         return self

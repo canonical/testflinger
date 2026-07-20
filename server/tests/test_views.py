@@ -18,10 +18,13 @@
 import re
 import uuid
 from datetime import datetime, timezone
+from http import HTTPStatus
 from unittest.mock import patch
 
 import mongomock
 import yaml
+import pytest
+
 from testflinger_common.enums import LogType, TestPhase
 
 from testflinger.views import (
@@ -232,36 +235,6 @@ def test_job_not_found(testapp):
     assert response.status_code == 404
 
 
-def test_job_results_legacy(testapp):
-    """Test that the job_detail view handles legacy result formats."""
-    mongo = mongomock.MongoClient()
-    job_id = str(uuid.uuid4())
-    mongo.db.jobs.insert_one(
-        {
-            "job_id": job_id,
-            "created_at": datetime.now(timezone.utc),
-            "job_data": {"job_queue": "queue1", "provision_data": "skip"},
-            "result_data": {
-                "provision_output": "legacy provision output",
-                "provision_status": 0,
-                "test_output": "legacy test output",
-                "test_status": 1,
-                "job_state": "complete",
-            },
-        }
-    )
-    with (
-        patch("testflinger.views.mongo", mongo),
-    ):
-        with testapp.test_request_context():
-            response = job_detail(job_id)
-
-    html = str(response)
-    # Check that legacy logs are present as-is
-    assert "legacy provision output" in html
-    assert "legacy test output" in html
-
-
 def test_job_results_mongo_logs(testapp):
     """Test that the job_detail view formats logs from MongoDB correctly."""
     mongo = mongomock.MongoClient()
@@ -436,3 +409,32 @@ def test_job_detail_renders_yaml_not_python_repr(testapp):
     # Highlighting is applied server-side via Pygments
     assert 'class="language-yaml pygments"' in html
     assert 'class="language-bash pygments"' in html
+
+@pytest.mark.parametrize("endpoint", ["/agents", "/jobs", "/queues"])
+def test_unauthorized_view_access(oidc_app, endpoint):
+    """Test 401 error when OIDC is enabled but user is not authenticated."""
+    app, _ = oidc_app
+    with app.test_client() as client:
+        response = client.get(endpoint)
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert "You need to sign in to access this page." in str(response.data)
+
+
+@pytest.mark.parametrize("endpoint", ["/agents", "/jobs", "/queues"])
+def test_authorized_view_access(oidc_app, endpoint):
+    """Test views are available when OIDC is enabled and user authenticated."""
+    app, _ = oidc_app
+    mongo = mongomock.MongoClient()
+    with app.test_client() as client, patch("testflinger.views.mongo", mongo):
+        with client.session_transaction() as sess:
+            sess["user"] = "testuser"
+        response = client.get(endpoint)
+    assert response.status_code == HTTPStatus.OK
+
+
+def test_home_accessible_without_auth_when_oidc_enabled(oidc_app):
+    """Test home page is accessible even when OIDC is enabled and no user."""
+    app, _ = oidc_app
+    with app.test_client() as client:
+        response = client.get("/")
+    assert response.status_code == HTTPStatus.OK

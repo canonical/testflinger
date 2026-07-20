@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 class DeviceConnector(DefaultDevice):
     """Tool for provisioning baremetal with a given image."""
 
+    SETUP_PROVISIONING_DATA = {"usb": "DUT"}
+
     def provision(self, args):
         """Provision device when the command is invoked."""
         super().provision(args)

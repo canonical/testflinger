@@ -129,6 +129,13 @@ class TestflingerAdminCLI:
             choices=[role.value for role in ServerRoles],
         )
         parser.add_argument(
+            "--email",
+            help=(
+                "The email associated with the client_id. "
+                "Only applicable for non-OIDC clients."
+            ),
+        )
+        parser.add_argument(
             "--json", help="Optional JSON data with client_permissions"
         )
         self.main_cli._add_auth_args(parser)
@@ -253,6 +260,7 @@ class TestflingerAdminCLI:
                 "max_priority": "max_priority",
                 "max_reservation_time": "max_reservation",
                 "role": "role",
+                "email": "email",
             }
 
             json_data = {
@@ -274,9 +282,6 @@ class TestflingerAdminCLI:
     @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
     def set_client_permissions(self):
         """Set permissions for specified clients."""
-        # Get the authentication header to perform authenticated request
-        auth_header = self.main_cli.auth.build_headers()
-
         # Obtain JSON data from args for new client creation
         json_data = self._parse_client_permissions()
 
@@ -286,9 +291,7 @@ class TestflingerAdminCLI:
             sys.exit("Error: client_id cannot be empty")
 
         try:
-            response = self.main_cli.client.set_client_permissions(
-                auth_header, json_data
-            )
+            response = self.main_cli.client.set_client_permissions(json_data)
         except client.HTTPError as exc:
             if exc.status in [
                 HTTPStatus.UNPROCESSABLE_ENTITY,
@@ -298,6 +301,7 @@ class TestflingerAdminCLI:
                 # Failure reason is clearly stated in msg from server
                 # Unprocessable entity: Schema Validation
                 # Bad Request: Missing client secret for new client
+                # Bad Request: Cannot add email to OIDC client id
                 # Forbidden: User is not entitled to modify account
                 logger.error(exc.msg)
             else:
@@ -314,9 +318,6 @@ class TestflingerAdminCLI:
     @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
     def get_client_permissions(self):
         """Get permissions for specified clients."""
-        # Get the authentication header to perform authenticated GET request
-        auth_header = self.main_cli.auth.build_headers()
-
         # If no client_id specified will get all client_permissions
         tf_client_id = getattr(
             self.main_cli.args, "testflinger_client_id", None
@@ -324,9 +325,7 @@ class TestflingerAdminCLI:
         try:
             print(
                 json.dumps(
-                    self.main_cli.client.get_client_permissions(
-                        auth_header, tf_client_id
-                    )
+                    self.main_cli.client.get_client_permissions(tf_client_id)
                 )
             )
         except client.HTTPError as exc:
@@ -337,14 +336,9 @@ class TestflingerAdminCLI:
     @require_role(ServerRoles.ADMIN)
     def delete_client_permissions(self):
         """Delete specified clients from client_permissions database."""
-        # Get the authentication header to perform authenticated DELETE request
-        auth_header = self.main_cli.auth.build_headers()
-
         tf_client = self.main_cli.args.testflinger_client_id
         try:
-            self.main_cli.client.delete_client_permissions(
-                auth_header, tf_client
-            )
+            self.main_cli.client.delete_client_permissions(tf_client)
             print(f"Succesfully deleted {tf_client} from database")
         except client.HTTPError as exc:
             if (

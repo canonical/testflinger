@@ -7,7 +7,7 @@
 from unittest.mock import patch
 
 import pytest
-from ops import testing
+from ops import MaintenanceStatus, testing
 
 
 def test_blocked_on_no_config_repo(ctx, state_in):
@@ -301,3 +301,97 @@ def test_update_configs_action_blocked_on_missing_config(ctx, state_in):
     state = state_in(config={"config-repo": ""})
     with pytest.raises(testing.errors.UncaughtCharmError):
         ctx.run(ctx.on.action("update-configs"), state=state)
+
+
+@patch("charm.update_charm_scripts")
+@patch("charm.copy_ssh_keys")
+@patch("charm.supervisord.supervisor_update")
+@patch("charm.TestflingerAgentHostCharm.write_supervisor_service_files")
+@patch("charm.supervisord.restart_agents")
+@patch("charm.charm_utils.update_config_files")
+@patch("charm.ops.MaintenanceStatus", wraps=MaintenanceStatus)
+def test_config_changed_does_not_clear_blocked_status(
+    mock_maintenance,
+    mock_update_config,
+    mock_restart,
+    mock_write_supervisor,
+    mock_supervisor_update,
+    mock_copy_ssh,
+    mock_update_scripts,
+    ctx,
+):
+    """Test MaintenanceStatus is not called if already in BlockedStatus."""
+    state = testing.State(
+        config={"config-repo": "some-repo", "config-dir": "agent-configs"},
+        unit_status=testing.BlockedStatus("Invalid credentials secret"),
+    )
+
+    state_out = ctx.run(ctx.on.config_changed(), state=state)
+
+    messages = [call.args[0] for call in mock_maintenance.call_args_list]
+    assert "Handling config_changed hook" not in messages
+    assert isinstance(state_out.unit_status, testing.BlockedStatus)
+
+
+@patch("testflinger_client.authenticate", return_value=True)
+@patch("testflinger_client.token_update_needed", return_value=False)
+def test_secret_change_force_reauthentication(
+    mock_token_update_needed, mock_authenticate, ctx, state_in, secret
+):
+    """Test secret change reauthenticates even if token is not expired."""
+    state = state_in(
+        config={"credentials-secret": secret.id},
+        secrets=[secret],
+    )
+    ctx.run(ctx.on.secret_changed(secret), state=state)
+    mock_authenticate.assert_called_once()
+
+
+@patch("testflinger_client.authenticate", return_value=True)
+@patch("testflinger_client.token_update_needed", return_value=False)
+@patch("charm.supervisord.restart_agents")
+@patch("charm.supervisord.supervisor_update")
+@patch("charm.TestflingerAgentHostCharm.write_supervisor_service_files")
+@patch("charm.update_charm_scripts")
+@patch("charm.copy_ssh_keys")
+@patch("charm.charm_utils.update_config_files")
+def test_config_changed_force_reauthentication(
+    mock_update_config,
+    mock_copy_ssh,
+    mock_update_scripts,
+    mock_write_supervisor,
+    mock_supervisor_update,
+    mock_restart,
+    mock_token_update_needed,
+    mock_authenticate,
+    ctx,
+    state_in,
+    secret,
+):
+    """Test config_changed reauthenticates even if token is not expired."""
+    state = state_in(
+        config={"credentials-secret": secret.id},
+        secrets=[secret],
+    )
+    ctx.run(ctx.on.config_changed(), state=state)
+    mock_authenticate.assert_called_once()
+
+
+@pytest.mark.parametrize("event_name", ["start", "update_status"])
+@patch("testflinger_client.authenticate")
+@patch("testflinger_client.token_update_needed", return_value=False)
+def test_events_does_not_trigger_authentication_when_token_valid(
+    mock_token_update_needed,
+    mock_authenticate,
+    event_name,
+    ctx,
+    state_in,
+    secret,
+):
+    """Test that events do not trigger authentication if token is valid."""
+    state = state_in(
+        config={"credentials-secret": secret.id},
+        secrets=[secret],
+    )
+    ctx.run(getattr(ctx.on, event_name)(), state=state)
+    mock_authenticate.assert_not_called()

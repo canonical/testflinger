@@ -57,3 +57,4 @@ REST API documentation for the Testflinger server, including authentication, job
     :maxdepth: 1
 
     openapi
+    api-roles

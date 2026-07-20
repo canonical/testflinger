@@ -28,6 +28,7 @@ from testflinger.api.v1 import LogTypeConverter, v1
 from testflinger.database import setup_mongodb
 from testflinger.extensions import metrics
 from testflinger.oidc import app_register_oidc
+from testflinger.oidc.api import oidc_api
 from testflinger.oidc.views import oidc_views
 from testflinger.owasp import OWASPLogger
 from testflinger.providers import ISODatetimeProvider
@@ -39,7 +40,7 @@ try:
 except ImportError:
     pass
 
-VANILLA_FRAMEWORK_VERSION = "4.51.0"  # renovate: vanilla-framework-latest
+VANILLA_FRAMEWORK_VERSION = "4.52.0"  # renovate: vanilla-framework-latest
 
 
 def create_flask_app(config=None, secrets_store=None):
@@ -85,6 +86,10 @@ def create_flask_app(config=None, secrets_store=None):
     metrics.group_by = "endpoint"
     metrics.init_app(tf_app)
 
+    metrics_port = int(os.environ.get("METRICS_PORT", "9090"))
+    if not tf_app.config.get("TESTING"):
+        metrics.start_http_server(metrics_port)
+
     @tf_app.errorhandler(NotFound)
     def handle_404(exc):
         tf_app.owasp_logger.error("[404] Not found: %s", request.url)
@@ -122,5 +127,6 @@ def create_flask_app(config=None, secrets_store=None):
     tf_app.register_blueprint(v1, url_prefix="/v1")
     if tf_app.oauth:
         tf_app.register_blueprint(oidc_views, url_prefix="/auth")
+        tf_app.register_blueprint(oidc_api, url_prefix="/oidc")
 
     return tf_app

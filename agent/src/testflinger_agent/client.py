@@ -19,6 +19,7 @@ import shutil
 import tempfile
 import time
 from dataclasses import asdict, dataclass
+from functools import cached_property
 from http import HTTPStatus
 from pathlib import Path
 from typing import Dict, List
@@ -29,12 +30,15 @@ from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
 from requests import HTTPError
 from requests.adapters import HTTPAdapter
+from requests.auth import AuthBase
 from testflinger_common.enums import LogType
 from urllib3.util import Retry
 
-from testflinger_agent.errors import InvalidTokenError, TFServerError
+from testflinger_agent.errors import TFServerError
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_AUTH_TIMEOUT = 15  # seconds
 
 
 @dataclass(frozen=True)
@@ -45,6 +49,29 @@ class LogEndpointInput:
     timestamp: str
     phase: str
     log_data: str
+
+
+class ClientAuth(AuthBase):
+    """Custom authentication for the agent client."""
+
+    def __init__(self, client: "TestflingerClient") -> None:
+        """Initialize the ClientAuth with a TestflingerClient instance.
+
+        :param client: Instance of the client to retrieve access token from
+        """
+        self.client = client
+
+    def __call__(
+        self, req: requests.PreparedRequest
+    ) -> requests.PreparedRequest:
+        """Attach the current access token to the request.
+
+        :param req: The prepared request object to modify
+        :return: The modified request object with Authorization header
+        """
+        if access_token := self.client.access_token:
+            req.headers["Authorization"] = f"Bearer {access_token}"
+        return req
 
 
 class TestflingerClient:
@@ -59,6 +86,8 @@ class TestflingerClient:
         if not self.server.lower().startswith("http"):
             self.server = f"http://{self.server}"
         self.session = self._requests_retry(retries=5)
+        self.session.auth = ClientAuth(self)
+        self.session.hooks["response"].append(self._handle_token_refresh)
         self.influx_agent_db = "agent_jobs"
         self.influx_client = self._configure_influx()
 
@@ -93,7 +122,6 @@ class TestflingerClient:
         influx_client = InfluxDBClient(
             host, port, user, password, self.influx_agent_db
         )
-
         # ensure we can connect to influxdb
         try:
             influx_client.create_database(self.influx_agent_db)
@@ -102,21 +130,38 @@ class TestflingerClient:
         else:
             return influx_client
 
-    def _update_session_auth(self) -> None:
-        """Ensure session has valid authentication.
+    def _handle_token_refresh(
+        self, response: requests.Response, **kwargs
+    ) -> requests.Response:
+        """Re-acquire the access token and replay the request on a 401.
 
-        This handles both token-based and cookie-based authentication.
+        When the server signals token expiry with a 401, this hook
+        invalidates the cached token, fetches a fresh one, and replays
+        the original exactly once.
+
+        :param response: The response object from the request
+        :return: The replayed response on token expiry, otherwise the original
         """
-        # Update Bearer token header
-        access_token = self.get_access_token()
-        if access_token:
-            self.session.headers.update(
-                {"Authorization": f"Bearer {access_token}"}
-            )
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
+            if getattr(response.request, "_auth_retry", False):
+                return response
 
-        # Update session cookies
-        if not self.session.cookies:
-            self.post_agent_data({"job_id": ""})
+            # Consume the response body to return the active connection to
+            # the pool for reuse
+            _ = response.content
+
+            del self.access_token
+            if not (access_token := self.access_token):
+                return response
+
+            new_request = response.request.copy()
+            new_request.headers["Authorization"] = f"Bearer {access_token}"
+            new_request._auth_retry = True
+            new_response = response.connection.send(new_request, **kwargs)
+            new_response.history.append(response)
+            return new_response
+
+        return response
 
     def check_jobs(self) -> dict | None:
         """Check for new jobs for on the Testflinger server.
@@ -139,18 +184,12 @@ class TestflingerClient:
         job_uri = urljoin(self.server, "/v1/job")
         logger.debug("Requesting a job")
         try:
-            self._update_session_auth()
             job_request = self.session.get(
                 job_uri, params={"queue": queue_list}, timeout=30
             )
             job_request.raise_for_status()
             if job_request.content:
                 return job_request.json()
-        except InvalidTokenError:
-            logger.error(
-                "Invalid refresh token. "
-                "Make sure the token file is correct and try again."
-            )
         except HTTPError as exc:
             if exc.response.status_code in (
                 HTTPStatus.UNAUTHORIZED,
@@ -174,7 +213,7 @@ class TestflingerClient:
             Where to save the attachment archive
         """
         uri = urljoin(self.server, f"/v1/job/{job_id}/attachments")
-        with requests.get(uri, stream=True, timeout=600) as response:
+        with self.session.get(uri, stream=True, timeout=600) as response:
             if not response:
                 logger.error(
                     "Unable to retrieve attachments for job: %s (error: %d)",
@@ -541,44 +580,45 @@ class TestflingerClient:
             interval = min(interval * (2**retry_count), max_interval)
             retry_count += 1
 
-    def get_access_token(self, timeout=30) -> str | None:
-        """Exchange a refresh token for an acess token.
+    @cached_property
+    def access_token(self) -> str | None:
+        """Fetch and cache an access token from the server.
 
-        This is used for authenticating with the Testflinger server.
-        Access token is short lived, so we need to refresh it upon request.
+        On first access or after clearing the cache, this method
+        exchanges the stored refresh token for a fresh access token.
+        Subsequent accesses return the cached value without a network call.
 
-        :param timeout: timeout in seconds for completing HTTP request
         :returns: Access token string if successful, None otherwise
-        :raises: InvalidTokenError if refresh token is invalid
         """
         token_file = self.config.get("token_file")
         refresh_url = urljoin(self.server, "/v1/oauth2/refresh")
 
-        if token_file:
-            try:
-                with Path(token_file).open() as f:
-                    token_data = json.load(f)
-            except (OSError, json.JSONDecodeError) as exc:
-                logger.error("Failed to read token file: %s", exc)
-                return None
+        if not token_file:
+            return None
 
-            refresh_token = token_data.get("refresh_token")
-            try:
-                response = self.session.post(
-                    refresh_url,
-                    json={"refresh_token": refresh_token},
-                    timeout=timeout,
-                )
-                response.raise_for_status()
-                token_data = response.json()
-                return token_data["access_token"]
-            except HTTPError as exc:
-                if exc.response.status_code == HTTPStatus.BAD_REQUEST:
-                    # Server returns a json error message on bad request
-                    # This handles missing or invalid refresh tokens
-                    logger.error(exc.response.json().get("message"))
-                    raise InvalidTokenError from exc
-            except requests.exceptions.RequestException as exc:
-                logger.error("Failed to refresh access token: %s", exc)
+        try:
+            with Path(token_file).open() as f:
+                token_data = json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.error("Failed to read token file: %s", exc)
+            return None
+
+        refresh_token = token_data.get("refresh_token")
+        try:
+            # intentionally not using self.session to avoid auth loop
+            response = requests.post(
+                refresh_url,
+                json={"refresh_token": refresh_token},
+                timeout=DEFAULT_AUTH_TIMEOUT,
+            )
+            response.raise_for_status()
+            return response.json()["access_token"]
+        except HTTPError as exc:
+            if exc.response.status_code == HTTPStatus.BAD_REQUEST:
+                # Server returns a json error message on bad request
+                # This handles missing or invalid refresh tokens
+                logger.error(exc.response.json().get("message"))
+        except requests.exceptions.RequestException as exc:
+            logger.error("Failed to refresh access token: %s", exc)
 
         return None

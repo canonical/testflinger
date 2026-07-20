@@ -26,7 +26,7 @@ import testflinger_cli
 from testflinger_cli.consts import DEFAULT_SECRET_EXPIRATION
 from testflinger_cli.enums import ServerRoles
 
-from .test_cli import URL
+from .conftest import URL
 
 
 @pytest.mark.parametrize(
@@ -164,8 +164,13 @@ def test_secret_delete_http_error(auth_fixture, requests_mock):
 
 
 @pytest.mark.parametrize("subcommand", ["write", "delete"])
-def test_secret_no_authentication(subcommand):
+def test_secret_no_authentication(subcommand, requests_mock):
     """Test secret operations fail when authentication is not configured."""
+    # OIDC not enabled on this server
+    requests_mock.post(
+        f"{URL}/oidc/auth-init", status_code=HTTPStatus.NOT_FOUND
+    )
+
     if subcommand == "write":
         sys.argv = ["", "secret", "write", "test/path", "test_value"]
     else:
@@ -237,6 +242,10 @@ def test_secret_invalid_token_error(requests_mock, subcommand):
         f"{URL}/v1/oauth2/refresh",
         text="Refresh token expired",
         status_code=HTTPStatus.BAD_REQUEST,
+    )
+    # OIDC not enabled on this server
+    requests_mock.post(
+        f"{URL}/oidc/auth-init", status_code=HTTPStatus.NOT_FOUND
     )
 
     if subcommand == "write":
