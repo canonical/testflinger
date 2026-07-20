@@ -16,25 +16,29 @@
 
 """Testflinger CLI Auth module."""
 
+import base64
 import configparser
-import contextlib
 import time
+import urllib.parse
 import webbrowser
 from functools import cached_property, wraps
 from http import HTTPStatus
 from typing import Optional
 
 import jwt
+import requests
 from xdg_base_dirs import xdg_config_home
 
-from testflinger_cli import client
 from testflinger_cli.enums import ServerRoles
 from testflinger_cli.errors import (
     AuthenticationError,
     AuthorizationError,
     InvalidTokenError,
+    NetworkError,
     OidcError,
 )
+
+DEFAULT_AUTH_TIMEOUT = 15  # seconds
 
 
 class TestflingerCliAuth:
@@ -42,18 +46,27 @@ class TestflingerCliAuth:
 
     def __init__(
         self,
-        tf_client: client.Client,
+        server_url: str,
         client_id: str | None = None,
         secret_key: str | None = None,
     ):
-        self.client_id: Optional[str] = client_id
+        """Initialize the Testflinger CLI Auth class."""
+        self.server_url = server_url
+        self.client_id = client_id
         self.secret_key = secret_key
-        self.client = tf_client
 
         # Refresh token relevant configuration
         config_home = xdg_config_home()
         config_home.mkdir(parents=True, exist_ok=True)
         self.auth_config = config_home / "testflinger-cli-auth.conf"
+
+    def get_url(self, endpoint: str) -> str:
+        """Construct the full URL for a given endpoint.
+
+        :param endpoint: The endpoint to construct the URL for.
+        :return: The full URL for the given endpoint.
+        """
+        return urllib.parse.urljoin(self.server_url, endpoint)
 
     def is_authenticated(self) -> bool:
         """Validate if user is currently authenticated.
@@ -98,39 +111,73 @@ class TestflingerCliAuth:
         return access_token
 
     def _authenticate_with_credentials(self) -> str | None:
-        """Authenticate using client_id and secret_key."""
+        """Authenticate using client_id and secret_key.
+
+        :return: string with access token (jwt token)
+        """
+        url = self.get_url("/v1/oauth2/token")
+        id_key_pair = f"{self.client_id}:{self.secret_key}"
+        encoded_id_key_pair = base64.b64encode(
+            id_key_pair.encode("utf-8")
+        ).decode("ascii")
+        headers = {"Authorization": f"Basic {encoded_id_key_pair}"}
+
         try:
-            response = self.client.authenticate(
-                self.client_id, self.secret_key
+            response = requests.post(
+                url, {}, headers=headers, timeout=DEFAULT_AUTH_TIMEOUT
             )
-            # Store refresh token for persistent login
-            self.store_refresh_token(response["refresh_token"])
-            return response["access_token"]
-        except client.HTTPError as exc:
+            response.raise_for_status()
+            response_data = response.json()
+        except requests.exceptions.HTTPError as exc:
             self._handle_auth_error(exc)
             return None
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
+                "Connection timed out while authenticating with credentials."
+            ) from exc
+
+        # Store refresh token for persistent login
+        self.store_refresh_token(response_data["refresh_token"])
+        return response_data["access_token"]
 
     def _authenticate_with_refresh_token(
         self, refresh_token: str
     ) -> str | None:
-        """Authenticate using stored refresh token."""
+        """Authenticate using stored refresh token.
+
+        :param refresh_token: refresh token to use for authentication
+        :return: string with access token (jwt token)
+        """
+        url = self.get_url("/v1/oauth2/refresh")
+
         try:
-            response = self.client.refresh_authentication(refresh_token)
-            return response["access_token"]
-        except client.HTTPError as exc:
-            if exc.status == HTTPStatus.BAD_REQUEST:
+            response = requests.post(
+                url,
+                json={"refresh_token": refresh_token},
+                timeout=DEFAULT_AUTH_TIMEOUT,
+            )
+            response.raise_for_status()
+            response_data = response.json()
+            return response_data["access_token"]
+        except requests.exceptions.HTTPError as exc:
+            if exc.response.status_code == HTTPStatus.BAD_REQUEST:
                 self.clear_refresh_token()
                 raise InvalidTokenError(
                     "Invalid or expired refresh token."
                 ) from exc
+
             self._handle_auth_error(exc)
             return None
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
+                "Connection timed out while refreshing authentication token."
+            ) from exc
 
-    def _handle_auth_error(self, exc: client.HTTPError) -> None:
+    def _handle_auth_error(self, exc: requests.exceptions.HTTPError) -> None:
         """Handle authentication HTTP errors."""
-        if exc.status == HTTPStatus.UNAUTHORIZED:
+        if exc.response.status_code == HTTPStatus.UNAUTHORIZED:
             raise AuthenticationError from exc
-        if exc.status == HTTPStatus.FORBIDDEN:
+        if exc.response.status_code == HTTPStatus.FORBIDDEN:
             raise AuthorizationError from exc
 
     @cached_property
@@ -180,7 +227,7 @@ class TestflingerCliAuth:
                 with self.auth_config.open("w"):
                     pass
 
-    def build_headers(self) -> Optional[dict]:
+    def build_headers(self) -> dict:
         """Create an authorization header based on stored JWT.
 
         :return: Dict with JWT as the Authorization header if exist.
@@ -188,7 +235,7 @@ class TestflingerCliAuth:
         return (
             {"Authorization": f"Bearer {self.jwt_token}"}
             if self.jwt_token
-            else None
+            else {}
         )
 
     def decode_jwt_token(self, token: str | None = None) -> Optional[dict]:
@@ -212,10 +259,9 @@ class TestflingerCliAuth:
             return None
 
     def refresh_authentication(self) -> None:
-        """Attempt to refresh token in case its already expired."""
+        """Re-acquire the access token, raising on failure."""
         del self.jwt_token
-        with contextlib.suppress(AuthenticationError, AuthorizationError):
-            _ = self.jwt_token
+        _ = self.jwt_token
 
     def get_user_role(self) -> str | None:
         """Retrieve the role for the user from the decoded jwt.
@@ -233,15 +279,24 @@ class TestflingerCliAuth:
 
     def _authenticate_with_oidc(self) -> str | None:
         """Authenticate using OIDC device flow."""
+        auth_init_url = self.get_url("/oidc/auth-init")
+
         try:
-            init_data = self.client.oidc_auth_initiate()
-        except client.HTTPError as exc:
-            if exc.status == HTTPStatus.NOT_FOUND:
+            response = requests.post(
+                auth_init_url, data={}, timeout=DEFAULT_AUTH_TIMEOUT
+            )
+            response.raise_for_status()
+            init_data = response.json()
+        except requests.exceptions.HTTPError as exc:
+            if exc.response.status_code == HTTPStatus.NOT_FOUND:
                 # Server does not have OIDC enabled
                 # Need to return None to fail gracefully
                 return None
-            raise OidcError(
-                f"Failed to initiate OIDC login: {exc.msg}"
+
+            raise OidcError(f"Failed to initiate OIDC login: {exc}") from exc
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
+                "Connection timed out while initiating OIDC login."
             ) from exc
 
         verification_uri = init_data["verification_uri"]
@@ -261,8 +316,13 @@ class TestflingerCliAuth:
         code_expiration = time.monotonic() + expires_in
         while time.monotonic() < code_expiration:
             time.sleep(interval)
+            poll_url = self.get_url(f"/oidc/auth-poll/{request_id}")
             try:
-                auth_data = self.client.oidc_auth_poll(request_id)
+                response = requests.post(
+                    poll_url, data={}, timeout=DEFAULT_AUTH_TIMEOUT
+                )
+                response.raise_for_status()
+                auth_data = response.json()
                 decoded = self.decode_jwt_token(auth_data["access_token"])
                 self.client_id = (
                     decoded.get("permissions", {}).get("client_id")
@@ -272,12 +332,15 @@ class TestflingerCliAuth:
                 if self.client_id:
                     self.store_refresh_token(auth_data["refresh_token"])
                 return auth_data["access_token"]
-            except client.HTTPError as exc:
-                match exc.error_code:
+            except requests.exceptions.HTTPError as exc:
+                error_data = exc.response.json()
+                match error_data.get("error"):
                     case "authorization_pending":
                         pass
                     case "slow_down":
-                        interval += int(exc.headers.get("Retry-After", 5))
+                        interval += int(
+                            exc.response.headers.get("Retry-After", 5)
+                        )
                     case "access_denied":
                         raise OidcError(
                             "Authentication failed: access denied"
@@ -289,8 +352,12 @@ class TestflingerCliAuth:
                     case _:
                         raise OidcError(
                             "Unexpected error during OIDC "
-                            f"authentication: {exc.msg}"
+                            f"authentication: {exc}"
                         ) from exc
+            except requests.exceptions.Timeout as exc:
+                raise NetworkError(
+                    "Connection timed out while authenticating with OIDC."
+                ) from exc
 
         raise OidcError("Authentication timed out. Please try again.")
 

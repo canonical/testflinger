@@ -188,9 +188,9 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         self.update_testflinger_repo()
         self.unit.status = ops.ActiveStatus()
 
-    def on_start(self, _):
+    def on_start(self, event: ops.StartEvent):
         """Start the service."""
-        if not self._update_refresh_token():
+        if not self._update_refresh_token(event=event):
             return
         self.unit.status = ops.ActiveStatus()
 
@@ -199,18 +199,18 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         secret = self.typed_config.credentials_secret
         if secret and event.secret.id == secret.id:
             logger.info("Credentials secret changed, re-authenticating")
-            if not self._update_refresh_token():
+            if not self._update_refresh_token(event=event):
                 return
             self.unit.status = ops.ActiveStatus()
 
-    def _on_update_status(self, _):
+    def _on_update_status(self, event: ops.UpdateStatusEvent):
         """Periodically check token expiration and re-authenticate if needed.
 
         update_status hook is triggered at an interval defined at the Juju
         model config so its not configurable by the charm application
         (default: 5 minutes).
         """
-        if not self._update_refresh_token():
+        if not self._update_refresh_token(event=event):
             return
         self.unit.status = ops.ActiveStatus()
 
@@ -244,12 +244,18 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
 
         return content
 
-    def _update_refresh_token(self) -> bool:
+    def _update_refresh_token(self, event: ops.HookEvent) -> bool:
         """Update the refresh token if needed.
+
+        This checks both if the refresh token is expired or if
+        the credentials secret has changed. In case of the latter,
+        the refresh token will be updated regardless of its expiration status.
 
         :returns: True if update succeeded or not needed, False otherwise.
         """
-        if testflinger_client.token_update_needed():
+        if testflinger_client.token_update_needed() or isinstance(
+            event, (ops.SecretChangedEvent, ops.ConfigChangedEvent)
+        ):
             logger.info("Token update needed, attempting to refresh token")
             return self._authenticate_with_server()
         return True
@@ -273,7 +279,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         logger.info("Authentication with Testflinger server succeeded")
         return True
 
-    def on_config_changed(self, _):
+    def on_config_changed(self, event: ops.ConfigChangedEvent):
         """Handle on config changed event."""
         # Do not clear the status if we are already in a BlockedStatus
         if not isinstance(self.unit.status, ops.BlockedStatus):
@@ -292,7 +298,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         self.write_supervisor_service_files()
         supervisord.supervisor_update()
         supervisord.restart_agents()
-        if not self._update_refresh_token():
+        if not self._update_refresh_token(event=event):
             return
         self.unit.status = ops.ActiveStatus()
 

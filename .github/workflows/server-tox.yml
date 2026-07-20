@@ -30,37 +30,32 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Install uv and set up Python
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-      - name: Check lock file
-        run: uvx --with tox-uv tox -e lock
-      - name: Check linting
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      - run: sudo snap install --classic just
+      - run: just check-lock
+      - run: just lint
         env:
           RUFF_OUTPUT_FORMAT: sarif
           RUFF_OUTPUT_FILE: results.sarif
-        run: uvx --with tox-uv tox -e lint
-      - name: Check schemas
-        run: uvx --with tox-uv tox -e check-schema
-      - name: Run unit tests
-        run: uvx --with tox-uv tox -e unit
+      - run: just check-schema
+      - run: just test
       - name: Upload coverage
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: coverage.xml
           flags: server
           token: ${{ secrets.CODECOV_TOKEN }}
-
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: results.sarif
           path: server/results.sarif
-
       - name: Upload scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@68bde559dea0fdcac2102bfdf6230c5f70eb485e # v4.35.4
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
         with:
           sarif_file: server/results.sarif
 
@@ -72,19 +67,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Install uv and set up Python
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-      - name: Check lock file
-        run: uvx --with tox-uv tox -e lock
-      - name: Check linting
-        run: uvx --with tox-uv tox -e lint
-      - name: Run charm unit tests
-        run: uvx --with tox-uv tox -e unit
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      - run: sudo snap install --classic just
+      - run: just check-lock
+      - run: just lint
+      - run: just test
       - name: Upload coverage
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: coverage.xml
           flags: server
@@ -95,18 +88,16 @@ jobs:
     defaults:
       run:
         working-directory: server/charm/
-    runs-on: [self-hosted, linux, jammy, X64]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Install uv and set up Python
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-      - name: Install concierge
-        run: sudo snap install --classic concierge
-      - name: Prepare Juju
-        run: sudo concierge prepare --verbose
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      - run: sudo snap install --classic just
+      - run: just --yes setup
       - name: Export Juju controller names
         run: |
           K8S_CONTROLLER=$(juju controllers --format=json | jq -r '.controllers | to_entries[] | select(.value.cloud == "microk8s") | .key')
@@ -118,23 +109,21 @@ jobs:
           fi
           echo "JUJU_K8S_CONTROLLER=$K8S_CONTROLLER" >> "$GITHUB_ENV"
           echo "JUJU_MACHINE_CONTROLLER=$LXD_CONTROLLER" >> "$GITHUB_ENV"
-      - name: Pack charm
-        run: charmcraft pack --verbose
+      - run: just integration --juju-dump-logs logs
+        env:
+          JUJU_K8S_CONTROLLER: ${{ env.JUJU_K8S_CONTROLLER }}
+          JUJU_MACHINE_CONTROLLER: ${{ env.JUJU_MACHINE_CONTROLLER }}
       - name: Upload charm as an artifact
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: server-charm
           path: server/charm/*.charm
           if-no-files-found: error
           retention-days: 2
-      - name: Run charm integration tests
-        env:
-          JUJU_K8S_CONTROLLER: ${{ env.JUJU_K8S_CONTROLLER }}
-          JUJU_MACHINE_CONTROLLER: ${{ env.JUJU_MACHINE_CONTROLLER }}
-        run: uvx --with tox-uv tox -e integration -- --juju-dump-logs logs
       - name: Upload Juju logs
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: juju-dump-logs
           path: server/charm/logs

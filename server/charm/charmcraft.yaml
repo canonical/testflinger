@@ -15,6 +15,9 @@ links:
 containers:
   testflinger:
     resource: testflinger-image
+    ports:
+      - container-port: 9090
+        protocol: TCP
 
 resources:
   testflinger-image:
@@ -156,6 +159,6 @@ parts:
       # for 22.04
       # Install rustc and cargo using rustup instead of the Ubuntu archive
       rustup set profile minimal
-      rustup default 1.95.0  # renovate: charmcraft-rust-latest
+      rustup default 1.96.0  # renovate: charmcraft-rust-latest
 
       craftctl default
