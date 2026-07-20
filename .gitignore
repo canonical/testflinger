@@ -14,6 +14,8 @@ docs/.sphinx/.doctrees/
 .vscode
 .idea
 
+.workshop.lock
+
 *.py[cod]
 *.egg*
 *.bak

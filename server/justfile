@@ -73,10 +73,19 @@ check: lint format test check-schema
 serve:
     @docker compose up --build --detach testflinger
 
+[doc('Tear down and restart the local deployment.')]
+[group('deploy')]
+restart: teardown serve
+
 [doc('Tear down local deployment.')]
 [group('deploy')]
 teardown:
     @docker compose down
+
+[doc('Follow the testflinger server logs.')]
+[group('deploy')]
+logs:
+    @docker compose logs --follow testflinger
 
 [doc('Run the client credentials tool.')]
 [group('deploy')]
@@ -89,3 +98,26 @@ admin:
 populate *args:
     @docker compose exec testflinger python3 devel/create_dev_admin.py
     @uv run devel/create_sample_data.py "$@"
+
+[doc('Populate the server with a large sample data set.')]
+[group('deploy')]
+populate-large:
+    @just populate \
+        --agents 3000 \
+        --jobs 500 \
+        --queues 4500 \
+        --advertised-queues 2
+
+[doc('Add required hostnames to the hosts file to ensure that `dex` and `testflinger-server` and `testflinger-metrics` are available for local testing.')]
+[group('deploy')]
+set-up-hosts-file:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # When any hostname is missing, add all hostnames:
+    # dex, testflinger-server, testflinger-metrics as hostnames
+    LINE="127.0.0.1 dex testflinger-server testflinger-metrics"
+    if ! grep -Eq '(^|[[:space:]])dex($|[[:space:]])' /etc/hosts || \
+       ! grep -Eq '(^|[[:space:]])testflinger-server($|[[:space:]])' /etc/hosts || \
+       ! grep -Eq '(^|[[:space:]])testflinger-metrics($|[[:space:]])' /etc/hosts; then
+        echo "$LINE" | tee -a /etc/hosts >/dev/null
+    fi
