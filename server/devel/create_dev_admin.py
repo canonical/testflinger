@@ -42,6 +42,10 @@ from testflinger.database import get_mongo_uri
 DEV_CLIENT_ID = "dev-admin"
 DEV_CLIENT_KEY = "dev-secret-for-testing"
 
+# testflinger-admin is the OIDC identity used for authentication via Dex.
+# It is registered here so it also has a permissions record in MongoDB.
+TESTFLINGER_ADMIN_ID = "testflinger-admin"
+
 # Sample credential-based clients with client_id and email fields.
 # alice@example.com is reused across two client IDs to demonstrate that a
 # single contact email can be associated with multiple service accounts.
@@ -111,12 +115,24 @@ def main():
     )
     print("Created dev admin credential")
 
+    if not db.client_permissions.find_one({"client_id": TESTFLINGER_ADMIN_ID}):
+        db.client_permissions.insert_one(
+            {
+                "client_id": TESTFLINGER_ADMIN_ID,
+                "role": "admin",
+                "max_priority": {"*": 100},
+                "allowed_queues": [],
+                "max_reservation_time": {},
+            }
+        )
+        print(f"Created OIDC admin credential '{TESTFLINGER_ADMIN_ID}'")
+
     for client in SAMPLE_CLIENTS:
         client_id = client["client_id"]
         if db.client_permissions.find_one({"client_id": client_id}):
             print(f"Sample client '{client_id}' already exists, skipping.")
             continue
-        doc = dict(client)
+        doc = {**client, "client_secret_hash": secret_hash}
         db.client_permissions.insert_one(doc)
         print(f"Created sample client '{client_id}' (email: {client['email']})")
 

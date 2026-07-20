@@ -1800,6 +1800,62 @@ def test_pop_job_respects_exclude_agents(mongo_app, agent_auth_header):
     assert output.json["job_id"] == job_id
 
 
+def test_pop_job_records_agent_id_in_result_data(mongo_app, agent_auth_header):
+    """Test that agent_id is stored in result_data when a job is picked up."""
+    app, mongo = mongo_app
+
+    # Setup agent in database
+    agent_name = "agent1"
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+
+    # Submit a job
+    job_data = {"job_queue": "test"}
+    resp = app.post("/v1/job", json=job_data)
+    assert resp.status_code == HTTPStatus.OK
+    job_id = resp.json["job_id"]
+
+    # Agent picks up the job
+    output = app.get("/v1/job?queue=test", headers=agent_auth_header)
+    assert output.status_code == HTTPStatus.OK
+    assert output.json["job_id"] == job_id
+
+    # Verify agent_id is recorded in the job's result_data
+    job_record = mongo.jobs.find_one({"job_id": job_id})
+    assert job_record["result_data"]["agent_id"] == agent_name
+    assert job_record["result_data"]["job_state"] == "running"
+
+
+def test_job_dispatch_sets_job_id_on_agent(mongo_app, agent_auth_header):
+    """Test that dispatching a job sets job_id on the agent record."""
+    app, mongo = mongo_app
+
+    agent_name = "agent1"
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+
+    # Confirm no job_id on agent before dispatch
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert not agent_record.get("job_id")
+
+    # Submit and dispatch a job
+    job_data = {"job_queue": "test"}
+    resp = app.post("/v1/job", json=job_data)
+    job_id = resp.json["job_id"]
+
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    # Verify the server set job_id on the agent record at dispatch time
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_record["job_id"] == job_id
+
+
 def test_get_job_without_agent_id_fails(mongo_app, agent_auth_header):
     """Test that getting a job without agent_id cookie fails."""
     app, mongo = mongo_app
