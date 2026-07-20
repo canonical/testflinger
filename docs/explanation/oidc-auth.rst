@@ -19,10 +19,10 @@ restriction to different roles, please refer to :ref:`api-roles`.
 
 .. seealso::
 
-   :ref:`howto-enable-oidc`
+   How to :ref:`howto-enable-oidc`
       Steps to configure a provider and enable OIDC on a Testflinger server.
 
-   :doc:`../reference/oidc-config`
+   Reference :doc:`../reference/oidc-config`
       Complete list of OIDC options configurable by the Testflinger Juju charm.
 
 
@@ -34,14 +34,14 @@ must support:
 
 - **Token authentication**: Testflinger uses ``client_secret_basic`` (HTTP Basic
   Auth in the Authorization header) for confidential clients, or falls back to
-  including the ``client_id`` in the request body for public clients.
+  including the OIDC ``client_id`` in the request body for public clients.
 - **Authorization Code Flow**: required for web interface authentication, using
   the ``authorization_code`` grant type.
 - **Device Authorization Flow**: required for CLI authentication, using the
   ``urn:ietf:params:oauth:grant-type:device_code`` grant type.
 - **Scopes**: Testflinger requests ``openid``, ``profile``, and ``email`` scopes.
   The ``email`` claim is used as the user's stable identity within Testflinger.
-- **Redirect URI**: the provider must specify a redirect URI with the following format
+- **Redirect URI**: the provider must support a redirect URI with the following format
   for the Authorization Code Flow: ``https://<testflinger-server-hostname>/auth/callback``
 
 Authorization Code Flow

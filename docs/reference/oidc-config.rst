@@ -37,7 +37,7 @@ server deployed via Juju charm.
      - No
      - The client secret issued by the OIDC provider. Required for confidential
        clients. Omit for public clients, in which case Testflinger falls back to
-       sending the ``client_id`` in the request body.
+       sending the OIDC ``client_id`` in the request body.
 
 For the steps to apply these options, see :ref:`howto-enable-oidc`.
 
