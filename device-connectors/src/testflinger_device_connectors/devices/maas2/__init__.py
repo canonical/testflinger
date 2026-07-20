@@ -24,7 +24,6 @@ from testflinger_device_connectors.devices import (
     SerialLogger,
 )
 from testflinger_device_connectors.devices.maas2.maas2 import Maas2
-from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +37,6 @@ class DeviceConnector(DefaultDevice):
             config = yaml.safe_load(configfile)
 
         super().provision(args)
-
-        ZapperConnector.disconnect_usb_stick(config)
 
         device = Maas2(args.config, args.job_data)
         logger.info("BEGIN provision")
