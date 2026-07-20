@@ -60,6 +60,12 @@ secrets so that they can be accessed by agents at job runtime.
 Enable OIDC
 -----------
 
+.. note::
+
+  Before you start, ensure that you have registered Testflinger as an application
+  with your OIDC provider, and obtained the client ID, client secret, and issuer 
+  URL from the provider.
+
 To enable OpenID Connect (OIDC) authentication for Testflinger, you will need to
 configure the Testflinger server with the required parameters for your OIDC provider.
 
@@ -77,6 +83,23 @@ management by signing session cookies. To configure it, run the following comman
 
   $ juju config testflinger-k8s \
       web_secret_key="<secret-key>"
+
+You can verify the configuration was set correctly by inspecting each of the values 
+you previously defined. For example, to verify that the ``oidc_client_id`` was properly
+set, you can run the following command:
+
+.. code-block:: shell
+
+  $ juju config testflinger-k8s oidc_client_id
+
+Additionally, once all required parameters are defined, you can check the overall
+status of the Testflinger application. In case there is any misconfiguration, the
+application status will remain ``blocked`` with an error message until all required
+parameters are properly set.
+
+.. code-block:: shell
+
+  $ juju status testflinger-k8s
 
 For additional information on these configuration options, please see :doc:`../../reference/oidc-config`.
 

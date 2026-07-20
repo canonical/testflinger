@@ -10,9 +10,12 @@ allows administrators to manage user lifecycle through the identity provider
 rather than the Testflinger server itself.
 
 When OIDC is enabled, Testflinger restricts access to its resources to
-authenticated users only. Users accessing the web interface or the CLI must
-authenticate before they can use any functionality. When OIDC is not configured,
-the server allows anonymous access.
+authenticated users only. Users accessing the web interface must authenticate
+via the OIDC provider while CLI users must either authenticate with the OIDC
+provider or with a Testflinger ``client_id`` and ``secret_key`` pair before
+they can use any functionality. When OIDC is not configured, the server allows
+anonymous access for non-restricted endpoints. For a list of endpoints and their
+restriction to different roles, please refer to :ref:`api-roles`.
 
 .. seealso::
 
@@ -56,6 +59,12 @@ Device Authorization Flow
 
 This flow is used for CLI authentication.
 
+.. note:: 
+
+  If a user provides Testflinger ``client_id`` and ``secret_key`` pair, the CLI
+  will use these credentials to authenticate with the server directly, bypassing
+  the OIDC device authorization flow.
+
 When users attempt to use the CLI, they will be prompted to visit a URL in their
 browser and enter a user code. Testflinger acts as a proxy between the user and
 the OIDC provider: the CLI polls the Testflinger server for the authentication
@@ -65,4 +74,3 @@ Once the user completes authentication, the Testflinger server issues its own
 access and refresh tokens to the CLI which can be used to authenticate directly
 with Testflinger without being redirected to the OIDC provider on each command
 until these credentials expire.
-
