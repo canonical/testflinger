@@ -1,7 +1,7 @@
  // Replaces rtd-address with new-address in links
  
- const rtd_address = 'canonical-testflinger-documentation.readthedocs-hosted.com';
- const new_address = 'ubuntu.com/docs/testflinger';
+const rtd_address = 'canonical-testflinger.readthedocs-hosted.com';
+const new_address = 'ubuntu.com/docs/testflinger';
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
