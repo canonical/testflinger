@@ -40,12 +40,8 @@ class ControlHostOem(ControlHostConnector):
         supported_iso_types = {"bootstrap", "stock", "bios", "dummyefi"}
         provision_data = self.job_data["provision_data"]
 
-        iso_url = provision_data.get("control_host_iso_url") or (
-            provision_data.get("zapper_iso_url")
-        )
-        iso_type = provision_data.get("control_host_iso_type") or (
-            provision_data.get("zapper_iso_type")
-        )
+        iso_url = provision_data.get("control_host_iso_url")
+        iso_type = provision_data.get("control_host_iso_type")
         meta_data_b64 = None
         user_data_b64 = None
         grub_cfg_b64 = None
