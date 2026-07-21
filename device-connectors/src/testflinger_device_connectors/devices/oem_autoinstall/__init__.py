@@ -45,11 +45,9 @@ class DeviceConnector(DefaultDevice):
         provision_data = self.job_data.get("provision_data", {})
         config = self._load_config(args.config)
 
-        uses_iso = (
-            provision_data.get("control_host_iso_url")
-            or provision_data.get("zapper_iso_url")
-            or provision_data.get("control_host_iso_type")
-            or provision_data.get("zapper_iso_type")
+        uses_iso = any(
+            provision_data.get(field)
+            for field in ("control_host_iso_url", "control_host_iso_type")
         )
 
         if uses_iso:

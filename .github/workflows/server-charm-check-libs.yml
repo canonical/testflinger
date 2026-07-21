@@ -31,3 +31,4 @@ jobs:
           charm-path: server/charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
+          charmcraft-channel: latest/stable

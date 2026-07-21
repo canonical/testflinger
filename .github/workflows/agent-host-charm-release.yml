@@ -45,6 +45,7 @@ jobs:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           channel: ${{ github.event_name == 'push' && 'latest/beta' || github.event.inputs.channel }}
           tag-prefix: "agent-host-charm"
+          charmcraft-channel: latest/stable
 
   scan:
     needs: agent-build-and-push-charm

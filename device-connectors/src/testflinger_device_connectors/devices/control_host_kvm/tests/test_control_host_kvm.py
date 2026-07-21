@@ -253,7 +253,7 @@ class ControlHostKVMConnectorTests(unittest.TestCase):
         This allows job-level reboot sequence to override connector config
         defaults at payload build time.
         """
-        connector = DeviceConnector({"control_host": "zapper-host"})
+        connector = DeviceConnector({"control_host": "host"})
         connector.job_data = {
             "job_queue": "queue",
             "provision_data": {
@@ -262,10 +262,10 @@ class ControlHostKVMConnectorTests(unittest.TestCase):
                     "job.robot",
                 ],
                 "reboot_script": [
-                    "zapper hid press_and_release Escape",
+                    "cmd1",
                 ],
                 "poweron_script": [
-                    "zapper poweron DUT",
+                    "cmd2",
                 ],
             },
         }
@@ -282,10 +282,10 @@ class ControlHostKVMConnectorTests(unittest.TestCase):
             "robot_tasks": ["job.robot"],
             "authorized_keys": ["mykey"],
             "reboot_script": [
-                "zapper hid press_and_release Escape",
+                "cmd1",
             ],
             "poweron_script": [
-                "zapper poweron DUT",
+                "cmd2",
             ],
         }
         self.assertEqual(args, ())
