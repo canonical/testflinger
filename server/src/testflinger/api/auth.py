@@ -74,6 +74,9 @@ def validate_client_key_pair(client_id: str, client_key: str) -> dict | None:
     # OIDC-registered clients have no client_secret_hash since they
     # authenticate through the web flow, so reject credential-based logins
     secret_hash = (client_permissions_entry or {}).get("client_secret_hash")
+    # Increasing HASH_ROUNDS will slow down credential validation.
+    # This is more secure but performance may be impacted. If this is changed,
+    # make sure to choose a value that balances security and performance.
     if not secret_hash or not bcrypt.checkpw(
         client_key_bytes,
         secret_hash.encode("utf8"),
