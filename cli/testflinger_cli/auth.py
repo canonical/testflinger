@@ -25,7 +25,6 @@ import urllib.parse
 import webbrowser
 from functools import cached_property, wraps
 from http import HTTPStatus
-from pathlib import Path
 from typing import Optional
 
 import jwt
@@ -58,47 +57,16 @@ class TestflingerCliAuth:
         self.client_id = client_id
         self.secret_key = secret_key
 
-        # Refresh token relevant configuration
-        self.config_home = xdg_config_home() / "testflinger-cli"
-        self.config_home.mkdir(parents=True, exist_ok=True)
-
-    @cached_property
-    def auth_config(self):
-        """Return the path to the auth config file that is in use."""
-        print("Establishing cached value for auth_config based on:")
-        print(f"server_url: {self.server_url}")
-        print(f"client_id: {self.client_id}")
-
-        # Also support multiple server combinations, staging and production,
+        # Refresh token relevant configuration:
+        # Support multiple server connections, staging and production,
         # as each will have different refresh tokens
-        auth_config = self.config_home / self._safe_fs_name(self.server_url)
-
-        # When the client is known, we must only use refresh tokens that are
-        # also for that client_id.
-        if self.client_id:
-            auth_config /= self._safe_fs_name(self.client_id)
-        # When the client_id isn't known, we will try to use the last refresh
-        # token for that server. In turn that will resolve the client_id.
-
-        # This means that we can only differentiate which token to use based
-        # on the server, when no client_id is known. This means that we must
-        # save the config file for the server (always) and for the specific
-        # client_id (also) when available.
-
-        auth_config /= ("auth.conf")
-        print(f"The resulting auth_config:\n{auth_config}", file=sys.stderr)
-        auth_config.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            with auth_config.open("r") as f:
-                for line in f:
-                    print(line)
-            config_file = configparser.ConfigParser()
-            config_file.read(auth_config)
-            print(vars(config_file))
-        except:
-            pass
-
-        return auth_config
+        # Don't use the schema, split on // and keep the right hand side
+        server = self._safe_fs_name(self.server_url.split("//")[-1])
+        self.auth_config = (
+            xdg_config_home() / "testflinger-cli" / server / "auth.conf"
+        )
+        # Ensure that the directory exists.
+        self.auth_config.parent.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def _safe_fs_name(name_in: str) -> str:
@@ -134,7 +102,6 @@ class TestflingerCliAuth:
         # 1. Attempt to authenticate with credentials from args or envvars
         # Higher priority to honor users intent when credentials present
         if self.client_id and self.secret_key:
-            print("authenticate #1")
             return self._authenticate_with_credentials()
 
         # 2. Authenticate with refresh token if available
@@ -143,7 +110,6 @@ class TestflingerCliAuth:
         token_expired: InvalidTokenError | None = None
         if refresh_token:
             try:
-                print("authenticate #2")
                 return self._authenticate_with_refresh_token(refresh_token)
             except InvalidTokenError as exc:
                 token_expired = exc
@@ -152,7 +118,6 @@ class TestflingerCliAuth:
         # This should fail gracefully if OIDC is not enabled on the server
         access_token = self._authenticate_with_oidc()
         if not access_token and token_expired:
-            print("authenticate #3")
             # If neither authentication method worked and refresh token invalid
             # raise the InvalidTokenError to force reauthentication
             raise token_expired
@@ -207,6 +172,9 @@ class TestflingerCliAuth:
             )
             response.raise_for_status()
             response_data = response.json()
+
+            # Note: Refresh does not beget refresh, only clean auth gives a
+            # refresh token
             return response_data["access_token"]
         except requests.exceptions.HTTPError as exc:
             if exc.response.status_code == HTTPStatus.BAD_REQUEST:
@@ -241,10 +209,8 @@ class TestflingerCliAuth:
         """
         config_file = configparser.ConfigParser()
         try:
-            print("get_stored_refresh_token")
             config_file.read(self.auth_config)
         except FileNotFoundError:
-            print(f"no stored refresh token in {self.auth_config}")
             return None
 
         # Set client_id from config file to keep token owner
@@ -263,25 +229,11 @@ class TestflingerCliAuth:
                 "refresh_token": refresh_token,
             }
             try:
-                orig = self.auth_config
-                print("store_refresh_token to ...")
-                print(f"{self.auth_config}")
                 with self.auth_config.open("w") as file:
                     config_file.write(file)
-
-                # Note: if client_id wasn't part of that file path, we should
-                # write another client-id-pathed refresh file
-                del self.auth_config
-                if self.auth_config != orig:
-                    print("Also store_refresh_token based on client_id too!")
-                    print(f"{self.auth_config}")
-                    with self.auth_config.open("w") as file:
-                        config_file.write(file)
             except (OSError, PermissionError):
                 # Ignore write errors as this might run as non snap
-                print ("why are we ignoring write errors?")
                 pass
-
 
     def clear_refresh_token(self):
         """Cleanup refresh_token if already expired or revoked."""
@@ -370,20 +322,31 @@ class TestflingerCliAuth:
         interval = init_data.get("interval", 5)
         expires_in = init_data.get("expires_in", 300)
         request_id = init_data["request_id"]
+        poll_url = self.get_url(f"/oidc/auth-poll/{request_id}")
 
         print(
             f"Please visit {verification_uri} and enter code "
             f"{user_code} to login.",
-            file=sys.stderr
+            file=sys.stderr,
         )
 
         # Attempt to launch the browser for the user to login
         webbrowser.open(verification_uri)
 
         code_expiration = time.monotonic() + expires_in
+        current_refresh_token = self.get_stored_refresh_token()
         while time.monotonic() < code_expiration:
-            time.sleep(interval)
-            poll_url = self.get_url(f"/oidc/auth-poll/{request_id}")
+            # multiple client processes can benefit from the same new refresh
+            # token:
+            next_check = time.monotonic() + interval
+            while time.monotonic() < next_check:
+                refresh_token = self.get_stored_refresh_token()
+                if refresh_token and refresh_token != current_refresh_token:
+                    # if we managed to find a newly-acquired refresh token on
+                    # disk we can exit this loop early and use the refresh
+                    # token instead
+                    return self._authenticate_with_refresh_token(refresh_token)
+                time.sleep(0.1)
             try:
                 response = requests.post(
                     poll_url, data={}, timeout=DEFAULT_AUTH_TIMEOUT
