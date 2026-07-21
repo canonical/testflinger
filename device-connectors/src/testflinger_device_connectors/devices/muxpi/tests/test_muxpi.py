@@ -170,6 +170,23 @@ def test_run_control_raises_after_retry_timeout(mocker):
     assert mock_sleep.call_count == 12
 
 
+@pytest.mark.parametrize(
+    ("control_switch_local_cmd", "expected"),
+    [
+        ("sudo muxctl sdwire set TS", "sudo muxctl"),
+        ("sudo -n muxctl typecmux set TS", "sudo -n muxctl"),
+    ],
+)
+def test_control_switch_cli_cmd_returns_full_prefix(
+    control_switch_local_cmd, expected
+):
+    """Test mux CLI detection preserves the full configured prefix."""
+    muxpi = MuxPi()
+    muxpi.config = {"control_switch_local_cmd": control_switch_local_cmd}
+
+    assert muxpi._control_switch_cli_cmd() == expected
+
+
 def test_storage_plug_to_self_uses_control_switch_cli_cmd(mocker):
     """Test media switching reuses the configured mux CLI command."""
     muxpi = MuxPi()
@@ -185,9 +202,9 @@ def test_storage_plug_to_self_uses_control_switch_cli_cmd(mocker):
         assert block_device == "/dev/sdX"
 
     assert [call.args[0] for call in mock_run_control.call_args_list] == [
-        "muxctl sdwire plug_to_self",
-        "muxctl typecmux plug_to_self",
-        "muxctl sdwire set DUT",
+        "sudo muxctl sdwire plug_to_self",
+        "sudo muxctl typecmux plug_to_self",
+        "sudo muxctl sdwire set DUT",
     ]
 
 

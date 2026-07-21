@@ -188,10 +188,10 @@ class MuxPi:
         switch_cmd = self.config.get("control_switch_local_cmd", "")
         switch_cmd_args = shlex.split(switch_cmd)
         for index, arg in enumerate(switch_cmd_args):
-            if arg in ("sdwire", "typecmux"):
-                for cmd_arg in switch_cmd_args[:index]:
-                    if cmd_arg != "sudo":
-                        return shlex.quote(cmd_arg)
+            if arg in ("sdwire", "typecmux") and index > 0:
+                return " ".join(
+                    shlex.quote(cmd_arg) for cmd_arg in switch_cmd_args[:index]
+                )
         raise ProvisioningError(
             'The "control_switch_local_cmd" config must include a mux CLI '
             'command followed by "sdwire" or "typecmux" when "media" is '
