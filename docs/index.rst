@@ -29,91 +29,67 @@ also exploratory testing by human operators is desired.
 In this documentation
 ---------------------
 
-The documentation is grouped into two domains of concern that mirror how
-Testflinger is used: the **client side** (submitting and monitoring test jobs)
-and the **server side** (deploying and operating a Testflinger lab).
-
-Client side
+Get started
 ~~~~~~~~~~~
 
-For users who submit and monitor test jobs through the Testflinger CLI.
+Install the client, run your first job, and learn the core workflow.
 
-**Get started**
-   :doc:`Install the CLI </how-to/install-cli>` •
-   :doc:`Change the server </how-to/change-server>` •
-   :doc:`Get started with the CLI </tutorial/index>`
+* **First steps**: :doc:`Get started with Testflinger <tutorial/index>` • :doc:`Install the CLI <how-to/install-cli>` • :doc:`Change server <how-to/change-server>`
 
-**Work with jobs**
-   :doc:`Submit a job </how-to/submit-job>` •
-   :doc:`Retrieve logs </how-to/retrieve-logs>` •
-   :doc:`Check job status </how-to/search-job>` •
-   :doc:`Cancel a job </how-to/cancel-job>` •
-   :doc:`Reserve a machine </how-to/reserve-job>` •
-   :doc:`Set job priority </how-to/job-priority>`
+Submit and manage jobs
+~~~~~~~~~~~~~~~~~~~~~~~
 
-**Define jobs**
-   :doc:`Job schema </reference/job-schema>` •
-   :ref:`Test phases <provision>` •
-   :doc:`Device connector types </reference/device-connector-types>` •
-   :doc:`CLI configuration </reference/cli-config>`
+The day-to-day workflow for creating test jobs, submitting them, and collecting results.
 
-**Authenticate and protect secrets**
-   :doc:`Authenticate with the server </how-to/authentication>` •
-   :doc:`Use secrets </how-to/use-secrets>` •
-   :doc:`Manage client permissions </how-to/manage-client-permissions>` •
-   :ref:`Authentication and authorisation <authentication>`
+* **Set up access**: :doc:`Authenticate with the server <how-to/authentication>` •  ``Authenticate with OIDC`` - obtain and cache your credentials
+* **Run jobs**: :doc:`Submit <how-to/submit-job>` • :doc:`Cancel <how-to/cancel-job>` • :doc:`Search <how-to/search-job>` • :doc:`Retrieve results <how-to/retrieve-logs>` • :doc:`Use secrets <how-to/use-secrets>`
+* **Reserve and prioritize**: :doc:`Reserve a machine <how-to/reserve-job>` • :doc:`Set job priority <how-to/job-priority>` • :doc:`Queues <explanation/queues>` • :doc:`Restricted queues <explanation/restricted-queues>`
+* **Job definitions**: :doc:`Job schema <reference/job-schema>` • :doc:`Test phases <reference/test-phases>` • :doc:`CLI configuration <reference/cli-config>`
 
-Server side
-~~~~~~~~~~~
+Administer Testflinger server
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For operators who deploy and maintain a Testflinger server, agent hosts, and
-device connectors.
+For server administrators running the central Testflinger web service - a Kubernetes
+application deployed with Juju, backed by MongoDB.
 
-**Understand the system**
-   :ref:`Architecture <architecture>` •
-   :ref:`Agents <explain_agents>` •
-   :ref:`Queues <queues>` •
-   :ref:`Restricted queues <restricted-queues>` •
-   :ref:`Extended reservation <extended-reservation>`
+* **Deploy and maintain server**: :doc:`Deploy <how-to/administer-server/deploy-testflinger-server>` • :doc:`Maintain <how-to/administer-server/maintain-testflinger-server>` • :doc:`Configuration <reference/testflinger-server-conf>` • :doc:`Architecture <explanation/architecture>`
+* **Users and access**: :doc:`Create an admin user <how-to/create-admin-user>` • :doc:`Manage client permissions <how-to/manage-client-permissions>` •  ``Configure OIDC`` • :doc:`API roles <reference/api-roles>`
+* **REST API**: :doc:`API reference (OpenAPI) <reference/openapi>`
 
-**Deploy and maintain the server**
-   :ref:`Deploy the server <howto-deploy-server>` •
-   :ref:`Maintain the server <howto-maintain-server>` •
-   :doc:`Create an admin user </how-to/create-admin-user>`
+Administer agent hosts and devices
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Deploy and maintain agent hosts**
-   :doc:`Deploy an agent host </how-to/administer-agent-hosts/deploy-testflinger-agent-host>` •
-   :ref:`Maintain an agent host <howto-manage-agent-host>` •
-   :ref:`Manage agents <howto-manage-agent>` •
-   :doc:`List agents </how-to/list-agents>`
+For lab administrators running the machines that execute jobs - agent hosts deployed
+with Juju, each running agents connected to physical machines under test.
 
-**Configure components**
-   :doc:`Server configuration </reference/testflinger-server-conf>` •
-   :doc:`Agent configuration </reference/testflinger-agent-conf>` •
-   :doc:`Device connector configuration </reference/device-connector-conf>` •
-   :doc:`MAAS storage </reference/maas_storage>`
+* **Deploy and maintain agent hosts**: :doc:`Deploy an agent host <how-to/administer-agent-hosts/deploy-testflinger-agent-host>` • :doc:`Maintain an agent host <how-to/administer-agent-hosts/maintain-testflinger-agent-host>`
+* **Agents**: :doc:`Manage agents <how-to/administer-agent-hosts/manage-agents>` • :doc:`Agent configuration <reference/testflinger-agent-conf>` • :doc:`Agents explained <explanation/agents>`
+* **Device connectors**: :doc:`Connector types <reference/device-connector-types>` • :doc:`Connector configuration <reference/device-connector-conf>` • :doc:`MAAS storage <reference/maas_storage>`
 
-**Control access and secure the deployment**
-   :doc:`API roles </reference/api-roles>` •
-   :doc:`OpenAPI reference </reference/openapi>` •
-   :ref:`Security overview <security_overview>` •
-   :ref:`Secrets <secrets>`
+Security
+~~~~~~~~
+
+Understand how Testflinger protects credentials and data, and how to configure your deployment to meet your security requirements.
+
+* **Trust model**: :doc:`Security overview <explanation/security>` — isolation & confinement, cryptography, credential-exposure risks, disclosure policy
+* **Deep dives**: :doc:`How authentication works <explanation/authentication>` •  ``OIDC authentication`` • :doc:`Secrets concepts <explanation/secrets>` • :doc:`Secrets reference <reference/secrets>`
+
 
 ---------
 
 How this documentation is organised
 -----------------------------------
 
-This documentation follows the `Diátaxis <https://diataxis.fr/>`_ framework,
-which divides content by the reader's needs. The
-:doc:`Tutorial </tutorial/index>` takes you step-by-step through your first
-test job. The :doc:`How-to guides </how-to/index>` assume basic familiarity and
-cover key operations and common tasks. The
-:doc:`Reference </reference/index>` provides technical details on schemas,
-configuration, and APIs. The :doc:`Explanation </explanation/index>` offers
-background and discussion of key concepts. The *In this documentation* map
-above cuts across these tiers by domain of concern, so you can follow either
-your task (Diátaxis) or your component (client or server).
+This documentation uses the `Diátaxis documentation structure <https://diataxis.fr/>`_ .
+
+* :doc:`Tutorial <tutorial/index>` takes you step-by-step through submitting your
+  first job with Testflinger.
+* :doc:`How-to guides <how-to/index>` provide instructions for specific tasks
+  like submitting jobs, reserving machines, and administering a deployment.
+* :doc:`Reference <reference/index>` provides technical specifications: job
+  schemas, configuration files, and the REST API.
+* :doc:`Explanation <explanation/index>` provides conceptual context about
+  architecture, queues, security, and reservation.
 
 ---------
 
@@ -121,12 +97,12 @@ Project and community
 ---------------------
 
 Testflinger is a member of the Ubuntu family. It is an open source project that
-warmly welcomes community contributions, suggestions, fixes and
-constructive feedback.
+warmly welcomes community contributions, suggestions, fixes and constructive
+feedback.
 
 * This project follows the `Ubuntu Code of Conduct`_
 * This project is `hosted on GitHub <canonical/testflinger_>`_ - contributions are welcome
-* This project is governed by the Ubuntu `Security reporting and disclosure policy`_ 
+* This project is governed by the Ubuntu `Security reporting and disclosure policy`_
 * :ref:`Interested in using Testflinger for your project? Get in touch! <home>`
 
 
