@@ -33,6 +33,7 @@ from testflinger.owasp import OWASPLogger
 
 DEFAULT_REFRESH_TOKEN_EXPIRATION = 6 * 24 * 60 * 60  # 6 days in seconds
 DEFAULT_ACCESS_TOKEN_EXPIRATION = 60 * 10  # 10 minutes
+HASH_ROUNDS = 8
 
 # Fields from client_permissions to include in the Testflinger JWT
 PERMISSIONS_FIELDS = frozenset(
@@ -52,7 +53,9 @@ def hash_secret(secret: str):
 
     :param secret: Secret to be hashed with bcrypt library
     """
-    return bcrypt.hashpw(secret.encode("utf-8"), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(
+        secret.encode("utf-8"), bcrypt.gensalt(rounds=HASH_ROUNDS)
+    ).decode()
 
 
 def validate_client_key_pair(client_id: str, client_key: str) -> dict | None:
