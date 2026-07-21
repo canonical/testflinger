@@ -155,7 +155,7 @@ request was denied so the user may try again.
 No credentials or stored token
 ''''''''''''''''''''''''''''''
 
-If the server does not require authentication, the request is allowed through
+If a given endpoint does not require authentication, the request is allowed through
 as an anonymous user:
 
 .. mermaid::
