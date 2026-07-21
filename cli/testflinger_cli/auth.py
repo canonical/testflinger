@@ -18,11 +18,14 @@
 
 import base64
 import configparser
+import re
+import sys
 import time
 import urllib.parse
 import webbrowser
 from functools import cached_property, wraps
 from http import HTTPStatus
+from pathlib import Path
 from typing import Optional
 
 import jwt
@@ -56,9 +59,51 @@ class TestflingerCliAuth:
         self.secret_key = secret_key
 
         # Refresh token relevant configuration
-        config_home = xdg_config_home()
-        config_home.mkdir(parents=True, exist_ok=True)
-        self.auth_config = config_home / "testflinger-cli-auth.conf"
+        self.config_home = xdg_config_home() / "testflinger-cli"
+        self.config_home.mkdir(parents=True, exist_ok=True)
+
+    @cached_property
+    def auth_config(self):
+        """Return the path to the auth config file that is in use."""
+        print("Establishing cached value for auth_config based on:")
+        print(f"server_url: {self.server_url}")
+        print(f"client_id: {self.client_id}")
+
+        # Also support multiple server combinations, staging and production,
+        # as each will have different refresh tokens
+        auth_config = self.config_home / self._safe_fs_name(self.server_url)
+
+        # When the client is known, we must only use refresh tokens that are
+        # also for that client_id.
+        if self.client_id:
+            auth_config /= self._safe_fs_name(self.client_id)
+        # When the client_id isn't known, we will try to use the last refresh
+        # token for that server. In turn that will resolve the client_id.
+
+        # This means that we can only differentiate which token to use based
+        # on the server, when no client_id is known. This means that we must
+        # save the config file for the server (always) and for the specific
+        # client_id (also) when available.
+
+        auth_config /= ("auth.conf")
+        print(f"The resulting auth_config:\n{auth_config}", file=sys.stderr)
+        auth_config.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with auth_config.open("r") as f:
+                for line in f:
+                    print(line)
+            config_file = configparser.ConfigParser()
+            config_file.read(auth_config)
+            print(vars(config_file))
+        except:
+            pass
+
+        return auth_config
+
+    @staticmethod
+    def _safe_fs_name(name_in: str) -> str:
+        """Return a folder name that is reduced to valid characters."""
+        return re.sub(r"([^a-zA-Z0-9_]+)", "_", name_in)
 
     def get_url(self, endpoint: str) -> str:
         """Construct the full URL for a given endpoint.
@@ -89,6 +134,7 @@ class TestflingerCliAuth:
         # 1. Attempt to authenticate with credentials from args or envvars
         # Higher priority to honor users intent when credentials present
         if self.client_id and self.secret_key:
+            print("authenticate #1")
             return self._authenticate_with_credentials()
 
         # 2. Authenticate with refresh token if available
@@ -97,6 +143,7 @@ class TestflingerCliAuth:
         token_expired: InvalidTokenError | None = None
         if refresh_token:
             try:
+                print("authenticate #2")
                 return self._authenticate_with_refresh_token(refresh_token)
             except InvalidTokenError as exc:
                 token_expired = exc
@@ -105,6 +152,7 @@ class TestflingerCliAuth:
         # This should fail gracefully if OIDC is not enabled on the server
         access_token = self._authenticate_with_oidc()
         if not access_token and token_expired:
+            print("authenticate #3")
             # If neither authentication method worked and refresh token invalid
             # raise the InvalidTokenError to force reauthentication
             raise token_expired
@@ -133,7 +181,8 @@ class TestflingerCliAuth:
             return None
         except requests.exceptions.Timeout as exc:
             raise NetworkError(
-                "Connection timed out while authenticating with credentials."
+                "Connection to testflinger server timed out while "
+                "authenticating with basic client_id+secret_key credentials."
             ) from exc
 
         # Store refresh token for persistent login
@@ -192,8 +241,10 @@ class TestflingerCliAuth:
         """
         config_file = configparser.ConfigParser()
         try:
+            print("get_stored_refresh_token")
             config_file.read(self.auth_config)
         except FileNotFoundError:
+            print(f"no stored refresh token in {self.auth_config}")
             return None
 
         # Set client_id from config file to keep token owner
@@ -205,17 +256,32 @@ class TestflingerCliAuth:
 
         :param refresh_token: refresh token to store in SNAP_USER_DATA
         """
-        config_file = configparser.ConfigParser()
-        config_file["AUTH"] = {
-            "client_id": self.client_id,
-            "refresh_token": refresh_token,
-        }
-        try:
-            with self.auth_config.open("w") as file:
-                config_file.write(file)
-        except (OSError, PermissionError):
-            # Ignore write errors as this might run as non snap
-            pass
+        if self.client_id and refresh_token:
+            config_file = configparser.ConfigParser()
+            config_file["AUTH"] = {
+                "client_id": self.client_id,
+                "refresh_token": refresh_token,
+            }
+            try:
+                orig = self.auth_config
+                print("store_refresh_token to ...")
+                print(f"{self.auth_config}")
+                with self.auth_config.open("w") as file:
+                    config_file.write(file)
+
+                # Note: if client_id wasn't part of that file path, we should
+                # write another client-id-pathed refresh file
+                del self.auth_config
+                if self.auth_config != orig:
+                    print("Also store_refresh_token based on client_id too!")
+                    print(f"{self.auth_config}")
+                    with self.auth_config.open("w") as file:
+                        config_file.write(file)
+            except (OSError, PermissionError):
+                # Ignore write errors as this might run as non snap
+                print ("why are we ignoring write errors?")
+                pass
+
 
     def clear_refresh_token(self):
         """Cleanup refresh_token if already expired or revoked."""
@@ -307,7 +373,8 @@ class TestflingerCliAuth:
 
         print(
             f"Please visit {verification_uri} and enter code "
-            f"{user_code} to login."
+            f"{user_code} to login.",
+            file=sys.stderr
         )
 
         # Attempt to launch the browser for the user to login
