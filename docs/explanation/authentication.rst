@@ -12,8 +12,7 @@ OIDC is *not* enabled, Testflinger supports anonymous logins. However, when OIDC
 each request must be authenticated. Both operating modes support use of self-signed tokens
 for authentication, and these are what are used in typical CI/CD flows.
 
-Since Basic Auth can be used in both configurations, it is prioritized first, when
-Basic Auth is used it will be handled within the server before other authentication methods.
+Since Basic Auth can be used in both configurations, it is prioritized and will be handled within the server before other authentication methods.
 
 Authentication Flows
 --------------------
@@ -51,8 +50,8 @@ Regardless of whether OIDC is enabled or not, Basic Auth will be used if both th
 ``client_id`` and ``secret_key`` are provided.
 
 .. mermaid::
-    :alt: Sequence diagram showing BASIC Auth is used when client_id and secret_key are provided
-    :caption: Sequence diagram showing BASIC Auth is used when client_id and secret_key are provided
+    :alt: Sequence diagram showing Basic Auth is used when client_id and secret_key are provided
+    :caption: Sequence diagram showing Basic Auth is used when client_id and secret_key are provided
     :align: center
 
     sequenceDiagram
@@ -129,8 +128,7 @@ OIDC is enabled on the server:
 Token expired or rejected
 .........................
 
-If the server does not have OIDC enabled and the refresh token is rejected,
-the server returns a 401 and the CLI removes the stored token. If the CLI does not
+The server returns a 401 and the CLI removes the stored token. If the CLI does not
 automatically retry the operation anonymously it will signal to the user that the
 request was denied so the user may try again.
 
@@ -182,7 +180,6 @@ as an anonymous user:
 OIDC Enabled
 ~~~~~~~~~~~~
 
-When Testflinger is configured to use OpenID Connect (OIDC) for authentication, the order is:
 When Testflinger is configured to use OpenID Connect (OIDC) for authentication, the order is:
 
 1. Basic Auth using ``client_id`` and ``secret_key``
