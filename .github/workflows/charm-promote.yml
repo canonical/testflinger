@@ -63,3 +63,4 @@ jobs:
           destination-channel: ${{ inputs.destination-channel }}
           origin-channel: ${{ inputs.origin-channel }}
           charm-path: ${{ inputs.charm-path }}
+          charmcraft-channel: latest/stable
