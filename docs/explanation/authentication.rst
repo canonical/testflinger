@@ -9,8 +9,7 @@ Authentication
 Testflinger can be configured to use OpenID Connect (OIDC) for authentication. The way that
 authorization working in the Testflinger server depends on whether OIDC is enabled or not. When
 OIDC is *not* enabled, Testflinger supports anonymous logins. However, when OIDC is enabled
-each request must be authenticated. Both operating modes support use of self-signed tokens
-for authentication, and these are what are used in typical CI/CD flows.
+each request must be authenticated.  Both operating modes support use of basic auth accounts for authentication which are suitable for use with CI/CD flows.
 
 Since Basic Auth can be used in both configurations, it is prioritized and will be handled within the server before other authentication methods.
 
