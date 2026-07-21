@@ -476,6 +476,8 @@ class Maas2:
             # to make sure that the correct ip address is being used, as this
             # has been a common problem with the MAAS setup.
             txt_log = self.get_deployment_information()
+            if txt_log is None:
+                return False
             if self.config["device_ip"] not in txt_log:
                 # The MAAS installation does not show the expected IP, it is
                 # likely that this installation will not work. Bail out now.
@@ -486,7 +488,7 @@ class Maas2:
                 )
                 self._logger_info(txt_log)
                 exception_msg = (
-                    "Provisioning failed because of bad device configuration."
+                    "Provisioning failed because of bad device configuration. "
                     + "Deploying for more than "
                     + "{} minutes.".format(self.timeout_min)
                 )
@@ -608,6 +610,11 @@ class Maas2:
 
         proc = self.run_maas_cmd_with_retry(cmd)
         json_out = json.loads(proc.stdout.decode())
+        if not isinstance(json_out, list) or not json_out:
+            return None
+        json_out = [x for x in json_out if isinstance(x, dict)]
+        if not json_out:
+            return None
 
         # MAAS team suggested sorting by id and taking the largest
         json_out = sorted(json_out, key=lambda x: x.get("id", 0))
@@ -637,7 +644,7 @@ class Maas2:
                 "node-script-results",
                 "download",
                 self.node_id,
-                installation_id,
+                str(installation_id),
             ]
         else:
             return None
