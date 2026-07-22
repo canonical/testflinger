@@ -342,6 +342,7 @@ def test_get_maas_version_returns_none_on_provisioning_error(
 
 @patch("time.sleep")
 @patch.object(Maas2, "check_test_image_booted", return_value=True)
+@patch.object(Maas2, "node_addresses", return_value=["10.10.10.10"])
 @patch.object(Maas2, "node_status", return_value="Deployed")
 @patch.object(Maas2, "get_current_installation_id", return_value=None)
 @patch.object(Maas2, "run_maas_cmd_with_retry")
@@ -355,6 +356,7 @@ def test_get_maas_version_called_on_ephemeral(
     mock_run_cmd,
     mock_installation_id,
     mock_node_status,
+    mock_node_addresses,
     mock_check_booted,
     mock_sleep,
     mock_config_file,
@@ -371,6 +373,7 @@ def test_get_maas_version_called_on_ephemeral(
 
 @patch("time.sleep")
 @patch.object(Maas2, "check_test_image_booted", return_value=True)
+@patch.object(Maas2, "node_addresses", return_value=["10.10.10.10"])
 @patch.object(Maas2, "node_status", return_value="Deployed")
 @patch.object(Maas2, "get_current_installation_id", return_value=None)
 @patch.object(Maas2, "run_maas_cmd_with_retry")
@@ -384,6 +387,7 @@ def test_ephemeral_deploy_skipped_on_old_maas_version(
     mock_run_cmd,
     mock_installation_id,
     mock_node_status,
+    mock_node_addresses,
     mock_check_booted,
     mock_sleep,
     mock_config_file,
@@ -402,6 +406,7 @@ def test_ephemeral_deploy_skipped_on_old_maas_version(
 
 @patch("time.sleep")
 @patch.object(Maas2, "check_test_image_booted", return_value=True)
+@patch.object(Maas2, "node_addresses", return_value=["10.10.10.10"])
 @patch.object(Maas2, "node_status", return_value="Deployed")
 @patch.object(Maas2, "get_current_installation_id", return_value=None)
 @patch.object(Maas2, "run_maas_cmd_with_retry")
@@ -415,6 +420,7 @@ def test_non_ephemeral_deploy(
     mock_run_cmd,
     mock_installation_id,
     mock_node_status,
+    mock_node_addresses,
     mock_check_booted,
     mock_sleep,
     mock_config_file,
@@ -600,31 +606,50 @@ def test_check_test_image_booted_returns_false_when_no_log(
         assert maas2.check_test_image_booted() is False
 
 
-@patch.object(Maas2, "get_deployment_information")
-def test_check_test_image_booted_raises_when_ip_missing_from_log(
-    mock_get_info, mock_config_file, mock_config, caplog
+@patch("time.sleep")
+@patch.object(Maas2, "check_test_image_booted", return_value=True)
+@patch.object(Maas2, "node_addresses", return_value=["192.168.1.1"])
+@patch.object(Maas2, "node_status", return_value="Deployed")
+@patch.object(Maas2, "get_current_installation_id", return_value=None)
+@patch.object(Maas2, "get_deployment_information", return_value=None)
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+@patch.object(Maas2, "set_flat_storage_layout")
+@patch.object(Maas2, "recover")
+@patch.object(Maas2, "get_maas_version", return_value=(3, 5, 0))
+def test_deploy_node_raises_when_ip_missing_from_addresses(
+    mock_get_version,
+    mock_recover,
+    mock_flat_storage,
+    mock_run_cmd,
+    mock_get_info,
+    mock_installation_id,
+    mock_node_status,
+    mock_node_addresses,
+    mock_check_booted,
+    mock_sleep,
+    mock_config_file,
+    mock_config,
+    caplog,
 ):
-    """Test check_test_image_booted raises ProvisioningError when the
-    expected device ip is not found in the installation log.
+    """Test deploy_node raises ProvisioningError when the expected device IP
+    is not present in the addresses returned by MAAS after deployment.
     """
     job_json = mock_config_file.parent / "job.json"
     job_json.write_text(json.dumps({}))
 
     maas2 = Maas2(config=mock_config_file, job_data=job_json)
-    mock_get_info.return_value = "some log without the expected ip"
 
     with (
-        patch("subprocess.run", side_effect=subprocess.SubprocessError),
         pytest.raises(ProvisioningError),
         caplog.at_level(
             logging.ERROR,
             logger="testflinger_device_connectors.devices.maas2.maas2",
         ),
     ):
-        maas2.check_test_image_booted()
+        maas2.deploy_node()
 
     assert mock_config["device_ip"] in caplog.text or (
-        "not found in " in caplog.text
+        "Wrong IP" in caplog.text
     )
 
 

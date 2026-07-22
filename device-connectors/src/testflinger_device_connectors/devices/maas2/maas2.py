@@ -297,14 +297,6 @@ class Maas2:
             # since this will be all the information that we know, we should
             # track and share the history of failed attempts rather than only
             # the last.
-            # The back-off timing was also drastically reduced from 60 seconds
-            # with 5 retries (total 31 minutes per maas command) to 10 seconds
-            # with 5 retries (total just over 5 minutes per command)
-            # The goal is to fail fast if we cannot make any head-way.
-            # Further improvements could be:
-            #  - compare the recurring maas responses to the same command to
-            #    determine if there is any change. If there is no change then
-            #    perhaps even the default of 5 retries is still too much.
             errors.append(proc.stdout.decode())
             if retry_count > max_retries:
                 self._logger_error(
@@ -383,12 +375,10 @@ class Maas2:
             "allocate",
             "system_id={}".format(self.node_id),
         ]
-        # Do not use runcmd for this - we need the output, not the end user
-        proc = self.run_maas_cmd_with_retry(cmd)
+        self.run_maas_cmd_with_retry(cmd)
 
-        # Before starting, collect some important diagnostic information that
-        # might be useful later. Specifically, identify what the
-        # current-installation log id is so that we know when we get a new one
+        # Gather the maas installation id before we start so that we know when
+        # we get a new one
         self.starting_installation_id = self.get_current_installation_id()
 
         self._logger_info(
@@ -443,6 +433,17 @@ class Maas2:
                 raise ProvisioningError(exception_msg)
 
             if status == "Deployed":
+                addresses = self.node_addresses()
+                if self.config["device_ip"] not in addresses:
+                    self._logger_error("MAAS reports Wrong IP Address")
+                    self._logger_info(self.get_deployment_information())
+                    exception_msg = (
+                        "Provisioning failed because of bad device "
+                        + "configuration. Expected device ip {} not any of"
+                        + " {}"
+                    ).format(self.config["device_ip"], addresses)
+                    raise ProvisioningError(exception_msg)
+
                 if self.check_test_image_booted():
                     self._logger_info("Deployed and booted.")
                     return
@@ -486,31 +487,17 @@ class Maas2:
                 cmd, stderr=subprocess.STDOUT, timeout=60, check=True
             )
         except subprocess.SubprocessError:
-            # Since ssh wasn't working (yet) let's check the installation log
-            # to make sure that the correct ip address is being used, as this
-            # has been a common problem with the MAAS setup.
-            txt_log = self.get_deployment_information()
-            if txt_log is None:
-                return False
-            if self.config["device_ip"] not in txt_log:
-                # The MAAS installation does not show the expected IP, it is
-                # likely that this installation will not work. Bail out now.
-                self._logger_error(
-                    "Expected device ip {} was not found in "
-                    "installation logs, device is not properly "
-                    "configured.".format(self.config["device_ip"])
-                )
-                self._logger_info(txt_log)
-                exception_msg = (
-                    "Provisioning failed because of bad device configuration. "
-                    + "Deploying for more than "
-                    + "{} minutes.".format(self.timeout_min)
-                )
-                raise ProvisioningError(exception_msg) from None
-
             return False
         # If we get here, then the above command proved we are booted
         return True
+
+    def node_addresses(self) -> str | None:
+        """Return IP addresses for node according to maas."""
+        cmd = ["maas", self.maas_user, "machine", "read", self.node_id]
+        # Do not use runcmd for this - we need the output, not the end user
+        proc = self.run_maas_cmd_with_retry(cmd)
+        data = json.loads(proc.stdout.decode())
+        return data.get("ip_addresses")
 
     def node_status(self) -> str | None:
         """Return status of the node according to maas.
@@ -624,15 +611,18 @@ class Maas2:
 
         proc = self.run_maas_cmd_with_retry(cmd)
         json_out = json.loads(proc.stdout.decode())
+
+        # If the output we got wasn't a list of dictionaries, throw it out,
+        # we are only expecting a list of dictionaries be returned by the
+        # maas `node-script-results`
         if not isinstance(json_out, list) or not json_out:
             return None
-        json_out = [x for x in json_out if isinstance(x, dict)]
+        json_out = [_ for _ in json_out if isinstance(_, dict)]
         if not json_out:
             return None
 
         # MAAS team suggested sorting by id and taking the largest
         json_out = sorted(json_out, key=lambda x: x.get("id", 0))
-
         try:
             return int(json_out[-1]["id"])
         except (AttributeError, IndexError, ValueError):

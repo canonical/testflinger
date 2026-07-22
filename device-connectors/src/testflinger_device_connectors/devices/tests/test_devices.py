@@ -130,11 +130,20 @@ class DefaultDeviceTests(unittest.TestCase):
 
     def test_write_device_info(self):
         """Validate device-info file can be read upon class initialization."""
-        fake_config = {"device_ip": "10.10.10.10", "agent_name": "fake_agent"}
-        DefaultDevice(fake_config)
+        import os
+        import tempfile
 
-        with open("device-info.json") as devinfo_file:
-            device_info = json.load(devinfo_file)["device_info"]
+        fake_config = {"device_ip": "10.10.10.10", "agent_name": "fake_agent"}
+        with tempfile.TemporaryDirectory() as tmpdir:
+            orig_dir = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                DefaultDevice(fake_config)
+
+                with open("device-info.json") as devinfo_file:
+                    device_info = json.load(devinfo_file)["device_info"]
+            finally:
+                os.chdir(orig_dir)
 
         # Compare retrieved data with expected data
         assert all(
