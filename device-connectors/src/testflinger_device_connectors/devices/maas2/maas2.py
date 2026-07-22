@@ -482,9 +482,9 @@ class Maas2:
                 # The MAAS installation does not show the expected IP, it is
                 # likely that this installation will not work. Bail out now.
                 self._logger_error(
-                    "Expected device ip %s was not found in "
-                    + "installation logs, device is not properly configured.",
-                    self.config["device_ip"],
+                    "Expected device ip {} was not found in "
+                    "installation logs, device is not properly "
+                    "configured.".format(self.config["device_ip"])
                 )
                 self._logger_info(txt_log)
                 exception_msg = (

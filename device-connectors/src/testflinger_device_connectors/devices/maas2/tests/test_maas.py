@@ -429,3 +429,236 @@ def test_non_ephemeral_deploy(
     # run_maas_cmd_with_retry is called twice: allocate (0) and deploy (1)
     deploy_cmd = mock_run_cmd.call_args_list[1][0][0]
     assert "ephemeral_deploy=true" not in deploy_cmd
+
+
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_get_current_installation_id_returns_latest(
+    mock_run_cmd, mock_config_file
+):
+    """Test get_current_installation_id returns id of latest result."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    mock_run_cmd.return_value = subprocess.CompletedProcess(
+        args=["maas"],
+        returncode=0,
+        stdout=json.dumps([{"id": 3}, {"id": 10}, {"id": 7}]).encode(),
+    )
+
+    assert maas2.get_current_installation_id() == 10
+    mock_run_cmd.assert_called_once_with(
+        [
+            "maas",
+            maas2.maas_user,
+            "node-script-results",
+            "read",
+            maas2.node_id,
+            "type=installation",
+        ]
+    )
+
+
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_get_current_installation_id_returns_none_on_empty_list(
+    mock_run_cmd, mock_config_file
+):
+    """Test get_current_installation_id returns None when list is empty."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    mock_run_cmd.return_value = subprocess.CompletedProcess(
+        args=["maas"],
+        returncode=0,
+        stdout=json.dumps([]).encode(),
+    )
+
+    assert maas2.get_current_installation_id() is None
+
+
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_get_current_installation_id_returns_none_on_non_list(
+    mock_run_cmd, mock_config_file
+):
+    """Test get_current_installation_id returns None on unexpected output."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    mock_run_cmd.return_value = subprocess.CompletedProcess(
+        args=["maas"],
+        returncode=0,
+        stdout=json.dumps({"error": "not found"}).encode(),
+    )
+
+    assert maas2.get_current_installation_id() is None
+
+
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_get_current_installation_id_ignores_non_dict_entries(
+    mock_run_cmd, mock_config_file
+):
+    """Test get_current_installation_id filters out non-dict entries."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    mock_run_cmd.return_value = subprocess.CompletedProcess(
+        args=["maas"],
+        returncode=0,
+        stdout=json.dumps(["oops", {"id": 5}]).encode(),
+    )
+
+    assert maas2.get_current_installation_id() == 5
+
+
+@patch.object(Maas2, "get_current_installation_id")
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_get_deployment_information_returns_none_when_no_new_install(
+    mock_run_cmd, mock_get_id, mock_config_file
+):
+    """Test get_deployment_information returns None when id unchanged."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    maas2.starting_installation_id = 5
+    mock_get_id.return_value = 5
+
+    assert maas2.get_deployment_information() is None
+    mock_run_cmd.assert_not_called()
+
+
+@patch.object(Maas2, "get_current_installation_id")
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_get_deployment_information_downloads_log_on_new_install(
+    mock_run_cmd, mock_get_id, mock_config_file
+):
+    """Test get_deployment_information downloads log when id differs."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    maas2.starting_installation_id = 5
+    mock_get_id.return_value = 10
+
+    mock_run_cmd.return_value = subprocess.CompletedProcess(
+        args=["maas"],
+        returncode=0,
+        stdout=b"log contents",
+    )
+
+    result = maas2.get_deployment_information()
+    assert result == "log contents"
+    mock_run_cmd.assert_called_once_with(
+        [
+            "maas",
+            maas2.maas_user,
+            "node-script-results",
+            "download",
+            maas2.node_id,
+            "10",
+        ]
+    )
+
+
+@patch.object(Maas2, "get_current_installation_id")
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_get_deployment_information_returns_none_when_id_not_int(
+    mock_run_cmd, mock_get_id, mock_config_file
+):
+    """Test get_deployment_information returns None if new id is not int."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    maas2.starting_installation_id = 5
+    mock_get_id.return_value = None
+
+    assert maas2.get_deployment_information() is None
+    mock_run_cmd.assert_not_called()
+
+
+@patch.object(Maas2, "get_deployment_information", return_value=None)
+def test_check_test_image_booted_returns_false_when_no_log(
+    mock_get_info, mock_config_file
+):
+    """Test check_test_image_booted returns False when no deployment
+    information is available (no new installation detected).
+    """
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    with patch("subprocess.run", side_effect=subprocess.SubprocessError):
+        assert maas2.check_test_image_booted() is False
+
+
+@patch.object(Maas2, "get_deployment_information")
+def test_check_test_image_booted_raises_when_ip_missing_from_log(
+    mock_get_info, mock_config_file, mock_config, caplog
+):
+    """Test check_test_image_booted raises ProvisioningError when the
+    expected device ip is not found in the installation log.
+    """
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    mock_get_info.return_value = "some log without the expected ip"
+
+    with (
+        patch("subprocess.run", side_effect=subprocess.SubprocessError),
+        pytest.raises(ProvisioningError),
+        caplog.at_level(
+            logging.ERROR,
+            logger="testflinger_device_connectors.devices.maas2.maas2",
+        ),
+    ):
+        maas2.check_test_image_booted()
+
+    assert mock_config["device_ip"] in caplog.text or (
+        "not found in " in caplog.text
+    )
+
+
+@patch.object(Maas2, "get_deployment_information")
+def test_check_test_image_booted_returns_false_when_ip_present(
+    mock_get_info, mock_config_file, mock_config
+):
+    """Test check_test_image_booted returns False (not raises) when the
+    expected device ip is found in the installation log, since ssh may
+    just not be ready yet.
+    """
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    mock_get_info.return_value = (
+        f"log containing {mock_config['device_ip']} as expected"
+    )
+
+    with patch("subprocess.run", side_effect=subprocess.SubprocessError):
+        assert maas2.check_test_image_booted() is False
+
+
+def test_check_test_image_booted_returns_true_on_ssh_success(
+    mock_config_file,
+):
+    """Test check_test_image_booted returns True when ssh succeeds."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0
+        )
+        assert maas2.check_test_image_booted() is True
