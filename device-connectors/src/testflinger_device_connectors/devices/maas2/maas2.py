@@ -268,7 +268,7 @@ class Maas2:
         return False
 
     def run_maas_cmd_with_retry(
-        self, cmd: list[str], max_retries: int = 5, backoff_start: int = 60
+        self, cmd: list[str], max_retries: int = 5, backoff_start: int = 10
     ) -> subprocess.CompletedProcess:
         """Run maas command with retries on failure.
 
@@ -282,6 +282,7 @@ class Maas2:
         :return: Process handle for completed process
         """
         retry_count = 0
+        errors = []
         while True:
             proc = subprocess.run(
                 cmd,
@@ -292,19 +293,32 @@ class Maas2:
             if proc.returncode == 0:
                 return proc
 
+            # Each time we error, we may or may not get a different error,
+            # since this will be all the information that we know, we should
+            # track and share the history of failed attempts rather than only
+            # the last.
+            # The back-off timing was also drastically reduced from 60 seconds
+            # with 5 retries (total 31 minutes per maas command) to 10 seconds
+            # with 5 retries (total just over 5 minutes per command)
+            # The goal is to fail fast if we cannot make any head-way.
+            # Further improvements could be:
+            #  - compare the recurring maas responses to the same command to
+            #    determine if there is any change. If there is no change then
+            #    perhaps even the default of 5 retries is still too much.
+            errors.append(proc.stdout.decode())
             if retry_count > max_retries:
                 self._logger_error(
                     (
-                        f"maas error running: {' '.join(cmd)}"
+                        f"maas error running: {' '.join(cmd)}; "
                         "maximum retries reached"
                     )
                 )
-                raise ProvisioningError(proc.stdout.decode())
+                raise ProvisioningError(f"{errors}")
 
             timeout = backoff_start * 2**retry_count
             self._logger_warning(
                 (
-                    f"maas error running: {' '.join(cmd)}"
+                    f"maas error running: {' '.join(cmd)}; "
                     f"trying again in {timeout} seconds"
                 )
             )
