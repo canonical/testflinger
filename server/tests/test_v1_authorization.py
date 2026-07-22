@@ -28,6 +28,7 @@ import jwt
 import pytest
 from testflinger_common.enums import ServerRoles
 
+from testflinger.api.auth import HASH_ROUNDS
 from testflinger.api.v1 import TESTFLINGER_ADMIN_ID
 from tests.utilities import (
     get_access_token,
@@ -729,6 +730,10 @@ def test_add_client_permissions(mongo_app_with_permissions, caplog):
     assert "client_secret" not in client_entry
     assert "client_secret_hash" in client_entry
     assert client_entry["client_secret_hash"] != clear_password
+
+    # Verify hash uses the expected cost factor
+    cost = int(client_entry["client_secret_hash"].split("$")[2])
+    assert cost == HASH_ROUNDS
 
     # Verify OWASP user_created event is logged
     assert f"user_created:{admin_client_id}" in caplog.text
