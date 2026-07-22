@@ -683,6 +683,67 @@ class TestControlHostConnectorRun:
         ):
             assert actual == mocker.call(expected)
 
+    def test_run_resumes_from_last_event_id_on_reconnect(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that on reconnect the client sends the last seen SSE event
+        id via the Last-Event-ID header, so a resume-aware server can skip
+        already-delivered entries.
+        """
+        mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
+        mock_get = mocker.patch("requests.get")
+
+        # First stream: event id 1 carries "step 1".
+        sse_1 = self._make_sse(
+            [
+                "id: 1",
+                'data: {"level": "INFO", "message": "step 1"}',
+            ]
+        )
+        status_running = Mock()
+        status_running.raise_for_status = Mock()
+        status_running.json.return_value = {"status": "running"}
+
+        # Second stream: a resume-aware server skips id 1 and sends id 2.
+        sse_2 = self._make_sse(
+            [
+                "id: 2",
+                'data: {"level": "INFO", "message": "step 2"}',
+            ]
+        )
+        status_completed = Mock()
+        status_completed.raise_for_status = Mock()
+        status_completed.json.return_value = {"status": "completed"}
+
+        mock_get.side_effect = [
+            sse_1,
+            status_running,
+            sse_2,
+            status_completed,
+        ]
+
+        with caplog.at_level(logging.DEBUG):
+            connector._run()
+
+        # The id: field is a normal SSE field, not an unexpected line.
+        assert "Unexpected SSE line" not in caplog.text
+
+        # First connect: no resume cursor yet. Reconnect: carries the id.
+        sse_calls = [
+            c for c in mock_get.call_args_list if c[0][0].endswith("/logs")
+        ]
+        assert len(sse_calls) == 2
+        assert sse_calls[0][1].get("headers") is None
+        assert sse_calls[1][1]["headers"]["Last-Event-ID"] == "1"
+
+        # "step 1" is logged exactly once: the resume-aware server did not
+        # replay it on reconnect, so it is not re-logged.
+        assert "step 1" in caplog.text
+        assert caplog.text.count("step 1") == 1
+        assert "step 2" in caplog.text
+
     def test_run_raises_on_failed_status(self, mocker, connector, mock_post):
         """Test that _run raises ProvisioningError on non-completed status."""
         mock_get = mocker.patch("requests.get")

@@ -200,14 +200,22 @@ class ControlHostConnector(ABC, DefaultDevice):
         # stream that made progress (emitted >= 1 log entry); double (up
         # to the cap) on consecutive reconnects that produced no new lines.
         reconnect_delay = self.SSE_RECONNECT_DELAY
+        # Resume cursor: the last SSE event id seen, sent back as the
+        # Last-Event-ID header on reconnect so a resume-aware server can
+        # skip entries the client has already received.
+        last_id: Optional[str] = None
         while True:
+            headers = (
+                {"Last-Event-ID": last_id} if last_id is not None else None
+            )
             sse = self._api_get(
                 f"/api/v1/provision/{job_id}/logs",
                 stream=True,
                 timeout=timeout,
+                headers=headers,
             )
             with sse:
-                emitted = self._stream_sse_logs(sse)
+                emitted, last_id = self._stream_sse_logs(sse)
 
             # Check job status after the SSE stream ends
             status = self._api_get(f"/api/v1/provision/{job_id}").json()
@@ -239,23 +247,35 @@ class ControlHostConnector(ABC, DefaultDevice):
             break
 
     @staticmethod
-    def _stream_sse_logs(response: requests.Response) -> int:
+    def _stream_sse_logs(
+        response: requests.Response,
+    ) -> Tuple[int, Optional[str]]:
         """Parse and log Server-Sent Events from a streaming response.
 
-        The SSE protocol sends newline-delimited lines in the format:
-            data: {"level": "INFO", "message": "..."}
-        Empty lines act as event separators and are skipped.
-        Lines not starting with "data: " (e.g. "event:", "retry:")
-        are non-standard for this endpoint and logged as warnings.
+        Recognised SSE fields:
+            data: {"level": "INFO", "message": "..."}  -- log entry payload
+            id: <event-id>                              -- resume cursor
 
-        :returns: Number of log entries successfully emitted. The caller
-            uses this to track whether the stream made progress and to
-            drive reconnect backoff.
+        Empty lines act as event separators and are skipped. Other fields
+        (e.g. "event:", "retry:") are non-standard for this endpoint and
+        logged as warnings.
+
+        :returns: A ``(emitted, last_id)`` tuple where *emitted* is the
+            number of log entries successfully emitted and *last_id* is the
+            most recently seen ``id:`` value (or None when the stream
+            carried no ids). The caller sends *last_id* back as the
+            Last-Event-ID header on reconnect so a resume-aware server can
+            skip entries the client has already received.
         """
         sse_data_prefix = "data: "
+        sse_id_prefix = "id: "
         emitted = 0
+        last_id: Optional[str] = None
         for line in response.iter_lines(decode_unicode=True):
             if not line:
+                continue
+            if line.startswith(sse_id_prefix):
+                last_id = line[len(sse_id_prefix) :].strip()
                 continue
             if not line.startswith(sse_data_prefix):
                 logger.warning("Unexpected SSE line: %s", line)
@@ -277,7 +297,7 @@ class ControlHostConnector(ABC, DefaultDevice):
                 log_level, "[control-host] %s", entry.get("message", line)
             )
             emitted += 1
-        return emitted
+        return emitted, last_id
 
     def _copy_ssh_id(self):
         """Copy the ssh id to the device."""
