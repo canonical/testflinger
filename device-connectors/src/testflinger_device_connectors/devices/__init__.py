@@ -55,8 +55,6 @@ DEVICE_CONNECTORS = (
     "oemscript",
     "control_host_iot",
     "control_host_kvm",
-    "zapper_iot",
-    "zapper_kvm",
 )
 
 
@@ -726,7 +724,7 @@ class DefaultDevice:
             logger.debug("No control host configured for this agent.")
             return
 
-        self._setup_control_host(control_host, "testing")
+        self._setup_control_host(control_host, "test")
 
     def _setup_control_host(
         self, control_host: str, phase: str, data: Optional[dict] = None

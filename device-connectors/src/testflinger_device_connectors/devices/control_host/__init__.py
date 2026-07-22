@@ -111,9 +111,7 @@ class ControlHostConnector(ABC, DefaultDevice):
         logger.info("Provisioning device")
         provision_data = self.job_data["provision_data"]
         self.READ_TIMEOUT = (
-            provision_data.get("provisioning_timeout")
-            or provision_data.get("zapper_provisioning_timeout")
-            or self.READ_TIMEOUT
+            provision_data.get("provisioning_timeout") or self.READ_TIMEOUT
         )
 
         (api_args, api_kwargs) = self._validate_configuration()

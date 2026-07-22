@@ -88,6 +88,7 @@ jobs:
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           channel: ${{ github.event_name == 'push' && 'latest/beta' || github.event.inputs.channel }}
+          charmcraft-channel: latest/stable
 
   scan:
     needs: build-and-push-charm
