@@ -242,8 +242,8 @@ class ControlHostConnector(ABC, DefaultDevice):
                 )
             break
 
-    @staticmethod
     def _stream_sse_logs(
+        self,
         response: requests.Response,
     ) -> Tuple[int, bool, Optional[str]]:
         """Parse and log Server-Sent Events from a streaming response.
@@ -267,30 +267,11 @@ class ControlHostConnector(ABC, DefaultDevice):
 
         for line in response.iter_lines(decode_unicode=True):
             if line == "":
-                if data_lines:
-                    payload = "\n".join(data_lines)
-                    try:
-                        entry = json.loads(payload)
-                    except json.JSONDecodeError:
-                        logger.warning("Malformed SSE data: %s", payload)
-                    else:
-                        level_name = entry.get("level", "").upper()
-                        log_level = getattr(logging, level_name, None)
-                        if log_level is None:
-                            logger.warning(
-                                "Unknown log level '%s', defaulting to INFO",
-                                entry.get("level", ""),
-                            )
-                            log_level = logging.INFO
-                        logger.log(
-                            log_level,
-                            "[control-host] %s",
-                            entry.get("message", payload),
-                        )
-                        emitted += 1
-                        if event_has_id:
-                            last_id = event_id
-                            cursor_updated = True
+                if data_lines and self._log_sse_payload("\n".join(data_lines)):
+                    emitted += 1
+                    if event_has_id:
+                        last_id = event_id
+                        cursor_updated = True
 
                 event_id = None
                 event_has_id = False
@@ -313,6 +294,28 @@ class ControlHostConnector(ABC, DefaultDevice):
                 data_lines.append(value)
 
         return emitted, cursor_updated, last_id
+
+    @staticmethod
+    def _log_sse_payload(payload: str) -> bool:
+        """Log one JSON SSE payload and report whether it was handled."""
+        try:
+            entry = json.loads(payload)
+        except json.JSONDecodeError:
+            logger.warning("Malformed SSE data: %s", payload)
+            return False
+
+        level_name = entry.get("level", "").upper()
+        log_level = getattr(logging, level_name, None)
+        if log_level is None:
+            logger.warning(
+                "Unknown log level '%s', defaulting to INFO",
+                entry.get("level", ""),
+            )
+            log_level = logging.INFO
+        logger.log(
+            log_level, "[control-host] %s", entry.get("message", payload)
+        )
+        return True
 
     def _copy_ssh_id(self):
         """Copy the ssh id to the device."""
