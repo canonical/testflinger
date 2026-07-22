@@ -196,13 +196,7 @@ class ControlHostConnector(ABC, DefaultDevice):
         job_id = job["job_id"]
 
         timeout = (self.CONNECTION_TIMEOUT, self.READ_TIMEOUT)
-        # Backoff state for SSE reconnects. Reset to the base delay after a
-        # stream that made progress (emitted >= 1 log entry); double (up
-        # to the cap) on consecutive reconnects that produced no new lines.
         reconnect_delay = self.SSE_RECONNECT_DELAY
-        # Resume cursor: the last SSE event id seen, sent back as the
-        # Last-Event-ID header on reconnect so a resume-aware server can
-        # skip entries the client has already received.
         last_id: Optional[str] = None
         while True:
             headers = (
@@ -217,7 +211,6 @@ class ControlHostConnector(ABC, DefaultDevice):
             with sse:
                 emitted, last_id = self._stream_sse_logs(sse)
 
-            # Check job status after the SSE stream ends
             status = self._api_get(f"/api/v1/provision/{job_id}").json()
             if status["status"] == "running":
                 logger.warning(
@@ -228,11 +221,8 @@ class ControlHostConnector(ABC, DefaultDevice):
                 )
                 time.sleep(reconnect_delay)
                 if emitted:
-                    # The previous stream made progress; reconnect promptly.
                     reconnect_delay = self.SSE_RECONNECT_DELAY
                 else:
-                    # Nothing came through; back off to avoid hammering the
-                    # control host if its stream keeps dropping.
                     reconnect_delay = min(
                         reconnect_delay * 2, self.SSE_RECONNECT_MAX_DELAY
                     )
@@ -260,12 +250,10 @@ class ControlHostConnector(ABC, DefaultDevice):
         (e.g. "event:", "retry:") are non-standard for this endpoint and
         logged as warnings.
 
-        :returns: A ``(emitted, last_id)`` tuple where *emitted* is the
-            number of log entries successfully emitted and *last_id* is the
-            most recently seen ``id:`` value (or None when the stream
-            carried no ids). The caller sends *last_id* back as the
-            Last-Event-ID header on reconnect so a resume-aware server can
-            skip entries the client has already received.
+        :returns: ``(emitted, last_id)`` — count of log entries emitted
+            and the most recently seen ``id:`` value (None if the stream
+            carried none). *last_id* is sent back as the Last-Event-ID
+            header on reconnect.
         """
         sse_data_prefix = "data: "
         sse_id_prefix = "id: "
