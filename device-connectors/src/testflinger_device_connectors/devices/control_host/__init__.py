@@ -209,7 +209,13 @@ class ControlHostConnector(ABC, DefaultDevice):
                 headers=headers,
             )
             with sse:
-                emitted, last_id = self._stream_sse_logs(sse)
+                (
+                    emitted,
+                    cursor_updated,
+                    stream_last_id,
+                ) = self._stream_sse_logs(sse)
+            if cursor_updated:
+                last_id = stream_last_id
 
             status = self._api_get(f"/api/v1/provision/{job_id}").json()
             if status["status"] == "running":
@@ -239,53 +245,74 @@ class ControlHostConnector(ABC, DefaultDevice):
     @staticmethod
     def _stream_sse_logs(
         response: requests.Response,
-    ) -> Tuple[int, Optional[str]]:
+    ) -> Tuple[int, bool, Optional[str]]:
         """Parse and log Server-Sent Events from a streaming response.
 
-        Recognised SSE fields:
-            data: {"level": "INFO", "message": "..."}  -- log entry payload
-            id: <event-id>                              -- resume cursor
+        An SSE event ends with a blank line and may contain an ``id`` field
+        and multiple ``data`` fields. The resume cursor advances only after
+        its event's log payload has been handled successfully, so malformed
+        data cannot cause a log entry to be skipped after reconnecting.
 
-        Empty lines act as event separators and are skipped. Other fields
-        (e.g. "event:", "retry:") are non-standard for this endpoint and
-        logged as warnings.
-
-        :returns: ``(emitted, last_id)`` — count of log entries emitted
-            and the most recently seen ``id:`` value (None if the stream
-            carried none). *last_id* is sent back as the Last-Event-ID
-            header on reconnect.
+        :returns: ``(emitted, cursor_updated, last_id)`` — the number of log
+            entries emitted, whether an event updated the resume cursor, and
+            that cursor. A ``None`` cursor clears Last-Event-ID; an unchanged
+            cursor means a reconnect must retain its previous value.
         """
-        sse_data_prefix = "data: "
-        sse_id_prefix = "id: "
         emitted = 0
+        cursor_updated = False
         last_id: Optional[str] = None
+        event_id: Optional[str] = None
+        event_has_id = False
+        data_lines: list[str] = []
+
         for line in response.iter_lines(decode_unicode=True):
-            if not line:
+            if line == "":
+                if data_lines:
+                    payload = "\n".join(data_lines)
+                    try:
+                        entry = json.loads(payload)
+                    except json.JSONDecodeError:
+                        logger.warning("Malformed SSE data: %s", payload)
+                    else:
+                        level_name = entry.get("level", "").upper()
+                        log_level = getattr(logging, level_name, None)
+                        if log_level is None:
+                            logger.warning(
+                                "Unknown log level '%s', defaulting to INFO",
+                                entry.get("level", ""),
+                            )
+                            log_level = logging.INFO
+                        logger.log(
+                            log_level,
+                            "[control-host] %s",
+                            entry.get("message", payload),
+                        )
+                        emitted += 1
+                        if event_has_id:
+                            last_id = event_id
+                            cursor_updated = True
+
+                event_id = None
+                event_has_id = False
+                data_lines.clear()
                 continue
-            if line.startswith(sse_id_prefix):
-                last_id = line[len(sse_id_prefix) :].strip()
+
+            if line.startswith(":"):
                 continue
-            if not line.startswith(sse_data_prefix):
-                logger.warning("Unexpected SSE line: %s", line)
+
+            field, separator, value = line.partition(":")
+            if not separator:
                 continue
-            try:
-                entry = json.loads(line[len(sse_data_prefix) :])
-            except json.JSONDecodeError:
-                logger.warning("Malformed SSE data: %s", line)
-                continue
-            level_name = entry.get("level", "").upper()
-            log_level = getattr(logging, level_name, None)
-            if log_level is None:
-                logger.warning(
-                    "Unknown log level '%s', defaulting to INFO",
-                    entry.get("level", ""),
-                )
-                log_level = logging.INFO
-            logger.log(
-                log_level, "[control-host] %s", entry.get("message", line)
-            )
-            emitted += 1
-        return emitted, last_id
+            if value.startswith(" "):
+                value = value[1:]
+
+            if field == "id":
+                event_id = value or None
+                event_has_id = True
+            elif field == "data":
+                data_lines.append(value)
+
+        return emitted, cursor_updated, last_id
 
     def _copy_ssh_id(self):
         """Copy the ssh id to the device."""
