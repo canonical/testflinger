@@ -41,7 +41,7 @@ Submit and manage jobs
 
 The day-to-day workflow for creating test jobs, submitting them, and collecting results.
 
-* **Set up access**: :doc:`Authenticate with the server <how-to/authentication>` •  ``Authenticate with OIDC`` - obtain and cache your credentials
+* **Set up access**: :doc:`Authenticate with the server <how-to/authentication>`
 * **Run jobs**: :doc:`Submit <how-to/submit-job>` • :doc:`Cancel <how-to/cancel-job>` • :doc:`Search <how-to/search-job>` • :doc:`Retrieve results <how-to/retrieve-logs>` • :doc:`Use secrets <how-to/use-secrets>`
 * **Reserve and prioritize**: :doc:`Reserve a machine <how-to/reserve-job>` • :doc:`Set job priority <how-to/job-priority>` • :doc:`Queues <explanation/queues>` • :doc:`Restricted queues <explanation/restricted-queues>`
 * **Job definitions**: :doc:`Job schema <reference/job-schema>` • :doc:`Test phases <reference/test-phases>` • :doc:`CLI configuration <reference/cli-config>`
@@ -53,7 +53,7 @@ For server administrators running the central Testflinger web service - a Kubern
 application deployed with Juju, backed by MongoDB.
 
 * **Deploy and maintain server**: :doc:`Deploy <how-to/administer-server/deploy-testflinger-server>` • :doc:`Maintain <how-to/administer-server/maintain-testflinger-server>` • :doc:`Configuration <reference/testflinger-server-conf>` • :doc:`Architecture <explanation/architecture>`
-* **Users and access**: :doc:`Create an admin user <how-to/create-admin-user>` • :doc:`Manage client permissions <how-to/manage-client-permissions>` •  ``Configure OIDC`` • :doc:`API roles <reference/api-roles>`
+* **Users and access**: :doc:`Create an admin user <how-to/create-admin-user>` • :doc:`Manage client permissions <how-to/manage-client-permissions>` •  :doc:`Configure OIDC auth <reference/juju-oidc-config>` • :doc:`API roles <reference/api-roles>`
 * **REST API**: :doc:`API reference (OpenAPI) <reference/openapi>`
 
 Administer agent hosts and devices
@@ -71,8 +71,8 @@ Security
 
 Understand how Testflinger protects credentials and data, and how to configure your deployment to meet your security requirements.
 
-* **Trust model**: :doc:`Security overview <explanation/security>` — isolation & confinement, cryptography, credential-exposure risks, disclosure policy
-* **Deep dives**: :doc:`How authentication works <explanation/authentication>` •  ``OIDC authentication`` • :doc:`Secrets concepts <explanation/secrets>` • :doc:`Secrets reference <reference/secrets>`
+* **Trust model**: :doc:`Security overview <explanation/security>`
+* **Deep dives**: :doc:`How authentication works <explanation/authentication>` •  :doc:`OIDC authentication <explanation/oidc-auth>` • :doc:`Secrets concepts <explanation/secrets>` • :doc:`Secrets reference <reference/secrets>`
 
 
 ---------
