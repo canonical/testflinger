@@ -499,6 +499,9 @@ class TestControlHostConnectorRun:
         """Test that _run reconnects to SSE stream if the job is still
         running after a disconnection.
         """
+        sleep = mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
         mock_get = mocker.patch("requests.get")
 
         # First SSE stream disconnects with partial logs
@@ -532,6 +535,153 @@ class TestControlHostConnectorRun:
         assert "step 1" in caplog.text
         assert "still running" in caplog.text
         assert "step 2" in caplog.text
+        # Both streams emitted a log line, so progress was made and the
+        # reconnect delay stays at the base value.
+        sleep.assert_called_once_with(connector.SSE_RECONNECT_DELAY)
+
+    def test_run_exponential_backoff_on_no_progress(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that reconnect delay doubles (up to the cap) when the SSE
+        stream produces no new log lines on each reconnect.
+        """
+        sleep = mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
+        mock_get = mocker.patch("requests.get")
+
+        # Three empty reconnects, then a final one with a log line.
+        empty_sse = self._make_sse([])
+        status_running = Mock()
+        status_running.raise_for_status = Mock()
+        status_running.json.return_value = {"status": "running"}
+
+        sse_final = self._make_sse(
+            ['data: {"level": "INFO", "message": "done"}']
+        )
+        status_done = Mock()
+        status_done.raise_for_status = Mock()
+        status_done.json.return_value = {"status": "completed"}
+
+        mock_get.side_effect = [
+            empty_sse,
+            status_running,
+            empty_sse,
+            status_running,
+            empty_sse,
+            status_running,
+            sse_final,
+            status_done,
+        ]
+
+        connector._run()
+
+        # Three backoffs: 2 (initial), 4 (doubled), 8 (doubled again)
+        assert sleep.call_count == 3
+        sleep.assert_has_calls(
+            [
+                mocker.call(connector.SSE_RECONNECT_DELAY),
+                mocker.call(connector.SSE_RECONNECT_DELAY * 2),
+                mocker.call(connector.SSE_RECONNECT_DELAY * 4),
+            ]
+        )
+
+    def test_run_resets_backoff_after_progress(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that reconnect delay resets to the base value after a
+        stream that made progress (emitted at least one log line).
+        """
+        sleep = mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
+        mock_get = mocker.patch("requests.get")
+
+        # Reconnect 1: empty -> delay doubles
+        empty_sse_1 = self._make_sse([])
+        # Reconnect 2: emits a line -> delay resets
+        progress_sse = self._make_sse(
+            ['data: {"level": "INFO", "message": "progress"}']
+        )
+        # Reconnect 3: empty again -> delay doubles from base
+        empty_sse_2 = self._make_sse([])
+        # Reconnect 4: completes
+        sse_final = self._make_sse(
+            ['data: {"level": "INFO", "message": "done"}']
+        )
+
+        status_running = Mock()
+        status_running.raise_for_status = Mock()
+        status_running.json.return_value = {"status": "running"}
+        status_done = Mock()
+        status_done.raise_for_status = Mock()
+        status_done.json.return_value = {"status": "completed"}
+
+        mock_get.side_effect = [
+            empty_sse_1,
+            status_running,
+            progress_sse,
+            status_running,
+            empty_sse_2,
+            status_running,
+            sse_final,
+            status_done,
+        ]
+
+        connector._run()
+
+        # Sleeps: 2 (initial), 4 (doubled), 2 (reset after progress)
+        assert sleep.call_count == 3
+        sleep.assert_has_calls(
+            [
+                mocker.call(connector.SSE_RECONNECT_DELAY),
+                mocker.call(connector.SSE_RECONNECT_DELAY * 2),
+                mocker.call(connector.SSE_RECONNECT_DELAY),
+            ]
+        )
+
+    def test_run_reconnect_backoff_is_capped(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that reconnect delay does not exceed the max."""
+        sleep = mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
+        mock_get = mocker.patch("requests.get")
+
+        # Many empty reconnects so the backoff grows beyond the cap.
+        empty_sse = self._make_sse([])
+        status_running = Mock()
+        status_running.raise_for_status = Mock()
+        status_running.json.return_value = {"status": "running"}
+        status_done = Mock()
+        status_done.raise_for_status = Mock()
+        status_done.json.return_value = {"status": "completed"}
+        sse_final = self._make_sse(
+            ['data: {"level": "INFO", "message": "done"}']
+        )
+
+        # base=2 -> 4 -> 8 -> 16 -> 30 (capped) -> 30 (capped)
+        side_effects = []
+        for _ in range(5):
+            side_effects.extend([empty_sse, status_running])
+        side_effects.extend([sse_final, status_done])
+        mock_get.side_effect = side_effects
+
+        connector._run()
+
+        expected_delays = [
+            connector.SSE_RECONNECT_DELAY,
+            connector.SSE_RECONNECT_DELAY * 2,
+            connector.SSE_RECONNECT_DELAY * 4,
+            connector.SSE_RECONNECT_DELAY * 8,
+            connector.SSE_RECONNECT_MAX_DELAY,
+        ]
+        assert sleep.call_count == len(expected_delays)
+        for actual, expected in zip(
+            sleep.call_args_list, expected_delays, strict=True
+        ):
+            assert actual == mocker.call(expected)
 
     def test_run_raises_on_failed_status(self, mocker, connector, mock_post):
         """Test that _run raises ProvisioningError on non-completed status."""

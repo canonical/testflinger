@@ -22,6 +22,7 @@ the configuration and preparing the API arguments.
 
 import json
 import logging
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -48,6 +49,13 @@ class ControlHostConnector(ABC, DefaultDevice):
     CONNECTION_TIMEOUT = 30
     READ_TIMEOUT = 60 * 90
     REST_PORT = 8000
+    # Backoff between SSE stream reconnects. The base delay is used when the
+    # previous stream made progress (emitted >= 1 log entry); the delay
+    # doubles (up to the cap) on consecutive reconnects that produced no new
+    # log lines, to avoid hammering the control host when its stream keeps
+    # dropping.
+    SSE_RECONNECT_DELAY = 2
+    SSE_RECONNECT_MAX_DELAY = 30
 
     def _api_post(self, endpoint: str, **kwargs) -> requests.Response:
         """Send a POST request to the control host REST API.
@@ -188,6 +196,10 @@ class ControlHostConnector(ABC, DefaultDevice):
         job_id = job["job_id"]
 
         timeout = (self.CONNECTION_TIMEOUT, self.READ_TIMEOUT)
+        # Backoff state for SSE reconnects. Reset to the base delay after a
+        # stream that made progress (emitted >= 1 log entry); double (up
+        # to the cap) on consecutive reconnects that produced no new lines.
+        reconnect_delay = self.SSE_RECONNECT_DELAY
         while True:
             sse = self._api_get(
                 f"/api/v1/provision/{job_id}/logs",
@@ -195,16 +207,27 @@ class ControlHostConnector(ABC, DefaultDevice):
                 timeout=timeout,
             )
             with sse:
-                self._stream_sse_logs(sse)
+                emitted = self._stream_sse_logs(sse)
 
             # Check job status after the SSE stream ends
             status = self._api_get(f"/api/v1/provision/{job_id}").json()
             if status["status"] == "running":
                 logger.warning(
                     "SSE stream disconnected but job %s is still running,"
-                    " reconnecting...",
+                    " reconnecting in %ds...",
                     job_id,
+                    reconnect_delay,
                 )
+                time.sleep(reconnect_delay)
+                if emitted:
+                    # The previous stream made progress; reconnect promptly.
+                    reconnect_delay = self.SSE_RECONNECT_DELAY
+                else:
+                    # Nothing came through; back off to avoid hammering the
+                    # control host if its stream keeps dropping.
+                    reconnect_delay = min(
+                        reconnect_delay * 2, self.SSE_RECONNECT_MAX_DELAY
+                    )
                 continue
             if status["status"] != "completed":
                 raise ProvisioningError(
@@ -216,7 +239,7 @@ class ControlHostConnector(ABC, DefaultDevice):
             break
 
     @staticmethod
-    def _stream_sse_logs(response: requests.Response) -> None:
+    def _stream_sse_logs(response: requests.Response) -> int:
         """Parse and log Server-Sent Events from a streaming response.
 
         The SSE protocol sends newline-delimited lines in the format:
@@ -224,8 +247,13 @@ class ControlHostConnector(ABC, DefaultDevice):
         Empty lines act as event separators and are skipped.
         Lines not starting with "data: " (e.g. "event:", "retry:")
         are non-standard for this endpoint and logged as warnings.
+
+        :returns: Number of log entries successfully emitted. The caller
+            uses this to track whether the stream made progress and to
+            drive reconnect backoff.
         """
         sse_data_prefix = "data: "
+        emitted = 0
         for line in response.iter_lines(decode_unicode=True):
             if not line:
                 continue
@@ -248,6 +276,8 @@ class ControlHostConnector(ABC, DefaultDevice):
             logger.log(
                 log_level, "[control-host] %s", entry.get("message", line)
             )
+            emitted += 1
+        return emitted
 
     def _copy_ssh_id(self):
         """Copy the ssh id to the device."""
