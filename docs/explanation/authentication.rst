@@ -229,8 +229,8 @@ initiates an OIDC authentication flow:
         User->>OIDC: Complete the handshake
         CLI->>Server: Poll for auth completion
         Note over CLI,Server: POST /oidc/auth-poll/<request_id>
-        Server-->>OIDC: Is this user cool?
-        OIDC-->>Server: Yes + user identity (email)
+        Server-->>OIDC: Validate authorization status
+        OIDC-->>Server: Authorized + user identity (email)
         Server->>CLI: Issue refresh and access token
         CLI->>Server: Send request with access token
         Note over CLI,Server: POST /v1/jobs
@@ -264,8 +264,8 @@ No credentials or stored token
         User->>OIDC: Complete the handshake
         CLI->>Server: Poll for auth completion
         Note over CLI,Server: POST /oidc/auth-poll/<request_id>
-        Server-->>OIDC: Is this user cool?
-        OIDC-->>Server: Yes + user identity (email)
+        Server-->>OIDC: Validate authorization status
+        OIDC-->>Server: Authorized + user identity (email)
         Server->>CLI: Issue refresh token and access token
         CLI->>Server: Send request with access token
         Note over CLI,Server: POST /v1/jobs
