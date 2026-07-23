@@ -22,6 +22,7 @@ the configuration and preparing the API arguments.
 
 import json
 import logging
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -48,6 +49,13 @@ class ControlHostConnector(ABC, DefaultDevice):
     CONNECTION_TIMEOUT = 30
     READ_TIMEOUT = 60 * 90
     REST_PORT = 8000
+    # Backoff between SSE stream reconnects. The base delay is used when the
+    # previous stream made progress (emitted >= 1 log entry); the delay
+    # doubles (up to the cap) on consecutive reconnects that produced no new
+    # log lines, to avoid hammering the control host when its stream keeps
+    # dropping.
+    SSE_RECONNECT_DELAY = 2
+    SSE_RECONNECT_MAX_DELAY = 30
 
     def _api_post(self, endpoint: str, **kwargs) -> requests.Response:
         """Send a POST request to the control host REST API.
@@ -188,23 +196,42 @@ class ControlHostConnector(ABC, DefaultDevice):
         job_id = job["job_id"]
 
         timeout = (self.CONNECTION_TIMEOUT, self.READ_TIMEOUT)
+        reconnect_delay = self.SSE_RECONNECT_DELAY
+        last_id: Optional[str] = None
         while True:
+            headers = (
+                {"Last-Event-ID": last_id} if last_id is not None else None
+            )
             sse = self._api_get(
                 f"/api/v1/provision/{job_id}/logs",
                 stream=True,
                 timeout=timeout,
+                headers=headers,
             )
             with sse:
-                self._stream_sse_logs(sse)
+                (
+                    emitted,
+                    cursor_updated,
+                    stream_last_id,
+                ) = self._stream_sse_logs(sse)
+            if cursor_updated:
+                last_id = stream_last_id
 
-            # Check job status after the SSE stream ends
             status = self._api_get(f"/api/v1/provision/{job_id}").json()
             if status["status"] == "running":
                 logger.warning(
                     "SSE stream disconnected but job %s is still running,"
-                    " reconnecting...",
+                    " reconnecting in %ds...",
                     job_id,
+                    reconnect_delay,
                 )
+                time.sleep(reconnect_delay)
+                if emitted:
+                    reconnect_delay = self.SSE_RECONNECT_DELAY
+                else:
+                    reconnect_delay = min(
+                        reconnect_delay * 2, self.SSE_RECONNECT_MAX_DELAY
+                    )
                 continue
             if status["status"] != "completed":
                 raise ProvisioningError(
@@ -215,39 +242,80 @@ class ControlHostConnector(ABC, DefaultDevice):
                 )
             break
 
-    @staticmethod
-    def _stream_sse_logs(response: requests.Response) -> None:
+    def _stream_sse_logs(
+        self,
+        response: requests.Response,
+    ) -> Tuple[int, bool, Optional[str]]:
         """Parse and log Server-Sent Events from a streaming response.
 
-        The SSE protocol sends newline-delimited lines in the format:
-            data: {"level": "INFO", "message": "..."}
-        Empty lines act as event separators and are skipped.
-        Lines not starting with "data: " (e.g. "event:", "retry:")
-        are non-standard for this endpoint and logged as warnings.
+        An SSE event ends with a blank line and may contain an ``id`` field
+        and multiple ``data`` fields. The resume cursor advances only after
+        its event's log payload has been handled successfully, so malformed
+        data cannot cause a log entry to be skipped after reconnecting.
+
+        :returns: ``(emitted, cursor_updated, last_id)`` — the number of log
+            entries emitted, whether an event updated the resume cursor, and
+            that cursor. A ``None`` cursor clears Last-Event-ID; an unchanged
+            cursor means a reconnect must retain its previous value.
         """
-        sse_data_prefix = "data: "
+        emitted = 0
+        cursor_updated = False
+        last_id: Optional[str] = None
+        event_id: Optional[str] = None
+        event_has_id = False
+        data_lines: list[str] = []
+
         for line in response.iter_lines(decode_unicode=True):
-            if not line:
+            if line == "":
+                if data_lines and self._log_sse_payload("\n".join(data_lines)):
+                    emitted += 1
+                    if event_has_id:
+                        last_id = event_id
+                        cursor_updated = True
+
+                event_id = None
+                event_has_id = False
+                data_lines.clear()
                 continue
-            if not line.startswith(sse_data_prefix):
-                logger.warning("Unexpected SSE line: %s", line)
+
+            if line.startswith(":"):
                 continue
-            try:
-                entry = json.loads(line[len(sse_data_prefix) :])
-            except json.JSONDecodeError:
-                logger.warning("Malformed SSE data: %s", line)
+
+            field, separator, value = line.partition(":")
+            if not separator:
                 continue
-            level_name = entry.get("level", "").upper()
-            log_level = getattr(logging, level_name, None)
-            if log_level is None:
-                logger.warning(
-                    "Unknown log level '%s', defaulting to INFO",
-                    entry.get("level", ""),
-                )
-                log_level = logging.INFO
-            logger.log(
-                log_level, "[control-host] %s", entry.get("message", line)
+            if value.startswith(" "):
+                value = value[1:]
+
+            if field == "id":
+                event_id = value or None
+                event_has_id = True
+            elif field == "data":
+                data_lines.append(value)
+
+        return emitted, cursor_updated, last_id
+
+    @staticmethod
+    def _log_sse_payload(payload: str) -> bool:
+        """Log one JSON SSE payload and report whether it was handled."""
+        try:
+            entry = json.loads(payload)
+        except json.JSONDecodeError:
+            logger.warning("Malformed SSE data: %s", payload)
+            return False
+
+        level_name = entry.get("level", "").upper()
+        log_level = getattr(logging, level_name, None)
+        if log_level is None:
+            logger.warning(
+                "Unknown log level '%s', defaulting to INFO",
+                entry.get("level", ""),
             )
+            log_level = logging.INFO
+        logger.log(
+            log_level, "[control-host] %s", entry.get("message", payload)
+        )
+        return True
 
     def _copy_ssh_id(self):
         """Copy the ssh id to the device."""

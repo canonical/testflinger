@@ -442,6 +442,7 @@ class TestflingerCharm(ops.CharmBase):
             "MONGODB_DATABASE": db_data.get("db_database"),
             "MONGODB_MAX_POOL_SIZE": str(self.typed_config.max_pool_size),
             "JWT_SIGNING_KEY": self.typed_config.jwt_signing_key,
+            "JWT_LEEWAY": str(self.typed_config.jwt_leeway),
             "TESTFLINGER_SECRETS_MASTER_KEY": self.typed_config.testflinger_secrets_master_key,  # noqa: E501
             "TESTFLINGER_KEY_VAULT_URI": self._fetch_keyvault_uri() or "",
             "HTTP_PROXY": self.typed_config.http_proxy,
