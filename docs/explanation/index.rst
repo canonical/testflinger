@@ -23,6 +23,7 @@ Security
 Access control, credential management, and data protection mechanisms
 
 - :ref:`authentication`
+- :ref:`explanation-oidc`
 - :ref:`security_overview`
 - :ref:`secrets`
 
@@ -37,5 +38,6 @@ Access control, credential management, and data protection mechanisms
     restricted-queues
     extended-reservation
     authentication
+    oidc-auth
     secrets
     security
