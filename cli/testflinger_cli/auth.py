@@ -57,16 +57,14 @@ class TestflingerCliAuth:
         self.client_id = client_id
         self.secret_key = secret_key
 
-        # Refresh token relevant configuration:
-        # Support multiple server connections, staging and production,
+        # Refresh token relevant configuration, supports multiple
+        # server connections, e.g.: staging and production,
         # as each will have different refresh tokens
-        # Don't use the schema, split on // and keep the right hand side
-        server = self._safe_fs_name(self.server_url.split("//")[-1])
+        parsed_url = urllib.parse.urlsplit(self.server_url)
+        server = self._safe_fs_name(parsed_url.hostname)
         self.auth_config = (
             xdg_config_home() / "testflinger-cli" / server / "auth.conf"
         )
-        # Ensure that the directory exists.
-        self.auth_config.parent.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def _safe_fs_name(name_in: str) -> str:
@@ -228,6 +226,8 @@ class TestflingerCliAuth:
                 "client_id": self.client_id,
                 "refresh_token": refresh_token,
             }
+            # Ensure that the directory exists.
+            self.auth_config.parent.mkdir(parents=True, exist_ok=True)
             try:
                 with self.auth_config.open("w") as file:
                     config_file.write(file)
@@ -295,6 +295,19 @@ class TestflingerCliAuth:
         # Default role for legacy client_ids is contributor
         return permissions.get("role", ServerRoles.CONTRIBUTOR)
 
+    def monitor_for_refresh_token(self, current_refresh_token, interval):
+        # multiple client processes can benefit from the same new refresh
+        # token:
+        next_check = time.monotonic() + interval
+        while time.monotonic() < next_check:
+            refresh_token = self.get_stored_refresh_token()
+            if refresh_token and refresh_token != current_refresh_token:
+                # if we managed to find a newly-acquired refresh token on
+                # disk we can exit this loop early and use the refresh
+                # token instead
+                return self._authenticate_with_refresh_token(refresh_token)
+            time.sleep(0.1)
+
     def _authenticate_with_oidc(self) -> str | None:
         """Authenticate using OIDC device flow."""
         auth_init_url = self.get_url("/oidc/auth-init")
@@ -334,19 +347,10 @@ class TestflingerCliAuth:
         webbrowser.open(verification_uri)
 
         code_expiration = time.monotonic() + expires_in
-        current_refresh_token = self.get_stored_refresh_token()
+        current_token = self.get_stored_refresh_token()
         while time.monotonic() < code_expiration:
-            # multiple client processes can benefit from the same new refresh
-            # token:
-            next_check = time.monotonic() + interval
-            while time.monotonic() < next_check:
-                refresh_token = self.get_stored_refresh_token()
-                if refresh_token and refresh_token != current_refresh_token:
-                    # if we managed to find a newly-acquired refresh token on
-                    # disk we can exit this loop early and use the refresh
-                    # token instead
-                    return self._authenticate_with_refresh_token(refresh_token)
-                time.sleep(0.1)
+            if result := monitor_for_refresh_token(current_token, interval):
+                return result
             try:
                 response = requests.post(
                     poll_url, data={}, timeout=DEFAULT_AUTH_TIMEOUT
