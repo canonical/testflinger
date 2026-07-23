@@ -22,9 +22,8 @@ from http import HTTPStatus
 from unittest.mock import patch
 
 import mongomock
-import yaml
 import pytest
-
+import yaml
 from testflinger_common.enums import LogType, TestPhase
 
 from testflinger.views import (
@@ -409,6 +408,7 @@ def test_job_detail_renders_yaml_not_python_repr(testapp):
     # Highlighting is applied server-side via Pygments
     assert 'class="language-yaml pygments"' in html
     assert 'class="language-bash pygments"' in html
+
 
 @pytest.mark.parametrize("endpoint", ["/agents", "/jobs", "/queues"])
 def test_unauthorized_view_access(oidc_app, endpoint):

@@ -27,9 +27,7 @@ from flask import (
     request,
     session,
 )
-
 from markupsafe import Markup
-from prometheus_client import generate_latest
 from pygments import highlight as pygments_highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import BashLexer, YamlLexer
@@ -53,6 +51,7 @@ def require_login():
             HTTPStatus.UNAUTHORIZED,
         )
     return None
+
 
 # Fields the server assigns; never part of a resubmittable job definition.
 _SERVER_MANAGED_JOB_FIELDS = frozenset({"job_id", "parent_job_id"})
