@@ -1316,7 +1316,11 @@ class TestflingerCli:
                     f"{exc.msg}\n"
                     "You are attempting to use a feature "
                     "that requires client authorisation "
-                    "without using client credentials."
+                    "without using client credentials. \n"
+                    "See "
+                    "https://documentation.ubuntu.com/"
+                    "testflinger/latest/ "
+                    "for more details"
                 )
             # This shouldn't happen, so let's get more information
             sys.exit(
