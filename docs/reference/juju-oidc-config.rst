@@ -43,3 +43,8 @@ For the steps to apply these options, see :ref:`howto-enable-oidc`.
 
 For background on how OIDC authentication works in Testflinger, see
 :doc:`../explanation/oidc-auth`.
+
+For more information on OIDC please refer to the following resources:
+
+- `OpenID Connect Protocol <https://auth0.com/docs/authenticate/protocols/openid-connect-protocol>`_ 
+- `Confidential and Public Applications <https://auth0.com/docs/get-started/applications/confidential-and-public-applications>`_
