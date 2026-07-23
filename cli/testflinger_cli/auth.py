@@ -18,6 +18,8 @@
 
 import base64
 import configparser
+import re
+import sys
 import time
 import urllib.parse
 import webbrowser
@@ -55,10 +57,19 @@ class TestflingerCliAuth:
         self.client_id = client_id
         self.secret_key = secret_key
 
-        # Refresh token relevant configuration
-        config_home = xdg_config_home()
-        config_home.mkdir(parents=True, exist_ok=True)
-        self.auth_config = config_home / "testflinger-cli-auth.conf"
+        # Refresh token relevant configuration, supports multiple
+        # server connections, e.g.: staging and production,
+        # as each will have different refresh tokens
+        parsed_url = urllib.parse.urlsplit(self.server_url)
+        server = self._safe_fs_name(parsed_url.hostname)
+        self.auth_config = (
+            xdg_config_home() / "testflinger-cli" / server / "auth.conf"
+        )
+
+    @staticmethod
+    def _safe_fs_name(name_in: str) -> str:
+        """Return a folder name that is reduced to valid characters."""
+        return re.sub(r"([^a-zA-Z0-9_]+)", "_", name_in)
 
     def get_url(self, endpoint: str) -> str:
         """Construct the full URL for a given endpoint.
@@ -133,7 +144,8 @@ class TestflingerCliAuth:
             return None
         except requests.exceptions.Timeout as exc:
             raise NetworkError(
-                "Connection timed out while authenticating with credentials."
+                "Connection to testflinger server timed out while "
+                "authenticating with basic client_id+secret_key credentials."
             ) from exc
 
         # Store refresh token for persistent login
@@ -158,6 +170,9 @@ class TestflingerCliAuth:
             )
             response.raise_for_status()
             response_data = response.json()
+
+            # Note: Refresh does not beget refresh, only clean auth gives a
+            # refresh token
             return response_data["access_token"]
         except requests.exceptions.HTTPError as exc:
             if exc.response.status_code == HTTPStatus.BAD_REQUEST:
@@ -205,17 +220,20 @@ class TestflingerCliAuth:
 
         :param refresh_token: refresh token to store in SNAP_USER_DATA
         """
-        config_file = configparser.ConfigParser()
-        config_file["AUTH"] = {
-            "client_id": self.client_id,
-            "refresh_token": refresh_token,
-        }
-        try:
-            with self.auth_config.open("w") as file:
-                config_file.write(file)
-        except (OSError, PermissionError):
-            # Ignore write errors as this might run as non snap
-            pass
+        if self.client_id and refresh_token:
+            config_file = configparser.ConfigParser()
+            config_file["AUTH"] = {
+                "client_id": self.client_id,
+                "refresh_token": refresh_token,
+            }
+            # Ensure that the directory exists.
+            self.auth_config.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                with self.auth_config.open("w") as file:
+                    config_file.write(file)
+            except (OSError, PermissionError):
+                # Ignore write errors as this might run as non snap
+                pass
 
     def clear_refresh_token(self):
         """Cleanup refresh_token if already expired or revoked."""
@@ -277,6 +295,23 @@ class TestflingerCliAuth:
         # Default role for legacy client_ids is contributor
         return permissions.get("role", ServerRoles.CONTRIBUTOR)
 
+    def monitor_for_refresh_token(self, current_refresh_token, interval):
+        """Poll disk for a new refresh token acquired by another process.
+
+        :param current_refresh_token: baseline token to detect a replacement
+        :param interval: seconds to poll before giving up
+        :return: access token if a new refresh token was found, otherwise None
+        """
+        next_check = time.monotonic() + interval
+        while time.monotonic() < next_check:
+            refresh_token = self.get_stored_refresh_token()
+            if refresh_token and refresh_token != current_refresh_token:
+                # if we managed to find a newly-acquired refresh token on
+                # disk we can exit this loop early and use the refresh
+                # token instead
+                return self._authenticate_with_refresh_token(refresh_token)
+            time.sleep(0.1)
+
     def _authenticate_with_oidc(self) -> str | None:
         """Authenticate using OIDC device flow."""
         auth_init_url = self.get_url("/oidc/auth-init")
@@ -304,19 +339,24 @@ class TestflingerCliAuth:
         interval = init_data.get("interval", 5)
         expires_in = init_data.get("expires_in", 300)
         request_id = init_data["request_id"]
+        poll_url = self.get_url(f"/oidc/auth-poll/{request_id}")
 
         print(
             f"Please visit {verification_uri} and enter code "
-            f"{user_code} to login."
+            f"{user_code} to login.",
+            file=sys.stderr,
         )
 
         # Attempt to launch the browser for the user to login
         webbrowser.open(verification_uri)
 
         code_expiration = time.monotonic() + expires_in
+        current_token = self.get_stored_refresh_token()
         while time.monotonic() < code_expiration:
-            time.sleep(interval)
-            poll_url = self.get_url(f"/oidc/auth-poll/{request_id}")
+            if result := self.monitor_for_refresh_token(
+                current_token, interval
+            ):
+                return result
             try:
                 response = requests.post(
                     poll_url, data={}, timeout=DEFAULT_AUTH_TIMEOUT

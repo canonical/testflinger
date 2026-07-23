@@ -99,6 +99,13 @@ config:
       type: string
       default: ""
       description: The secret key used for signing authorization tokens
+    jwt_leeway:
+      type: int
+      default: 5
+      description: |
+        The allowed drift in seconds for validating JWT tokens.
+        Useful in k8s deployments where the clock may not be perfectly
+        synchronized between the k8s nodes.
     testflinger_secrets_master_key:
       type: string
       default: ""

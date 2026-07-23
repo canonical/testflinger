@@ -286,4 +286,4 @@ class PreTestHookTests(unittest.TestCase):
         with patch.object(connector, "_setup_control_host") as mock_setup:
             connector.pre_test_hook()
 
-        mock_setup.assert_called_once_with("control-host", "testing")
+        mock_setup.assert_called_once_with("control-host", "test")
