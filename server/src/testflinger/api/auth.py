@@ -125,6 +125,7 @@ def decode_jwt_token(auth_token: str | None, secret_key: str) -> dict | None:
         decoded_jwt = jwt.decode(
             auth_token,
             secret_key,
+            leeway=10,
             algorithms="HS256",
             options={"require": ["exp", "iat", "sub"]},
         )
