@@ -13,6 +13,7 @@ preloaded
 Queryable
 rclone
 SDWire
+sequenceDiagram
 stderr
 supervisorctl
 Tegra

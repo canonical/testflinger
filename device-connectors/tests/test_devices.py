@@ -40,7 +40,7 @@ def test_get_device_stage_func(stage, device):
     fake_config = {"device_ip": "10.10.10.10", "agent_name": "fake_agent"}
 
     # Control host connectors require control_host
-    if device.startswith(("zapper", "control_host")):
+    if device.startswith("control_host"):
         fake_config["control_host"] = "fake-control-host"
 
     connector_instance = import_module(

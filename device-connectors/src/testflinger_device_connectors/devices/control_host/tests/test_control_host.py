@@ -269,7 +269,13 @@ class TestControlHostConnectorRun:
         return mock
 
     def _make_sse(self, lines):
-        """Create a mock SSE response context manager."""
+        """Create a mock SSE response context manager.
+
+        Complete a non-empty final event, as a real SSE response does with
+        its terminating blank line.
+        """
+        if lines and lines[-1] != "":
+            lines = [*lines, ""]
         mock_sse = Mock()
         mock_sse.iter_lines.return_value = lines
         mock_sse.__enter__ = Mock(return_value=mock_sse)
@@ -324,6 +330,7 @@ class TestControlHostConnectorRun:
 
         lines = [
             'data: {"level": "INFO", "message": "Starting provisioning"}',
+            "",
             'data: {"level": "WARNING", "message": "Disk space low"}',
         ]
         mock_sse = self._make_sse(lines)
@@ -347,10 +354,10 @@ class TestControlHostConnectorRun:
         assert info_record.levelno == logging.INFO
         assert warn_record.levelno == logging.WARNING
 
-    def test_run_logs_unexpected_non_data_lines(
+    def test_run_ignores_standard_non_data_fields(
         self, mocker, connector, mock_post, caplog
     ):
-        """Test that non-'data:' SSE lines are logged as warnings."""
+        """Test that standard SSE fields other than data are ignored."""
         mock_get = mocker.patch("requests.get")
 
         lines = [
@@ -364,11 +371,11 @@ class TestControlHostConnectorRun:
         mock_status.json.return_value = {"status": "completed"}
         mock_get.side_effect = [mock_sse, mock_status]
 
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.INFO):
             connector._run()
 
-        assert "Unexpected SSE line: event: error" in caplog.text
-        assert "Unexpected SSE line: retry: 3000" in caplog.text
+        assert "Unexpected SSE line" not in caplog.text
+        assert "[control-host] ok" in caplog.text
 
     def test_run_skips_empty_lines(self, mocker, connector, mock_post, caplog):
         """Test that empty SSE lines are silently skipped."""
@@ -398,6 +405,7 @@ class TestControlHostConnectorRun:
 
         lines = [
             "data: {not valid json",
+            "",
             'data: {"level": "INFO", "message": "ok"}',
         ]
         mock_sse = self._make_sse(lines)
@@ -440,8 +448,8 @@ class TestControlHostConnectorRun:
         """Test that a missing 'message' key falls back to raw line."""
         mock_get = mocker.patch("requests.get")
 
-        raw_line = 'data: {"level": "INFO"}'
-        lines = [raw_line]
+        payload = '{"level": "INFO"}'
+        lines = [f"data: {payload}"]
         mock_sse = self._make_sse(lines)
         mock_status = Mock()
         mock_status.raise_for_status = Mock()
@@ -451,7 +459,7 @@ class TestControlHostConnectorRun:
         with caplog.at_level(logging.INFO):
             connector._run()
 
-        assert f"[control-host] {raw_line}" in caplog.text
+        assert f"[control-host] {payload}" in caplog.text
 
     def test_run_handles_invalid_log_level(
         self, mocker, connector, mock_post, caplog
@@ -499,6 +507,9 @@ class TestControlHostConnectorRun:
         """Test that _run reconnects to SSE stream if the job is still
         running after a disconnection.
         """
+        sleep = mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
         mock_get = mocker.patch("requests.get")
 
         # First SSE stream disconnects with partial logs
@@ -532,6 +543,369 @@ class TestControlHostConnectorRun:
         assert "step 1" in caplog.text
         assert "still running" in caplog.text
         assert "step 2" in caplog.text
+        # Both streams emitted a log line, so progress was made and the
+        # reconnect delay stays at the base value.
+        sleep.assert_called_once_with(connector.SSE_RECONNECT_DELAY)
+
+    def test_run_exponential_backoff_on_no_progress(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that reconnect delay doubles (up to the cap) when the SSE
+        stream produces no new log lines on each reconnect.
+        """
+        sleep = mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
+        mock_get = mocker.patch("requests.get")
+
+        # Three empty reconnects, then a final one with a log line.
+        empty_sse = self._make_sse([])
+        status_running = Mock()
+        status_running.raise_for_status = Mock()
+        status_running.json.return_value = {"status": "running"}
+
+        sse_final = self._make_sse(
+            ['data: {"level": "INFO", "message": "done"}']
+        )
+        status_done = Mock()
+        status_done.raise_for_status = Mock()
+        status_done.json.return_value = {"status": "completed"}
+
+        mock_get.side_effect = [
+            empty_sse,
+            status_running,
+            empty_sse,
+            status_running,
+            empty_sse,
+            status_running,
+            sse_final,
+            status_done,
+        ]
+
+        connector._run()
+
+        # Three backoffs: 2 (initial), 4 (doubled), 8 (doubled again)
+        assert sleep.call_count == 3
+        sleep.assert_has_calls(
+            [
+                mocker.call(connector.SSE_RECONNECT_DELAY),
+                mocker.call(connector.SSE_RECONNECT_DELAY * 2),
+                mocker.call(connector.SSE_RECONNECT_DELAY * 4),
+            ]
+        )
+
+    def test_run_resets_backoff_after_progress(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that reconnect delay resets to the base value after a
+        stream that made progress (emitted at least one log line).
+        """
+        sleep = mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
+        mock_get = mocker.patch("requests.get")
+
+        # Reconnect 1: empty -> delay doubles
+        empty_sse_1 = self._make_sse([])
+        # Reconnect 2: emits a line -> delay resets
+        progress_sse = self._make_sse(
+            ['data: {"level": "INFO", "message": "progress"}']
+        )
+        # Reconnect 3: empty again -> delay doubles from base
+        empty_sse_2 = self._make_sse([])
+        # Reconnect 4: completes
+        sse_final = self._make_sse(
+            ['data: {"level": "INFO", "message": "done"}']
+        )
+
+        status_running = Mock()
+        status_running.raise_for_status = Mock()
+        status_running.json.return_value = {"status": "running"}
+        status_done = Mock()
+        status_done.raise_for_status = Mock()
+        status_done.json.return_value = {"status": "completed"}
+
+        mock_get.side_effect = [
+            empty_sse_1,
+            status_running,
+            progress_sse,
+            status_running,
+            empty_sse_2,
+            status_running,
+            sse_final,
+            status_done,
+        ]
+
+        connector._run()
+
+        # Sleeps: 2 (initial), 4 (doubled), 2 (reset after progress)
+        assert sleep.call_count == 3
+        sleep.assert_has_calls(
+            [
+                mocker.call(connector.SSE_RECONNECT_DELAY),
+                mocker.call(connector.SSE_RECONNECT_DELAY * 2),
+                mocker.call(connector.SSE_RECONNECT_DELAY),
+            ]
+        )
+
+    def test_run_reconnect_backoff_is_capped(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that reconnect delay does not exceed the max."""
+        sleep = mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
+        mock_get = mocker.patch("requests.get")
+
+        # Many empty reconnects so the backoff grows beyond the cap.
+        empty_sse = self._make_sse([])
+        status_running = Mock()
+        status_running.raise_for_status = Mock()
+        status_running.json.return_value = {"status": "running"}
+        status_done = Mock()
+        status_done.raise_for_status = Mock()
+        status_done.json.return_value = {"status": "completed"}
+        sse_final = self._make_sse(
+            ['data: {"level": "INFO", "message": "done"}']
+        )
+
+        # base=2 -> 4 -> 8 -> 16 -> 30 (capped) -> 30 (capped)
+        side_effects = []
+        for _ in range(5):
+            side_effects.extend([empty_sse, status_running])
+        side_effects.extend([sse_final, status_done])
+        mock_get.side_effect = side_effects
+
+        connector._run()
+
+        expected_delays = [
+            connector.SSE_RECONNECT_DELAY,
+            connector.SSE_RECONNECT_DELAY * 2,
+            connector.SSE_RECONNECT_DELAY * 4,
+            connector.SSE_RECONNECT_DELAY * 8,
+            connector.SSE_RECONNECT_MAX_DELAY,
+        ]
+        assert sleep.call_count == len(expected_delays)
+        for actual, expected in zip(
+            sleep.call_args_list, expected_delays, strict=True
+        ):
+            assert actual == mocker.call(expected)
+
+    def test_run_resumes_from_last_event_id_on_reconnect(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Test that on reconnect the client sends the last seen SSE event
+        id via the Last-Event-ID header, so a resume-aware server can skip
+        already-delivered entries.
+        """
+        mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
+        mock_get = mocker.patch("requests.get")
+
+        # First stream: event id 1 carries "step 1".
+        sse_1 = self._make_sse(
+            [
+                "id:1",
+                'data: {"level": "INFO", "message": "step 1"}',
+            ]
+        )
+        status_running = Mock()
+        status_running.raise_for_status = Mock()
+        status_running.json.return_value = {"status": "running"}
+
+        # Second stream: a resume-aware server skips id 1 and sends id 2.
+        sse_2 = self._make_sse(
+            [
+                "id:2",
+                'data: {"level": "INFO", "message": "step 2"}',
+            ]
+        )
+        status_completed = Mock()
+        status_completed.raise_for_status = Mock()
+        status_completed.json.return_value = {"status": "completed"}
+
+        mock_get.side_effect = [
+            sse_1,
+            status_running,
+            sse_2,
+            status_completed,
+        ]
+
+        with caplog.at_level(logging.DEBUG):
+            connector._run()
+
+        # The id: field is a normal SSE field, not an unexpected line.
+        assert "Unexpected SSE line" not in caplog.text
+
+        # First connect: no resume cursor yet. Reconnect: carries the id.
+        sse_calls = [
+            c for c in mock_get.call_args_list if c[0][0].endswith("/logs")
+        ]
+        assert len(sse_calls) == 2
+        assert sse_calls[0][1].get("headers") is None
+        assert sse_calls[1][1]["headers"]["Last-Event-ID"] == "1"
+
+        # "step 1" is logged exactly once: the resume-aware server did not
+        # replay it on reconnect, so it is not re-logged.
+        assert "step 1" in caplog.text
+        assert caplog.text.count("step 1") == 1
+        assert "step 2" in caplog.text
+
+    def test_run_retains_cursor_when_stream_has_no_id(
+        self, mocker, connector, mock_post
+    ):
+        """A disconnected stream without an ID must not lose the cursor."""
+        mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
+        mock_get = mocker.patch("requests.get")
+
+        sse_with_id = self._make_sse(
+            [
+                "id: 1",
+                'data: {"level": "INFO", "message": "first"}',
+            ]
+        )
+        empty_sse = self._make_sse([])
+        sse_final = self._make_sse(
+            ['data: {"level": "INFO", "message": "final"}']
+        )
+        status_running = Mock()
+        status_running.raise_for_status = Mock()
+        status_running.json.return_value = {"status": "running"}
+        status_completed = Mock()
+        status_completed.raise_for_status = Mock()
+        status_completed.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [
+            sse_with_id,
+            status_running,
+            empty_sse,
+            status_running,
+            sse_final,
+            status_completed,
+        ]
+
+        connector._run()
+
+        sse_calls = [
+            call
+            for call in mock_get.call_args_list
+            if call[0][0].endswith("/logs")
+        ]
+        assert [call[1].get("headers") for call in sse_calls] == [
+            None,
+            {"Last-Event-ID": "1"},
+            {"Last-Event-ID": "1"},
+        ]
+
+    def test_run_clears_cursor_after_empty_event_id(
+        self, mocker, connector, mock_post
+    ):
+        """An empty event ID clears the Last-Event-ID reconnect header."""
+        mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
+        mock_get = mocker.patch("requests.get")
+
+        sse_with_id = self._make_sse(
+            [
+                "id: 1",
+                'data: {"level": "INFO", "message": "first"}',
+            ]
+        )
+        sse_clear_id = self._make_sse(
+            [
+                "id:",
+                'data: {"level": "INFO", "message": "reset"}',
+            ]
+        )
+        sse_final = self._make_sse(
+            ['data: {"level": "INFO", "message": "final"}']
+        )
+        status_running = Mock()
+        status_running.raise_for_status = Mock()
+        status_running.json.return_value = {"status": "running"}
+        status_completed = Mock()
+        status_completed.raise_for_status = Mock()
+        status_completed.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [
+            sse_with_id,
+            status_running,
+            sse_clear_id,
+            status_running,
+            sse_final,
+            status_completed,
+        ]
+
+        connector._run()
+
+        sse_calls = [
+            call
+            for call in mock_get.call_args_list
+            if call[0][0].endswith("/logs")
+        ]
+        assert [call[1].get("headers") for call in sse_calls] == [
+            None,
+            {"Last-Event-ID": "1"},
+            None,
+        ]
+
+    def test_run_does_not_checkpoint_malformed_event(
+        self, mocker, connector, mock_post
+    ):
+        """Malformed payloads must not advance the resume cursor."""
+        mocker.patch(
+            "testflinger_device_connectors.devices.control_host.time.sleep"
+        )
+        mock_get = mocker.patch("requests.get")
+
+        malformed_sse = self._make_sse(["id: 1", "data: {not valid json"])
+        sse_final = self._make_sse(
+            ['data: {"level": "INFO", "message": "final"}']
+        )
+        status_running = Mock()
+        status_running.raise_for_status = Mock()
+        status_running.json.return_value = {"status": "running"}
+        status_completed = Mock()
+        status_completed.raise_for_status = Mock()
+        status_completed.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [
+            malformed_sse,
+            status_running,
+            sse_final,
+            status_completed,
+        ]
+
+        connector._run()
+
+        sse_calls = [
+            call
+            for call in mock_get.call_args_list
+            if call[0][0].endswith("/logs")
+        ]
+        assert [call[1].get("headers") for call in sse_calls] == [None, None]
+
+    def test_run_handles_multiline_sse_data(
+        self, mocker, connector, mock_post, caplog
+    ):
+        """Multiple data fields are joined before parsing one SSE event."""
+        mock_get = mocker.patch("requests.get")
+        sse = self._make_sse(
+            [
+                'data: {"level": "INFO",',
+                'data: "message": "split event"}',
+            ]
+        )
+        status_completed = Mock()
+        status_completed.raise_for_status = Mock()
+        status_completed.json.return_value = {"status": "completed"}
+        mock_get.side_effect = [sse, status_completed]
+
+        with caplog.at_level(logging.INFO):
+            connector._run()
+
+        assert "[control-host] split event" in caplog.text
 
     def test_run_raises_on_failed_status(self, mocker, connector, mock_post):
         """Test that _run raises ProvisioningError on non-completed status."""
