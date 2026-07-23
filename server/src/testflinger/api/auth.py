@@ -130,6 +130,16 @@ def decode_jwt_token(auth_token: str | None, secret_key: str) -> dict | None:
         )
     except jwt.exceptions.ExpiredSignatureError:
         abort(HTTPStatus.UNAUTHORIZED, "Token has expired")
+    except jwt.exceptions.ImmatureSignatureError:
+        abort(HTTPStatus.UNAUTHORIZED, "Token not yet valid")
+    except jwt.exceptions.InvalidSignatureError:
+        abort(HTTPStatus.FORBIDDEN, "Invalid Token signature")
+    except jwt.exceptions.MissingRequiredClaimError as e:
+        abort(HTTPStatus.FORBIDDEN, f"Token missing required claim: {e.claim}")
+    except jwt.exceptions.InvalidIssuedAtError:
+        abort(HTTPStatus.FORBIDDEN, "Token has invalid issued-at claim")
+    except jwt.exceptions.DecodeError:
+        abort(HTTPStatus.FORBIDDEN, "Unable to decode token")
     except jwt.exceptions.InvalidTokenError:
         abort(HTTPStatus.FORBIDDEN, "Invalid Token")
 
