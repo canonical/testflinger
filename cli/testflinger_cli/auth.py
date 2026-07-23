@@ -296,8 +296,12 @@ class TestflingerCliAuth:
         return permissions.get("role", ServerRoles.CONTRIBUTOR)
 
     def monitor_for_refresh_token(self, current_refresh_token, interval):
-        # multiple client processes can benefit from the same new refresh
-        # token:
+        """Poll disk for a new refresh token acquired by another process.
+
+        :param current_refresh_token: baseline token to detect a replacement
+        :param interval: seconds to poll before giving up
+        :return: access token if a new refresh token was found, otherwise None
+        """
         next_check = time.monotonic() + interval
         while time.monotonic() < next_check:
             refresh_token = self.get_stored_refresh_token()
@@ -349,7 +353,9 @@ class TestflingerCliAuth:
         code_expiration = time.monotonic() + expires_in
         current_token = self.get_stored_refresh_token()
         while time.monotonic() < code_expiration:
-            if result := monitor_for_refresh_token(current_token, interval):
+            if result := self.monitor_for_refresh_token(
+                current_token, interval
+            ):
                 return result
             try:
                 response = requests.post(
