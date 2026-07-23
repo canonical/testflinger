@@ -439,8 +439,8 @@ class Maas2:
                     self._logger_info(self.get_deployment_information())
                     exception_msg = (
                         "Provisioning failed because of bad device "
-                        + "configuration. Expected device ip {} not any of"
-                        + " {}"
+                        + "configuration. Expected device ip {} was not any of"
+                        + " the addresses known to maas: {}"
                     ).format(self.config["device_ip"], addresses)
                     raise ProvisioningError(exception_msg)
 
