@@ -22,12 +22,14 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
+from unittest.mock import patch
 
 import bcrypt
 import jwt
 import pytest
 from testflinger_common.enums import ServerRoles
 
+from testflinger.api.auth import HASH_ROUNDS
 from testflinger.api.v1 import TESTFLINGER_ADMIN_ID
 from tests.utilities import (
     get_access_token,
@@ -165,8 +167,8 @@ def test_priority_expired_token(mongo_app_with_permissions):
     app, _, _, _, _ = mongo_app_with_permissions
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     expired_token_payload = {
-        "exp": datetime.now(timezone.utc) - timedelta(seconds=2),
-        "iat": datetime.now(timezone.utc) - timedelta(seconds=4),
+        "exp": datetime.now(timezone.utc) - timedelta(seconds=10),
+        "iat": datetime.now(timezone.utc) - timedelta(seconds=12),
         "sub": "access_token",
         "permissions": {
             "max_priority": {},
@@ -196,7 +198,7 @@ def test_missing_fields_in_token(mongo_app_with_permissions):
         "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
     assert 403 == job_response.status_code
-    assert "Invalid Token" in job_response.text
+    assert "Token missing required claim" in job_response.text
 
 
 def test_missing_role_defaults_to_contributor(mongo_app_with_permissions):
@@ -729,6 +731,10 @@ def test_add_client_permissions(mongo_app_with_permissions, caplog):
     assert "client_secret" not in client_entry
     assert "client_secret_hash" in client_entry
     assert client_entry["client_secret_hash"] != clear_password
+
+    # Verify hash uses the expected cost factor
+    cost = int(client_entry["client_secret_hash"].split("$")[2])
+    assert cost == HASH_ROUNDS
 
     # Verify OWASP user_created event is logged
     assert f"user_created:{admin_client_id}" in caplog.text
@@ -1590,3 +1596,135 @@ def test_revoke_rejects_operator_injection(
 
     # Request aborted by schema validation, returns 422 Unprocessable Entity
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.parametrize(
+    "exception, expected_status, expected_message",
+    [
+        (
+            jwt.exceptions.ExpiredSignatureError(),
+            HTTPStatus.UNAUTHORIZED,
+            "Token has expired",
+        ),
+        (
+            jwt.exceptions.ImmatureSignatureError(),
+            HTTPStatus.UNAUTHORIZED,
+            "Token not yet valid",
+        ),
+        (
+            jwt.exceptions.InvalidSignatureError(),
+            HTTPStatus.FORBIDDEN,
+            "Invalid Token signature",
+        ),
+        (
+            jwt.exceptions.MissingRequiredClaimError("exp"),
+            HTTPStatus.FORBIDDEN,
+            "Token missing required claim",
+        ),
+        (
+            jwt.exceptions.DecodeError(),
+            HTTPStatus.FORBIDDEN,
+            "Unable to decode token",
+        ),
+        (
+            jwt.exceptions.InvalidTokenError(),
+            HTTPStatus.FORBIDDEN,
+            "Invalid Token",
+        ),
+    ],
+)
+@patch("testflinger.api.auth.jwt.decode")
+def test_jwt_exception_handling(
+    mock_decode,
+    mongo_app_with_permissions,
+    exception,
+    expected_status,
+    expected_message,
+):
+    """Test that jwt decode exceptions return expected HTTP status codes."""
+    app, _, _, _, _ = mongo_app_with_permissions
+    mock_decode.side_effect = exception
+
+    job = {"job_queue": "myqueue", "job_priority": 100}
+    response = app.post(
+        "/v1/job",
+        json=job,
+        headers={"Authorization": "Bearer fake.token.value"},
+    )
+
+    assert response.status_code == expected_status
+    assert expected_message in response.text
+
+
+def test_access_token_valid_if_expired_within_leeway(
+    mongo_app_with_permissions,
+):
+    """Test access token is valid if already expired within leeway period."""
+    app, _, client_id, _, _ = mongo_app_with_permissions
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    # Token expired 2 seconds ago, within the default 5-second leeway
+    token_payload = {
+        "exp": datetime.now(timezone.utc) - timedelta(seconds=2),
+        "iat": datetime.now(timezone.utc),
+        "sub": "access_token",
+        "permissions": {
+            "client_id": client_id,
+            "max_priority": {"*": 1, "myqueue": 100},
+            "role": ServerRoles.CONTRIBUTOR,
+        },
+    }
+    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
+    job = {"job_queue": "myqueue"}
+    response = app.post(
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+
+def test_access_token_valid_if_iat_within_leeway(mongo_app_with_permissions):
+    """Test access token is valid if issued-at is within leeway period."""
+    app, _, client_id, _, _ = mongo_app_with_permissions
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    # Token issued 2 seconds in the future, within the default 5s leeway
+    token_payload = {
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        "iat": datetime.now(timezone.utc) + timedelta(seconds=2),
+        "sub": "access_token",
+        "permissions": {
+            "client_id": client_id,
+            "max_priority": {"*": 1, "myqueue": 100},
+            "role": ServerRoles.CONTRIBUTOR,
+        },
+    }
+    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
+    job = {"job_queue": "myqueue"}
+    response = app.post(
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+
+def test_access_token_invalid_if_iat_not_within_leeway(
+    mongo_app_with_permissions,
+):
+    """Test access token is invalid if issued-at isn't within leeway period."""
+    app, _, client_id, _, _ = mongo_app_with_permissions
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    # Token issued 10 seconds in the future, outside the default 5s leeway
+    token_payload = {
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        "iat": datetime.now(timezone.utc) + timedelta(seconds=10),
+        "sub": "access_token",
+        "permissions": {
+            "client_id": client_id,
+            "max_priority": {"*": 1, "myqueue": 100},
+            "role": ServerRoles.CONTRIBUTOR,
+        },
+    }
+    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
+    job = {"job_queue": "myqueue"}
+    response = app.post(
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert "Token not yet valid" in response.text
