@@ -1139,7 +1139,7 @@ def refresh_access_token(json_data: dict):
     return {
         "access_token": access_token,
         "token_type": "Bearer",
-        "expires_in": 30,
+        "expires_in": auth.DEFAULT_ACCESS_TOKEN_EXPIRATION,
     }
 
 

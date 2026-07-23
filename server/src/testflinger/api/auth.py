@@ -34,6 +34,9 @@ from testflinger.owasp import OWASPLogger
 DEFAULT_REFRESH_TOKEN_EXPIRATION = 6 * 24 * 60 * 60  # 6 days in seconds
 DEFAULT_ACCESS_TOKEN_EXPIRATION = 60 * 10  # 10 minutes
 HASH_ROUNDS = 8
+# The number of seconds to allow for clock drift when validating JWT tokens.
+# Increasing this value will affect `iat` and `exp` claims in the JWT token.
+JWT_LEEWAY = int(os.environ.get("JWT_LEEWAY", "5"))
 
 # Fields from client_permissions to include in the Testflinger JWT
 PERMISSIONS_FIELDS = frozenset(
@@ -125,11 +128,20 @@ def decode_jwt_token(auth_token: str | None, secret_key: str) -> dict | None:
         decoded_jwt = jwt.decode(
             auth_token,
             secret_key,
+            leeway=JWT_LEEWAY,
             algorithms="HS256",
             options={"require": ["exp", "iat", "sub"]},
         )
     except jwt.exceptions.ExpiredSignatureError:
         abort(HTTPStatus.UNAUTHORIZED, "Token has expired")
+    except jwt.exceptions.ImmatureSignatureError:
+        abort(HTTPStatus.UNAUTHORIZED, "Token not yet valid")
+    except jwt.exceptions.InvalidSignatureError:
+        abort(HTTPStatus.FORBIDDEN, "Invalid Token signature")
+    except jwt.exceptions.MissingRequiredClaimError as e:
+        abort(HTTPStatus.FORBIDDEN, f"Token missing required claim: {e.claim}")
+    except jwt.exceptions.DecodeError:
+        abort(HTTPStatus.FORBIDDEN, "Unable to decode token")
     except jwt.exceptions.InvalidTokenError:
         abort(HTTPStatus.FORBIDDEN, "Invalid Token")
 
