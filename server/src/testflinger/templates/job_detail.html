@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% set active_page = "jobs" %}
 {% set title = "Job" %}
+{% macro code_snippet(content, language) -%}
+  <div class="p-code-snippet">
+    <pre class="p-code-snippet__block--numbered language-{{ language }}"><code class="language-{{ language }} pygments">{{- content -}}</code></pre>
+  </div>
+{%- endmacro %}
+{% block stylesheets %}
+  <link href="{{ url_for('static', filename='assets/css/pygments.css') }}"
+        rel="stylesheet" />
+{% endblock stylesheets %}
 {% block content %}
   <div class="p-strip is-shallow">
     <div class="row">
@@ -30,75 +39,77 @@
        class="p-link--anchor-heading"
        aria-label="Link to Job Definition section">Job Definition</a>
   </h2>
+  <div id="job-yaml-content" hidden>{{- job_yaml -}}</div>
   <div class="p-tabs">
-    <div class="p-tabs__list" role="tablist" aria-label="Job Definition tabs">
-      <div class="p-tabs__item">
-        <button class="p-tabs__link"
-                role="tab"
-                aria-selected="true"
-                aria-controls="provision-data"
-                id="provision-data-tab">Provision Data</button>
+    <div class="section-heading-bar p-tabs__list-with-action">
+      <div class="p-tabs__list" role="tablist" aria-label="Job Definition tabs">
+        <div class="p-tabs__item">
+          <button class="p-tabs__link"
+                  role="tab"
+                  aria-selected="true"
+                  aria-controls="job-yaml"
+                  id="job-yaml-tab">Job YAML</button>
+        </div>
+        {% if job.job_data.provision_data %}
+          <div class="p-tabs__item">
+            <button class="p-tabs__link"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="provision-data"
+                    id="provision-data-tab">Provision Data</button>
+          </div>
+        {% endif %}
+        {% if job.job_data.firmware_update_data %}
+          <div class="p-tabs__item">
+            <button class="p-tabs__link"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="firmware-update-data"
+                    id="firmware-update-data-tab">Firmware Update Data</button>
+          </div>
+        {% endif %}
+        {% if job.job_data.test_data %}
+          <div class="p-tabs__item">
+            <button class="p-tabs__link"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="test-data"
+                    id="test-data-tab">Test Script</button>
+          </div>
+        {% endif %}
       </div>
-      {% if job.job_data.firmware_update_data %}
-        <div class="p-tabs__item">
-          <button class="p-tabs__link"
-                  role="tab"
-                  aria-selected="false"
-                  aria-controls="firmware-update-data"
-                  id="firmware-update-data-tab">Firmware Update Data</button>
-        </div>
-      {% endif %}
-      {% if job.job_data.test_data %}
-        <div class="p-tabs__item">
-          <button class="p-tabs__link"
-                  role="tab"
-                  aria-selected="false"
-                  aria-controls="test-data"
-                  id="test-data-tab">Test Data</button>
-        </div>
-      {% endif %}
+      <button class="p-button--base has-icon"
+              type="button"
+              data-copy-target="#job-yaml-content"
+              aria-label="Copy job YAML to clipboard">
+        <i class="p-icon--copy"></i>
+        <span>Copy job YAML</span>
+      </button>
     </div>
     <div tabindex="0"
          role="tabpanel"
-         id="provision-data"
-         aria-labelledby="provision-data-tab">
-      <div class="p-code-snippet">
-        <pre class="p-code-snippet__block--numbered language-yaml">
-          <code>
-{{ job.job_data.provision_data }}
-          </code>
-        </pre>
-      </div>
-    </div>
+         id="job-yaml"
+         aria-labelledby="job-yaml-tab">{{ code_snippet(job_yaml | highlight("yaml") , "yaml") }}</div>
+    {% if job.job_data.provision_data %}
+      <div tabindex="0"
+           role="tabpanel"
+           id="provision-data"
+           aria-labelledby="provision-data-tab"
+           hidden>{{ code_snippet(job.job_data.provision_data | as_yaml | highlight("yaml") , "yaml") }}</div>
+    {% endif %}
     {% if job.job_data.firmware_update_data %}
       <div tabindex="0"
            role="tabpanel"
            id="firmware-update-data"
            aria-labelledby="firmware-update-data-tab"
-           hidden>
-        <div class="p-code-snippet">
-          <pre class="p-code-snippet__block--numbered language-yaml">
-            <code>
-{{ job.job_data.firmware_update_data }}
-            </code>
-          </pre>
-        </div>
-      </div>
+           hidden>{{ code_snippet(job.job_data.firmware_update_data | as_yaml | highlight("yaml") , "yaml") }}</div>
     {% endif %}
     {% if job.job_data.test_data %}
       <div tabindex="0"
            role="tabpanel"
            id="test-data"
            aria-labelledby="test-data-tab"
-           hidden>
-        <div class="p-code-snippet">
-          <pre class="p-code-snippet__block--numbered language-yaml">
-            <code>
-{{ job.job_data.test_data.test_cmds }}
-            </code>
-          </pre>
-        </div>
-      </div>
+           hidden>{{ code_snippet(job.job_data.test_data.test_cmds | highlight("bash") , "bash") }}</div>
     {% endif %}
   </div>
   {% set phases = [
