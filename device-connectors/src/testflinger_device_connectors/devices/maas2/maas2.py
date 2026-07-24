@@ -52,6 +52,7 @@ class Maas2:
         self.timeout_min = int(self.config.get("timeout_min", 60))
         self.maas_storage = MaasStorage(self.maas_user, self.node_id)
         self.debug = self.job_data.get("debug", False)
+        self.starting_installation_id = None
 
     def _logger_debug(self, message):
         logger.debug("MAAS: %s", message)
@@ -226,7 +227,7 @@ class Maas2:
         # First see if we can run the command on the current install
         if self._run_tpm_clear_cmd():
             return
-        # If not, then deploy bionic and try again
+        # If not, then deploy the node and try again
         self.deploy_node()
         if not self._run_tpm_clear_cmd():
             raise ProvisioningError("Failed to clear TPM")
@@ -266,7 +267,9 @@ class Maas2:
             return True
         return False
 
-    def run_maas_cmd_with_retry(self, cmd, max_retries=5, backoff_start=60):
+    def run_maas_cmd_with_retry(
+        self, cmd: list[str], max_retries: int = 5, backoff_start: int = 10
+    ) -> subprocess.CompletedProcess:
         """Run maas command with retries on failure.
 
         :param cmd:
@@ -275,8 +278,11 @@ class Maas2:
             Maximum amount of times to retry the command on failure
         :param backoff_start:
             Initial time in seconds to sleep after failure
+
+        :return: Process handle for completed process
         """
         retry_count = 0
+        errors = []
         while True:
             proc = subprocess.run(
                 cmd,
@@ -287,19 +293,24 @@ class Maas2:
             if proc.returncode == 0:
                 return proc
 
+            # Each time we error, we may or may not get a different error,
+            # since this will be all the information that we know, we should
+            # track and share the history of failed attempts rather than only
+            # the last.
+            errors.append(proc.stdout.decode())
             if retry_count > max_retries:
                 self._logger_error(
                     (
-                        f"maas error running: {' '.join(cmd)}"
+                        f"maas error running: {' '.join(cmd)}; "
                         "maximum retries reached"
                     )
                 )
-                raise ProvisioningError(proc.stdout.decode())
+                raise ProvisioningError(f"{errors}")
 
             timeout = backoff_start * 2**retry_count
             self._logger_warning(
                 (
-                    f"maas error running: {' '.join(cmd)}"
+                    f"maas error running: {' '.join(cmd)}; "
                     f"trying again in {timeout} seconds"
                 )
             )
@@ -364,8 +375,12 @@ class Maas2:
             "allocate",
             "system_id={}".format(self.node_id),
         ]
-        # Do not use runcmd for this - we need the output, not the end user
-        proc = self.run_maas_cmd_with_retry(cmd)
+        self.run_maas_cmd_with_retry(cmd)
+
+        # Gather the maas installation id before we start so that we know when
+        # we get a new one
+        self.starting_installation_id = self.get_current_installation_id()
+
         self._logger_info(
             "Starting node {} with distro {}".format(self.agent_name, distro)
         )
@@ -409,6 +424,7 @@ class Maas2:
 
             if status == "Failed deployment":
                 self._logger_error("MAAS reports Failed Deployment")
+                self._logger_info(self.get_deployment_information())
                 exception_msg = (
                     "Provisioning failed because "
                     + "MAAS got unexpected or "
@@ -417,6 +433,17 @@ class Maas2:
                 raise ProvisioningError(exception_msg)
 
             if status == "Deployed":
+                addresses = self.node_addresses()
+                if self.config["device_ip"] not in addresses:
+                    self._logger_error("MAAS reports Wrong IP Address")
+                    self._logger_info(self.get_deployment_information())
+                    exception_msg = (
+                        "Provisioning failed because of bad device "
+                        + "configuration. Expected device ip {} was not any of"
+                        + " the addresses known to maas: {}"
+                    ).format(self.config["device_ip"], addresses)
+                    raise ProvisioningError(exception_msg)
+
                 if self.check_test_image_booted():
                     self._logger_info("Deployed and booted.")
                     return
@@ -427,6 +454,7 @@ class Maas2:
             )
         )
         self._logger_error(proc.stdout.decode())
+        self._logger_info(self.get_deployment_information())
         exception_msg = (
             "Provisioning failed because deployment timeout. "
             + "Deploying for more than "
@@ -434,7 +462,16 @@ class Maas2:
         )
         raise ProvisioningError(exception_msg)
 
-    def check_test_image_booted(self):
+    def check_test_image_booted(self) -> bool:
+        """Verify the deployed system is accessible via SSH.
+
+        Attempts an SSH connection to confirm the test image has booted
+        and the system is responsive. If SSH fails, checks installation
+        logs to validate the expected device IP is present.
+
+        :return: True if SSH succeeds, False otherwise
+        :raises ProvisioningError: If SSH fails and device IP not found in logs
+        """
         self._logger_info("Checking if test image booted.")
         cmd = [
             "ssh",
@@ -454,7 +491,15 @@ class Maas2:
         # If we get here, then the above command proved we are booted
         return True
 
-    def node_status(self):
+    def node_addresses(self) -> str | None:
+        """Return IP addresses for node according to maas."""
+        cmd = ["maas", self.maas_user, "machine", "read", self.node_id]
+        # Do not use runcmd for this - we need the output, not the end user
+        proc = self.run_maas_cmd_with_retry(cmd)
+        data = json.loads(proc.stdout.decode())
+        return data.get("ip_addresses")
+
+    def node_status(self) -> str | None:
         """Return status of the node according to maas.
 
         Ready: Node is unused
@@ -468,7 +513,7 @@ class Maas2:
         data = json.loads(proc.stdout.decode())
         return data.get("status_name")
 
-    def node_release(self):
+    def node_release(self) -> None:
         """Release the node to make it available again."""
         cmd = ["maas", self.maas_user, "machine", "release", self.node_id]
         # Use the retry method to validate if cmd execution succeded
@@ -493,7 +538,7 @@ class Maas2:
             self._logger_error(output)
         raise RecoveryError("Device recovery failed!")
 
-    def set_flat_storage_layout(self):
+    def set_flat_storage_layout(self) -> None:
         """Reset to default flat storage layout."""
         cmd = [
             "maas",
@@ -544,3 +589,70 @@ class Maas2:
                 "Proceeding without ephemeral deployment"
             )
             return None
+
+    def get_current_installation_id(self) -> int | None:
+        """Get the ID of the most recent installation script result.
+
+        Queries MAAS for installation-type script results and returns the ID
+        of the most recently started one. Used to snapshot the installation
+        state before deployment so we can later detect if a new installation
+        attempt occurred.
+
+        :return: Installation result ID if available, else None
+        """
+        cmd = [
+            "maas",
+            self.maas_user,
+            "node-script-results",
+            "read",
+            self.node_id,
+            "type=installation",
+        ]
+
+        proc = self.run_maas_cmd_with_retry(cmd)
+        json_out = json.loads(proc.stdout.decode())
+
+        # If the output we got wasn't a list of dictionaries, throw it out,
+        # we are only expecting a list of dictionaries be returned by the
+        # maas `node-script-results`
+        if not isinstance(json_out, list) or not json_out:
+            return None
+        json_out = [_ for _ in json_out if isinstance(_, dict)]
+        if not json_out:
+            return None
+
+        # MAAS team suggested sorting by id and taking the largest
+        json_out = sorted(json_out, key=lambda x: x.get("id", 0))
+        try:
+            return int(json_out[-1]["id"])
+        except (AttributeError, IndexError, ValueError):
+            return None
+
+    def get_deployment_information(self) -> str | None:
+        """Fetch installation logs if a new installation occurred.
+
+        Compares the current installation ID against the starting ID captured
+        before deployment. If they differ (indicating a new installation ran),
+        downloads and returns the installation log. Otherwise returns None.
+
+        :return: Installation log text if new installation detected, else None
+        """
+        installation_id = self.get_current_installation_id()
+        if self.starting_installation_id != installation_id and isinstance(
+            installation_id, int
+        ):
+            # we have new data that is relevant to our installation
+            cmd = [
+                "maas",
+                self.maas_user,
+                "node-script-results",
+                "download",
+                self.node_id,
+                str(installation_id),
+            ]
+        else:
+            return None
+
+        proc = self.run_maas_cmd_with_retry(cmd)
+        txt_out = proc.stdout.decode()
+        return txt_out
