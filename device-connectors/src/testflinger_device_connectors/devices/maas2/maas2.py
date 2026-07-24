@@ -637,10 +637,8 @@ class Maas2:
 
         :return: Installation log text if new installation detected, else None
         """
-        installation_id = self.get_current_installation_id()
-        if self.starting_installation_id != installation_id and isinstance(
-            installation_id, int
-        ):
+        install_id = self.get_current_installation_id()
+        if install_id and self.starting_installation_id != install_id:
             # we have new data that is relevant to our installation
             cmd = [
                 "maas",
@@ -648,7 +646,7 @@ class Maas2:
                 "node-script-results",
                 "download",
                 self.node_id,
-                str(installation_id),
+                str(install_id),
             ]
         else:
             return None
