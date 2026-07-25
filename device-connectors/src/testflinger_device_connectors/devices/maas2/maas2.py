@@ -643,7 +643,7 @@ class Maas2:
             cmd = [
                 "maas",
                 self.maas_user,
-                "node-script-results",
+                "node-script-result",
                 "download",
                 self.node_id,
                 str(install_id),
