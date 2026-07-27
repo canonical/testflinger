@@ -117,8 +117,8 @@ def test_token_update_needed_valid_token(mock_get_token_data):
 
 @patch("testflinger_client.get_token_data")
 def test_token_update_needed(mock_get_token_data):
-    """Test token_update_needed when token is older than 7 days."""
-    old_date = datetime.now(timezone.utc) - timedelta(days=7, minutes=5)
+    """Test token_update_needed when token is older than 3 days."""
+    old_date = datetime.now(timezone.utc) - timedelta(days=3, minutes=5)
     mock_get_token_data.return_value = {
         "refresh_token": "token123",
         "obtained_at": old_date.isoformat(),
@@ -131,8 +131,8 @@ def test_token_update_needed(mock_get_token_data):
 
 @patch("testflinger_client.get_token_data")
 def test_token_update_not_needed(mock_get_token_data):
-    """Test token_update_needed when token is older than 7 days."""
-    old_date = datetime.now(timezone.utc) - timedelta(days=6)
+    """Test token_update_needed when token is not older than 3 days."""
+    old_date = datetime.now(timezone.utc) - timedelta(days=2)
     mock_get_token_data.return_value = {
         "refresh_token": "token123",
         "obtained_at": old_date.isoformat(),

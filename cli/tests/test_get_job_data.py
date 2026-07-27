@@ -18,12 +18,12 @@ from http import HTTPStatus
 
 import pytest
 
-from testflinger_cli.client import Client, HTTPError
+from testflinger_cli.client import HTTPError
 
-URL = "http://testflinger"
+from .conftest import URL
 
 
-def test_get_job_data_invalid_job_id_400(requests_mock):
+def test_get_job_data_invalid_job_id_400(requests_mock, client):
     """Test get_job_data with invalid job ID (HTTP 400)."""
     job_id = "invalid-job-id"
     requests_mock.get(
@@ -35,13 +35,11 @@ def test_get_job_data_invalid_job_id_400(requests_mock):
         },
     )
 
-    client = Client(URL)
-
     with pytest.raises(HTTPError):
         client.get_job_data(job_id)
 
 
-def test_get_job_data_no_data_204(requests_mock):
+def test_get_job_data_no_data_204(requests_mock, client):
     """Test get_job_data with no data (HTTP 204)."""
     job_id = "existing-but-empty-job"
     requests_mock.get(
@@ -49,13 +47,11 @@ def test_get_job_data_no_data_204(requests_mock):
         status_code=HTTPStatus.NO_CONTENT,
     )
 
-    client = Client(URL)
-
     with pytest.raises(HTTPError):
         client.get_job_data(job_id)
 
 
-def test_get_job_data_success(requests_mock):
+def test_get_job_data_success(requests_mock, client):
     """Test get_job_data with valid job ID."""
     job_id = "valid-job-123"
     job_data = {"job_id": job_id, "job_state": "complete"}
@@ -63,7 +59,6 @@ def test_get_job_data_success(requests_mock):
         f"{URL}/v1/job/{job_id}", status_code=HTTPStatus.OK, json=job_data
     )
 
-    client = Client(URL)
     result = client.get_job_data(job_id)
 
     assert result == job_data

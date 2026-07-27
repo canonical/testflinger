@@ -60,6 +60,24 @@ reservations_metric = Counter(
 v1 = APIBlueprint("v1", __name__)
 
 
+@v1.after_request
+def log_refresh_validation_error(response):
+    """Log OWASP authn failures for schema validation errors on auth routes."""
+    if (
+        response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        and request.path.endswith("/oauth2/refresh")
+    ):
+        current_app.owasp_logger.authn_login_fail(
+            userid="unknown",
+            description=(
+                "Refresh token request rejected by schema validation: "
+                f"{response.get_json()}"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
+    return response
+
+
 @v1.get("/")
 def home():
     """Identify ourselves."""
@@ -294,8 +312,6 @@ def attachment_get(job_id):
     :return:
         send_file stream of attachment tarball to download
     """
-    # TODO: if we want attachments to be downloadable by the job owner,
-    #      consider similar TODO treatment as for artifacts: job page
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     try:
@@ -508,7 +524,7 @@ def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
 @v1.post("/result/<job_id>")
 @authenticate
 @require_role(ServerRoles.AGENT)
-@v1.input(schemas.ResultSchema, location="json")
+@v1.input(schemas.ResultPost, location="json")
 def result_post(job_id: str, json_data: dict) -> str:
     """Post a result for a specified job_id.
 
@@ -530,12 +546,7 @@ def result_post(job_id: str, json_data: dict) -> str:
 
 @v1.get("/result/<job_id>")
 @authenticate
-@require_role(
-    ServerRoles.ADMIN,
-    ServerRoles.MANAGER,
-    ServerRoles.CONTRIBUTOR,
-    ServerRoles.AGENT,
-)
+@require_role(*ServerRoles)
 @v1.output(schemas.ResultGet)
 def result_get(job_id: str):
     """Return results for a specified job_id.
@@ -566,7 +577,7 @@ def action_post(job_id, json_data):
     :param job_id:
         UUID as a string for the job
     """
-    # TODO: limit to job owner (or greater) if auth enabled (so job owner known
+    # TODO: limit to job owner (or greater) if auth enabled so job owner known
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     action = json_data["action"]
@@ -603,15 +614,15 @@ def queues_get():
 @v1.post("/agents/queues")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
-def queues_post():
+@v1.input(schemas.QueuesIn, location="json")
+def queues_post(json_data: dict):
     """Tell testflinger the queue names that are being serviced.
 
     Some agents may want to advertise some of the queues they listen on so that
     the user can check which queues are valid to use.
     """
-    queue_dict = request.get_json()
     timestamp = datetime.now(timezone.utc)
-    for queue, description in queue_dict.items():
+    for queue, description in json_data.items():
         database.mongo.db.queues.update_one(
             {"name": queue},
             {"$set": {"description": description, "updated_at": timestamp}},
@@ -638,7 +649,8 @@ def images_get(queue):
 @v1.post("/agents/images")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
-def images_post():
+@v1.input(schemas.ImagesIn, location="json")
+def images_post(json_data: dict):
     """Tell testflinger about known images for a specified queue
     images will be stored in a dict of key/value pairs as part of the queues
     collection. That dict will contain image_name:provision_data mappings, ex:
@@ -652,9 +664,8 @@ def images_post():
         }
     }.
     """
-    image_dict = request.get_json()
     # We need to delete and recreate the images in case some were removed
-    for queue, image_data in image_dict.items():
+    for queue, image_data in json_data.items():
         database.mongo.db.queues.update_one(
             {"name": queue},
             {"$set": {"images": image_data}},
@@ -686,12 +697,7 @@ def agents_get_all():
 
 @v1.get("/agents/data/<agent_name>")
 @authenticate
-@require_role(
-    ServerRoles.ADMIN,
-    ServerRoles.MANAGER,
-    ServerRoles.CONTRIBUTOR,
-    ServerRoles.AGENT,
-)
+@require_role(*ServerRoles)
 @v1.output(schemas.AgentOut)
 def agents_get_one(agent_name):
     """Get the information from a specified agent.
@@ -1100,17 +1106,10 @@ def retrieve_token():
 
 
 @v1.post("/oauth2/refresh")
-def refresh_access_token():
+@v1.input(schemas.RefreshTokenIn, location="json")
+def refresh_access_token(json_data: dict):
     """Refresh access token using a valid refresh token."""
-    data = request.get_json() or {}
-    refresh_token = data.get("refresh_token")
-    if not refresh_token:
-        current_app.owasp_logger.authn_login_fail(
-            userid="unknown",
-            description=("Access token requested without refresh token."),
-            **OWASPLogger.get_request_metadata(request),
-        )
-        abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
+    refresh_token = json_data["refresh_token"]
 
     token_entry = auth.validate_refresh_token(refresh_token)
     client_id = token_entry["client_id"]
@@ -1140,19 +1139,17 @@ def refresh_access_token():
     return {
         "access_token": access_token,
         "token_type": "Bearer",
-        "expires_in": 30,
+        "expires_in": auth.DEFAULT_ACCESS_TOKEN_EXPIRATION,
     }
 
 
 @v1.post("/oauth2/revoke")
 @authenticate
 @require_role(ServerRoles.ADMIN)
-def revoke_refresh_token():
+@v1.input(schemas.RefreshTokenIn, location="json")
+def revoke_refresh_token(json_data: dict):
     """Revoke a refresh token. Only admins can perform this action."""
-    data = request.get_json() or {}
-    token = data.get("refresh_token")
-    if not token:
-        abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
+    token = json_data["refresh_token"]
 
     token_entry = database.get_refresh_token_by_token(token)
     if not token_entry:
@@ -1317,6 +1314,12 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
 
     client_secret = json_data.pop("client_secret", None)
     permissions = database.get_client_permissions(client_id) or {}
+    if ("email" in json_data or client_secret) and permissions.get("sub"):
+        # Do not allow adding an email or client secret to an OIDC client id
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            "Error: Cannot add email or client secret to OIDC client id",
+        )
     client_exist = bool(permissions)
     # Default role for backward compatibility
     current_role = permissions.get("role", ServerRoles.CONTRIBUTOR)
@@ -1479,7 +1482,11 @@ def secrets_put(client_id, path, json_data):
     if current_app.secrets_store is None:
         abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
     if not g.client_id:
-        abort(HTTPStatus.UNAUTHORIZED)
+        abort(
+            HTTPStatus.UNAUTHORIZED,
+            message="A login (known client_id) is required to securely store"
+            "information.",
+        )
     if client_id != g.client_id:
         abort(
             HTTPStatus.FORBIDDEN,
@@ -1517,7 +1524,11 @@ def secrets_delete(client_id, path):
     if current_app.secrets_store is None:
         abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
     if not g.client_id:
-        abort(HTTPStatus.UNAUTHORIZED)
+        abort(
+            HTTPStatus.UNAUTHORIZED,
+            message="A login (known client_id) is required to securely store"
+            " information.",
+        )
     if client_id != g.client_id:
         abort(
             HTTPStatus.FORBIDDEN,

@@ -16,13 +16,10 @@
 
 import logging
 
-import yaml
-
 from testflinger_device_connectors.devices import (
     DefaultDevice,
 )
 from testflinger_device_connectors.devices.oemscript.oemscript import OemScript
-from testflinger_device_connectors.devices.zapper import ZapperConnector
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +30,6 @@ class DeviceConnector(DefaultDevice):
     def provision(self, args):
         """Provision device when the command is invoked."""
         super().provision(args)
-
-        with open(args.config) as configfile:
-            config = yaml.safe_load(configfile)
-
-        ZapperConnector.disconnect_usb_stick(config)
 
         device = OemScript(args.config, args.job_data)
         logger.info("BEGIN provision")

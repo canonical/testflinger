@@ -20,16 +20,17 @@ import json
 import sys
 import uuid
 from http import HTTPStatus
-from unittest.mock import call, patch
+from unittest.mock import patch
 
 import pytest
+import requests
 
 import testflinger_cli
+from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.enums import ServerRoles
 from testflinger_cli.errors import NetworkError
 
-from .conftest import TEST_CLIENT_ID
-from .test_cli import URL
+from .conftest import TEST_CLIENT_ID, URL
 
 
 def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):
@@ -64,7 +65,8 @@ def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):
     tfcli.submit()
     history = requests_mock.request_history
     assert len(history) == 3
-    assert history[1].path == "/v1/oauth2/token"
+    assert history[0].path == "/v1/oauth2/token"
+    assert history[1].path == "/v1/queues/fake/agents"
     assert history[2].path == "/v1/job"
     assert history[2].headers.get("Authorization") == "Bearer fake_jwt_token"
 
@@ -105,16 +107,15 @@ def test_submit_token_timeout_retry(tmp_path, requests_mock, monkeypatch):
         assert "Token has expired" in exc_info.value
 
     history = requests_mock.request_history
-    assert len(history) == 7
+    assert len(history) == 5
 
     # Authentication is made with env variables.
     # This auth type only uses token endpoint.
-    assert history[1].path == "/v1/oauth2/token"
+    assert history[0].path == "/v1/oauth2/token"
+    assert history[1].path == "/v1/queues/fake/agents"
     assert history[2].path == "/v1/job"
     assert history[3].path == "/v1/oauth2/token"
     assert history[4].path == "/v1/job"
-    assert history[5].path == "/v1/oauth2/token"
-    assert history[6].path == "/v1/job"
 
 
 def test_retrieve_regular_user_role(tmp_path, requests_mock):
@@ -201,13 +202,9 @@ def test_authorization_error(tmp_path, requests_mock, monkeypatch):
     )
 
     sys.argv = ["", "submit", str(job_file)]
-    tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(NetworkError) as err:
-        tfcli.run()
-    assert (
-        "403 Forbidden Error: Server access requires a VPN connection."
-        in str(err.value)
-    )
+    with pytest.raises(SystemExit) as err:
+        testflinger_cli.cli()
+    assert "Authorization error received from server" in str(err.value)
 
 
 def test_authentication_error(tmp_path, requests_mock, monkeypatch):
@@ -232,9 +229,8 @@ def test_authentication_error(tmp_path, requests_mock, monkeypatch):
     )
 
     sys.argv = ["", "submit", str(job_file)]
-    tfcli = testflinger_cli.TestflingerCli()
     with pytest.raises(SystemExit) as err:
-        tfcli.submit()
+        testflinger_cli.cli()
     assert "Authentication with Testflinger server failed" in str(err.value)
 
 
@@ -257,7 +253,7 @@ def test_multiple_login_clear_refresh_token(auth_fixture):
     assert initial_token != reauthenticated_token
 
 
-def test_refresh_token_expired(tmp_path, requests_mock, monkeypatch):
+def test_refresh_token_expired(tmp_path, requests_mock):
     """Test scenario where refresh_token is no longer valid."""
     job_data = {
         "job_queue": "fake",
@@ -266,18 +262,20 @@ def test_refresh_token_expired(tmp_path, requests_mock, monkeypatch):
     job_file = tmp_path / "test.json"
     job_file.write_text(json.dumps(job_data))
 
-    # Create mock config file with refresh token
+    # Create mock config file with refresh token at the path the CLI expects
+    # (xdg_config_home is mocked to tmp_path by the mock_xdg_config fixture)
+    auth = TestflingerCliAuth(URL)
+    auth_config_path = auth.auth_config
+    auth_config_path.parent.mkdir(parents=True, exist_ok=True)
     config_file = configparser.ConfigParser()
     config_file["AUTH"] = {
         "client_id": "my_client_id",
         "refresh_token": "fake_refresh_token",
     }
-    auth_config_path = tmp_path / "testflinger-cli-auth.conf"
     with auth_config_path.open("w") as file:
         config_file.write(file)
 
     sys.argv = ["", "submit", str(job_file)]
-    tfcli = testflinger_cli.TestflingerCli()
 
     # Mock refresh endpoint
     requests_mock.post(
@@ -289,20 +287,16 @@ def test_refresh_token_expired(tmp_path, requests_mock, monkeypatch):
     requests_mock.post(
         f"{URL}/oidc/auth-init", status_code=HTTPStatus.NOT_FOUND
     )
-    # Mock agents endpoint for available agents
-    requests_mock.get(
-        f"{URL}/v1/queues/fake/agents",
-        json=[{"name": "fake_agent", "state": "waiting"}],
-    )
 
     with pytest.raises(SystemExit) as exc:
-        tfcli.submit()
+        testflinger_cli.cli()
 
     assert "Please reauthenticate with server" in str(exc.value)
 
     history = requests_mock.request_history
-    assert len(history) == 3
-    assert history[1].path == "/v1/oauth2/refresh"
+    assert len(history) == 2
+    assert history[0].path == "/v1/oauth2/refresh"
+    assert history[1].path == "/oidc/auth-init"
 
 
 def test_cli_login_defaults_credentials(auth_fixture, capsys):
@@ -397,10 +391,13 @@ def test_login_oidc_poll_terminal_errors(
     assert expected_message in str(exc.value)
 
 
-@patch("testflinger_cli.auth.time.sleep")
+@patch(
+    "testflinger_cli.auth.TestflingerCliAuth.monitor_for_refresh_token",
+    return_value=None,
+)
 @patch("testflinger_cli.auth.webbrowser.open")
 def test_login_oidc_poll_pending_then_success(
-    mock_open, mock_sleep, oidc_auth_fixture, capsys
+    mock_open, mock_monitor, oidc_auth_fixture, capsys
 ):
     """Test OIDC poll retries on authorization_pending until auth succeeds."""
     oidc_auth_fixture(
@@ -417,15 +414,20 @@ def test_login_oidc_poll_pending_then_success(
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.login()
 
-    # sleep called once before 400, once before 200
-    assert mock_sleep.call_args_list == [call(5), call(5)]
+    # monitor_for_refresh_token called once before 400, once before 200
+    assert mock_monitor.call_count == 2
+    # both calls use the initial interval of 5
+    assert all(c.args[1] == 5 for c in mock_monitor.call_args_list)
     assert tfcli.auth.get_stored_refresh_token() is not None
 
 
-@patch("testflinger_cli.auth.time.sleep")
+@patch(
+    "testflinger_cli.auth.TestflingerCliAuth.monitor_for_refresh_token",
+    return_value=None,
+)
 @patch("testflinger_cli.auth.webbrowser.open")
 def test_login_oidc_poll_slow_down(
-    mock_open, mock_sleep, oidc_auth_fixture, capsys
+    mock_open, mock_monitor, oidc_auth_fixture, capsys
 ):
     """Test OIDC polling increases interval using Retry-After header."""
     oidc_auth_fixture(
@@ -444,5 +446,97 @@ def test_login_oidc_poll_slow_down(
     tfcli.login()
 
     # interval starts at 5, increases by Retry-After (5) after slow_down
-    assert mock_sleep.call_args_list == [call(5), call(10)]
+    intervals = [c.args[1] for c in mock_monitor.call_args_list]
+    assert intervals == [5, 10]
     assert tfcli.auth.get_stored_refresh_token() is not None
+
+
+def test_credentials_timeout_raises_network_error(requests_mock, monkeypatch):
+    """Test that a timeout during credential auth raises NetworkError."""
+    monkeypatch.setenv("TESTFLINGER_CLIENT_ID", "my_client_id")
+    monkeypatch.setenv("TESTFLINGER_SECRET_KEY", "my_secret_key")
+    requests_mock.post(
+        f"{URL}/v1/oauth2/token",
+        exc=requests.exceptions.Timeout,
+    )
+    auth = TestflingerCliAuth(URL, "my_client_id", "my_secret_key")
+    with pytest.raises(NetworkError):
+        auth._authenticate_with_credentials()
+
+
+def test_refresh_token_timeout_raises_network_error(requests_mock):
+    """Test that a timeout during refresh token auth raises NetworkError."""
+    requests_mock.post(
+        f"{URL}/v1/oauth2/refresh",
+        exc=requests.exceptions.Timeout,
+    )
+    auth = TestflingerCliAuth(URL)
+    with pytest.raises(NetworkError):
+        auth._authenticate_with_refresh_token("fake_refresh_token")
+
+
+def test_oidc_init_timeout_raises_network_error(requests_mock):
+    """Test that a timeout during OIDC init raises NetworkError."""
+    requests_mock.post(
+        f"{URL}/oidc/auth-init",
+        exc=requests.exceptions.Timeout,
+    )
+    auth = TestflingerCliAuth(URL)
+    with pytest.raises(NetworkError):
+        auth._authenticate_with_oidc()
+
+
+@patch("testflinger_cli.auth.time.sleep")
+@patch("testflinger_cli.auth.webbrowser.open")
+def test_oidc_poll_timeout_raises_network_error(
+    mock_open, mock_sleep, oidc_auth_fixture
+):
+    """Test that a timeout during OIDC polling raises NetworkError."""
+    oidc_auth_fixture({"exc": requests.exceptions.Timeout})
+    auth = TestflingerCliAuth(URL)
+    with pytest.raises(NetworkError):
+        auth._authenticate_with_oidc()
+
+
+def test_monitor_for_refresh_token_returns_none_when_no_new_token(
+    requests_mock,
+):
+    """monitor_for_refresh_token returns None when no new token appears."""
+    auth = TestflingerCliAuth(URL)
+    # No token stored on disk, current token is None
+    with patch("testflinger_cli.auth.time.sleep"):
+        result = auth.monitor_for_refresh_token(None, interval=0)
+    assert result is None
+
+
+def test_monitor_for_refresh_token_returns_none_when_token_unchanged(
+    requests_mock,
+):
+    """monitor_for_refresh_token returns None when stored token unchanged."""
+    auth = TestflingerCliAuth(URL)
+    # Store a token on disk
+    auth.client_id = "my_client_id"
+    auth.store_refresh_token("existing_token")
+
+    with patch("testflinger_cli.auth.time.sleep"):
+        result = auth.monitor_for_refresh_token("existing_token", interval=0)
+    assert result is None
+
+
+def test_monitor_for_refresh_token_returns_access_token_on_new_token(
+    requests_mock,
+):
+    """monitor_for_refresh_token returns access token on new token."""
+    fake_access_token = "new_access_token"
+    requests_mock.post(
+        f"{URL}/v1/oauth2/refresh",
+        json={"access_token": fake_access_token},
+    )
+
+    auth = TestflingerCliAuth(URL)
+    auth.client_id = "my_client_id"
+    auth.store_refresh_token("new_refresh_token")
+
+    with patch("testflinger_cli.auth.time.sleep"):
+        result = auth.monitor_for_refresh_token("old_token", interval=1)
+    assert result == fake_access_token

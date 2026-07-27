@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 TESTFLINGER_ADMIN_ID = "testflinger-admin"
 DEFAULT_PORT = 5000
+METRICS_PORT = 9090
 
 
 class TestflingerCharm(ops.CharmBase):
@@ -90,7 +91,7 @@ class TestflingerCharm(ops.CharmBase):
         self._prometheus_scraping = MetricsEndpointProvider(
             self,
             relation_name="metrics-endpoint",
-            jobs=[{"static_configs": [{"targets": ["*:5000"]}]}],
+            jobs=[{"static_configs": [{"targets": [f"*:{METRICS_PORT}"]}]}],
             refresh_event=self.on.config_changed,
         )
 
@@ -414,7 +415,10 @@ class TestflingerCharm(ops.CharmBase):
                     "summary": "testflinger",
                     "command": command,
                     "startup": "enabled",
-                    "environment": self.app_environment,
+                    "environment": {
+                        **self.app_environment,
+                        "METRICS_PORT": str(METRICS_PORT),
+                    },
                     "on-check-failure": {
                         self.pebble_check_name: "restart",
                     },
@@ -438,6 +442,7 @@ class TestflingerCharm(ops.CharmBase):
             "MONGODB_DATABASE": db_data.get("db_database"),
             "MONGODB_MAX_POOL_SIZE": str(self.typed_config.max_pool_size),
             "JWT_SIGNING_KEY": self.typed_config.jwt_signing_key,
+            "JWT_LEEWAY": str(self.typed_config.jwt_leeway),
             "TESTFLINGER_SECRETS_MASTER_KEY": self.typed_config.testflinger_secrets_master_key,  # noqa: E501
             "TESTFLINGER_KEY_VAULT_URI": self._fetch_keyvault_uri() or "",
             "HTTP_PROXY": self.typed_config.http_proxy,

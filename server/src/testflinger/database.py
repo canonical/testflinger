@@ -129,6 +129,11 @@ def create_indexes():
     )
 
     # Faster lookups for common queries
+    mongo.db.refresh_tokens.create_index("refresh_token", unique=True)
+    mongo.db.refresh_tokens.create_index("client_id")
+    mongo.db.agents.create_index("name", unique=True)
+    mongo.db.client_permissions.create_index("client_id", unique=True)
+    mongo.db.client_permissions.create_index("sub", sparse=True)
     mongo.db.jobs.create_index("job_id")
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
 

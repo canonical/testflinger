@@ -22,10 +22,14 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
+from unittest.mock import patch
 
+import bcrypt
 import jwt
+import pytest
 from testflinger_common.enums import ServerRoles
 
+from testflinger.api.auth import HASH_ROUNDS
 from testflinger.api.v1 import TESTFLINGER_ADMIN_ID
 from tests.utilities import (
     get_access_token,
@@ -163,8 +167,8 @@ def test_priority_expired_token(mongo_app_with_permissions):
     app, _, _, _, _ = mongo_app_with_permissions
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     expired_token_payload = {
-        "exp": datetime.now(timezone.utc) - timedelta(seconds=2),
-        "iat": datetime.now(timezone.utc) - timedelta(seconds=4),
+        "exp": datetime.now(timezone.utc) - timedelta(seconds=10),
+        "iat": datetime.now(timezone.utc) - timedelta(seconds=12),
         "sub": "access_token",
         "permissions": {
             "max_priority": {},
@@ -194,7 +198,7 @@ def test_missing_fields_in_token(mongo_app_with_permissions):
         "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
     )
     assert 403 == job_response.status_code
-    assert "Invalid Token" in job_response.text
+    assert "Token missing required claim" in job_response.text
 
 
 def test_missing_role_defaults_to_contributor(mongo_app_with_permissions):
@@ -728,6 +732,10 @@ def test_add_client_permissions(mongo_app_with_permissions, caplog):
     assert "client_secret_hash" in client_entry
     assert client_entry["client_secret_hash"] != clear_password
 
+    # Verify hash uses the expected cost factor
+    cost = int(client_entry["client_secret_hash"].split("$")[2])
+    assert cost == HASH_ROUNDS
+
     # Verify OWASP user_created event is logged
     assert f"user_created:{admin_client_id}" in caplog.text
     assert client_id in caplog.text
@@ -853,7 +861,7 @@ def test_create_edit_fail_for_testflinger_admin(mongo_app_with_permissions):
     # Define permission to set for PUT request
     permissions = {
         "client_id": "testflinger-admin",
-        "client_secret": "test-secret",
+        "client_secret": "test-secret-long",
         "max_priority": {"*": 10},
         "max_reservation_time": {"*": 40000},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1192,7 +1200,8 @@ def test_refresh_with_missing_token_field(mongo_app_with_permissions):
     app, _, _, _, _ = mongo_app_with_permissions
 
     resp = app.post("/v1/oauth2/refresh", json={})
-    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
@@ -1202,7 +1211,7 @@ def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
 
     client_id = "test_user"
     contributor_permissions = {
-        "client_secret": "user-secret",
+        "client_secret": "user-secret-long",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1216,7 +1225,7 @@ def test_contributor_refresh_token_has_expiration(mongo_app_with_permissions):
 
     output = app.post(
         "/v1/oauth2/token",
-        headers=get_basic_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret-long"),
     )
     assert output.status_code == HTTPStatus.OK
     refresh_token = output.get_json()["refresh_token"]
@@ -1232,7 +1241,7 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
 
     client_id = "test_user"
     contributor_permissions = {
-        "client_secret": "user-secret",
+        "client_secret": "user-secret-long",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1246,7 +1255,7 @@ def test_revoke_refresh_token(mongo_app_with_permissions):
 
     contributor_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=get_basic_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret-long"),
     )
     assert contributor_auth_output.status_code == HTTPStatus.OK
     refresh_token = contributor_auth_output.get_json()["refresh_token"]
@@ -1273,7 +1282,7 @@ def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
 
     client_id = "test_user"
     user_perm = {
-        "client_secret": "user-secret",
+        "client_secret": "user-secret-long",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1286,7 +1295,7 @@ def test_non_admin_cannot_revoke_refresh_token(mongo_app_with_permissions):
 
     contributor_auth_output = app.post(
         "/v1/oauth2/token",
-        headers=get_basic_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret-long"),
     )
     user_json = contributor_auth_output.get_json()
     user_access_token = user_json["access_token"]
@@ -1310,7 +1319,9 @@ def test_revoke_with_missing_token_field(mongo_app_with_permissions):
         json={},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert resp.status_code == HTTPStatus.BAD_REQUEST
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 def test_revoke_already_revoked_token(mongo_app_with_permissions):
@@ -1320,7 +1331,7 @@ def test_revoke_already_revoked_token(mongo_app_with_permissions):
 
     client_id = "test_user"
     user_perm = {
-        "client_secret": "user-secret",
+        "client_secret": "user-secret-long",
         "max_priority": {},
         "max_reservation_time": {},
         "role": ServerRoles.CONTRIBUTOR,
@@ -1333,7 +1344,7 @@ def test_revoke_already_revoked_token(mongo_app_with_permissions):
 
     user_auth = app.post(
         "/v1/oauth2/token",
-        headers=get_basic_auth_header(client_id, "user-secret"),
+        headers=get_basic_auth_header(client_id, "user-secret-long"),
     )
     refresh_token = user_auth.get_json()["refresh_token"]
 
@@ -1386,3 +1397,334 @@ def test_refresh_token_last_accessed_update(mongo_app_with_permissions):
     last_accessed_after = token_entry_after["last_accessed"]
 
     assert last_accessed_after > last_accessed_before
+
+
+def test_add_client_permissions_with_email(mongo_app_with_permissions):
+    """Test that an email can be added to a regular (non-OIDC) client."""
+    app, mongo, admin_client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, admin_client_id, client_key)
+
+    client_id = "test-client"
+    client_permissions = {
+        "client_secret": "my-secret-password",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.CONTRIBUTOR,
+        "email": "owner@example.com",
+    }
+
+    output = app.put(
+        f"/v1/client-permissions/{client_id}",
+        json=client_permissions,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Verify email could be retrieved from the database
+    client_entry = mongo.client_permissions.find_one({"client_id": client_id})
+    assert client_entry["email"] == "owner@example.com"
+
+    # Verify email is returned by the GET endpoint
+    get_output = app.get(
+        f"/v1/client-permissions/{client_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert get_output.status_code == HTTPStatus.OK
+    assert get_output.json["email"] == "owner@example.com"
+
+
+def test_set_invalid_email_format_rejected(mongo_app_with_permissions):
+    """Test that setting an invalid email on a regular client is rejected."""
+    app, mongo, admin_client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, admin_client_id, client_key)
+
+    client_id = "test-client"
+    client_permissions = {
+        "client_secret": "my-secret-password",
+        "max_priority": {},
+        "max_reservation_time": {},
+        "role": ServerRoles.CONTRIBUTOR,
+        "email": "not-an-email",
+    }
+
+    output = app.put(
+        f"/v1/client-permissions/{client_id}",
+        json=client_permissions,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    # Schema validation should reject and return 422 Unprocessable Entity
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "Validation error" in output.json["message"]
+
+
+def test_set_email_on_oidc_client_rejected(mongo_app_with_permissions):
+    """Test that adding an email to an OIDC client is rejected."""
+    app, mongo, admin_client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, admin_client_id, client_key)
+
+    oidc_client_id = "test@example.com"
+    mongo.client_permissions.insert_one(
+        {
+            "client_id": oidc_client_id,
+            "sub": "oidc-subject-identifier",
+            "role": ServerRoles.CONTRIBUTOR,
+            "max_priority": {},
+            "allowed_queues": [],
+            "max_reservation_time": {},
+        }
+    )
+
+    output = app.put(
+        f"/v1/client-permissions/{oidc_client_id}",
+        json={"email": "new@example.com"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert (
+        "Cannot add email or client secret to OIDC client id"
+        in output.json["message"]
+    )
+
+
+def test_email_included_in_jwt_permissions(mongo_app_with_permissions):
+    """Test that a client's email is encoded into the issued JWT."""
+    app, mongo, _, _, _ = mongo_app_with_permissions
+
+    client_id = "test_client_email_jwt"
+    client_key = "test_key"
+    client_key_hash = bcrypt.hashpw(
+        client_key.encode("utf-8"), bcrypt.gensalt()
+    ).decode("utf-8")
+    mongo.client_permissions.insert_one(
+        {
+            "client_id": client_id,
+            "client_secret_hash": client_key_hash,
+            "role": ServerRoles.CONTRIBUTOR,
+            "max_priority": {},
+            "allowed_queues": [],
+            "max_reservation_time": {},
+            "email": "test@example.com",
+        }
+    )
+
+    token = get_access_token(app, client_id, client_key)
+    decoded = jwt.decode(
+        token,
+        os.environ.get("JWT_SIGNING_KEY"),
+        algorithms="HS256",
+        options={"require": ["exp", "iat", "sub", "permissions"]},
+    )
+    assert decoded["permissions"]["email"] == "test@example.com"
+
+
+def test_set_client_secret_on_oidc_client_rejected(mongo_app_with_permissions):
+    """Test that adding a client secret to an OIDC client is rejected."""
+    app, mongo, admin_client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, admin_client_id, client_key)
+
+    oidc_client_id = "test@example.com"
+    mongo.client_permissions.insert_one(
+        {
+            "client_id": oidc_client_id,
+            "sub": "oidc-subject-identifier",
+            "role": ServerRoles.CONTRIBUTOR,
+            "max_priority": {},
+            "allowed_queues": [],
+            "max_reservation_time": {},
+        }
+    )
+
+    output = app.put(
+        f"/v1/client-permissions/{oidc_client_id}",
+        json={"client_secret": "new-secret-password"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert (
+        "Cannot add email or client secret to OIDC client id"
+        in output.json["message"]
+    )
+
+
+@pytest.mark.parametrize(
+    "injection_payload",
+    [
+        {"refresh_token": {"$ne": None}},
+        {"refresh_token": {"$gt": ""}},
+        {"refresh_token": {"$regex": ".*"}},
+        {"refresh_token": {"$exists": True}},
+        {"refresh_token": {"$in": ["token1", "token2"]}},
+    ],
+)
+def test_refresh_rejects_operator_injection(mongo_app, injection_payload):
+    """Test that refresh rejects operator injection attempts."""
+    app, *_ = mongo_app
+
+    # Use the parameterized injection payload to attempt to refresh the token
+    response = app.post(
+        "/v1/oauth2/refresh",
+        json=injection_payload,
+    )
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.parametrize(
+    "injection_payload",
+    [
+        {"refresh_token": {"$ne": None}},
+        {"refresh_token": {"$gt": ""}},
+        {"refresh_token": {"$regex": ".*"}},
+        {"refresh_token": {"$exists": True}},
+        {"refresh_token": {"$in": ["token1", "token2"]}},
+    ],
+)
+def test_revoke_rejects_operator_injection(
+    mongo_app_with_permissions, injection_payload
+):
+    """Test that revoke rejects operator injection attempts."""
+    app, _, client_id, client_key, _ = mongo_app_with_permissions
+    token = get_access_token(app, client_id, client_key)
+
+    response = app.post(
+        "/v1/oauth2/revoke",
+        json=injection_payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.parametrize(
+    "exception, expected_status, expected_message",
+    [
+        (
+            jwt.exceptions.ExpiredSignatureError(),
+            HTTPStatus.UNAUTHORIZED,
+            "Token has expired",
+        ),
+        (
+            jwt.exceptions.ImmatureSignatureError(),
+            HTTPStatus.UNAUTHORIZED,
+            "Token not yet valid",
+        ),
+        (
+            jwt.exceptions.InvalidSignatureError(),
+            HTTPStatus.FORBIDDEN,
+            "Invalid Token signature",
+        ),
+        (
+            jwt.exceptions.MissingRequiredClaimError("exp"),
+            HTTPStatus.FORBIDDEN,
+            "Token missing required claim",
+        ),
+        (
+            jwt.exceptions.DecodeError(),
+            HTTPStatus.FORBIDDEN,
+            "Unable to decode token",
+        ),
+        (
+            jwt.exceptions.InvalidTokenError(),
+            HTTPStatus.FORBIDDEN,
+            "Invalid Token",
+        ),
+    ],
+)
+@patch("testflinger.api.auth.jwt.decode")
+def test_jwt_exception_handling(
+    mock_decode,
+    mongo_app_with_permissions,
+    exception,
+    expected_status,
+    expected_message,
+):
+    """Test that jwt decode exceptions return expected HTTP status codes."""
+    app, _, _, _, _ = mongo_app_with_permissions
+    mock_decode.side_effect = exception
+
+    job = {"job_queue": "myqueue", "job_priority": 100}
+    response = app.post(
+        "/v1/job",
+        json=job,
+        headers={"Authorization": "Bearer fake.token.value"},
+    )
+
+    assert response.status_code == expected_status
+    assert expected_message in response.text
+
+
+def test_access_token_valid_if_expired_within_leeway(
+    mongo_app_with_permissions,
+):
+    """Test access token is valid if already expired within leeway period."""
+    app, _, client_id, _, _ = mongo_app_with_permissions
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    # Token expired 2 seconds ago, within the default 5-second leeway
+    token_payload = {
+        "exp": datetime.now(timezone.utc) - timedelta(seconds=2),
+        "iat": datetime.now(timezone.utc),
+        "sub": "access_token",
+        "permissions": {
+            "client_id": client_id,
+            "max_priority": {"*": 1, "myqueue": 100},
+            "role": ServerRoles.CONTRIBUTOR,
+        },
+    }
+    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
+    job = {"job_queue": "myqueue"}
+    response = app.post(
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+
+def test_access_token_valid_if_iat_within_leeway(mongo_app_with_permissions):
+    """Test access token is valid if issued-at is within leeway period."""
+    app, _, client_id, _, _ = mongo_app_with_permissions
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    # Token issued 2 seconds in the future, within the default 5s leeway
+    token_payload = {
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        "iat": datetime.now(timezone.utc) + timedelta(seconds=2),
+        "sub": "access_token",
+        "permissions": {
+            "client_id": client_id,
+            "max_priority": {"*": 1, "myqueue": 100},
+            "role": ServerRoles.CONTRIBUTOR,
+        },
+    }
+    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
+    job = {"job_queue": "myqueue"}
+    response = app.post(
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+
+def test_access_token_invalid_if_iat_not_within_leeway(
+    mongo_app_with_permissions,
+):
+    """Test access token is invalid if issued-at isn't within leeway period."""
+    app, _, client_id, _, _ = mongo_app_with_permissions
+    secret_key = os.environ.get("JWT_SIGNING_KEY")
+    # Token issued 10 seconds in the future, outside the default 5s leeway
+    token_payload = {
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        "iat": datetime.now(timezone.utc) + timedelta(seconds=10),
+        "sub": "access_token",
+        "permissions": {
+            "client_id": client_id,
+            "max_priority": {"*": 1, "myqueue": 100},
+            "role": ServerRoles.CONTRIBUTOR,
+        },
+    }
+    token = jwt.encode(token_payload, secret_key, algorithm="HS256")
+    job = {"job_queue": "myqueue"}
+    response = app.post(
+        "/v1/job", json=job, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert "Token not yet valid" in response.text

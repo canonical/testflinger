@@ -32,6 +32,11 @@ from testflinger import database
 from testflinger.owasp import OWASPLogger
 
 DEFAULT_REFRESH_TOKEN_EXPIRATION = 6 * 24 * 60 * 60  # 6 days in seconds
+DEFAULT_ACCESS_TOKEN_EXPIRATION = 60 * 10  # 10 minutes
+HASH_ROUNDS = 8
+# The number of seconds to allow for clock drift when validating JWT tokens.
+# Increasing this value will affect `iat` and `exp` claims in the JWT token.
+JWT_LEEWAY = int(os.environ.get("JWT_LEEWAY", "5"))
 
 # Fields from client_permissions to include in the Testflinger JWT
 PERMISSIONS_FIELDS = frozenset(
@@ -41,6 +46,7 @@ PERMISSIONS_FIELDS = frozenset(
         "allowed_queues",
         "max_reservation_time",
         "client_id",
+        "email",
     }
 )
 
@@ -50,7 +56,9 @@ def hash_secret(secret: str):
 
     :param secret: Secret to be hashed with bcrypt library
     """
-    return bcrypt.hashpw(secret.encode("utf-8"), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(
+        secret.encode("utf-8"), bcrypt.gensalt(rounds=HASH_ROUNDS)
+    ).decode()
 
 
 def validate_client_key_pair(client_id: str, client_key: str) -> dict | None:
@@ -69,6 +77,9 @@ def validate_client_key_pair(client_id: str, client_key: str) -> dict | None:
     # OIDC-registered clients have no client_secret_hash since they
     # authenticate through the web flow, so reject credential-based logins
     secret_hash = (client_permissions_entry or {}).get("client_secret_hash")
+    # Increasing HASH_ROUNDS will slow down credential validation.
+    # This is more secure but performance may be impacted. If this is changed,
+    # make sure to choose a value that balances security and performance.
     if not secret_hash or not bcrypt.checkpw(
         client_key_bytes,
         secret_hash.encode("utf8"),
@@ -89,7 +100,9 @@ def generate_access_token(allowed_resources: dict, secret_key: str) -> str:
 
     :return: JWT token with all user permissions.
     """
-    expiration_time = datetime.now(timezone.utc) + timedelta(seconds=30)
+    expiration_time = datetime.now(timezone.utc) + timedelta(
+        seconds=DEFAULT_ACCESS_TOKEN_EXPIRATION
+    )
     token_payload = {
         "exp": expiration_time,
         "iat": datetime.now(timezone.utc),  # Issued at time
@@ -115,11 +128,20 @@ def decode_jwt_token(auth_token: str | None, secret_key: str) -> dict | None:
         decoded_jwt = jwt.decode(
             auth_token,
             secret_key,
+            leeway=JWT_LEEWAY,
             algorithms="HS256",
             options={"require": ["exp", "iat", "sub"]},
         )
     except jwt.exceptions.ExpiredSignatureError:
         abort(HTTPStatus.UNAUTHORIZED, "Token has expired")
+    except jwt.exceptions.ImmatureSignatureError:
+        abort(HTTPStatus.UNAUTHORIZED, "Token not yet valid")
+    except jwt.exceptions.InvalidSignatureError:
+        abort(HTTPStatus.FORBIDDEN, "Invalid Token signature")
+    except jwt.exceptions.MissingRequiredClaimError as e:
+        abort(HTTPStatus.FORBIDDEN, f"Token missing required claim: {e.claim}")
+    except jwt.exceptions.DecodeError:
+        abort(HTTPStatus.FORBIDDEN, "Unable to decode token")
     except jwt.exceptions.InvalidTokenError:
         abort(HTTPStatus.FORBIDDEN, "Invalid Token")
 
@@ -274,8 +296,8 @@ def authenticate(func):
             return func(*args, **kwargs)
         # else, role will be None until we figure out who they are
 
-        # If there is a token available, attempt to retrieve information
-        if auth_token:
+        # If there is a bearer token available, attempt to retrieve information
+        if auth_token and auth_token.startswith("Bearer "):
             auth_token = auth_token[len("Bearer ") :]
             secret_key = os.environ.get("JWT_SIGNING_KEY")
             decoded_jwt = decode_jwt_token(auth_token, secret_key)
@@ -338,7 +360,6 @@ def require_role(*roles):
 
             return func(*args, **kwargs)
 
-        wrapper._role_requirements = roles
         return wrapper
 
     return decorator
@@ -403,7 +424,7 @@ def issue_tokens(
     return {
         "access_token": access_token,
         "token_type": "Bearer",
-        "expires_in": 30,
+        "expires_in": DEFAULT_ACCESS_TOKEN_EXPIRATION,
         "refresh_token": refresh_token,
     }
 

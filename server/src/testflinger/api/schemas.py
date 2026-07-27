@@ -17,7 +17,7 @@
 
 from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
-from marshmallow import ValidationError, validates_schema
+from marshmallow import INCLUDE, ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
 from testflinger_common.duration import DurationParseError, parse_duration
 from testflinger_common.enums import ServerRoles, TestPhase
@@ -148,8 +148,8 @@ class OEMAutoinstallProvisionData(Schema):
     user_data = fields.String(required=False)
     redeploy_cfg = fields.String(required=False)
     authorized_keys = fields.String(required=False)
-    zapper_iso_url = fields.String(required=False)
-    zapper_iso_type = fields.String(required=False)
+    control_host_iso_url = fields.String(required=False)
+    control_host_iso_type = fields.String(required=False)
     update_user_data = fields.Boolean(required=False)
 
 
@@ -159,14 +159,14 @@ class OEMScriptProvisionData(Schema):
     url = fields.URL(required=True)
 
 
-class BaseZapperProvisionData(Schema):
-    """Shared schema for the `provision_data` of Zapper jobs."""
+class BaseControlHostProvisionData(Schema):
+    """Shared schema for the `provision_data` of control host jobs."""
 
-    zapper_provisioning_timeout = fields.Integer(required=False)
+    provisioning_timeout = fields.Integer(required=False)
 
 
-class BaseZapperIoTProvisionData(BaseZapperProvisionData):
-    """Shared schema for Zapper IoT jobs.
+class BaseControlHostIoTProvisionData(BaseControlHostProvisionData):
+    """Shared schema for control host IoT jobs.
 
     The boot image can come from ``url``, ``urls``, or a single
     provision attachment uploaded alongside the job. Exactly one of
@@ -201,8 +201,8 @@ class BaseZapperIoTProvisionData(BaseZapperProvisionData):
             )
 
 
-class ZapperIoTPresetProvisionData(BaseZapperIoTProvisionData):
-    """Schema for the `provision_data` section of a Zapper IoT job.
+class ControlHostIoTPresetProvisionData(BaseControlHostIoTProvisionData):
+    """Schema for the `provision_data` section of a control host IoT job.
 
     This schema is used when using a preset for provisioning.
     """
@@ -211,8 +211,8 @@ class ZapperIoTPresetProvisionData(BaseZapperIoTProvisionData):
     preset_kwargs = fields.Dict(required=False)
 
 
-class ZapperIoTCustomProvisionData(BaseZapperIoTProvisionData):
-    """Schema for the `provision_data` section of a Zapper IoT job.
+class ControlHostIoTCustomProvisionData(BaseControlHostIoTProvisionData):
+    """Schema for the `provision_data` section of a control host IoT job.
 
     This schema is used when using a custom plan for provisioning.
     """
@@ -222,8 +222,8 @@ class ZapperIoTCustomProvisionData(BaseZapperIoTProvisionData):
     provision_plan = fields.Dict(required=True)
 
 
-class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
-    """Schema for the `provision_data` section of a Zapper KVM job.
+class ControlHostKVMAutoinstallProvisionData(BaseControlHostProvisionData):
+    """Schema for the `provision_data` section of a control host KVM job.
 
     This schema is used to target autoinstall-driven provisioning.
     """
@@ -238,8 +238,8 @@ class ZapperKVMAutoinstallProvisionData(BaseZapperProvisionData):
     cmdline_append = fields.String(required=False)
 
 
-class ZapperKVMOEM2204ProvisionData(BaseZapperProvisionData):
-    """Schema for the `provision_data` section of a Zapper KVM job.
+class ControlHostKVMOEM2204ProvisionData(BaseControlHostProvisionData):
+    """Schema for the `provision_data` section of a control host KVM job.
 
     This schema is used to target Ubuntu OEM 22.04.
     """
@@ -251,8 +251,8 @@ class ZapperKVMOEM2204ProvisionData(BaseZapperProvisionData):
     oem = fields.String(required=False)
 
 
-class ZapperKVMGenericProvisionData(BaseZapperProvisionData):
-    """Schema for the `provision_data` section of a Zapper KVM job.
+class ControlHostKVMGenericProvisionData(BaseControlHostProvisionData):
+    """Schema for the `provision_data` section of a control host KVM job.
 
     This schema is used to target any generic live ISOs.
     """
@@ -264,8 +264,8 @@ class ZapperKVMGenericProvisionData(BaseZapperProvisionData):
     wait_until_ssh = fields.Boolean(required=True)
 
 
-class ZapperKVMPresetProvisionData(BaseZapperProvisionData):
-    """Schema for the `provision_data` section of a Zapper KVM job.
+class ControlHostKVMPresetProvisionData(BaseControlHostProvisionData):
+    """Schema for the `provision_data` section of a control host KVM job.
 
     This schema is used when using a preset for provisioning.
     """
@@ -295,12 +295,12 @@ class ProvisionData(OneOfSchema):
         "noprovision": NoProvisionData,
         "oem_autoinstall": OEMAutoinstallProvisionData,
         "oem_script": OEMScriptProvisionData,
-        "zapper_iot_custom": ZapperIoTCustomProvisionData,
-        "zapper_iot_preset": ZapperIoTPresetProvisionData,
-        "zapper_kvm_autoinstall": ZapperKVMAutoinstallProvisionData,
-        "zapper_kvm_generic": ZapperKVMGenericProvisionData,
-        "zapper_kvm_oem_2204": ZapperKVMOEM2204ProvisionData,
-        "zapper_kvm_preset": ZapperKVMPresetProvisionData,
+        "control_host_iot_custom": ControlHostIoTCustomProvisionData,
+        "control_host_iot_preset": ControlHostIoTPresetProvisionData,
+        "control_host_kvm_autoinstall": ControlHostKVMAutoinstallProvisionData,
+        "control_host_kvm_generic": ControlHostKVMGenericProvisionData,
+        "control_host_kvm_oem_2204": ControlHostKVMOEM2204ProvisionData,
+        "control_host_kvm_preset": ControlHostKVMPresetProvisionData,
     }
 
     def get_obj_type(self, obj):
@@ -409,21 +409,7 @@ class Job(Schema):
 class JobId(Schema):
     """Job ID schema."""
 
-    job_id = fields.String(
-        required=True, metadata={"example": "<job_id (UUID)>"}
-    )
-
-
-class JobGetQuery(Schema):
-    """Query parameters for requesting a job from queues."""
-
-    queue = fields.List(
-        fields.String(),
-        required=False,
-        metadata={
-            "description": "Queue name(s) that the agent can process",
-        },
-    )
+    job_id = fields.String(required=True)
 
 
 class JobSearchRequest(Schema):
@@ -480,7 +466,7 @@ class ResultGet(Schema):
     job_state = fields.String(required=False)
 
 
-class ResultSchema(Schema):
+class ResultPost(Schema):
     """Result Post schema."""
 
     status = fields.Dict(
@@ -616,7 +602,7 @@ images_out = {
 class ClientPermissionsIn(Schema):
     """Client Permissions output schema."""
 
-    client_secret = fields.String(required=False)  # Optional for schema reuse
+    client_secret = fields.String(required=False, validate=Length(min=15))
     max_priority = fields.Dict(
         keys=fields.String(),
         values=fields.Integer(),
@@ -630,6 +616,7 @@ class ClientPermissionsIn(Schema):
     role = fields.String(
         required=False, validate=OneOf([role.value for role in ServerRoles])
     )
+    email = fields.Email(required=False)
 
 
 class ClientPermissionsOut(Schema):
@@ -646,7 +633,10 @@ class ClientPermissionsOut(Schema):
         fields.String(), required=True, allow_none=True
     )
     max_reservation_time = fields.Dict(required=True, allow_none=True)
-    role = fields.String(required=True)
+    role = fields.String(
+        required=True, dump_default=ServerRoles.CONTRIBUTOR.value
+    )
+    email = fields.Email(required=False, allow_none=True)
 
 
 class SecretIn(Schema):
@@ -679,3 +669,74 @@ class SecretOut(Schema):
             "description": "UTC datetime for secret expiration if TTL is set."
         },
     )
+
+
+class RefreshTokenIn(Schema):
+    """Refresh token input schema."""
+
+    refresh_token = fields.String(required=True, validate=Length(min=1))
+
+
+class QueuesIn(Schema):
+    """Queues input schema."""
+
+    class Meta:
+        """Allow unknown fields to support arbitrary queue names."""
+
+        unknown = INCLUDE
+
+    @validates_schema
+    def validate_string_values(self, data, **kwargs):
+        """Validate keys are non-empty strings and values are strings.
+
+        This accepts arbitrary queue names as keys, and descriptions as values.
+        """
+        for key, value in data.items():
+            if not isinstance(key, str) or not key:
+                raise ValidationError("Queue names must be non-empty strings")
+            if not isinstance(value, str):
+                raise ValidationError(
+                    f"Description for queue '{key}' must be a string"
+                )
+
+
+class ImagesIn(Schema):
+    """Images input schema - maps queue names to image name/provision data."""
+
+    class Meta:
+        """Allow unknown fields to support arbitrary queue names."""
+
+        unknown = INCLUDE
+
+    @validates_schema
+    def validate_structure(self, data, **kwargs):
+        """Validate all values are dicts mapping non-empty strings.
+
+        This accepts arbitrary queue names as keys, and dicts of image name to
+        provision data as values. Each image name must be a non-empty string,
+        and each provision data must be a string.
+        """
+        for queue, image_data in data.items():
+            if not isinstance(queue, str) or not queue:
+                raise ValidationError("Queue names must be non-empty strings")
+            if not isinstance(image_data, dict):
+                raise ValidationError(
+                    f"Images for queue '{queue}' must be a dict"
+                )
+            for image_name, provision_data in image_data.items():
+                if (
+                    not isinstance(image_name, str)
+                    or not image_name
+                    or image_name.startswith("$")
+                    or "." in image_name
+                    or "\x00" in image_name
+                ):
+                    raise ValidationError(
+                        f"Names for queue '{queue}' must be non-empty strings,"
+                        " must not start with '$', contain '.' or null bytes"
+                    )
+                if not isinstance(provision_data, str):
+                    raise ValidationError(
+                        f"Provision data for image '{image_name}' in queue"
+                        f" '{queue}' must be a string"
+                    )

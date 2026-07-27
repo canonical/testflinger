@@ -239,10 +239,13 @@ def role_clients_factory(mongo_app):
         client_id = f"{role.value}_client_{uuid.uuid4().hex[:8]}"
         client_key = f"key_{role.value}_{uuid.uuid4()}.key_2"
 
-        mongo_db.client_permissions.delete_many({})
+        client_key_hash = bcrypt.hashpw(
+            client_key.encode("utf-8"), bcrypt.gensalt()
+        ).decode("utf-8")
         mongo_db.client_permissions.insert_one(
             {
                 "client_id": client_id,
+                "client_secret_hash": client_key_hash,
                 "role": role,
                 "max_priority": {},
                 "allowed_queues": [],

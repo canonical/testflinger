@@ -15,6 +15,9 @@ links:
 containers:
   testflinger:
     resource: testflinger-image
+    ports:
+      - container-port: 9090
+        protocol: TCP
 
 resources:
   testflinger-image:
@@ -96,6 +99,13 @@ config:
       type: string
       default: ""
       description: The secret key used for signing authorization tokens
+    jwt_leeway:
+      type: int
+      default: 5
+      description: |
+        The allowed drift in seconds for validating JWT tokens.
+        Useful in k8s deployments where the clock may not be perfectly
+        synchronized between the k8s nodes.
     testflinger_secrets_master_key:
       type: string
       default: ""
@@ -156,6 +166,6 @@ parts:
       # for 22.04
       # Install rustc and cargo using rustup instead of the Ubuntu archive
       rustup set profile minimal
-      rustup default 1.95.0  # renovate: charmcraft-rust-latest
+      rustup default 1.96.0  # renovate: charmcraft-rust-latest
 
       craftctl default

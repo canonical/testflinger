@@ -1,0 +1,28 @@
+repos:
+  - repo: local
+    hooks:
+      - id: check-lock
+        name: Check lock file
+        entry: just check-lock
+        pass_filenames: false
+        language: rust
+        files: ^(uv\.lock|pyproject\.toml)$
+        types: [file]
+        additional_dependencies:
+          - just
+      - id: format
+        name: Format code
+        entry: just format
+        language: rust
+        types: [python]
+        pass_filenames: false
+        additional_dependencies:
+          - just
+      - id: lint
+        name: Lint code
+        entry: just lint
+        language: rust
+        types: [python]
+        pass_filenames: false
+        additional_dependencies:
+          - just

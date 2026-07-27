@@ -330,8 +330,8 @@ def test_add_job_oem_script_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_preset_provision_data(mongo_app):
-    """Test that a job with zapper_iot_preset provision_data works."""
+def test_add_job_control_host_iot_preset_provision_data(mongo_app):
+    """Test that a job with control_host_iot_preset provision_data works."""
     # Empty URLs fails
     provision_data = {"urls": [], "preset": ""}
     job_data = {"job_queue": "test", "provision_data": provision_data}
@@ -355,8 +355,8 @@ def test_add_job_zapper_iot_preset_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_preset_provision_data_single_url(mongo_app):
-    """Test that a job with zapper_iot_preset using `url` (str) works."""
+def test_add_job_control_host_iot_preset_provision_data_single_url(mongo_app):
+    """Test that a job with control_host_iot_preset using `url` (str) works."""
     provision_data = {
         "url": "http://example.com/image.img.xz",
         "preset": "fake",
@@ -367,7 +367,9 @@ def test_add_job_zapper_iot_preset_provision_data_single_url(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_preset_provision_data_both_url_and_urls(mongo_app):
+def test_add_job_control_host_iot_preset_provision_data_both_url_and_urls(
+    mongo_app,
+):
     """Test that providing both `url` and `urls` fails."""
     provision_data = {
         "url": "http://example.com/image.img.xz",
@@ -380,8 +382,8 @@ def test_add_job_zapper_iot_preset_provision_data_both_url_and_urls(mongo_app):
     assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data(mongo_app):
-    """Test that a job with zapper_iot_custom provision_data works."""
+def test_add_job_control_host_iot_custom_provision_data(mongo_app):
+    """Test that a job with control_host_iot_custom provision_data works."""
     # Empty URLs fails
     provision_data = {
         "urls": [],
@@ -404,8 +406,8 @@ def test_add_job_zapper_iot_custom_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data_single_url(mongo_app):
-    """Test that a job with zapper_iot_custom using `url` (str) works."""
+def test_add_job_control_host_iot_custom_provision_data_single_url(mongo_app):
+    """Test that a job with control_host_iot_custom using `url` (str) works."""
     provision_data = {
         "url": "http://example.com/image.img.xz",
         "provision_plan": {},
@@ -416,8 +418,8 @@ def test_add_job_zapper_iot_custom_provision_data_single_url(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_preset_provision_data_attachment(mongo_app):
-    """Test that a job with zapper_iot_preset using an attachment works."""
+def test_add_job_control_host_iot_preset_provision_data_attachment(mongo_app):
+    """Test control_host_iot_preset with an attachment."""
     provision_data = {
         "attachments": [{"agent": "provision/image.img"}],
         "preset": "fake",
@@ -428,8 +430,8 @@ def test_add_job_zapper_iot_preset_provision_data_attachment(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data_attachment(mongo_app):
-    """Test that a job with zapper_iot_custom using an attachment works."""
+def test_add_job_control_host_iot_custom_provision_data_attachment(mongo_app):
+    """Test control_host_iot_custom with an attachment."""
     provision_data = {
         "attachments": [{"agent": "provision/image.img"}],
         "provision_plan": {},
@@ -440,7 +442,7 @@ def test_add_job_zapper_iot_custom_provision_data_attachment(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data_neither(mongo_app):
+def test_add_job_control_host_iot_custom_provision_data_neither(mongo_app):
     """Test that providing neither url/urls nor attachments fails."""
     provision_data = {"provision_plan": {}}
     job_data = {"job_queue": "test", "provision_data": provision_data}
@@ -449,7 +451,7 @@ def test_add_job_zapper_iot_custom_provision_data_neither(mongo_app):
     assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data_url_and_attachment(
+def test_add_job_control_host_iot_custom_provision_data_url_and_attachment(
     mongo_app,
 ):
     """Test that providing both `url` and an attachment fails."""
@@ -464,7 +466,7 @@ def test_add_job_zapper_iot_custom_provision_data_url_and_attachment(
     assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data_urls_and_attachment(
+def test_add_job_control_host_iot_custom_provision_data_urls_and_attachment(
     mongo_app,
 ):
     """Test that providing both `urls` and an attachment fails."""
@@ -479,7 +481,7 @@ def test_add_job_zapper_iot_custom_provision_data_urls_and_attachment(
     assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data_multiple_attachments(
+def test_add_job_control_host_iot_custom_provision_data_multiple_attachments(
     mongo_app,
 ):
     """Test that providing more than one attachment fails."""
@@ -496,8 +498,8 @@ def test_add_job_zapper_iot_custom_provision_data_multiple_attachments(
     assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
 
 
-def test_add_job_zapper_kvm_autoinstall_provision_data(mongo_app):
-    """Test that a job with zapper_kvm_autoinstall provision_data works."""
+def test_add_job_control_host_kvm_autoinstall_provision_data(mongo_app):
+    """Test control_host_kvm_autoinstall provision_data."""
     # Invalid URL fails
     provision_data = {
         "url": "invalid",
@@ -520,8 +522,8 @@ def test_add_job_zapper_kvm_autoinstall_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_kvm_oem_2204_provision_data(mongo_app):
-    """Test that a job with zapper_kvm_oem_2204 provision_data works."""
+def test_add_job_control_host_kvm_oem_2204_provision_data(mongo_app):
+    """Test that a job with control_host_kvm_oem_2204 provision_data works."""
     # Invalid URL fails
     provision_data = {
         "alloem_url": "invalid",
@@ -543,8 +545,8 @@ def test_add_job_zapper_kvm_oem_2204_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_kvm_generic_provision_data(mongo_app):
-    """Test that a job with zapper_kvm_generic provision_data works."""
+def test_add_job_control_host_kvm_generic_provision_data(mongo_app):
+    """Test that a job with control_host_kvm_generic provision_data works."""
     # Invalid URL fails
     provision_data = {
         "url": "invalid",
@@ -857,6 +859,26 @@ def test_queues_post(mongo_app, agent_auth_header):
     assert output.json == queue_data
 
 
+@pytest.mark.parametrize(
+    "queue_data",
+    [
+        "INVALID_TYPE_SHOULD_BE_OBJECT",
+        {"qfoo": 123},
+        {"qfoo": None},
+        {"myqueue": {"$ne": None}},
+    ],
+)
+def test_queues_post_invalid_data(mongo_app, agent_auth_header, queue_data):
+    """Test posting advertised queues with invalid data."""
+    app, _ = mongo_app
+    output = app.post(
+        "/v1/agents/queues", json=queue_data, headers=agent_auth_header
+    )
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
 def test_images_post(mongo_app, agent_auth_header):
     """Test posting advertised images for a queue."""
     app, _ = mongo_app
@@ -869,6 +891,27 @@ def test_images_post(mongo_app, agent_auth_header):
     app.post("/v1/agents/images", json=image_data, headers=agent_auth_header)
     output = app.get("/v1/agents/images/myqueue")
     assert json.loads(output.data.decode()) == image_data.get("myqueue")
+
+
+@pytest.mark.parametrize(
+    "image_data",
+    [
+        "INVALID_TYPE_SHOULD_BE_OBJECT",
+        {"myqueue": "not-a-dict"},
+        {"myqueue": 123},
+        {"myqueue": {"image1": None}},
+        {"myqueue": {"image1": {"$ne": None}}},
+    ],
+)
+def test_images_post_invalid_data(mongo_app, agent_auth_header, image_data):
+    """Test posting advertised images with invalid data."""
+    app, _ = mongo_app
+    output = app.post(
+        "/v1/agents/images", json=image_data, headers=agent_auth_header
+    )
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 def test_get_invalid(mongo_app):

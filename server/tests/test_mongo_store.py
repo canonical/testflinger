@@ -813,3 +813,11 @@ class TestSetupMongoStore:
             match="Failed to access the key vault collection",
         ):
             setup_mongo_store()
+
+    def test_normalize_namespace(self):
+        """Test that an email-like namespace is normalized for MongoDB."""
+        assert (
+            MongoStore._normalize_namespace("test@example.com")
+            == "test_at_example_dot_com"
+        )
+        assert MongoStore._normalize_namespace("$admin") == "_dollar_admin"
