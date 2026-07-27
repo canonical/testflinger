@@ -565,7 +565,7 @@ def test_get_deployment_information_downloads_log_on_new_install(
         [
             "maas",
             maas2.maas_user,
-            "node-script-results",
+            "node-script-result",
             "download",
             maas2.node_id,
             "10",
