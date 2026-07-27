@@ -27,9 +27,6 @@
           <button class="p-table__sort-button">Job ID</button>
         </th>
         <th aria-sort="none">
-          <button class="p-table__sort-button">Client ID</button>
-        </th>
-        <th aria-sort="none">
           <button class="p-table__sort-button">State</button>
         </th>
         <th aria-sort="none">
@@ -43,7 +40,6 @@
           <td data-heading="Job ID">
             <a href="{{ url_for('testflinger.job_detail', job_id=job.job_id) }}">{{ job.job_id }}</a>
           </td>
-          <td data-heading="Client ID">{{ job.client_id or "" }}</td>
           <td data-heading="State">{{ job.result_data.job_state }}</td>
           <td data-heading="Created At">{{ job.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
         </tr>
@@ -63,8 +59,12 @@
     <table>
       <thead>
         <tr>
-          <th>Percentile</th>
-          <th>Wait Time</th>
+          <th aria-sort="none">
+            <button class="p-table__sort-button">Percentile</button>
+          </th>
+          <th aria-sort="none">
+            <button class="p-table__sort-button">Wait Time</button>
+          </th>
         </tr>
       </thead>
       <tbody>
