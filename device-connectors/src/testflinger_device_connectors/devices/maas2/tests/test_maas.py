@@ -458,7 +458,7 @@ def test_get_current_installation_id_returns_latest(
         [
             "maas",
             maas2.maas_user,
-            "node-script-results",
+            "node-script-result",
             "read",
             maas2.node_id,
             "type=installation",
