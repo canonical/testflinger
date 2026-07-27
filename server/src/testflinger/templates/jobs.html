@@ -7,39 +7,21 @@
       <h1 class="p-heading--3">Jobs</h1>
     </div>
   </div>
-  <div class="row">
-    <div class="col-8">
-      <form class="p-search-box"
-            method="get"
-            action="{{ url_for('testflinger.jobs') }}">
-        <input aria-label="Filter by client ID"
-               type="search"
-               class="p-search-box__input"
-               name="client_id"
-               placeholder="Filter by client_id (or @me)"
-               value="{{ client_id_filter }}"
-               autocomplete="off">
-        <button type="reset"
-                class="p-search-box__reset"
-                onclick="window.location='{{ url_for('testflinger.jobs') }}'">
-          <i class="p-icon--close"></i>
-        </button>
-        <button type="submit" class="p-search-box__button">
-          <i class="p-icon--search"></i>
-        </button>
-      </form>
-    </div>
-    {% if session.client_id %}
-      <div class="col-4 u-align--right u-vertically-center">
-        {% if client_id_filter == "@me" %}
-          <a href="{{ url_for('testflinger.jobs') }}" class="p-button">Show all jobs</a>
-        {% else %}
-          <a href="{{ url_for('testflinger.jobs') }}?client_id=@me"
-             class="p-button--positive">Only my jobs</a>
-        {% endif %}
-      </div>
-    {% endif %}
-  </div>
+  <form class="p-search-box">
+    <input aria-label="search"
+           type="search"
+           class="p-search-box__input"
+           name="search"
+           placeholder="Search"
+           required
+           autocomplete="on">
+    <button type="reset" class="p-search-box__reset">
+      <i class="p-icon--close"></i>
+    </button>
+    <button type="submit" class="p-search-box__button">
+      <i class="p-icon--search"></i>
+    </button>
+  </form>
   <table aria-label="Jobs table" class="p-table--mobile-card">
     <thead>
       <tr>
@@ -62,7 +44,7 @@
     </thead>
     <tbody>
       {% for job in jobs %}
-        <tr>
+        <tr class="searchable-row">
           <td data-heading="Job ID">
             <a href="{{ url_for('testflinger.job_detail', job_id=job.job_id) }}">{{ job.job_id }}</a>
           </td>

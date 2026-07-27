@@ -23,10 +23,6 @@
         <th scope="row">Created At</th>
         <td>{{ job.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
       </tr>
-      <tr>
-        <th scope="row">Client ID</th>
-        <td>{{ job.client_id or "" }}</td>
-      </tr>
     </tbody>
   </table>
   <h2 class="p-muted-heading" id="job-definition">

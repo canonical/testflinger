@@ -269,8 +269,7 @@ def main():
     """Main function"""
     args = get_args()
 
-    # Primary client used for queue/agent setup (needs admin role)
-    admin_client = TestflingerClient(
+    testflinger_client = TestflingerClient(
         server_url=args.server,
         client_id=os.environ.get("TESTFLINGER_CLIENT_ID", "dev-admin"),
         client_key=os.environ.get("TESTFLINGER_SECRET_KEY", "dev-secret-for-testing"),
@@ -278,7 +277,7 @@ def main():
 
     queues = QueueDataGenerator(num_queues=args.queues)
     # configure "advertised" queues:
-    admin_client.post_queue_data(
+    testflinger_client.post_queue_data(
         random.sample(tuple(queues), random.randint(1, args.advertised_queues))
     )
     logging.info("Created %s queues", args.queues)
@@ -288,33 +287,11 @@ def main():
     agents = AgentDataGenerator(
         num_agents=args.agents, queue_list=valid_queue_names
     )
-    admin_client.post_agent_data(agents=agents)
+    testflinger_client.post_agent_data(agents=agents)
     logging.info("Created %s agents", args.agents)
 
-    # Post jobs distributed across all known dev client IDs so that each
-    # job is stamped with a realistic client_id by the server.  The client
-    # IDs here must match the credential-based accounts created by
-    # create_dev_admin.py (dev-admin plus the SAMPLE_CLIENTS list).
-    job_client_ids = [
-        "dev-admin",
-        "alice",
-        "ci-bot-kernel",
-        "ci-bot-snapd",
-        "qa-runner-x86",
-        "infra-agent-arm",
-    ]
-    job_clients = [
-        TestflingerClient(
-            server_url=args.server,
-            client_id=client_id,
-            client_key=os.environ.get("TESTFLINGER_SECRET_KEY", "dev-secret-for-testing"),
-        )
-        for client_id in job_client_ids
-    ]
-
     jobs = JobDataGenerator(num_jobs=args.jobs, queue_list=valid_queue_names)
-    for job in jobs:
-        random.choice(job_clients).post_job_data([job])
+    testflinger_client.post_job_data(jobs=jobs)
     logging.info("Created %s jobs", args.jobs)
 
 
