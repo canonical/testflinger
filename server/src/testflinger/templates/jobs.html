@@ -7,6 +7,21 @@
       <h1 class="p-heading--3">Jobs</h1>
     </div>
   </div>
+  <form class="p-search-box">
+    <input aria-label="search"
+           type="search"
+           class="p-search-box__input"
+           name="search"
+           placeholder="Search"
+           required
+           autocomplete="on">
+    <button type="reset" class="p-search-box__reset" aria-label="Clear search">
+      <i class="p-icon--close" aria-hidden="true"></i>
+    </button>
+    <button type="submit" class="p-search-box__button" aria-label="Submit search">
+      <i class="p-icon--search" aria-hidden="true"></i>
+    </button>
+  </form>
   <table aria-label="Jobs table" class="p-table--mobile-card">
     <thead>
       <tr>
@@ -29,7 +44,7 @@
     </thead>
     <tbody>
       {% for job in jobs %}
-        <tr>
+        <tr class="searchable-row">
           <td data-heading="Job ID">
             <a href="{{ url_for('testflinger.job_detail', job_id=job.job_id) }}">{{ job.job_id }}</a>
           </td>
