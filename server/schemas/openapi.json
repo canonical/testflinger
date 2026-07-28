@@ -788,6 +788,11 @@
         "summary": "Get all agent data.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -829,6 +834,12 @@
         "summary": "Get the information from a specified agent.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor",
+          "agent"
         ]
       },
       "post": {
@@ -885,6 +896,11 @@
         "summary": "Post information about the agent to the server.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "agent"
         ]
       }
     },
@@ -924,6 +940,11 @@
         "summary": "Tell testflinger about known images for a specified queue",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "agent"
         ]
       }
     },
@@ -971,6 +992,11 @@
         "summary": "Get a dict of known images for a given queue.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1028,6 +1054,9 @@
         "summary": "Post provision logs for the agent to the server.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       }
     },
@@ -1057,6 +1086,11 @@
         "summary": "Get all advertised queues from this server.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       },
       "post": {
@@ -1094,6 +1128,11 @@
         "summary": "Tell testflinger the queue names that are being serviced.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "agent"
         ]
       }
     },
@@ -1115,6 +1154,10 @@
         "summary": "Retrieve all client permissions from database.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager"
         ]
       }
     },
@@ -1153,6 +1196,9 @@
         "summary": "Delete client id along with its permissions.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin"
         ]
       },
       "get": {
@@ -1191,6 +1237,10 @@
         "summary": "Retrieve single client-permissions from database.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager"
         ]
       },
       "put": {
@@ -1246,6 +1296,10 @@
         "summary": "Add or create client permissions for a specified user.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager"
         ]
       }
     },
@@ -1278,6 +1332,9 @@
         "summary": "Request a job to run from supported queues.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       },
       "post": {
@@ -1316,6 +1373,11 @@
         "summary": "Add a job to the queue.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1402,6 +1464,11 @@
         "summary": "Search for jobs by tags.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1443,6 +1510,11 @@
         "summary": "Request the json job definition for a specified job, even if it has",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1501,6 +1573,11 @@
         "summary": "Take action on the job status for a specified job ID.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1540,6 +1617,9 @@
         "summary": "Return the attachments bundle for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       },
       "post": {
@@ -1577,6 +1657,11 @@
         "summary": "Post attachment bundle for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1635,6 +1720,9 @@
         "summary": "Post status updates from the agent to the server to be forwarded",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       }
     },
@@ -1673,6 +1761,11 @@
         "summary": "Return the position of the specified jobid in the queue.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1749,6 +1842,9 @@
         "summary": "Revoke a refresh token. Only admins can perform this action.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin"
         ]
       }
     },
@@ -1788,6 +1884,11 @@
         "summary": "Get wait time metrics - optionally take a list of queues.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1828,6 +1929,11 @@
         "summary": "Get the list of all data for agents listening to a specified queue.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1867,6 +1973,11 @@
         "summary": "Get the jobs in a specified queue along with its state.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1888,6 +1999,11 @@
         "summary": "List all agent's restricted queues and its owners.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1945,6 +2061,10 @@
         "summary": "Delete an owner from the specific restricted queue.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager"
         ]
       },
       "get": {
@@ -1983,6 +2103,11 @@
         "summary": "Get restricted queues for a specific agent.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       },
       "post": {
@@ -2038,6 +2163,10 @@
         "summary": "Add an owner to the specific restricted queue.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager"
         ]
       }
     },
@@ -2079,6 +2208,12 @@
         "summary": "Return results for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor",
+          "agent"
         ]
       },
       "post": {
@@ -2135,6 +2270,9 @@
         "summary": "Post a result for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       }
     },
@@ -2174,6 +2312,11 @@
         "summary": "Return artifact bundle for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       },
       "post": {
@@ -2211,6 +2354,9 @@
         "summary": "Post artifact bundle for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       }
     },
@@ -2260,6 +2406,11 @@
         "summary": "Get logs for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       },
       "post": {
@@ -2324,6 +2475,9 @@
         "summary": "Post logs for a specified job ID.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       }
     },
@@ -2370,6 +2524,11 @@
         "summary": "Remove a secret value for the specified client_id and path.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "contributor",
+          "manager",
+          "admin"
         ]
       },
       "put": {
@@ -2435,6 +2594,11 @@
         "summary": "Store a secret value for the specified client_id and path.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "contributor",
+          "manager",
+          "admin"
         ]
       }
     }

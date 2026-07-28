@@ -37,6 +37,7 @@ or use the project uvx runner so imports and deps are available.
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -66,7 +67,6 @@ def _inject_role_metadata(spec: dict):
     
     This is a documentation-only extension, not used during request processing.
     """
-    import re
     
     # Build mapping of (path, method) -> roles from Flask routes
     route_to_roles = {}
