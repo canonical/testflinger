@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 from typing import Iterator, Optional, Tuple
 
 import requests
+from sample_users import SAMPLE_CLIENTS
 
 logging.basicConfig(level=logging.INFO)
 
@@ -294,20 +295,17 @@ def main():
     # Post jobs distributed across all known dev client IDs so that each
     # job is stamped with a realistic client_id by the server.  The client
     # IDs here must match the credential-based accounts created by
-    # create_dev_admin.py (dev-admin plus the SAMPLE_CLIENTS list).
+    # create_sample_users.py (from the SAMPLE_CLIENTS list).
     job_client_ids = [
-        "dev-admin",
-        "alice",
-        "ci-bot-kernel",
-        "ci-bot-snapd",
-        "qa-runner-x86",
-        "infra-agent-arm",
+        sample["client_id"]
+        for sample 
+        in SAMPLE_CLIENTS
     ]
     job_clients = [
         TestflingerClient(
             server_url=args.server,
             client_id=client_id,
-            client_key=os.environ.get("TESTFLINGER_SECRET_KEY", "dev-secret-for-testing"),
+            client_key="testflinger",
         )
         for client_id in job_client_ids
     ]

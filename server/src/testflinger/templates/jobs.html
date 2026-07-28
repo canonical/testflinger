@@ -14,7 +14,7 @@
           <button class="p-table__sort-button">Job ID</button>
         </th>
         <th aria-sort="none">
-          <button class="p-table__sort-button">Client ID</button>
+          <button class="p-table__sort-button">Submitted By</button>
         </th>
         <th aria-sort="none">
           <button class="p-table__sort-button">Queue</button>
@@ -33,7 +33,7 @@
           <td data-heading="Job ID">
             <a href="{{ url_for('testflinger.job_detail', job_id=job.job_id) }}">{{ job.job_id }}</a>
           </td>
-          <td data-heading="Client ID">{{ job.client_id or "" }}</td>
+          <td data-heading="Submitted By">{{ job.client_id or "" }}</td>
           <td data-heading="Queue">
             <a href="{{ url_for('testflinger.queue_detail', queue_name=job.job_data.job_queue) }}">{{ job.job_data.job_queue }}</a>
           </td>
