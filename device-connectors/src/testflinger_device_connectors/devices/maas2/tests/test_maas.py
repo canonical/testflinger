@@ -66,7 +66,7 @@ def test_maas_cmd_retry(mock_config_file):
             maas2.run_maas_cmd_with_retry(cmd)
 
         assert "error" in str(err.value)
-        assert mocked_time_sleep.call_count == 4
+        assert mocked_time_sleep.call_count == 3
 
 
 def test_reset_efi_prioritizes_current_boot_device(mock_config_file):
