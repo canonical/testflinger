@@ -32,6 +32,9 @@
       <th aria-sort="none" id="agentsJobIdHeader">
         <button class="p-table__sort-button">Job ID</button>
       </th>
+      <th aria-sort="none" id="agentsClientIdHeader">
+        <button class="p-table__sort-button">Submitted By</button>
+      </th>
     </tr>
   </thead>
   <tbody>
@@ -76,6 +79,7 @@
           <td class="u-align--right u-truncate" data-heading="Job ID">
             <a href="{{ url_for('testflinger.job_detail', job_id=agent.job_id) }}">{{ agent.job_id }}</a>
           </td>
+          <td data-heading="">{{ agent.client_id or "" }}</td>
         </tr>
       {% endfor %}
     {% else %}

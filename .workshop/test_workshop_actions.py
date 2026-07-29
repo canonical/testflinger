@@ -108,6 +108,7 @@ def main() -> None:
 
     try:
         run("just workshop disconnect", dry_run=dry_run)
+        print("Note: The first time you start the workshop this will take a minute or two, give it time.")
         run("just workshop serve", dry_run=dry_run)
         run_logs(duration=15, dry_run=dry_run)
         run("workshop exec dev -- just server::populate",

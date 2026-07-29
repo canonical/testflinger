@@ -230,7 +230,12 @@ def pop_job(queue_list: list[str], agent_name: str) -> dict | None:
 
         response = mongo.db.jobs.find_one_and_update(
             query_filter,
-            {"$set": {"result_data.job_state": "running"}},
+            {
+                "$set": {
+                    "result_data.job_state": "running",
+                    "result_data.agent_id": agent_name,
+                }
+            },
             projection={
                 "job_id": True,
                 "created_at": True,
@@ -414,6 +419,18 @@ def get_agent_info(agent: str) -> dict:
         {"name": agent}, {"_id": False, "log": False}
     )
     return agent_data
+
+
+def set_agent_job(agent_name: str, job_id: str) -> None:
+    """Record the job an agent is currently running.
+
+    :param agent_name: Name of the agent.
+    :param job_id: ID of the job the agent has been assigned.
+    """
+    mongo.db.agents.update_one(
+        {"name": agent_name},
+        {"$set": {"job_id": job_id}},
+    )
 
 
 def queue_exists(queue: str) -> bool:
