@@ -268,7 +268,7 @@ class Maas2:
         return False
 
     def run_maas_cmd_with_retry(
-        self, cmd: list[str], max_retries: int = 5, backoff_start: int = 10
+        self, cmd: list[str], max_retries: int = 3, backoff_start: int = 10
     ) -> subprocess.CompletedProcess:
         """Run maas command with retries on failure.
 
@@ -297,7 +297,7 @@ class Maas2:
             # since this will be all the information that we know, we should
             # track and share the history of failed attempts rather than only
             # the last.
-            errors.append(proc.stdout.decode())
+            errors.append((proc.returncode, proc.stdout.decode()))
             if retry_count > max_retries:
                 self._logger_error(
                     (
