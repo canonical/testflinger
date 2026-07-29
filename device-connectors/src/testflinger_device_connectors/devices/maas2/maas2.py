@@ -298,7 +298,10 @@ class Maas2:
             # track and share the history of failed attempts rather than only
             # the last.
             errors.append(
-                (proc.returncode, proc.stdout.decode("utf-8", errors="replace"))
+                (
+                    proc.returncode,
+                    proc.stdout.decode("utf-8", errors="replace"),
+                )
             )
             if retry_count >= max_retries:
                 self._logger_error(
