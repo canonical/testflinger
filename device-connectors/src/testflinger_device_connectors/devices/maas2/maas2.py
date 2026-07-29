@@ -297,8 +297,10 @@ class Maas2:
             # since this will be all the information that we know, we should
             # track and share the history of failed attempts rather than only
             # the last.
-            errors.append((proc.returncode, proc.stdout.decode()))
-            if retry_count > max_retries:
+            errors.append(
+                (proc.returncode, proc.stdout.decode("utf-8", errors="replace"))
+            )
+            if retry_count >= max_retries:
                 self._logger_error(
                     (
                         f"maas error running: {' '.join(cmd)}; "
