@@ -576,8 +576,8 @@ class Maas2:
         self._logger_info("Attempt to just power-off the machine")
         cmd = ["maas", self.maas_user, "machine", "power-off", self.node_id]
         proc = self.run_maas_cmd_with_retry(cmd)
+        output = proc.stdout.decode()
         if self.debug:
-            output = proc.stdout.decode()
             # Use logger_info to not modify agent config file
             self._logger_info(output)
 
