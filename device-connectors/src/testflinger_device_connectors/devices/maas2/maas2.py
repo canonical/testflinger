@@ -533,7 +533,7 @@ class Maas2:
             if status == "Ready":
                 return
         self._logger_error(
-            'Device {} still in "{}" state, attemtping recovery!'.format(
+            'Device {} still in "{}" state, attempting recovery!'.format(
                 self.agent_name, status
             )
         )
