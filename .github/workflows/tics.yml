@@ -29,7 +29,7 @@ jobs:
         sudo apt-get install -y pipx pkgconf libssl-dev build-essential
     
     - name: Install uv and set up Python
-      uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
     # Require to install uv_build as we are not using venv managed by uv
     - name: Install uv_build 
       run: pip install uv_build
