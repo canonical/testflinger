@@ -14,6 +14,7 @@
 
 """Unit tests for StatusLine."""
 
+import builtins
 import threading
 from unittest import mock
 
@@ -52,6 +53,39 @@ class TestStatusLineInit:
         StatusLine.stop()
 
         # After stop, builtins should be restored
+        assert builtins.print == original_print
+        assert builtins.input == original_input
+
+    def test_stop_ignores_broken_pipe_and_restores_builtins(self, mock_tty):
+        """stop() should handle closed output pipes during cleanup."""
+        original_print = builtins.print
+        original_input = builtins.input
+
+        StatusLine.init()
+        StatusLine._running = False
+        if StatusLine._timer_thread:
+            StatusLine._timer_thread.join(timeout=2.0)
+
+        with mock.patch(
+            "testflinger_cli.status_line.sys.stdout.flush",
+            side_effect=BrokenPipeError,
+        ):
+            StatusLine.stop()
+
+        assert builtins.print == original_print
+        assert builtins.input == original_input
+
+    def test_stop_ignores_keyboard_interrupt_during_join(self, mock_tty):
+        """stop() should handle a second Ctrl-C during cleanup."""
+        original_print = builtins.print
+        original_input = builtins.input
+
+        StatusLine.init()
+        StatusLine._timer_thread = mock.Mock()
+        StatusLine._timer_thread.join.side_effect = KeyboardInterrupt
+
+        StatusLine.stop()
+
         assert builtins.print == original_print
         assert builtins.input == original_input
 
