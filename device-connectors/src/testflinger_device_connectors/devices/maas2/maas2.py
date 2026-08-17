@@ -268,7 +268,7 @@ class Maas2:
         return False
 
     def run_maas_cmd_with_retry(
-        self, cmd: list[str], max_retries: int = 5, backoff_start: int = 10
+        self, cmd: list[str], max_retries: int = 3, backoff_start: int = 10
     ) -> subprocess.CompletedProcess:
         """Run maas command with retries on failure.
 
@@ -297,8 +297,13 @@ class Maas2:
             # since this will be all the information that we know, we should
             # track and share the history of failed attempts rather than only
             # the last.
-            errors.append(proc.stdout.decode())
-            if retry_count > max_retries:
+            errors.append(
+                (
+                    proc.returncode,
+                    proc.stdout.decode("utf-8", errors="replace"),
+                )
+            )
+            if retry_count >= max_retries:
                 self._logger_error(
                     (
                         f"maas error running: {' '.join(cmd)}; "
@@ -508,7 +513,6 @@ class Maas2:
         Deployed: Node is provisioned and ready for use
         """
         cmd = ["maas", self.maas_user, "machine", "read", self.node_id]
-        # Do not use runcmd for this - we need the output, not the end user
         proc = self.run_maas_cmd_with_retry(cmd)
         data = json.loads(proc.stdout.decode())
         return data.get("status_name")
@@ -528,6 +532,64 @@ class Maas2:
             status = self.node_status()
             if status == "Ready":
                 return
+        self._logger_error(
+            'Device {} still in "{}" state, attempting recovery!'.format(
+                self.agent_name, status
+            )
+        )
+        self._recover_node_control()
+
+    def _recover_node_control(self):
+        """Attempt to recover the node by any means necessary."""
+        # Gentle kick: recovery method one: mark-broken, mark-fixed.
+        self._logger_info("Attempt to mark-broken:")
+        cmd = ["maas", self.maas_user, "machine", "mark-broken", self.node_id]
+        proc = self.run_maas_cmd_with_retry(cmd)
+        if self.debug:
+            output = proc.stdout.decode()
+            # Use logger_info to not modify agent config file
+            self._logger_info(output)
+        if not proc.returncode:
+            self._logger_info("Attempt to mark-fixed:")
+            cmd = [
+                "maas",
+                self.maas_user,
+                "machine",
+                "mark-fixed",
+                self.node_id,
+            ]
+            proc = self.run_maas_cmd_with_retry(cmd)
+            if self.debug:
+                output = proc.stdout.decode()
+                # Use logger_info to not modify agent config file
+                self._logger_info(output)
+
+        self._logger_info("Check for Ready status")
+        # Make sure the device is available before returning
+        for _ in range(0, 3):  # wait up to 30 seconds
+            time.sleep(10)
+            status = self.node_status()
+            if status == "Ready":
+                return
+
+        # Brute force: recovery method two: power-off.
+        self._logger_info("Attempt to just power-off the machine")
+        cmd = ["maas", self.maas_user, "machine", "power-off", self.node_id]
+        proc = self.run_maas_cmd_with_retry(cmd)
+        output = proc.stdout.decode()
+        if self.debug:
+            # Use logger_info to not modify agent config file
+            self._logger_info(output)
+
+        self._logger_info("Check for Ready status")
+        # Make sure the device is available before returning
+        for _ in range(0, 3):  # wait up to 30 seconds
+            time.sleep(10)
+            status = self.node_status()
+            if status == "Ready":
+                return
+
+        # Give up and throw an error.
         self._logger_error(
             'Device {} still in "{}" state, could not recover!'.format(
                 self.agent_name, status

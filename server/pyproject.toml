@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv-build>=0.11,<0.12"]
+requires = ["uv-build>=0.12,<0.13"]
 build-backend = "uv_build"
 
 [project]
@@ -20,6 +20,7 @@ dependencies = [
     "owasp-logger>=0.1.5",
     "prometheus-client>=0.21.0",
     "prometheus-flask-exporter>=0.23.1",
+    "pygments>=2.20.0",
     "pyjwt>=2.12.1",
     "pymongo[encryption]<4.17.1",
     "pyyaml>=6.0.1",
