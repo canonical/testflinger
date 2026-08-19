@@ -79,7 +79,7 @@
           <td class="u-align--right u-truncate" data-heading="Job ID">
             <a href="{{ url_for('testflinger.job_detail', job_id=agent.job_id) }}">{{ agent.job_id }}</a>
           </td>
-          <td data-heading="">{{ agent.client_id or "" }}</td>
+          <td data-heading="">{{ agent.active_job.client_id if agent.active_job else "" }}</td>
         </tr>
       {% endfor %}
     {% else %}

@@ -56,8 +56,7 @@ def home():
 @views.route("/agents")
 def agents():
     """Agents view."""
-    agent_info = mongo.db.agents.find()
-    agent_info = enrich_agents_with_client_id(agent_info)
+    agent_info = attach_active_job(database.get_all_agents())
     return render_template("agents.html", agents=agent_info)
 
 
@@ -264,7 +263,7 @@ def queue_detail(queue_name):
         queue_percentile_data[key] = seconds_to_hms(value)
 
     agents_data = database.get_agents_on_queue(queue_name)
-    agents_data = enrich_agents_with_client_id(agents_data)
+    agents_data = attach_active_job(agents_data)
 
     return render_template(
         "queue_detail.html",
@@ -284,31 +283,31 @@ def seconds_to_hms(seconds: float) -> str:
     return f"{hours:02d}h {minutes:02d}m {seconds:02d}s"
 
 
-def enrich_agents_with_client_id(agents):
-    """Enrich agent documents with client_id from their current job.
+def attach_active_job(agents):
+    """Attach job_id and client_id from each agent's current job.
 
     For each agent that has a job_id, look up the corresponding job
-    document and attach its client_id to the agent dict.  Agents
-    without a job_id or whose job no longer exists get client_id
-    set to None.
+    document and attach its job_id and client_id to the agent dict
+    under ``active_job``.  Agents without a job_id or whose job
+    no longer exists get ``active_job`` set to None.
 
     :param agents: an iterable of agent dictionaries (e.g. a Mongo
         cursor or a list).
-    :returns: a list of agent dictionaries enriched with client_id.
+    :returns: a list of agent dictionaries with active_job set.
     """
     agents = list(agents)
     job_ids = [agent["job_id"] for agent in agents if agent.get("job_id")]
     if not job_ids:
         for agent in agents:
-            agent.setdefault("client_id", None)
+            agent.setdefault("active_job", None)
         return agents
-    client_id_map = {
-        doc["job_id"]: doc.get("client_id")
+    job_data_map = {
+        doc["job_id"]: doc
         for doc in mongo.db.jobs.find(
             {"job_id": {"$in": job_ids}},
             {"job_id": 1, "client_id": 1, "_id": 0},
         )
     }
     for agent in agents:
-        agent.setdefault("client_id", client_id_map.get(agent.get("job_id")))
+        agent.setdefault("active_job", job_data_map.get(agent.get("job_id")))
     return agents

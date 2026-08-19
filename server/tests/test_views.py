@@ -27,7 +27,7 @@ from testflinger_common.enums import LogType, TestPhase
 
 from testflinger.views import (
     agent_detail,
-    enrich_agents_with_client_id,
+    attach_active_job,
     job_detail,
     queues_data,
 )
@@ -316,8 +316,8 @@ def test_home_accessible_without_auth_when_oidc_enabled(oidc_app):
     assert response.status_code == HTTPStatus.OK
 
 
-def test_enrich_agents_with_client_id():
-    """Test that agents are enriched with client_id from their jobs."""
+def test_attach_active_job():
+    """Test that agents are enriched with active_job from their jobs."""
     mongo = mongomock.MongoClient()
     mongo.db.agents.insert_many(
         [
@@ -335,12 +335,12 @@ def test_enrich_agents_with_client_id():
 
     agents = list(mongo.db.agents.find())
     with patch("testflinger.views.mongo", mongo):
-        enriched = enrich_agents_with_client_id(agents)
+        enriched = attach_active_job(agents)
 
     by_name = {a["name"]: a for a in enriched}
-    assert by_name["agent1"]["client_id"] == "client-A"
-    assert by_name["agent2"]["client_id"] == "client-B"
-    assert by_name["agent3"]["client_id"] is None
+    assert by_name["agent1"]["active_job"]["client_id"] == "client-A"
+    assert by_name["agent2"]["active_job"]["client_id"] == "client-B"
+    assert by_name["agent3"]["active_job"] is None
 
 
 def test_enrich_agents_no_jobs():
@@ -350,10 +350,10 @@ def test_enrich_agents_no_jobs():
 
     agents = list(mongo.db.agents.find())
     with patch("testflinger.views.mongo", mongo):
-        enriched = enrich_agents_with_client_id(agents)
+        enriched = attach_active_job(agents)
 
     for agent in enriched:
-        assert agent["client_id"] is None
+        assert agent["active_job"] is None
 
 
 def test_enrich_agents_job_not_found():
@@ -363,9 +363,9 @@ def test_enrich_agents_job_not_found():
 
     agents = list(mongo.db.agents.find())
     with patch("testflinger.views.mongo", mongo):
-        enriched = enrich_agents_with_client_id(agents)
+        enriched = attach_active_job(agents)
 
-    assert enriched[0]["client_id"] is None
+    assert enriched[0]["active_job"] is None
 
 
 def test_agent_detail_provision_log_with_client_id(testapp):

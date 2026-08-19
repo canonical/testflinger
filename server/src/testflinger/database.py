@@ -136,6 +136,7 @@ def create_indexes():
     mongo.db.client_permissions.create_index("sub", sparse=True)
     mongo.db.jobs.create_index("job_id")
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
+    mongo.db.agents.create_index("queues")
 
     # Faster lookups for logs
     mongo.db.logs.create_index(
@@ -294,6 +295,26 @@ def get_queue_wait_times(queues: list[str] | None = None) -> list[dict]:
             {"name": {"$in": queues}}, {"_id": False}
         )
     return list(wait_times)
+
+
+def get_all_agents() -> list[dict]:
+    """Get all agents with the fields required for the agents table."""
+    return list(
+        mongo.db.agents.find(
+            {},
+            {
+                "_id": 0,
+                "name": 1,
+                "state": 1,
+                "location": 1,
+                "updated_at": 1,
+                "job_id": 1,
+                "comment": 1,
+                "provision_streak_type": 1,
+                "provision_streak_count": 1,
+            },
+        )
+    )
 
 
 def get_agents_on_queue(queue: str) -> list[dict]:
