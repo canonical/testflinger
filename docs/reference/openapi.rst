@@ -25,7 +25,8 @@ OpenAPI
                 plugins: [],
                 deepLinking: true,
                 defaultModelsExpandDepth: -1,
-                supportedSubmitMethods: []
+                supportedSubmitMethods: [],
+                showExtensions: true
             });
         });
     </script>
