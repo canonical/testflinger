@@ -33,8 +33,8 @@ from markupsafe import Markup
 from pygments import highlight as pygments_highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import BashLexer, YamlLexer
-
 from testflinger_common.enums import AgentMode, ServerRoles
+
 from testflinger import database
 from testflinger.api.schemas import Job
 from testflinger.database import mongo
