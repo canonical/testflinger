@@ -186,9 +186,7 @@ def job_detail(job_id):
             log_handler = MongoLogHandler(mongo)
             log_handler.format_logs_as_results(job_id, result_data)
 
-    job_data["agent_name"] = (
-        job_data.get("result_data", {}).get("agent_id")
-    )
+    job_data["agent_name"] = job_data.get("result_data", {}).get("agent_id")
     return render_template("job_detail.html", job=job_data)
 
 
