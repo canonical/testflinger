@@ -66,7 +66,7 @@ def test_maas_cmd_retry(mock_config_file):
             maas2.run_maas_cmd_with_retry(cmd)
 
         assert "error" in str(err.value)
-        assert mocked_time_sleep.call_count == 6
+        assert mocked_time_sleep.call_count == 3
 
 
 def test_reset_efi_prioritizes_current_boot_device(mock_config_file):
@@ -199,12 +199,18 @@ def test_maas_release_fails(mock_config_file, mock_config, capsys, caplog):
     job_json = mock_config_file.parent / "job.json"
     job_json.write_text(json.dumps({}))
 
+    power_off_output = json.dumps({"status_name": "Deployed"})
+
     with patch("subprocess.run") as mock_run, patch("time.sleep"):
-        mock_run.side_effect = [
-            Process(0, mock_maas_output.encode()),  # maas release
-        ] + [
-            Process(0, mock_maas_output.encode())  # maas read (30 times)
-        ] * 30
+        mock_run.side_effect = (
+            [Process(0, mock_maas_output.encode())]  # maas release
+            + [Process(0, mock_maas_output.encode())] * 30  # node_status ×30
+            + [Process(0, b"")]  # mark-broken
+            + [Process(0, b"")]  # mark-fixed
+            + [Process(0, mock_maas_output.encode())] * 3  # node_status ×3
+            + [Process(0, power_off_output.encode())]  # power-off
+            + [Process(0, mock_maas_output.encode())] * 3  # node_status ×3
+        )
 
         maas2 = Maas2(config=mock_config_file, job_data=job_json)
         with (
@@ -225,7 +231,7 @@ def test_maas_release_fails(mock_config_file, mock_config, capsys, caplog):
         f'Device {mock_config["agent_name"]} still in "Deployed" state'
         in caplog.text
     )
-    assert mock_maas_output in caplog.text
+    assert power_off_output in caplog.text
 
 
 def test_set_flat_storage_layout_no_output(
@@ -687,3 +693,146 @@ def test_check_test_image_booted_returns_true_on_ssh_success(
             args=[], returncode=0
         )
         assert maas2.check_test_image_booted() is True
+
+
+def test_maas_cmd_retry_succeeds_on_first_try(mock_config_file):
+    """Test that run_maas_cmd_with_retry returns immediately on success."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    with (
+        patch(
+            "subprocess.run",
+            return_value=subprocess.CompletedProcess(
+                args=["my_cmd"], returncode=0, stdout=b"ok"
+            ),
+        ) as mock_run,
+        patch("time.sleep") as mock_sleep,
+    ):
+        result = maas2.run_maas_cmd_with_retry(["my_cmd"])
+
+    assert result.returncode == 0
+    assert mock_run.call_count == 1
+    mock_sleep.assert_not_called()
+
+
+def test_maas_cmd_retry_custom_params(mock_config_file):
+    """Test run_maas_cmd_with_retry respects custom max_retries and backoff."""
+    Process = namedtuple("Process", ["returncode", "stdout"])
+
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    with (
+        patch("subprocess.run", return_value=Process(1, b"fail")),
+        patch("time.sleep") as mock_sleep,
+    ):
+        with pytest.raises(ProvisioningError):
+            maas2.run_maas_cmd_with_retry(
+                ["my_cmd"], max_retries=2, backoff_start=5
+            )
+
+    # With max_retries=2, we sleep twice (after attempt 0 and 1)
+    assert mock_sleep.call_count == 2
+    # Backoff: 5 * 2^0 = 5, 5 * 2^1 = 10
+    mock_sleep.assert_any_call(5)
+    mock_sleep.assert_any_call(10)
+
+
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_get_maas_version_returns_none_on_malformed_version(
+    mock_run_maas_cmd, mock_config_file, caplog
+):
+    """Test get_maas_version returns None when version string is malformed."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    mock_run_maas_cmd.return_value = subprocess.CompletedProcess(
+        args=["maas", "user", "version", "read"],
+        returncode=0,
+        stdout=json.dumps({"version": "not.a.version.x"}).encode(),
+    )
+
+    assert maas2.get_maas_version() is None
+    assert "Unable to determine MAAS version" in caplog.text
+
+
+@patch.object(Maas2, "get_current_installation_id")
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_get_deployment_information_downloads_log_when_starting_id_none(
+    mock_run_cmd, mock_get_id, mock_config_file
+):
+    """Test get_deployment_information downloads log when starting id is None
+    and a new installation id is found.
+    """
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    # starting_installation_id defaults to None in __init__
+    assert maas2.starting_installation_id is None
+    mock_get_id.return_value = 7
+
+    mock_run_cmd.return_value = subprocess.CompletedProcess(
+        args=["maas"],
+        returncode=0,
+        stdout=b"install log",
+    )
+
+    result = maas2.get_deployment_information()
+    assert result == "install log"
+    mock_run_cmd.assert_called_once_with(
+        [
+            "maas",
+            maas2.maas_user,
+            "node-script-result",
+            "download",
+            maas2.node_id,
+            "7",
+        ]
+    )
+
+
+@patch("time.sleep")
+@patch.object(Maas2, "get_deployment_information", return_value="install log")
+@patch.object(Maas2, "node_status", return_value="Failed deployment")
+@patch.object(Maas2, "get_current_installation_id", return_value=None)
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+@patch.object(Maas2, "set_flat_storage_layout")
+@patch.object(Maas2, "recover")
+@patch.object(Maas2, "get_maas_version", return_value=(3, 5, 0))
+def test_deploy_node_raises_on_failed_deployment_status(
+    mock_get_version,
+    mock_recover,
+    mock_flat_storage,
+    mock_run_cmd,
+    mock_installation_id,
+    mock_node_status,
+    mock_get_info,
+    mock_sleep,
+    mock_config_file,
+    caplog,
+):
+    """Test deploy_node raises ProvisioningError on 'Failed deployment'."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    with (
+        pytest.raises(ProvisioningError),
+        caplog.at_level(
+            logging.ERROR,
+            logger="testflinger_device_connectors.devices.maas2.maas2",
+        ),
+    ):
+        maas2.deploy_node()
+
+    assert "Failed Deployment" in caplog.text
+    mock_get_info.assert_called()

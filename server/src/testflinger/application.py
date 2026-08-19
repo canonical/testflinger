@@ -63,6 +63,9 @@ def create_flask_app(config=None, secrets_store=None):
 
     tf_app.config["PROPAGATE_EXCEPTIONS"] = True
 
+    if os.environ.get("TEMPLATES_AUTO_RELOAD", "false").lower() == "true":
+        tf_app.config["TEMPLATES_AUTO_RELOAD"] = True
+
     # Return datetime objects as RFC3339/ISO8601 strings
     tf_app.json = ISODatetimeProvider(tf_app)
 

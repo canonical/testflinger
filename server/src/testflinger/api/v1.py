@@ -99,7 +99,16 @@ def get_version():
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
 def job_post(json_data: dict) -> dict:
-    """Add a job to the queue."""
+    """Add a job to the queue.
+
+    The ``job_queue`` field in the submitted JSON determines which queue the
+    job is placed on. All other fields are passed through to the agent
+    unchanged.
+
+    Returns HTTP 422 if the job references secrets that are inaccessible at
+    submission time (e.g. the secrets store is unreachable or the secret path
+    does not exist for the submitting client).
+    """
     job_queue = json_data["job_queue"]
     exclude_agents = json_data["exclude_agents"]
     if exclude_agents:
@@ -229,7 +238,18 @@ def job_builder(data: dict) -> dict:
 @v1.output(schemas.Job)
 @v1.doc(responses=schemas.job_empty)
 def job_get():
-    """Request a job to run from supported queues."""
+    """Request a job to run from supported queues.
+
+    The agent must identify itself via the ``agent_name`` cookie. One or more
+    ``queue`` query parameters must be supplied; the server returns the first
+    available job across those queues.
+
+    Any secrets referenced in the job are resolved against the secrets store
+    at this point. Secrets that are inaccessible (store unreachable, path not
+    found, or insufficient permissions) are silently resolved to an empty
+    string rather than causing the request to fail.  Agents must therefore
+    handle the possibility of empty secret values.
+    """
     queue_list = request.args.getlist("queue")
     if not queue_list:
         abort(
@@ -462,6 +482,19 @@ class LogTypeConverter(BaseConverter):
 def log_get(job_id: str, log_type: LogType):
     """Get logs for a specified job_id.
 
+    Logs are persistent and may be retrieved multiple times.  Results are
+    organised by phase.  Each phase entry contains:
+
+    - ``last_fragment_number``: highest fragment number stored for that phase
+    - ``log_data``: combined log text from all matching fragments
+
+    Optional query parameters for filtering:
+
+    - ``phase``: restrict results to a single test phase
+    - ``start_fragment``: return only fragments from this number onwards
+    - ``start_timestamp``: return only fragments created after this
+      ISO 8601 timestamp
+
     :param job_id: UUID as a string for the job
     :param log_type: LogType enum value for the type of log requested
     :raises HTTPError: If the job_id is not a valid UUID or if invalid query
@@ -506,6 +539,15 @@ def log_get(job_id: str, log_type: LogType):
 @v1.input(schemas.LogPost, location="json")
 def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
     """Post logs for a specified job ID.
+
+    Agents stream log data in sequential fragments.  Each request must
+    include:
+
+    - ``fragment_number``: sequential integer starting from 0
+    - ``timestamp``: ISO 8601 timestamp when the fragment was created
+    - ``phase``: test phase name (setup, provision, firmware_update, test,
+      allocate, reserve, cleanup)
+    - ``log_data``: the log content for this fragment
 
     :param job_id: UUID as a string for the job
     :param log_type: LogType enum value for the type of log being posted
@@ -556,6 +598,15 @@ def result_post(job_id: str, json_data: dict) -> str:
 @v1.output(schemas.ResultGet)
 def result_get(job_id: str):
     """Return results for a specified job_id.
+
+    Results are reconstructed from the log storage system to maintain
+    backward compatibility.  Phase exit codes are combined with captured
+    log data and returned as a flat structure:
+
+    - ``{phase}_status``: exit code for each phase
+    - ``{phase}_output``: stdout log for that phase (if available)
+    - ``{phase}_serial``: serial console log for that phase (if available)
+    - Additional metadata fields such as ``device_info`` and ``job_state``
 
     :param job_id: UUID as a string for the job
     :raises HTTPError: If the job_id is not a valid UUID
