@@ -814,6 +814,11 @@
         "summary": "Get all agent data.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -855,6 +860,12 @@
         "summary": "Get the information from a specified agent.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor",
+          "agent"
         ]
       },
       "post": {
@@ -911,6 +922,11 @@
         "summary": "Post information about the agent to the server.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "agent"
         ]
       }
     },
@@ -950,6 +966,11 @@
         "summary": "Tell testflinger about known images for a specified queue",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "agent"
         ]
       }
     },
@@ -997,6 +1018,11 @@
         "summary": "Get a dict of known images for a given queue.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1054,6 +1080,9 @@
         "summary": "Post provision logs for the agent to the server.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       }
     },
@@ -1083,6 +1112,11 @@
         "summary": "Get all advertised queues from this server.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       },
       "post": {
@@ -1120,6 +1154,11 @@
         "summary": "Tell testflinger the queue names that are being serviced.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "agent"
         ]
       }
     },
@@ -1141,6 +1180,10 @@
         "summary": "Retrieve all client permissions from database.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager"
         ]
       }
     },
@@ -1179,6 +1222,9 @@
         "summary": "Delete client id along with its permissions.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin"
         ]
       },
       "get": {
@@ -1217,6 +1263,10 @@
         "summary": "Retrieve single client-permissions from database.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager"
         ]
       },
       "put": {
@@ -1272,11 +1322,16 @@
         "summary": "Add or create client permissions for a specified user.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager"
         ]
       }
     },
     "/v1/job": {
       "get": {
+        "description": "The agent must identify itself via the ``agent_name`` cookie. One or more\n``queue`` query parameters must be supplied; the server returns the first\navailable job across those queues.\n\nAny secrets referenced in the job are resolved against the secrets store\nat this point. Secrets that are inaccessible (store unreachable, path not\nfound, or insufficient permissions) are silently resolved to an empty\nstring rather than causing the request to fail.  Agents must therefore\nhandle the possibility of empty secret values.",
         "parameters": [],
         "responses": {
           "200": {
@@ -1304,9 +1359,13 @@
         "summary": "Request a job to run from supported queues.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       },
       "post": {
+        "description": "The ``job_queue`` field in the submitted JSON determines which queue the\njob is placed on. All other fields are passed through to the agent\nunchanged.\n\nReturns HTTP 422 if the job references secrets that are inaccessible at\nsubmission time (e.g. the secrets store is unreachable or the secret path\ndoes not exist for the submitting client).",
         "parameters": [],
         "requestBody": {
           "content": {
@@ -1342,6 +1401,11 @@
         "summary": "Add a job to the queue.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1428,6 +1492,11 @@
         "summary": "Search for jobs by tags.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1469,6 +1538,11 @@
         "summary": "Request the json job definition for a specified job, even if it has",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1527,6 +1601,11 @@
         "summary": "Take action on the job status for a specified job ID.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1566,6 +1645,9 @@
         "summary": "Return the attachments bundle for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       },
       "post": {
@@ -1603,6 +1685,11 @@
         "summary": "Post attachment bundle for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1661,6 +1748,9 @@
         "summary": "Post status updates from the agent to the server to be forwarded",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       }
     },
@@ -1699,6 +1789,11 @@
         "summary": "Return the position of the specified jobid in the queue.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1775,6 +1870,9 @@
         "summary": "Revoke a refresh token. Only admins can perform this action.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin"
         ]
       }
     },
@@ -1814,6 +1912,11 @@
         "summary": "Get wait time metrics - optionally take a list of queues.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1854,6 +1957,11 @@
         "summary": "Get the list of all data for agents listening to a specified queue.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1893,6 +2001,11 @@
         "summary": "Get the jobs in a specified queue along with its state.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1914,6 +2027,11 @@
         "summary": "List all agent's restricted queues and its owners.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -1971,6 +2089,10 @@
         "summary": "Delete an owner from the specific restricted queue.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager"
         ]
       },
       "get": {
@@ -2009,6 +2131,11 @@
         "summary": "Get restricted queues for a specific agent.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       },
       "post": {
@@ -2064,12 +2191,16 @@
         "summary": "Add an owner to the specific restricted queue.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager"
         ]
       }
     },
     "/v1/result/{job_id}": {
       "get": {
-        "description": ":param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
+        "description": "Results are reconstructed from the log storage system to maintain\nbackward compatibility.  Phase exit codes are combined with captured\nlog data and returned as a flat structure:\n\n- ``{phase}_status``: exit code for each phase\n- ``{phase}_output``: stdout log for that phase (if available)\n- ``{phase}_serial``: serial console log for that phase (if available)\n- Additional metadata fields such as ``device_info`` and ``job_state``\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
         "parameters": [
           {
             "in": "path",
@@ -2105,6 +2236,12 @@
         "summary": "Return results for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor",
+          "agent"
         ]
       },
       "post": {
@@ -2161,6 +2298,9 @@
         "summary": "Post a result for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       }
     },
@@ -2200,6 +2340,11 @@
         "summary": "Return artifact bundle for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       },
       "post": {
@@ -2237,12 +2382,15 @@
         "summary": "Post artifact bundle for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       }
     },
     "/v1/result/{job_id}/log/{log_type}": {
       "get": {
-        "description": ":param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log requested\n:raises HTTPError: If the job_id is not a valid UUID or if invalid query\n:return: Dictionary with log data",
+        "description": "Logs are persistent and may be retrieved multiple times.  Results are\norganised by phase.  Each phase entry contains:\n\n- ``last_fragment_number``: highest fragment number stored for that phase\n- ``log_data``: combined log text from all matching fragments\n\nOptional query parameters for filtering:\n\n- ``phase``: restrict results to a single test phase\n- ``start_fragment``: return only fragments from this number onwards\n- ``start_timestamp``: return only fragments created after this\nISO 8601 timestamp\n\n:param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log requested\n:raises HTTPError: If the job_id is not a valid UUID or if invalid query\n:return: Dictionary with log data",
         "parameters": [
           {
             "in": "path",
@@ -2286,10 +2434,15 @@
         "summary": "Get logs for a specified job_id.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       },
       "post": {
-        "description": ":param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log being posted\n:raises HTTPError: If the job_id is not a valid UUID\n:param json_data: Dictionary with log data",
+        "description": "Agents stream log data in sequential fragments.  Each request must\ninclude:\n\n- ``fragment_number``: sequential integer starting from 0\n- ``timestamp``: ISO 8601 timestamp when the fragment was created\n- ``phase``: test phase name (setup, provision, firmware_update, test,\nallocate, reserve, cleanup)\n- ``log_data``: the log content for this fragment\n\n:param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log being posted\n:raises HTTPError: If the job_id is not a valid UUID\n:param json_data: Dictionary with log data",
         "parameters": [
           {
             "in": "path",
@@ -2350,6 +2503,9 @@
         "summary": "Post logs for a specified job ID.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "agent"
         ]
       }
     },
@@ -2396,6 +2552,11 @@
         "summary": "Remove a secret value for the specified client_id and path.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "contributor",
+          "manager",
+          "admin"
         ]
       },
       "put": {
@@ -2461,6 +2622,11 @@
         "summary": "Store a secret value for the specified client_id and path.",
         "tags": [
           "V1"
+        ],
+        "x-permission-roles": [
+          "contributor",
+          "manager",
+          "admin"
         ]
       }
     }

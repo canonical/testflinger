@@ -12,16 +12,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Package containing modules for implementing Zapper-driven device connectors.
+"""Package for implementing control-host-driven device connectors.
 
-Modules inheriting from the provided abstract class will run Zapper-driven
-provisioning procedures via Zapper API. The provisioning logic is implemented
-in the Zapper codebase and the connector serves as a pre-processing step,
-validating the configuration and preparing the API arguments.
+Modules inheriting from the provided abstract class run their provisioning
+procedures on a control host via its REST API. The provisioning logic lives on
+the control host, and the connector serves as a pre-processing step, validating
+the configuration and preparing the API arguments.
 """
 
 import json
 import logging
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -39,18 +40,25 @@ logger = logging.getLogger(__name__)
 ATTACHMENTS_DIR = "attachments"
 
 
-class ZapperConnector(ABC, DefaultDevice):
-    """Abstract base class defining a common interface for Zapper-driven
-    device connectors.
+class ControlHostConnector(ABC, DefaultDevice):
+    """Abstract base class defining a common interface for
+    control-host-driven device connectors.
     """
 
     PROVISION_METHOD = ""  # to be defined in the implementation
-    ZAPPER_CONNECTION_TIMEOUT = 30
-    ZAPPER_READ_TIMEOUT = 60 * 90
-    ZAPPER_REST_PORT = 8000
+    CONNECTION_TIMEOUT = 30
+    READ_TIMEOUT = 60 * 90
+    REST_PORT = 8000
+    # Backoff between SSE stream reconnects. The base delay is used when the
+    # previous stream made progress (emitted >= 1 log entry); the delay
+    # doubles (up to the cap) on consecutive reconnects that produced no new
+    # log lines, to avoid hammering the control host when its stream keeps
+    # dropping.
+    SSE_RECONNECT_DELAY = 2
+    SSE_RECONNECT_MAX_DELAY = 30
 
     def _api_post(self, endpoint: str, **kwargs) -> requests.Response:
-        """Send a POST request to the Zapper REST API.
+        """Send a POST request to the control host REST API.
 
         :param endpoint: API endpoint path (e.g. "/api/v1/system/poweroff").
         :param kwargs: Additional keyword arguments passed to requests.post.
@@ -58,8 +66,7 @@ class ZapperConnector(ABC, DefaultDevice):
         :raises requests.RequestException: On any request failure.
         """
         url = (
-            f"http://{self.config['control_host']}"
-            f":{self.ZAPPER_REST_PORT}{endpoint}"
+            f"http://{self.config['control_host']}:{self.REST_PORT}{endpoint}"
         )
         logger.info("POST %s", url)
         timeout = kwargs.pop("timeout", 30)
@@ -68,7 +75,7 @@ class ZapperConnector(ABC, DefaultDevice):
         return response
 
     def _api_get(self, endpoint: str, **kwargs) -> requests.Response:
-        """Send a GET request to the Zapper REST API.
+        """Send a GET request to the control host REST API.
 
         :param endpoint: API endpoint path.
         :param kwargs: Additional keyword arguments passed to requests.get.
@@ -76,8 +83,7 @@ class ZapperConnector(ABC, DefaultDevice):
         :raises requests.RequestException: On any request failure.
         """
         url = (
-            f"http://{self.config['control_host']}"
-            f":{self.ZAPPER_REST_PORT}{endpoint}"
+            f"http://{self.config['control_host']}:{self.REST_PORT}{endpoint}"
         )
         logger.info("GET %s", url)
         timeout = kwargs.pop("timeout", 30)
@@ -86,7 +92,7 @@ class ZapperConnector(ABC, DefaultDevice):
         return response
 
     def _api_put(self, endpoint: str, **kwargs) -> requests.Response:
-        """Send a PUT request to the Zapper REST API.
+        """Send a PUT request to the control host REST API.
 
         :param endpoint: API endpoint path.
         :param kwargs: Additional keyword arguments passed to requests.put.
@@ -94,60 +100,13 @@ class ZapperConnector(ABC, DefaultDevice):
         :raises requests.RequestException: On any request failure.
         """
         url = (
-            f"http://{self.config['control_host']}"
-            f":{self.ZAPPER_REST_PORT}{endpoint}"
+            f"http://{self.config['control_host']}:{self.REST_PORT}{endpoint}"
         )
         logger.info("PUT %s", url)
         timeout = kwargs.pop("timeout", 30)
         response = requests.put(url, timeout=timeout, **kwargs)
         response.raise_for_status()
         return response
-
-    @staticmethod
-    def typecmux_set_state(host: str, state: str) -> None:
-        """Set the typecmux state on a Zapper host via the REST API.
-
-        :param host: The Zapper host to connect to.
-        :param state: The state to set (e.g., "OFF", "DUT").
-        """
-        base = f"http://{host}:{ZapperConnector.ZAPPER_REST_PORT}"
-        resp = requests.get(
-            f"{base}/api/v1/addons/",
-            params={"addon_type": "TYPEC_MUX"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        addons = resp.json()["addons"]
-        if not addons:
-            raise RuntimeError("No TYPEC_MUX addon found on Zapper")
-        addr = addons[0]["addr"]
-        resp = requests.put(
-            f"{base}/api/v1/addons/{addr}/typecmux/state",
-            json={"state": state},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        logger.info("Set typecmux state to %s on %s", state, host)
-
-    @staticmethod
-    def disconnect_usb_stick(config: Dict[str, Any]) -> None:
-        """Try to disconnect the USB stick.
-
-        This is a non-blocking operation - if the Zapper is not available,
-        we simply skip this step.
-
-        :param config: The device configuration dictionary.
-        """
-        control_host = config.get("control_host")
-        if not control_host:
-            return
-
-        try:
-            ZapperConnector.typecmux_set_state(control_host, "OFF")
-        except (TimeoutError, ConnectionError, Exception) as e:
-            logger.debug(
-                "Could not disconnect USB stick on %s: %s", control_host, e
-            )
 
     def provision(self, args):
         """Provision device when the command is invoked."""
@@ -158,9 +117,9 @@ class ZapperConnector(ABC, DefaultDevice):
 
         logger.info("BEGIN provision")
         logger.info("Provisioning device")
-        self.ZAPPER_READ_TIMEOUT = self.job_data["provision_data"].get(
-            "zapper_provisioning_timeout",
-            self.ZAPPER_READ_TIMEOUT,
+        provision_data = self.job_data["provision_data"]
+        self.READ_TIMEOUT = (
+            provision_data.get("provisioning_timeout") or self.READ_TIMEOUT
         )
 
         (api_args, api_kwargs) = self._validate_configuration()
@@ -175,7 +134,7 @@ class ZapperConnector(ABC, DefaultDevice):
         self,
     ) -> Tuple[Tuple, Dict[str, Any]]:
         """Validate the job config and data and prepare the arguments
-        for the Zapper `provision` API.
+        for the control host `provision` API.
         """
         raise NotImplementedError
 
@@ -189,7 +148,7 @@ class ZapperConnector(ABC, DefaultDevice):
             return None
 
     def _run(self, *args, **kwargs):
-        """Run the Zapper provisioning via the REST API.
+        """Run the provisioning on the control host via the REST API.
 
         Submits a provisioning job, streams SSE logs in real time,
         and checks the final job status. When a provision attachment
@@ -226,8 +185,8 @@ class ZapperConnector(ABC, DefaultDevice):
                     data={"request": json.dumps(payload)},
                     files={"boot_binary": boot_binary_file},
                     timeout=(
-                        self.ZAPPER_CONNECTION_TIMEOUT,
-                        self.ZAPPER_READ_TIMEOUT,
+                        self.CONNECTION_TIMEOUT,
+                        self.READ_TIMEOUT,
                     ),
                 )
         else:
@@ -236,24 +195,43 @@ class ZapperConnector(ABC, DefaultDevice):
         job = resp.json()
         job_id = job["job_id"]
 
-        timeout = (self.ZAPPER_CONNECTION_TIMEOUT, self.ZAPPER_READ_TIMEOUT)
+        timeout = (self.CONNECTION_TIMEOUT, self.READ_TIMEOUT)
+        reconnect_delay = self.SSE_RECONNECT_DELAY
+        last_id: Optional[str] = None
         while True:
+            headers = (
+                {"Last-Event-ID": last_id} if last_id is not None else None
+            )
             sse = self._api_get(
                 f"/api/v1/provision/{job_id}/logs",
                 stream=True,
                 timeout=timeout,
+                headers=headers,
             )
             with sse:
-                self._stream_sse_logs(sse)
+                (
+                    emitted,
+                    cursor_updated,
+                    stream_last_id,
+                ) = self._stream_sse_logs(sse)
+            if cursor_updated:
+                last_id = stream_last_id
 
-            # Check job status after the SSE stream ends
             status = self._api_get(f"/api/v1/provision/{job_id}").json()
             if status["status"] == "running":
                 logger.warning(
                     "SSE stream disconnected but job %s is still running,"
-                    " reconnecting...",
+                    " reconnecting in %ds...",
                     job_id,
+                    reconnect_delay,
                 )
+                time.sleep(reconnect_delay)
+                if emitted:
+                    reconnect_delay = self.SSE_RECONNECT_DELAY
+                else:
+                    reconnect_delay = min(
+                        reconnect_delay * 2, self.SSE_RECONNECT_MAX_DELAY
+                    )
                 continue
             if status["status"] != "completed":
                 raise ProvisioningError(
@@ -264,37 +242,80 @@ class ZapperConnector(ABC, DefaultDevice):
                 )
             break
 
-    @staticmethod
-    def _stream_sse_logs(response: requests.Response) -> None:
+    def _stream_sse_logs(
+        self,
+        response: requests.Response,
+    ) -> Tuple[int, bool, Optional[str]]:
         """Parse and log Server-Sent Events from a streaming response.
 
-        The SSE protocol sends newline-delimited lines in the format:
-            data: {"level": "INFO", "message": "..."}
-        Empty lines act as event separators and are skipped.
-        Lines not starting with "data: " (e.g. "event:", "retry:")
-        are non-standard for this endpoint and logged as warnings.
+        An SSE event ends with a blank line and may contain an ``id`` field
+        and multiple ``data`` fields. The resume cursor advances only after
+        its event's log payload has been handled successfully, so malformed
+        data cannot cause a log entry to be skipped after reconnecting.
+
+        :returns: ``(emitted, cursor_updated, last_id)`` — the number of log
+            entries emitted, whether an event updated the resume cursor, and
+            that cursor. A ``None`` cursor clears Last-Event-ID; an unchanged
+            cursor means a reconnect must retain its previous value.
         """
-        sse_data_prefix = "data: "
+        emitted = 0
+        cursor_updated = False
+        last_id: Optional[str] = None
+        event_id: Optional[str] = None
+        event_has_id = False
+        data_lines: list[str] = []
+
         for line in response.iter_lines(decode_unicode=True):
-            if not line:
+            if line == "":
+                if data_lines and self._log_sse_payload("\n".join(data_lines)):
+                    emitted += 1
+                    if event_has_id:
+                        last_id = event_id
+                        cursor_updated = True
+
+                event_id = None
+                event_has_id = False
+                data_lines.clear()
                 continue
-            if not line.startswith(sse_data_prefix):
-                logger.warning("Unexpected SSE line: %s", line)
+
+            if line.startswith(":"):
                 continue
-            try:
-                entry = json.loads(line[len(sse_data_prefix) :])
-            except json.JSONDecodeError:
-                logger.warning("Malformed SSE data: %s", line)
+
+            field, separator, value = line.partition(":")
+            if not separator:
                 continue
-            level_name = entry.get("level", "").upper()
-            log_level = getattr(logging, level_name, None)
-            if log_level is None:
-                logger.warning(
-                    "Unknown log level '%s', defaulting to INFO",
-                    entry.get("level", ""),
-                )
-                log_level = logging.INFO
-            logger.log(log_level, "[zapper] %s", entry.get("message", line))
+            if value.startswith(" "):
+                value = value[1:]
+
+            if field == "id":
+                event_id = value or None
+                event_has_id = True
+            elif field == "data":
+                data_lines.append(value)
+
+        return emitted, cursor_updated, last_id
+
+    @staticmethod
+    def _log_sse_payload(payload: str) -> bool:
+        """Log one JSON SSE payload and report whether it was handled."""
+        try:
+            entry = json.loads(payload)
+        except json.JSONDecodeError:
+            logger.warning("Malformed SSE data: %s", payload)
+            return False
+
+        level_name = entry.get("level", "").upper()
+        log_level = getattr(logging, level_name, None)
+        if log_level is None:
+            logger.warning(
+                "Unknown log level '%s', defaulting to INFO",
+                entry.get("level", ""),
+            )
+            log_level = logging.INFO
+        logger.log(
+            log_level, "[control-host] %s", entry.get("message", payload)
+        )
+        return True
 
     def _copy_ssh_id(self):
         """Copy the ssh id to the device."""
@@ -324,4 +345,4 @@ class ZapperConnector(ABC, DefaultDevice):
 
     @abstractmethod
     def _post_run_actions(self, args):
-        """Run further actions after Zapper API returns successfully."""
+        """Run further actions after the control host API returns."""
