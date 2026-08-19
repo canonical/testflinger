@@ -1305,6 +1305,7 @@
     },
     "/v1/job": {
       "get": {
+        "description": "The agent must identify itself via the ``agent_name`` cookie. One or more\n``queue`` query parameters must be supplied; the server returns the first\navailable job across those queues.\n\nAny secrets referenced in the job are resolved against the secrets store\nat this point. Secrets that are inaccessible (store unreachable, path not\nfound, or insufficient permissions) are silently resolved to an empty\nstring rather than causing the request to fail.  Agents must therefore\nhandle the possibility of empty secret values.",
         "parameters": [],
         "responses": {
           "200": {
@@ -1338,6 +1339,7 @@
         ]
       },
       "post": {
+        "description": "The ``job_queue`` field in the submitted JSON determines which queue the\njob is placed on. All other fields are passed through to the agent\nunchanged.\n\nReturns HTTP 422 if the job references secrets that are inaccessible at\nsubmission time (e.g. the secrets store is unreachable or the secret path\ndoes not exist for the submitting client).",
         "parameters": [],
         "requestBody": {
           "content": {
@@ -2172,7 +2174,7 @@
     },
     "/v1/result/{job_id}": {
       "get": {
-        "description": ":param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
+        "description": "Results are reconstructed from the log storage system to maintain\nbackward compatibility.  Phase exit codes are combined with captured\nlog data and returned as a flat structure:\n\n- ``{phase}_status``: exit code for each phase\n- ``{phase}_output``: stdout log for that phase (if available)\n- ``{phase}_serial``: serial console log for that phase (if available)\n- Additional metadata fields such as ``device_info`` and ``job_state``\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
         "parameters": [
           {
             "in": "path",
@@ -2362,7 +2364,7 @@
     },
     "/v1/result/{job_id}/log/{log_type}": {
       "get": {
-        "description": ":param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log requested\n:raises HTTPError: If the job_id is not a valid UUID or if invalid query\n:return: Dictionary with log data",
+        "description": "Logs are persistent and may be retrieved multiple times.  Results are\norganised by phase.  Each phase entry contains:\n\n- ``last_fragment_number``: highest fragment number stored for that phase\n- ``log_data``: combined log text from all matching fragments\n\nOptional query parameters for filtering:\n\n- ``phase``: restrict results to a single test phase\n- ``start_fragment``: return only fragments from this number onwards\n- ``start_timestamp``: return only fragments created after this\nISO 8601 timestamp\n\n:param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log requested\n:raises HTTPError: If the job_id is not a valid UUID or if invalid query\n:return: Dictionary with log data",
         "parameters": [
           {
             "in": "path",
@@ -2414,7 +2416,7 @@
         ]
       },
       "post": {
-        "description": ":param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log being posted\n:raises HTTPError: If the job_id is not a valid UUID\n:param json_data: Dictionary with log data",
+        "description": "Agents stream log data in sequential fragments.  Each request must\ninclude:\n\n- ``fragment_number``: sequential integer starting from 0\n- ``timestamp``: ISO 8601 timestamp when the fragment was created\n- ``phase``: test phase name (setup, provision, firmware_update, test,\nallocate, reserve, cleanup)\n- ``log_data``: the log content for this fragment\n\n:param job_id: UUID as a string for the job\n:param log_type: LogType enum value for the type of log being posted\n:raises HTTPError: If the job_id is not a valid UUID\n:param json_data: Dictionary with log data",
         "parameters": [
           {
             "in": "path",

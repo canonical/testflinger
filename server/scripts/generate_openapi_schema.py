@@ -36,6 +36,7 @@ or use the project uvx runner so imports and deps are available.
 """
 
 import argparse
+import copy
 import json
 import re
 import sys
@@ -57,7 +58,7 @@ def _get_endpoint_roles(view_func):
 def generate_schema() -> dict:
     """Get OpenAPI schema from Flask application in testing mode."""
     with app.app_context():
-        spec = app.spec.copy()
+        spec = copy.deepcopy(app.spec)
         _inject_role_metadata(spec)
         return spec
 
