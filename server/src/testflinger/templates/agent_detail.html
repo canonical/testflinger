@@ -31,7 +31,7 @@
       </tr>
       {% if agent.job_id %}
         <tr>
-          <th scope="row">Active Job</th>
+          <th scope="row">Job</th>
           <td>
             <a href="{{ url_for('testflinger.job_detail', job_id=agent.job_id) }}">{{ agent.job_id }}</a>
           </td>
