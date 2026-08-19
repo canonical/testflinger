@@ -2,7 +2,7 @@ name: server
 services:
   mongo:
     container_name: mongo
-    image: mongo:6
+    image: mongo:8
     environment:
       MONGO_INITDB_ROOT_PASSWORD: testflinger
       MONGO_INITDB_ROOT_USERNAME: testflinger
